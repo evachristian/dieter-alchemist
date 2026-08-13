@@ -4,11 +4,31 @@
 재료를 채집하고, 연금술로 **물약**과 **크리처**를 제조해서
 내 캐릭터의 **비주얼·아우라를 과시**하는 것이 목표입니다.
 
-> 기존 저장소(DragON POKER)와는 분리된 **독립 신규 게임**입니다.
-> 순수 HTML/CSS/JS로 서버 없이 동작하며, 진행 상황은 `localStorage`에 저장됩니다.
+> 기존 저장소(DragON POKER)와 분리된 **독립 저장소의 신규 게임**입니다.
+> 순수 HTML/CSS/JS 라 빌드 도구가 없고, 진행 상황은 `localStorage`에 저장됩니다.
 
 ## ▶ 실행
-`dieter-alchemist/index.html`을 브라우저로 열면 바로 플레이됩니다. (별도 빌드/서버 불필요)
+
+게임만 볼 거라면 `index.html` 을 브라우저로 열면 바로 플레이됩니다. (빌드·서버 불필요)
+
+세이브 서버까지 같이 띄우려면:
+
+```bash
+npm install
+npm start          # http://localhost:8080
+npm test           # 서버 API 검사
+```
+
+## ☁️ 배포 (Railway)
+
+| 항목 | 값 |
+|---|---|
+| Root Directory | 비움 (`/`) — **이 저장소의 루트가 곧 게임 폴더다** |
+| Start Command | `npm start` |
+| 포트 | 기본 8080 |
+| 변수 | `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` |
+
+자세한 절차와 함정은 [`server/README.md`](server/README.md).
 
 ## ⚡ 에너지 (행동력)
 - 현실 24시간 = 게임 24시간. **로컬 자정(00:00)마다 하루치 1000 충전** (현재 상한 1000)
@@ -45,7 +65,7 @@
 | `i18n.js` | 한국어·영어 문구 (`window.I18N`) |
 | `a11y.js` | 대비·레이아웃·잠금 표현 검증기 (`checkUI()`) |
 | `server/` | 세이브 서버 + 게임 호스팅 (Railway) — [배포 안내](server/README.md) |
-| `package.json` | 서버 실행용 (`npm start` → `server/index.js`). Railway Root Directory 는 이 폴더 |
+| `package.json` | 서버 실행용 (`npm start` → `server/index.js`). 게임과 서버가 한 덩어리로 배포된다 |
 
 ## 💾 저장
 게임을 **초기화하기 전까지 모든 진행이 남는다.**

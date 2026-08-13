@@ -17,19 +17,20 @@
 
 **방법 A — GitHub 연결** (자동 배포됨)
 
-Railway 대시보드 → **New Project** → **Deploy from GitHub repo** → 이 저장소 선택.
+Railway 대시보드 → **New Project** → **Deploy from GitHub repo** →
+`evachristian/dieter-alchemist` 선택.
 
-> Settings 에 **"GitHub Repo not found"** 라고 뜬다면, Railway 가 저장소를 볼 권한이 없는 것이다.
-> GitHub → Settings → Applications → **Railway** 에서 이 저장소에 접근을 허용하거나,
-> Railway 의 Source 를 다시 연결하면 된다. 저장소가 비공개면 특히 이 설정이 필요하다.
+> **이 저장소는 비공개다.** Railway 에 접근 권한을 따로 줘야 목록에 보인다.
+> Settings 에 **"GitHub Repo not found"** 라고 뜬다면 권한이 없는 것이다 —
+> GitHub → Settings → Applications → **Railway** 에서 이 저장소 접근을 허용하거나,
+> Railway 의 Source 를 다시 연결한다.
 
 **방법 B — CLI 로 직접 올리기** (GitHub 연결 없이)
 
 ```bash
 npm i -g @railway/cli
 railway login
-cd dieter-alchemist
-railway link          # 만들어 둔 프로젝트/서비스를 고른다
+railway link          # 저장소 루트에서. 만들어 둔 프로젝트/서비스를 고른다
 railway up            # 현재 폴더를 그대로 배포
 ```
 
@@ -42,12 +43,16 @@ Railway 의 서비스 → **Settings**:
 
 | 항목 | 값 |
 |---|---|
-| **Root Directory** | `dieter-alchemist` |
+| **Root Directory** | **비움** (`/`) |
 | **Start Command** | `npm start` |
 
-> ⚠️ `dieter-alchemist/server` 가 **아니다.** Root Directory 는 빌드에 포함되는 범위라서,
+> ⚠️ `server` 가 **아니다.** Root Directory 는 빌드에 포함되는 범위라서,
 > `server` 로 잡으면 게임 파일(`index.html`, `game.js` …)이 빌드에 들어가지 않는다.
-> `package.json` 을 게임 폴더에 둔 이유가 이것이다 — 게임과 서버가 한 덩어리로 올라간다.
+> `package.json` 을 저장소 루트에 둔 이유가 이것이다 — 게임과 서버가 한 덩어리로 올라간다.
+>
+> 예전에는 게임이 저장소 안의 `dieter-alchemist/` 하위 폴더였고 Root Directory 도 그 값이었다.
+> **이제 그 폴더 자체가 저장소 루트라서 그 값을 그대로 두면 경로를 못 찾는다.**
+> 이미 만들어 둔 서비스가 있다면 이 값부터 비울 것.
 
 ### ②-1 포트
 
@@ -135,7 +140,6 @@ https://alchemist-production-7583.up.railway.app/api/health → {"ok":true,"stor
 ## 3. 로컬에서 돌려보기
 
 ```bash
-cd dieter-alchemist
 npm install
 npm start          # http://localhost:8080
 npm test           # 서버 API 검사

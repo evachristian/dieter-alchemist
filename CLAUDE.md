@@ -10,7 +10,7 @@
 ## 구조
 
 ```
-dieter-alchemist/          ← Railway Root Directory 가 여기를 가리킨다
+dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비워 둔다
 ├── index.html             게임 셸. 스플래시·인트로는 인라인 <style>/<script>
 │                          (style.css 캐시가 깨져도 항상 뜨게 하려는 의도된 중복)
 ├── data.js                재료 100 · 채집지 50 · 레시피 100 · 솥 10  → window.GameData
@@ -33,6 +33,15 @@ dieter-alchemist/          ← Railway Root Directory 가 여기를 가리킨다
 
 전역은 `window.*` 로 노출한다. 모듈 시스템·번들러 없음. `<script>` 순서가 곧 의존성 순서이고,
 **sync.js 는 game.js 보다 먼저** 와야 한다 (game.js 의 `save()` 가 `Sync.push` 를 부른다).
+
+---
+
+## 저장소
+
+`github.com/evachristian/dieter-alchemist` (비공개). 기본 브랜치 `main`.
+
+커밋 작성자는 **이 저장소에만** 따로 잡아 두었다 (`git config user.name/email`, `--global` 아님).
+전역 설정과 다르니 `git config user.email` 로 확인하고 커밋할 것.
 
 ---
 
@@ -123,7 +132,6 @@ sed -i 's/v=20260813a/v=20260813b/g' index.html
 ## 검사
 
 ```bash
-cd dieter-alchemist
 npm install
 npm start          # http://localhost:8080
 npm test           # 서버 API 검사
@@ -139,11 +147,11 @@ npm test           # 서버 API 검사
 
 ## Railway 배포
 
-자세한 절차는 `dieter-alchemist/server/README.md`. 헷갈리기 쉬운 것만 적어 둔다.
+자세한 절차는 `server/README.md`. 헷갈리기 쉬운 것만 적어 둔다.
 
 | 항목 | 값 | 주의 |
 |---|---|---|
-| Root Directory | `dieter-alchemist` | `/server` 가 아니다. Root Directory 는 **빌드에 포함되는 범위**라서 server 로 잡으면 게임 파일이 안 올라간다 |
+| Root Directory | **비움** (`/`) | 저장소 루트가 곧 게임 폴더다. `server` 로 잡으면 안 된다 — Root Directory 는 **빌드에 포함되는 범위**라서 게임 파일이 안 올라간다. 예전에 게임이 하위 폴더였을 때 쓰던 `dieter-alchemist` 값도 이제는 틀린 값이다 |
 | Start Command | `npm start` | |
 | 포트 | 기본 8080 | Railway 가 도메인을 8080 으로 라우팅한다. 3000 이면 502 |
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | **Postgres 를 추가해도 자동으로 안 들어온다.** 참조 변수를 직접 만들어야 한다 |
