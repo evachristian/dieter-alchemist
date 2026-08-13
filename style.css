@@ -1,0 +1,676 @@
+/* ═══════════════════════════════════════════════════════════════
+   다이어터 연금술사 — 스타일 (코지 파스텔)
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --cream:   #fff7f2;
+  --pink:    #ffd9ec;
+  --pink-2:  #ffb8d9;
+  --mint:    #cdeede;
+  --mint-2:  #9fe0c4;
+  --lav:     #e7ddff;
+  --lav-2:   #c9b6ff;
+  /* 텍스트 색 — TEXT_POLICY.md 참고. 값 변경 시 checkTextStyle() 로 재검증할 것 */
+  --ink:      #5a4a55;   /* 본문. 모든 표면에서 4.5:1 이상 */
+  --ink-soft: #6e5d69;   /* 보조 텍스트. 파스텔-1 표면까지 4.5:1 이상 */
+  --ink-dim:  #9a8a95;   /* 비활성/잠금 전용 — 읽어야 하는 글자에는 금지 */
+  /* 파스텔 위 강조 텍스트 (흰 글씨 대신 사용) */
+  --text-pink: #9c3566;
+  --text-mint: #166b4c;
+  --text-lav:  #4f36a0;
+  --text-warn: #8a5a2b;
+  --card:    #ffffff;
+  --shadow:  0 4px 14px rgba(180,140,160,0.18);
+  --radius:  20px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--ink);
+  background: linear-gradient(160deg, var(--pink) 0%, var(--lav) 55%, var(--mint) 100%);
+  background-attachment: fixed;
+  -webkit-user-select: none; user-select: none;
+  overscroll-behavior: none;
+}
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ─── 스플래시 (첫 실행 인트로) ─── */
+.splash {
+  position: fixed; inset: 0; z-index: 999;
+  display: flex; align-items: center; justify-content: center;
+  background: #F6F6F8;
+  opacity: 1;
+  transition: opacity 1.6s ease;   /* 페이드아웃 1.6초 */
+}
+.splash.hide { opacity: 0; pointer-events: none; }
+.splash.done { display: none; }
+.splash-inner { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: splashIn 0.7s ease both; }
+@keyframes splashIn { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
+.splash-logo { width: 168px; height: 168px; display: block; }
+.splash-name {
+  font-size: 1.06rem; font-weight: 700; letter-spacing: 0.06em;
+  color: #3f3a44; text-align: center;
+}
+
+/* ─── 상단바 (헤더 = AP + 등급) ─── */
+.topbar { position: sticky; top: 0; z-index: 20; }
+.app-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.6);
+}
+
+/* AP (헤더 내 에너지 게이지 — 숫자 내부 표시 + ? 안내) */
+.ap-wrap { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+.ap-label { font-size: 0.82rem; font-weight: 800; color: var(--ink); }
+.en-ic { font-size: 0.95rem; }
+.en-track { position: relative; flex: 1; min-width: 60px; height: 18px; border-radius: 999px; background: rgba(180,150,170,0.22); }
+.en-fill {
+  position: absolute; left: 0; top: 0; height: 100%; width: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #ffd76a, #ff9ec4);
+  transition: width 0.35s ease;
+}
+.en-text {
+  position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 800; color: var(--ink); white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.7);
+}
+.ap-help {
+  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0;
+  background: rgba(154,138,149,0.28); color: var(--ink-soft); font-family: inherit;
+  font-weight: 800; font-size: 0.74rem; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; aspect-ratio: 1 / 1;
+}
+.ap-help:active { transform: scale(0.92); }
+
+/* 글로벌 시계 */
+.clock-bar {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 5px 16px 6px; min-width: 0;
+  background: rgba(255,255,255,0.4);
+  border-bottom: 1px solid rgba(255,255,255,0.5);
+}
+/* 시간대 이름이 긴 언어에서도 줄을 밀어내지 않도록 (UI_POLICY.md '가변 폭') */
+.clock-item {
+  font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* 저장 상태 — 시계 옆에 조용히 붙는다. 눌러 보면 뜻을 알려 준다. */
+.sync-chip {
+  border: none; background: none; font-family: inherit; cursor: pointer;
+  padding: 0 2px; flex: 0 0 auto;
+}
+.sync-chip[data-state="offline"] { color: var(--text-warn); }
+
+/* 복구 코드 줄 */
+.set-note { font-size: 0.72rem; color: var(--ink-soft); line-height: 1.45; margin: 6px 0; }
+.set-code-row { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.set-code {
+  flex: 1 1 auto; min-width: 0; font-family: inherit;
+  font-size: 0.72rem; font-weight: 700; color: var(--ink);
+  background: var(--cream); border: none; border-radius: 10px; padding: 9px 10px;
+}
+.set-code-btn { flex: 0 0 auto; width: auto; padding: 9px 14px; }
+
+.cost-tag, .btn-cost { font-weight: 800; }
+.cost-tag { font-size: 0.78rem; color: var(--text-warn); }
+.btn-cost { font-size: 0.82rem; }
+.spot-card.low-energy { opacity: 0.6; }
+.spot-card.low-energy .spot-go { color: var(--text-pink); }
+.header-charm { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+/* 등급 아이콘 + 매력 총합을 한 덩어리로 */
+.header-charm { background: var(--lav); border-radius: 999px; padding: 3px 4px 3px 3px; gap: 4px; }
+.hdr-tier {
+  border: none; background: rgba(255,255,255,0.75); font-size: 1rem; line-height: 1;
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center; font-family: inherit;
+}
+.hdr-tier:active { transform: scale(0.9); }
+.hdr-charm { font-size: 0.9rem; font-weight: 800; color: var(--ink); padding: 0 9px 0 3px; min-width: 20px; text-align: center; }
+.tier-ic { font-size: 0.95rem; }
+.stat-box.highlight { cursor: pointer; }
+.tier-name { font-weight: 800; color: var(--ink); }
+/* 설정 톱니바퀴 */
+.hdr-gear {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; border: none; padding: 0;
+  background: rgba(255,255,255,0.75); font-size: 0.98rem; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-family: inherit;
+}
+.hdr-gear:active { transform: scale(0.9) rotate(40deg); }
+/* 설정 팝업 */
+.settings-card { max-width: 340px; text-align: left; }
+.set-head { display: flex; align-items: center; justify-content: space-between; font-size: 1.05rem; font-weight: 900; margin-bottom: 16px; }
+.set-x { border: none; background: transparent; font-size: 1rem; color: var(--ink-soft); cursor: pointer; font-family: inherit; padding: 4px 6px; }
+.set-row { margin-bottom: 16px; }
+.set-row:last-child { margin-bottom: 0; }
+.set-label { font-size: 0.82rem; font-weight: 800; color: var(--ink-soft); margin-bottom: 8px; }
+.set-opts { display: flex; gap: 8px; flex-wrap: wrap; }
+.set-opt {
+  flex: 1 1 96px; min-width: 0; border: 2px solid transparent; background: var(--cream);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: inherit; font-weight: 800; font-size: 0.88rem; color: var(--ink);
+  padding: 11px 10px; border-radius: 14px; cursor: pointer;
+}
+.set-opt.on { border-color: var(--pink-2); background: #fff0f7; }
+.set-opt:active { transform: scale(0.96); }
+.modal-card .set-full { width: 100%; margin: 0; }
+
+/* ─── 화면 ─── */
+.screen {
+  display: none;
+  flex: 1;
+  padding: 18px 16px 96px;
+  animation: fade 0.25s ease;
+}
+.screen.active { display: block; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.screen-title { font-size: 1.35rem; font-weight: 800; margin-bottom: 2px; }
+.screen-sub { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 16px; }
+.mini-title { font-size: 1rem; font-weight: 800; margin: 22px 0 10px; }
+.mini-title .hint { font-size: 0.72rem; font-weight: 600; color: var(--ink-soft); }
+.empty-hint { grid-column: 1 / -1; color: var(--ink-soft); font-size: 0.85rem; text-align: center; padding: 24px 20px; background: rgba(255,255,255,0.5); border-radius: var(--radius); line-height: 1.5; }
+.empty-hint.clickable { cursor: pointer; transition: transform 0.1s ease, background 0.15s ease; }
+.empty-hint.clickable:active { transform: scale(0.98); background: rgba(255,255,255,0.7); }
+
+/* ─── 채집: 장소 카드 ─── */
+.spot-list { display: flex; flex-direction: column; gap: 14px; }
+.spot-card {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px; box-shadow: var(--shadow); cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.spot-card:active { transform: scale(0.97); }
+.spot-card.pop { animation: cardpop 0.4s ease; }
+@keyframes cardpop { 0% { transform: scale(1); } 40% { transform: scale(1.04); box-shadow: 0 8px 22px rgba(255,150,190,0.4); } 100% { transform: scale(1); } }
+.spot-emoji { font-size: 2.4rem; flex: none; }
+.spot-info { flex: 1; min-width: 0; }
+.spot-name { font-weight: 800; font-size: 1.05rem; }
+.spot-desc { font-size: 0.76rem; color: var(--ink-soft); margin: 2px 0 6px; }
+.spot-pool { font-size: 1rem; letter-spacing: 2px; }
+/* 맵마다 하나씩 있는 특별한 재료 — 찾기 전에는 ❔ 로 가려 둔다 */
+.spot-special {
+  display: inline-block; margin-left: 4px; padding: 0 5px;
+  border-radius: 999px; background: var(--lav); font-size: 0.9rem;
+}
+.spot-special.found { background: #fff0b8; }
+/* 아직 열리지 않은 채집지 — 공통 잠금 표현(.locked)은 아래 'UI_POLICY 7장' 블록 참고 */
+.spot-card.locked { background: var(--cream); box-shadow: none; cursor: default; }
+.spot-card.locked .spot-name,
+.spot-card.locked .spot-desc,
+.spot-card.locked .spot-go { color: var(--ink); }
+/* 해금 조건은 잠긴 카드에서 유일하게 '읽어야 하는' 정보라 굵게 유지한다 */
+.spot-card.locked .spot-desc { font-weight: 800; }
+.spot-card.locked:active { transform: none; }
+.cat-tab.locked { color: var(--ink); background: var(--cream); }
+.zn-tabs { margin: 0 0 12px; }
+/* '채집' 라벨 + 비용 — 언어에 따라 길어져도 카드를 밀어내지 않게 (UI_POLICY.md '가변 폭') */
+.spot-go {
+  font-size: 0.78rem; font-weight: 800; color: var(--text-pink);
+  flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-align: right;
+}
+.spot-card > .cost-tag { flex: 0 0 auto; }
+
+/* ─── 공방: 가마솥 ─── */
+.cauldron {
+  background: radial-gradient(120% 92% at 50% 28%, #3b3059 0%, #251d3b 66%, #1b1730 100%);
+  border-radius: var(--radius);
+  padding: 18px; box-shadow: var(--shadow), inset 0 0 40px rgba(0,0,0,0.25);
+  text-align: center;
+}
+.bag-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.bag-count { font-size: 0.74rem; font-weight: 700; color: var(--ink-soft); }
+.bag-chevron { margin-left: auto; font-size: 0.9rem; color: var(--ink-soft); }
+.cauldron-top { line-height: 0; }
+.cauldron-svg { width: 180px; max-width: 66%; height: auto; display: inline-block; filter: drop-shadow(0 8px 12px rgba(70,50,60,0.3)); }
+/* 보글보글 끓는 거품 */
+.cauldron-svg .bub { transform-box: fill-box; transform-origin: center; animation: bubble 2.4s ease-in-out infinite; }
+@keyframes bubble {
+  0%   { transform: scale(0);   opacity: 0; }
+  22%  { transform: scale(1);   opacity: 0.95; }
+  68%  { transform: scale(1);   opacity: 0.85; }
+  100% { transform: scale(1.5) translate(0, -4px); opacity: 0; }
+}
+/* 보라 물약 발광 맥동 */
+.cauldron-svg .brew-glow { transform-box: fill-box; transform-origin: center; animation: brewglow 2.8s ease-in-out infinite; }
+@keyframes brewglow { 0%,100% { opacity: 0.55; transform: scale(0.92); } 50% { opacity: 1; transform: scale(1.08); } }
+/* 별 반짝임 */
+.cauldron-svg .twinkle { transform-box: fill-box; transform-origin: center; animation: twinkle 2.2s ease-in-out infinite; }
+@keyframes twinkle { 0%,100% { opacity: 0.2; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1.2); } }
+.cauldron-slots { display: flex; justify-content: center; gap: 12px; margin: 14px 0 16px; }
+.c-slot {
+  width: 62px; height: 62px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.9rem; position: relative;
+}
+.c-slot.empty { border: 2px dashed var(--lav-2); color: var(--text-lav); background: var(--cream); }
+.c-slot.filled { background: var(--mint); cursor: pointer; box-shadow: inset 0 0 0 2px var(--mint-2); }
+
+/* 빼기 배지 — 흰 ✕ 가 읽히도록 진한 핑크를 쓴다 (TEXT_POLICY 대비 4.5:1) */
+.c-slot-x { position: absolute; top: -6px; right: -6px; font-size: 0.7rem; background: var(--text-pink); color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2; }
+
+/* ─── 마법진(연성진) 재료 슬롯 ─── */
+.magic-circle { position: relative; width: 250px; max-width: 88%; aspect-ratio: 1 / 1; margin: 10px auto 6px; }
+.mc-ring { position: absolute; inset: 0; }
+.mc-svg { width: 100%; height: 100%; display: block; }
+.mc-spin { transform-origin: 120px 120px; animation: mcspin 48s linear infinite; }
+@keyframes mcspin { to { transform: rotate(360deg); } }
+.mc-core { transform-origin: 120px 120px; animation: mccore 3.4s ease-in-out infinite; }
+@keyframes mccore { 0%,100% { opacity: 0.6; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.06); } }
+.magic-circle .cauldron-slots { position: absolute; inset: 0; display: block; margin: 0; }
+/* 재료 구멍 — 개수(3~12)에 맞춰 JS 가 원 위 좌표를 계산해 넣는다 */
+.magic-circle .c-slot {
+  position: absolute; width: 52px; height: 52px; border-radius: 50%; font-size: 1.55rem;
+  transform: translate(-50%, -50%);
+}
+/* 구멍이 많아지면 조금씩 작게 */
+.cauldron-slots.n7 .c-slot, .cauldron-slots.n8 .c-slot { width: 46px; height: 46px; font-size: 1.35rem; }
+.cauldron-slots.n9 .c-slot, .cauldron-slots.n10 .c-slot { width: 42px; height: 42px; font-size: 1.2rem; }
+.cauldron-slots.n11 .c-slot, .cauldron-slots.n12 .c-slot { width: 38px; height: 38px; font-size: 1.05rem; }
+/* 구멍이 촘촘해지면 빼기 배지도 같이 줄여 옆 구멍을 침범하지 않게 한다 */
+.cauldron-slots.n9 .c-slot-x, .cauldron-slots.n10 .c-slot-x,
+.cauldron-slots.n11 .c-slot-x, .cauldron-slots.n12 .c-slot-x {
+  /* 글자 크기는 최소치(11px = 0.7rem) 아래로 내리지 않는다 — 원만 줄인다 (TEXT_POLICY 3장) */
+  width: 15px; height: 15px; top: -4px; right: -4px;
+}
+/* 특별(희귀) 재료가 담긴 구멍 — 금빛 테두리 + 은은한 발광 */
+.magic-circle .c-slot.rare {
+  background: rgba(72,52,26,0.95);
+  box-shadow: inset 0 0 0 2.5px #ffd76a, 0 0 18px rgba(255,215,106,0.85);
+  animation: rareGlow 1.8s ease-in-out infinite;
+}
+@keyframes rareGlow {
+  0%,100% { box-shadow: inset 0 0 0 2.5px #ffd76a, 0 0 14px rgba(255,215,106,0.7); }
+  50%     { box-shadow: inset 0 0 0 2.5px #fff0b8, 0 0 24px rgba(255,215,106,1); }
+}
+.magic-circle .c-slot.empty {
+  border: 2px dashed rgba(224,196,120,0.85); color: #f7e6b4; background: rgba(28,20,44,0.72);
+  box-shadow: 0 0 12px rgba(200,140,230,0.35), inset 0 0 8px rgba(200,140,230,0.25);
+}
+.magic-circle .c-slot.filled {
+  background: rgba(58,44,86,0.92);
+  box-shadow: inset 0 0 0 2px rgba(224,196,120,0.9), 0 0 16px rgba(200,140,230,0.6);
+}
+.magic-circle .c-slot.filled:active { transform: translate(-50%, -50%) scale(0.92); }
+.cauldron-actions { display: flex; gap: 10px; min-width: 0; }
+.cauldron-actions > .btn { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ─── 가로 배치 줄 (UI_POLICY.md '가변 폭' 규칙) ───
+   언어에 따라 라벨 길이가 달라져도 서로 겹치거나 화면 밖으로 나가지 않게 한다.
+   1) 줄바꿈하지 않고  2) 필요한 만큼 줄어들며  3) 그래도 모자라면 말줄임.
+   가로 배치 줄에는 .row-fit 을 붙이고, 그 자식 버튼은 자동으로 이 규칙을 따른다. */
+.row-fit { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.row-fit > * {
+  min-width: 0;                       /* flex 기본값 auto 를 풀어 줄어들 수 있게 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── 버튼 ─── */
+.btn {
+  border: none; border-radius: 14px; font-family: inherit;
+  font-weight: 800; font-size: 0.95rem; padding: 13px 16px;
+  cursor: pointer; flex: 1; transition: transform 0.1s ease, filter 0.1s ease;
+}
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: var(--pink-2); color: var(--ink); box-shadow: 0 4px 10px rgba(255,150,190,0.4); }
+.btn-ghost { background: var(--cream); color: var(--ink-soft); }
+.btn-flex { background: linear-gradient(120deg, var(--lav-2), var(--pink-2)); color: var(--ink); width: 100%; margin: 6px 0 4px; box-shadow: 0 4px 12px rgba(180,140,220,0.4); }
+.btn-reset { background: transparent; color: var(--ink-soft); border: 1px solid rgba(154,138,149,0.35); width: 100%; margin-top: 28px; font-weight: 600; font-size: 0.82rem; }
+/* 임시(출시 버전에서 제거): AP 충전 테스트 버튼 */
+.btn-dev { width: 100%; margin-top: 24px; font-weight: 800; font-size: 0.85rem; color: #8a5a1a; background: linear-gradient(135deg, #ffe08a, #ffd0a0); border: 1px dashed rgba(180,120,40,0.5); }
+
+/* ─── 재료 가방 ─── */
+.ingredient-bag { display: flex; flex-wrap: wrap; gap: 10px; }
+.ing-chip {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--card); border-radius: 999px;
+  padding: 8px 14px 8px 12px; box-shadow: var(--shadow); cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.ing-chip:active { transform: scale(0.94); }
+.ing-chip.disabled { opacity: 0.35; pointer-events: none; }
+.ing-emoji { font-size: 1.3rem; }
+.ing-name { font-size: 0.85rem; font-weight: 700; }
+.ing-count { font-size: 0.8rem; font-weight: 800; color: var(--pink-2); }
+
+/* ─── 레시피 북 ─── */
+.recipe-book-head { display: flex; align-items: center; justify-content: space-between; }
+.recipe-progress { font-size: 0.8rem; font-weight: 800; color: var(--text-mint); background: var(--mint); padding: 3px 10px; border-radius: 999px; }
+.recipe-book { display: flex; flex-direction: column; gap: 8px; }
+.recipe-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border-radius: 14px; padding: 11px 14px;
+  box-shadow: var(--shadow); font-size: 0.9rem;
+}
+.recipe-row.clickable { cursor: pointer; transition: transform 0.1s ease, border-color 0.15s ease; }
+.recipe-row.clickable:active { transform: scale(0.985); }
+/* 지금 바로 만들 수 있는 레시피 — 눌러 담으라는 신호로 민트 띠를 두른다.
+   (재료가 모자라거나 구멍이 부족한 `.short` 는 평범한 카드 그대로 두고,
+    눌렀을 때 무엇이 모자란지 토스트로 알려 준다.
+    `.locked` 와 같은 배경을 쓰지 않는 이유는 '아직 못 만드는 것'과
+    '아직 모르는 것'이 서로 달라 보여야 하기 때문) */
+.recipe-row.clickable:not(.short) {
+  background: linear-gradient(90deg, var(--mint) 0%, var(--card) 42%);
+  box-shadow: var(--shadow), inset 3px 0 0 var(--text-mint);
+}
+.cd-tabs { margin-bottom: 12px; }
+.recipe-row.locked { background: var(--cream); }
+.recipe-row.locked .recipe-in,
+.recipe-row.locked .recipe-out,
+.recipe-row.locked .recipe-arrow { color: var(--ink-soft); }
+/* 방금 알아낸 레시피 — 맨 위에서 반짝 */
+.recipe-row.just-found {
+  border: 2px solid var(--pink-2); background: #fff6fb;
+  animation: recipePop 0.6s cubic-bezier(.2,1.3,.5,1) both;
+}
+@keyframes recipePop { 0% { transform: scale(0.94); opacity: 0; } 60% { transform: scale(1.03); } 100% { transform: scale(1); opacity: 1; } }
+.recipe-in { font-size: 0.95rem; }
+.recipe-arrow { color: var(--ink-soft); }
+.recipe-out { font-weight: 800; margin-left: auto; }
+
+/* ─── 쇼케이스 ─── */
+.room-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.btn-init {
+  border: 1px solid rgba(154,138,149,0.35); background: rgba(255,255,255,0.7);
+  color: var(--ink-soft); font-family: inherit; font-weight: 700; font-size: 0.8rem;
+  padding: 7px 16px; border-radius: 999px; cursor: pointer;
+}
+.btn-init:active { transform: scale(0.96); }
+.icon-btn {
+  width: 38px; height: 38px; border-radius: 50%; padding: 0;
+  border: 1px solid rgba(154,138,149,0.28); background: rgba(255,255,255,0.85);
+  color: var(--ink-soft); font-size: 1.25rem; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow);
+  font-family: inherit; flex: 0 0 auto;
+}
+.icon-btn:active { transform: scale(0.9) rotate(-40deg); }
+
+/* 나의 방 하위 탭 */
+.room-tabs { display: flex; gap: 8px; margin: 16px 0 8px; min-width: 0; }
+.room-tab {
+  flex: 1 1 0; min-width: 0; border: none; background: var(--card); color: var(--ink-soft);
+  font-family: inherit; font-weight: 800; font-size: 0.86rem; padding: 10px 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-radius: 14px; cursor: pointer; box-shadow: var(--shadow);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.room-tab.active { background: var(--pink-2); color: var(--ink); }
+.room-panel { display: none; }
+.room-panel.active { display: block; }
+.hint-block { display: block; text-align: center; font-size: 0.72rem; color: var(--ink-soft); margin: 10px 2px 0; }
+
+.char-stage { position: relative; display: flex; justify-content: center; margin: 6px 0 10px; }
+/* 배경을 네모 카드에 가두지 않고 전체 폭으로 열린 방처럼. 위/아래는 부드럽게 페이드 */
+.room-scene {
+  position: absolute; top: -14px; bottom: -8px; left: -16px; right: -16px; z-index: 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 13%, #000 90%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 13%, #000 90%, transparent 100%);
+}
+.room-svg { width: 100%; height: 100%; display: block; }
+.char-aura { position: relative; z-index: 1; width: 240px; height: 320px; display: flex; align-items: center; justify-content: center; }
+.char-aura::before {
+  content: ''; position: absolute; inset: -4% 6% 10% 6%; border-radius: 50%;
+  background: radial-gradient(circle at 50% 44%, rgba(255,224,150,0.5), rgba(255,206,150,0.12) 55%, transparent 66%);
+  filter: blur(7px);
+  animation: aura 4s ease-in-out infinite;
+}
+@keyframes aura { 0%,100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.06); opacity: 1; } }
+.char-body { position: relative; z-index: 2; font-size: 0; line-height: 0; }
+.avatar-svg { height: 312px; width: auto; display: block; filter: drop-shadow(0 8px 12px rgba(180,140,160,0.28)); }
+
+/* ─── 살 빠지는 연출 (물약을 마셨을 때) ─── */
+/* 몸이 한 번 쏙 줄었다가 제자리로 — 단계가 내려갈 때만 */
+.char-body.slim-pop { animation: slimPop 1.05s cubic-bezier(.3,1.2,.4,1) both; }
+@keyframes slimPop {
+  0%   { transform: scaleX(1)    scaleY(1);    filter: none; }
+  22%  { transform: scaleX(0.88) scaleY(1.03); filter: brightness(1.25) saturate(1.15); }
+  45%  { transform: scaleX(1.04) scaleY(0.99); filter: brightness(1.12); }
+  70%  { transform: scaleX(0.97) scaleY(1.01); }
+  100% { transform: scaleX(1)    scaleY(1);    filter: none; }
+}
+/* 위로 떠오르는 반짝이 */
+.slim-fx { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
+.slim-star {
+  position: absolute; bottom: 8%; line-height: 1;
+  animation-name: slimStar; animation-timing-function: ease-out; animation-fill-mode: both;
+}
+@keyframes slimStar {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.4) rotate(0deg); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-150px) scale(1.15) rotate(28deg); }
+}
+.stage-creatures { position: absolute; inset: 0; z-index: 3; }
+.stage-creature { position: absolute; font-size: 1.6rem; animation: float 3s ease-in-out infinite; }
+.stage-creature:nth-child(1) { top: 10%; left: 12%; animation-delay: 0s; }
+.stage-creature:nth-child(2) { top: 18%; right: 10%; animation-delay: 0.6s; }
+.stage-creature:nth-child(3) { bottom: 16%; left: 8%; animation-delay: 1.2s; }
+.stage-creature:nth-child(4) { bottom: 12%; right: 14%; animation-delay: 1.8s; }
+.stage-creature:nth-child(n+5) { display: none; }
+@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.showcase-tier { text-align: center; font-size: 1.15rem; font-weight: 800; margin-bottom: 14px; }
+
+.stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat-box { flex: 1; background: var(--card); border-radius: 16px; padding: 12px 8px; text-align: center; box-shadow: var(--shadow); }
+.stat-box.highlight { grid-column: 1 / -1; background: linear-gradient(140deg, var(--pink), var(--lav)); }
+.stat-label { font-size: 0.72rem; color: var(--ink-soft); font-weight: 700; }
+.stat-box.highlight .stat-label { color: var(--ink); }
+.stat-val { font-size: 1.5rem; font-weight: 900; margin-top: 2px; }
+
+/* ─── 신체 · 아우라 상세 수치 ─── */
+.vitals {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-top: 10px; min-width: 0;
+}
+.vitals-col {
+  background: var(--card); border-radius: 16px; padding: 11px 12px;
+  box-shadow: var(--shadow); min-width: 0;
+}
+.vitals-head {
+  font-size: 0.75rem; font-weight: 800; color: var(--ink-soft);
+  margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1px solid var(--cream);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vitals-list { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.vitals-row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
+.vitals-row dt {
+  font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
+  flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vitals-row dd {
+  font-size: 0.74rem; font-weight: 800; color: var(--ink);
+  flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── 플레이 기록 ─── */
+/* 접었다 펴는 목록. 평소엔 한 줄만 보여 마이 룸을 길게 만들지 않는다. */
+.record {
+  background: var(--card); border-radius: 16px; padding: 11px 12px;
+  box-shadow: var(--shadow); margin-top: 10px; min-width: 0;
+}
+.record-sum {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 0.75rem; font-weight: 800; color: var(--ink-soft);
+  cursor: pointer; list-style: none; min-width: 0;
+}
+.record-sum::-webkit-details-marker { display: none; }
+.record-sum > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.record-brief { font-weight: 700; color: var(--ink); flex: 0 1 auto; }
+.record[open] .record-sum { margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1px solid var(--cream); }
+
+/* ─── 옷장 ─── */
+.wardrobe { background: var(--card); border-radius: 18px; padding: 10px; box-shadow: var(--shadow); }
+/* ═══ 잠긴 콘텐츠 공통 표현 (UI_POLICY.md 7장) ═══
+   컨텐츠 언락 시스템으로 아직 열리지 않은 것은 전부 여기를 지난다.
+   🔒 아이콘만으로는 목록을 훑어볼 때 눈에 잘 들어오지 않아서,
+     ① 채도를 확 낮춰 색 신호를 없애고
+     ② 살짝 투명하게 만들어 뒤로 물러나 보이게 한다.
+
+   왜 '채도'가 주된 수단인가 — saturate() 는 명도를 거의 그대로 두기 때문에
+   글자 대비를 떨어뜨리지 않으면서 색만 걷어낸다. 반면 opacity 는 그대로 대비를
+   깎아먹으므로 0.8 까지만 쓰고, 잠긴 요소의 글자는 --ink 로 진하게 잡아
+   흐려진 뒤에도 4.5:1 아래로 내려가지 않게 한다. (검증: checkLocked)
+
+   새로 잠기는 UI 를 만들면 클래스에 .locked 를 붙이고 이 목록에 선택자를 추가할 것. */
+.spot-card.locked,
+.cat-tab.locked,
+.wr-item.locked {
+  filter: saturate(0.15);
+  opacity: 0.8;
+}
+
+/* ─── 카테고리 탭 (공용) — UI_POLICY.md 참고 ───
+   가로로 넘치는 탭 줄의 표준 스타일. 새 카테고리 탭도 .cat-tabs / .cat-tab 을 쓸 것.
+   스크롤바는 표시하지 않는다. 마지막 버튼이 잘려 보이는 것 자체가 '더 있다'는 신호다.
+   (스크롤은 터치 드래그 · 마우스 휠 · 끌기로 — setupTabScroll() 이 자동으로 붙인다) */
+.cat-tabs {
+  display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+  scrollbar-width: none;                       /* Firefox */
+}
+.cat-tabs::-webkit-scrollbar { display: none; } /* WebKit */
+.cat-tabs.dragging { cursor: grabbing; user-select: none; }
+/* 줄별 여백만 개별 지정 */
+.wr-tabs { margin-bottom: 9px; }
+.rb-tabs { margin: 8px 0 6px; }
+.cat-tab {
+  flex: 0 0 auto; border: none; background: var(--cream); color: var(--ink-soft);
+  font-weight: 800; font-size: 0.76rem; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  font-family: inherit; transition: background 0.15s ease, color 0.15s ease;
+}
+.cat-tab.active { background: var(--pink-2); color: var(--ink); }
+.cat-tab.dim { color: var(--ink-dim); opacity: 0.7; }   /* 비활성 — 정책 예외 */
+.wr-hint { font-size: 0.68rem; color: var(--ink-soft); margin: 2px 2px 8px; line-height: 1.35; }
+.wr-items { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.wr-item {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  border: 2px solid transparent; background: var(--cream); border-radius: 14px;
+  padding: 9px 4px; cursor: pointer; font-family: inherit; transition: transform 0.1s ease;
+}
+.wr-item:active { transform: scale(0.94); }
+.wr-item.on { border-color: var(--pink-2); background: #fff0f7; }
+.wr-ic { font-size: 1.3rem; height: 26px; display: flex; align-items: center; justify-content: center; position: relative; }
+.wr-swatch { width: 22px; height: 22px; border-radius: 7px; display: inline-block; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06); }
+.wr-nm { font-size: 0.72rem; font-weight: 700; color: var(--ink); text-align: center; line-height: 1.15; }
+.wr-item.locked .wr-nm { color: var(--ink); }          /* 흐려진 만큼 글자는 진하게 */
+.wr-lock { position: absolute; right: -8px; bottom: -4px; font-size: 0.8rem; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2)); }
+.wr-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 8px; min-width: 0; }
+.wr-foot > * { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wr-count { font-size: 0.72rem; font-weight: 800; color: var(--ink-soft); }
+.wr-gift {
+  border: none; background: linear-gradient(135deg, var(--lav-2), var(--pink-2)); color: var(--ink);
+  font-family: inherit; font-weight: 800; font-size: 0.74rem; padding: 7px 14px;
+  border-radius: 999px; cursor: pointer; box-shadow: var(--shadow);
+}
+.wr-gift:active { transform: scale(0.96); }
+
+/* ─── 물약 선반 ─── */
+.potion-shelf, .creature-collection { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.potion-card, .creature-card {
+  background: var(--card); border-radius: 16px; padding: 12px 6px;
+  text-align: center; box-shadow: var(--shadow); position: relative;
+}
+.potion-card { cursor: pointer; transition: transform 0.1s ease; }
+.potion-card:active { transform: scale(0.95); }
+.potion-emoji, .creature-emoji { font-size: 2rem; }
+.potion-name, .creature-name { font-size: 0.76rem; font-weight: 800; margin-top: 3px; }
+.potion-eff, .creature-eff { font-size: 0.66rem; color: var(--ink-soft); margin-top: 2px; }
+.potion-count, .creature-count { position: absolute; top: 6px; right: 8px; font-size: 0.72rem; font-weight: 800; color: var(--pink-2); }
+.potion-use { margin-top: 6px; font-size: 0.72rem; font-weight: 800; color: #fff; background: var(--mint-2); border-radius: 999px; padding: 3px 0; }
+
+/* ─── 하단 탭 ─── */
+.tab-bar {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px; z-index: 30;
+  display: flex; background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.7);
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+}
+.tab-btn {
+  flex: 1; border: none; background: none; font-family: inherit;
+  font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 0; cursor: pointer; border-radius: 14px; transition: color 0.15s;
+}
+.tab-btn .tab-icon { font-size: 1.4rem; }
+.tab-btn.active { color: var(--ink); background: var(--pink); }
+
+/* ─── 모달 ─── */
+.modal {
+  position: fixed; inset: 0; z-index: 50;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(90,74,85,0.4); backdrop-filter: blur(3px); padding: 30px;
+}
+.modal.show { display: flex; animation: fade 0.2s ease; }
+.modal-card {
+  background: var(--card); border-radius: 24px; padding: 26px 22px;
+  text-align: center; width: 100%; max-width: 320px;
+  box-shadow: 0 12px 40px rgba(120,90,110,0.35);
+}
+.brew-new { font-size: 0.85rem; font-weight: 900; color: var(--pink-2); margin-bottom: 8px; letter-spacing: 0.03em; }
+.brew-emoji { font-size: 4.4rem; }
+.brew-emoji.pop { animation: brewpop 0.5s cubic-bezier(.2,1.4,.5,1); }
+@keyframes brewpop { 0% { transform: scale(0.2) rotate(-15deg); opacity: 0; } 60% { transform: scale(1.15) rotate(6deg); } 100% { transform: scale(1); } }
+.brew-name { font-size: 1.3rem; font-weight: 900; margin: 6px 0 4px; }
+.brew-desc { font-size: 0.85rem; color: var(--ink-soft); line-height: 1.5; margin-bottom: 10px; }
+.brew-stats { font-size: 0.9rem; font-weight: 800; background: var(--lav); border-radius: 12px; padding: 8px; margin-bottom: 16px; }
+.modal-card .btn { width: 100%; }
+.confirm-text { font-size: 1.02rem; font-weight: 800; line-height: 1.55; margin-bottom: 20px; }
+
+/* ─── 이름 입력 팝업 ─── */
+/* 튜토리얼 인트로(z-index 9990) 위에 떠야 함 */
+#nameModal { z-index: 9992; }
+.name-card { max-width: 330px; }
+.name-head { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
+.name-title { font-size: 1.05rem; font-weight: 900; }
+.name-help {
+  width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--lav); color: var(--text-lav); font-size: 0.78rem; font-weight: 900;
+  font-family: inherit; line-height: 22px; padding: 0; flex: none;
+}
+.name-help:active { transform: scale(0.92); }
+.name-msg {
+  font-size: 0.95rem; font-weight: 700; line-height: 1.6; color: var(--ink);
+  white-space: pre-line; margin-bottom: 16px;
+}
+.name-input {
+  width: 100%; border: 2px solid var(--pink); border-radius: 14px;
+  padding: 12px 14px; font-size: 1rem; font-weight: 800; font-family: inherit;
+  color: var(--ink); background: var(--cream); text-align: center; outline: none;
+}
+.name-input:focus { border-color: var(--pink-2); background: #fff; }
+.name-error {
+  min-height: 18px; font-size: 0.78rem; font-weight: 800; color: #e2708f;
+  margin: 8px 0 12px; line-height: 1.4;
+}
+.confirm-actions { display: flex; gap: 10px; min-width: 0; }
+.confirm-actions > .btn { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.modal-card .confirm-actions .btn { width: auto; flex: 1; }
+
+/* ─── 토스트 ─── */
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--ink); color: #fff; font-size: 0.85rem; font-weight: 700;
+  padding: 11px 20px; border-radius: 999px; z-index: 9995;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+  white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
+}
+.toast.show { opacity: 0.95; transform: translateX(-50%) translateY(0); }
+/* 아이콘 옆에 붙는 토스트 (좌표는 JS가 지정) */
+.toast.anchored { bottom: auto; left: 0; transform: translateY(-6px); transform-origin: top center; }
+.toast.anchored.show { transform: translateY(0); }
+/* 여러 줄 토스트 (이름 규칙 안내 등) */
+.toast.multi { white-space: pre-line; border-radius: 14px; text-align: center; line-height: 1.5; max-width: 280px; word-break: keep-all; }
+.toast.multi.anchored { text-align: left; }

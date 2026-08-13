@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#ffd9ec">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>다이어터 연금술사</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=20260813a">
+</head>
+<body>
+
+<!-- ── 스플래시 (첫 실행 인트로) ── -->
+<!-- 스타일을 인라인으로 둬서 style.css 캐시/누락과 무관하게 항상 동작 -->
+<style>
+  #splash {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: #F6F6F8; opacity: 1;
+    transition: opacity 1.6s ease;
+  }
+  #splash.hide { opacity: 0; pointer-events: none; }
+  #splash.done { display: none !important; }
+  #splash .splash-inner { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: splashIn 0.7s ease both; }
+  @keyframes splashIn { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
+  #splash .splash-logo { width: 190px; height: 190px; display: block; object-fit: contain; }
+  #splash .splash-name {
+    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 1.06rem; font-weight: 700; letter-spacing: 0.06em; color: #3f3a44; text-align: center;
+  }
+</style>
+<div id="splash" class="splash">
+  <div class="splash-inner">
+    <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260813a" alt="Dream Syndicate Studio"
+         onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
+    <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
+      <defs>
+        <linearGradient id="dsG" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#b23a1f"/>
+          <stop offset="0.5" stop-color="#e8622c"/>
+          <stop offset="1" stop-color="#f59b52"/>
+        </linearGradient>
+      </defs>
+      <!-- 초승달형 원형 프레임 -->
+      <path d="M120,8 A112,112 0 1 1 119.9,8 Z M120,26 A94,94 0 1 0 120,214 A94,94 0 1 0 120,26 Z" fill="url(#dsG)" opacity="0.18"/>
+      <path d="M120,8 a112,112 0 1 1 -79.2,32.8 A98,98 0 1 0 120,26 Z" fill="url(#dsG)"/>
+      <!-- 여성 실루엣 (옆모습) -->
+      <g fill="url(#dsG)">
+        <!-- 흩날리는 머리카락 -->
+        <path d="M112,64 c-16,4 -26,17 -27,32 c-1,12 4,20 10,26 c-3,-13 -1,-24 6,-33 c6,-8 16,-13 28,-13 c14,0 24,6 30,15 c2,-13 -5,-25 -17,-30 c-9,-4 -21,-4 -30,3 Z"/>
+        <path d="M143,72 c14,2 24,11 28,24 c3,11 1,21 -4,29 c1,-14 -3,-24 -11,-31 c-6,-6 -14,-9 -22,-10 Z"/>
+        <!-- 얼굴 옆모습 -->
+        <path d="M118,84 c9,0 16,6 17,15 c0,4 -2,6 -5,7 c-1,3 1,5 3,6 c-2,2 -5,3 -8,3 c-4,0 -7,-2 -9,-5 l-2,-7 c-4,-2 -6,-6 -6,-10 c0,-6 4,-9 10,-9 Z"/>
+        <!-- 목·어깨·몸 -->
+        <path d="M118,116 c3,3 8,4 13,3 c10,4 17,13 19,25 c2,12 -1,23 -7,31 c-4,-16 -11,-25 -22,-25 c-11,0 -18,9 -22,25 c-6,-8 -9,-19 -7,-31 c2,-13 11,-23 26,-28 Z"/>
+        <!-- 팔 -->
+        <path d="M96,132 c-9,4 -15,12 -17,22 c-1,6 0,11 3,15 c1,-11 5,-19 12,-24 Z"/>
+      </g>
+    </svg>
+    <div class="splash-name">Dream Syndicate Studio</div>
+  </div>
+</div>
+<script>
+  // 스플래시 제거도 인라인으로 — game.js 상태와 무관하게 항상 동작
+  // 총 2.5초: 0.9초 표시 → 1.6초 페이드아웃 → 완전 제거
+  (function () {
+    var el = document.getElementById('splash');
+    if (!el) return;
+    setTimeout(function () {
+      // 페이드아웃 '전에' 튜토리얼 인트로를 먼저 깔아둔다
+      // (로고가 걷히면 바로 인트로가 보여 게임 화면이 새지 않음)
+      if (window.Intro) window.Intro.start(null);
+      el.classList.add('hide');
+    }, 900);
+    setTimeout(function () {
+      el.classList.add('done');
+      if (el.parentNode) el.parentNode.removeChild(el);  // DOM에서 완전 제거
+    }, 2500);
+  })();
+</script>
+
+<!-- ── 튜토리얼 인트로 (최초 진입 1회) ── -->
+<style>
+  #intro {
+    position: fixed; inset: 0; z-index: 9990;
+    display: none; align-items: center; justify-content: center;
+    background: #14101f; opacity: 1; transition: opacity 0.6s ease;
+    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  #intro.hide { opacity: 0; pointer-events: none; }
+  /* 9:16 무대 — 화면을 꽉 채우되 비율 유지 */
+  #introStage {
+    position: relative; width: 100%; height: 100%;
+    max-width: min(100vw, calc(100dvh * 9 / 16));
+    max-height: min(100dvh, calc(100vw * 16 / 9));
+    overflow: hidden; background: #000;
+  }
+  /* 장면 전환 플래시 (텔레포트 전/후) */
+  #introFlash {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    background: #fff; opacity: 0;
+  }
+  #introFlash.on { animation: iFlash 0.55s ease-out both; }
+  @keyframes iFlash { 0% { opacity: 0.95; } 60% { opacity: 0.35; } 100% { opacity: 0; } }
+  /* 지팡이로 톡 — 완드 스윙 + 스파크 */
+  #intro .i-wandtap { transform-box: fill-box; transform-origin: 50% 92%; animation: iWandTap 0.9s ease-in-out infinite; }
+  @keyframes iWandTap { 0%,100% { transform: rotate(0deg); } 40% { transform: rotate(-9deg); } 60% { transform: rotate(3deg); } }
+  #intro .i-tapspark { transform-box: fill-box; transform-origin: center; animation: iTapSpark 0.9s ease-out infinite; }
+  @keyframes iTapSpark { 0% { opacity: 0; transform: scale(0.4); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.5); } }
+
+  /* 펑! 파열 이펙트 */
+  #intro .i-burst { transform-box: fill-box; transform-origin: center; animation: iBurst 0.75s cubic-bezier(.15,.8,.3,1) both; }
+  @keyframes iBurst { 0% { opacity: 1; transform: scale(0.25); } 55% { opacity: 0.9; } 100% { opacity: 0; transform: scale(1.6); } }
+  #intro .i-burst-rays { transform-box: fill-box; transform-origin: center; animation: iBurstRay 0.75s ease-out both; }
+  @keyframes iBurstRay { 0% { opacity: 1; transform: scale(0.4) rotate(0deg); } 100% { opacity: 0; transform: scale(1.5) rotate(22deg); } }
+  #intro .i-burst-bits { transform-box: fill-box; transform-origin: center; animation: iBurstBit 0.85s ease-out both; }
+  @keyframes iBurstBit { 0% { opacity: 0; transform: scale(0.3); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.75) rotate(-18deg); } }
+
+  /* 아트 크로스페이드 레이어 */
+  #introArt .i-layer {
+    position: absolute; inset: 0; opacity: 0;
+    transition: opacity 0.45s ease;
+  }
+  #introArt .i-layer.on { opacity: 1; }
+  /* 대사만 부드럽게 등장 */
+  #introBox.i-in #introSpeaker, #introBox.i-in #introText { animation: iFade 0.32s ease both; }
+  @keyframes iFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  /* 아트가 무대 전체를 채움 */
+  #introArt { position: absolute; inset: 0; }
+  #intro .intro-svg { width: 100%; height: 100%; display: block; }
+  /* 대사 영역: 하단 도킹 */
+  #introBox {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(180deg, rgba(20,16,31,0) 0%, rgba(20,16,31,0.82) 16%, rgba(20,16,31,0.95) 100%);
+    padding: 40px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+    min-height: 27%;
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  #introSpeaker { font-size: 0.9rem; font-weight: 800; color: #ffd076; margin-bottom: 7px; }
+  #introText { font-size: 1rem; line-height: 1.65; color: #f4f0f7; white-space: pre-line; font-weight: 500; }
+  /* 하단 조작: 닷 네비게이션(중앙) 위 / 자동·다음 버튼 아래 — 서로 다른 줄 */
+  #introFoot { display: flex; flex-direction: column; margin-top: 16px; gap: 12px; }
+  #introDots { display: flex; gap: 6px; justify-content: center; }
+  #intro .i-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.28); }
+  #intro .i-dot.on { background: #ffd076; }
+  #intro .i-btn {
+    border: none; border-radius: 999px; font-family: inherit; font-weight: 800; font-size: 0.9rem;
+    min-height: 44px; padding: 0 26px; cursor: pointer; background: #ffb8d9; color: #5a4a55;
+    box-shadow: 0 4px 12px rgba(255,150,190,0.4);
+    flex: 0 1 auto; min-width: 0;           /* 문구가 길어지면 좌측으로 확장 */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #intro .i-btn:active { transform: scale(0.96); }
+  /* 엔딩 '시작하기' — 대사 아래 전체 폭 */
+  #intro .i-start {
+    width: 100%; margin-top: 18px; border: none; border-radius: 999px;
+    font-family: inherit; font-weight: 900; font-size: 1rem; letter-spacing: 0.02em;
+    padding: 15px 20px; cursor: pointer; color: #fff;
+    background: linear-gradient(135deg, #ffb8d9, #c9b6ff);
+    box-shadow: 0 6px 18px rgba(190,140,220,0.45);
+    animation: iStartIn 0.45s cubic-bezier(.2,1.3,.5,1) both;
+  }
+  #intro .i-start:active { transform: scale(0.97); }
+  @keyframes iStartIn { from { opacity: 0; transform: translateY(10px) scale(0.96); } to { opacity: 1; transform: none; } }
+  /* 자동(좌) · 다음(우) — 가운데를 비워 두고 각자 바깥에서 안쪽으로 늘어남 */
+  #intro .i-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+  #intro .i-auto {
+    min-height: 44px; border-radius: 999px; padding: 0 16px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.85); font-family: inherit;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    flex: 0 1 auto; min-width: 0;           /* 문구가 길어지면 우측으로 확장 */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #intro .i-auto:active { transform: scale(0.92); }
+  #intro .i-auto-svg { width: 20px; height: 20px; display: block; }
+  #intro .i-auto-lb { font-size: 0.82rem; font-weight: 800; }
+  /* 켜짐: 화살표가 빙글빙글 */
+  #intro .i-auto.on { background: #ffd076; border-color: #ffd076; color: #4a3a24; }
+  #intro .i-auto.on .i-auto-svg { animation: iSpin 1.6s linear infinite; }
+  @keyframes iSpin { to { transform: rotate(360deg); } }
+  /* 건너뛰기: 오른쪽 상단 */
+  #intro .i-skip {
+    position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; z-index: 3;
+    border: 1px solid rgba(255,255,255,0.28); background: rgba(20,16,31,0.42);
+    color: rgba(255,255,255,0.9); backdrop-filter: blur(6px);
+    font-family: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+    padding: 7px 14px; border-radius: 999px;
+  }
+  #intro .i-skip:active { transform: scale(0.94); }
+  #intro .i-flame { animation: iFlame 1.1s ease-in-out infinite; transform-box: fill-box; transform-origin: center bottom; }
+  @keyframes iFlame { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.18) scaleX(0.92); } }
+  #intro .i-mouth { animation: iMouth 0.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes iMouth { 0%,100% { transform: scaleY(0.6); } 50% { transform: scaleY(1.1); } }
+  /* 연출 */
+  #intro .i-spark { animation: iSpark 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes iSpark { 0%,100% { opacity: 0.15; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1.15); } }
+  #intro .i-munch { animation: iMunch 0.9s ease-in-out infinite; }
+  @keyframes iMunch { 0%,100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+  #intro .i-bubble { animation: iBubble 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom left; }
+  @keyframes iBubble { 0%,100% { transform: scale(1) translateY(0); } 50% { transform: scale(1.06) translateY(-3px); } }
+  #intro .i-vanish { animation: iVanish 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center bottom; }
+  @keyframes iVanish { 0% { opacity: 1; transform: scale(1); } 70% { opacity: 0.25; transform: scale(0.82) translateY(-16px); } 100% { opacity: 0; transform: scale(0.7) translateY(-28px); } }
+  #intro .i-tele-fx { animation: iTeleFx 1.6s ease-in-out infinite; }
+  @keyframes iTeleFx { 0%,100% { opacity: 0.75; } 50% { opacity: 1; } }
+  #intro .i-rune { transform-box: fill-box; transform-origin: center; animation: iRune 6s linear infinite; }
+  @keyframes iRune { to { transform: rotate(360deg); } }
+  #intro .i-dizzy { animation: iDizzy 2.2s linear infinite; }
+  @keyframes iDizzy { to { transform: rotate(360deg); } }
+  #intro .i-cauldron { animation: iCauldron 0.7s cubic-bezier(.2,1.4,.5,1) both; transform-box: fill-box; transform-origin: center bottom; }
+  @keyframes iCauldron { 0% { opacity: 0; transform: scale(0.4) translateY(24px); } 60% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
+  #intro .i-blush { animation: iBlush 2s ease-in-out infinite; }
+  @keyframes iBlush { 0%,100% { opacity: 0.4; } 50% { opacity: 0.75; } }
+  #intro .i-teleport { animation: iTele 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center bottom; }
+  @keyframes iTele { 0%,100% { opacity: 1; transform: scale(1) translateY(0); } 55% { opacity: 0.55; transform: scale(0.9) translateY(-10px); } }
+  #intro .i-wandcast { animation: iWand 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom right; }
+  @keyframes iWand { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(-10deg); } }
+  /* 요정 대모의 곁눈질 — 눈동자가 공주(왼쪽) 쪽으로 굴러갔다 돌아옴 */
+  #intro .i-glance { animation: iGlance 2.6s ease-in-out infinite; }
+  @keyframes iGlance {
+    0%, 8%    { transform: translate(0, 0); }
+    22%, 62%  { transform: translate(-3.2px, 0.6px); }   /* 공주 쪽을 흘겨봄 */
+    78%, 100% { transform: translate(0, 0); }
+  }
+  /* 이마에 흐르는 왕 땀 (당황) */
+  #intro .i-sweat { animation: iSweat 1.9s ease-in infinite; }
+  #intro .i-sweat.d2 { animation-delay: 0.95s; }
+  @keyframes iSweat {
+    0%   { opacity: 0;   transform: translateY(-6px) scale(0.35); }
+    16%  { opacity: 1;   transform: translateY(0) scale(1); }
+    45%  { opacity: 1;   transform: translateY(9px) scale(1.04); }
+    100% { opacity: 0;   transform: translateY(36px) scale(0.8); }
+  }
+</style>
+<div id="intro">
+  <div id="introStage">
+    <div id="introArt"></div>
+    <div id="introFlash"></div>
+    <button class="i-skip" onclick="window.Intro && window.Intro.skip()" data-i18n="intro_skip">건너뛰기 ✕</button>
+    <div id="introBox">
+      <div id="introSpeaker"></div>
+      <div id="introText"></div>
+      <!-- 엔딩 마지막 컷에서만 표시 -->
+      <button id="introStart" class="i-start" style="display:none"
+              onclick="window.Intro && window.Intro.finish()" data-i18n="btn_start">시작하기</button>
+      <div id="introFoot">
+        <!-- 닷 네비게이션: 버튼과 다른 줄에서 중앙 정렬 -->
+        <div id="introDots"></div>
+        <!-- 자동(좌) · 다음(우) — 문구가 길어지면 각각 안쪽으로 확장된다 -->
+        <div class="i-actions">
+          <button id="introAuto" class="i-auto on" onclick="window.Intro && window.Intro.toggleAuto(this)" aria-label="자동 재생" title="자동 재생">
+            <svg viewBox="0 0 24 24" class="i-auto-svg" aria-hidden="true">
+              <path d="M12 4a8 8 0 1 1-7.5 5.2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+              <path d="M12 1.6 L15.4 4.6 L12 7.6 Z" fill="currentColor"/>
+            </svg>
+            <span class="i-auto-lb" data-i18n="intro_auto">자동</span>
+          </button>
+          <button class="i-btn" onclick="window.Intro && window.Intro.next()" data-i18n="intro_next">다음 ▸</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <!-- ── 상단바 (헤더 + 에너지) ── -->
+  <div class="topbar">
+    <header class="app-header">
+      <div class="ap-wrap">
+        <span class="en-ic">⚡</span>
+        <span class="ap-label">AP</span>
+        <div class="en-track">
+          <div id="enFill" class="en-fill"></div>
+          <span id="enText" class="en-text">0/0</span>
+        </div>
+        <button class="ap-help" onclick="apHelp(this)" aria-label="AP 안내">?</button>
+      </div>
+      <button id="btnSettings" class="hdr-gear" onclick="openSettings()" aria-label="설정">⚙️</button>
+      <div class="header-charm">
+        <button id="hdrTier" class="hdr-tier" onclick="tierHelp(this)" aria-label="등급 안내">🌱</button>
+        <span id="hdrCharm" class="hdr-charm">0</span>
+      </div>
+    </header>
+    <div class="clock-bar">
+      <span id="clockKST" class="clock-item"></span>
+      <button id="syncChip" class="clock-item sync-chip" onclick="syncHelp(this)" aria-label="저장 상태"></button>
+    </div>
+  </div>
+
+  <!-- ── 채집 화면 ── -->
+  <section id="screen-gather" class="screen">
+    <h2 class="screen-title" data-i18n="screen_gather">🌿 채집</h2>
+    <p class="screen-sub" data-i18n="screen_gather_sub">장소를 눌러 연금술 재료를 모으세요.</p>
+    <!-- 지대 카테고리 탭 -->
+    <div id="zoneTabs" class="cat-tabs zn-tabs"></div>
+    <div id="spotList" class="spot-list"></div>
+  </section>
+
+  <!-- ── 공방 화면 ── -->
+  <section id="screen-atelier" class="screen">
+    <h2 class="screen-title" data-i18n="screen_atelier">⚗️ 공방</h2>
+    <p class="screen-sub" data-i18n="screen_atelier_sub">재료를 가마솥에 넣고 조합해 새 레시피를 발견하세요.</p>
+
+    <!-- 마법 솥 고르기 (구멍 수가 늘어난다) -->
+    <div class="mini-title" data-i18n="cauldron_title">🫕 마법 솥</div>
+    <div id="cauldronPicker" class="cat-tabs cd-tabs"></div>
+
+    <div class="cauldron">
+      <div class="cauldron-top">
+        <svg class="cauldron-svg" viewBox="0 0 200 198" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="연금술 가마솥">
+          <defs>
+            <radialGradient id="bodyG" cx="0.38" cy="0.3" r="0.9">
+              <stop offset="0" stop-color="#544d5c"/><stop offset="0.55" stop-color="#332e3a"/><stop offset="1" stop-color="#1b1822"/>
+            </radialGradient>
+            <linearGradient id="brassG" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ecca72"/><stop offset="0.5" stop-color="#b8912f"/><stop offset="1" stop-color="#7d5f1f"/>
+            </linearGradient>
+            <radialGradient id="brewG" cx="0.5" cy="0.5" r="0.62">
+              <stop offset="0" stop-color="#efb0f4"/><stop offset="0.45" stop-color="#b662d0"/><stop offset="1" stop-color="#5b2a74"/>
+            </radialGradient>
+            <radialGradient id="glowP" cx="0.5" cy="0.5" r="0.6">
+              <stop offset="0" stop-color="rgba(242,184,255,0.9)"/><stop offset="1" stop-color="rgba(242,184,255,0)"/>
+            </radialGradient>
+          </defs>
+          <!-- 그림자 -->
+          <ellipse cx="100" cy="191" rx="72" ry="7" fill="rgba(80,60,40,0.16)"/>
+          <!-- 뒤쪽 다리 2개 -->
+          <g fill="url(#brassG)" stroke="#5a4420" stroke-width="1.5" stroke-linejoin="round">
+            <path d="M54,150 C45,164 41,178 49,186 L66,186 C63,173 63,160 68,150 Z"/>
+            <path d="M146,150 C155,164 159,178 151,186 L134,186 C137,173 137,160 132,150 Z"/>
+          </g>
+          <!-- 몸통 -->
+          <ellipse cx="100" cy="114" rx="76" ry="64" fill="url(#bodyG)"/>
+          <ellipse cx="66" cy="82" rx="20" ry="30" fill="#5f5768" opacity="0.35" transform="rotate(-20 66 82)"/>
+          <!-- 측면 고리 손잡이 -->
+          <g stroke="url(#brassG)" fill="none" stroke-width="6">
+            <ellipse cx="23" cy="80" rx="12" ry="16"/>
+            <ellipse cx="177" cy="80" rx="12" ry="16"/>
+          </g>
+          <rect x="29" y="58" width="15" height="13" rx="3" fill="url(#brassG)" stroke="#5a4420" stroke-width="1"/>
+          <rect x="156" y="58" width="15" height="13" rx="3" fill="url(#brassG)" stroke="#5a4420" stroke-width="1"/>
+          <!-- 놋쇠 테두리 밴드 -->
+          <ellipse cx="100" cy="65" rx="70" ry="23" fill="#6b5426"/>
+          <ellipse cx="100" cy="60" rx="70" ry="23" fill="url(#brassG)"/>
+          <g fill="#7d5f1f">
+            <circle cx="46" cy="68" r="2.4"/><circle cx="64" cy="76" r="2.6"/><circle cx="84" cy="80" r="2.6"/>
+            <circle cx="116" cy="80" r="2.6"/><circle cx="136" cy="76" r="2.6"/><circle cx="154" cy="68" r="2.4"/>
+          </g>
+          <!-- 개구부(내부 어둠) -->
+          <ellipse cx="100" cy="57" rx="56" ry="16" fill="#241b2e"/>
+          <!-- 물약(보라 발광) -->
+          <ellipse cx="100" cy="57" rx="52" ry="14" fill="url(#brewG)"/>
+          <ellipse class="brew-glow" cx="100" cy="55" rx="40" ry="10.5" fill="url(#glowP)"/>
+          <g clip-path="url(#brewClip)">
+            <circle class="bub" style="animation-delay:0s"    cx="80"  cy="58" r="3.2" fill="#f4d9fb"/>
+            <circle class="bub" style="animation-delay:0.5s"  cx="106" cy="54" r="2.4" fill="#f4d9fb"/>
+            <circle class="bub" style="animation-delay:1s"    cx="124" cy="59" r="2.8" fill="#f4d9fb"/>
+            <circle class="bub" style="animation-delay:1.5s"  cx="90"  cy="60" r="2"   fill="#f4d9fb"/>
+            <circle class="bub" style="animation-delay:2s"    cx="132" cy="55" r="2"   fill="#f4d9fb"/>
+          </g>
+          <clipPath id="brewClip"><ellipse cx="100" cy="57" rx="52" ry="14"/></clipPath>
+          <g fill="#fff">
+            <circle class="twinkle" style="animation-delay:0s"   cx="86"  cy="52" r="1.5"/>
+            <circle class="twinkle" style="animation-delay:0.6s" cx="112" cy="50" r="1.7"/>
+            <circle class="twinkle" style="animation-delay:1.1s" cx="128" cy="55" r="1.3"/>
+            <circle class="twinkle" style="animation-delay:1.7s" cx="98"  cy="53" r="1.2"/>
+          </g>
+          <!-- 전면 메달리온 -->
+          <ellipse cx="100" cy="94" rx="19" ry="16" fill="url(#brassG)" stroke="#5a4420" stroke-width="1.5"/>
+          <ellipse cx="100" cy="94" rx="13" ry="10.5" fill="#8a6a24"/>
+          <path d="M100,86 C97,90 97,93 100,95 C103,93 103,90 100,86 Z" fill="url(#brassG)"/>
+          <path d="M92,92 C95,92 98,94 100,98 C97,99 92,97 92,92 Z M108,92 C105,92 102,94 100,98 C103,99 108,97 108,92 Z" fill="url(#brassG)"/>
+          <rect x="98.7" y="94" width="2.6" height="8" rx="1" fill="url(#brassG)"/>
+          <!-- 앞쪽 가운데 다리 -->
+          <path d="M87,166 C85,179 89,188 100,188 C111,188 115,179 113,166 C108,170 92,170 87,166 Z" fill="url(#brassG)" stroke="#5a4420" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M100,170 L100,184 M95,176 L105,176" stroke="#6a501c" stroke-width="1.4" fill="none"/>
+        </svg>
+      </div>
+      <div class="magic-circle">
+        <div class="mc-ring">
+          <svg class="mc-svg" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <radialGradient id="discG" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0" stop-color="#3a2c56"/><stop offset="0.82" stop-color="#271f3e"/><stop offset="1" stop-color="rgba(26,20,40,0)"/>
+              </radialGradient>
+              <radialGradient id="mcGlowG" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0" stop-color="rgba(200,120,230,0.4)"/><stop offset="1" stop-color="rgba(200,120,230,0)"/>
+              </radialGradient>
+            </defs>
+            <circle cx="120" cy="120" r="116" fill="url(#discG)"/>
+            <circle class="mc-core" cx="120" cy="120" r="72" fill="url(#mcGlowG)"/>
+            <g class="mc-spin" fill="none" stroke="#c9a24a" stroke-width="1.5">
+              <circle cx="120" cy="120" r="106" stroke-width="2"/>
+              <circle cx="120" cy="120" r="99"/>
+              <circle cx="120" cy="120" r="103" stroke="#dab55e" stroke-width="6" stroke-dasharray="1.5 7" opacity="0.7"/>
+              <circle cx="120" cy="120" r="54"/>
+              <circle cx="120" cy="120" r="28" opacity="0.8"/>
+              <path d="M120,30 L197.9,165 L42.1,165 Z"/>
+              <path d="M120,210 L42.1,75 L197.9,75 Z"/>
+              <g fill="#dab55e" stroke="none">
+                <circle cx="120" cy="30" r="3.6"/><circle cx="197.9" cy="165" r="3.6"/><circle cx="42.1" cy="165" r="3.6"/>
+                <circle cx="120" cy="210" r="3.6"/><circle cx="42.1" cy="75" r="3.6"/><circle cx="197.9" cy="75" r="3.6"/>
+              </g>
+              <circle cx="120" cy="120" r="10"/><circle cx="120" cy="120" r="2.6" fill="#c9a24a" stroke="none"/>
+            </g>
+          </svg>
+        </div>
+        <div id="cauldronSlots" class="cauldron-slots"></div>
+      </div>
+      <div class="cauldron-actions">
+        <button class="btn btn-ghost" onclick="clearCauldron()" data-i18n="btn_clear">비우기</button>
+        <button class="btn btn-primary" onclick="brew()"><span data-i18n="btn_brew">✨ 조합하기</span> <span id="brewCost" class="btn-cost"></span></button>
+      </div>
+    </div>
+
+    <h3 class="mini-title bag-toggle" onclick="toggleBag()">
+      <span data-i18n="bag_title">🎒 채집 가방</span>
+      <span id="bagCount" class="bag-count"></span>
+      <span id="bagChevron" class="bag-chevron">▸</span>
+    </h3>
+    <div id="ingredientBag" class="ingredient-bag"></div>
+
+    <div class="recipe-book-head">
+      <h3 class="mini-title" data-i18n="recipe_book">📖 레시피 북</h3>
+      <span id="recipeProgress" class="recipe-progress">0 / 0</span>
+    </div>
+    <!-- 카테고리 탭 (하급/중급/상급 물약 · 크리처) -->
+    <div id="recipeTabs" class="cat-tabs rb-tabs"></div>
+    <div id="recipeBook" class="recipe-book"></div>
+  </section>
+
+  <!-- ── 쇼케이스 화면 ── -->
+  <section id="screen-showcase" class="screen active">
+    <div class="room-head">
+      <h2 id="roomTitle" class="screen-title" data-i18n="screen_room">✨ 마이 룸</h2>
+      <button class="icon-btn" onclick="askResetGame()" aria-label="게임 초기화" title="게임 초기화">↺</button>
+    </div>
+
+    <div id="charStage" class="char-stage"></div>
+
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-label" data-i18n="stat_visual">✨ 비주얼</div><div id="statBeauty" class="stat-val">0</div></div>
+      <div class="stat-box"><div class="stat-label" data-i18n="stat_aura">💖 아우라</div><div id="statCharm" class="stat-val">0</div></div>
+      <div class="stat-box highlight" onclick="tierHelp(this)">
+        <div class="stat-label"><span id="showcaseTier" class="tier-ic">🌱</span> <span id="tierName" class="tier-name"></span> <span data-i18n="stat_total">매력 총합</span></div>
+        <div id="statTotal" class="stat-val">0</div>
+      </div>
+    </div>
+
+    <!-- 신체 · 아우라 상세 수치 -->
+    <div class="vitals">
+      <div class="vitals-col">
+        <div class="vitals-head" data-i18n="stat_visual">✨ 비주얼</div>
+        <dl id="vitalsBody" class="vitals-list"></dl>
+      </div>
+      <div class="vitals-col">
+        <div class="vitals-head" data-i18n="stat_aura">💖 아우라</div>
+        <dl id="vitalsAura" class="vitals-list"></dl>
+      </div>
+    </div>
+
+    <!-- 플레이 기록 (게임을 초기화하기 전까지 계속 쌓인다) -->
+    <details class="record">
+      <summary class="record-sum"><span data-i18n="rec_title">📔 플레이 기록</span><span id="recordBrief" class="record-brief"></span></summary>
+      <dl id="recordList" class="vitals-list"></dl>
+    </details>
+
+    <button class="btn btn-flex" onclick="flexCharm()" data-i18n="flex_btn">📢 매력 과시</button>
+
+    <!-- 나의 방 하위 탭 -->
+    <div class="room-tabs">
+      <button class="room-tab active" data-rtab="clothes" onclick="setRoomTab('clothes')" data-i18n="room_clothes">👗 옷</button>
+      <button class="room-tab" data-rtab="potions" onclick="setRoomTab('potions')" data-i18n="room_potions">🧴 물약</button>
+      <button class="room-tab" data-rtab="creatures" onclick="setRoomTab('creatures')" data-i18n="room_creatures">🦋 크리처</button>
+    </div>
+
+    <div id="roomPanel-clothes" class="room-panel active">
+      <div id="wardrobe" class="wardrobe"></div>
+      <div class="hint hint-block" data-i18n="hint_dress">👆 눌러서 갈아입기</div>
+    </div>
+    <div id="roomPanel-potions" class="room-panel">
+      <div id="potionShelf" class="potion-shelf"></div>
+      <div id="potionHint" class="hint hint-block" data-i18n="hint_drink">👆 눌러서 마시기</div>
+    </div>
+    <div id="roomPanel-creatures" class="room-panel">
+      <div id="creatureCollection" class="creature-collection"></div>
+    </div>
+
+    <!-- 임시(출시 버전에서 제거): AP 충전 테스트 버튼 -->
+    <button class="btn btn-dev" onclick="fillEnergy()" data-i18n="dev_fill_ap">⚡ AP 1000 충전 (임시)</button>
+  </section>
+
+  <!-- ── 하단 탭 ── -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="showcase"><span class="tab-icon">✨</span><span data-i18n="tab_showcase">마이 룸</span></button>
+    <button class="tab-btn" data-tab="atelier"><span class="tab-icon">⚗️</span><span data-i18n="tab_atelier">공방</span></button>
+    <button class="tab-btn" data-tab="gather"><span class="tab-icon">🌿</span><span data-i18n="tab_gather">채집</span></button>
+  </nav>
+</div>
+
+<!-- ── 조합 결과 모달 ── -->
+<div id="brewModal" class="modal">
+  <div class="modal-card">
+    <div id="brewModalBody"></div>
+    <button class="btn btn-primary" onclick="closeBrewModal()" data-i18n="btn_ok">확인</button>
+  </div>
+</div>
+
+<!-- ── 설정 팝업 (바깥 터치 = 닫기) ── -->
+<div id="settingsModal" class="modal" onclick="if(event.target===this) closeSettings()">
+  <div class="modal-card settings-card">
+    <div class="set-head">
+      <span data-i18n="settings">⚙️ 설정</span>
+      <button class="set-x" onclick="closeSettings()" aria-label="닫기">✕</button>
+    </div>
+    <!-- 설정 항목은 계속 추가 가능 -->
+    <div class="set-row">
+      <div class="set-label" data-i18n="setting_lang">언어 설정</div>
+      <div id="setLangList" class="set-opts"></div>
+    </div>
+    <div class="set-row">
+      <div class="set-label" data-i18n="setting_sound">사운드</div>
+      <div id="setSoundList" class="set-opts"></div>
+    </div>
+    <!-- 세이브 · 이어하기 -->
+    <div class="set-row">
+      <div class="set-label" data-i18n="setting_save">세이브</div>
+      <div id="setSyncState" class="set-note"></div>
+      <div class="set-code-row">
+        <input id="syncCode" class="set-code" readonly onclick="this.select()" aria-label="복구 코드">
+        <button class="btn btn-dev set-code-btn" onclick="copyRecoveryCode(this)" data-i18n="sync_copy">복사</button>
+      </div>
+      <div class="set-note" data-i18n="sync_help">이 코드를 적어 두면 다른 기기나 브라우저에서 이어서 할 수 있어요.</div>
+      <button class="btn btn-dev set-full" onclick="askUseRecoveryCode()">
+        <span data-i18n="sync_restore">코드로 이어하기</span>
+      </button>
+    </div>
+    <div class="set-row">
+      <button class="btn btn-dev set-full" onclick="replayIntro()">
+        <span data-i18n="setting_intro_replay">튜토리얼 인트로 다시보기</span>
+      </button>
+    </div>
+    <div class="set-row">
+      <button class="btn btn-dev set-full" onclick="clearCacheHard()">
+        <span data-i18n="setting_clear_cache">캐시 지우기 (임시)</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 이름 입력 팝업 (튜토리얼 인트로 종료 후 1회) ── -->
+<div id="nameModal" class="modal">
+  <div class="modal-card name-card">
+    <div class="name-head">
+      <span class="name-title" data-i18n="name_title">이름 짓기</span>
+      <button class="name-help" onclick="showNameRules(this)" aria-label="?">?</button>
+    </div>
+    <div class="name-msg" data-i18n="name_msg">연금술사로서의 이름이 필요해요.
+뭐라고 불리고 싶나요?</div>
+    <input id="nameInput" class="name-input" type="text" maxlength="24"
+           autocomplete="off" autocapitalize="off" spellcheck="false"
+           oninput="clearNameError()" onkeydown="if(event.key==='Enter'){event.preventDefault();submitName();}">
+    <div id="nameError" class="name-error"></div>
+    <button class="btn btn-primary" onclick="submitName()">
+      <span data-i18n="name_confirm">결정</span>
+    </button>
+  </div>
+</div>
+
+<!-- ── 확인 모달 (바깥 터치 = 취소) ── -->
+<div id="confirmModal" class="modal" onclick="if(event.target===this) closeConfirm()">
+  <div class="modal-card">
+    <div id="confirmText" class="confirm-text">정말로 진행할까요?</div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="closeConfirm()" data-i18n="btn_cancel">취소</button>
+      <button class="btn btn-primary" onclick="confirmYes()" data-i18n="btn_ok">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 토스트 ── -->
+<div id="toast" class="toast"></div>
+
+<script src="i18n.js?v=20260813a"></script>
+<script src="intro.js?v=20260813a"></script>
+<script src="data.js?v=20260813a"></script>
+<script src="avatar.js?v=20260813a"></script>
+<script src="sfx.js?v=20260813a"></script>
+<script src="sync.js?v=20260813a"></script>
+<script src="game.js?v=20260813a"></script>
+<script src="a11y.js?v=20260813a"></script>
+</body>
+</html>
