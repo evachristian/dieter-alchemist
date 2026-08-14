@@ -95,7 +95,7 @@
     const snap = pending;
     try {
       const r = await api('PUT', `/api/save/${me.playerId}`, {
-        body: { secret: me.secret, rev: snap.rev || 0, state: snap },
+        body: { secret: me.secret, rev: snap.rev || 0, state: snap, meta: metaOf(snap) },
       });
       if (r.status === 200) {
         if (pending === snap) pending = null;      // 그 사이 새 저장이 있었으면 남겨 둔다
@@ -133,6 +133,33 @@
     backoff = Math.min(backoff * 2, MAX_BACKOFF);
   }
 
+  // 세이브와 함께 보내는 요약값. 서버가 이것만 컬럼으로 빼 두면
+  // 랭킹·통계를 낼 때 세이브 본문을 전부 파싱하지 않아도 된다.
+  // (매력 총합은 크리처 보너스까지 더해야 해서 게임 규칙을 아는 쪽이 계산한다)
+  function metaOf(state) {
+    const charm = (typeof window.totalCharm === 'function') ? window.totalCharm() : null;
+    return Number.isFinite(charm) ? { charm: Math.max(0, Math.floor(charm)) } : undefined;
+  }
+
+  // ─── 이름 예약 ───
+  // 이름은 유일하다. 서버가 확인해 주기 전에는 이름을 정한 것으로 치지 않는다.
+  //  · 같은 사람이 같은 이름으로 다시 보내면 성공이다 (응답을 못 받고 재시도하는 경우)
+  //  · 오프라인이면 예약할 수 없다 — 로컬에만 정해 두면 나중에 남과 겹친다
+  async function claimName(name) {
+    if (!enabled()) return { ok: false, reason: 'offline' };
+    try {
+      const r = await api('POST', '/api/name', {
+        body: { playerId: me.playerId, secret: me.secret, name },
+      });
+      if (r.status === 200) return { ok: true, name: (r.body && r.body.name) || name };
+      if (r.status === 409) return { ok: false, reason: 'taken' };
+      if (r.body && r.body.error) return { ok: false, reason: r.body.error };
+      return { ok: false, reason: 'error' };
+    } catch (e) {
+      return { ok: false, reason: 'offline' };
+    }
+  }
+
   // game.js 의 save() 가 매번 부른다
   function push(state) {
     if (!enabled() || wiped) return;
@@ -149,7 +176,7 @@
     clearTimeout(timer);
     // keepalive 를 쓰면 페이지가 사라져도 요청이 끝까지 간다
     api('PUT', `/api/save/${me.playerId}`, {
-      body: { secret: me.secret, rev: pending.rev || 0, state: pending },
+      body: { secret: me.secret, rev: pending.rev || 0, state: pending, meta: metaOf(pending) },
       keepalive: true,
     }).catch(() => {});
   }
@@ -225,7 +252,7 @@
   window.addEventListener('online', () => { backoff = 1000; flush(); });
 
   window.Sync = {
-    push, pull, flushNow, wipe, code, useCode,
+    push, pull, flushNow, wipe, code, useCode, claimName,
     get status() { return status; },
     get playerId() { return me.playerId; },
     enabled,

@@ -655,6 +655,13 @@ body {
   min-height: 18px; font-size: 0.78rem; font-weight: 800; color: #e2708f;
   margin: 8px 0 12px; line-height: 1.4;
 }
+/* 오류가 아니라 진행 안내('확인 중…'). 분홍은 실패로 읽히므로 본문색을 쓴다.
+   --ink-dim 은 잠금 전용이라 쓰지 않는다 (TEXT_POLICY.md) */
+.name-error[data-kind="info"] { color: var(--ink-soft); }
+
+/* 서버에 이름을 확인하는 동안 */
+.btn.is-busy { opacity: 0.8; pointer-events: none; }
+.name-input:disabled { opacity: 0.8; }
 .confirm-actions { display: flex; gap: 10px; min-width: 0; }
 .confirm-actions > .btn { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .modal-card .confirm-actions .btn { width: auto; flex: 1; }

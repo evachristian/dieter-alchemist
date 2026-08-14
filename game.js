@@ -1245,15 +1245,32 @@ function clearNameError() {
   const e = document.getElementById('nameError');
   if (e) e.textContent = '';
 }
-function setNameError(msg) {
+// kind 가 'info' 면 안내(확인 중…)라 실패 효과음을 내지 않는다.
+// 색은 style.css 의 .name-error[data-kind="info"] 가 맡는다 — 대비는 TEXT_POLICY 를 따른다.
+function setNameError(msg, kind) {
   const e = document.getElementById('nameError');
-  if (e) e.textContent = msg;
-  if (window.Sfx) Sfx.play('fail');
+  if (e) {
+    e.textContent = msg;
+    if (kind) e.dataset.kind = kind; else delete e.dataset.kind;
+  }
+  if (kind !== 'info' && window.Sfx) Sfx.play('fail');
+}
+
+// 서버에 이름을 확인하는 동안 입력과 버튼을 잠근다 (연타·중복 예약 방지)
+function setNameBusy(on) {
+  const inp = document.getElementById('nameInput');
+  const btn = document.getElementById('nameSubmit');
+  if (inp) inp.disabled = !!on;
+  if (btn) { btn.disabled = !!on; btn.classList.toggle('is-busy', !!on); }
 }
 // '?' 아이콘 → 입력 조건 안내
 function showNameRules(el) { toast(T('name_rules'), el); }
 
-function submitName() {
+// 이름을 정하는 중인가 (연타로 두 번 예약되지 않게)
+let _naming = false;
+
+async function submitName() {
+  if (_naming) return;
   const inp = document.getElementById('nameInput');
   const raw = inp ? inp.value : '';
   // 조건 1-a: 공백 불가 (빈 값 포함)
@@ -1265,6 +1282,22 @@ function submitName() {
     setNameError(NAME_KO.test(raw) ? T('name_err_len_ko') : T('name_err_len_en'));
     return;
   }
+
+  // 조건 3: 이름은 유일하다 — 서버가 이 playerId 앞으로 잡아 준 뒤에야 확정한다.
+  // 로컬에서 먼저 정해 버리면 오프라인 사이에 남이 같은 이름을 가져갈 수 있다.
+  if (window.Sync && Sync.enabled()) {
+    _naming = true;
+    setNameError(T('name_checking'), 'info');
+    setNameBusy(true);
+    let r;
+    try { r = await Sync.claimName(raw); } finally { _naming = false; setNameBusy(false); }
+    if (!r.ok) {
+      if (r.reason === 'taken') setNameError(T('name_err_taken', { name: raw }));
+      else setNameError(T('name_err_server'));
+      return;
+    }
+  }
+
   S.name = raw;
   save();
   clearNameError();

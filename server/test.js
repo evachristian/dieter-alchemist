@@ -95,6 +95,103 @@ async function run(label, env) {
   r = await J('PUT', `/api/save/${ID}`, { secret: SEC, rev: 1, state: { fresh: true } });
   ok(r.status === 200, `초기화 후 새 저장 → ${r.status}`);
 
+  // ── 이름 (유일해야 한다) ──
+  const A = 'p_' + 'n'.repeat(20), B = 'p_' + 'm'.repeat(20);
+  const SEC_A = 'a'.repeat(32), SEC_B = 'b'.repeat(32);
+
+  // 형식 검사 — 클라이언트를 거치지 않은 요청도 막아야 한다
+  for (const [nm, why] of [['', '빈 이름'], ['가 나', '공백'], ['name!', '특수 문자'],
+                           ['일이삼사오육칠', '한글 7자'], ['abcdefghijklm', '영문 13자']]) {
+    r = await J('POST', '/api/name', { playerId: A, secret: SEC_A, name: nm });
+    ok(r.status === 400, `이름 형식 거부(${why}) → ${r.status} (400 기대)`);
+  }
+
+  // 세이브가 아직 없어도 이름을 잡을 수 있어야 한다 (튜토리얼에서 이름이 먼저다)
+  r = await J('POST', '/api/name', { playerId: A, secret: SEC_A, name: '루비' });
+  ok(r.status === 200 && r.body.ok, `새 플레이어가 이름 예약 → ${r.status}`);
+
+  // 같은 사람이 같은 이름을 다시 보내도 성공 (응답을 못 받고 재시도하는 경우)
+  r = await J('POST', '/api/name', { playerId: A, secret: SEC_A, name: '루비' });
+  ok(r.status === 200, '같은 사람이 같은 이름 재요청 → 성공 (멱등)');
+
+  // 남이 같은 이름 → 409
+  r = await J('POST', '/api/name', { playerId: B, secret: SEC_B, name: '루비' });
+  ok(r.status === 409 && r.body.error === 'name_taken', `남이 같은 이름 → ${r.status} (409 기대)`);
+
+  // 대소문자만 다른 이름도 같은 이름으로 본다 (사칭 방지)
+  r = await J('POST', '/api/name', { playerId: A, secret: SEC_A, name: 'Eva' });
+  ok(r.status === 200, 'A 가 Eva 예약');
+  r = await J('POST', '/api/name', { playerId: B, secret: SEC_B, name: 'eva' });
+  ok(r.status === 409, `대소문자만 다른 이름 → ${r.status} (409 기대)`);
+
+  // 남의 세이브에 이름을 붙일 수 없다
+  r = await J('POST', '/api/name', { playerId: A, secret: OTHER, name: '도둑' });
+  ok(r.status === 403, `틀린 secret 으로 이름 예약 → ${r.status} (403 기대)`);
+
+  // 사용 가능 여부 조회
+  r = await J('GET', '/api/name/Eva');
+  ok(r.status === 200 && r.body.available === false, '쓰이는 이름 → available:false');
+  r = await J('GET', '/api/name/' + encodeURIComponent('아무도안씀'));
+  ok(r.status === 200 && r.body.available === true, '안 쓰는 이름 → available:true');
+
+  // 경합: 같은 이름을 동시에 요청하면 정확히 하나만 성공해야 한다
+  {
+    const C = 'p_' + 'c'.repeat(20), Dd = 'p_' + 'd'.repeat(20);
+    const res = await Promise.all([
+      J('POST', '/api/name', { playerId: C, secret: 'c'.repeat(32), name: '동시에' }),
+      J('POST', '/api/name', { playerId: Dd, secret: 'd'.repeat(32), name: '동시에' }),
+    ]);
+    const won = res.filter(x => x.status === 200).length;
+    ok(won === 1, `같은 이름 동시 요청 → 성공 ${won}건 (1건이어야 함)`);
+  }
+
+  // 저장하면 이름·매력·플레이 시간이 컬럼으로 남는다
+  r = await J('PUT', `/api/save/${A}`, {
+    secret: SEC_A, rev: 1,
+    state: { name: 'Eva', stats: { beauty: 10, charm: 5 }, record: { playSec: 77 } },
+    meta: { charm: 42 },
+  });
+  ok(r.status === 200, `이름 있는 세이브 저장 → ${r.status}`);
+  {
+    const row = await store.get(A);
+    ok(row && row.name === 'Eva', `이름 컬럼 = ${row && row.name}`);
+    ok(row && row.charm === 42, `매력 총합 컬럼 = ${row && row.charm} (meta 우선)`);
+    ok(row && row.playSec === 77, `플레이 시간 컬럼 = ${row && row.playSec}`);
+  }
+
+  // meta 가 없으면 state 만으로 계산 가능한 값으로 떨어진다 (옛 클라이언트)
+  r = await J('PUT', `/api/save/${A}`, {
+    secret: SEC_A, rev: 2,
+    state: { name: 'Eva', stats: { beauty: 10, charm: 5 }, record: { playSec: 80 } },
+  });
+  {
+    const row = await store.get(A);
+    ok(row && row.charm === 15, `meta 없으면 비주얼+아우라 = ${row && row.charm}`);
+  }
+
+  // 저장이 남의 이름을 덮어쓰지 않는다 (예약해 둔 쪽이 정본)
+  r = await J('PUT', `/api/save/${B}`, {
+    secret: SEC_B, rev: 1, state: { name: 'Eva', stats: {}, record: {} },
+  });
+  ok(r.status === 200, `남의 이름이 든 세이브도 저장은 된다 → ${r.status}`);
+  {
+    const rowB = await store.get(B);
+    const rowA = await store.get(A);
+    ok(!rowB.name || rowB.name !== 'Eva' || rowA.playerId === B,
+       `B 가 A 의 이름을 뺏지 않음 (B.name = ${rowB.name})`);
+    ok(rowA && rowA.name === 'Eva', 'A 의 이름은 그대로');
+  }
+
+  // 랭킹
+  r = await J('GET', '/api/ranking?limit=5');
+  ok(r.status === 200 && Array.isArray(r.body.top), `랭킹 조회 → ${r.status}`);
+  ok(r.body.top.every(x => x.name), '랭킹에는 이름 있는 플레이어만');
+
+  // 초기화하면 이름이 풀려 남이 쓸 수 있다
+  await J('DELETE', `/api/save/${A}?secret=${SEC_A}`);
+  r = await J('POST', '/api/name', { playerId: B, secret: SEC_B, name: 'Eva' });
+  ok(r.status === 200, `초기화된 이름을 남이 다시 씀 → ${r.status} (200 기대)`);
+
   // 11) 게임 파일이 같은 서버에서 서빙된다
   const html = await fetch(base + '/');
   const text = await html.text();

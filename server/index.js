@@ -24,6 +24,24 @@ const MAX_BODY = '256kb';
 const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const SECRET_RE = /^[A-Za-z0-9_-]{16,128}$/;
 
+// ─── 이름 규칙 ───
+// game.js 의 NAME_ALLOW / NAME_MAX_W 와 같은 규칙이다. 클라이언트 검사는 안내용이고,
+// 여기서 다시 보는 이유는 클라이언트를 거치지 않은 요청도 들어올 수 있기 때문이다.
+// 규칙을 바꾸면 양쪽을 같이 고쳐야 한다.
+const NAME_ALLOW = /^[0-9A-Za-zᄀ-ᇿ㄰-㆏가-힣]+$/;
+const NAME_KO = /[ᄀ-ᇿ㄰-㆏가-힣]/;
+const NAME_MAX_W = 12;                       // 한글 6자 / 영문 12자
+const nameWidth = s => [...String(s)].reduce((w, ch) => w + (NAME_KO.test(ch) ? 2 : 1), 0);
+
+// 통과하면 null, 아니면 오류 코드
+function nameProblem(raw) {
+  const s = String(raw == null ? '' : raw);
+  if (!s || /\s/.test(s)) return 'bad_name_space';
+  if (!NAME_ALLOW.test(s)) return 'bad_name_char';
+  if (nameWidth(s) > NAME_MAX_W) return 'bad_name_len';
+  return null;
+}
+
 app.disable('x-powered-by');
 app.set('trust proxy', 1);          // Railway 프록시 뒤에서 클라이언트 IP 를 제대로 읽기 위해
 app.use(express.json({ limit: MAX_BODY }));
@@ -33,7 +51,7 @@ app.use(express.json({ limit: MAX_BODY }));
 // 열어 볼 때를 위해 열어 둔다. 세이브는 secret 으로 보호되므로 출처는 제한하지 않는다.
 app.use((req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET,PUT,DELETE,OPTIONS');
+  res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
   res.set('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
@@ -58,6 +76,61 @@ app.get('/api/health', async (req, res) => {
     res.json({ ok: true, store: store.kind, saves: await store.count() });
   } catch (e) {
     res.status(500).json({ ok: false, store: store.kind, error: String(e.message || e) });
+  }
+});
+
+// ─── 이름 ───
+// 로그인이 없는 동안 이름은 '표시용'이 아니라 사람이 서로를 알아보는 유일한 단서다.
+// 그래서 유일하게 잡아 둔다. 신원 자체는 여전히 playerId 가 맡는다 —
+// 나중에 이메일 로그인을 붙일 때도 playerId 를 계정에 연결하기만 하면 된다.
+
+//  GET /api/name/:name  →  쓸 수 있는 이름인지 (입력 중 안내용)
+app.get('/api/name/:name', async (req, res) => {
+  const name = String(req.params.name || '');
+  const bad = nameProblem(name);
+  if (bad) return res.status(400).json({ error: bad, available: false });
+  try {
+    const row = await store.getByName(name);
+    res.json({ ok: true, name, available: !row });
+  } catch (e) {
+    console.error('[GET /api/name]', e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+//  POST /api/name   { playerId, secret, name }
+//  · 이름을 이 playerId 로 예약한다. 이미 남이 쓰고 있으면 409.
+//  · 같은 playerId 가 같은 이름을 다시 보내면 성공으로 친다 (재시도해도 안전해야 한다 —
+//    응답을 못 받고 다시 보내는 경우가 실제로 생긴다)
+app.post('/api/name', async (req, res) => {
+  const { playerId, secret, name } = req.body || {};
+  if (!ID_RE.test(String(playerId || ''))) return res.status(400).json({ error: 'bad_player_id' });
+  if (!SECRET_RE.test(String(secret || ''))) return res.status(400).json({ error: 'bad_secret' });
+  const bad = nameProblem(name);
+  if (bad) return res.status(400).json({ error: bad });
+
+  try {
+    const mine = await store.get(playerId);
+    // 남의 세이브에 이름을 붙이려는 요청은 막는다
+    if (mine && mine.secret !== secret) return res.status(403).json({ error: 'forbidden' });
+
+    const r = await store.claimName(playerId, secret, String(name));
+    if (!r.ok) return res.status(409).json({ error: 'name_taken', name });
+    res.json({ ok: true, playerId, name: String(name) });
+  } catch (e) {
+    console.error('[POST /api/name]', e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+// ─── 매력 총합 랭킹 ───
+app.get('/api/ranking', async (req, res) => {
+  const limit = Number(req.query.limit) || 20;
+  try {
+    res.json({ ok: true, top: await store.top(limit) });
+  } catch (e) {
+    console.error('[GET /api/ranking]', e);
+    res.status(500).json({ error: 'server_error' });
   }
 });
 
@@ -88,7 +161,7 @@ app.get('/api/save/:playerId', async (req, res) => {
 //    409 와 함께 서버 쪽 세이브를 돌려준다. 어느 쪽을 쓸지는 클라이언트가 정한다.
 app.put('/api/save/:playerId', async (req, res) => {
   const { playerId } = req.params;
-  const { secret, rev, state } = req.body || {};
+  const { secret, rev, state, meta } = req.body || {};
 
   if (!ID_RE.test(playerId)) return res.status(400).json({ error: 'bad_player_id' });
   if (!SECRET_RE.test(String(secret || ''))) return res.status(400).json({ error: 'bad_secret' });
@@ -107,7 +180,7 @@ app.put('/api/save/:playerId', async (req, res) => {
         });
       }
     }
-    await store.put(playerId, secret, rev, state);
+    await store.put(playerId, secret, rev, state, meta);
     res.json({ ok: true, rev, savedAt: new Date().toISOString() });
   } catch (e) {
     console.error('[PUT /api/save]', e);
