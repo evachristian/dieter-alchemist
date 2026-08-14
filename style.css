@@ -69,7 +69,10 @@ body {
   border-bottom: 1px solid rgba(255,255,255,0.6);
 }
 
-/* AP (헤더 내 에너지 게이지 — 숫자 내부 표시 + ? 안내) */
+/* AP (헤더 내 에너지 게이지 — 숫자 내부 표시 + ? 안내)
+   이 줄은 ⚡ · AP · 게이지 · ? 가 전부 고정 폭이거나 최소 폭을 갖는다.
+   게이지의 min-width 는 안에 겹쳐 쓰는 "1000/1000"(약 60px) 을 담기 위한 값이라
+   더 줄일 수 없다 → 아주 좁은 화면에서는 AP 글자를 감춘다 (파일 끝 좁은 화면 블록). */
 .ap-wrap { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
 .ap-label { font-size: 0.82rem; font-weight: 800; color: var(--ink); }
 .en-ic { font-size: 0.95rem; }
@@ -566,7 +569,9 @@ body {
 .wr-nm { font-size: 0.72rem; font-weight: 700; color: var(--ink); text-align: center; line-height: 1.15; }
 .wr-item.locked .wr-nm { color: var(--ink); }          /* 흐려진 만큼 글자는 진하게 */
 .wr-lock { position: absolute; right: -8px; bottom: -4px; font-size: 0.8rem; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2)); }
-.wr-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 8px; min-width: 0; }
+/* 보유 개수 + 랜덤 획득 버튼. 둘 다 말줄임보다는 줄을 나누는 편이 읽기 좋다 —
+   좁은 화면에서 "🎁 Random Unlock (test)" 이 잘리지 않도록 wrap 을 허용한다. */
+.wr-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-top: 10px; gap: 8px; min-width: 0; }
 .wr-foot > * { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wr-count { font-size: 0.72rem; font-weight: 800; color: var(--ink-soft); }
 .wr-gift {
@@ -674,3 +679,20 @@ body {
 /* 여러 줄 토스트 (이름 규칙 안내 등) */
 .toast.multi { white-space: pre-line; border-radius: 14px; text-align: center; line-height: 1.5; max-width: 280px; word-break: keep-all; }
 .toast.multi.anchored { text-align: left; }
+
+/* ─── 아주 좁은 화면 (UI_POLICY.md '가변 폭' 4단계) ───
+   줄어들 수도 말줄임할 수도 없는 고정 폭 요소만 남은 줄은, 화면이 더 좁아지면
+   결국 부모 밖으로 밀려난다. 그럴 때는 그 줄에서 가장 덜 중요한 것을 감춘다.
+   .app 이 max-width: 480px 라 헤더 폭 == min(뷰포트, 480) 이므로 뷰포트 기준이 맞다. */
+@media (max-width: 340px) {
+  /* ⚡ 아이콘과 ? 안내가 이미 있으니, AP 글자가 없어도 뜻이 통한다.
+     이걸 감추지 않으면 ? 버튼이 .ap-wrap 밖으로 밀려난다 (265px 에서 8px) */
+  .ap-label { display: none; }
+
+  /* 균등 분할 탭은 가장 긴 라벨이 기준이다. 영어 "🦋 Creatures" 가
+     3분할 폭을 넘어서므로 글자와 좌우 여백을 함께 줄인다 (12.5px, 최소 11px 이상) */
+  .room-tab { font-size: 0.78rem; padding: 10px 3px; }
+
+  /* 공방 실행 줄도 같은 이유 — "✨ 조합하기 ⚡25" 가 절반 폭을 넘어선다 (13.8px) */
+  .cauldron-actions > .btn { font-size: 0.86rem; padding: 13px 10px; }
+}
