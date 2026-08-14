@@ -576,8 +576,8 @@ function render() {
   if (currentTab === 'gather') renderGather();
   if (currentTab === 'atelier') renderAtelier();
   if (currentTab === 'showcase') renderShowcase();
-  // 새로 그려진 카테고리 탭 줄에 좌우 스크롤을 자동으로 붙인다
-  document.querySelectorAll('.cat-tabs').forEach(setupTabScroll);
+  // 스크롤 핸들러는 document 에 위임돼 있어 다시 붙일 필요가 없다. 선택 탭 정렬만 해 준다.
+  document.querySelectorAll('.cat-tabs').forEach(centerActiveTab);
 }
 
 function renderHeader() {
@@ -969,50 +969,72 @@ function renderWardrobe() {
     ? `<div class="wr-hint">${T('dress_hint')}</div>` : '';
 
   el.innerHTML = `<div class="cat-tabs wr-tabs">${tabs}</div>${hint}<div class="wr-items">${items}</div>${foot}`;
+  // render() 를 거치지 않고 불릴 수 있어(setWardrobeTab · equip) 여기서 직접 정렬한다
+  centerActiveTab(el.querySelector('.cat-tabs'));
 }
 
 // 카테고리 탭 줄(.cat-tabs)의 좌우 스크롤 — UI_POLICY.md 참고
 // 스크롤바는 감추고, 마지막 버튼이 잘려 보이는 것으로 '더 있다'를 알린다.
 // 터치는 브라우저 기본 스크롤을 쓰고, 데스크톱을 위해 마우스 휠 / 끌어서 스크롤을 더한다.
-// (렌더할 때마다 새 요소가 만들어지므로 요소마다 한 번씩 붙인다)
-function setupTabScroll(el) {
-  if (!el || el.dataset.scrollReady) return;
-  el.dataset.scrollReady = '1';
+//
+// 핸들러는 요소마다 붙이지 않고 document 에 한 번만 붙인다(이벤트 위임).
+// 예전에는 요소마다 붙였는데, .cat-tabs 는 다시 그릴 때마다 통째로 새 요소가 되므로
+// render() 를 거치지 않는 경로(setWardrobeTab → renderWardrobe, equip → renderShowcase)로
+// 다시 그리면 새 줄에는 아무것도 안 붙어 데스크톱에서 스크롤이 죽었다.
+// 터치는 브라우저 기본 스크롤이라 멀쩡했던 탓에 '가끔 되는' 것처럼 보였다.
+// 위임하면 어느 경로로 몇 번을 다시 그리든 항상 동작한다.
+function tabsAt(e) {
+  const el = e.target && e.target.closest ? e.target.closest('.cat-tabs') : null;
+  return el && el.scrollWidth > el.clientWidth ? el : null;   // 넘치지 않으면 볼일 없다
+}
 
-  // 선택된 탭이 화면 밖이면 가운데로 당겨온다
-  const active = el.querySelector('.wr-tab.active');
-  if (active) {
-    el.scrollLeft = Math.max(0, active.offsetLeft - (el.clientWidth - active.offsetWidth) / 2);
-  }
-
+function initTabScroll() {
   // 마우스 휠(세로) → 가로 스크롤
-  el.addEventListener('wheel', e => {
-    if (el.scrollWidth <= el.clientWidth) return;
+  document.addEventListener('wheel', e => {
+    const el = tabsAt(e);
+    if (!el) return;
     if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;   // 가로 휠은 그대로
     el.scrollLeft += e.deltaY;
     e.preventDefault();
   }, { passive: false });
 
   // 마우스로 끌어서 스크롤
-  let down = false, startX = 0, startLeft = 0, moved = 0;
-  el.addEventListener('pointerdown', e => {
+  let drag = null, startX = 0, startLeft = 0, moved = 0;
+  document.addEventListener('pointerdown', e => {
+    moved = 0;
     if (e.pointerType === 'touch') return;                  // 터치는 기본 동작 사용
-    down = true; moved = 0; startX = e.clientX; startLeft = el.scrollLeft;
+    drag = tabsAt(e);
+    if (!drag) return;
+    startX = e.clientX; startLeft = drag.scrollLeft;
   });
-  el.addEventListener('pointermove', e => {
-    if (!down) return;
+  document.addEventListener('pointermove', e => {
+    if (!drag) return;
     const dx = e.clientX - startX;
     if (Math.abs(dx) > moved) moved = Math.abs(dx);
-    if (moved > 3) { el.scrollLeft = startLeft - dx; el.classList.add('dragging'); e.preventDefault(); }
+    if (moved > 3) { drag.scrollLeft = startLeft - dx; drag.classList.add('dragging'); e.preventDefault(); }
   });
-  const release = () => { down = false; el.classList.remove('dragging'); };
-  el.addEventListener('pointerup', release);
-  el.addEventListener('pointercancel', release);
-  el.addEventListener('pointerleave', release);
+  const release = () => {
+    if (drag) drag.classList.remove('dragging');
+    drag = null;
+  };
+  document.addEventListener('pointerup', release);
+  document.addEventListener('pointercancel', release);
   // 끌고 난 직후의 클릭은 탭 전환으로 치지 않는다
-  el.addEventListener('click', e => {
-    if (moved > 6) { e.stopPropagation(); e.preventDefault(); moved = 0; }
+  document.addEventListener('click', e => {
+    const el = e.target && e.target.closest ? e.target.closest('.cat-tabs') : null;
+    if (el && moved > 6) { e.stopPropagation(); e.preventDefault(); }
+    moved = 0;
   }, true);
+}
+
+// 선택된 탭이 화면 밖이면 가운데로 당겨온다 (요소 하나당 한 번만 — 이후엔 사용자가 굴린 위치를 지킨다)
+// 예전에는 .wr-tab.active 를 찾아 옷장 줄에서만 동작했다. 지대·레시피 줄은 .cat-tab 뿐이라 빠져 있었다.
+function centerActiveTab(el) {
+  if (!el || el.dataset.centered) return;
+  el.dataset.centered = '1';
+  const active = el.querySelector('.cat-tab.active');
+  if (!active) return;
+  el.scrollLeft = Math.max(0, active.offsetLeft - (el.clientWidth - active.offsetWidth) / 2);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1480,6 +1502,7 @@ window.switchTab = switchTab;   // 인트로 종료 후 탭 전환
 window.currentTab = currentTab;   // i18n에서 언어 변경 시 재렌더
 document.addEventListener('DOMContentLoaded', () => {
   if (window.I18N) I18N.apply();
+  initTabScroll();          // 카테고리 탭 줄 좌우 스크롤 (document 위임 — 한 번만)
   document.querySelectorAll('.tab-btn').forEach(b =>
     b.addEventListener('click', () => switchTab(b.dataset.tab)));
   refreshEnergy();          // 접속 시 자정 롤오버 반영
