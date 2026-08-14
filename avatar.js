@@ -67,35 +67,55 @@
   const HEAD_K_SLIM = 0.59;
   const lerpN = (a, b, t) => a + (b - a) * t;
 
-  function legs() {
+  // ─── 파츠별 미세 조정 (임시 · 테스트용) ───────────────────────
+  // build(outfit, body, tune) 의 tune 으로 파츠 굵기/크기를 따로 조절한다. 1 = 기본.
+  // 팔·허벅지·종아리는 좌우가 각자 제자리에서 굵어지도록 **자기 중심**을 축으로 늘린다.
+  // (x=100 을 축으로 하면 굵어지는 대신 바깥으로 벌어져 어깨에서 떨어져 보인다)
+  const TUNE_KEYS = ['torso', 'arm', 'thigh', 'calf', 'face'];
+  function tuneOf(tune, k) {
+    const v = tune && Number(tune[k]);
+    return Number.isFinite(v) && v > 0 ? v : 1;
+  }
+  // 가로(굵기)만 늘리는 변환 — ax 를 축으로
+  function sx(k, ax) {
+    return k === 1 ? '' : ` transform="translate(${ax},0) scale(${k.toFixed(3)},1) translate(${-ax},0)"`;
+  }
+  // 전체 크기를 늘리는 변환 — (ax,ay) 를 축으로
+  function su(k, ax, ay) {
+    return k === 1 ? '' : ` transform="translate(${ax},${ay}) scale(${k.toFixed(3)}) translate(${-ax},${-ay})"`;
+  }
+
+  function legs(tune) {
+    const kt = tuneOf(tune, 'thigh'), kc = tuneOf(tune, 'calf');
     return `
       <g data-part="calf">
-        <rect x="80" y="266" width="17" height="66" rx="8" fill="${SKIN}"/>
-        <rect x="103" y="266" width="17" height="66" rx="8" fill="${SKIN}"/>
+        <g${sx(kc, 88.5)}><rect x="80" y="266" width="17" height="66" rx="8" fill="${SKIN}"/></g>
+        <g${sx(kc, 111.5)}><rect x="103" y="266" width="17" height="66" rx="8" fill="${SKIN}"/></g>
       </g>
       <ellipse cx="86" cy="335" rx="12" ry="7" fill="${SKIN_SH}"/>
       <ellipse cx="114" cy="335" rx="12" ry="7" fill="${SKIN_SH}"/>
       <g data-part="thigh">
-        <rect x="78" y="204" width="20" height="68" rx="10" fill="${SKIN}"/>
-        <rect x="102" y="204" width="20" height="68" rx="10" fill="${SKIN}"/>
+        <g${sx(kt, 88)}><rect x="78" y="204" width="20" height="68" rx="10" fill="${SKIN}"/></g>
+        <g${sx(kt, 112)}><rect x="102" y="204" width="20" height="68" rx="10" fill="${SKIN}"/></g>
       </g>`;
   }
 
-  function torsoArms() {
+  function torsoArms(tune) {
+    const kb = tuneOf(tune, 'torso'), ka = tuneOf(tune, 'arm');
     return `
       <rect x="91" y="96" width="18" height="20" rx="7" fill="${SKIN_SH}"/>
       <g data-part="torso">
-        <path d="M64,126 C64,118 80,113 100,113 C120,113 136,118 136,126
-          L130,196 C130,208 116,214 100,214 C84,214 70,208 70,196 Z" fill="${SKIN}"/>
+        <g${sx(kb, 100)}><path d="M64,126 C64,118 80,113 100,113 C120,113 136,118 136,126
+          L130,196 C130,208 116,214 100,214 C84,214 70,208 70,196 Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="arm">
-        <rect x="52" y="120" width="15" height="94" rx="7.5" fill="${SKIN}" transform="rotate(7 59 130)"/>
-        <rect x="133" y="120" width="15" height="94" rx="7.5" fill="${SKIN}" transform="rotate(-7 141 130)"/>
+        <g${sx(ka, 59.5)}><rect x="52" y="120" width="15" height="94" rx="7.5" fill="${SKIN}" transform="rotate(7 59 130)"/></g>
+        <g${sx(ka, 140.5)}><rect x="133" y="120" width="15" height="94" rx="7.5" fill="${SKIN}" transform="rotate(-7 141 130)"/></g>
       </g>`;
   }
 
   // 얼굴(피부) + 귀 + 표정
-  function faceAndExpression(expItem) {
+  function faceAndExpression(expItem, tune) {
     const kind = (expItem && expItem.kind) || 'smile';
     const EYE = '#4a3a42', LIP = '#c97b86';
     let eyes, mouth;
@@ -125,8 +145,9 @@
           <circle cx="88.7" cy="72.4" r="1.7" fill="#fff"/><circle cx="114.7" cy="72.4" r="1.7" fill="#fff"/>`;
         mouth = `<path d="M94,89 Q100,94 106,89" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
     }
+    // 얼굴만 턱(100,105)을 축으로 키운다 — 머리카락은 따로라 같이 커지지 않는다
     return `
-      <g data-part="head">
+      <g data-part="head"${su(tuneOf(tune, 'face'), 100, 105)}>
         <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
         <ellipse cx="67" cy="76" rx="6" ry="9" fill="${SKIN}"/>
         <ellipse cx="133" cy="76" rx="6" ry="9" fill="${SKIN}"/>
@@ -351,7 +372,7 @@
   // ═══════════════════════════════════════════════════════════════
   // body: 체형 0(날씬) ~ 1(튜토리얼 인트로의 통통한 공주). 기본 0.
   // 몸통/팔다리와 '옷'을 같은 그룹으로 함께 늘려서 옷이 몸에서 어긋나지 않게 한다.
-  function build(outfit, body) {
+  function build(outfit, body, tune) {
     outfit = outfit || {};
     const w = Math.max(0, Math.min(1, Number(body) || 0));
 
@@ -383,11 +404,11 @@
 
     const layers = [
       H(hairBack(hairKind, hairColor)),
-      B(legs()),
+      B(legs(tune)),
       B(hasDress ? '' : renderBottom(bottom)),
-      B(torsoArms()),
+      B(torsoArms(tune)),
       B(hasDress ? renderDress(dress) : renderTop(top)),
-      H(faceAndExpression(expItem)),
+      H(faceAndExpression(expItem, tune)),
       H(hairFront(hairKind, hairColor)),
       B(renderTattoo(getItem('tattoo', outfit.tattoo))),
       H(renderEarring(getItem('earring', outfit.earring))),
@@ -522,5 +543,5 @@
     </svg>`;
   }
 
-  window.Avatar = { build, getItem, roomScene };
+  window.Avatar = { build, getItem, roomScene, TUNE_KEYS };
 })();

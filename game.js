@@ -746,7 +746,7 @@ function renderShowcase() {
     const r = D.RECIPES.find(x => x.result.id === cid);
     return r ? `<span class="stage-creature">${r.result.emoji}</span>` : '';
   }).join('');
-  const avatarSvg = window.Avatar ? window.Avatar.build(S.outfit, bodyLevel()) : tier.emoji;
+  const avatarSvg = window.Avatar ? window.Avatar.build(S.outfit, bodyLevel(), tuneScales()) : tier.emoji;
   const sceneSvg = window.Avatar && window.Avatar.roomScene ? window.Avatar.roomScene() : '';
   stage.innerHTML = `
     <div class="room-scene">${sceneSvg}</div>
@@ -770,6 +770,9 @@ function renderShowcase() {
 
   // 신체 · 아우라 상세 수치
   renderVitals();
+
+  // 바디 파츠 조절 (임시 · 테스트용)
+  renderBodyTune();
 
   // 스탯
   document.getElementById('statBeauty').textContent = S.stats.beauty;
@@ -988,6 +991,100 @@ function renderWardrobe() {
   row.scrollLeft = keepLeft;
   if (keepCentered) row.dataset.centered = keepCentered;
   centerActiveTab(row);          // 처음 한 번만 맞춘다 (선택 변경은 setWardrobeTab 이 따로 처리)
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  바디 파츠 조절 (임시 · 테스트용 — 출시 때 이 블록과 index.html 의 #bodyTune 을 지운다)
+//  버튼을 누르고 있으면 값이 계속 오르내린다.
+//  세이브에는 넣지 않는다 — 별도 localStorage 키로만 두어 SAVE_VER·migrate 를 건드리지 않고,
+//  서버로도 올라가지 않게 한다 (테스트 값이 남의 기기까지 따라다니면 곤란하다)
+// ═══════════════════════════════════════════════════════════════
+const TUNE_KEY = 'dieter_alchemist_bodytune_v1';
+const TUNE_PARTS = [
+  { k: 'torso', label: '몸통' },
+  { k: 'arm',   label: '팔' },
+  { k: 'thigh', label: '허벅지' },
+  { k: 'calf',  label: '종아리' },
+  { k: 'face',  label: '얼굴' },
+];
+const TUNE_MIN = 50, TUNE_MAX = 200, TUNE_STEP = 2;   // % 단위 (100 = 기본)
+
+function defaultTune() {
+  const o = {};
+  TUNE_PARTS.forEach(p => { o[p.k] = 100; });
+  return o;
+}
+let bodyTune = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TUNE_KEY) || '{}');
+    return Object.assign(defaultTune(), saved);
+  } catch (e) { return defaultTune(); }
+})();
+
+// Avatar.build 에 넘길 배율 (100% → 1.0)
+function tuneScales() {
+  const o = {};
+  TUNE_PARTS.forEach(p => { o[p.k] = (bodyTune[p.k] || 100) / 100; });
+  return o;
+}
+
+function bumpTune(k, dir) {
+  const cur = bodyTune[k] || 100;
+  const next = Math.max(TUNE_MIN, Math.min(TUNE_MAX, cur + dir * TUNE_STEP));
+  if (next === cur) return false;                 // 끝까지 갔으면 반복을 멈춘다
+  bodyTune[k] = next;
+  try { localStorage.setItem(TUNE_KEY, JSON.stringify(bodyTune)); } catch (e) {}
+  renderShowcase();                               // 아바타 + 수치 같이 갱신
+  return true;
+}
+window.bumpTune = bumpTune;
+
+function resetTune() {
+  bodyTune = defaultTune();
+  try { localStorage.setItem(TUNE_KEY, JSON.stringify(bodyTune)); } catch (e) {}
+  renderShowcase();
+}
+window.resetTune = resetTune;
+
+// 누르고 있으면 계속 증감 — 첫 입력 즉시 1회, 400ms 뒤부터 60ms 간격 반복
+let tuneHold = null;
+function startTuneHold(k, dir) {
+  stopTuneHold();
+  if (!bumpTune(k, dir)) return;
+  const timer = setTimeout(() => {
+    const iv = setInterval(() => { if (!bumpTune(k, dir)) stopTuneHold(); }, 60);
+    if (tuneHold) tuneHold.interval = iv;
+  }, 400);
+  tuneHold = { timeout: timer, interval: null };
+}
+function stopTuneHold() {
+  if (!tuneHold) return;
+  clearTimeout(tuneHold.timeout);
+  if (tuneHold.interval) clearInterval(tuneHold.interval);
+  tuneHold = null;
+}
+window.startTuneHold = startTuneHold;
+window.stopTuneHold = stopTuneHold;
+
+function renderBodyTune() {
+  const el = document.getElementById('bodyTune');
+  if (!el) return;
+  const rows = TUNE_PARTS.map(p => {
+    const v = bodyTune[p.k] || 100;
+    // pointerdown 으로 시작해 pointerup/leave/cancel 로 멈춘다 (터치·마우스 공통)
+    const btn = (dir, sign) => `<button class="tune-btn" aria-label="${p.label} ${sign}"
+      onpointerdown="startTuneHold('${p.k}',${dir})"
+      onpointerup="stopTuneHold()" onpointerleave="stopTuneHold()" onpointercancel="stopTuneHold()"
+      oncontextmenu="return false">${sign}</button>`;
+    return `<div class="tune-row">
+      <span class="tune-label">${p.label}</span>
+      ${btn(-1, '−')}
+      <span class="tune-val${v === 100 ? '' : ' on'}">${v}%</span>
+      ${btn(1, '+')}
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="tune-head">🧪 바디 파츠 조절 (임시)
+      <button class="tune-reset" onclick="resetTune()">되돌리기</button></div>${rows}`;
 }
 
 // 카테고리 탭 줄(.cat-tabs)의 좌우 스크롤 — UI_POLICY.md 참고
