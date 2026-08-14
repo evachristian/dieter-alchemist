@@ -22,6 +22,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── sfx.js                 WebAudio 효과음(에셋 없음) → window.Sfx
 ├── a11y.js                검증기 → checkTextStyle / checkLayout / checkLocked / checkUI
 ├── style.css
+├── HANDOFF.md             새 세션 인수인계 (배포 주소·시작 전 확인·남은 작업)
 ├── TEXT_POLICY.md         글자 색·폰트 정책
 ├── UI_POLICY.md           컴포넌트 정책 (탭·가변폭·잠금 표현 등)
 └── server/
