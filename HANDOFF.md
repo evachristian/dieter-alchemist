@@ -12,7 +12,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 저장소 | `evachristian/dieter-alchemist` (**비공개**, 기본 브랜치 `main`) |
+| 저장소 | `evachristian/dieter-alchemist` (**공개**, 기본 브랜치 `main`) |
 | 배포 | https://alchemist-production-7583.up.railway.app/ |
 | 저장소 종류 | Postgres (`/api/health` 의 `store` 로 확인) |
 

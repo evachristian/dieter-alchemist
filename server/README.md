@@ -20,10 +20,13 @@
 Railway 대시보드 → **New Project** → **Deploy from GitHub repo** →
 `evachristian/dieter-alchemist` 선택.
 
-> **이 저장소는 비공개다.** Railway 에 접근 권한을 따로 줘야 목록에 보인다.
-> Settings 에 **"GitHub Repo not found"** 라고 뜬다면 권한이 없는 것이다 —
-> GitHub → Settings → Applications → **Railway** 에서 이 저장소 접근을 허용하거나,
+> 이 저장소는 **공개**라 Railway 목록에 그냥 보인다.
+> 그래도 Settings 에 **"GitHub Repo not found"** 라고 뜬다면 연동이 끊긴 것이다 —
+> GitHub → Settings → Applications → **Railway** 에서 접근을 다시 허용하거나,
 > Railway 의 Source 를 다시 연결한다.
+>
+> **공개 저장소이므로 비밀값을 커밋하지 않는다.** 접속 정보는 Railway 의
+> Variables 에만 두고, 저장소에는 `${{Postgres.DATABASE_URL}}` 같은 참조만 적는다.
 
 **방법 B — CLI 로 직접 올리기** (GitHub 연결 없이)
 

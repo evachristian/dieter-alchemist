@@ -39,7 +39,10 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 
 ## 저장소
 
-`github.com/evachristian/dieter-alchemist` (비공개). 기본 브랜치 `main`.
+`github.com/evachristian/dieter-alchemist` (**공개**). 기본 브랜치 `main`.
+
+공개 저장소다 — **비밀값을 커밋하지 않는다.** 한 번 올리면 지워도 히스토리에 남는다.
+접속 정보·토큰은 Railway 의 Variables 에만 두고, 저장소에는 참조만 적는다.
 
 커밋 작성자는 **이 저장소에만** 따로 잡아 두었다 (`git config user.name/email`, `--global` 아님).
 전역 설정과 다르니 `git config user.email` 로 확인하고 커밋할 것.
