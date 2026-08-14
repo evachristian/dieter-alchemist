@@ -84,6 +84,16 @@
   function su(k, ax, ay) {
     return k === 1 ? '' : ` transform="translate(${ax},${ay}) scale(${k.toFixed(3)}) translate(${-ax},${-ay})"`;
   }
+  // 옷도 자기가 덮는 파츠를 따라 커진다 — 살이 옷 밖으로 나오지 않게.
+  // 여러 파츠를 덮는 옷(치마·바지·드레스)은 그중 **가장 큰 배율**을 따른다.
+  // 하나만 따라가면 나머지 파츠에서 살이 삐져나온다.
+  function tuneMax(tune, keys) {
+    return keys.reduce((m, k) => Math.max(m, tuneOf(tune, k)), 1);
+  }
+  // 도형 묶음을 가로로 늘려 감싼다 (배율이 1이면 그대로 둔다)
+  function wrapX(s, k, ax) {
+    return (!s || k === 1) ? s : `<g${sx(k, ax)}>${s}</g>`;
+  }
 
   function legs(tune) {
     const kt = tuneOf(tune, 'thigh'), kc = tuneOf(tune, 'calf');
@@ -201,34 +211,42 @@
   // ═══════════════════════════════════════════════════════════════
   //  옷 (상의 / 하의 / 원피스)
   // ═══════════════════════════════════════════════════════════════
-  function renderTop(it) {
+  // 소매는 팔을, 몸판은 몸통을 따라간다
+  function renderTop(it, tune) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c), sh = it.sleeve === 'long' ? 94 : 42;
+    const ka = tuneOf(tune, 'arm'), kb = tuneOf(tune, 'torso');
     return `
-      <rect x="50" y="118" width="19" height="${sh}" rx="9" fill="${c}" transform="rotate(7 59 130)"/>
-      <rect x="131" y="118" width="19" height="${sh}" rx="9" fill="${c}" transform="rotate(-7 141 130)"/>
-      <path d="M60,124 C60,116 80,111 100,111 C120,111 140,116 140,124
+      ${wrapX(`<rect x="50" y="118" width="19" height="${sh}" rx="9" fill="${c}" transform="rotate(7 59 130)"/>`, ka, 59.5)}
+      ${wrapX(`<rect x="131" y="118" width="19" height="${sh}" rx="9" fill="${c}" transform="rotate(-7 141 130)"/>`, ka, 140.5)}
+      ${wrapX(`<path d="M60,124 C60,116 80,111 100,111 C120,111 140,116 140,124
         L134,192 C134,204 118,210 100,210 C82,210 66,204 66,192 Z" fill="${c}"/>
-      <path d="M88,114 Q100,125 112,114" stroke="${c2}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+      <path d="M88,114 Q100,125 112,114" stroke="${c2}" stroke-width="3" fill="none" stroke-linecap="round"/>`, kb, 100)}`;
   }
 
-  function renderBottom(it) {
+  // 하의는 허리(몸통) + 자기가 덮는 다리 파츠를 따라간다
+  function renderBottom(it, tune) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c);
     if (it.kind === 'skirt') {
-      return `<path d="M70,196 L130,196 L146,252 C120,266 80,266 54,252 Z" fill="${c}"/>
-        <path d="M70,196 L130,196 L131,210 L69,210 Z" fill="${c2}"/>`;
+      return wrapX(`<path d="M70,196 L130,196 L146,252 C120,266 80,266 54,252 Z" fill="${c}"/>
+        <path d="M70,196 L130,196 L131,210 L69,210 Z" fill="${c2}"/>`,
+        tuneMax(tune, ['torso', 'thigh']), 100);
     }
     if (it.kind === 'shorts') {
-      return `<path d="M70,196 L130,196 L127,240 L106,240 L100,214 L94,240 L73,240 Z" fill="${c}"/>`;
+      return wrapX(`<path d="M70,196 L130,196 L127,240 L106,240 L100,214 L94,240 L73,240 Z" fill="${c}"/>`,
+        tuneMax(tune, ['torso', 'thigh']), 100);
     }
-    return `<path d="M70,198 L130,198 L127,332 L107,332 L100,222 L93,332 L73,332 Z" fill="${c}"/>`;
+    // 바지는 종아리까지 덮는다
+    return wrapX(`<path d="M70,198 L130,198 L127,332 L107,332 L100,222 L93,332 L73,332 Z" fill="${c}"/>`,
+      tuneMax(tune, ['torso', 'thigh', 'calf']), 100);
   }
 
   // 소매(팔을 덮는 부분)를 몸의 팔 좌표 그대로 만들어 준다.
   // len: 팔 길이의 몇 %까지 덮을지 (나머지는 손으로 드러남)
-  function sleeves(c, len) {
+  function sleeves(c, len, tune) {
     const B = BODY, pad = CLOTH_PAD;
+    const ka = tuneOf(tune, 'arm');
     const w = B.armW + pad * 2;                 // 팔보다 좌우로 pad 만큼 넓게
     const h = B.armH * len + pad;
     // 손 위치 = 소매 끝을 팔과 같은 각도로 회전시킨 지점
@@ -243,22 +261,27 @@
     };
     const cxL = B.armX_L + B.armW / 2, cxR = B.armX_R + B.armW / 2;
     const hL = hand(B.armPivotL, cxL), hR = hand(B.armPivotR, cxR);
+    // 소매만 팔 배율을 따른다. 손은 팔 중심선 위에 있고 그 선은 움직이지 않으므로
+    // (좌우 각각 자기 중심을 축으로 늘린다) 그대로 둔다 — 같이 늘리면 손이 타원이 된다.
     return `
-      <rect x="${B.armX_L - pad}" y="${B.armY - pad}" width="${w}" height="${h}" rx="${w / 2}"
-            fill="${c}" transform="rotate(${B.armRot} ${B.armPivotL} ${B.armPivotY})"/>
-      <rect x="${B.armX_R - pad}" y="${B.armY - pad}" width="${w}" height="${h}" rx="${w / 2}"
-            fill="${c}" transform="rotate(${-B.armRot} ${B.armPivotR} ${B.armPivotY})"/>
+      ${wrapX(`<rect x="${B.armX_L - pad}" y="${B.armY - pad}" width="${w}" height="${h}" rx="${w / 2}"
+            fill="${c}" transform="rotate(${B.armRot} ${B.armPivotL} ${B.armPivotY})"/>`, ka, cxL)}
+      ${wrapX(`<rect x="${B.armX_R - pad}" y="${B.armY - pad}" width="${w}" height="${h}" rx="${w / 2}"
+            fill="${c}" transform="rotate(${-B.armRot} ${B.armPivotR} ${B.armPivotY})"/>`, ka, cxR)}
       <circle cx="${hL.x.toFixed(1)}" cy="${hL.y.toFixed(1)}" r="8.5" fill="${SKIN}"/>
       <circle cx="${hR.x.toFixed(1)}" cy="${hR.y.toFixed(1)}" r="8.5" fill="${SKIN}"/>`;
   }
 
   // 몸통을 덮고 hemY 까지 퍼지는 드레스 (+ 팔 소매)
-  function sleevedDress(c, c2, hemY, longSleeve) {
+  function sleevedDress(c, c2, hemY, longSleeve, tune) {
     const B = BODY, pad = CLOTH_PAD;
     const L = B.torsoL - pad, R = B.torsoR + pad;         // 어깨는 몸통보다 넓게
     const flare = 21;                                     // 밑단이 퍼지는 정도
     const hemL = L - flare, hemR = R + flare;
+    // 몸통부터 다리까지 덮으므로 그중 가장 큰 배율을 따른다
+    const kd = tuneMax(tune, ['torso', 'thigh', 'calf']);
     return `<g data-part="dress">
+      ${wrapX(`
       <!-- 몸통 → 밑단까지 퍼지는 치마 (어깨 폭은 몸통 기준 + 여유) -->
       <path d="M${L},${B.shoulderY + 11}
         C${L},${B.shoulderY} ${L + 16},${B.shoulderY - 5} 100,${B.shoulderY - 5}
@@ -273,29 +296,31 @@
             stroke="${c2}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
       <!-- 목선 -->
       <path d="M88,${B.shoulderY} Q100,${B.shoulderY + 9} 112,${B.shoulderY}"
-            stroke="${c2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-      ${sleeves(c, longSleeve ? 0.92 : 0.42)}
+            stroke="${c2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`, kd, 100)}
+      ${sleeves(c, longSleeve ? 0.92 : 0.42, tune)}
     </g>`;
   }
 
-  function renderDress(it) {
+  function renderDress(it, tune) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c);
+    const ka = tuneOf(tune, 'arm');
+    const kd = tuneMax(tune, ['torso', 'thigh', 'calf']);   // 몸통~다리를 덮는다
 
     // 튜토리얼 인트로의 공주 드레스 — 어깨에서 발목까지 내려오는 종 모양 + 소매
     // (인트로 princessFront 의 실루엣을 아바타 좌표계로 옮긴 것)
     if (it.kind === 'princess') {
-      return sleevedDress(c, c2, BODY.ankleY, true);
+      return sleevedDress(c, c2, BODY.ankleY, true, tune);
     }
 
     const hemY = it.kind === 'gown' ? 320 : 270, flare = it.kind === 'gown' ? 40 : 46;
     return `
-      <rect x="50" y="118" width="19" height="42" rx="9" fill="${c}" transform="rotate(7 59 130)"/>
-      <rect x="131" y="118" width="19" height="42" rx="9" fill="${c}" transform="rotate(-7 141 130)"/>
-      <path d="M62,122 C62,115 80,111 100,111 C120,111 138,115 138,122
+      ${wrapX(`<rect x="50" y="118" width="19" height="42" rx="9" fill="${c}" transform="rotate(7 59 130)"/>`, ka, 59.5)}
+      ${wrapX(`<rect x="131" y="118" width="19" height="42" rx="9" fill="${c}" transform="rotate(-7 141 130)"/>`, ka, 140.5)}
+      ${wrapX(`<path d="M62,122 C62,115 80,111 100,111 C120,111 138,115 138,122
         L122,198 L${100 + flare + 8},${hemY} C122,${hemY + 14} 78,${hemY + 14} ${100 - flare - 8},${hemY}
         L78,198 Z" fill="${c}"/>
-      <path d="M78,196 L122,196" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>`;
+      <path d="M78,196 L122,196" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>`, kd, 100)}`;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -405,9 +430,9 @@
     const layers = [
       H(hairBack(hairKind, hairColor)),
       B(legs(tune)),
-      B(hasDress ? '' : renderBottom(bottom)),
+      B(hasDress ? '' : renderBottom(bottom, tune)),
       B(torsoArms(tune)),
-      B(hasDress ? renderDress(dress) : renderTop(top)),
+      B(hasDress ? renderDress(dress, tune) : renderTop(top, tune)),
       H(faceAndExpression(expItem, tune)),
       H(hairFront(hairKind, hairColor)),
       B(renderTattoo(getItem('tattoo', outfit.tattoo))),
