@@ -50,9 +50,28 @@ npm install && npm test
 - 이전 대화 히스토리 — 이 파일과 `CLAUDE.md` 가 대신한다
 - Railway 환경변수(`DATABASE_URL`) — Railway 대시보드에만 있다. 저장소에 넣지 않는다
 
-**클라우드 세션에서 주의** — `checkUI()` 는 브라우저에서 돌려야 한다.
-환경에 브라우저가 없으면 검증기를 못 돌리므로, 화면을 고치는 작업은
-검증기를 돌릴 수 있는 곳에서 한다. 못 돌린 채로 커밋하지 않는다.
+## 창을 못 여는 환경에서 `checkUI()` 돌리기
+
+**클라우드 세션에서도 돌아간다.** 브라우저 창이 없다고 검증기를 건너뛰지 않는다.
+
+```bash
+npm start &                                       # 서버가 떠 있어야 한다
+node tools/checkui.js showcase atelier gather     # 탭을 옮겨 가며 검사
+```
+
+`tools/checkui.js` 는 콘솔에서 `await checkUI()` 를 치는 것과 같은 검사를 헤드리스로 돌린다.
+`pass` 가 전부 `true` 가 아니면 종료 코드 1 로 떨어진다.
+
+걸리기 쉬운 것 셋:
+
+- **크로미움 경로** — 클라우드 세션에는 `/opt/pw-browsers/chromium` 에 미리 깔려 있고,
+  하네스가 있으면 알아서 그걸 쓴다. `playwright install` 을 돌리지 않는다 (받아 오지 못한다)
+- **playwright 는 저장소 의존성이 아니다.** 게임 실행에 필요 없는 검사 도구라 넣지 않았다.
+  없으면 `npm i -D playwright` 로 그 세션에서만 깔면 된다
+- **창 크기를 반드시 준다.** 폭이 0 이면 검증기가 "잴 수 없다" 며 `pass:false` 를 낸다.
+  하네스가 1280×900 을 지정하는 이유다 — **그 상태의 0건은 통과가 아니다**
+
+배포본을 상대로 볼 수도 있다: `BASE=https://... node tools/checkui.js showcase`
 
 ## 남은 작업
 
