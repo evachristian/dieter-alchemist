@@ -873,6 +873,7 @@ function setGatherZone(id, el) {
   if (z && !isZoneOpen(z)) { toast(unlockText(D.zoneUnlock(id)), el); return; }
   gatherZone = id;
   render();
+  centerActiveTab(document.querySelector('#zoneTabs'), true);
 }
 // 잠긴 맵을 눌렀을 때 조건 안내
 function lockedMapInfo(mapId, el) {
@@ -883,8 +884,15 @@ function lockedMapInfo(mapId, el) {
 // 레시피 북 카테고리 (하급/중급/상급 물약 · 크리처)
 let recipeTab = 'low';
 let lastFound = null;      // 방금 알아낸 레시피 id (목록 맨 위로 올려 강조)
-function setRecipeTab(id) { recipeTab = id; render(); }
-function setWardrobeTab(slot) { wardrobeTab = slot; renderWardrobe(); }
+// 탭을 고른 순간에는 그 탭이 화면 밖이면 당겨온다 (다시 그리기만으로는 당기지 않는다 — centerActiveTab 참고)
+function setRecipeTab(id) {
+  recipeTab = id; render();
+  centerActiveTab(document.querySelector('#recipeTabs'), true);
+}
+function setWardrobeTab(slot) {
+  wardrobeTab = slot; renderWardrobe();
+  centerActiveTab(document.querySelector('#wardrobe .cat-tabs'), true);
+}
 
 function slotMeta(slot) { return D.WARDROBE_SLOTS.find(m => m.slot === slot); }
 // 아이템 보유 여부: 잠금 슬롯이 아니거나 / '없음' / starter / 해금목록에 있으면 보유
@@ -968,9 +976,18 @@ function renderWardrobe() {
   const hint = dressed && (wardrobeTab === 'top' || wardrobeTab === 'bottom')
     ? `<div class="wr-hint">${T('dress_hint')}</div>` : '';
 
+  // 탭 줄은 다시 그릴 때마다 새 요소가 된다 — 굴려 둔 위치와 '맞춤 끝' 표시를 그대로 물려준다.
+  // (안 물려주면 탭이나 아이템을 만질 때마다 선택 탭으로 튕겨 스크롤이 안 되는 것처럼 보인다)
+  const prevRow = el.querySelector('.cat-tabs');
+  const keepLeft = prevRow ? prevRow.scrollLeft : 0;
+  const keepCentered = prevRow ? prevRow.dataset.centered : '';
+
   el.innerHTML = `<div class="cat-tabs wr-tabs">${tabs}</div>${hint}<div class="wr-items">${items}</div>${foot}`;
-  // render() 를 거치지 않고 불릴 수 있어(setWardrobeTab · equip) 여기서 직접 정렬한다
-  centerActiveTab(el.querySelector('.cat-tabs'));
+
+  const row = el.querySelector('.cat-tabs');
+  row.scrollLeft = keepLeft;
+  if (keepCentered) row.dataset.centered = keepCentered;
+  centerActiveTab(row);          // 처음 한 번만 맞춘다 (선택 변경은 setWardrobeTab 이 따로 처리)
 }
 
 // 카테고리 탭 줄(.cat-tabs)의 좌우 스크롤 — UI_POLICY.md 참고
@@ -1027,14 +1044,26 @@ function initTabScroll() {
   }, true);
 }
 
-// 선택된 탭이 화면 밖이면 가운데로 당겨온다 (요소 하나당 한 번만 — 이후엔 사용자가 굴린 위치를 지킨다)
+// 선택된 탭이 화면 밖이면 가운데로 당겨온다 — **선택이 바뀐 순간에만** (`sel=true`).
 // 예전에는 .wr-tab.active 를 찾아 옷장 줄에서만 동작했다. 지대·레시피 줄은 .cat-tab 뿐이라 빠져 있었다.
-function centerActiveTab(el) {
-  if (!el || el.dataset.centered) return;
+//
+// 다시 그릴 때마다 당겨오면 안 된다. 선택 탭에서 멀리 굴려 둔 상태에서 아이템을 하나 만지면
+// (equip → 다시 그리기) 줄이 선택 탭으로 도로 끌려가, 스크롤은 되는데 손대면 되돌아가는 꼴이 된다.
+// 쓰는 사람에게는 "터치하다 보면 스크롤이 안 된다" 로 보인다 — 실제로 그렇게 잡혔다.
+// 그래서 평소(다시 그리기)에는 요소마다 딱 한 번, 처음 만들어졌을 때만 맞춘다.
+function centerActiveTab(el, sel) {
+  if (!el) return;
+  if (!sel && el.dataset.centered) return;   // 이미 한 번 맞췄으면 사용자가 굴린 위치를 지킨다
   el.dataset.centered = '1';
   const active = el.querySelector('.cat-tab.active');
   if (!active) return;
-  el.scrollLeft = Math.max(0, active.offsetLeft - (el.clientWidth - active.offsetWidth) / 2);
+  // 좌표는 rect 로 잰다. offsetLeft 는 offsetParent 기준이라 .cat-tabs 가 static 이면
+  // 줄 자신의 위치까지 섞여 들어와 엉뚱한 값이 나온다 (탭 오른쪽 끝이 scrollWidth 를 넘어 보였다)
+  const aR = active.getBoundingClientRect(), eR = el.getBoundingClientRect();
+  const l = el.scrollLeft + (aR.left - eR.left), r = l + aR.width;
+  // 이미 다 보이면 건드리지 않는다 (1px 은 소수점 오차 여유)
+  if (l >= el.scrollLeft - 1 && r <= el.scrollLeft + el.clientWidth + 1) return;
+  el.scrollLeft = Math.max(0, l - (el.clientWidth - aR.width) / 2);
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -39,10 +39,23 @@
    탭을 한 번 누른 뒤부터** 죽어 알아채기 어렵다 — 실제로 그렇게 재발했다.
 
 4. **선택된 탭은 자동으로 보이는 위치로 당겨온다.** 스크롤 밖에 있으면 가운데 정렬.
-   `centerActiveTab(el)` — 요소 하나당 한 번만 (`dataset.centered`).
-   그 뒤에는 사용자가 굴려 둔 위치를 건드리지 않는다.
+   `centerActiveTab(el, sel)` — 이미 다 보이는 탭은 건드리지 않는다.
 
-5. 상태별 스타일
+   **당겨오는 것은 "탭을 고른 순간"뿐이다** (`sel=true` — `setWardrobeTab` · `setGatherZone`
+   · `setRecipeTab`). 다시 그릴 때마다 당기면 안 된다. 선택 탭에서 멀리 굴려 둔 상태로
+   아이템을 하나 만지면(`equip` → 다시 그리기) 줄이 선택 탭으로 도로 끌려간다.
+   스크롤은 되는데 손대면 되돌아가므로, 쓰는 사람에게는
+   **"터치하다 보면 스크롤이 안 된다"** 로 보인다 — 실제로 그렇게 나왔다.
+
+5. **다시 그릴 때 굴려 둔 위치를 물려준다.** `.cat-tabs` 를 `innerHTML` 로 새로 만든다면
+   이전 줄의 `scrollLeft` 와 `dataset.centered` 를 새 줄에 옮겨 준다 (`renderWardrobe` 참고).
+   안 그러면 만질 때마다 튕긴다.
+
+6. **탭 위치는 `getBoundingClientRect` 로 잰다.** `offsetLeft` 는 `offsetParent` 기준이라
+   `.cat-tabs` 가 `position: static` 이면 줄 자신의 위치까지 섞여 들어와 값이 어긋난다
+   (탭의 오른쪽 끝이 `scrollWidth` 를 넘어 보였다).
+
+7. 상태별 스타일
    | 상태 | 스타일 |
    |---|---|
    | 기본 | `background: var(--cream)` · `color: var(--ink-soft)` |
@@ -59,8 +72,8 @@ el.innerHTML = ITEMS.map(x =>
   `<button class="cat-tab ${cur === x.id ? 'active' : ''}" onclick="pick('${x.id}')">${x.label}</button>`
 ).join('');
 // 휠·끌기는 document 에 위임돼 있어 다시 붙일 필요가 없다 (initTabScroll — 부팅 때 1회).
-// 다만 render() 를 거치지 않고 직접 다시 그린다면 선택 탭 정렬만 불러 준다.
-centerActiveTab(el.querySelector('.cat-tabs'));
+// 탭을 고르는 함수에서만 선택 탭을 당겨온다. 그냥 다시 그릴 때는 부르지 않는다.
+function pick(id) { cur = id; render(); centerActiveTab(document.querySelector('#myTabs'), true); }
 ```
 
 여백만 다르면 `.cat-tabs` 옆에 전용 클래스를 하나 더 붙여 margin 만 지정한다 (`.wr-tabs`, `.rb-tabs` 처럼).
