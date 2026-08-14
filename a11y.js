@@ -6,6 +6,10 @@
 //    checkTextStyle()            현재 보이는 화면 검사 → 콘솔 표 + 결과 반환
 //    checkTextStyle({ all:true }) 숨겨진 화면(다른 탭/모달)까지 강제로 검사
 //    URL 에 ?a11y=1 을 붙이면 로드 직후 자동 실행
+//
+//  재기 전에 끝이 있는 애니메이션·트랜지션을 모두 끝 상태로 보낸다(settle).
+//  화면이 페이드 인 도중이면 글자가 배경에 묻혀 대비가 1.00 으로 나오기 때문이다.
+//  애니메이션을 살려 둔 채 재려면 `{ settle:false }`.
 // ═══════════════════════════════════════════════════════════════
 (function () {
   // ─── 정책 상수 (TEXT_POLICY.md 와 반드시 일치) ───
@@ -85,9 +89,48 @@
         if (acc.a >= 1) return { color: acc, approx };
       }
     }
+    // 여기까지 왔다는 건 불투명한 배경을 끝내 못 만났다는 뜻이다 — 흰색은 '측정값' 이 아니라
+    // 가정이므로 반드시 추정으로 표시한다. (예전에는 실측 흰색과 구분이 안 돼
+    // "실측인데 #ffffff/#ffffff" 처럼 보였다)
     const white = { r: 255, g: 255, b: 255, a: 1 };
-    return { color: acc ? over(acc, white) : white, approx };
+    return { color: acc ? over(acc, white) : white, approx: true };
   }
+
+  // ─── 측정 조건 ───
+  // 대비는 '다 그려진 화면' 에서만 의미가 있다. 페이드 인 도중에 재면 글자가 배경에
+  // 묻힌 값이 나와 멀쩡한 화면이 위반으로 잡힌다. 특히 창이 숨겨지거나 백그라운드면
+  // 프레임 시계가 멈춰 `.screen` 의 fade 가 **첫 프레임(불투명도 0)에 그대로 서 있고**,
+  // 그 화면의 글자가 통째로 '흰 글자 / 흰 배경 / 대비 1.00' 으로 보고됐다 (78건짜리 유령).
+  //
+  // 그래서 재기 전에 끝이 있는 애니메이션·트랜지션을 전부 끝 상태로 보낸다.
+  // 프레임이 안 도는 환경에서도 즉시 반영되므로 측정 조건이 결정적으로 정해진다.
+  // 무한 반복(장식용 반짝임 등)은 끝이 없으니 건드리지 않는다.
+  function settle() {
+    if (typeof document.getAnimations !== 'function') return 0;
+    let n = 0;
+    for (const a of document.getAnimations()) {
+      const t = a.effect && a.effect.getComputedTiming();
+      if (!t || t.iterations === Infinity) continue;
+      try { a.finish(); n++; } catch (e) { /* 끝낼 수 없는 것은 그대로 둔다 */ }
+    }
+    return n;
+  }
+
+  // 이 아래로는 사람 눈에 안 보이는 것으로 친다 (읽을 수 없으니 대비를 따질 대상도 아니다)
+  const INVISIBLE = 0.01;
+
+  // 잴 수 있는 상태인가 — 창이 접혀 폭이 0 이면 모든 요소가 부모 밖으로 나간 것처럼 보이고
+  // (넘침 22건이 그렇게 나왔다) 글자는 자리를 못 잡아 검사에서 통째로 빠진다.
+  // 0건이 '통과' 로 보이는 게 더 위험하므로 아예 잴 수 없다고 알린다.
+  function measurable(kind) {
+    const de = document.documentElement;
+    const w = Math.min(window.innerWidth, de.clientWidth);
+    const h = Math.min(window.innerHeight, de.clientHeight);
+    if (w > 0 && h > 0) return true;
+    console.warn(`[${kind}] 창 크기가 ${w}×${h} 라 잴 수 없다 — 창을 띄운 뒤 다시 실행할 것`);
+    return false;
+  }
+  const unmeasurable = () => ({ pass: false, unmeasurable: true, count: 0, rows: [], hiddenByOpacity: 0 });
 
   // 요소가 자기 자신의 텍스트를 직접 가지고 있는가 (자식 요소의 글자는 제외)
   function ownText(el) {
@@ -95,9 +138,12 @@
     for (const n of el.childNodes) if (n.nodeType === 3) s += n.nodeValue;
     return s.trim();
   }
+  // 보이는가 — **조상까지 본다.** 자기 opacity 가 1이어도 조상이 투명하면 화면에 없는 글자다.
+  // (getClientRects 는 opacity: 0 인 요소도 자리를 차지하므로 그것만으로는 판정할 수 없다)
   function visible(el) {
     const cs = getComputedStyle(el);
-    if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return false;
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    if (effectiveOpacity(el) <= INVISIBLE) return false;
     return el.getClientRects().length > 0;
   }
   // 조상까지 곱해진 실효 opacity (반투명하게 흐려진 글씨도 잡아내기 위함)
@@ -109,15 +155,22 @@
 
   function checkTextStyle(opts) {
     opts = opts || {};
+    if (!measurable('텍스트 정책')) return unmeasurable();
+    if (opts.settle !== false) settle();   // 재기 전에 화면을 끝난 상태로 맞춘다
     const rows = [];
     const seen = new Set();
     const nodes = document.querySelectorAll('body *');
+    let hiddenByOpacity = 0;   // 자리는 잡았는데 조상이 투명해서 안 보이는 글자 (측정 조건 경고용)
 
     for (const el of nodes) {
       if (el.closest(POLICY.skipSelector)) continue;
       const text = ownText(el);
       if (!text) continue;
-      if (!opts.all && !visible(el)) continue;
+      if (!opts.all && !visible(el)) {
+        const cs0 = getComputedStyle(el);
+        if (cs0.display !== 'none' && cs0.visibility !== 'hidden' && el.getClientRects().length) hiddenByOpacity++;
+        continue;
+      }
       if (seen.has(el)) continue;
       seen.add(el);
 
@@ -170,7 +223,13 @@
     } else if (pass) {
       console.log('[텍스트 정책] 위반 없음 ✅');
     }
-    return { pass, count: rows.length, rows, policy: POLICY };
+    // 안 보여서 건너뛴 글자가 있으면 알려 준다 — 대개 다른 화면/닫힌 레이어라 정상이지만,
+    // 지금 보고 있는 화면의 글자가 여기 잡힌다면 측정 조건이 잘못된 것이다
+    if (hiddenByOpacity) {
+      console.log(`[텍스트 정책] 투명한 조상에 가려 건너뛴 글자 ${hiddenByOpacity}건 `
+        + '(닫힌 레이어면 정상. 보고 있는 화면이 통째로 여기 잡히면 측정 조건을 의심할 것)');
+    }
+    return { pass, count: rows.length, rows, hiddenByOpacity, policy: POLICY };
   }
 
   function selectorOf(el) {
@@ -204,6 +263,8 @@
 
   function checkLayout(opts) {
     opts = opts || {};
+    if (!measurable('레이아웃')) return unmeasurable();
+    if (opts.settle !== false) settle();   // 페이드 인 도중의 transform 으로 위치가 밀린 채 재지 않도록
     const tol = LAYOUT.tolerance;
     const found = [];
     const add = (kind, el, detail, level) =>
@@ -291,10 +352,23 @@
   async function checkUI(opts) {
     opts = opts || {};
     const stress = opts.stress || 2;      // 기본: 라벨 길이 2배까지 견디는지
-    const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // rAF 는 창이 숨겨지거나 백그라운드면 멈추고, 타이머도 1초 이상으로 늘어난다 —
+    // 예전에는 여기서 영영 안 끝나 자동화가 통째로 멈췄다.
+    // 언어를 바꾼 뒤의 다시 그리기는 동기라 프레임을 꼭 기다릴 필요가 없고,
+    // 애니메이션 상태는 settle() 이 맞춰 주므로 프레임을 못 받아도 결과는 같다.
+    const frame = () => {
+      if (document.visibilityState === 'hidden') return Promise.resolve();
+      return new Promise(r => {
+        let done = false;
+        const fin = () => { if (done) return; done = true; r(); };
+        requestAnimationFrame(() => requestAnimationFrame(fin));
+        setTimeout(fin, 150);
+      });
+    };
     const langs = (window.I18N ? I18N.langs().map(l => l.code) : ['ko']);
     const before = window.I18N ? I18N.getLang() : null;
     const report = [];
+    let blocked = false;   // 잴 수 없는 조건이었나 (0건을 통과로 착각하지 않기 위해)
 
     for (const code of langs) {
       if (window.I18N) I18N.setLang(code);
@@ -302,8 +376,10 @@
       const text = checkTextStyle();
       const layout = checkLayout();
       const locked = checkLocked();
+      if (text.unmeasurable || layout.unmeasurable || locked.unmeasurable) blocked = true;
       report.push({ 언어: code, 배율: '1x', 대비위반: text.count,
-                    레이아웃위반: layout.count, 잠금표현위반: locked.count });
+                    레이아웃위반: layout.count, 잠금표현위반: locked.count,
+                    안보여서건너뜀: text.hiddenByOpacity });
 
       const restore = stressLabels(stress);
       await frame();
@@ -311,7 +387,7 @@
       restore();
       await frame();
       report.push({ 언어: code, 배율: stress + 'x', 대비위반: '-',
-                    레이아웃위반: stressed.count, 잠금표현위반: '-' });
+                    레이아웃위반: stressed.count, 잠금표현위반: '-', 안보여서건너뜀: '-' });
       if (stressed.count) report.stressRows = (report.stressRows || []).concat(stressed.rows);
     }
     if (before && window.I18N) { I18N.setLang(before); await frame(); }
@@ -319,8 +395,9 @@
     const total = report.reduce((n, r) => n + (Number(r.대비위반) || 0)
       + (Number(r.레이아웃위반) || 0) + (Number(r.잠금표현위반) || 0), 0);
     console.table(report);
-    console.log(total === 0 ? '[UI 정책] 전체 통과 ✅' : `[UI 정책] 총 ${total}건 확인 필요`);
-    return { pass: total === 0, total, report };
+    if (blocked) console.warn('[UI 정책] 잴 수 없는 조건이었다 — 창을 띄운 뒤 다시 실행할 것 (0건은 통과가 아니다)');
+    else console.log(total === 0 ? '[UI 정책] 전체 통과 ✅' : `[UI 정책] 총 ${total}건 확인 필요`);
+    return { pass: !blocked && total === 0, total, blocked, report };
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -341,6 +418,8 @@
 
   function checkLocked(opts) {
     opts = opts || {};
+    if (!measurable('잠금 표현')) return unmeasurable();
+    if (opts.settle !== false) settle();
     const found = [];
     const els = [...document.querySelectorAll(POLICY.lockedSelector)]
       .filter(el => opts.all || visible(el));
@@ -392,6 +471,7 @@
   window.checkLocked = checkLocked;
   window.checkLayout = checkLayout;
   window.__stress = stressLabels;   // 테스트용: 라벨 길이를 배로 늘림
+  window.__settle = settle;         // 테스트용: 진행 중인 애니메이션을 끝 상태로 보냄
   window.checkUI = checkUI;
   window.TEXT_POLICY = POLICY;
   window.LAYOUT_POLICY = LAYOUT;
