@@ -7,7 +7,8 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //  1: 최초  /  2: 시작 외형을 튜토리얼 인트로의 공주(갈색 긴 머리 + 연두 드레스)로 통일
 //  3: 시작부터 알고 있는 하급 물약 2종
 //  4: 플레이 기록(record) 추가
-const SAVE_VER = 4;
+//  5: 이름이 서버에 예약됐는지 (nameClaimed) — 오프라인이면 임시 이름으로 먼저 진행한다
+const SAVE_VER = 5;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -31,6 +32,10 @@ const defaultState = () => ({
   energy:    D.ENERGY.cap,  // 현재 에너지 (행동력)
   energyDay: dayKey(),      // 마지막 충전 기준 로컬 날짜 키 (YYYYMMDD)
   name:      '',            // 연금술사 이름 (튜토리얼 종료 후 입력)
+  // 그 이름을 서버가 이 playerId 앞으로 잡아 줬는가.
+  // 오프라인이면 일단 false 로 두고 게임을 진행시킨 뒤, 서버에 닿았을 때 확정한다.
+  // (그사이 남이 같은 이름을 가져갔으면 다시 짓게 한다)
+  nameClaimed: false,
   // 아우라 세부 수치 (각 0~1000)
   aura:      { happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 },
   cauldronId: 'cd_iron',    // 사용 중인 마법 솥
@@ -136,6 +141,12 @@ function migrate(st, from) {
     // (이미 알아낸 레시피는 그대로 두고 없는 것만 채운다)
     if (!Array.isArray(st.discovered)) st.discovered = [];
     STARTER_RECIPES.forEach(id => { if (!st.discovered.includes(id)) st.discovered.push(id); });
+  }
+  if (from < 5) {
+    // 이름 예약이 생기기 전부터 이름을 갖고 있던 사람은 그대로 인정한다.
+    // 그들의 이름은 이미 저장(PUT)을 통해 서버 컬럼에 들어가 있고,
+    // 여기서 false 로 두면 멀쩡히 쓰던 이름을 다시 지으라고 하게 된다.
+    st.nameClaimed = !!st.name;
   }
   st.ver = SAVE_VER;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) {}
@@ -1283,22 +1294,29 @@ async function submitName() {
     return;
   }
 
-  // 조건 3: 이름은 유일하다 — 서버가 이 playerId 앞으로 잡아 준 뒤에야 확정한다.
-  // 로컬에서 먼저 정해 버리면 오프라인 사이에 남이 같은 이름을 가져갈 수 있다.
+  // 조건 3: 이름은 유일하다 — 서버가 이 playerId 앞으로 잡아 준다.
+  //
+  //  · 이미 남이 쓰는 이름(409)이면 여기서 막는다. 다른 이름을 지으면 되는 일이다.
+  //  · 서버에 닿지 못하면 막지 않는다. 튜토리얼 마지막 관문에서 오프라인이라는 이유로
+  //    게임을 시작조차 못 하게 하는 편이 훨씬 나쁘다. 임시 이름으로 진행시키고
+  //    (nameClaimed=false) 서버에 닿았을 때 확정한다 → ensureNameClaimed()
+  let claimed = false;
   if (window.Sync && Sync.enabled()) {
     _naming = true;
     setNameError(T('name_checking'), 'info');
     setNameBusy(true);
     let r;
     try { r = await Sync.claimName(raw); } finally { _naming = false; setNameBusy(false); }
-    if (!r.ok) {
-      if (r.reason === 'taken') setNameError(T('name_err_taken', { name: raw }));
-      else setNameError(T('name_err_server'));
-      return;
-    }
+    if (r.ok) claimed = true;
+    else if (r.reason === 'taken') { setNameError(T('name_err_taken', { name: raw })); return; }
+    // 그 외(오프라인·서버 오류)는 임시 이름으로 통과시킨다
+  } else {
+    // 동기화 자체가 꺼진 경우(file:// 등)는 서버가 없으므로 확정으로 본다
+    claimed = true;
   }
 
   S.name = raw;
+  S.nameClaimed = claimed;
   save();
   clearNameError();
   closeNameModal();
@@ -1307,6 +1325,43 @@ async function submitName() {
   // 인트로가 떠 있으면 요정 대모의 마무리 대사 → '시작하기' 로 이어짐
   if (window.Intro && Intro.isPlaying()) Intro.startEnding(raw);
   else toast(T('name_ok', { name: raw }), null, 3200);
+  // 임시로 지나간 경우에만 안내 (인트로 대사와 겹치지 않게 뒤에 띄운다)
+  if (!claimed) setTimeout(() => toast(T('name_temp', { name: raw }), null, 4200), 3400);
+}
+
+// ─── 임시 이름 확정 ───
+// 오프라인에서 지은 이름을 서버에 닿았을 때 잡는다.
+// 부팅 때와, 오프라인에서 돌아왔을 때 부른다. 여러 번 불려도 안전해야 한다.
+// 이미 시도 중이면 '버리지 말고' 그 시도를 같이 기다린다.
+// 버리면 그 한 번이 실패했을 때 아무도 다시 시도하지 않아 임시 이름이 영영 임시로 남는다.
+let _claimTask = null;
+function ensureNameClaimed() {
+  if (!S.name || S.nameClaimed) return Promise.resolve();
+  if (!window.Sync || !Sync.enabled()) return Promise.resolve();
+  if (_claimTask) return _claimTask;
+  _claimTask = claimNameNow().finally(() => { _claimTask = null; });
+  return _claimTask;
+}
+
+async function claimNameNow() {
+  const r = await Sync.claimName(S.name);
+
+  if (r.ok) {
+    S.nameClaimed = true;
+    save();
+    return;
+  }
+  // 그사이 남이 가져갔다 — 다시 짓게 한다. 진행은 그대로 두고 이름만 비운다.
+  if (r.reason === 'taken') {
+    const lost = S.name;
+    S.name = '';
+    S.nameClaimed = false;
+    save();
+    if (typeof render === 'function') render();
+    toast(T('name_lost', { name: lost }), null, 5200);
+    askPlayerName(true);
+  }
+  // 오프라인·서버 오류면 아무것도 하지 않는다. 다음 기회에 다시 시도한다.
 }
 
 // 인트로가 끝났을 때 이름 입력이 필요한지 (intro.js 에서 호출)
@@ -1432,8 +1487,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // 서버에 더 최신 세이브가 있으면 그걸로 이어서 한다 (없으면 지금 것을 올린다)
   if (window.Sync) {
     Sync.onStatus(renderSyncChip);
+    // 오프라인에서 지은 임시 이름은 서버에 닿을 때마다 확정을 시도한다.
+    // (상태가 offline 을 벗어나는 순간이 곧 '닿았다' 는 뜻이다)
+    Sync.onStatus(st => { if (st !== 'offline' && st !== 'off') ensureNameClaimed(); });
     Sync.pull(S).then(r => {
       if (r && r.action === 'adopt') toast(T('sync_pulled'), null, 2800);
+      ensureNameClaimed();
     });
   } else {
     renderSyncChip('off');

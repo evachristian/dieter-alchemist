@@ -132,6 +132,8 @@
       name_checking: '쓸 수 있는 이름인지 보고 있어요…',
       name_err_taken: "'{name}' 은 이미 다른 연금술사가 쓰고 있어요.",
       name_err_server: '지금은 이름을 정할 수 없어요. 잠시 뒤 다시 시도해 주세요.',
+      name_temp: "지금은 서버에 닿지 않아 '{name}' 을 임시로 쓸게요. 연결되면 정식으로 등록할게요.",
+      name_lost: "아쉬워요, 그새 다른 연금술사가 '{name}' 을 가져갔어요. 새 이름을 지어 주세요.",
       name_ok: "'{name}', 좋아요! 무척 연금술사 다운 이름이군요!",
       intro_start_q: '이제 시작해 볼까요?', btn_start: '시작하기',
       // 다이어트 (체형 변화)
@@ -264,6 +266,8 @@
       name_checking: 'Checking if that name is available…',
       name_err_taken: "'{name}' is already taken by another alchemist.",
       name_err_server: "Can't set a name right now. Please try again in a moment.",
+      name_temp: "Can't reach the server, so '{name}' is temporary for now. It'll be registered once you're back online.",
+      name_lost: "Oh no — another alchemist took '{name}' in the meantime. Please pick a new name.",
       name_ok: "'{name}' — lovely! What an alchemist-worthy name!",
       intro_start_q: 'Shall we begin?', btn_start: 'Start',
       body_down: '✨ You feel a little lighter!',
