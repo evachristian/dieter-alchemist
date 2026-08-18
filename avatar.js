@@ -48,13 +48,20 @@
     shoulderY: 113,                 // 어깨 윗선
     torsoL: 64, torsoR: 136,        // 몸통 최대 폭 (어깨)
     waistY: 196, hipY: 214,
-    // 팔: (x, y=120) 에서 시작하는 폭 armW 의 막대를 어깨 기준으로 회전
-    armX_L: 52, armX_R: 133, armY: 120, armH: 94, armW: 15,
-    armRot: 7, armPivotL: 59, armPivotR: 141, armPivotY: 130,
+    // 팔: (x, y=120) 에서 시작하는 폭 armW 의 막대를 어깨 기준으로 회전.
+    // **팔을 옮기면 소매도 같이 따라온다** — armShape() 이 이 값만 본다.
+    // 몸통 쪽으로 조금 붙이고(52→55) 벌어짐을 줄였다(7°→4°). 예전에는 날씬할 때
+    // 몸통은 허리로 좁아지는데 팔은 바깥으로 벌어져, 팔이 몸에서 떨어져 보였다.
+    armX_L: 55, armX_R: 130, armY: 120, armH: 94, armW: 15,
+    armRot: 4, armPivotL: 62, armPivotR: 138, armPivotY: 130,
     ankleY: 332,
   };
   // 옷이 몸을 확실히 덮도록 주는 여유 (한쪽당 px)
   const CLOTH_PAD = 3;
+  // 맨팔에만 주는 옅은 테두리. 팔과 몸통이 같은 살색이라, 통통해져 몸통이 넓어지면
+  // 팔이 몸통에 묻혀 실루엣이 사라졌다. 얇은 선 하나로 겹쳐도 팔이 읽힌다.
+  // (소매를 입으면 옷 색이 대비를 만들어 주므로 옷에는 넣지 않는다)
+  const ARM_EDGE = ` stroke="${SKIN_SH}" stroke-width="1.6"`;
 
   // ─── 등신 비율 기준값 ───
   // 머리(머리카락 끝 ~ 턱) 높이와 몸(어깨 ~ 발) 길이. 이 둘의 비가 등신을 만든다.
@@ -98,6 +105,22 @@
     return (!s || k === 1) ? s : `<g${sx(k, ax)}>${s}</g>`;
   }
 
+  // 팔과 소매를 **같은 좌표에서** 그린다.
+  // 예전에는 소매 좌표가 renderTop·renderDress 에 그대로 박혀 있어서,
+  // 팔 위치나 각도를 고치면 소매만 제자리에 남아 어긋났다. BODY 하나만 고치면 되게 모았다.
+  //   side  'L'|'R' · pad 팔보다 얼마나 넓게(소매) · h 길이 · extra 덧붙일 속성
+  function armShape(side, fill, pad, h, tune, extra) {
+    const B = BODY, left = side === 'L';
+    const x0 = left ? B.armX_L : B.armX_R;
+    const w = B.armW + pad * 2;
+    const rot = left ? B.armRot : -B.armRot;
+    const pivot = left ? B.armPivotL : B.armPivotR;
+    return wrapX(
+      `<rect x="${x0 - pad}" y="${B.armY - pad}" width="${w}" height="${h}" rx="${(w / 2).toFixed(1)}"
+        fill="${fill}"${extra || ''} transform="rotate(${rot} ${pivot} ${B.armPivotY})"/>`,
+      tuneOf(tune, 'arm'), x0 + B.armW / 2);
+  }
+
   function legs(tune) {
     const kt = tuneOf(tune, 'thigh'), kc = tuneOf(tune, 'calf');
     return `
@@ -114,7 +137,7 @@
   }
 
   function torsoArms(tune) {
-    const kb = tuneOf(tune, 'torso'), ka = tuneOf(tune, 'arm');
+    const kb = tuneOf(tune, 'torso');   // 팔 배율은 armShape 이 알아서 따른다
     return `
       <rect x="91" y="96" width="18" height="20" rx="7" fill="${SKIN_SH}"/>
       <g data-part="torso">
@@ -122,8 +145,8 @@
           L130,196 C130,208 116,214 100,214 C84,214 70,208 70,196 Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="arm">
-        <g${sx(ka, 59.5)}><rect x="52" y="120" width="15" height="94" rx="7.5" fill="${SKIN}" transform="rotate(7 59 130)"/></g>
-        <g${sx(ka, 140.5)}><rect x="133" y="120" width="15" height="94" rx="7.5" fill="${SKIN}" transform="rotate(-7 141 130)"/></g>
+        ${armShape('L', SKIN, 0, BODY.armH, tune, ARM_EDGE)}
+        ${armShape('R', SKIN, 0, BODY.armH, tune, ARM_EDGE)}
       </g>`;
   }
 
@@ -218,10 +241,10 @@
   function renderTop(it, tune) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c), sh = it.sleeve === 'long' ? 94 : 42;
-    const ka = tuneOf(tune, 'arm'), kb = tuneOf(tune, 'torso');
+    const kb = tuneOf(tune, 'torso');   // 소매는 armShape 이 알아서 팔 배율을 따른다
     return `
-      ${wrapX(`<rect x="50" y="118" width="19" height="${sh}" rx="9" fill="${c}" transform="rotate(7 59 130)"/>`, ka, 59.5)}
-      ${wrapX(`<rect x="131" y="118" width="19" height="${sh}" rx="9" fill="${c}" transform="rotate(-7 141 130)"/>`, ka, 140.5)}
+      ${armShape('L', c, 2, sh, tune)}
+      ${armShape('R', c, 2, sh, tune)}
       ${wrapX(`<path d="M60,124 C60,116 80,111 100,111 C120,111 140,116 140,124
         L134,192 C134,204 118,210 100,210 C82,210 66,204 66,192 Z" fill="${c}"/>
       <path d="M88,114 Q100,125 112,114" stroke="${c2}" stroke-width="3" fill="none" stroke-linecap="round"/>`, kb, 100)}`;
@@ -249,7 +272,6 @@
   // len: 팔 길이의 몇 %까지 덮을지 (나머지는 손으로 드러남)
   function sleeves(c, len, tune) {
     const B = BODY, pad = CLOTH_PAD;
-    const ka = tuneOf(tune, 'arm');
     const w = B.armW + pad * 2;                 // 팔보다 좌우로 pad 만큼 넓게
     const h = B.armH * len + pad;
     // 손 위치 = 소매 끝을 팔과 같은 각도로 회전시킨 지점
@@ -267,10 +289,8 @@
     // 소매만 팔 배율을 따른다. 손은 팔 중심선 위에 있고 그 선은 움직이지 않으므로
     // (좌우 각각 자기 중심을 축으로 늘린다) 그대로 둔다 — 같이 늘리면 손이 타원이 된다.
     return `
-      ${wrapX(`<rect x="${B.armX_L - pad}" y="${B.armY - pad}" width="${w}" height="${h}" rx="${w / 2}"
-            fill="${c}" transform="rotate(${B.armRot} ${B.armPivotL} ${B.armPivotY})"/>`, ka, cxL)}
-      ${wrapX(`<rect x="${B.armX_R - pad}" y="${B.armY - pad}" width="${w}" height="${h}" rx="${w / 2}"
-            fill="${c}" transform="rotate(${-B.armRot} ${B.armPivotR} ${B.armPivotY})"/>`, ka, cxR)}
+      ${armShape('L', c, pad, h, tune)}
+      ${armShape('R', c, pad, h, tune)}
       <circle cx="${hL.x.toFixed(1)}" cy="${hL.y.toFixed(1)}" r="8.5" fill="${SKIN}"/>
       <circle cx="${hR.x.toFixed(1)}" cy="${hR.y.toFixed(1)}" r="8.5" fill="${SKIN}"/>`;
   }
@@ -307,7 +327,6 @@
   function renderDress(it, tune) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c);
-    const ka = tuneOf(tune, 'arm');
     const kd = tuneMax(tune, ['torso', 'thigh', 'calf']);   // 몸통~다리를 덮는다
 
     // 튜토리얼 인트로의 공주 드레스 — 어깨에서 발목까지 내려오는 종 모양 + 소매
@@ -318,8 +337,8 @@
 
     const hemY = it.kind === 'gown' ? 320 : 270, flare = it.kind === 'gown' ? 40 : 46;
     return `
-      ${wrapX(`<rect x="50" y="118" width="19" height="42" rx="9" fill="${c}" transform="rotate(7 59 130)"/>`, ka, 59.5)}
-      ${wrapX(`<rect x="131" y="118" width="19" height="42" rx="9" fill="${c}" transform="rotate(-7 141 130)"/>`, ka, 140.5)}
+      ${armShape('L', c, 2, 42, tune)}
+      ${armShape('R', c, 2, 42, tune)}
       ${wrapX(`<path d="M62,122 C62,115 80,111 100,111 C120,111 138,115 138,122
         L122,198 L${100 + flare + 8},${hemY} C122,${hemY + 14} 78,${hemY + 14} ${100 - flare - 8},${hemY}
         L78,198 Z" fill="${c}"/>
