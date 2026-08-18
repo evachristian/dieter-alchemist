@@ -115,14 +115,28 @@
   //   side  'L'|'R' · pad 팔보다 얼마나 넓게(소매) · h 길이 · extra 덧붙일 속성
   function armShape(side, fill, pad, h, tune, extra) {
     const B = BODY, left = side === 'L';
-    const x0 = left ? B.armX_L : B.armX_R;
+    const d = armShift(tune) * (left ? 1 : -1);       // 어깨선을 따라 팔을 옮긴다
+    const x0 = (left ? B.armX_L : B.armX_R) + d;
     const w = B.armW + pad * 2;
     const rot = left ? B.armRot : -B.armRot;
-    const pivot = left ? B.armPivotL : B.armPivotR;
+    const pivot = (left ? B.armPivotL : B.armPivotR) + d;
     return wrapX(
-      `<rect x="${x0 - pad}" y="${B.armY - pad}" width="${w}" height="${h}" rx="${(w / 2).toFixed(1)}"
-        fill="${fill}"${extra || ''} transform="rotate(${rot} ${pivot} ${B.armPivotY})"/>`,
+      `<rect x="${+(x0 - pad).toFixed(2)}" y="${B.armY - pad}" width="${w}" height="${h}" rx="${(w / 2).toFixed(1)}"
+        fill="${fill}"${extra || ''} transform="rotate(${rot} ${+pivot.toFixed(2)} ${B.armPivotY})"/>`,
       tuneOf(tune, 'arm'), x0 + B.armW / 2);
+  }
+
+  // 몸통 배율이 바뀌면 몸통 옆선이 안팎으로 움직인다. 팔이 제자리면 몸통에서 떨어지므로
+  // **옆선이 움직인 만큼 팔도 같이 옮긴다** — 그래야 붙어 있는 관계가 그대로 유지된다.
+  // (몸통은 x=100 을 축으로 늘어나므로 옆선은 100-(100-기준)*k 로 간다)
+  //
+  // 기준은 어깨 최대폭(torsoL=64)이 아니라 **팔 중간 높이의 몸통 옆선**이다.
+  // 몸통은 허리로 갈수록 좁아지는데 어깨 폭으로 맞추면 그 차이가 배율만큼 커져,
+  // 몸통을 키웠을 때 팔 아래쪽이 다시 떨어진다. 64·66·68·70·72 를 실측으로
+  // 쓸어 본 결과 68 만 50~200% 전 구간에서 틈이 0 이었다.
+  const ARM_ANCHOR_X = 68;
+  function armShift(tune) {
+    return (100 - ARM_ANCHOR_X) * (1 - tuneOf(tune, 'torso'));
   }
 
   function legs(tune) {
