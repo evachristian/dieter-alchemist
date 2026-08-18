@@ -638,7 +638,7 @@ body {
 .potion-card:active { transform: scale(0.95); }
 .potion-emoji, .creature-emoji { font-size: 2rem; }
 .potion-name, .creature-name { font-size: 0.76rem; font-weight: 800; margin-top: 3px; }
-.potion-eff, .creature-eff { font-size: 0.66rem; color: var(--ink-soft); margin-top: 2px; }
+.creature-eff { font-size: 0.66rem; color: var(--ink-soft); margin-top: 2px; }
 .potion-count, .creature-count { position: absolute; top: 6px; right: 8px; font-size: 0.72rem; font-weight: 800; color: var(--pink-2); }
 
 /* ─── 하단 탭 ─── */
@@ -798,3 +798,14 @@ body {
   background: var(--pink-2); color: var(--ink);
   box-shadow: 0 4px 10px rgba(255,150,190,0.35);
 }
+
+/* 물약 카드의 '?' — 마시기와 겹치지 않게 오른쪽 위 모서리에 작게 */
+.potion-card { position: relative; }
+.potion-why {
+  position: absolute; right: 6px; top: 6px; z-index: 1;
+  width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0;
+  background: rgba(154,138,149,0.24); color: var(--ink-soft);
+  font-family: inherit; font-weight: 800; font-size: 0.72rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.potion-why:active { transform: scale(0.9); }

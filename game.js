@@ -165,10 +165,18 @@ function removeInv(id, n = 1) {
 const BODY_STEPS = 4;          // 완전히 날씬해지기까지의 단계 수
 const BODY_PER_STEP = 15;      // 한 단계 내려가는 데 필요한 ✨비주얼
 // 0 = 날씬, 1 = 통통 (아바타 build 의 body 인자)
+// 물약을 마실 때마다 신체 수치가 **조금씩** 움직이도록 연속값으로 둔다.
+// 예전에는 floor(비주얼/15) 라 15점을 채우기 전까지는 아무 변화가 없었다
+// (체중·체지방이 4번만 뚝뚝 끊겨 바뀌었다). 이제 1점만 올라도 그만큼 반영된다.
+const BODY_MAX_BEAUTY = BODY_STEPS * BODY_PER_STEP;   // 완전히 날씬해지는 비주얼 (60)
 function bodyLevel(beauty) {
   const b = (beauty === undefined ? (S.stats.beauty || 0) : beauty);
-  const step = Math.min(BODY_STEPS, Math.floor(b / BODY_PER_STEP));
-  return 1 - step / BODY_STEPS;
+  return 1 - Math.min(1, Math.max(0, b / BODY_MAX_BEAUTY));
+}
+// 살 빠지는 연출은 여전히 '단계' 로 친다 — 매번 크게 터지면 시끄럽다
+function bodyStep(beauty) {
+  const b = (beauty === undefined ? (S.stats.beauty || 0) : beauty);
+  return Math.min(BODY_STEPS, Math.floor(b / BODY_PER_STEP));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -186,6 +194,9 @@ const VITALS = {
   fatPctFat: 34.0, fatPctSlim: 19.0,    // 체형에 따른 체지방률(%)
   musclePctFat: 27.0, musclePctSlim: 35.0,  // 체중 대비 근육량(%)
   gritMuscleBonus: 3.0,       // 근성 1000일 때 근육량 +3%p
+  // 비주얼이 오르면 자세가 펴져 키가 아주 조금 는다 (물약 한 병이 체감되도록)
+  heightPerBeauty: 0.05,      // 비주얼 1점당 cm
+  heightBeautyMax: 3.0,       // 그래도 이만큼까지만 (BODY_MAX_BEAUTY 60점에서 +3cm)
 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -199,27 +210,34 @@ function daysPlayed() {
 function ageYears() {
   return VITALS.ageStart + daysPlayed() / 365;
 }
-function heightCm() {
-  return Math.min(VITALS.heightMax, VITALS.heightMin + daysPlayed() * VITALS.heightPerDay);
+// 아래 수치들은 모두 beauty 를 넘겨 '그 비주얼이었다면 얼마인지' 를 물어볼 수 있다.
+// 물약의 '?' 안내가 마시기 전/후를 같은 식으로 계산해 차이를 보여 주는 데 쓴다.
+//
+// 키 — 날짜로 자라는 것에 더해, 비주얼이 오르면 자세가 펴져 아주 조금 커진다.
+// (heightMax 를 넘지 않게 잘라 준다)
+function heightCm(beauty) {
+  const b = (beauty === undefined ? (S.stats.beauty || 0) : beauty);
+  const grown = VITALS.heightMin + daysPlayed() * VITALS.heightPerDay;
+  const bonus = Math.min(VITALS.heightBeautyMax,
+                         Math.max(0, b) * VITALS.heightPerBeauty);
+  return Math.min(VITALS.heightMax, grown + bonus);
 }
 // 체중 = BMI × 키(m)^2. 통통할수록 BMI 가 높다.
-function weightKg() {
-  const w = bodyLevel();                        // 1 = 통통, 0 = 날씬
+function weightKg(beauty) {
+  const w = bodyLevel(beauty);                  // 1 = 통통, 0 = 날씬
   const bmi = lerp(VITALS.bmiSlim, VITALS.bmiFat, w);
-  const m = heightCm() / 100;
+  const m = heightCm(beauty) / 100;
   return bmi * m * m;
 }
-function bodyFatPct() {
-  const w = bodyLevel();
-  return lerp(VITALS.fatPctSlim, VITALS.fatPctFat, w);
+function bodyFatPct(beauty) {
+  return lerp(VITALS.fatPctSlim, VITALS.fatPctFat, bodyLevel(beauty));
 }
-function bodyFatKg() { return weightKg() * bodyFatPct() / 100; }
+function bodyFatKg(beauty) { return weightKg(beauty) * bodyFatPct(beauty) / 100; }
 // 근육량 = 체중 × 근육 비율. 날씬할수록, 근성이 높을수록 비율이 오른다.
-function muscleKg() {
-  const w = bodyLevel();
-  const pct = lerp(VITALS.musclePctSlim, VITALS.musclePctFat, w)
+function muscleKg(beauty) {
+  const pct = lerp(VITALS.musclePctSlim, VITALS.musclePctFat, bodyLevel(beauty))
     + VITALS.gritMuscleBonus * (auraVal('grit') / 1000);
-  return weightKg() * pct / 100;
+  return weightKg(beauty) * pct / 100;
 }
 
 // ─── 아우라 세부 수치 (각 0~1000) ───
@@ -535,6 +553,33 @@ function brew() {
 // ═══════════════════════════════════════════════════════════════
 //  물약 사용 (Showcase)
 // ═══════════════════════════════════════════════════════════════
+// 물약 카드의 '?' — 이 물약을 마시면 신체 수치가 얼마나 움직이는지 미리 보여 준다.
+// 값은 하드코딩하지 않고 **실제 계산식에 마신 뒤 비주얼을 넣어** 차이를 낸다.
+// (수치 규칙을 고치면 이 안내도 저절로 따라온다)
+function potionDelta(r) {
+  const b0 = S.stats.beauty || 0;
+  const b1 = b0 + (r.result.beauty || 0);
+  return [
+    { label: T('v_weight'),  d: weightKg(b1)   - weightKg(b0),   unit: 'kg', dec: 2 },
+    { label: T('v_fat_pct'), d: bodyFatPct(b1) - bodyFatPct(b0), unit: '%',  dec: 2 },
+    { label: T('v_fat_kg'),  d: bodyFatKg(b1)  - bodyFatKg(b0),  unit: 'kg', dec: 2 },
+    { label: T('v_muscle'),  d: muscleKg(b1)   - muscleKg(b0),   unit: 'kg', dec: 2 },
+    { label: T('v_height'),  d: heightCm(b1)   - heightCm(b0),   unit: 'cm', dec: 2 },
+  ];
+}
+
+function showPotionEffect(potionId, anchor) {
+  const r = D.RECIPES.find(x => x.result.id === potionId);
+  if (!r) return;
+  const lines = potionDelta(r)
+    .filter(x => Math.abs(x.d) >= 0.005)          // 반올림하면 0 이 되는 항목은 빼고 보여 준다
+    .map(x => `${x.label} ${x.d > 0 ? '+' : '−'}${Math.abs(x.d).toFixed(x.dec)}${x.unit}`);
+  const head = T('potion_effect_head', { name: N(r.result.id, r.result.name) });
+  toast(lines.length ? `${head}\n${lines.join('\n')}` : `${head}\n${T('potion_effect_none')}`,
+        anchor, 4200);
+}
+window.showPotionEffect = showPotionEffect;
+
 function drinkPotion(potionId) {
   if ((S.potions[potionId] || 0) <= 0) return;
   const r = D.RECIPES.find(x => x.result.id === potionId);
@@ -542,7 +587,7 @@ function drinkPotion(potionId) {
   S.potions[potionId]--;
   if (S.potions[potionId] === 0) delete S.potions[potionId];
   rec('drinks');
-  const beforeBody = bodyLevel();
+  const beforeStep = bodyStep();
   S.stats.beauty += r.result.beauty || 0;
   S.stats.charm  += r.result.charm  || 0;
   // 물약마다 아우라 세부 수치가 다르게 오른다 (아우라 획득량 × 5)
@@ -556,11 +601,12 @@ function drinkPotion(potionId) {
   render();
   checkUnlocks();
   // 살 빠지는 연출 — 단계가 내려가면 크게, 아니면 반짝임만
-  const afterBody = bodyLevel();
-  playSlimFx(afterBody < beforeBody ? (afterBody === 0 ? 'done' : 'step') : 'sip');
-  if (afterBody < beforeBody) {
+  // (수치 자체는 연속으로 조금씩 움직이지만 연출까지 매번 터뜨리면 시끄럽다)
+  const afterStep = bodyStep();
+  playSlimFx(afterStep > beforeStep ? (afterStep === BODY_STEPS ? 'done' : 'step') : 'sip');
+  if (afterStep > beforeStep) {
     setTimeout(() => {
-      toast(T(afterBody === 0 ? 'body_done' : 'body_down'), null, 2600);
+      toast(T(afterStep === BODY_STEPS ? 'body_done' : 'body_down'), null, 2600);
     }, 1500);
   }
 }
@@ -823,10 +869,12 @@ function renderShowcase() {
     potEl.innerHTML = pids.map(pid => {
       const r = D.RECIPES.find(x => x.result.id === pid);
       if (!r) return '';
+      // '?' 는 카드 안에 있지만 마시기와 별개다 — stopPropagation 이 없으면 눌러도 마셔진다
       return `<div class="potion-card" onclick="drinkPotion('${pid}')">
+        <button class="potion-why" aria-label="${T('potion_why')}"
+          onclick="event.stopPropagation(); showPotionEffect('${pid}', this)">?</button>
         <div class="potion-emoji">${r.result.emoji}</div>
         <div class="potion-name">${N(r.result.id, r.result.name)}</div>
-        <div class="potion-eff">✨+${r.result.beauty} 💖+${r.result.charm}</div>
         <div class="potion-count">×${S.potions[pid]}</div>
       </div>`;
     }).join('');
