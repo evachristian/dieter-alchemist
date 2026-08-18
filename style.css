@@ -193,6 +193,17 @@ body {
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 .spot-card:active { transform: scale(0.97); }
+/* ─── 특별한 맵 배지 ─── UI_POLICY.md 참고
+   미니게임이 있는 맵(spot.mini)에만 붙는다. 카드 왼쪽 위 모서리에 얹는다. */
+.spot-card.special { position: relative; overflow: visible; }
+.spot-badge {
+  position: absolute; left: -4px; top: -8px; z-index: 1;
+  font-size: 0.64rem; font-weight: 800; color: #fff; letter-spacing: 0.02em;
+  background: linear-gradient(135deg, #ff8a3d, #ffb066);
+  border-radius: 999px; padding: 3px 9px;
+  box-shadow: 0 2px 6px rgba(200, 110, 40, 0.35);
+  white-space: nowrap;                       /* 두 줄로 접히면 카드 위로 삐져나온다 */
+}
 .spot-card.pop { animation: cardpop 0.4s ease; }
 @keyframes cardpop { 0% { transform: scale(1); } 40% { transform: scale(1.04); box-shadow: 0 8px 22px rgba(255,150,190,0.4); } 100% { transform: scale(1); } }
 .spot-emoji { font-size: 2.4rem; flex: none; }
@@ -737,4 +748,53 @@ body {
 
   /* 공방 실행 줄도 같은 이유 — "✨ 조합하기 ⚡25" 가 절반 폭을 넘어선다 (13.8px) */
   .cauldron-actions > .btn { font-size: 0.86rem; padding: 13px 10px; }
+}
+
+/* ─── 파수꾼의 호박 밭 (미니게임) ───
+   전체 화면 오버레이. 캔버스가 곧 밭이고, 손가락을 따라 캐릭터가 움직인다. */
+#pumpkinGame {
+  position: fixed; inset: 0; z-index: 9500;
+  background: #2b1d12;
+  display: flex; align-items: center; justify-content: center;
+}
+.pk-stage {
+  position: relative; width: 100%; height: 100%;
+  max-width: min(100vw, calc(100dvh * 9 / 16));
+  max-height: min(100dvh, calc(100vw * 16 / 9));
+  overflow: hidden;
+}
+.pk-canvas { display: block; width: 100%; height: 100%; }
+.pk-hud {
+  position: absolute; left: 0; right: 0; top: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+  background: linear-gradient(180deg, rgba(20,12,6,0.72), rgba(20,12,6,0));
+  font-size: 0.86rem; font-weight: 800; color: #fff8ec;
+  pointer-events: none;
+}
+.pk-timer { font-variant-numeric: tabular-nums; font-size: 1rem; }
+.pk-hint {
+  position: absolute; left: 0; right: 0; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  text-align: center; font-size: 0.78rem; font-weight: 700; color: rgba(255,248,236,0.85);
+  pointer-events: none;
+}
+/* 결과 — 끝났을 때만 뜬다 */
+.pk-result {
+  position: absolute; inset: 0; display: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; text-align: center; background: rgba(20,12,6,0.82);
+}
+.pk-result.show { display: flex; }
+.pk-res-title { font-size: 1rem; font-weight: 800; color: #fff8ec; line-height: 1.5; }
+.pk-res-items { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.pk-item {
+  font-size: 0.8rem; font-weight: 800; color: var(--ink);
+  background: var(--cream); border-radius: 999px; padding: 5px 11px;
+}
+/* .btn 은 flex:1 이라 세로 flex 안에서 높이까지 늘어난다 — 결과 화면 자식은 안 늘어나게 고정 */
+.pk-result > * { flex: 0 0 auto; }
+.pk-close {
+  flex: 0 0 auto; width: auto; min-width: 150px;
+  background: var(--pink-2); color: var(--ink);
+  box-shadow: 0 4px 10px rgba(255,150,190,0.35);
 }

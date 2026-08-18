@@ -83,6 +83,15 @@ function pick(id) { cur = id; render(); centerActiveTab(document.querySelector('
 
 ---
 
+## 1-2. 특별한 맵 배지 (`.spot-badge`)
+
+미니게임이 있는 맵(`map.mini`)은 카드 **왼쪽 위 모서리**에 "특별한 맵" 배지를 단다.
+
+- 배지를 다는 카드는 `.spot-card.special` 이 붙어 `position: relative` 가 된다
+- 배지는 `position: absolute; left:-4px; top:-8px` — 카드 모서리에 걸치게 얹는다
+- **`white-space: nowrap` 을 뺄 수 없다.** 두 줄로 접히면 카드 위로 삐져나온다
+- 판정 기준은 데이터의 `mini` 키다. 화면에서 맵 id 를 하드코딩하지 않는다
+
 ## 2. 가변 폭 — 문구 길이가 달라져도 깨지지 않기
 
 언어를 추가하면 같은 자리의 라벨 길이가 달라진다. `취소`(2자)가 `Cancel`(6자)이 되고,

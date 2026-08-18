@@ -29,6 +29,11 @@ const INGREDIENTS = {
   dew:           { id: 'dew', emoji: '💧', name: '이슬', zone: 'plain', weight: 16 },
   walnut:        { id: 'walnut', emoji: '🥜', name: '호두', zone: 'plain', weight: 20 },
   butter_flower: { id: 'butter_flower', emoji: '🧈', name: '버터꽃', zone: 'plain', weight: 12 },
+  // 파수꾼의 호박 밭 전용 (이 맵에서만 나온다)
+  zucchini:        { id: 'zucchini', emoji: '🥒', name: '애호박', zone: 'plain', weight: 30 },
+  old_pumpkin:     { id: 'old_pumpkin', emoji: '🎃', name: '늙은호박', zone: 'plain', weight: 18 },
+  sweet_pumpkin:   { id: 'sweet_pumpkin', emoji: '🟠', name: '단호박', zone: 'plain', weight: 24 },
+  chestnut_pumpkin:{ id: 'chestnut_pumpkin', emoji: '🌰', name: '밤호박', zone: 'plain', weight: 20 },
   // ── 울창 숲 지대 ──
   petal:         { id: 'petal', emoji: '🌸', name: '꽃잎', zone: 'forest', weight: 26 },
   mushroom:      { id: 'mushroom', emoji: '🍄', name: '버섯', zone: 'forest', weight: 14 },
@@ -83,6 +88,7 @@ const INGREDIENTS = {
   sp_fiveleaf:     { id: 'sp_fiveleaf', emoji: '🍀', name: '행운의 다섯잎', zone: 'plain', weight: 0, rare: true },
   sp_lostribbon:   { id: 'sp_lostribbon', emoji: '🎀', name: '잃어버린 리본', zone: 'plain', weight: 0, rare: true },
   sp_fallenstar:   { id: 'sp_fallenstar', emoji: '⭐', name: '떨어진 별', zone: 'plain', weight: 0, rare: true },
+  sp_pumpkinseed:  { id: 'sp_pumpkinseed', emoji: '🌱', name: '뒤로 깠다는 호박씨', zone: 'plain', weight: 0, rare: true },
   sp_mistseed:     { id: 'sp_mistseed', emoji: '🫧', name: '안개의 씨앗', zone: 'forest', weight: 0, rare: true },
   sp_lostcompass:  { id: 'sp_lostcompass', emoji: '🧭', name: '길잃은 나침반', zone: 'forest', weight: 0, rare: true },
   sp_capcrown:     { id: 'sp_capcrown', emoji: '👑', name: '버섯왕관', zone: 'forest', weight: 0, rare: true },
@@ -161,6 +167,11 @@ const MAPS = [
   { id: 'p_starfield', zone: 'plain', emoji: '✨', name: '별헤는 평지',
     desc: '누워서 별을 세는 평지.',
     pool: ['dew', 'butter_flower', 'clover', 'thistle', 'sun_seed'], unlock: 30, special: 'sp_fallenstar' },
+  // 특별 맵 — 누르면 채집이 아니라 미니게임(호박 피하기)으로 들어간다. mini 키가 그 표시다.
+  { id: 'p_pumpkin', zone: 'plain', emoji: '🎃', name: '파수꾼의 호박 밭',
+    desc: '함부로 들어가면 파수꾼이 호박을 굴려 혼쭐 내준다는 소문의 호박 밭.',
+    pool: ['zucchini', 'old_pumpkin', 'sweet_pumpkin', 'chestnut_pumpkin'], unlock: 20,
+    special: 'sp_pumpkinseed', mini: 'pumpkin' },
   // ── 울창 숲 지대 ── (해금 38~102점)
   { id: 'f_mist', zone: 'forest', emoji: '🌫️', name: '안개 숲 외곽',
     desc: '늘 옅은 안개가 낀 숲의 가장자리.',

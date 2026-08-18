@@ -402,12 +402,38 @@ function switchTab(tab) {
 // ═══════════════════════════════════════════════════════════════
 //  채집 (Gather)
 // ═══════════════════════════════════════════════════════════════
+// 파수꾼의 호박 밭 — 미니게임을 띄우고, 끝나면 주운 것을 가방에 넣는다.
+// AP 는 들어갈 때 이미 냈으므로 여기서 또 빼지 않는다.
+function startPumpkinRun(map) {
+  window.Pumpkin.start(map, (res) => {
+    const got = (res && res.picked) || [];
+    got.forEach(id => addInv(id, 1));
+    S.gathered++;
+    rec('gathered');
+    got.forEach(() => rec('itemsGot'));
+    const specials = got.filter(id => id === map.special).length;
+    for (let i = 0; i < specials; i++) rec('specials');
+    save();
+    if (specials) {
+      const sp = D.INGREDIENTS[map.special];
+      toast(T('got_special', { emoji: sp.emoji, name: N(sp.id, sp.name) }), null, 3200);
+      if (window.Sfx) Sfx.play('success');
+    }
+    render();
+  });
+}
+
 function gather(mapId) {
   const map = D.MAPS.find(m => m.id === mapId);
   if (!map) return;
   if (!isMapOpen(map)) { toast(unlockText(map.unlock)); return; }
   if (!spendEnergy(D.ENERGY.cost.gather)) {
     toast(T('no_energy'));
+    return;
+  }
+  // 특별한 맵 — 바로 줍지 않고 미니게임으로 들어간다. 보상은 끝난 뒤 받는다.
+  if (map.mini === 'pumpkin' && window.Pumpkin) {
+    startPumpkinRun(map);
     return;
   }
   // 0.1% 확률로 그 맵에서만 나오는 '특별한 재료'
@@ -620,8 +646,12 @@ function renderGather() {
     // 특별한 재료는 한 번이라도 얻었을 때만 정체를 보여 준다
     const found = invCount(spot.special) > 0;
     const spChip = `<span class="spot-special ${found ? 'found' : ''}" title="${T('special_hint')}">${found ? sp.emoji : '❔'}</span>`;
+    // 특별한 맵(미니게임이 있는 맵)은 카드 왼쪽 위에 배지를 단다 — UI_POLICY.md 참고
+    const badge = spot.mini ? `<span class="spot-badge">${T('special_map')}</span>` : '';
     return `
-      <div class="spot-card ${canGather ? '' : 'low-energy'}" data-spot="${spot.id}" onclick="gather('${spot.id}')">
+      <div class="spot-card ${canGather ? '' : 'low-energy'}${spot.mini ? ' special' : ''}"
+           data-spot="${spot.id}" onclick="gather('${spot.id}')">
+        ${badge}
         <div class="spot-emoji">${spot.emoji}</div>
         <div class="spot-info">
           <div class="spot-name">${N(spot.id, spot.name)}</div>
