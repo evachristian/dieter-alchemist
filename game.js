@@ -798,7 +798,6 @@ function renderShowcase() {
         <div class="potion-name">${N(r.result.id, r.result.name)}</div>
         <div class="potion-eff">✨+${r.result.beauty} 💖+${r.result.charm}</div>
         <div class="potion-count">×${S.potions[pid]}</div>
-        <div class="potion-use">${T('hint_drink').replace('👆 ','')}</div>
       </div>`;
     }).join('');
   }

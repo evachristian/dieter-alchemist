@@ -629,7 +629,6 @@ body {
 .potion-name, .creature-name { font-size: 0.76rem; font-weight: 800; margin-top: 3px; }
 .potion-eff, .creature-eff { font-size: 0.66rem; color: var(--ink-soft); margin-top: 2px; }
 .potion-count, .creature-count { position: absolute; top: 6px; right: 8px; font-size: 0.72rem; font-weight: 800; color: var(--pink-2); }
-.potion-use { margin-top: 6px; font-size: 0.72rem; font-weight: 800; color: #fff; background: var(--mint-2); border-radius: 999px; padding: 3px 0; }
 
 /* ─── 하단 탭 ─── */
 .tab-bar {
