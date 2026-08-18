@@ -203,8 +203,11 @@ body {
 .spot-card.special { position: relative; overflow: visible; }
 .spot-badge {
   position: absolute; left: -4px; top: -8px; z-index: 1;
-  font-size: 0.64rem; font-weight: 800; color: #fff; letter-spacing: 0.02em;
-  background: linear-gradient(135deg, #ff8a3d, #ffb066);
+  /* 흰 글자 + 주황은 어떤 조합으로도 2.4:1 을 못 넘는다. 진한 갈색 글자로 바꿔 5.5:1.
+     그라데이션도 뺐다 — 검증기가 배경을 못 읽어 흰색으로 '추정' 하면 오진의 빌미가 된다.
+     크기도 10.2px 이라 최소 11px 에 걸렸다 (TEXT_POLICY.md) */
+  font-size: 0.7rem; font-weight: 800; color: #6b3d10; letter-spacing: 0.02em;
+  background: #ffbc78;
   border-radius: 999px; padding: 3px 9px;
   box-shadow: 0 2px 6px rgba(200, 110, 40, 0.35);
   white-space: nowrap;                       /* 두 줄로 접히면 카드 위로 삐져나온다 */
@@ -848,8 +851,9 @@ body {
   background: var(--lav); border-radius: 999px; padding: 5px 10px; white-space: nowrap;
 }
 
-/* ─── 개발용 도구 (임시 · 출시 때 이 블록과 #devTools 를 지운다) ───
-   삼각형을 눌러 열고 닫는다. 기본은 닫힘 — 평소 화면을 어지럽히지 않게. */
+/* ─── 개발용 도구 (임시 · 출시 때 이 블록과 화면의 .dev-tools 를 지운다) ───
+   삼각형을 눌러 열고 닫는다. 기본은 닫힘 — 평소 화면을 어지럽히지 않게.
+   화면마다 하나씩 있고 접힘 상태는 data-dev 이름별로 따로 기억한다. */
 .dev-tools { margin-top: 20px; }
 .dev-toggle {
   /* 폭은 글자에 맞추고(fit-content) 좌우 auto 여백으로 가운데에 둔다 */
@@ -863,4 +867,9 @@ body {
 .dev-caret { font-size: 0.7rem; line-height: 1; }
 /* 닫혀 있을 때는 자리를 아예 차지하지 않는다 */
 .dev-body { display: none; }
-.dev-tools.open .dev-body { display: block; }
+/* 버튼이 여럿이라 간격은 gap 으로 준다 — .btn-dev 의 margin-top 을 그대로 두면
+   버튼마다 24px 씩 벌어져 목록이 늘어진다 */
+.dev-tools.open .dev-body { display: flex; flex-direction: column; gap: 8px; }
+.dev-body .btn-dev { margin-top: 0; }
+/* 켜져 있는 스위치 (모든 맵 오픈 등) */
+.btn-dev.on { background: linear-gradient(135deg, #ffd06a, #ffb066); border-style: solid; }

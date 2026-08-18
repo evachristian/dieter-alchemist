@@ -719,6 +719,7 @@ function render() {
   if (currentTab === 'gather') renderGather();
   if (currentTab === 'atelier') renderAtelier();
   if (currentTab === 'showcase') renderShowcase();
+  applyDevTools();   // 임시(출시 때 지운다): 화면마다 있는 개발용 블록의 접힘 상태를 맞춘다
 }
 
 function renderHeader() {
@@ -759,7 +760,8 @@ function renderGather() {
     const chips = spot.pool.map(id => D.INGREDIENTS[id].emoji).join(' ');
     const sp = D.INGREDIENTS[spot.special];
     // 특별한 재료는 한 번이라도 얻었을 때만 정체를 보여 준다
-    const found = invCount(spot.special) > 0;
+    // 임시: 개발용 '모든 히든 재료 오픈' 스위치가 켜져 있으면 얻지 않았어도 정체를 보여 준다
+    const found = devFlag(DEV_SPECIALS_KEY) || invCount(spot.special) > 0;
     const spChip = `<span class="spot-special ${found ? 'found' : ''}" title="${T('special_hint')}">${found ? sp.emoji : '❔'}</span>`;
     // 특별한 맵(미니게임이 있는 맵)은 카드 왼쪽 위에 배지를 단다 — UI_POLICY.md 참고
     const badge = spot.mini ? `<span class="spot-badge">${T('special_map')}</span>` : '';
@@ -777,6 +779,8 @@ function renderGather() {
         <div class="spot-go">${T('gather_go')} <span class="cost-tag">⚡${cost}</span></div>
       </div>`;
   }).join('');
+
+  renderGatherDev();   // 임시(출시 때 지운다)
 }
 
 function renderAtelier() {
@@ -917,9 +921,8 @@ function renderShowcase() {
   // 신체 · 아우라 상세 수치
   renderVitals();
 
-  // 개발용 도구 (임시 · 테스트용)
+  // 개발용 도구 (임시 · 테스트용) — 접힘 상태는 render() 끝에서 한 번에 맞춘다
   renderBodyTune();
-  applyDevTools();
 
   // 스탯
   document.getElementById('statBeauty').textContent = S.stats.beauty;
@@ -991,8 +994,9 @@ let wardrobeTab = 'hair';
 //  콘텐츠 해금 — 매력 총합이 기준 점수에 닿으면 열린다
 //  안내 문구: "○○ 단계 N점 달성 시 오픈" (단계 이름은 N 에서 자동 계산)
 // ═══════════════════════════════════════════════════════════════
-function isMapOpen(m)  { return totalCharm() >= m.unlock; }
-function isZoneOpen(z) { return totalCharm() >= D.zoneUnlock(z.id); }
+// 임시(출시 때 devFlag 조건을 지운다): 개발용 '모든 맵 오픈' 스위치가 켜져 있으면 전부 열린 것으로 본다
+function isMapOpen(m)  { return devFlag(DEV_MAPS_KEY) || totalCharm() >= m.unlock; }
+function isZoneOpen(z) { return devFlag(DEV_MAPS_KEY) || totalCharm() >= D.zoneUnlock(z.id); }
 // 해금 조건 문구 — 점수에 해당하는 단계 이름을 붙여 준다
 function unlockText(score) {
   const tier = D.getTier(score);
@@ -1214,26 +1218,73 @@ function stopTuneHold() {
 window.startTuneHold = startTuneHold;
 window.stopTuneHold = stopTuneHold;
 
-// 개발용 도구 접기 — 기본은 닫혀 있다. 상태는 세이브와 무관하게 이 기기에만 남긴다.
+// ─── 개발용 도구 (임시 · 출시 때 이 블록과 화면의 .dev-tools 를 지운다) ───
+//
+// 화면마다 하나씩 둔다. 각 블록은 data-dev 로 자기 이름을 갖고, 열고 닫은 상태는
+// 그 이름으로 따로 기억한다 — 마이 룸에서 열어 뒀다고 채집에서도 열려 있으면 곤란하다.
+// 기본은 닫힘. 세이브와 무관한 이 기기의 화면 설정이라 SAVE_VER 는 건드리지 않는다.
 const DEV_OPEN_KEY = 'dieter_alchemist_devopen_v1';
-function devToolsOpen() {
-  try { return localStorage.getItem(DEV_OPEN_KEY) === '1'; } catch (e) { return false; }
+function devOpenKey(name) { return DEV_OPEN_KEY + (name ? '_' + name : ''); }
+function devToolsOpen(name) {
+  try { return localStorage.getItem(devOpenKey(name)) === '1'; } catch (e) { return false; }
 }
 function applyDevTools() {
-  const box = document.getElementById('devTools');
-  if (!box) return;
-  const open = devToolsOpen();
-  box.classList.toggle('open', open);
-  const btn = box.querySelector('.dev-toggle');
-  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-  const caret = box.querySelector('.dev-caret');
-  if (caret) caret.textContent = open ? '▾' : '▸';
+  document.querySelectorAll('.dev-tools').forEach(box => {
+    const open = devToolsOpen(box.dataset.dev);
+    box.classList.toggle('open', open);
+    const btn = box.querySelector('.dev-toggle');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const caret = box.querySelector('.dev-caret');
+    if (caret) caret.textContent = open ? '▾' : '▸';
+  });
 }
-function toggleDevTools() {
-  try { localStorage.setItem(DEV_OPEN_KEY, devToolsOpen() ? '0' : '1'); } catch (e) {}
+function toggleDevTools(name) {
+  try { localStorage.setItem(devOpenKey(name), devToolsOpen(name) ? '0' : '1'); } catch (e) {}
   applyDevTools();
 }
 window.toggleDevTools = toggleDevTools;
+
+// ─── 채집 화면 개발용 스위치 ───
+//
+// 맵 해금과 히든 재료 공개는 **세이브에 쓰지 않는다.** 켠 채로 저장했다가
+// 서버에 올라가면 다른 기기에서도 다 열린 상태가 되고, 되돌릴 방법이 없다.
+// 이 기기에만 남는 표시로 두고, 판정하는 곳에서 그때그때 본다.
+const DEV_MAPS_KEY     = 'dieter_alchemist_devmaps_v1';
+const DEV_SPECIALS_KEY = 'dieter_alchemist_devspecials_v1';
+function devFlag(key) {
+  try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+}
+function devToggleFlag(key) {
+  try { localStorage.setItem(key, devFlag(key) ? '0' : '1'); } catch (e) {}
+  render();
+}
+function devAllMaps()     { devToggleFlag(DEV_MAPS_KEY); }
+function devAllSpecials() { devToggleFlag(DEV_SPECIALS_KEY); }
+
+// 모든 재료를 1000개씩. 이건 진짜 소지품이라 세이브에 들어간다.
+function devFillItems() {
+  const ids = Object.keys(D.INGREDIENTS);
+  ids.forEach(id => { S.inventory[id] = 1000; });
+  save();
+  toast(T('dev_items_done', { n: ids.length }));
+  render();
+}
+
+function renderGatherDev() {
+  const el = document.getElementById('gatherDevBody');
+  if (!el) return;
+  const sw = (on, label, fn) =>
+    `<button class="btn btn-dev${on ? ' on' : ''}" onclick="${fn}()">${on ? '☑' : '☐'} ${label}</button>`;
+  el.innerHTML =
+    `<button class="btn btn-dev" onclick="fillEnergy()">${T('dev_fill_ap')}</button>` +
+    sw(devFlag(DEV_MAPS_KEY), T('dev_all_maps'), 'devAllMaps') +
+    sw(devFlag(DEV_SPECIALS_KEY), T('dev_all_specials'), 'devAllSpecials') +
+    `<button class="btn btn-dev" onclick="devFillItems()">${T('dev_fill_items')}</button>`;
+}
+
+window.devAllMaps = devAllMaps;
+window.devAllSpecials = devAllSpecials;
+window.devFillItems = devFillItems;
 
 function renderBodyTune() {
   const el = document.getElementById('bodyTune');

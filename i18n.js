@@ -154,6 +154,10 @@
       // 임시
       dev_fill_ap: '⚡ AP 1000 충전 (임시)',
       dev_tools: '개발용 (임시)',
+      dev_all_maps: '🗺️ 모든 맵 오픈',
+      dev_all_specials: '❔ 모든 히든 재료 오픈',
+      dev_fill_items: '📦 모든 재료 1000개씩 얻기',
+      dev_items_done: '재료 {n}종을 1000개씩 넣었어요',
       // 공유
       share_text: '[다이어터 연금술사] 나의 매력 총합 {total} — {emoji} {tier} 등급!',
       // 인트로
@@ -299,6 +303,10 @@
       body_done: '🎉 You are perfectly slim now!',
       dev_fill_ap: '⚡ Refill 1000 AP (temp)',
       dev_tools: 'Dev tools (temp)',
+      dev_all_maps: '🗺️ Unlock every map',
+      dev_all_specials: '❔ Reveal every hidden ingredient',
+      dev_fill_items: '📦 Give 1000 of every ingredient',
+      dev_items_done: 'Added 1000 each of {n} ingredients',
       share_text: '[Dieter Alchemist] My Total Charm {total} — {emoji} {tier}!',
       intro_skip: 'Skip ✕', intro_next: 'Next ▸',
       sp_narrator: '', sp_fairy: 'Fairy Godmother', sp_princess: 'Princess',
