@@ -448,18 +448,30 @@ body {
 .icon-btn:active { transform: scale(0.9) rotate(-40deg); }
 
 /* 나의 방 하위 탭 */
-.room-tabs { display: flex; gap: 8px; margin: 16px 0 8px; min-width: 0; }
+/* ─── 인벤토리 (마이 룸) ───
+   옷 / 물약 / 크리처는 **한 덩어리**다. 예전에는 탭 3개·옷장 카드·안내 문구가
+   각자 그림자를 가진 조각으로 흩어져 서로 다른 덩어리처럼 보였다.
+   바깥 카드(.room-inv) 하나만 그림자를 갖고, 안쪽 것들은 배경만으로 구분한다. */
+.room-inv {
+  margin-top: 16px; padding: 10px;
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+/* 탭 — 낱개 버튼이 아니라 한 줄짜리 세그먼트로 (안쪽이라 그림자를 빼고 트랙 위에 얹는다) */
+.room-tabs {
+  display: flex; gap: 4px; margin: 0 0 10px; min-width: 0;
+  background: var(--cream); border-radius: 14px; padding: 4px;
+}
 .room-tab {
-  flex: 1 1 0; min-width: 0; border: none; background: var(--card); color: var(--ink-soft);
-  font-family: inherit; font-weight: 800; font-size: 0.86rem; padding: 10px 6px;
+  flex: 1 1 0; min-width: 0; border: none; background: transparent; color: var(--ink-soft);
+  font-family: inherit; font-weight: 800; font-size: 0.86rem; padding: 9px 6px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  border-radius: 14px; cursor: pointer; box-shadow: var(--shadow);
+  border-radius: 11px; cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.room-tab.active { background: var(--pink-2); color: var(--ink); }
+.room-tab.active { background: var(--pink-2); color: var(--ink); box-shadow: 0 2px 6px rgba(200,140,175,0.3); }
 .room-panel { display: none; }
 .room-panel.active { display: block; }
-.hint-block { display: block; text-align: center; font-size: 0.72rem; color: var(--ink-soft); margin: 10px 2px 0; }
+.hint-block { display: block; text-align: center; font-size: 0.72rem; color: var(--ink-soft); margin: 10px 2px 2px; }
 
 .char-stage { position: relative; display: flex; justify-content: center; margin: 6px 0 10px; }
 /* 배경을 네모 카드에 가두지 않고 전체 폭으로 열린 방처럼. 위/아래는 부드럽게 페이드 */
@@ -561,7 +573,8 @@ body {
 .record[open] .record-sum { margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1px solid var(--cream); }
 
 /* ─── 옷장 ─── */
-.wardrobe { background: var(--card); border-radius: 18px; padding: 10px; box-shadow: var(--shadow); }
+/* 인벤토리 카드 안이므로 자기 배경·그림자를 갖지 않는다 (덩어리가 둘로 보인다) */
+.wardrobe { background: transparent; border-radius: 0; padding: 0; box-shadow: none; }
 /* ═══ 잠긴 콘텐츠 공통 표현 (UI_POLICY.md 7장) ═══
    컨텐츠 언락 시스템으로 아직 열리지 않은 것은 전부 여기를 지난다.
    🔒 아이콘만으로는 목록을 훑어볼 때 눈에 잘 들어오지 않아서,
@@ -631,8 +644,8 @@ body {
 /* ─── 물약 선반 ─── */
 .potion-shelf, .creature-collection { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .potion-card, .creature-card {
-  background: var(--card); border-radius: 16px; padding: 12px 6px;
-  text-align: center; box-shadow: var(--shadow); position: relative;
+  background: var(--cream); border-radius: 16px; padding: 12px 6px;
+  text-align: center; position: relative;
 }
 .potion-card { cursor: pointer; transition: transform 0.1s ease; }
 .potion-card:active { transform: scale(0.95); }
