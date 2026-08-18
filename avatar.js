@@ -104,6 +104,10 @@
   function wrapX(s, k, ax) {
     return (!s || k === 1) ? s : `<g${sx(k, ax)}>${s}</g>`;
   }
+  // 도형 묶음을 전체 크기로 늘려 감싼다
+  function wrapU(s, k, ax, ay) {
+    return (!s || k === 1) ? s : `<g${su(k, ax, ay)}>${s}</g>`;
+  }
 
   // 팔과 소매를 **같은 좌표에서** 그린다.
   // 예전에는 소매 좌표가 renderTop·renderDress 에 그대로 박혀 있어서,
@@ -151,7 +155,7 @@
   }
 
   // 얼굴(피부) + 귀 + 표정
-  function faceAndExpression(expItem, tune) {
+  function faceAndExpression(expItem) {
     const kind = (expItem && expItem.kind) || 'smile';
     const EYE = '#4a3a42', LIP = '#c97b86';
     let eyes, mouth;
@@ -181,9 +185,9 @@
           <circle cx="88.7" cy="72.4" r="1.7" fill="#fff"/><circle cx="114.7" cy="72.4" r="1.7" fill="#fff"/>`;
         mouth = `<path d="M94,89 Q100,94 106,89" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
     }
-    // 얼굴만 턱(100,105)을 축으로 키운다 — 머리카락은 따로라 같이 커지지 않는다
+    // '얼굴' 배율은 build() 의 H() 에서 머리 전체에 걸린다 (여기서 또 걸면 두 번 적용된다)
     return `
-      <g data-part="head"${su(tuneOf(tune, 'face'), 100, 105)}>
+      <g data-part="head">
         <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
         <ellipse cx="67" cy="76" rx="6" ry="9" fill="${SKIN}"/>
         <ellipse cx="133" cy="76" rx="6" ry="9" fill="${SKIN}"/>
@@ -438,7 +442,12 @@
       + `scale(${(headK * (1 + 0.06 * w)).toFixed(3)},${headK.toFixed(3)}) translate(-100,${-NECK_Y})`;
     // 체형이 0(날씬)이어도 등신 비율 때문에 변환이 필요하므로 항상 적용한다
     const B = s => (s ? `<g transform="${bodyT}">${s}</g>` : s);   // 몸통 계열
-    const H = s => (s ? `<g transform="${headT}">${s}</g>` : s);   // 머리 계열
+    // 머리 계열 — '얼굴' 배율은 여기서 **머리 전체**에 건다.
+    // 예전에는 얼굴 타원(data-part="head")에만 걸려 있어서, 얼굴을 줄이면
+    // 머리카락만 원래 크기로 남아 가발을 쓴 것처럼 됐다.
+    // 머리카락·귀걸이·서클렛이 전부 H() 를 지나므로 여기 한 곳이면 다 따라온다.
+    const kFace = tuneOf(tune, 'face');
+    const H = s => (s ? `<g transform="${headT}">${wrapU(s, kFace, 100, NECK_Y)}</g>` : s);
     const dress = getItem('dress', outfit.dress);
     const hasDress = !isNone(dress);
     const top = hasDress ? null : getItem('top', outfit.top);
@@ -455,7 +464,7 @@
       B(hasDress ? '' : renderBottom(bottom, tune)),
       B(torsoArms(tune)),
       B(hasDress ? renderDress(dress, tune) : renderTop(top, tune)),
-      H(faceAndExpression(expItem, tune)),
+      H(faceAndExpression(expItem)),
       H(hairFront(hairKind, hairColor)),
       B(renderTattoo(getItem('tattoo', outfit.tattoo))),
       H(renderEarring(getItem('earring', outfit.earring))),
