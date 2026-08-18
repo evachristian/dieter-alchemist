@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260815d">
+<link rel="stylesheet" href="style.css?v=20260815f">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260815d" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260815f" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -445,34 +445,37 @@
 
     <div id="charStage" class="char-stage"></div>
 
-    <div class="stat-row">
-      <div class="stat-box"><div class="stat-label" data-i18n="stat_visual">✨ 비주얼</div><div id="statBeauty" class="stat-val">0</div></div>
-      <div class="stat-box"><div class="stat-label" data-i18n="stat_aura">💖 아우라</div><div id="statCharm" class="stat-val">0</div></div>
-      <div class="stat-box highlight" onclick="tierHelp(this)">
-        <div class="stat-label"><span id="showcaseTier" class="tier-ic">🌱</span> <span id="tierName" class="tier-name"></span> <span data-i18n="stat_total">매력 총합</span></div>
-        <div id="statTotal" class="stat-val">0</div>
+    <!-- 능력치 — 요약·상세·기록·과시를 한 덩어리로 묶는다 (UI_POLICY.md 참고) -->
+    <div class="room-stats">
+      <div class="stat-row">
+        <div class="stat-box"><div class="stat-label" data-i18n="stat_visual">✨ 비주얼</div><div id="statBeauty" class="stat-val">0</div></div>
+        <div class="stat-box"><div class="stat-label" data-i18n="stat_aura">💖 아우라</div><div id="statCharm" class="stat-val">0</div></div>
+        <div class="stat-box highlight" onclick="tierHelp(this)">
+          <div class="stat-label"><span id="showcaseTier" class="tier-ic">🌱</span> <span id="tierName" class="tier-name"></span> <span data-i18n="stat_total">매력 총합</span></div>
+          <div id="statTotal" class="stat-val">0</div>
+        </div>
       </div>
+
+      <!-- 신체 · 아우라 상세 수치 -->
+      <div class="vitals">
+        <div class="vitals-col">
+          <div class="vitals-head" data-i18n="stat_visual">✨ 비주얼</div>
+          <dl id="vitalsBody" class="vitals-list"></dl>
+        </div>
+        <div class="vitals-col">
+          <div class="vitals-head" data-i18n="stat_aura">💖 아우라</div>
+          <dl id="vitalsAura" class="vitals-list"></dl>
+        </div>
+      </div>
+
+      <!-- 플레이 기록 (게임을 초기화하기 전까지 계속 쌓인다) -->
+      <details class="record">
+        <summary class="record-sum"><span data-i18n="rec_title">📔 플레이 기록</span><span id="recordBrief" class="record-brief"></span></summary>
+        <dl id="recordList" class="vitals-list"></dl>
+      </details>
+
+      <button class="btn btn-flex" onclick="flexCharm()" data-i18n="flex_btn">📢 매력 과시</button>
     </div>
-
-    <!-- 신체 · 아우라 상세 수치 -->
-    <div class="vitals">
-      <div class="vitals-col">
-        <div class="vitals-head" data-i18n="stat_visual">✨ 비주얼</div>
-        <dl id="vitalsBody" class="vitals-list"></dl>
-      </div>
-      <div class="vitals-col">
-        <div class="vitals-head" data-i18n="stat_aura">💖 아우라</div>
-        <dl id="vitalsAura" class="vitals-list"></dl>
-      </div>
-    </div>
-
-    <!-- 플레이 기록 (게임을 초기화하기 전까지 계속 쌓인다) -->
-    <details class="record">
-      <summary class="record-sum"><span data-i18n="rec_title">📔 플레이 기록</span><span id="recordBrief" class="record-brief"></span></summary>
-      <dl id="recordList" class="vitals-list"></dl>
-    </details>
-
-    <button class="btn btn-flex" onclick="flexCharm()" data-i18n="flex_btn">📢 매력 과시</button>
 
     <!-- 인벤토리 — 탭·목록·안내를 한 덩어리로 묶는다 (UI_POLICY.md 참고) -->
     <div class="room-inv">
@@ -598,14 +601,14 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260815d"></script>
-<script src="intro.js?v=20260815d"></script>
-<script src="data.js?v=20260815d"></script>
-<script src="avatar.js?v=20260815d"></script>
-<script src="pumpkin.js?v=20260815d"></script>
-<script src="sfx.js?v=20260815d"></script>
-<script src="sync.js?v=20260815d"></script>
-<script src="game.js?v=20260815d"></script>
-<script src="a11y.js?v=20260815d"></script>
+<script src="i18n.js?v=20260815f"></script>
+<script src="intro.js?v=20260815f"></script>
+<script src="data.js?v=20260815f"></script>
+<script src="avatar.js?v=20260815f"></script>
+<script src="pumpkin.js?v=20260815f"></script>
+<script src="sfx.js?v=20260815f"></script>
+<script src="sync.js?v=20260815f"></script>
+<script src="game.js?v=20260815f"></script>
+<script src="a11y.js?v=20260815f"></script>
 </body>
 </html>

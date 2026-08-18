@@ -180,7 +180,10 @@ body {
 .screen-sub { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 16px; }
 .mini-title { font-size: 1rem; font-weight: 800; margin: 22px 0 10px; }
 .mini-title .hint { font-size: 0.72rem; font-weight: 600; color: var(--ink-soft); }
-.empty-hint { grid-column: 1 / -1; color: var(--ink-soft); font-size: 0.85rem; text-align: center; padding: 24px 20px; background: rgba(255,255,255,0.5); border-radius: var(--radius); line-height: 1.5; }
+/* 부모가 grid 일 때도 flex 일 때도 한 줄을 통째로 차지해야 한다.
+   flex 부모에서 grid-column 은 무시돼 폭이 글자에 맞게 줄고,
+   그러면 text-align:center 가 아무 일도 하지 않는다 (가방이 그랬다). */
+.empty-hint { grid-column: 1 / -1; flex: 1 1 100%; width: 100%; box-sizing: border-box; color: var(--ink-soft); font-size: 0.85rem; text-align: center; padding: 24px 20px; background: rgba(255,255,255,0.5); border-radius: var(--radius); line-height: 1.5; }
 .empty-hint.clickable { cursor: pointer; transition: transform 0.1s ease, background 0.15s ease; }
 .empty-hint.clickable:active { transform: scale(0.98); background: rgba(255,255,255,0.7); }
 
@@ -340,7 +343,7 @@ body {
 .btn:active { transform: scale(0.96); }
 .btn-primary { background: var(--pink-2); color: var(--ink); box-shadow: 0 4px 10px rgba(255,150,190,0.4); }
 .btn-ghost { background: var(--cream); color: var(--ink-soft); }
-.btn-flex { background: linear-gradient(120deg, var(--lav-2), var(--pink-2)); color: var(--ink); width: 100%; margin: 6px 0 4px; box-shadow: 0 4px 12px rgba(180,140,220,0.4); }
+.btn-flex { background: linear-gradient(120deg, var(--lav-2), var(--pink-2)); color: var(--ink); width: 100%; margin: 10px 0 0; box-shadow: 0 4px 12px rgba(180,140,220,0.4); }
 .btn-reset { background: transparent; color: var(--ink-soft); border: 1px solid rgba(154,138,149,0.35); width: 100%; margin-top: 28px; font-weight: 600; font-size: 0.82rem; }
 /* 임시(출시 버전에서 제거): AP 충전 테스트 버튼 */
 .btn-dev { width: 100%; margin-top: 24px; font-weight: 800; font-size: 0.85rem; color: #8a5a1a; background: linear-gradient(135deg, #ffe08a, #ffd0a0); border: 1px dashed rgba(180,120,40,0.5); }
@@ -523,8 +526,16 @@ body {
 @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .showcase-tier { text-align: center; font-size: 1.15rem; font-weight: 800; margin-bottom: 14px; }
 
+/* ─── 능력치 묶음 (요약 · 상세 · 기록 · 과시) ───
+   인벤토리(.room-inv)와 같은 규칙 — 바깥 카드 하나만 그림자를 갖고,
+   안쪽 상자들은 배경색(--cream)으로만 구분한다. 그림자가 겹치면
+   낱개 카드가 흩어져 보여서 '한 덩어리' 로 안 읽힌다. */
+.room-stats {
+  margin-top: 16px; padding: 10px;
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+}
 .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.stat-box { flex: 1; background: var(--card); border-radius: 16px; padding: 12px 8px; text-align: center; box-shadow: var(--shadow); }
+.stat-box { flex: 1; background: var(--cream); border-radius: 16px; padding: 12px 8px; text-align: center; }
 .stat-box.highlight { grid-column: 1 / -1; background: linear-gradient(140deg, var(--pink), var(--lav)); }
 .stat-label { font-size: 0.72rem; color: var(--ink-soft); font-weight: 700; }
 .stat-box.highlight .stat-label { color: var(--ink); }
@@ -536,12 +547,13 @@ body {
   margin-top: 10px; min-width: 0;
 }
 .vitals-col {
-  background: var(--card); border-radius: 16px; padding: 11px 12px;
-  box-shadow: var(--shadow); min-width: 0;
+  background: var(--cream); border-radius: 16px; padding: 11px 12px;
+  min-width: 0;
 }
 .vitals-head {
   font-size: 0.75rem; font-weight: 800; color: var(--ink-soft);
-  margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1px solid var(--cream);
+  /* 칸 배경이 --cream 이라 구분선은 그보다 진해야 보인다 */
+  margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1px solid rgba(154,138,149,0.25);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .vitals-list { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -559,8 +571,8 @@ body {
 /* ─── 플레이 기록 ─── */
 /* 접었다 펴는 목록. 평소엔 한 줄만 보여 마이 룸을 길게 만들지 않는다. */
 .record {
-  background: var(--card); border-radius: 16px; padding: 11px 12px;
-  box-shadow: var(--shadow); margin-top: 10px; min-width: 0;
+  background: var(--cream); border-radius: 16px; padding: 11px 12px;
+  margin-top: 10px; min-width: 0;
 }
 .record-sum {
   display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
@@ -570,7 +582,7 @@ body {
 .record-sum::-webkit-details-marker { display: none; }
 .record-sum > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .record-brief { font-weight: 700; color: var(--ink); flex: 0 1 auto; }
-.record[open] .record-sum { margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1px solid var(--cream); }
+.record[open] .record-sum { margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1px solid rgba(154,138,149,0.25); }
 
 /* ─── 옷장 ─── */
 /* 인벤토리 카드 안이므로 자기 배경·그림자를 갖지 않는다 (덩어리가 둘로 보인다) */
@@ -838,7 +850,9 @@ body {
    삼각형을 눌러 열고 닫는다. 기본은 닫힘 — 평소 화면을 어지럽히지 않게. */
 .dev-tools { margin-top: 20px; }
 .dev-toggle {
+  /* 폭은 글자에 맞추고(fit-content) 좌우 auto 여백으로 가운데에 둔다 */
   display: flex; align-items: center; gap: 6px;
+  width: fit-content; margin: 0 auto 8px;
   border: 1px dashed rgba(180,120,40,0.5); background: var(--card);
   border-radius: 999px; padding: 6px 14px; cursor: pointer;
   font-family: inherit; font-weight: 800; font-size: 0.74rem; color: var(--ink-soft);
