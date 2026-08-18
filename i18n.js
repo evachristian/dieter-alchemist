@@ -153,6 +153,7 @@
       body_done: '🎉 완전히 날씬해졌어요!',
       // 임시
       dev_fill_ap: '⚡ AP 1000 충전 (임시)',
+      dev_tools: '개발용 (임시)',
       // 공유
       share_text: '[다이어터 연금술사] 나의 매력 총합 {total} — {emoji} {tier} 등급!',
       // 인트로
@@ -297,6 +298,7 @@
       body_down: '✨ You feel a little lighter!',
       body_done: '🎉 You are perfectly slim now!',
       dev_fill_ap: '⚡ Refill 1000 AP (temp)',
+      dev_tools: 'Dev tools (temp)',
       share_text: '[Dieter Alchemist] My Total Charm {total} — {emoji} {tier}!',
       intro_skip: 'Skip ✕', intro_next: 'Next ▸',
       sp_narrator: '', sp_fairy: 'Fairy Godmother', sp_princess: 'Princess',

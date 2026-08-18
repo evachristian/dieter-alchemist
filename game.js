@@ -851,8 +851,9 @@ function renderShowcase() {
   // 신체 · 아우라 상세 수치
   renderVitals();
 
-  // 바디 파츠 조절 (임시 · 테스트용)
+  // 개발용 도구 (임시 · 테스트용)
   renderBodyTune();
+  applyDevTools();
 
   // 스탯
   document.getElementById('statBeauty').textContent = S.stats.beauty;
@@ -1146,6 +1147,27 @@ function stopTuneHold() {
 }
 window.startTuneHold = startTuneHold;
 window.stopTuneHold = stopTuneHold;
+
+// 개발용 도구 접기 — 기본은 닫혀 있다. 상태는 세이브와 무관하게 이 기기에만 남긴다.
+const DEV_OPEN_KEY = 'dieter_alchemist_devopen_v1';
+function devToolsOpen() {
+  try { return localStorage.getItem(DEV_OPEN_KEY) === '1'; } catch (e) { return false; }
+}
+function applyDevTools() {
+  const box = document.getElementById('devTools');
+  if (!box) return;
+  const open = devToolsOpen();
+  box.classList.toggle('open', open);
+  const btn = box.querySelector('.dev-toggle');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  const caret = box.querySelector('.dev-caret');
+  if (caret) caret.textContent = open ? '▾' : '▸';
+}
+function toggleDevTools() {
+  try { localStorage.setItem(DEV_OPEN_KEY, devToolsOpen() ? '0' : '1'); } catch (e) {}
+  applyDevTools();
+}
+window.toggleDevTools = toggleDevTools;
 
 function renderBodyTune() {
   const el = document.getElementById('bodyTune');

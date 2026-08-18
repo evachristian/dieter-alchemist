@@ -833,3 +833,18 @@ body {
   font-size: 0.74rem; font-weight: 800; color: var(--ink);
   background: var(--lav); border-radius: 999px; padding: 5px 10px; white-space: nowrap;
 }
+
+/* ─── 개발용 도구 (임시 · 출시 때 이 블록과 #devTools 를 지운다) ───
+   삼각형을 눌러 열고 닫는다. 기본은 닫힘 — 평소 화면을 어지럽히지 않게. */
+.dev-tools { margin-top: 20px; }
+.dev-toggle {
+  display: flex; align-items: center; gap: 6px;
+  border: 1px dashed rgba(180,120,40,0.5); background: var(--card);
+  border-radius: 999px; padding: 6px 14px; cursor: pointer;
+  font-family: inherit; font-weight: 800; font-size: 0.74rem; color: var(--ink-soft);
+}
+.dev-toggle:active { transform: scale(0.97); }
+.dev-caret { font-size: 0.7rem; line-height: 1; }
+/* 닫혀 있을 때는 자리를 아예 차지하지 않는다 */
+.dev-body { display: none; }
+.dev-tools.open .dev-body { display: block; }
