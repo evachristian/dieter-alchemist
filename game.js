@@ -441,18 +441,21 @@ function startPumpkinRun(map) {
   });
 }
 
+// 한 번 채집한다. **계속해도 되는지**를 돌려준다 —
+// 꾹 누르기 자동 채집(startGatherHold)이 이 값을 보고 멈춘다.
+// AP 가 떨어졌거나 미니게임으로 들어갔으면 false 다.
 function gather(mapId) {
   const map = D.MAPS.find(m => m.id === mapId);
-  if (!map) return;
-  if (!isMapOpen(map)) { toast(unlockText(map.unlock)); return; }
+  if (!map) return false;
+  if (!isMapOpen(map)) { toast(unlockText(map.unlock)); return false; }
   if (!spendEnergy(D.ENERGY.cost.gather)) {
     toast(T('no_energy'));
-    return;
+    return false;
   }
   // 특별한 맵 — 바로 줍지 않고 미니게임으로 들어간다. 보상은 끝난 뒤 받는다.
   if (map.mini === 'pumpkin' && window.Pumpkin) {
     startPumpkinRun(map);
-    return;
+    return false;
   }
   // 0.1% 확률로 그 맵에서만 나오는 '특별한 재료'
   const isSpecial = Math.random() < D.SPECIAL_RATE;
@@ -473,7 +476,69 @@ function gather(mapId) {
   const card = document.querySelector(`.spot-card[data-spot="${mapId}"]`);
   if (card) { card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop'); }
   render();
+  return true;
 }
+
+// ─── 맵 카드 꾹 누르기 = 자동 연속 채집 ───
+//
+// 톡 누르면 한 번(= 기존 onclick), 꾹 누르고 있으면 계속 줍는다.
+//
+// 즉시 줍지 않고 HOLD_DELAY 를 두는 이유: 목록을 **손가락으로 밀어 내릴 때**
+// 누른 순간 채집되면 스크롤만 해도 AP 가 샌다. 그래서 처음 한 번은 onclick 에
+// 맡긴다 — 끌어서 스크롤하면 click 이 애초에 발생하지 않는다.
+const HOLD_DELAY = 450;   // 이만큼 누르고 있어야 자동 채집이 시작된다
+const HOLD_EVERY = 420;   // 자동 채집 간격
+const HOLD_MOVE  = 10;    // 이만큼(px) 움직이면 스크롤로 보고 취소한다
+let gatherHold = null;
+
+function startGatherHold(mapId, ev) {
+  stopGatherHold();
+  gatherHold = {
+    id: mapId, x: ev ? ev.clientX : 0, y: ev ? ev.clientY : 0,
+    fired: false, timer: null, interval: null,
+  };
+  gatherHold.timer = setTimeout(() => {
+    if (!gatherHold) return;
+    gatherHold.fired = true;                 // 이 뒤의 click 은 무시한다 (한 번 더 줍히지 않게)
+    if (!gather(mapId)) { stopGatherHold(); return; }
+    gatherHold.interval = setInterval(() => {
+      if (!gather(mapId)) stopGatherHold();  // AP 가 떨어지면 스스로 멈춘다
+    }, HOLD_EVERY);
+  }, HOLD_DELAY);
+}
+function stopGatherHold() {
+  if (!gatherHold) return;
+  clearTimeout(gatherHold.timer);
+  if (gatherHold.interval) clearInterval(gatherHold.interval);
+  // 손을 뗀 직후의 click 한 번만 막는다
+  const fired = gatherHold.fired;
+  gatherHold = null;
+  return fired;
+}
+
+// 자동 채집이 돌았다면 이어서 오는 click 은 버린다
+let swallowTap = false;
+function tapGather(mapId) {
+  if (swallowTap) { swallowTap = false; return; }
+  gather(mapId);
+}
+
+// **손을 떼는 것은 document 에서 받는다.** gather() 안의 render() 가 카드를
+// 통째로 새로 그려서, 카드에 붙인 pointerup 은 영영 오지 않는다 — 그러면
+// 손을 떼도 자동 채집이 멈추지 않는다. (탭 스크롤에서 겪었던 것과 같은 함정)
+document.addEventListener('pointerup', () => { swallowTap = !!stopGatherHold(); });
+document.addEventListener('pointercancel', () => { stopGatherHold(); });
+// 목록을 밀어 내리는 중이면 채집이 아니다
+document.addEventListener('pointermove', (e) => {
+  if (!gatherHold || gatherHold.fired) return;
+  if (Math.abs(e.clientX - gatherHold.x) > HOLD_MOVE ||
+      Math.abs(e.clientY - gatherHold.y) > HOLD_MOVE) stopGatherHold();
+});
+window.addEventListener('scroll', () => { if (gatherHold && !gatherHold.fired) stopGatherHold(); }, true);
+
+window.startGatherHold = startGatherHold;
+window.stopGatherHold = stopGatherHold;
+window.tapGather = tapGather;
 
 // ═══════════════════════════════════════════════════════════════
 //  공방 / 가마솥 (Atelier)
@@ -700,7 +765,8 @@ function renderGather() {
     const badge = spot.mini ? `<span class="spot-badge">${T('special_map')}</span>` : '';
     return `
       <div class="spot-card ${canGather ? '' : 'low-energy'}${spot.mini ? ' special' : ''}"
-           data-spot="${spot.id}" onclick="gather('${spot.id}')">
+           data-spot="${spot.id}" onclick="tapGather('${spot.id}')"
+           onpointerdown="startGatherHold('${spot.id}', event)" oncontextmenu="return false">
         ${badge}
         <div class="spot-emoji">${spot.emoji}</div>
         <div class="spot-info">

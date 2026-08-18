@@ -194,6 +194,8 @@ body {
   background: var(--card); border-radius: var(--radius);
   padding: 16px; box-shadow: var(--shadow); cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
+  /* 세로 스크롤은 살리고 더블탭 확대만 막는다 — 꾹 누르기와 밀어 내리기가 같이 살아야 한다 */
+  touch-action: pan-y;
 }
 .spot-card:active { transform: scale(0.97); }
 /* ─── 특별한 맵 배지 ─── UI_POLICY.md 참고
