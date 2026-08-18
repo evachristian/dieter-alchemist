@@ -799,13 +799,18 @@ body {
   box-shadow: 0 4px 10px rgba(255,150,190,0.35);
 }
 
-/* 물약 카드의 '?' — 마시기와 겹치지 않게 오른쪽 위 모서리에 작게 */
+/* 물약 카드의 '?' — 이름 옆에 붙인다.
+   모서리(오른쪽 위)에 두면 개수 표기(.potion-count)와 자리가 겹친다. */
 .potion-card { position: relative; }
+.potion-name {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 0;                      /* 이름이 길어도 '?' 를 밖으로 밀어내지 않게 */
+}
 .potion-why {
-  position: absolute; right: 6px; top: 6px; z-index: 1;
-  width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0;
+  flex: 0 0 auto;
+  width: 17px; height: 17px; border-radius: 50%; border: none; padding: 0;
   background: rgba(154,138,149,0.24); color: var(--ink-soft);
-  font-family: inherit; font-weight: 800; font-size: 0.72rem; line-height: 1;
+  font-family: inherit; font-weight: 800; font-size: 0.66rem; line-height: 1;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .potion-why:active { transform: scale(0.9); }

@@ -869,12 +869,13 @@ function renderShowcase() {
     potEl.innerHTML = pids.map(pid => {
       const r = D.RECIPES.find(x => x.result.id === pid);
       if (!r) return '';
-      // '?' 는 카드 안에 있지만 마시기와 별개다 — stopPropagation 이 없으면 눌러도 마셔진다
+      // '?' 는 이름 옆에 인라인으로 둔다 — 모서리에 두면 개수(×N)와 자리가 겹친다.
+      // 카드 안에 있지만 마시기와 별개다 — stopPropagation 이 없으면 눌러도 마셔진다.
       return `<div class="potion-card" onclick="drinkPotion('${pid}')">
-        <button class="potion-why" aria-label="${T('potion_why')}"
-          onclick="event.stopPropagation(); showPotionEffect('${pid}', this)">?</button>
         <div class="potion-emoji">${r.result.emoji}</div>
-        <div class="potion-name">${N(r.result.id, r.result.name)}</div>
+        <div class="potion-name">${N(r.result.id, r.result.name)}<button class="potion-why"
+          aria-label="${T('potion_why')}"
+          onclick="event.stopPropagation(); showPotionEffect('${pid}', this)">?</button></div>
         <div class="potion-count">×${S.potions[pid]}</div>
       </div>`;
     }).join('');
