@@ -1000,14 +1000,23 @@ function renderWardrobe() {
 //  서버로도 올라가지 않게 한다 (테스트 값이 남의 기기까지 따라다니면 곤란하다)
 // ═══════════════════════════════════════════════════════════════
 const TUNE_KEY = 'dieter_alchemist_bodytune_v1';
+// 상한은 파츠마다 다르다. 아바타 캔버스(viewBox 200×348)를 벗어나면 잘려 보이므로
+// **실측한 안전 한계 안에서** 잡았다 (체형 통통~날씬 전 구간 기준):
+//   얼굴  120% 에서 머리 위가 잘린다 (200% 면 위로 100px — 캔버스의 3분의 1) → 114
+//   몸통  170% 까지는 안 잘리지만 그만큼 키우면 판때기처럼 보인다 → 150
+//   팔    혼자서는 200% 도 안 잘리는데, 몸통을 키우면 팔이 바깥으로 밀려나서
+//         몸통 150% + 팔 200% 조합이 좌우로 9.1px 넘친다 → 150 (그 조합에서 0)
+//   허벅지·종아리는 조합에서도 200% 까지 안전
+// **한 파츠씩만 재면 안 된다** — 조합에서 처음 넘쳤다. 바꾸려면 조합으로 다시 재라.
 const TUNE_PARTS = [
-  { k: 'torso', label: '몸통' },
-  { k: 'arm',   label: '팔' },
-  { k: 'thigh', label: '허벅지' },
-  { k: 'calf',  label: '종아리' },
-  { k: 'face',  label: '얼굴' },
+  { k: 'torso', label: '몸통',   max: 150 },
+  { k: 'arm',   label: '팔',     max: 150 },
+  { k: 'thigh', label: '허벅지', max: 200 },
+  { k: 'calf',  label: '종아리', max: 200 },
+  { k: 'face',  label: '얼굴',   max: 114 },
 ];
-const TUNE_MIN = 50, TUNE_MAX = 200, TUNE_STEP = 2;   // % 단위 (100 = 기본)
+const TUNE_MIN = 50, TUNE_STEP = 2;   // % 단위 (100 = 기본)
+const tuneMaxOf = k => (TUNE_PARTS.find(p => p.k === k) || { max: 200 }).max;
 
 function defaultTune() {
   const o = {};
@@ -1017,7 +1026,13 @@ function defaultTune() {
 let bodyTune = (() => {
   try {
     const saved = JSON.parse(localStorage.getItem(TUNE_KEY) || '{}');
-    return Object.assign(defaultTune(), saved);
+    const o = Object.assign(defaultTune(), saved);
+    // 예전에 저장된 값이 새 상한을 넘을 수 있다 (상한을 낮춘 뒤 처음 켤 때) — 범위 안으로 당긴다
+    TUNE_PARTS.forEach(p => {
+      const v = Number(o[p.k]);
+      o[p.k] = Number.isFinite(v) ? Math.max(TUNE_MIN, Math.min(p.max, v)) : 100;
+    });
+    return o;
   } catch (e) { return defaultTune(); }
 })();
 
@@ -1030,7 +1045,7 @@ function tuneScales() {
 
 function bumpTune(k, dir) {
   const cur = bodyTune[k] || 100;
-  const next = Math.max(TUNE_MIN, Math.min(TUNE_MAX, cur + dir * TUNE_STEP));
+  const next = Math.max(TUNE_MIN, Math.min(tuneMaxOf(k), cur + dir * TUNE_STEP));
   if (next === cur) return false;                 // 끝까지 갔으면 반복을 멈춘다
   bodyTune[k] = next;
   try { localStorage.setItem(TUNE_KEY, JSON.stringify(bodyTune)); } catch (e) {}
@@ -1076,8 +1091,9 @@ function renderBodyTune() {
       onpointerdown="startTuneHold('${p.k}',${dir})"
       onpointerup="stopTuneHold()" onpointerleave="stopTuneHold()" onpointercancel="stopTuneHold()"
       oncontextmenu="return false">${sign}</button>`;
+    const atMax = v >= p.max;
     return `<div class="tune-row">
-      <span class="tune-label">${p.label}</span>
+      <span class="tune-label">${p.label}${atMax ? ' <span class="tune-cap">최대</span>' : ''}</span>
       ${btn(-1, '−')}
       <span class="tune-val${v === 100 ? '' : ' on'}">${v}%</span>
       ${btn(1, '+')}

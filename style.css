@@ -357,6 +357,11 @@ body {
   color: var(--ink-soft); font-variant-numeric: tabular-nums;
 }
 .tune-val.on { color: var(--ink); }          /* 기본값에서 벗어나면 진하게 */
+/* 상한에 걸렸을 때 — 파츠마다 캔버스를 안 벗어나는 선까지만 올라간다 */
+.tune-cap {
+  font-size: 0.62rem; font-weight: 800; color: var(--ink-soft);
+  background: var(--cream); border-radius: 999px; padding: 1px 6px; margin-left: 5px;
+}
 .tune-btn {
   flex: 0 0 auto; width: 34px; height: 34px; border: none; border-radius: 10px;
   background: var(--pink-2); color: var(--ink);
