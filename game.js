@@ -1010,6 +1010,7 @@ const TUNE_KEY = 'dieter_alchemist_bodytune_v1';
 // **한 파츠씩만 재면 안 된다** — 조합에서 처음 넘쳤다. 바꾸려면 조합으로 다시 재라.
 const TUNE_PARTS = [
   { k: 'torso', label: '몸통',   max: 150 },
+  { k: 'waist', label: '허리',   max: 150 },
   { k: 'arm',   label: '팔',     max: 150 },
   { k: 'thigh', label: '허벅지', max: 200 },
   { k: 'calf',  label: '종아리', max: 200 },

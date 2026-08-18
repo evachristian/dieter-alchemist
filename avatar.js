@@ -48,6 +48,11 @@
     shoulderY: 113,                 // 어깨 윗선
     torsoL: 64, torsoR: 136,        // 몸통 최대 폭 (어깨)
     waistY: 196, hipY: 214,
+    // 허리 반폭 (waistY 에서 중심선 100 으로부터의 거리). '허리' 배율이 이 값을 늘이고 줄인다.
+    // **옷의 허리도 이 값을 따라간다** — 예전에는 드레스 허리가 78~122 로 박혀 있어
+    // 몸통 허리(70~130)보다 좁았고, 그래서 허리 살이 드레스 밖으로 나왔다.
+    waistHalf: 30,
+    hipInset: 14,                   // 허리에서 엉덩이로 좁아지는 폭
     // 팔: (x, y=120) 에서 시작하는 폭 armW 의 막대를 어깨 기준으로 회전.
     // **팔을 옮기면 소매도 같이 따라온다** — armShape() 이 이 값만 본다.
     // 몸통 쪽으로 조금 붙이고(52→55) 벌어짐을 줄였다(7°→4°). 예전에는 날씬할 때
@@ -81,7 +86,7 @@
   // build(outfit, body, tune) 의 tune 으로 파츠 굵기/크기를 따로 조절한다. 1 = 기본.
   // 팔·허벅지·종아리는 좌우가 각자 제자리에서 굵어지도록 **자기 중심**을 축으로 늘린다.
   // (x=100 을 축으로 하면 굵어지는 대신 바깥으로 벌어져 어깨에서 떨어져 보인다)
-  const TUNE_KEYS = ['torso', 'arm', 'thigh', 'calf', 'face'];
+  const TUNE_KEYS = ['torso', 'waist', 'arm', 'thigh', 'calf', 'face'];
   function tuneOf(tune, k) {
     const v = tune && Number(tune[k]);
     return Number.isFinite(v) && v > 0 ? v : 1;
@@ -139,6 +144,10 @@
     return (100 - ARM_ANCHOR_X) * (1 - tuneOf(tune, 'torso'));
   }
 
+  // 허리 반폭 — 몸과 옷이 **같은 값**을 본다. 옷은 CLOTH_PAD 만큼 넉넉하게.
+  const waistHalf = tune => BODY.waistHalf * tuneOf(tune, 'waist');
+  const clothWaistHalf = tune => waistHalf(tune) + CLOTH_PAD;
+
   function legs(tune) {
     const kt = tuneOf(tune, 'thigh'), kc = tuneOf(tune, 'calf');
     return `
@@ -156,11 +165,14 @@
 
   function torsoArms(tune) {
     const kb = tuneOf(tune, 'torso');   // 팔 배율은 armShape 이 알아서 따른다
+    const B = BODY, wh = waistHalf(tune);
+    const wL = +(100 - wh).toFixed(2), wR = +(100 + wh).toFixed(2);
     return `
       <rect x="91" y="96" width="18" height="20" rx="7" fill="${SKIN_SH}"/>
       <g data-part="torso">
         <g${sx(kb, 100)}><path d="M64,126 C64,118 80,113 100,113 C120,113 136,118 136,126
-          L130,196 C130,208 116,214 100,214 C84,214 70,208 70,196 Z" fill="${SKIN}"/></g>
+          L${wR},${B.waistY} C${wR},208 ${wR - B.hipInset},${B.hipY} 100,${B.hipY}
+          C${wL + B.hipInset},${B.hipY} ${wL},208 ${wL},${B.waistY} Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="arm">
         ${armShape('L', SKIN, 0, BODY.armH, tune, ARM_EDGE)}
@@ -272,17 +284,20 @@
   function renderBottom(it, tune) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c);
+    // 허리춤도 몸의 허리를 따라간다
+    const ww = clothWaistHalf(tune);
+    const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     if (it.kind === 'skirt') {
-      return wrapX(`<path d="M70,196 L130,196 L146,252 C120,266 80,266 54,252 Z" fill="${c}"/>
-        <path d="M70,196 L130,196 L131,210 L69,210 Z" fill="${c2}"/>`,
+      return wrapX(`<path d="M${wL},196 L${wR},196 L146,252 C120,266 80,266 54,252 Z" fill="${c}"/>
+        <path d="M${wL},196 L${wR},196 L${wR + 1},210 L${wL - 1},210 Z" fill="${c2}"/>`,
         tuneMax(tune, ['torso', 'thigh']), 100);
     }
     if (it.kind === 'shorts') {
-      return wrapX(`<path d="M70,196 L130,196 L127,240 L106,240 L100,214 L94,240 L73,240 Z" fill="${c}"/>`,
+      return wrapX(`<path d="M${wL},196 L${wR},196 L127,240 L106,240 L100,214 L94,240 L73,240 Z" fill="${c}"/>`,
         tuneMax(tune, ['torso', 'thigh']), 100);
     }
     // 바지는 종아리까지 덮는다
-    return wrapX(`<path d="M70,198 L130,198 L127,332 L107,332 L100,222 L93,332 L73,332 Z" fill="${c}"/>`,
+    return wrapX(`<path d="M${wL},198 L${wR},198 L127,332 L107,332 L100,222 L93,332 L73,332 Z" fill="${c}"/>`,
       tuneMax(tune, ['torso', 'thigh', 'calf']), 100);
   }
 
@@ -354,13 +369,16 @@
     }
 
     const hemY = it.kind === 'gown' ? 320 : 270, flare = it.kind === 'gown' ? 40 : 46;
+    // 허리는 몸의 허리를 따라간다 (예전에는 78~122 로 박혀 있어 허리 살이 밖으로 나왔다)
+    const ww = clothWaistHalf(tune);
+    const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     return `
       ${armShape('L', c, 2, 42, tune)}
       ${armShape('R', c, 2, 42, tune)}
       ${wrapX(`<path d="M62,122 C62,115 80,111 100,111 C120,111 138,115 138,122
-        L122,198 L${100 + flare + 8},${hemY} C122,${hemY + 14} 78,${hemY + 14} ${100 - flare - 8},${hemY}
-        L78,198 Z" fill="${c}"/>
-      <path d="M78,196 L122,196" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>`, kd, 100)}`;
+        L${wR},198 L${100 + flare + 8},${hemY} C${wR},${hemY + 14} ${wL},${hemY + 14} ${100 - flare - 8},${hemY}
+        L${wL},198 Z" fill="${c}"/>
+      <path d="M${wL},196 L${wR},196" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>`, kd, 100)}`;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -475,8 +493,10 @@
     const layers = [
       H(hairBack(hairKind, hairColor)),
       B(legs(tune)),
-      B(hasDress ? '' : renderBottom(bottom, tune)),
       B(torsoArms(tune)),
+      // 하의는 몸통 **뒤에** 그리면 몸통이 허리춤을 덮어 버려, 상의 밑단과 치마 사이로
+      // 살이 띠처럼 드러났다. 몸통 위에 올린다 (상의는 그 위라 치마 허리를 덮는다)
+      B(hasDress ? '' : renderBottom(bottom, tune)),
       B(hasDress ? renderDress(dress, tune) : renderTop(top, tune)),
       H(faceAndExpression(expItem)),
       H(hairFront(hairKind, hairColor)),
