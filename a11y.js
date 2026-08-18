@@ -247,8 +247,10 @@
     // 검사 대상 — 눌리는 요소와 값이 바뀌는 텍스트
     targetSelector: 'button, .cat-tab, .set-opt, .room-tab, .tab-btn, .spot-card, .stat-box,'
       + ' .recipe-row, .wr-item, .ing-chip, .potion-card, .clock-item, .wr-count, .recipe-progress',
-    // 넘쳐도 되는 곳 — 가로 스크롤이 설계된 컨테이너
-    scrollerSelector: '.cat-tabs',
+    // 넘쳐도 되는 곳 — 지금은 없다.
+    // 예전에는 .cat-tabs 가 가로 스크롤이라 예외였는데, 줄바꿈으로 바뀌어
+    // **넘치면 진짜 버그**가 됐다. 예외로 두면 그걸 가려 버린다.
+    scrollerSelector: '',
   };
 
   function rectOf(el) { return el.getBoundingClientRect(); }
@@ -298,7 +300,8 @@
     for (const el of targets) {
       if (positioned(el)) continue;
       const p = el.parentElement;
-      if (!p || el.closest(LAYOUT.scrollerSelector)) continue;
+      // scrollerSelector 가 비면 예외가 없다는 뜻 (빈 문자열을 closest 에 넘기면 예외를 던진다)
+      if (!p || (LAYOUT.scrollerSelector && el.closest(LAYOUT.scrollerSelector))) continue;
       const pr = rectOf(p), r = rectOf(el);
       const ps = getComputedStyle(p);
       if (ps.overflowX === 'auto' || ps.overflowX === 'scroll') continue;

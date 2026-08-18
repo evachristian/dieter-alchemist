@@ -599,12 +599,8 @@ body {
    스크롤바는 표시하지 않는다. 마지막 버튼이 잘려 보이는 것 자체가 '더 있다'는 신호다.
    (스크롤은 터치 드래그 · 마우스 휠 · 끌기로 — setupTabScroll() 이 자동으로 붙인다) */
 .cat-tabs {
-  display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden;
-  -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
-  scrollbar-width: none;                       /* Firefox */
+  display: flex; flex-wrap: wrap; gap: 6px;    /* 줄바꿈 — 3~4줄이 되어도 괜찮다 */
 }
-.cat-tabs::-webkit-scrollbar { display: none; } /* WebKit */
-.cat-tabs.dragging { cursor: grabbing; user-select: none; }
 /* 줄별 여백만 개별 지정 */
 .wr-tabs { margin-bottom: 9px; }
 .rb-tabs { margin: 8px 0 6px; }
