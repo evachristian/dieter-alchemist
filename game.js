@@ -620,7 +620,13 @@ function showBrewResult(result, isNew) {
   const success = result.kind !== 'sludge';
   let statLine = '';
   if (result.kind === 'potion') {
-    statLine = `<div class="brew-stats">${T('brew_stat', { b: result.beauty, c: result.charm })}</div>`;
+    // 물약은 '비주얼/아우라' 숫자 대신 **실제로 몸이 어떻게 바뀌는지**를 보여 준다.
+    // 물약 카드의 '?' 안내와 같은 계산을 쓴다 (potionDelta) — 규칙을 고치면 둘 다 따라온다.
+    const rows = potionDelta({ result })
+      .filter(x => Math.abs(x.d) >= 0.005)
+      .map(x => `<span class="brew-stat-item">${x.label} ${x.d > 0 ? '+' : '−'}${Math.abs(x.d).toFixed(x.dec)}${x.unit}</span>`)
+      .join('');
+    statLine = `<div class="brew-stats brew-vitals">${rows || T('potion_effect_none')}</div>`;
   } else if (result.kind === 'creature') {
     statLine = `<div class="brew-stats">${T('brew_creature', { n: result.charmBonus })}</div>`;
   }

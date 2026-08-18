@@ -827,3 +827,13 @@ body {
   display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .potion-why:active { transform: scale(0.9); }
+
+/* 조합 결과 — 물약은 신체 수치 변화를 칩으로 보여 준다 (물약 카드 '?' 와 같은 값) */
+.brew-vitals {
+  display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+  background: none; padding: 0;
+}
+.brew-stat-item {
+  font-size: 0.74rem; font-weight: 800; color: var(--ink);
+  background: var(--lav); border-radius: 999px; padding: 5px 10px; white-space: nowrap;
+}

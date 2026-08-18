@@ -536,10 +536,12 @@
       // 하의는 몸통 **뒤에** 그리면 몸통이 허리춤을 덮어 버려, 상의 밑단과 치마 사이로
       // 살이 띠처럼 드러났다. 몸통 위에 올린다 (상의는 그 위라 치마 허리를 덮는다)
       B(hasDress ? '' : renderBottom(bottom, tune)),
+      // 신발은 **드레스보다 아래** 다 — 위에 그리면 부츠 목이 드레스를 뚫고 나온다.
+      // 하의(바지)보다는 위라서 부츠가 바짓단을 덮는다.
+      B(renderShoes(getItem('shoes', outfit.shoes), tune)),
       B(hasDress ? renderDress(dress, tune) : renderTop(top, tune)),
       H(faceAndExpression(expItem)),
       H(hairFront(hairKind, hairColor)),
-      B(renderShoes(getItem('shoes', outfit.shoes), tune)),
       B(renderGlove(getItem('glove', outfit.glove), tune)),
       B(renderTattoo(getItem('tattoo', outfit.tattoo))),
       H(renderEarring(getItem('earring', outfit.earring))),
