@@ -118,17 +118,56 @@
   // 예전에는 소매 좌표가 renderTop·renderDress 에 그대로 박혀 있어서,
   // 팔 위치나 각도를 고치면 소매만 제자리에 남아 어긋났다. BODY 하나만 고치면 되게 모았다.
   //   side  'L'|'R' · pad 팔보다 얼마나 넓게(소매) · h 길이 · extra 덧붙일 속성
-  function armShape(side, fill, pad, h, tune, extra) {
-    const B = BODY, left = side === 'L';
+  //   opts.extra 덧붙일 속성 · opts.yFrom 위쪽을 잘라 아래 구간만 그림 (장갑)
+  function armShape(side, fill, pad, h, tune, opts) {
+    const B = BODY, left = side === 'L', o = opts || {};
     const d = armShift(tune) * (left ? 1 : -1);       // 어깨선을 따라 팔을 옮긴다
     const x0 = (left ? B.armX_L : B.armX_R) + d;
     const w = B.armW + pad * 2;
     const rot = left ? B.armRot : -B.armRot;
     const pivot = (left ? B.armPivotL : B.armPivotR) + d;
+    const y = (o.yFrom != null ? o.yFrom : B.armY - pad);
     return wrapX(
-      `<rect x="${+(x0 - pad).toFixed(2)}" y="${B.armY - pad}" width="${w}" height="${h}" rx="${(w / 2).toFixed(1)}"
-        fill="${fill}"${extra || ''} transform="rotate(${rot} ${+pivot.toFixed(2)} ${B.armPivotY})"/>`,
+      `<rect x="${+(x0 - pad).toFixed(2)}" y="${+y.toFixed(2)}" width="${w}" height="${h}" rx="${(w / 2).toFixed(1)}"
+        fill="${fill}"${o.extra || ''} transform="rotate(${rot} ${+pivot.toFixed(2)} ${B.armPivotY})"/>`,
       tuneOf(tune, 'arm'), x0 + B.armW / 2);
+  }
+
+  // 장갑 — 팔 아래쪽(손목 쪽)부터 len 비율만큼 덮는다
+  function renderGlove(it, tune) {
+    if (isNone(it)) return '';
+    const B = BODY, c = it.color, c2 = shade(c, 18);
+    const pad = 1.5;                                  // 팔보다 아주 살짝 넓게
+    const len = Math.max(0.08, Math.min(0.95, Number(it.len) || 0.22));
+    const h = B.armH * len + pad;
+    const yFrom = B.armY + B.armH - h + pad;          // 팔 끝(손목)에 맞춰 아래로 정렬
+    // 긴 장갑은 입구에 얇은 띠(커프)를 그려 팔과 경계가 보이게 한다
+    const hasCuff = it.kind === 'lace' || it.kind === 'satin' || it.kind === 'opera';
+    return `<g data-part="glove">
+      ${armShape('L', c, pad, h, tune, { yFrom })}
+      ${armShape('R', c, pad, h, tune, { yFrom })}
+      ${hasCuff ? armShape('L', c2, pad, 3, tune, { yFrom }) + armShape('R', c2, pad, 3, tune, { yFrom }) : ''}
+    </g>`;
+  }
+
+  // 구두 — 발(ellipse cx 86/114, cy 335)을 덮는다. rise 만큼 발목 위로 올라온다
+  function renderShoes(it, tune) {
+    if (isNone(it)) return '';
+    const c = it.color, c2 = shade(c, 22), rise = Number(it.rise) || 0;
+    const foot = (cx) => {
+      let s = '';
+      if (rise > 0) {   // 부츠·스니커즈: 발목을 감싸는 통
+        s += `<rect x="${cx - 9}" y="${335 - rise}" width="18" height="${rise + 4}" rx="5" fill="${c}"/>`;
+      }
+      s += `<ellipse cx="${cx}" cy="335" rx="13" ry="7.6" fill="${c}"/>`;
+      if (it.kind === 'maryjane') s += `<path d="M${cx - 9},331 L${cx + 9},331" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
+      if (it.kind === 'ballet')   s += `<path d="M${cx - 7},330 Q${cx},334 ${cx + 7},330" stroke="${c2}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
+      if (it.kind === 'sneaker')  s += `<ellipse cx="${cx}" cy="338" rx="13" ry="3.4" fill="${c2}"/>`;
+      if (it.kind === 'glass')    s += `<ellipse cx="${cx - 3}" cy="333" rx="5" ry="2.4" fill="#fff" opacity="0.75"/>`;
+      if (it.kind === 'boots')    s += `<path d="M${cx - 9},${335 - rise + 5} L${cx + 9},${335 - rise + 5}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
+      return s;
+    };
+    return `<g data-part="shoes">${foot(86)}${foot(114)}</g>`;
   }
 
   // 몸통 배율이 바뀌면 몸통 옆선이 안팎으로 움직인다. 팔이 제자리면 몸통에서 떨어지므로
@@ -175,8 +214,8 @@
           C${wL + B.hipInset},${B.hipY} ${wL},208 ${wL},${B.waistY} Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="arm">
-        ${armShape('L', SKIN, 0, BODY.armH, tune, ARM_EDGE)}
-        ${armShape('R', SKIN, 0, BODY.armH, tune, ARM_EDGE)}
+        ${armShape('L', SKIN, 0, BODY.armH, tune, { extra: ARM_EDGE })}
+        ${armShape('R', SKIN, 0, BODY.armH, tune, { extra: ARM_EDGE })}
       </g>`;
   }
 
@@ -500,6 +539,8 @@
       B(hasDress ? renderDress(dress, tune) : renderTop(top, tune)),
       H(faceAndExpression(expItem)),
       H(hairFront(hairKind, hairColor)),
+      B(renderShoes(getItem('shoes', outfit.shoes), tune)),
+      B(renderGlove(getItem('glove', outfit.glove), tune)),
       B(renderTattoo(getItem('tattoo', outfit.tattoo))),
       H(renderEarring(getItem('earring', outfit.earring))),
       B(renderNecklace(getItem('necklace', outfit.necklace))),

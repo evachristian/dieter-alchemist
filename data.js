@@ -736,6 +736,24 @@ const WARDROBE = {
     { id: 'necklace_pearl',   slot: 'necklace', kind: 'pearl',   name: '진주',   color: '#ffffff', emoji: '🤍' },
     { id: 'necklace_choker',  slot: 'necklace', kind: 'choker',  name: '초커',   color: '#ff9ec4', emoji: '🎀' },
   ],
+  // 장갑 — len 은 팔 길이 대비 덮는 비율 (0.18 = 손목까지, 0.62 = 팔꿈치 위까지)
+  glove: [
+    { id: 'glove_none',    slot: 'glove', kind: 'none',    name: '없음' },
+    { id: 'glove_lace',    slot: 'glove', kind: 'lace',    name: '레이스', color: '#fff4fa', len: 0.20, emoji: '🤍' },
+    { id: 'glove_knit',    slot: 'glove', kind: 'knit',    name: '니트',   color: '#f2ddc2', len: 0.24, emoji: '🧶' },
+    { id: 'glove_leather', slot: 'glove', kind: 'leather', name: '가죽',   color: '#8a5a3c', len: 0.26, emoji: '🧤' },
+    { id: 'glove_satin',   slot: 'glove', kind: 'satin',   name: '새틴',   color: '#ffb3d1', len: 0.44, emoji: '🎀' },
+    { id: 'glove_opera',   slot: 'glove', kind: 'opera',   name: '오페라', color: '#b31f4a', len: 0.62, emoji: '👑' },
+  ],
+  // 구두 — rise 는 발목 위로 올라오는 높이(px). 0 이면 발만 덮는다
+  shoes: [
+    { id: 'shoes_none',     slot: 'shoes', kind: 'none',     name: '없음' },
+    { id: 'shoes_ballet',   slot: 'shoes', kind: 'ballet',   name: '발레플랫', color: '#ff9ec4', rise: 0,  emoji: '🩰' },
+    { id: 'shoes_maryjane', slot: 'shoes', kind: 'maryjane', name: '메리제인', color: '#4a3a42', rise: 0,  emoji: '👞' },
+    { id: 'shoes_sneaker',  slot: 'shoes', kind: 'sneaker',  name: '스니커즈', color: '#ffffff', rise: 5,  emoji: '👟' },
+    { id: 'shoes_boots',    slot: 'shoes', kind: 'boots',    name: '앵클부츠', color: '#8a5a3c', rise: 16, emoji: '🥾' },
+    { id: 'shoes_glass',    slot: 'shoes', kind: 'glass',    name: '유리구두', color: '#b8e4ff', rise: 0,  emoji: '👠' },
+  ],
 };
 
 // 옷장 슬롯 메타 (UI 탭 순서/라벨)
@@ -751,6 +769,8 @@ const WARDROBE_SLOTS = [
   { slot: 'circlet',   label: '서클렛',  emoji: '👑' },
   { slot: 'earring',   label: '귀걸이',  emoji: '💎' },
   { slot: 'necklace',  label: '목걸이',  emoji: '📿' },
+  { slot: 'glove',     label: '장갑',    emoji: '🧤' },
+  { slot: 'shoes',     label: '구두',    emoji: '👠' },
 ];
 
 // ─── 에너지 (Energy / 행동력) ───
@@ -768,6 +788,7 @@ const DEFAULT_OUTFIT = {
   hair: 'hair_long', hairColor: 'hcol_brown', expression: 'exp_happy', tattoo: 'tattoo_none',
   top: 'top_tee', bottom: 'bottom_skirt', dress: 'dress_princess',
   circlet: 'circlet_none', earring: 'earring_none', necklace: 'necklace_none',
+  glove: 'glove_none', shoes: 'shoes_none',
 };
 
 // 조합 판정용: 재료 id 배열을 정렬해 문자열 키로
