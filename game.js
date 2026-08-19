@@ -1225,8 +1225,7 @@ function renderRoomDevGift() {
   const el = document.getElementById('roomDevGift');
   if (!el) return;
   const gated = D.WARDROBE_SLOTS.filter(m => m.gated);
-  el.innerHTML = `<div class="dev-group">${T('dev_gift')}</div>
-    <div class="dev-row">` + gated.map(m => {
+  el.innerHTML = `<div class="dev-row">` + gated.map(m => {
       const list = D.WARDROBE[m.slot] || [];
       const have = list.filter(it => isOwned(m.slot, it)).length;
       const done = have >= list.length;
@@ -1539,7 +1538,7 @@ function renderBodyTune() {
       ${btn(1, '+')}
     </div>`;
   }).join('');
-  el.innerHTML = `<div class="tune-head">${T('dev_tune')}
+  el.innerHTML = `<div class="tune-head">
       <button class="tune-reset" onclick="resetTune()">${T('tune_reset')}</button></div>${rows}`;
 }
 

@@ -348,13 +348,11 @@ body {
 /* ─── 바디 파츠 조절 (임시 · 테스트용 — 출시 때 이 블록을 지운다) ───
    AP 충전 버튼과 같은 점선 테두리로 "임시"임을 드러낸다. */
 .tune-box {
-  margin-top: 12px; padding: 10px 12px 12px;
+  margin-top: 0; padding: 10px 12px 12px;
   background: var(--card); border: 1px dashed rgba(180,120,40,0.5); border-radius: 14px;
 }
-.tune-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  font-size: 0.78rem; font-weight: 800; color: var(--ink); margin-bottom: 8px;
-}
+/* 제목은 바깥 .dev-group 이 맡는다 — 여기 남는 건 되돌리기 버튼뿐이라 오른쪽으로 민다 */
+.tune-head { display: flex; justify-content: flex-end; margin-bottom: 4px; }
 .tune-reset {
   flex: 0 0 auto; border: none; background: var(--cream); color: var(--ink-soft);
   font-family: inherit; font-weight: 800; font-size: 0.7rem;
