@@ -656,7 +656,7 @@ const TIERS = [
   { min: 15,  emoji: '🌸', title: '꽃봉오리' },
   { min: 35,  emoji: '🧚', title: '요정' },
   { min: 60,  emoji: '👑', title: '뮤즈' },
-  { min: 100, emoji: '✨', title: '여신' },
+  { min: 100, emoji: '👸', title: '여신' },
 ];
 
 // 지대의 해금 점수 = 그 지대에서 가장 먼저 열리는 맵의 점수
@@ -773,7 +773,7 @@ const WARDROBE_SLOTS = [
   { slot: 'hair',      label: '헤어',    emoji: '💇', gated: true },
   { slot: 'hairColor', label: '헤어컬러', emoji: '🎨', gated: true },
   { slot: 'expression',label: '표정',    emoji: '😊', gated: true },
-  { slot: 'tattoo',    label: '문신',    emoji: '✨', gated: true },
+  { slot: 'tattoo',    label: '문신',    emoji: '⚜️', gated: true },
   { slot: 'top',       label: '상의',    emoji: '👕' },
   { slot: 'bottom',    label: '하의',    emoji: '👖' },
   { slot: 'dress',     label: '원피스',  emoji: '👗' },
