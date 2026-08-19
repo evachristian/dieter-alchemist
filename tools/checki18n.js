@@ -1,0 +1,106 @@
+// 번역 빠진 곳 찾기 — 한국어를 고칠 때 영어도 같이 고쳤는지 확인한다.
+//
+// 왜 필요한가: 한국어만 추가하고 넘어가면 영어 화면에 한글이 그대로 남는다.
+// 눈으로는 잘 안 보인다 — 영어로 바꿔 놓고 그 화면까지 들어가 봐야 알기 때문이다.
+// 게다가 영어는 대체로 한국어보다 길어서, **번역이 빠진 자리는 폭 검사도 못 받은 자리**다.
+// (checkUI 의 '라벨 2배 확대' 는 있는 문자열만 늘린다)
+//
+// 보는 것 두 가지:
+//   1) STRINGS — 언어별 UI 문자열. ko 에 있는 키가 다른 언어에 없으면 빠진 것
+//   2) NAMES   — 데이터(재료·맵·솥·레시피·옷·지대) id → 번역. 화면에 나오는 이름인데
+//               NAMES 에 없으면 N() 이 한국어를 그대로 돌려준다
+//
+// 사용: node tools/checki18n.js      (종료 코드 0 = 빠진 것 없음)
+const fs = require('fs');
+const path = require('path');
+const ROOT = path.join(__dirname, '..');
+
+// i18n.js 와 data.js 는 브라우저용이라 window 에 붙는다 — 흉내만 내고 읽는다
+global.window = {};
+global.localStorage = { getItem: () => null, setItem: () => {} };
+global.document = { querySelectorAll: () => [], documentElement: { setAttribute() {} } };
+require(path.join(ROOT, 'data.js'));
+require(path.join(ROOT, 'i18n.js'));
+
+const D = global.window.GameData;
+const I = global.window.I18N;
+
+// i18n.js 안의 STRINGS · NAMES 는 밖으로 안 나온다 — 소스에서 키만 뽑는다
+const src = fs.readFileSync(path.join(ROOT, 'i18n.js'), 'utf8');
+function blockKeys(head) {
+  // "ko: {" ~ 짝이 맞는 "}" 까지에서 최상위 키만 센다
+  const at = src.indexOf(head);
+  if (at < 0) return null;
+  let i = src.indexOf('{', at), depth = 0, end = i;
+  for (; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (!depth) { end = i; break; } }
+  }
+  const body = src.slice(src.indexOf('{', at) + 1, end);
+  const keys = new Set();
+  let d = 0;
+  for (let j = 0; j < body.length; j++) {
+    const ch = body[j];
+    if (ch === '{' || ch === '[') d++;
+    else if (ch === '}' || ch === ']') d--;
+    else if (d === 0 && /[A-Za-z_]/.test(ch)) {
+      const m = body.slice(j).match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:/);
+      if (m) { keys.add(m[1]); j += m[0].length - 1; }
+    }
+  }
+  return keys;
+}
+
+const problems = [];
+
+// ── 1. UI 문자열
+const koKeys = blockKeys('    ko: {');
+const enKeys = blockKeys('    en: {');
+if (!koKeys || !enKeys) {
+  console.error('i18n.js 의 STRINGS 블록을 못 찾았다 — 이 검사기가 파일 구조를 따라가야 한다');
+  process.exit(2);
+}
+const missingStr = [...koKeys].filter(k => !enKeys.has(k));
+const extraStr = [...enKeys].filter(k => !koKeys.has(k));
+if (missingStr.length) problems.push(['영어에 없는 UI 문자열', missingStr]);
+if (extraStr.length) problems.push(['한국어에 없는 UI 문자열 (영어에만 있음)', extraStr]);
+
+// ── 2. 데이터 이름
+// 화면에 이름이 나오는 것 전부. N(id, 한국어) 로 부르는 것들이다.
+const dataNames = [];
+const push = (id, ko, kind) => dataNames.push({ id, ko, kind });
+Object.values(D.INGREDIENTS).forEach(x => push(x.id, x.name, '재료'));
+D.MAPS.forEach(x => { push(x.id, x.name, '맵'); push(x.id + '_desc', x.desc, '맵 설명'); });
+D.ZONES.forEach(x => push(x.id, x.name, '지대'));
+D.CAULDRONS.forEach(x => push(x.id, x.name, '솥'));
+D.RECIPES.forEach(r => push(r.result.id, r.result.name, '레시피'));
+D.WARDROBE_SLOTS.forEach(x => push(x.slot, x.label, '옷장 칸'));
+Object.entries(D.WARDROBE).forEach(([slot, items]) =>
+  (items || []).forEach(it => push(it.id, it.name, '옷')));
+D.RECIPE_CATS.forEach(c => push(c.id + '_cat', c.label, '레시피 카테고리'));
+
+// N() 이 한국어를 그대로 돌려주면 번역이 없는 것이다
+I.setLang('en');
+const missingNames = dataNames.filter(x => x.ko && I.n(x.id, x.ko) === x.ko);
+I.setLang('ko');
+if (missingNames.length) {
+  const by = {};
+  missingNames.forEach(x => { (by[x.kind] = by[x.kind] || []).push(`${x.id}(${x.ko})`); });
+  Object.entries(by).forEach(([kind, list]) => problems.push([`영어 이름 없음 — ${kind}`, list]));
+}
+
+// ── 결과
+if (!problems.length) {
+  console.log(`✅ 번역 빠진 곳 없음 (UI 문자열 ${koKeys.size}개 · 데이터 이름 ${dataNames.length}개)`);
+  process.exit(0);
+}
+console.log('❌ 번역이 빠진 곳이 있다 — 한국어를 고칠 때 영어도 같이 고쳐야 한다\n');
+let total = 0;
+for (const [title, list] of problems) {
+  total += list.length;
+  console.log(`── ${title} (${list.length})`);
+  list.forEach(k => console.log('   ' + k));
+  console.log('');
+}
+console.log(`모두 ${total}건`);
+process.exit(1);

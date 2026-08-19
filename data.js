@@ -627,13 +627,13 @@ const RECIPES = [
       desc: '전설로만 전해지는 완성. 특별한 재료가 필요하다.', beauty: 15, charm: 15 } },
   // ── 크리처 ──
   { inputs: ['crystal', 'dew'],
-    result: { id: 'butterfly', kind: 'creature', emoji: '🦋', name: '반짝 나비',
+    result: { id: 'butterfly', kind: 'creature', grade: 'basic', emoji: '🦋', name: '반짝 나비',
       desc: '주위를 맴도는 수정빛 나비.', charmBonus: 2 } },
   { inputs: ['mushroom', 'petal'],
-    result: { id: 'frog', kind: 'creature', emoji: '🐸', name: '꽃개구리',
+    result: { id: 'frog', kind: 'creature', grade: 'basic', emoji: '🐸', name: '꽃개구리',
       desc: '꽃잎을 이고 다니는 귀여운 개구리.', charmBonus: 1 } },
   { inputs: ['berry', 'crystal', 'mushroom'],
-    result: { id: 'unicorn', kind: 'creature', emoji: '🦄', name: '유니콘',
+    result: { id: 'unicorn', kind: 'creature', grade: 'high', emoji: '🦄', name: '유니콘',
       desc: '순수한 자에게만 나타난다는 전설의 유니콘.', charmBonus: 5 } },
 ];
 
@@ -650,6 +650,14 @@ const RECIPE_CATS = [
 
 // ─── 실패작 (Sludge) ───
 // 알려지지 않은/유효하지 않은 조합의 결과물
+// 레시피 북의 아랫단 — 물약이든 크리처든 같은 네 등급을 쓴다
+const RECIPE_GRADES = [
+  { id: 'basic', label: '기초' },
+  { id: 'low',   label: '하급' },
+  { id: 'mid',   label: '중급' },
+  { id: 'high',  label: '상급' },
+];
+
 const SLUDGE = { id: 'sludge', kind: 'sludge', emoji: '🟤', name: '수상한 진흙',
   desc: '뭔가 잘못됐다... 재료가 아까워도 다음을 노려보자.' };
 
@@ -817,6 +825,6 @@ for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 
 window.GameData = {
   INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, SLUDGE, TIERS,
-  WARDROBE, WARDROBE_SLOTS, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS,
+  WARDROBE, WARDROBE_SLOTS, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   getTier, recipeKey,
 };

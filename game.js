@@ -605,11 +605,8 @@ function brew() {
     S.discovered.push(result.id);
     lastFound = result.id;              // 레시피 북에서 맨 위로 올려 강조
     // 발견한 카테고리로 레시피 북을 자동 전환
-    const cat = D.RECIPE_CATS.find(c => c.match({ result }));
-    if (cat) {
-      recipeKind = (cat.id === 'creature') ? 'creature' : 'potion';
-      if (recipeKind === 'potion') recipeTab = cat.id;
-    }
+    recipeKind = result.kind;
+    if (result.grade) recipeTab = result.grade;
   }
 
   if (result.kind === 'potion') {
@@ -868,21 +865,30 @@ function renderAtelier() {
       `<button class="room-tab ${recipeKind === k ? 'active' : ''}" onclick="setRecipeKind('${k}')">${T(key)}</button>`
     ).join('');
   }
-  // 아랫단 — 물약일 때만 등급을 보여 준다 (크리처는 등급이 없다)
+  // 아랫단 — 등급. 물약이든 크리처든 같은 네 등급을 쓴다.
+  // 라벨은 "기초 물약" / "기초 크리처" 처럼 등급 + 종류로 짓는다
+  const kindWord = T(recipeKind === 'creature' ? 'kind_creature' : 'kind_potion');
   const catEl = document.getElementById('recipeTabs');
   if (catEl) {
-    catEl.innerHTML = recipeKind === 'creature' ? '' : potionCats().map(c =>
-      `<button class="cat-tab rb-tab ${recipeTab === c.id ? 'active' : ''}" onclick="setRecipeTab('${c.id}')">${N(c.id + '_cat', c.label)}</button>`
+    catEl.innerHTML = D.RECIPE_GRADES.map(g =>
+      `<button class="cat-tab rb-tab ${recipeTab === g.id ? 'active' : ''}" onclick="setRecipeTab('${g.id}')">${
+        T('g_' + g.id)} ${kindWord}</button>`
     ).join('');
   }
-  const cat = currentRecipeCat();
   // 알아낸 레시피를 위로 (방금 알아낸 것이 가장 위), ??? 는 아래로
-  const catRecipes = D.RECIPES.filter(cat.match).slice().sort((a, b) => {
+  const catRecipes = currentRecipeList().slice().sort((a, b) => {
     const rank = r => (r.result.id === lastFound ? 0 : S.discovered.includes(r.result.id) ? 1 : 2);
     return rank(a) - rank(b);
   });
 
   const bookEl = document.getElementById('recipeBook');
+  if (!catRecipes.length) {
+    // 등급 칸은 늘 네 개인데 그 등급의 레시피가 아직 없을 수 있다 (크리처 중급 등)
+    bookEl.innerHTML = `<div class="empty-hint">${T('empty_grade')}</div>`;
+    document.getElementById('recipeProgress').textContent = '0 / 0';
+    renderAtelierDev();
+    return;
+  }
   bookEl.innerHTML = catRecipes.map(r => {
     const found = S.discovered.includes(r.result.id);
     const inputs = r.inputs.map(id => D.INGREDIENTS[id].emoji).join(' + ');
@@ -1143,20 +1149,14 @@ function lockedMapInfo(mapId, el) {
 // 레시피 북은 두 단이다 — 종류(물약/크리처)를 먼저 고르고, 물약이면 등급을 고른다
 let recipeKind = 'potion';
 let recipeTab = 'basic';
-// 물약 등급 탭 (크리처는 등급이 없다)
-function potionCats() { return D.RECIPE_CATS.filter(c => c.id !== 'creature'); }
-function currentRecipeCat() {
-  if (recipeKind === 'creature') return D.RECIPE_CATS.find(c => c.id === 'creature');
-  return potionCats().find(c => c.id === recipeTab) || potionCats()[0];
+// 지금 보고 있는 목록 — 종류와 등급을 둘 다 만족하는 레시피
+function currentRecipeList() {
+  return D.RECIPES.filter(r => r.result.kind === recipeKind && r.result.grade === recipeTab);
 }
-function setRecipeKind(k) {
-  recipeKind = k;
-  if (k === 'potion' && !potionCats().some(c => c.id === recipeTab)) recipeTab = potionCats()[0].id;
-  render();
-}
+function setRecipeKind(k) { recipeKind = k; render(); }
 window.setRecipeKind = setRecipeKind;
 let lastFound = null;      // 방금 알아낸 레시피 id (목록 맨 위로 올려 강조)
-function setRecipeTab(id) { recipeKind = 'potion'; recipeTab = id; render(); }
+function setRecipeTab(id) { recipeTab = id; render(); }
 // 지금 보여 줄 옷장 칸 목록.
 // 튜토리얼 전에는 원피스 하나뿐이다 — 공주가 입고 들어온 그 옷만 갈아입을 수 있다.
 const TUTORIAL_SLOTS = ['dress'];
@@ -1273,14 +1273,15 @@ const TUNE_KEY = 'dieter_alchemist_bodytune_v1';
 //         몸통 150% + 팔 200% 조합이 좌우로 9.1px 넘친다 → 150 (그 조합에서 0)
 //   허벅지·종아리는 조합에서도 200% 까지 안전
 // **한 파츠씩만 재면 안 된다** — 조합에서 처음 넘쳤다. 바꾸려면 조합으로 다시 재라.
+// 라벨은 i18n 을 지난다 — 개발용이라도 영어에서 한글이 남으면 폭 검사를 못 받는다
 const TUNE_PARTS = [
-  { k: 'torso', label: '몸통',   max: 150 },
-  { k: 'waist', label: '허리',   max: 150 },
-  { k: 'hip',   label: '엉덩이', max: 150 },
-  { k: 'arm',   label: '팔',     max: 150 },
-  { k: 'thigh', label: '허벅지', max: 200 },
-  { k: 'calf',  label: '종아리', max: 200 },
-  { k: 'face',  label: '얼굴',   max: 114 },
+  { k: 'torso', max: 150 },
+  { k: 'waist', max: 150 },
+  { k: 'hip',   max: 150 },
+  { k: 'arm',   max: 150 },
+  { k: 'thigh', max: 200 },
+  { k: 'calf',  max: 200 },
+  { k: 'face',  max: 114 },
 ];
 const TUNE_MIN = 50, TUNE_STEP = 2;   // % 단위 (100 = 기본)
 const tuneMaxOf = k => (TUNE_PARTS.find(p => p.k === k) || { max: 200 }).max;
@@ -1510,14 +1511,14 @@ function renderBodyTune() {
       oncontextmenu="return false">${sign}</button>`;
     const atMax = v >= p.max;
     return `<div class="tune-row">
-      <span class="tune-label">${p.label}${atMax ? ' <span class="tune-cap">최대</span>' : ''}</span>
+      <span class="tune-label">${T('part_' + p.k)}${atMax ? ` <span class="tune-cap">${T('tune_max')}</span>` : ''}</span>
       ${btn(-1, '−')}
       <span class="tune-val${v === 100 ? '' : ' on'}">${v}%</span>
       ${btn(1, '+')}
     </div>`;
   }).join('');
-  el.innerHTML = `<div class="tune-head">🧪 바디 파츠 조절 (임시)
-      <button class="tune-reset" onclick="resetTune()">되돌리기</button></div>${rows}`;
+  el.innerHTML = `<div class="tune-head">${T('dev_tune')}
+      <button class="tune-reset" onclick="resetTune()">${T('tune_reset')}</button></div>${rows}`;
 }
 
 // 카테고리 탭 줄(.cat-tabs)은 **줄바꿈**한다 — UI_POLICY.md 참고.
