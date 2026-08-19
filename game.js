@@ -1298,7 +1298,7 @@ function renderRoomDevGift() {
     }).join('')
     + `<button class="btn btn-dev" onclick="unlockAllCosmetics()">🎁 ${T('dev_all_wear')}</button>`
     + `<button class="btn btn-dev" onclick="unlockAllColors()">🎨 ${T('dev_all_color')}</button>`
-    + `<button class="btn btn-dev" onclick="devGiveDye(5)">🧪 ${T('dev_dye')}</button></div>`;
+    + `<button class="btn btn-dev" onclick="devGiveDye(1000)">🧪 ${T('dev_dye')}</button></div>`;
 }
 
 function renderWardrobe() {
