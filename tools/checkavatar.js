@@ -10,6 +10,14 @@
 //         (민소매는 아예 건너뛰고, 캡 소매는 캡이 끝나는 곳까지만 본다 —
 //          짧게 설계한 소매를 '살이 나왔다' 고 잡으면 검사가 디자인을 막는다)
 //
+// 상의·하의를 같이 입었을 때도 본다:
+//   허리  x 72~128 · y 168~202  — 상의 밑단과 하의 허리춤 사이로 살이 보이면 안 된다
+//   (둘 중 하나라도 몸통보다 뒤로 가면 그 사이에 살색 띠가 생긴다)
+//   겹침 x 88~112 · y 190~206 — 상의 밑단(hipY-2)과 하의 허리(waistY)가 겹치는 구간.
+//   여기 보이는 것은 **하의 색**이어야 한다. 상의 색이 보이면 레이어 순서가 뒤집힌 것이고,
+//   옷을 넣어 입은 것이 아니라 빼 입은 모양이 된다.
+//   (살색 검사만으로는 이걸 못 잡는다 — 어느 쪽이 위에 있든 살은 안 보이기 때문이다)
+//
 // 사용: node tools/checkavatar.js  (서버가 떠 있어야 한다 / 종료 코드 0 = 통과)
 const BASE = process.env.BASE || 'http://localhost:8080';
 const SHOT = process.env.SHOT;   // 주면 그 경로에 대조표 이미지를 남긴다
@@ -90,7 +98,34 @@ function launchOpts() {
         if (arm > 0) bad.push({ id: c.it.id, body: w, where: '어깨/팔', n: arm });
       }
     }
-    return { cases: cases.length, steps: STEPS.length, bad };
+    // ── 상의 × 하의 조합 — 허리에 틈이 없는가
+    const tops = (D.WARDROBE.top || []).filter(x => x.kind !== 'none');
+    const bots = (D.WARDROBE.bottom || []).filter(x => x.kind !== 'none');
+    const pairBad = [];
+    // 순서 판정용 — 상의만 눈에 띄는 색으로 물들여 겹침 구간에서 세어 본다
+    const MARK = '#ff0000';
+    const countMark = async (svg, bx) => {
+      const img = new Image();
+      await new Promise(ok => { img.onload = ok; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      ctx.clearRect(0, 0, 200, 348); ctx.drawImage(img, 0, 0, 200, 348);
+      const d = ctx.getImageData(bx[0], bx[2], bx[1] - bx[0], bx[3] - bx[2]).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] > 250 && d[i] > 250 && d[i + 1] < 5 && d[i + 2] < 5) n++;
+      }
+      return n;
+    };
+    for (const t of tops) for (const bo of bots) for (const w of STEPS) {
+      const outfit = Object.assign({}, D.DEFAULT_OUTFIT,
+        { top: t.id, bottom: bo.id, dress: 'dress_none', shoes: 'shoes_none' });
+      const n = await skinIn(window.Avatar.build(outfit, w, null), ...bodyBox(w, 72, 128, 168, 202));
+      if (n > 0) pairBad.push({ id: t.id + ' + ' + bo.id, body: w, where: '허리 살색', n });
+      const marked = window.Avatar.build(Object.assign({}, outfit, { colors: { top: MARK } }), w, null);
+      const m = await countMark(marked, bodyBox(w, 88, 112, 190, 206));
+      if (m > 0) pairBad.push({ id: t.id + ' + ' + bo.id, body: w, where: '겹침에 상의가 앞', n: m });
+    }
+    return { cases: cases.length, steps: STEPS.length, bad,
+             pairs: tops.length * bots.length * STEPS.length, pairBad };
   });
 
   if (SHOT) {
@@ -113,9 +148,11 @@ function launchOpts() {
 
   await browser.close();
 
-  console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회 측정`);
-  if (!res.bad.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
-  console.log(`❌ ${res.bad.length}건`);
-  res.bad.forEach(b => console.log(`   ${b.id} · 체형 ${b.body} · ${b.where} 살색 ${b.n}px`));
+  const all = res.bad.concat(res.pairBad);
+  console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
+    + ` · 상의×하의 ${res.pairs}조합`);
+  if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
+  console.log(`❌ ${all.length}건`);
+  all.forEach(b => console.log(`   ${b.id} · 체형 ${b.body} · ${b.where} 살색 ${b.n}px`));
   process.exit(1);
 })().catch(e => { console.error(e); process.exit(2); });

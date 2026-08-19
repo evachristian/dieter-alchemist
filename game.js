@@ -978,9 +978,11 @@ function roomFigure(tier) {
 // 이미 그 색을 고른 사람의 옷이 같이 따라온다 (hex 를 저장하면 옛 색으로 굳는다)
 function outfitWithColors() {
   const colors = {};
+  // slotColor() 를 지나므로 **못 가진 색은 자동으로 빠진다** — 세이브에 남아 있어도
+  // 아바타에는 안 나온다 (원래 색으로 떨어진다)
   Object.keys(S.outfitColor || {}).forEach(slot => {
-    const c = D.COLORS.find(x => x.id === S.outfitColor[slot]);
-    if (c) colors[slot] = c.hex;
+    const hex = slotColor(slot);
+    if (hex) colors[slot] = hex;
   });
   return Object.assign({}, S.outfit, { colors });
 }
@@ -1279,7 +1281,8 @@ function renderRoomDevGift() {
         aria-label="${N(m.slot, m.label)} ${T('wr_gift')}">${m.emoji} ${N(m.slot, m.label)}
         <span class="dev-gift-n">${have}/${list.length}</span></button>`;
     }).join('')
-    + `<button class="btn btn-dev" onclick="unlockAllCosmetics()">🎁 ${T('dev_all_wear')}</button></div>`;
+    + `<button class="btn btn-dev" onclick="unlockAllCosmetics()">🎁 ${T('dev_all_wear')}</button>`
+    + `<button class="btn btn-dev" onclick="unlockAllColors()">🎨 ${T('dev_all_color')}</button></div>`;
 }
 
 function renderWardrobe() {
@@ -1333,8 +1336,17 @@ function renderWardrobe() {
 // 색만 다른 옷을 60벌 늘어놓는 대신, 입고 있는 옷의 색을 갈아입힌다.
 // 색 이름은 **고른 것 하나만 글자로** 보여 준다 — 60개에 전부 이름을 달면
 // 글자가 너무 작아져 읽을 수 없다 (나머지는 aria-label 로 읽어 준다).
+// 팔레트의 색은 **획득해야 쓸 수 있다.** 옷이 그렇듯 색도 획득 대상이다.
+// 아이템과 같은 S.unlocked 에 넣는다 — 색 id 는 c_ 로 시작해 아이템 id 와 겹치지 않는다.
+// (획득 조건은 아직 붙이지 않았다. 지금은 개발용 블록으로만 연다)
+function isColorOwned(id) { return (S.unlocked || []).includes(id); }
+
+// '원래 색'(아이템이 갖고 태어난 색)은 언제나 쓸 수 있다 — 그 옷을 가졌으면 그 색도 가진 것이다.
+// 고른 색을 잃었다면(초기화 등) 원래 색으로 떨어진다.
 function slotColor(slot) {
-  const c = D.COLORS.find(x => x.id === (S.outfitColor || {})[slot]);
+  const id = (S.outfitColor || {})[slot];
+  if (!id || !isColorOwned(id)) return null;
+  const c = D.COLORS.find(x => x.id === id);
   return c ? c.hex : null;
 }
 
@@ -1342,23 +1354,31 @@ function colorRow(slot) {
   if (!D.COLORABLE_SLOTS.includes(slot)) return '';
   const it = (D.WARDROBE[slot] || []).find(x => x.id === S.outfit[slot]);
   if (!it || it.kind === 'none') return '';           // '없음' 을 입었으면 물들일 것이 없다
-  const cur = (S.outfitColor || {})[slot] || '';
+  const curId = (S.outfitColor || {})[slot] || '';
+  const cur = isColorOwned(curId) ? curId : '';       // 못 가진 색은 고른 것으로 치지 않는다
   const curName = cur ? N(cur, (D.COLORS.find(x => x.id === cur) || {}).name) : T('wr_color_orig');
+  const have = D.COLORS.filter(c => isColorOwned(c.id)).length;
   const dots = D.COLORS.map(c => {
     const on = cur === c.id;
-    return `<button class="wr-color ${on ? 'on' : ''}" style="background:${c.hex}"
+    const owned = isColorOwned(c.id);
+    // 잠긴 색은 **채도를 낮추지 않는다.** 색 자체가 내용이라 흐리게 하면 무엇을 얻는지 안 보인다.
+    // 대신 불투명도를 낮추고 자물쇠를 얹는다 (색에 기대지 않는 신호 — UI_POLICY 7장)
+    return `<button class="wr-color ${on ? 'on' : ''} ${owned ? '' : 'locked'}" style="background:${c.hex}"
       onclick="setOutfitColor('${slot}','${c.id}')"
-      aria-label="${N(c.id, c.name)}"${on ? ' aria-current="true"' : ''}></button>`;
+      aria-label="${N(c.id, c.name)}${owned ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
+      >${owned ? '' : '<span class="wr-clock">🔒</span>'}</button>`;
   }).join('');
   // 맨 앞은 '원래 색' — 아이템이 원래 갖고 있던 색으로 되돌린다
   const orig = `<button class="wr-color wr-color-orig ${cur ? '' : 'on'}" style="background:${it.color || '#ccc'}"
     onclick="setOutfitColor('${slot}','')" aria-label="${T('wr_color_orig')}"></button>`;
   return `<div class="wr-color-head">
       <span class="wr-color-tt">${T('wr_color')}</span><span class="wr-color-nm">${curName}</span>
+      <span class="wr-color-n">${T('wr_owned', { have: have, total: D.COLORS.length })}</span>
     </div><div class="wr-colors">${orig}${dots}</div>`;
 }
 
 function setOutfitColor(slot, colorId) {
+  if (colorId && !isColorOwned(colorId)) { toast(T('locked_color')); return; }
   if (!S.outfitColor) S.outfitColor = {};
   if (colorId) S.outfitColor[slot] = colorId;
   else delete S.outfitColor[slot];   // 빈 값 = 원래 색. 키를 남기지 않는다
@@ -1366,6 +1386,17 @@ function setOutfitColor(slot, colorId) {
   renderShowcase();                  // 아바타 + 옷장 동시 갱신
 }
 window.setOutfitColor = setOutfitColor;
+
+// 테스트용: 팔레트를 통째로 연다
+function unlockAllColors() {
+  const got = D.COLORS.filter(c => !isColorOwned(c.id));
+  if (!got.length) { toast(T('all_unlocked')); return; }
+  got.forEach(c => S.unlocked.push(c.id));
+  save();
+  toast(T('dev_all_color_done', { n: got.length }));
+  renderShowcase();
+}
+window.unlockAllColors = unlockAllColors;
 
 // ═══════════════════════════════════════════════════════════════
 //  바디 파츠 조절 (임시 · 테스트용 — 출시 때 이 블록과 index.html 의 #bodyTune 을 지운다)

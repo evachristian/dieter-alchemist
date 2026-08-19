@@ -660,13 +660,18 @@
       H(hairBack(hairKind, hairColor)),
       B(legs(tune)),
       B(torsoArms(tune)),
-      // 하의는 몸통 **뒤에** 그리면 몸통이 허리춤을 덮어 버려, 상의 밑단과 치마 사이로
-      // 살이 띠처럼 드러났다. 몸통 위에 올린다 (상의는 그 위라 치마 허리를 덮는다)
+      // 상의 → 하의 순. **상의가 뒤, 하의가 앞이다** — 옷을 넣어 입은 모양이 된다.
+      // (반대로 두면 상의 밑단이 치마 허리춤 위에 얹혀 빼 입은 것처럼 보인다)
+      //
+      // 둘 다 몸통보다는 **앞**이어야 한다. 하의를 몸통 뒤로 보냈더니 몸통이 허리춤을
+      // 덮어 버려, 상의 밑단과 치마 사이로 살이 띠처럼 드러났었다.
+      // 상의 밑단(hipY-2)이 하의 허리(waistY)보다 아래라 그 사이에 틈이 생기지 않는다.
+      B(hasDress ? '' : renderTop(top, tune)),
       B(hasDress ? '' : renderBottom(bottom, tune)),
       // 신발은 **드레스보다 아래** 다 — 위에 그리면 부츠 목이 드레스를 뚫고 나온다.
       // 하의(바지)보다는 위라서 부츠가 바짓단을 덮는다.
       B(renderShoes(pick('shoes', outfit.shoes), tune)),
-      B(hasDress ? renderDress(dress, tune) : renderTop(top, tune)),
+      B(hasDress ? renderDress(dress, tune) : ''),
       H(faceAndExpression(expItem)),
       H(hairFront(hairKind, hairColor)),
       B(renderGlove(pick('glove', outfit.glove), tune)),

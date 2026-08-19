@@ -704,12 +704,16 @@ body {
 .wr-color-head { display: flex; align-items: baseline; gap: 8px; margin: 12px 2px 6px; min-width: 0; }
 .wr-color-tt { font-size: 0.72rem; font-weight: 800; color: var(--ink-soft); flex: none; }
 .wr-color-nm { font-size: 0.78rem; font-weight: 800; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wr-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(26px, 1fr)); gap: 6px; }
+.wr-color-n { font-size: 0.7rem; font-weight: 800; color: var(--ink-soft); flex: none; margin-left: auto; }
+.wr-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(28px, 1fr)); gap: 6px; }
 .wr-color {
   aspect-ratio: 1; border-radius: 50%; cursor: pointer; padding: 0;
   /* 흰색 계열이 크림색 배경에 묻히지 않도록 항상 테두리를 준다 */
   border: 2px solid rgba(0,0,0,0.10);
   transition: transform 0.1s ease;
+  display: flex; align-items: center; justify-content: center;
+  /* button 은 본문 폰트를 자동으로 물려받지 않는다 — 자물쇠가 Arial 로 떨어진다 */
+  font-family: inherit;
 }
 .wr-color:active { transform: scale(0.86); }
 /* 고른 색은 **두 겹 링**으로 표시한다. 테두리 색만 바꾸면 그 색과 비슷한 옷 색에서
@@ -717,6 +721,16 @@ body {
 .wr-color.on { border-color: var(--ink); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--pink-2); }
 /* '원래 색' 은 팔레트가 아니라는 걸 알아보게 각진 모서리로 둔다 */
 .wr-color-orig { border-radius: 8px; }
+/* 잠긴 색 — **채도를 낮추지 않는다.** 여기서는 색 자체가 내용이라,
+   공통 잠금 표현(saturate 0.15)을 그대로 쓰면 60개가 전부 회색이 되어
+   무엇을 얻게 되는지 보이지 않는다. 불투명도만 낮추고 자물쇠로 잠금을 알린다.
+   (UI_POLICY 7장의 '채도 또는 불투명도 중 하나' + '색에 기대지 않는 신호' 를 만족한다) */
+.wr-color.locked { opacity: 0.78; }
+.wr-clock {
+  font-size: 0.7rem; line-height: 1;                    /* 최소 글자 크기 11px */
+  background: rgba(255,255,255,0.88); border-radius: 50%;
+  width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;
+}
 
 /* 보유 개수 + 랜덤 획득 버튼. 둘 다 말줄임보다는 줄을 나누는 편이 읽기 좋다 —
    좁은 화면에서 "🎁 Random Unlock (test)" 이 잘리지 않도록 wrap 을 허용한다. */

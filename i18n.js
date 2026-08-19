@@ -35,6 +35,7 @@
       hint_dress: '👆 눌러서 갈아입기', hint_drink: '👆 눌러서 마시기',
       // 옷장
       wr_color: '색상', wr_color_orig: '원래 색',
+      locked_color: '아직 획득하지 못한 컬러입니다.',
       wr_owned: '보유 {have} / {total}', wr_gift: '🎁 랜덤 획득 (테스트)',
       // 빈 상태
       empty_potions: '아직 소유한 물약이 없어요. 공방에서 물약을 만들 수 있어요.',
@@ -169,6 +170,8 @@
       part_thigh: '허벅지', part_calf: '종아리', part_face: '얼굴',
       dev_gift: '랜덤 획득',
       dev_all_wear: '모든 옷 획득',
+      dev_all_color: '모든 컬러 획득',
+      dev_all_color_done: '색 {n}종을 얻었어요',
       dev_all_wear_done: '옷 {n}벌을 얻었어요',
       dev_pots: '솥 해금',
       dev_all_pots: '🫕 모든 솥 오픈',
@@ -212,6 +215,7 @@
       room_clothes: '👗 Outfit', room_potions: '🧴 Potions', room_creatures: '🦋 Creatures',
       hint_dress: '👆 Tap to change', hint_drink: '👆 Tap to drink',
       wr_color: 'Color', wr_color_orig: 'Original',
+      locked_color: "You haven't unlocked this color yet.",
       wr_owned: 'Owned {have} / {total}', wr_gift: '🎁 Random Unlock (test)',
       empty_potions: 'No potions yet. You can brew potions in the Atelier.',
       empty_creatures: 'No creatures yet. You can create creatures in the Atelier.',
@@ -338,6 +342,8 @@
       part_thigh: 'Thighs', part_calf: 'Calves', part_face: 'Face',
       dev_gift: 'Random unlock',
       dev_all_wear: 'Unlock every outfit',
+      dev_all_color: 'Unlock every color',
+      dev_all_color_done: 'Got {n} colors',
       dev_all_wear_done: 'Got {n} new pieces',
       dev_pots: 'Unlock cauldrons',
       dev_all_pots: '🫕 Unlock every cauldron',
