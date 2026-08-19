@@ -328,14 +328,24 @@ function weightedPick(pool) {
 // anchor(요소)를 주면 그 아이콘 근처에 말풍선처럼 표시 → 가독성↑
 // (문구 길이가 늘어나도 UI와 겹치지 않도록 토스트로 처리)
 let toastTimer = null;
-function toast(msg, anchor, ms) {
+function toast(msg, anchor, ms, place) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   // 줄바꿈이 있거나 문구가 길면 한 줄 말줄임 대신 여러 줄로 표시
   el.classList.toggle('multi', String(msg).indexOf('\n') >= 0 || String(msg).length > 22);
 
-  if (anchor && anchor.getBoundingClientRect) {
-    const r = anchor.getBoundingClientRect();
+  // anchor 는 요소 또는 **선택자**다.
+  // 선택자를 받는 이유: render() 로 화면을 다시 그리고 나면 눌렀던 요소는 이미
+  // 문서에서 떨어져 나가 좌표가 0,0 이 된다. 그러면 토스트가 눌린 자리가 아니라
+  // **화면 왼쪽 위 구석**에 뜬다 (레시피 줄에서 실제로 그랬다).
+  // 다시 그린 뒤에는 선택자를 넘겨 새 요소를 찾게 한다.
+  if (typeof anchor === 'string') anchor = document.querySelector(anchor);
+  // 떨어져 나간 요소나 크기가 0인 요소는 붙일 데가 없다 — 기본 자리로 떨어뜨린다.
+  // (구석에 뜨는 것보다 늘 뜨던 자리에 뜨는 편이 낫다)
+  const ar = (anchor && anchor.isConnected && anchor.getBoundingClientRect)
+    ? anchor.getBoundingClientRect() : null;
+  if (ar && ar.width > 0 && ar.height > 0) {
+    const r = ar;
     el.classList.add('anchored');
     el.style.visibility = 'hidden';
     el.classList.add('show');
@@ -343,8 +353,15 @@ function toast(msg, anchor, ms) {
     const tw = el.offsetWidth, th = el.offsetHeight, pad = 8;
     let left = r.left + r.width / 2 - tw / 2;
     left = Math.max(pad, Math.min(left, window.innerWidth - tw - pad));
-    let top = r.bottom + 8;                       // 기본: 아이콘 아래
-    if (top + th > window.innerHeight - pad) top = r.top - th - 8;  // 넘치면 위로
+    // 기본은 아래 (헤더의 ? 아이콘 같은 것은 위로 올리면 화면 밖이다).
+    // place='above' 면 위 — 목록의 줄처럼 **누른 것을 가리면 안 되는** 자리에 쓴다
+    let top = (place === 'above') ? r.top - th - 8 : r.bottom + 8;
+    // 넘치면 반대편으로 넘긴다
+    if (place === 'above') { if (top < pad) top = r.bottom + 8; }
+    else if (top + th > window.innerHeight - pad) top = r.top - th - 8;
+    // **그래도 화면 밖이면 안으로 당긴다.** 스크롤로 밀려 나간 요소에 붙이면
+    // 토스트까지 같이 화면 밖으로 나가 아무것도 안 보인다 (솥 탭에서 실제로 그랬다)
+    top = Math.max(pad, Math.min(top, window.innerHeight - th - pad));
     el.style.left = left + 'px';
     el.style.top = top + 'px';
     el.style.visibility = '';
@@ -828,7 +845,7 @@ function renderAtelier() {
     cdEl.innerHTML = D.CAULDRONS.map(c => {
       const open = isCauldronOpen(c);
       return `<button class="cat-tab ${S.cauldronId === c.id ? 'active' : ''} ${open ? '' : 'locked'}"
-        onclick="chooseCauldron('${c.id}', this)">${open ? c.emoji : '🔒'} ${N(c.id, c.name)} ${c.slots}${T('slot_unit')}</button>`;
+        data-pot="${c.id}" onclick="chooseCauldron('${c.id}', this)">${open ? c.emoji : '🔒'} ${N(c.id, c.name)} ${c.slots}${T('slot_unit')}</button>`;
     }).join('');
   }
 
@@ -1175,7 +1192,8 @@ function chooseCauldron(id, el) {
   // 구멍이 줄어들면 넘치는 재료는 가방으로 되돌린다
   while (S.cauldron.length > c.slots) S.cauldron.pop();
   save(); render();
-  toast(T('cauldron_picked', { name: N(c.id, c.name), n: c.slots }), el);
+  // 위와 같은 이유 — 솥 탭도 다시 그려졌다
+  toast(T('cauldron_picked', { name: N(c.id, c.name), n: c.slots }), `[data-pot="${id}"]`);
 }
 
 // 채집 지대 (채집 화면의 카테고리 탭)
@@ -1848,7 +1866,9 @@ function fillFromRecipe(resultId, el) {
   if (!canFillRecipe(r)) { toast(T('not_enough_mat'), el); return; }
   S.cauldron = r.inputs.slice();
   save(); render();
-  toast(T('recipe_filled', { name: N(r.result.id, r.result.name) }), el);
+  // render() 가 줄을 새로 그렸다 — 넘겨받은 el 은 이미 문서에서 떨어졌으므로 새로 찾는다
+  toast(T('recipe_filled', { name: N(r.result.id, r.result.name) }),
+    `[data-recipe="${resultId}"]`, null, 'above');
   if (window.Sfx) Sfx.play('pick');
 }
 
