@@ -656,7 +656,7 @@ const TIERS = [
   { min: 15,  emoji: '🌸', title: '꽃봉오리' },
   { min: 35,  emoji: '🧚', title: '요정' },
   { min: 60,  emoji: '👑', title: '뮤즈' },
-  { min: 100, emoji: '👸', title: '여신' },
+  { min: 100, emoji: '✨', title: '여신' },
 ];
 
 // 지대의 해금 점수 = 그 지대에서 가장 먼저 열리는 맵의 점수
