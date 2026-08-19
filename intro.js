@@ -106,7 +106,8 @@
   // 통통한 공주 — 앞모습 (표정 지정)
   // bubble: 머리 위 말풍선 / sweat: 이마에 흐르는 왕 땀
   // over: 앞머리 위에 그릴 요소 (땀방울 등)
-  function princessFront(mood, bubble, sweat) {
+  // 표정 — 반신(princessFront)과 전신(princessFull)이 **같은 얼굴**을 쓰도록 따로 뺐다
+  function princessFace(mood, sweat) {
     let eyes, mouth, extra = '', over = '';
     if (mood === 'shy') {
       eyes = `<path d="M132,176 Q138,170 144,176" stroke="#4a3a42" stroke-width="2.6" fill="none" stroke-linecap="round"/>
@@ -143,14 +144,36 @@
               <path d="M156,172 L168,178 M156,178 L168,172" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>`;
       mouth = `<ellipse cx="150" cy="193" rx="7" ry="9" fill="#b5566a"/>`;
     }
+    return { eyes, mouth, extra, over };
+  }
+
+  function princessFront(mood, bubble, sweat) {
+    const f = princessFace(mood, sweat);
+    const eyes = f.eyes, mouth = f.mouth, extra = f.extra, over = f.over;
     return `<g>
       <ellipse cx="150" cy="286" rx="52" ry="8" fill="rgba(80,60,40,0.18)"/>
       <path d="M104,286 C100,236 112,206 150,206 C188,206 200,236 196,286 Z" fill="#7fa06a"/>
       <path d="M112,262 L188,262" stroke="#6a8a58" stroke-width="4"/>
-      <path d="M108,224 C96,242 96,258 102,268" stroke="#7fa06a" stroke-width="17" fill="none" stroke-linecap="round"/>
-      <path d="M192,224 C204,242 204,258 198,268" stroke="#7fa06a" stroke-width="17" fill="none" stroke-linecap="round"/>
-      <circle cx="100" cy="270" r="8" fill="${SKIN}"/><circle cx="200" cy="270" r="8" fill="${SKIN}"/>
-      <!-- 뒷머리 -->
+      ${princessArms(224, 268, 270)}
+      ${princessHead(eyes, mouth, extra)}
+      ${over}
+      ${bubble ? speechBubble() : ''}
+    </g>`;
+  }
+
+  // 팔(소매) + 손 — 몸통 옆으로 늘어뜨린다. y0 어깨 · y1 소매 끝 · yh 손 높이
+  // 제어점은 **어깨에서 +18 / 끝에서 -10** 이다. 평균으로 잡으면 원래 곡선과 어긋난다
+  // (반신 공주에서 242 가 246 이 됐고, 인트로 그림이 조용히 바뀌었다)
+  function princessArms(y0, y1, yh) {
+    return `<path d="M108,${y0} C96,${y0 + 18} 96,${y1 - 10} 102,${y1}" stroke="#7fa06a" stroke-width="17" fill="none" stroke-linecap="round"/>
+      <path d="M192,${y0} C204,${y0 + 18} 204,${y1 - 10} 198,${y1}" stroke="#7fa06a" stroke-width="17" fill="none" stroke-linecap="round"/>
+      <circle cx="100" cy="${yh}" r="8" fill="${SKIN}"/><circle cx="200" cy="${yh}" r="8" fill="${SKIN}"/>`;
+  }
+
+  // 머리 — 반신/전신이 **같은 얼굴을 쓰도록** 따로 뺐다.
+  // 여기서 갈라 두지 않으면 표정을 고칠 때 두 군데를 고쳐야 하고, 한쪽만 고치면 조용히 어긋난다.
+  function princessHead(eyes, mouth, extra) {
+    return `<!-- 뒷머리 -->
       <ellipse cx="150" cy="176" rx="40" ry="38" fill="${HAIR}"/>
       <path d="M112,178 C106,214 114,244 128,246 C118,222 116,198 120,184 Z" fill="${HAIR}"/>
       <path d="M188,178 C194,214 186,244 172,246 C182,222 184,198 180,184 Z" fill="${HAIR}"/>
@@ -162,9 +185,32 @@
       ${mouth}
       <!-- 앞머리 (부드러운 라운드 뱅) -->
       <path d="M116,174 C114,146 128,136 150,136 C172,136 186,146 184,174
-        C180,160 168,152 150,152 C132,152 120,160 116,174 Z" fill="${HAIR}"/>
-      ${over}
-      ${bubble ? speechBubble() : ''}
+        C180,160 168,152 150,152 C132,152 120,160 116,174 Z" fill="${HAIR}"/>`;
+  }
+
+  // 전신 공주 — 마이 룸용.
+  // 인트로 장면에서는 탁자·화면 아래쪽에 가려 다리가 보일 일이 없어서 반신으로 그렸는데,
+  // 마이 룸에서는 방 한가운데 서 있으므로 치마 밑단을 올리고 다리·신발을 붙였다.
+  // **얼굴·머리·팔은 반신과 같은 것을 쓴다** (princessHead / princessArms).
+  function princessFull(mood) {
+    const f = princessFace(mood);
+    // 반신 그림은 어깨~밑단이 80밖에 안 돼, 다리를 붙이면 머리가 몸의 절반이 된다.
+    // 전신에서는 몸을 늘려 **2.5등신쯤**으로 맞춘다 (마친 뒤의 아바타가 3등신이다).
+    const HEM = 288, FOOT = 322;
+    return `<g>
+      <ellipse cx="150" cy="${FOOT + 2}" rx="46" ry="5.5" fill="rgba(80,60,40,0.18)"/>
+      <!-- 다리 · 신발 — 치마에 가려지도록 **먼저** 그린다 -->
+      <rect x="133" y="${HEM - 14}" width="16" height="${FOOT - HEM + 12}" rx="8" fill="${SKIN}"/>
+      <rect x="151" y="${HEM - 14}" width="16" height="${FOOT - HEM + 12}" rx="8" fill="${SKIN}"/>
+      <ellipse cx="140" cy="${FOOT}" rx="12.5" ry="6" fill="#8a5a3c"/>
+      <ellipse cx="160" cy="${FOOT}" rx="12.5" ry="6" fill="#8a5a3c"/>
+      <!-- 드레스 — 어깨에서 밑단까지 퍼지는 종 모양.
+           **반신보다 넓게** 퍼뜨려야 큰 머리와 균형이 맞는다 -->
+      <path d="M96,${HEM} C94,${HEM - 46} 112,206 150,206 C188,206 206,${HEM - 46} 204,${HEM} Z" fill="#7fa06a"/>
+      <path d="M110,${HEM - 34} L190,${HEM - 34}" stroke="#6a8a58" stroke-width="4"/>
+      <path d="M104,${HEM - 6} C126,${HEM + 4} 174,${HEM + 4} 196,${HEM - 6}" stroke="#6a8a58" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      ${princessArms(224, 276, 278)}
+      ${princessHead(f.eyes, f.mouth, f.extra)}
     </g>`;
   }
 
@@ -701,7 +747,10 @@
   // 인트로의 공주 그림을 밖에서도 쓸 수 있게 내보낸다.
   // 튜토리얼을 마치기 전의 마이 룸은 이 그림을 그대로 세운다 — 아직 연금술사가 되기
   // 전이라 바디 파츠로 조립한 아바타가 아니라 '방금 들어온 그 공주' 여야 한다.
-  function princessArt(mood) { return princessFront(mood || 'smile'); }
+  // full=true 면 다리·신발까지 있는 전신 (마이 룸용)
+  function princessArt(mood, full) {
+    return full ? princessFull(mood || 'smile') : princessFront(mood || 'smile');
+  }
 
   window.Intro = { start, next, skip, finish, startEnding, isPlaying, hasSeen, toggleAuto, princessArt, SEEN_KEY };
 })();

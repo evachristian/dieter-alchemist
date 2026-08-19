@@ -952,14 +952,20 @@ function renderAtelier() {
 // 그림자는 그림이 이미 갖고 있으니 따로 그리지 않는다. 발밑은 아바타와 같은 y=342 에
 // 맞춘다 — 그림자 끝이 상자 아래로 조금 넘지만, 아바타(아래끝 350)도 마찬가지다.
 const PRINCESS_BOX    = 260;    // 상자 폭 (아바타는 200)
-const PRINCESS_SCALE  = 2.09;   // 158 × 2.09 ≈ 330 — 아바타 높이(331)와 같아진다
+// 전신 그림 기준 — 머리 끝(136) ~ **신발 아래끝**(328) = 192.
+// 아바타(머리 21 ~ 바닥 342 = 321)와 같은 키가 되도록 321/192 ≈ 1.67 배.
+// **발 '중심' 이 아니라 아래끝을 바닥에 맞춘다** — 중심으로 맞췄더니 신발 아랫부분이
+// viewBox 밖으로 나가 잘렸다. 이 값을 바꾸면 아바타와 키가 어긋난다
+const PRINCESS_SCALE  = 1.67;
+const PRINCESS_FEET   = 328;    // 그림 안에서 신발이 바닥에 닿는 y
 const PRINCESS_GROUND = 342;    // 발밑. 아바타의 그림자 높이와 같은 줄
 function princessFigure() {
-  const art = window.Intro && window.Intro.princessArt ? window.Intro.princessArt('smile') : '';
+  // 전신(full) — 마이 룸에서는 방 한가운데 서 있으므로 다리·신발이 있어야 한다
+  const art = window.Intro && window.Intro.princessArt ? window.Intro.princessArt('smile', true) : '';
   if (!art) return '';
   const s = PRINCESS_SCALE;
   const tx = (PRINCESS_BOX / 2 - 150 * s).toFixed(2);
-  const ty = (PRINCESS_GROUND - 286 * s).toFixed(2);
+  const ty = (PRINCESS_GROUND - PRINCESS_FEET * s).toFixed(2);
   return `<svg class="avatar-svg" viewBox="0 0 ${PRINCESS_BOX} 348" xmlns="http://www.w3.org/2000/svg"
       role="img" aria-label="${T('a11y_princess')}">
     <g transform="translate(${tx},${ty}) scale(${s})">${art}</g>
