@@ -396,7 +396,6 @@ body {
 .ing-count { font-size: 0.8rem; font-weight: 800; color: var(--pink-2); }
 
 /* ─── 레시피 북 ─── */
-.recipe-book-head { display: flex; align-items: center; justify-content: space-between; }
 .recipe-progress { font-size: 0.8rem; font-weight: 800; color: var(--text-mint); background: var(--mint); padding: 3px 10px; border-radius: 999px; }
 .recipe-book { display: flex; flex-direction: column; gap: 8px; }
 .recipe-row {
@@ -652,7 +651,16 @@ body {
 }
 /* 줄별 여백만 개별 지정 */
 .wr-tabs { margin-bottom: 9px; }
-.rb-tabs { margin: 8px 0 6px; }
+/* 레시피 북 아랫단 — 등급 칩 줄과 진행도를 한 줄에.
+   진행도는 오른쪽 끝에 고정하고, 칩이 늘면 칩 쪽이 줄바꿈한다 */
+.rb-sub {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  margin: 8px 0 6px; min-width: 0;
+}
+.rb-sub .rb-tabs { flex: 1 1 auto; min-width: 0; margin: 0; }
+.rb-sub .recipe-progress { flex: 0 0 auto; }
+/* 크리처를 보는 중이면 등급 칸이 비어 자리만 차지한다 — 접어 둔다 */
+.rb-tabs:empty { display: none; }
 .cat-tab {
   flex: 0 0 auto; border: none; background: var(--cream); color: var(--ink-soft);
   font-weight: 800; font-size: 0.76rem; padding: 6px 12px; border-radius: 999px; cursor: pointer;

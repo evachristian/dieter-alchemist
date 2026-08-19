@@ -606,7 +606,10 @@ function brew() {
     lastFound = result.id;              // 레시피 북에서 맨 위로 올려 강조
     // 발견한 카테고리로 레시피 북을 자동 전환
     const cat = D.RECIPE_CATS.find(c => c.match({ result }));
-    if (cat) recipeTab = cat.id;
+    if (cat) {
+      recipeKind = (cat.id === 'creature') ? 'creature' : 'potion';
+      if (recipeKind === 'potion') recipeTab = cat.id;
+    }
   }
 
   if (result.kind === 'potion') {
@@ -858,13 +861,21 @@ function renderAtelier() {
   applyBagState();
 
   // 레시피 북 — 카테고리 탭 + 해당 카테고리 목록
+  // 윗단 — 물약 / 크리처. 마이 룸 인벤토리와 같은 세그먼트 모양이라 라벨도 같은 것을 쓴다
+  const kindEl = document.getElementById('recipeKinds');
+  if (kindEl) {
+    kindEl.innerHTML = [['potion', 'room_potions'], ['creature', 'room_creatures']].map(([k, key]) =>
+      `<button class="room-tab ${recipeKind === k ? 'active' : ''}" onclick="setRecipeKind('${k}')">${T(key)}</button>`
+    ).join('');
+  }
+  // 아랫단 — 물약일 때만 등급을 보여 준다 (크리처는 등급이 없다)
   const catEl = document.getElementById('recipeTabs');
   if (catEl) {
-    catEl.innerHTML = D.RECIPE_CATS.map(c =>
+    catEl.innerHTML = recipeKind === 'creature' ? '' : potionCats().map(c =>
       `<button class="cat-tab rb-tab ${recipeTab === c.id ? 'active' : ''}" onclick="setRecipeTab('${c.id}')">${N(c.id + '_cat', c.label)}</button>`
     ).join('');
   }
-  const cat = D.RECIPE_CATS.find(c => c.id === recipeTab) || D.RECIPE_CATS[0];
+  const cat = currentRecipeCat();
   // 알아낸 레시피를 위로 (방금 알아낸 것이 가장 위), ??? 는 아래로
   const catRecipes = D.RECIPES.filter(cat.match).slice().sort((a, b) => {
     const rank = r => (r.result.id === lastFound ? 0 : S.discovered.includes(r.result.id) ? 1 : 2);
@@ -1129,9 +1140,23 @@ function lockedMapInfo(mapId, el) {
 }
 
 // 레시피 북 카테고리 (하급/중급/상급 물약 · 크리처)
-let recipeTab = 'low';
+// 레시피 북은 두 단이다 — 종류(물약/크리처)를 먼저 고르고, 물약이면 등급을 고른다
+let recipeKind = 'potion';
+let recipeTab = 'basic';
+// 물약 등급 탭 (크리처는 등급이 없다)
+function potionCats() { return D.RECIPE_CATS.filter(c => c.id !== 'creature'); }
+function currentRecipeCat() {
+  if (recipeKind === 'creature') return D.RECIPE_CATS.find(c => c.id === 'creature');
+  return potionCats().find(c => c.id === recipeTab) || potionCats()[0];
+}
+function setRecipeKind(k) {
+  recipeKind = k;
+  if (k === 'potion' && !potionCats().some(c => c.id === recipeTab)) recipeTab = potionCats()[0].id;
+  render();
+}
+window.setRecipeKind = setRecipeKind;
 let lastFound = null;      // 방금 알아낸 레시피 id (목록 맨 위로 올려 강조)
-function setRecipeTab(id) { recipeTab = id; render(); }
+function setRecipeTab(id) { recipeKind = 'potion'; recipeTab = id; render(); }
 // 지금 보여 줄 옷장 칸 목록.
 // 튜토리얼 전에는 원피스 하나뿐이다 — 공주가 입고 들어온 그 옷만 갈아입을 수 있다.
 const TUTORIAL_SLOTS = ['dress'];

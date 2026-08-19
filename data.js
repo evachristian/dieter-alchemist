@@ -339,7 +339,7 @@ const RECIPES = [
     result: { id: 'p_04', kind: 'potion', grade: 'basic', emoji: '🌱', name: '새싹 물약',
       desc: '새싹 기운이 감도는 기본 물약.', beauty: 1, charm: 0 } },
   { inputs: ['dew', 'thistle'],
-    result: { id: 'p_05', kind: 'potion', grade: 'low', emoji: '🍃', name: '산들 물약',
+    result: { id: 'p_05', kind: 'potion', grade: 'basic', emoji: '🍃', name: '산들 물약',
       desc: '산들 기운이 감도는 기본 물약.', beauty: 1, charm: 1 } },
   { inputs: ['butter_flower', 'clover', 'wheat'],
     result: { id: 'p_06', kind: 'potion', grade: 'low', emoji: '☀️', name: '햇살 물약',
