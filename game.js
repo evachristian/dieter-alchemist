@@ -402,7 +402,8 @@ function zoneTime(offsetHours) {
 }
 function renderClock() {
   const a = document.getElementById('clockKST');
-  if (a) a.textContent = `UTC+09:00 (${T('tz_kr')}) ${zoneTime(9)}`;
+  // 방 모서리에 얹히는 자리라 짧게 — "🌙 10:42 UTC+9"
+  if (a) a.textContent = `${zoneTime(9)} UTC+9`;
 }
 
 // 1초 틱: 카운트다운 갱신 + 자정 롤오버 자동 충전

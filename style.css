@@ -96,21 +96,13 @@ body {
 .ap-help:active { transform: scale(0.92); }
 
 /* 글로벌 시계 */
-.clock-bar {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 5px 16px 6px; min-width: 0;
-  background: rgba(255,255,255,0.4);
-  border-bottom: 1px solid rgba(255,255,255,0.5);
-}
-/* 시간대 이름이 긴 언어에서도 줄을 밀어내지 않도록 (UI_POLICY.md '가변 폭') */
-.clock-item {
-  font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
-  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-/* 저장 상태 — 시계 옆에 조용히 붙는다. 눌러 보면 뜻을 알려 준다. */
+/* 저장 상태 — 방 제목 옆에 조용히 붙는다. 눌러 보면 뜻을 알려 준다. */
 .sync-chip {
   border: none; background: none; font-family: inherit; cursor: pointer;
-  padding: 0 2px; flex: 0 0 auto;
+  font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
+  padding: 2px 8px; flex: 0 0 auto;
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: rgba(255,255,255,0.55); border-radius: 999px;
 }
 .sync-chip[data-state="offline"] { color: var(--text-warn); }
 
@@ -439,7 +431,10 @@ body {
 .recipe-out { font-weight: 800; margin-left: auto; }
 
 /* ─── 쇼케이스 ─── */
-.room-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+/* 제목 · 저장 상태 · 초기화. 제목이 남는 폭을 먹고 저장 상태가 그 옆에 붙는다 */
+.room-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.room-head .screen-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.room-head .icon-btn { margin-left: auto; }
 .btn-init {
   border: 1px solid rgba(154,138,149,0.35); background: rgba(255,255,255,0.7);
   color: var(--ink-soft); font-family: inherit; font-weight: 700; font-size: 0.8rem;
@@ -481,6 +476,31 @@ body {
 .room-panel.active { display: block; }
 .hint-block { display: block; text-align: center; font-size: 0.72rem; color: var(--ink-soft); margin: 10px 2px 2px; }
 
+/* ─── 방 그림 위에 올라가는 글자 (TEXT_POLICY.md '방 배경 위의 글자') ───
+   방 배경은 시간대에 따라 새벽·낮·노을·밤으로 바뀌고, 벽·바닥·창문이 다 다른 색이다.
+   어떤 색을 골라도 어딘가에서는 묻힌다 — 그래서 **흰 글자 + 검은 아웃라인**으로 고정한다.
+   아웃라인이 곧 대비를 보장하므로, 배경색이 무엇이든 읽힌다.
+
+   -webkit-text-stroke 가 아니라 text-shadow 를 쓰는 이유: text-stroke 는 획을 글자
+   안쪽으로도 먹어 들어가 작은 글씨가 뭉갠다. 8방향 그림자는 바깥으로만 번진다. */
+.on-room-bg {
+  color: #fff;
+  text-shadow:
+     1px  1px 0 rgba(0,0,0,0.92),  -1px  1px 0 rgba(0,0,0,0.92),
+     1px -1px 0 rgba(0,0,0,0.92),  -1px -1px 0 rgba(0,0,0,0.92),
+     1px    0 0 rgba(0,0,0,0.92),  -1px    0 0 rgba(0,0,0,0.92),
+       0  1px 0 rgba(0,0,0,0.92),     0 -1px 0 rgba(0,0,0,0.92),
+       0    0 4px rgba(0,0,0,0.55);
+}
+
+/* 방 그림과 그 위에 얹는 것들 */
+.room-canvas { position: relative; }
+/* 시계 — 방 왼쪽 위 모서리에 얹는다 */
+.room-clock {
+  position: absolute; left: 2px; top: 8px; z-index: 3;
+  font-size: 0.72rem; font-weight: 800; letter-spacing: 0.01em;
+  white-space: nowrap; pointer-events: none;
+}
 .char-stage { position: relative; display: flex; justify-content: center; margin: 6px 0 10px; }
 /* 배경을 네모 카드에 가두지 않고 전체 폭으로 열린 방처럼. 위/아래는 부드럽게 페이드 */
 .room-scene {
@@ -556,10 +576,16 @@ body {
   min-width: 0;
 }
 .vitals-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0;
   font-size: 0.75rem; font-weight: 800; color: var(--ink-soft);
   /* 칸 배경이 --cream 이라 구분선은 그보다 진해야 보인다 */
   margin-bottom: 7px; padding-bottom: 6px; border-bottom: 1px solid rgba(154,138,149,0.25);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vitals-head > span:first-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 그 칸의 합계 — 항목들보다 한 단계 크고 진하게 */
+.vitals-sum {
+  flex: 0 0 auto; font-size: 1.05rem; font-weight: 900; color: var(--ink);
+  font-variant-numeric: tabular-nums; line-height: 1;
 }
 .vitals-list { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .vitals-row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }

@@ -31,6 +31,14 @@
     // 특히 '언제 열리는지' 안내는 잠긴 카드에서 유일하게 읽어야 하는 정보다.
     skipSelector: '[data-a11y-skip], .i-dot, .avatar-svg, svg, .brew-emoji, .spot-emoji,'
       + ' .wr-tab.dim, [disabled], [aria-disabled="true"]',
+    // 방 배경 위의 글자 (TEXT_POLICY '방 배경 위의 글자')
+    //
+    // 방 배경은 시간대에 따라 색이 통째로 바뀌는 그림이라 CSS 로는 배경색을 알 수 없다.
+    // 여기 잡히는 글자는 **대비 대신 아웃라인**으로 가독성을 보장하기로 한 것들이라
+    // 대비 검사에서 빼되, 아웃라인이 실제로 붙어 있는지는 반드시 확인한다.
+    // (그냥 검사에서 빼기만 하면 아웃라인을 깜빡한 순간 아무도 못 잡는다)
+    roomBgSelector: '.on-room-bg',
+    outlineMinDirections: 4,   // 이 방향 수 이상 그림자가 있어야 '테두리' 로 친다
     // 잠금 표현 (UI_POLICY 7장)
     lockedSelector: '.spot-card.locked, .cat-tab.locked, .wr-item.locked, .room-tab.locked',
     lockMaxSaturate: 0.4,     // 이보다 채도가 높으면 '잠김'으로 안 보인다
@@ -44,6 +52,22 @@
   const PICTO = /\p{Extended_Pictographic}/u;
   const PICTO_ONLY = /^[\s\u200D\uFE0E\uFE0F\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}]+$/u;
   function pictogramOnly(text) { return PICTO.test(text) && PICTO_ONLY.test(text); }
+
+  // text-shadow 가 '테두리' 노릇을 하는지 — 서로 다른 방향으로 몇 개나 밀려 있는지 센다.
+  // 흐림만 준 그림자(0 0 4px)는 글자 가장자리를 감싸 주지 못하므로 방향으로 치지 않는다.
+  function outlineDirections(shadow) {
+    if (!shadow || shadow === 'none') return 0;
+    const dirs = new Set();
+    // "rgb(0, 0, 0) 1px 1px 0px" 처럼 색 뒤에 길이가 온다. 색 안의 쉼표는 건너뛰고 자른다
+    for (const part of String(shadow).split(/,(?![^(]*\))/)) {
+      const lens = part.match(/-?\d*\.?\d+px/g);
+      if (!lens || lens.length < 2) continue;
+      const x = parseFloat(lens[0]), y = parseFloat(lens[1]);
+      if (x === 0 && y === 0) continue;                 // 흐림만 있는 그림자
+      dirs.add(`${Math.sign(x)},${Math.sign(y)}`);
+    }
+    return dirs.size;
+  }
 
   // ─── 색 계산 ───
   function parseColor(str) {
@@ -188,8 +212,15 @@
       const ratio = contrast(fg, bgInfo.color);
 
       const issues = [];
-      // 이모지만 있는 칸은 대비를 재지 않는다 (색을 스스로 가진 그림 글자)
-      if (ratio < need && !pictogramOnly(text)) {
+      const onRoomBg = !!el.closest(POLICY.roomBgSelector);
+      if (onRoomBg) {
+        // 방 배경 위의 글자 — 배경색을 알 수 없으니 대비 대신 아웃라인을 본다
+        const dirs = outlineDirections(cs.textShadow);
+        if (dirs < POLICY.outlineMinDirections) {
+          issues.push(`방 배경 위인데 아웃라인이 없음 (테두리 방향 ${dirs}개, 최소 ${POLICY.outlineMinDirections}개)`);
+        }
+      } else if (ratio < need && !pictogramOnly(text)) {
+        // 이모지만 있는 칸은 대비를 재지 않는다 (색을 스스로 가진 그림 글자)
         issues.push(`대비 ${ratio.toFixed(2)}:1 (필요 ${need}:1)`);
       }
       if (sizePx < POLICY.minFontPx) {
@@ -246,7 +277,7 @@
     tolerance: 0.5,                       // 반올림 오차 허용 (px)
     // 검사 대상 — 눌리는 요소와 값이 바뀌는 텍스트
     targetSelector: 'button, .cat-tab, .set-opt, .room-tab, .tab-btn, .spot-card, .stat-box,'
-      + ' .recipe-row, .wr-item, .ing-chip, .potion-card, .clock-item, .wr-count, .recipe-progress',
+      + ' .recipe-row, .wr-item, .ing-chip, .potion-card, .room-clock, .sync-chip, .wr-count, .recipe-progress',
     // 넘쳐도 되는 곳 — 지금은 없다.
     // 예전에는 .cat-tabs 가 가로 스크롤이라 예외였는데, 줄바꿈으로 바뀌어
     // **넘치면 진짜 버그**가 됐다. 예외로 두면 그걸 가려 버린다.
