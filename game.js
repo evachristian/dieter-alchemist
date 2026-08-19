@@ -42,7 +42,7 @@ const defaultState = () => ({
   tutorialDone: false,
   // 아우라 세부 수치 (각 0~1000)
   aura:      { happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 },
-  cauldronId: 'cd_iron',    // 사용 중인 마법 솥
+  cauldronId: 'cd_iron_old',  // 사용 중인 마법 솥 (시작은 튜토리얼용 2구)
   firstTs:   Date.now(),    // 첫 플레이 시각 — 키 성장의 기준
   record:    newRecord(),   // 플레이 기록 (누적 통계)
   rev:       0,             // 저장 횟수 — 서버 동기화에서 어느 쪽이 최신인지 판단
@@ -63,7 +63,7 @@ function newRecord() {
     discoveries: 0,   // 새로 알아낸 레시피
     drinks:      0,   // 마신 물약
     creatures:   0,   // 만든 크리처 (누적 — 전시 목록과 달리 줄지 않는다)
-    pots:        ['cd_iron'],   // 써 본 마법 솥 (중복 없이)
+    pots:        ['cd_iron_old'],   // 써 본 마법 솥 (중복 없이)
     playSec:     0,   // 실제로 화면을 보고 있던 시간 (초)
     days:        1,   // 접속한 날 수
     lastDay:     dayKey(),
@@ -103,7 +103,7 @@ function load() {
       st.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, st.outfit || {});
       st.aura = Object.assign({ happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 }, st.aura || {});
       if (!st.firstTs) st.firstTs = Date.now();
-      if (!st.cauldronId) st.cauldronId = 'cd_iron';
+      if (!st.cauldronId) st.cauldronId = 'cd_iron_old';
       if (!Array.isArray(st.unlocked)) st.unlocked = [];
       st.record = Object.assign(newRecord(), st.record || {});
       if (typeof st.rev !== 'number') st.rev = 0;
@@ -895,6 +895,8 @@ function renderAtelier() {
   const catFound = catRecipes.filter(r => S.discovered.includes(r.result.id)).length;
   document.getElementById('recipeProgress').textContent =
     `${catFound} / ${catRecipes.length}`;
+
+  renderAtelierDev();   // 임시(출시 때 지운다)
 }
 
 // 마이 룸에 세울 인물.
@@ -1086,14 +1088,24 @@ function unlockText(score) {
 // ─── 마법 솥 ───
 // 선택한 솥의 구멍 수만큼 재료를 넣을 수 있다 (3구 → 12구)
 function currentCauldron() {
-  return D.CAULDRONS.find(c => c.id === S.cauldronId) || D.CAULDRONS[0];
+  const c = D.CAULDRONS.find(x => x.id === S.cauldronId);
+  // 고른 솥이 잠겼으면(튜토리얼 되돌리기 등) 열려 있는 첫 솥으로 물러난다 —
+  // 잠긴 솥의 구멍 수로 계속 조합하게 두면 안 된다
+  if (c && isCauldronOpen(c)) return c;
+  return D.CAULDRONS.find(isCauldronOpen) || D.CAULDRONS[0];
 }
 function cauldronSlots() { return currentCauldron().slots; }
-function isCauldronOpen(c) { return totalCharm() >= c.unlock; }
+// 3구 무쇠 솥만 점수가 아니라 **튜토리얼 완료**로 잠긴다.
+// (임시: 개발용 '솥 오픈' 스위치가 켜져 있으면 그것도 연다)
+function isCauldronOpen(c) {
+  if (devPotOpen(c.id)) return true;
+  if (c.needsTutorial && !S.tutorialDone) return false;
+  return totalCharm() >= c.unlock;
+}
 function chooseCauldron(id, el) {
   const c = D.CAULDRONS.find(x => x.id === id);
   if (!c) return;
-  if (!isCauldronOpen(c)) { toast(unlockText(c.unlock), el); return; }
+  if (!isCauldronOpen(c)) { toast(c.needsTutorial ? T('locked_tutorial') : unlockText(c.unlock), el); return; }
   S.cauldronId = id;
   if (S.record && !S.record.pots.includes(id)) S.record.pots.push(id);
   // 구멍이 줄어들면 넘치는 재료는 가방으로 되돌린다
@@ -1392,6 +1404,70 @@ function renderRoomDevTail() {
     on ? '☑' : '☐'} ${T('dev_tutorial')}</button>`;
 }
 window.devToggleTutorial = devToggleTutorial;
+
+// ─── 공방 화면 개발용 스위치 ───
+//
+// 솥 해금은 세이브에 쓰지 않는다 (채집의 맵/히든과 같은 이유 — 서버에 올라가면
+// 다른 기기에서도 다 열린 채가 되고 되돌릴 방법이 없다).
+// 레시피는 다르다. '알아낸 레시피' 는 진짜 진행이라 세이브에 들어간다.
+const DEV_POTS_KEY = 'dieter_alchemist_devpots_v1';
+function devPots() {
+  try { return JSON.parse(localStorage.getItem(DEV_POTS_KEY) || '[]'); } catch (e) { return []; }
+}
+function devPotOpen(id) { return devPots().indexOf(id) >= 0; }
+function devTogglePot(id) {
+  const list = devPots();
+  const i = list.indexOf(id);
+  if (i >= 0) list.splice(i, 1); else list.push(id);
+  try { localStorage.setItem(DEV_POTS_KEY, JSON.stringify(list)); } catch (e) {}
+  render();
+}
+function devAllPots() {
+  // 하나라도 잠겨 있으면 전부 열고, 이미 다 열려 있으면 전부 되돌린다
+  const every = D.CAULDRONS.every(c => devPotOpen(c.id));
+  try {
+    localStorage.setItem(DEV_POTS_KEY, JSON.stringify(every ? [] : D.CAULDRONS.map(c => c.id)));
+  } catch (e) {}
+  render();
+}
+
+// 레시피 열기 — 카테고리 하나 또는 전부. 세이브에 들어간다.
+function devOpenRecipes(catId) {
+  const cat = catId === 'all' ? null : D.RECIPE_CATS.find(c => c.id === catId);
+  const list = cat ? D.RECIPES.filter(cat.match) : D.RECIPES;
+  let n = 0;
+  list.forEach(r => {
+    if (!S.discovered.includes(r.result.id)) { S.discovered.push(r.result.id); n++; }
+  });
+  save();
+  toast(T('dev_recipes_done', { n }));
+  render();
+}
+
+function renderAtelierDev() {
+  const el = document.getElementById('atelierDevBody');
+  if (!el) return;
+  const pots = D.CAULDRONS.map(c => {
+    const on = devPotOpen(c.id);
+    return `<button class="btn btn-dev${on ? ' on' : ''}" onclick="devTogglePot('${c.id}')">${
+      on ? '☑' : '☐'} ${N(c.id, c.name)} ${c.slots}${T('slot_unit')}</button>`;
+  }).join('');
+  const allOn = D.CAULDRONS.every(c => devPotOpen(c.id));
+  const cats = D.RECIPE_CATS.map(c =>
+    `<button class="btn btn-dev" onclick="devOpenRecipes('${c.id}')">📖 ${N(c.id + '_cat', c.label)}</button>`
+  ).join('');
+  el.innerHTML =
+    `<button class="btn btn-dev" onclick="fillEnergy()">${T('dev_fill_ap')}</button>` +
+    `<div class="dev-group">${T('dev_pots')}</div>` +
+    `<button class="btn btn-dev${allOn ? ' on' : ''}" onclick="devAllPots()">${
+      allOn ? '☑' : '☐'} ${T('dev_all_pots')}</button>` + pots +
+    `<div class="dev-group">${T('dev_recipes')}</div>` +
+    `<button class="btn btn-dev" onclick="devOpenRecipes('all')">${T('dev_all_recipes')}</button>` + cats;
+}
+
+window.devTogglePot = devTogglePot;
+window.devAllPots = devAllPots;
+window.devOpenRecipes = devOpenRecipes;
 
 window.devAllMaps = devAllMaps;
 window.devAllSpecials = devAllSpecials;

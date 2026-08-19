@@ -903,5 +903,10 @@ body {
    버튼마다 24px 씩 벌어져 목록이 늘어진다 */
 .dev-tools.open .dev-body { display: flex; flex-direction: column; gap: 8px; }
 .dev-body .btn-dev { margin-top: 0; }
+/* 개발용 버튼이 많아진 화면에서 묶음을 나누는 작은 제목 */
+.dev-group {
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; color: var(--ink-soft);
+  margin: 6px 0 0; padding-left: 4px;
+}
 /* 켜져 있는 스위치 (모든 맵 오픈 등) */
 .btn-dev.on { background: linear-gradient(135deg, #ffd06a, #ffb066); border-style: solid; }

@@ -306,7 +306,10 @@ const MAPS = [
 // ─── 마법 솥 (Cauldrons) ───
 // slots: 재료를 넣을 수 있는 구멍 수 / unlock: 매력 총합 해금 점수
 const CAULDRONS = [
-  { id: 'cd_iron', emoji: '🫕', name: '낡은 무쇠 솥', slots: 3, unlock: 0 },
+  // 2구 — 튜토리얼용. 여기서 기초 물약(재료 2개짜리)을 배운다
+  { id: 'cd_iron_old', emoji: '🪣', name: '낡은 무쇠 솥', slots: 2, unlock: 0 },
+  // 3구 — 튜토리얼을 마쳐야 열린다 (점수가 아니라 진행으로 잠긴 유일한 솥)
+  { id: 'cd_iron', emoji: '🫕', name: '무쇠 솥', slots: 3, unlock: 0, needsTutorial: true },
   { id: 'cd_copper', emoji: '🥘', name: '구리 솥', slots: 4, unlock: 20 },
   { id: 'cd_stone', emoji: '🪨', name: '돌 솥', slots: 5, unlock: 60 },
   { id: 'cd_silver', emoji: '🍲', name: '은빛 솥', slots: 6, unlock: 110 },
@@ -321,19 +324,19 @@ const CAULDRONS = [
 const RECIPES = [
   // ── 하급 물약 30종 (재료 2~3 · 평야/숲 초반 재료) ──
   { inputs: ['berry', 'herb'],
-    result: { id: 'vitality', kind: 'potion', grade: 'low', emoji: '🧴', name: '생기 물약',
+    result: { id: 'vitality', kind: 'potion', grade: 'basic', emoji: '🧴', name: '생기 물약',
       desc: '생기 기운이 감도는 기본 물약.', beauty: 1, charm: 0 } },
   { inputs: ['honey', 'sun_seed'],
-    result: { id: 'blush', kind: 'potion', grade: 'low', emoji: '💄', name: '홍조 물약',
+    result: { id: 'blush', kind: 'potion', grade: 'basic', emoji: '💄', name: '홍조 물약',
       desc: '홍조 기운이 감도는 기본 물약.', beauty: 1, charm: 1 } },
   { inputs: ['butter_flower', 'honey'],
-    result: { id: 'fragrance', kind: 'potion', grade: 'low', emoji: '🌷', name: '향기 물약',
+    result: { id: 'fragrance', kind: 'potion', grade: 'basic', emoji: '🌷', name: '향기 물약',
       desc: '향기 기운이 감도는 기본 물약.', beauty: 1, charm: 2 } },
   { inputs: ['clover', 'herb'],
-    result: { id: 'p_03', kind: 'potion', grade: 'low', emoji: '💧', name: '이슬 물약',
+    result: { id: 'p_03', kind: 'potion', grade: 'basic', emoji: '💧', name: '이슬 물약',
       desc: '이슬 기운이 감도는 기본 물약.', beauty: 1, charm: 3 } },
   { inputs: ['dew', 'wheat'],
-    result: { id: 'p_04', kind: 'potion', grade: 'low', emoji: '🌱', name: '새싹 물약',
+    result: { id: 'p_04', kind: 'potion', grade: 'basic', emoji: '🌱', name: '새싹 물약',
       desc: '새싹 기운이 감도는 기본 물약.', beauty: 1, charm: 0 } },
   { inputs: ['dew', 'thistle'],
     result: { id: 'p_05', kind: 'potion', grade: 'low', emoji: '🍃', name: '산들 물약',
@@ -638,6 +641,7 @@ const RECIPES = [
 // 물약은 등급(grade)으로, 크리처는 kind 로 분류한다.
 // 등급 기준: 하급 = 효과 합 3 이하 / 중급 = 4~6 / 상급 = 7 이상
 const RECIPE_CATS = [
+  { id: 'basic',    label: '기초 물약', match: r => r.result.kind === 'potion' && r.result.grade === 'basic' },
   { id: 'low',      label: '하급 물약', match: r => r.result.kind === 'potion' && r.result.grade === 'low' },
   { id: 'mid',      label: '중급 물약', match: r => r.result.kind === 'potion' && r.result.grade === 'mid' },
   { id: 'high',     label: '상급 물약', match: r => r.result.kind === 'potion' && r.result.grade === 'high' },

@@ -160,6 +160,11 @@
       dev_fill_items: '📦 모든 재료 1000개씩 얻기',
       dev_items_done: '재료 {n}종을 1000개씩 넣었어요',
       dev_tutorial: '🎓 튜토리얼 완료',
+      dev_pots: '솥 해금',
+      dev_all_pots: '🫕 모든 솥 오픈',
+      dev_recipes: '레시피 해금',
+      dev_all_recipes: '📖 모든 레시피 오픈',
+      dev_recipes_done: '레시피 {n}개를 열었어요',
       dev_tut_done: '튜토리얼을 마친 것으로 처리했어요',
       dev_tut_undone: '튜토리얼 전으로 되돌렸어요',
       a11y_princess: '마이 룸에 막 도착한 공주',
@@ -314,6 +319,11 @@
       dev_fill_items: '📦 Give 1000 of every ingredient',
       dev_items_done: 'Added 1000 each of {n} ingredients',
       dev_tutorial: '🎓 Finish tutorial',
+      dev_pots: 'Unlock cauldrons',
+      dev_all_pots: '🫕 Unlock every cauldron',
+      dev_recipes: 'Unlock recipes',
+      dev_all_recipes: '📖 Unlock every recipe',
+      dev_recipes_done: 'Unlocked {n} recipes',
       dev_tut_done: 'Marked the tutorial as finished',
       dev_tut_undone: 'Rolled back to before the tutorial',
       a11y_princess: 'The princess, just arrived in her room',
@@ -340,7 +350,7 @@
   const NAMES = {
     en: {
       // 레시피 북 카테고리
-      low_cat: 'Low Potions', mid_cat: 'Mid Potions', high_cat: 'High Potions', creature_cat: 'Creatures',
+      basic_cat: 'Basic Potions', low_cat: 'Low Potions', mid_cat: 'Mid Potions', high_cat: 'High Potions', creature_cat: 'Creatures',
       // 채집 지대
       mountain: 'Jagged Highlands',
       plain: 'Cozy Plains',
@@ -499,7 +509,8 @@
       h_97: 'Twilight', h_97_desc: 'Twilight, known only in legend. Requires a special ingredient.',
       h_98: 'Genesis', h_98_desc: 'Genesis, known only in legend. Requires a special ingredient.',
       h_99: 'Perfection', h_99_desc: 'Perfection, known only in legend. Requires a special ingredient.',
-      cd_iron: 'Old Iron Pot',
+      cd_iron_old: 'Worn Iron Pot',
+      cd_iron: 'Iron Pot',
       cd_copper: 'Copper Pot',
       cd_stone: 'Stone Pot',
       cd_silver: 'Silver Pot',
