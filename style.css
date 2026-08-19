@@ -606,10 +606,15 @@ body {
    새로 잠기는 UI 를 만들면 클래스에 .locked 를 붙이고 이 목록에 선택자를 추가할 것. */
 .spot-card.locked,
 .cat-tab.locked,
-.wr-item.locked {
+.wr-item.locked,
+.room-tab.locked {
   filter: saturate(0.15);
   opacity: 0.8;
 }
+/* 잠긴 칸도 눌러서 해금 조건을 안내받을 수 있다 (자물쇠 글자는 JS 가 넣는다 —
+   CSS ::before 로 붙이면 접근성 트리에 안 올라가 소리로 읽히지 않는다) */
+.room-tab.locked { color: var(--ink); cursor: pointer; }
+.rt-lock { font-size: 0.9em; }
 
 /* ─── 카테고리 탭 (공용) — UI_POLICY.md 참고 ───
    가로로 넘치는 탭 줄의 표준 스타일. 새 카테고리 탭도 .cat-tabs / .cat-tab 을 쓸 것.

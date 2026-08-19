@@ -1027,10 +1027,34 @@ function renderShowcase() {
 
 // ─── 나의 방 하위 탭 (옷 / 물약 / 크리처) ───
 let roomTab = 'clothes';
-function setRoomTab(t) { roomTab = t; updateRoomTabs(); }
+// 튜토리얼을 마치기 전에는 크리처 칸이 잠긴다.
+// (아직 공주가 방에 막 들어온 참이라 크리처를 모을 단계가 아니다)
+function isRoomTabOpen(t) { return t !== 'creatures' || !!S.tutorialDone; }
+
+function setRoomTab(t, anchor) {
+  if (!isRoomTabOpen(t)) { toast(T('locked_tutorial'), anchor); return; }
+  roomTab = t; updateRoomTabs();
+}
 function updateRoomTabs() {
-  document.querySelectorAll('.room-tab').forEach(b =>
-    b.classList.toggle('active', b.dataset.rtab === roomTab));
+  // 잠긴 칸을 보고 있었는데 잠겼다면(되돌리기 등) 옷으로 물러난다
+  if (!isRoomTabOpen(roomTab)) roomTab = 'clothes';
+  document.querySelectorAll('.room-tab').forEach(b => {
+    const open = isRoomTabOpen(b.dataset.rtab);
+    b.classList.toggle('active', open && b.dataset.rtab === roomTab);
+    b.classList.toggle('locked', !open);
+    // 자물쇠는 **진짜 글자**로 넣는다. CSS ::before 로 붙였더니 checkLocked 가
+    // "자물쇠 표시가 없음" 으로 잡았고, 그 지적이 맞다 — 생성된 콘텐츠는 접근성
+    // 트리에 안 올라가서 소리로 읽히지 않는다.
+    // i18n 이 언어를 바꿀 때 data-i18n 요소의 textContent 를 통째로 갈아 끼우지만,
+    // setLang 은 apply() 다음에 render() 를 부르므로 여기서 다시 붙는다.
+    const lock = b.querySelector('.rt-lock');
+    if (!open && !lock) b.insertAdjacentHTML('afterbegin', '<span class="rt-lock">🔒</span> ');
+    if (open && lock) lock.remove();
+    // aria-disabled 는 쓰지 않는다 — 이 버튼은 눌리지 않는 게 아니라 '눌러서 이유를
+    // 듣는' 버튼이다. 대신 이름에 잠금 사유까지 붙여 준다.
+    if (open) b.removeAttribute('aria-label');
+    else b.setAttribute('aria-label', `${T(b.dataset.i18n)} (${T('locked_tutorial')})`);
+  });
   document.querySelectorAll('.room-panel').forEach(p =>
     p.classList.toggle('active', p.id === 'roomPanel-' + roomTab));
 }
@@ -1090,7 +1114,17 @@ function lockedMapInfo(mapId, el) {
 let recipeTab = 'low';
 let lastFound = null;      // 방금 알아낸 레시피 id (목록 맨 위로 올려 강조)
 function setRecipeTab(id) { recipeTab = id; render(); }
-function setWardrobeTab(slot) { wardrobeTab = slot; renderWardrobe(); }
+// 지금 보여 줄 옷장 칸 목록.
+// 튜토리얼 전에는 원피스 하나뿐이다 — 공주가 입고 들어온 그 옷만 갈아입을 수 있다.
+const TUTORIAL_SLOTS = ['dress'];
+function wardrobeSlots() {
+  if (S.tutorialDone) return D.WARDROBE_SLOTS;
+  return D.WARDROBE_SLOTS.filter(m => TUTORIAL_SLOTS.includes(m.slot));
+}
+function setWardrobeTab(slot) {
+  if (!wardrobeSlots().some(m => m.slot === slot)) return;   // 없는 칸은 무시
+  wardrobeTab = slot; renderWardrobe();
+}
 
 function slotMeta(slot) { return D.WARDROBE_SLOTS.find(m => m.slot === slot); }
 // 아이템 보유 여부: 잠금 슬롯이 아니거나 / '없음' / starter / 해금목록에 있으면 보유
@@ -1141,9 +1175,12 @@ function renderWardrobe() {
   const el = document.getElementById('wardrobe');
   if (!el) return;
   const dressed = S.outfit.dress && S.outfit.dress !== 'dress_none';
+  // 튜토리얼을 마치기 전에는 원피스 한 칸만 남긴다 — 처음부터 열두 칸을 늘어놓지 않는다
+  const slots = wardrobeSlots();
+  if (!slots.some(m => m.slot === wardrobeTab)) wardrobeTab = slots[0].slot;
   const meta = slotMeta(wardrobeTab);
 
-  const tabs = D.WARDROBE_SLOTS.map(m => {
+  const tabs = slots.map(m => {
     const dimmed = dressed && (m.slot === 'top' || m.slot === 'bottom');
     return `<button class="cat-tab wr-tab ${wardrobeTab === m.slot ? 'active' : ''} ${dimmed ? 'dim' : ''}"
       onclick="setWardrobeTab('${m.slot}')">${m.emoji} ${N(m.slot, m.label)}</button>`;

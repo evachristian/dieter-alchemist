@@ -252,11 +252,21 @@ checkUI({ stress: 3 }) // 3배 길이까지 견디는지
 ```css
 .spot-card.locked,
 .cat-tab.locked,
-.wr-item.locked {
+.wr-item.locked,
+.room-tab.locked {
   filter: saturate(0.15);   /* ① 색 신호를 걷어낸다 */
   opacity: 0.8;             /* ② 살짝 뒤로 물러나게 한다 */
 }
 ```
+
+**자물쇠는 CSS `::before` 로 붙이지 않는다.** 한 번 그렇게 했다가 `checkLocked()` 에
+"자물쇠 표시가 없음" 으로 걸렸는데, 그 지적이 맞다 — 생성된 콘텐츠는 접근성 트리에
+올라가지 않아 소리로 읽히지 않는다. 진짜 글자로 넣는다.
+
+**`aria-disabled` 도 쓰지 않는다.** 잠긴 탭·카드는 눌리지 않는 게 아니라 **눌러서
+해금 조건을 듣는** 버튼이다. `aria-disabled="true"` 를 달면 보조기술이 "동작하지 않는
+버튼" 으로 알리고, 자동화 도구도 탭을 거부한다(실제로 Playwright 가 거부했다).
+잠금 사실은 자물쇠 글자와 `aria-label` 에 담는다.
 
 | 항목 | 값 | 이유 |
 |---|---|---|
