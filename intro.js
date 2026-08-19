@@ -698,5 +698,10 @@
     return true;
   }
 
-  window.Intro = { start, next, skip, finish, startEnding, isPlaying, hasSeen, toggleAuto, SEEN_KEY };
+  // 인트로의 공주 그림을 밖에서도 쓸 수 있게 내보낸다.
+  // 튜토리얼을 마치기 전의 마이 룸은 이 그림을 그대로 세운다 — 아직 연금술사가 되기
+  // 전이라 바디 파츠로 조립한 아바타가 아니라 '방금 들어온 그 공주' 여야 한다.
+  function princessArt(mood) { return princessFront(mood || 'smile'); }
+
+  window.Intro = { start, next, skip, finish, startEnding, isPlaying, hasSeen, toggleAuto, princessArt, SEEN_KEY };
 })();

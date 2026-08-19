@@ -8,7 +8,8 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //  3: 시작부터 알고 있는 하급 물약 2종
 //  4: 플레이 기록(record) 추가
 //  5: 이름이 서버에 예약됐는지 (nameClaimed) — 오프라인이면 임시 이름으로 먼저 진행한다
-const SAVE_VER = 5;
+//  6: 튜토리얼을 마쳤는지 (tutorialDone) — 마치기 전에는 마이 룸에 인트로의 공주가 서 있다
+const SAVE_VER = 6;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -36,6 +37,9 @@ const defaultState = () => ({
   // 오프라인이면 일단 false 로 두고 게임을 진행시킨 뒤, 서버에 닿았을 때 확정한다.
   // (그사이 남이 같은 이름을 가져갔으면 다시 짓게 한다)
   nameClaimed: false,
+  // 튜토리얼을 마쳤는가. 마치기 전의 마이 룸에는 인트로에서 막 넘어온 공주가
+  // 그대로 서 있고, 마치는 순간 바디 파츠로 조립한 아바타로 바뀐다.
+  tutorialDone: false,
   // 아우라 세부 수치 (각 0~1000)
   aura:      { happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 },
   cauldronId: 'cd_iron',    // 사용 중인 마법 솥
@@ -147,6 +151,12 @@ function migrate(st, from) {
     // 그들의 이름은 이미 저장(PUT)을 통해 서버 컬럼에 들어가 있고,
     // 여기서 false 로 두면 멀쩡히 쓰던 이름을 다시 지으라고 하게 된다.
     st.nameClaimed = !!st.name;
+  }
+  if (from < 6) {
+    // **이미 플레이 중인 사람은 튜토리얼을 마친 것으로 친다.**
+    // 기본값이 false 라, 여기서 채워 주지 않으면 잘 하고 있던 사람들의 아바타가
+    // 어느 날 갑자기 인트로의 공주로 되돌아간다. (기본값을 바꿀 때의 그 함정 — CLAUDE.md)
+    st.tutorialDone = true;
   }
   st.ver = SAVE_VER;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) {}
@@ -886,6 +896,45 @@ function renderAtelier() {
     `${catFound} / ${catRecipes.length}`;
 }
 
+// 마이 룸에 세울 인물.
+//
+// 튜토리얼을 마치기 전에는 **인트로에서 막 넘어온 공주 그대로**다.
+// 아직 연금술사가 되기 전이라 바디 파츠로 조립한 아바타가 아니라, 인트로에서 보던
+// 그 그림이어야 한다. 튜토리얼을 마치는 순간 아바타로 바뀐다.
+//
+// 인트로 그림은 300 폭 좌표계에 그려져 있다 — 가운데 x=150, 발밑(그림자 중심) y=286,
+// 머리끝 y≈136, 폭은 약 116. 아바타와 나란히 서도 어색하지 않게 옮겨 놓는다.
+//
+// **상자를 옆으로 넓힌다.** 공주는 통통해서 세로 대비 폭이 아바타의 1.5배다.
+// 아바타와 같은 200 폭 상자에 키를 맞춰 넣으면 팔이 잘리고, 폭에 맞춰 줄이면
+// 키가 74% 밖에 안 돼 아이처럼 보였다. `.avatar-svg` 는 `height:312px; width:auto` 라
+// 상자를 넓히면 **키는 그대로 두고 폭만** 늘어난다 — 그래서 상자를 260 으로 잡았다.
+// (그려지는 폭 312 × 260/348 ≈ 233px, .char-aura 240px 안에 들어온다)
+//
+// 그림자는 그림이 이미 갖고 있으니 따로 그리지 않는다. 발밑은 아바타와 같은 y=342 에
+// 맞춘다 — 그림자 끝이 상자 아래로 조금 넘지만, 아바타(아래끝 350)도 마찬가지다.
+const PRINCESS_BOX    = 260;    // 상자 폭 (아바타는 200)
+const PRINCESS_SCALE  = 2.09;   // 158 × 2.09 ≈ 330 — 아바타 높이(331)와 같아진다
+const PRINCESS_GROUND = 342;    // 발밑. 아바타의 그림자 높이와 같은 줄
+function princessFigure() {
+  const art = window.Intro && window.Intro.princessArt ? window.Intro.princessArt('smile') : '';
+  if (!art) return '';
+  const s = PRINCESS_SCALE;
+  const tx = (PRINCESS_BOX / 2 - 150 * s).toFixed(2);
+  const ty = (PRINCESS_GROUND - 286 * s).toFixed(2);
+  return `<svg class="avatar-svg" viewBox="0 0 ${PRINCESS_BOX} 348" xmlns="http://www.w3.org/2000/svg"
+      role="img" aria-label="${T('a11y_princess')}">
+    <g transform="translate(${tx},${ty}) scale(${s})">${art}</g>
+  </svg>`;
+}
+function roomFigure(tier) {
+  if (!S.tutorialDone) {
+    const p = princessFigure();
+    if (p) return p;               // 인트로가 없으면(스크립트 누락) 아바타로 떨어진다
+  }
+  return window.Avatar ? window.Avatar.build(S.outfit, bodyLevel(), tuneScales()) : tier.emoji;
+}
+
 function renderShowcase() {
   const total = totalCharm();
   const tier = D.getTier(total);
@@ -896,7 +945,7 @@ function renderShowcase() {
     const r = D.RECIPES.find(x => x.result.id === cid);
     return r ? `<span class="stage-creature">${r.result.emoji}</span>` : '';
   }).join('');
-  const avatarSvg = window.Avatar ? window.Avatar.build(S.outfit, bodyLevel(), tuneScales()) : tier.emoji;
+  const avatarSvg = roomFigure(tier);
   const sceneSvg = window.Avatar && window.Avatar.roomScene ? window.Avatar.roomScene() : '';
   stage.innerHTML = `
     <div class="room-scene">${sceneSvg}</div>
@@ -923,6 +972,7 @@ function renderShowcase() {
 
   // 개발용 도구 (임시 · 테스트용) — 접힘 상태는 render() 끝에서 한 번에 맞춘다
   renderBodyTune();
+  renderRoomDevTail();
 
   // 스탯
   document.getElementById('statBeauty').textContent = S.stats.beauty;
@@ -1281,6 +1331,24 @@ function renderGatherDev() {
     sw(devFlag(DEV_SPECIALS_KEY), T('dev_all_specials'), 'devAllSpecials') +
     `<button class="btn btn-dev" onclick="devFillItems()">${T('dev_fill_items')}</button>`;
 }
+
+// 튜토리얼 완료 표시. 채집 쪽 스위치들과 달리 이건 **세이브에 들어간다** —
+// 진짜 진행 상태이고, 기기를 바꿔도 따라가야 하기 때문이다.
+// 껐다 켤 수 있게 둔 이유: 꺼서 인트로 공주 상태를 다시 확인할 수 있어야 한다.
+function devToggleTutorial() {
+  S.tutorialDone = !S.tutorialDone;
+  save();
+  toast(T(S.tutorialDone ? 'dev_tut_done' : 'dev_tut_undone'));
+  render();
+}
+function renderRoomDevTail() {
+  const el = document.getElementById('roomDevTail');
+  if (!el) return;
+  const on = !!S.tutorialDone;
+  el.innerHTML = `<button class="btn btn-dev${on ? ' on' : ''}" onclick="devToggleTutorial()">${
+    on ? '☑' : '☐'} ${T('dev_tutorial')}</button>`;
+}
+window.devToggleTutorial = devToggleTutorial;
 
 window.devAllMaps = devAllMaps;
 window.devAllSpecials = devAllSpecials;

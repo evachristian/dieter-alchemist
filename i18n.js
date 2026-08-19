@@ -158,6 +158,10 @@
       dev_all_specials: '❔ 모든 히든 재료 오픈',
       dev_fill_items: '📦 모든 재료 1000개씩 얻기',
       dev_items_done: '재료 {n}종을 1000개씩 넣었어요',
+      dev_tutorial: '🎓 튜토리얼 완료',
+      dev_tut_done: '튜토리얼을 마친 것으로 처리했어요',
+      dev_tut_undone: '튜토리얼 전으로 되돌렸어요',
+      a11y_princess: '마이 룸에 막 도착한 공주',
       // 공유
       share_text: '[다이어터 연금술사] 나의 매력 총합 {total} — {emoji} {tier} 등급!',
       // 인트로
@@ -307,6 +311,10 @@
       dev_all_specials: '❔ Reveal every hidden ingredient',
       dev_fill_items: '📦 Give 1000 of every ingredient',
       dev_items_done: 'Added 1000 each of {n} ingredients',
+      dev_tutorial: '🎓 Finish tutorial',
+      dev_tut_done: 'Marked the tutorial as finished',
+      dev_tut_undone: 'Rolled back to before the tutorial',
+      a11y_princess: 'The princess, just arrived in her room',
       share_text: '[Dieter Alchemist] My Total Charm {total} — {emoji} {tier}!',
       intro_skip: 'Skip ✕', intro_next: 'Next ▸',
       sp_narrator: '', sp_fairy: 'Fairy Godmother', sp_princess: 'Princess',
