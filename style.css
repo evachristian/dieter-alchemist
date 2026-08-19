@@ -579,8 +579,8 @@ body {
 .stat-box { flex: 1; background: var(--cream); border-radius: 16px; padding: 12px 8px; text-align: center; }
 .stat-box.highlight { grid-column: 1 / -1; background: linear-gradient(140deg, var(--pink), var(--lav)); }
 .stat-label { font-size: 0.72rem; color: var(--ink-soft); font-weight: 700; }
-/* 단계 줄은 이름만 남아 짧다 — 한 단계 키워 큰 수의 머리말 노릇을 하게 한다 */
-.stat-box.highlight .stat-label { color: var(--ink); font-size: 0.85rem; }
+/* 단계 줄은 이름만 남아 짧다 — 큰 수의 머리말 노릇을 하도록 키웠다 (13.6px → 15.6px) */
+.stat-box.highlight .stat-label { color: var(--ink); font-size: 0.98rem; }
 .stat-val { font-size: 1.5rem; font-weight: 900; margin-top: 2px; }
 
 /* ─── 신체 · 아우라 상세 수치 ─── */
@@ -931,6 +931,15 @@ body {
    버튼마다 24px 씩 벌어져 목록이 늘어진다 */
 .dev-tools.open .dev-body { display: flex; flex-direction: column; gap: 8px; }
 .dev-body .btn-dev { margin-top: 0; }
+/* 종류별 랜덤 획득 — 한 줄에 여러 개 늘어놓는다 (전체 폭 버튼과 달리) */
+.dev-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.dev-row .btn-dev { width: auto; flex: 1 1 auto; min-width: 0; padding: 9px 12px; }
+.dev-gift { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* opacity 로 흐리게 했더니 대비가 3.48:1 로 떨어졌다 (checkTextStyle).
+   보조로 보이는 것은 크기 차이로 충분하다 — 색은 그대로 둔다 */
+.dev-gift-n { font-size: 0.74rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+/* 그 칸을 다 모았으면 눌러도 소용없다 — 잠긴 콘텐츠와 같은 방식으로 물러나 보이게 */
+.dev-gift.done { filter: saturate(0.15); opacity: 0.8; }
 /* 개발용 버튼이 많아진 화면에서 묶음을 나누는 작은 제목 */
 .dev-group {
   font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; color: var(--ink-soft);

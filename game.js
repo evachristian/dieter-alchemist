@@ -991,6 +991,7 @@ function renderShowcase() {
   renderVitals();
 
   // 개발용 도구 (임시 · 테스트용) — 접힘 상태는 render() 끝에서 한 번에 맞춘다
+  renderRoomDevGift();
   renderBodyTune();
   renderRoomDevTail();
 
@@ -1205,13 +1206,34 @@ function unlockCosmetic(id) {
 }
 window.unlockCosmetic = unlockCosmetic;
 
-// 테스트용: 잠긴 아이템 중 하나를 무작위 해금
-function unlockRandom() {
+// 테스트용: 잠긴 아이템 중 하나를 무작위 해금.
+// slot 을 주면 그 칸에서만 고른다 (개발용 블록의 종류별 버튼).
+function unlockRandom(slot) {
+  const from = slot ? D.WARDROBE_SLOTS.filter(m => m.slot === slot)
+                    : D.WARDROBE_SLOTS.filter(m => m.gated);
   const locked = [];
-  D.WARDROBE_SLOTS.filter(m => m.gated).forEach(m =>
-    (D.WARDROBE[m.slot] || []).forEach(it => { if (!isOwned(m.slot, it)) locked.push(it.id); }));
+  from.forEach(m => (D.WARDROBE[m.slot] || []).forEach(it => {
+    if (!isOwned(m.slot, it)) locked.push(it.id);
+  }));
   if (!locked.length) { toast(T('all_unlocked')); return; }
   unlockCosmetic(locked[Math.floor(Math.random() * locked.length)]);
+}
+window.unlockRandom = unlockRandom;
+
+// 잠금이 걸린 칸마다 '랜덤 획득' 버튼을 하나씩. 이모지로 어느 칸인지 알아본다.
+function renderRoomDevGift() {
+  const el = document.getElementById('roomDevGift');
+  if (!el) return;
+  const gated = D.WARDROBE_SLOTS.filter(m => m.gated);
+  el.innerHTML = `<div class="dev-group">${T('dev_gift')}</div>
+    <div class="dev-row">` + gated.map(m => {
+      const list = D.WARDROBE[m.slot] || [];
+      const have = list.filter(it => isOwned(m.slot, it)).length;
+      const done = have >= list.length;
+      return `<button class="btn btn-dev dev-gift${done ? ' done' : ''}" onclick="unlockRandom('${m.slot}')"
+        aria-label="${N(m.slot, m.label)} ${T('wr_gift')}">${m.emoji} ${N(m.slot, m.label)}
+        <span class="dev-gift-n">${have}/${list.length}</span></button>`;
+    }).join('') + '</div>';
 }
 
 function renderWardrobe() {
@@ -1246,9 +1268,9 @@ function renderWardrobe() {
   let foot = '';
   if (meta && meta.gated) {
     const total = list.length, have = list.filter(it => isOwned(wardrobeTab, it)).length;
+    // '랜덤 획득' 버튼은 개발용 블록으로 옮겼다 — 여기는 보유 현황만 남는다
     foot = `<div class="wr-foot">
       <span class="wr-count">${T('wr_owned', { have: have, total: total })}</span>
-      <button class="wr-gift" onclick="unlockRandom()">${T('wr_gift')}</button>
     </div>`;
   }
   const hint = dressed && (wardrobeTab === 'top' || wardrobeTab === 'bottom')
