@@ -1378,7 +1378,12 @@ function colorRow(slot) {
 }
 
 function setOutfitColor(slot, colorId) {
-  if (colorId && !isColorOwned(colorId)) { toast(T('locked_color')); return; }
+  if (colorId && !isColorOwned(colorId)) {
+    // 어떤 색을 눌렀는지 같이 알려 준다 — 60개가 늘어서 있어 색만으로는 무엇을 눌렀는지 모른다
+    const c = D.COLORS.find(x => x.id === colorId);
+    toast(T('locked_color', { name: c ? N(c.id, c.name) : '' }));
+    return;
+  }
   if (!S.outfitColor) S.outfitColor = {};
   if (colorId) S.outfitColor[slot] = colorId;
   else delete S.outfitColor[slot];   // 빈 값 = 원래 색. 키를 남기지 않는다
@@ -1793,18 +1798,162 @@ function dateText(ts) {
 }
 
 // ─── 과시(공유) ───
-function flexCharm() {
+// 글자만 보내면 무엇을 자랑하는지가 안 보인다. **방에 서 있는 내 아바타를 그대로 그린
+// 카드 이미지**를 만들어 보낸다. 화면을 캡처하는 게 아니라 같은 SVG 를 캔버스에 다시 그린다 —
+// 화면 밖으로 잘리지도, 개발용 블록이 딸려 오지도 않는다.
+const CARD_W = 720, CARD_H = 1000, CARD_ROOM_H = 660;
+
+// SVG 문자열 → 이미지. **width/height 를 박아 넣어야 한다** —
+// viewBox 만 있으면 브라우저마다 기본 크기(300×150)로 그려 버린다.
+function svgToImage(svg, w, h) {
+  const sized = svg.replace(/<svg /, `<svg width="${w}" height="${h}" `);
+  return new Promise((ok, no) => {
+    const img = new Image();
+    img.onload = () => ok(img);
+    img.onerror = () => no(new Error('svg 래스터화 실패'));
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sized);
+  });
+}
+
+// SVG 가 스스로 밝힌 크기. **아바타(200×348)와 인트로 공주(260×348)는 가로가 다르다** —
+// 한쪽 비율로 못 박으면 다른 쪽이 좌우에 여백을 두고 작게 그려진다(letterbox).
+function svgBox(svg, dw, dh) {
+  const m = /viewBox="([\d.\s-]+)"/.exec(svg);
+  if (!m) return { w: dw, h: dh };
+  const v = m[1].trim().split(/\s+/).map(Number);
+  return (v.length === 4 && v[2] > 0 && v[3] > 0) ? { w: v[2], h: v[3] } : { w: dw, h: dh };
+}
+
+function cssVar(name, fallback) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+// 과시 카드 한 장을 그려 PNG Blob 으로 돌려준다
+async function shareCardBlob() {
+  const total = totalCharm();
+  const tier = D.getTier(total);
+  const cv = document.createElement('canvas');
+  cv.width = CARD_W; cv.height = CARD_H;
+  const ctx = cv.getContext('2d');
+
+  const ink = cssVar('--ink', '#5a4a55'), inkSoft = cssVar('--ink-soft', '#6e5d69');
+  ctx.fillStyle = cssVar('--card', '#ffffff');
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+
+  // ① 방 배경 — viewBox 400×320 을 'slice'(cover)로 채운다. CSS 의 preserveAspectRatio 와 같은 규칙
+  if (window.Avatar && Avatar.roomScene) {
+    const k = Math.max(CARD_W / 400, CARD_ROOM_H / 320);
+    const w = 400 * k, h = 320 * k;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, CARD_W, CARD_ROOM_H); ctx.clip();
+    ctx.drawImage(await svgToImage(Avatar.roomScene(), Math.round(w), Math.round(h)),
+      (CARD_W - w) / 2, CARD_ROOM_H - h, w, h);   // xMid YMax
+    ctx.restore();
+  }
+
+  // ② 아바타 — 방 바닥에 발이 닿게. 화면과 같이 **높이를 맞추고 가로는 비율대로** 둔다
+  const fig = roomFigure(tier);
+  const box = svgBox(fig, 200, 348);
+  const avH = 560, avW = avH * box.w / box.h;
+  ctx.save();
+  ctx.shadowColor = 'rgba(180,140,160,0.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 14;
+  ctx.drawImage(await svgToImage(fig, Math.round(avW), avH),
+    (CARD_W - avW) / 2, CARD_ROOM_H - avH - 30, avW, avH);
+  ctx.restore();
+
+  // ③ 전시 중인 크리처 — 벽과 바닥 쪽으로. **창문(오른쪽 위)은 피한다** — 겹치면 유리에 붙은 것처럼 보인다
+  const spots = [[0.15, 0.24], [0.12, 0.60], [0.85, 0.82], [0.30, 0.88]];
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '46px "Noto Sans KR", sans-serif';
+  S.creatures.slice(0, 4).forEach((cid, i) => {
+    const r = D.RECIPES.find(x => x.result.id === cid);
+    if (r) ctx.fillText(r.result.emoji, CARD_W * spots[i][0], CARD_ROOM_H * spots[i][1]);
+  });
+
+  // ④ 아래 정보 판
+  ctx.fillStyle = cssVar('--cream', '#fff7f2');
+  ctx.fillRect(0, CARD_ROOM_H, CARD_W, CARD_H - CARD_ROOM_H);
+  // 이름 → 단계 → '매력 총합' → 큰 숫자 → 게임 이름.
+  // 숫자 **위에** 라벨을 두는 이유: 아래에 두면 게임 이름과 붙어 두 줄이 한 덩어리로 보인다
+  let y = CARD_ROOM_H + 56;
+  if (S.name) {
+    ctx.fillStyle = inkSoft;
+    ctx.font = '800 34px "Noto Sans KR", sans-serif';
+    ctx.fillText(S.name, CARD_W / 2, y);
+  }
+  y += 60;
+  ctx.fillStyle = ink;
+  ctx.font = '800 46px "Noto Sans KR", sans-serif';
+  ctx.fillText(`${tier.emoji} ${TN(tier.title)}`, CARD_W / 2, y);
+  y += 60;
+  ctx.fillStyle = inkSoft;
+  ctx.font = '700 24px "Noto Sans KR", sans-serif';
+  ctx.fillText(T('stat_total'), CARD_W / 2, y);
+  y += 62;
+  ctx.fillStyle = ink;
+  ctx.font = '900 80px "Noto Sans KR", sans-serif';
+  ctx.fillText(String(total), CARD_W / 2, y);
+  ctx.fillStyle = inkSoft;
+  ctx.font = '700 24px "Noto Sans KR", sans-serif';
+  ctx.fillText(T('app_title'), CARD_W / 2, CARD_H - 32);
+
+  return new Promise((ok, no) =>
+    cv.toBlob(b => (b ? ok(b) : no(new Error('PNG 만들기 실패'))), 'image/png'));
+}
+
+async function flexCharm() {
   const total = totalCharm();
   const tier = D.getTier(total);
   const text = T('share_text', { total: total, emoji: tier.emoji, tier: TN(tier.title) });
-  if (navigator.share) {
-    navigator.share({ title: '다이어터 연금술사', text }).catch(() => {});
-  } else if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => toast(T('copied')));
-  } else {
-    toast(text);
+
+  // **여기서부터는 사용자가 방금 누른 그 순간이다.** 브라우저는 공유·클립보드를
+  // '누른 직후' 에만 허용하는데, 그림을 그리는 사이에 그 자격이 만료된다.
+  // 그래서 ClipboardItem 은 **기다리기 전에** 만들어 둔다 — 이 객체는 Blob 대신
+  // Promise 를 받아 주므로, 그림이 늦게 완성돼도 붙여넣기가 살아 있다.
+  let blobP = null, clip = null;
+  try {
+    blobP = shareCardBlob();
+    blobP.catch(() => {});     // 아래에서 안 쓰이고 실패해도 경고가 안 뜨게
+    if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
+      clip = new ClipboardItem({ 'image/png': blobP });
+    }
+  } catch (e) { blobP = null; clip = null; }
+
+  // ① 공유 시트 (모바일) — 이미지를 그대로 다른 앱에 보낸다
+  if (blobP && navigator.share && navigator.canShare) {
+    try {
+      const file = new File([await blobP], 'charm.png', { type: 'image/png' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text });
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;   // 사용자가 공유를 닫은 것 — 실패가 아니다
+    }
   }
+  // ② 이미지 복사
+  if (clip) {
+    try { await navigator.clipboard.write([clip]); toast(T('copied_img')); return; } catch (e) {}
+  }
+  // ③ 내려받기
+  if (blobP) {
+    try {
+      const url = URL.createObjectURL(await blobP);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'charm.png';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      toast(T('saved_img'));
+      return;
+    } catch (e) {}
+  }
+  // ④ 그림이 안 되면 예전처럼 글자라도
+  if (navigator.share) { navigator.share({ title: T('app_title'), text }).catch(() => {}); }
+  else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => toast(T('copied'))); }
+  else toast(text);
 }
+window.shareCardBlob = shareCardBlob;
 
 // ═══════════════════════════════════════════════════════════════
 //  설정 팝업 (항목은 계속 추가 가능 / 터치 즉시 적용, 적용 버튼 없음)

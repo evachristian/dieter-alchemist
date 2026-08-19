@@ -4,8 +4,8 @@
 // (눈으로는 잘 안 보인다 — 통통한 체형에서만 옆구리가 1~2px 나오는 식이라)
 //
 // 보는 구간 두 가지:
-//   몸통  x 72~128 · y 112~허리(176)  — 상의·원피스는 여기를 반드시 덮는다
-//         (허리 아래는 하의가 맡는다. 상의 밑단은 허리보다 16px 더 내려와 치마 허리춤을 덮는다)
+//   몸통  x 72~128 · y 112~허리(184)  — 상의·원피스는 여기를 반드시 덮는다
+//         (허리 아래는 하의가 맡는다. 상의 밑단은 골반 바로 위까지 내려와 치마 허리춤을 덮는다)
 //   팔    x 46~154 · y 112~소매 끝     — **소매가 덮기로 한 구간까지만** 본다.
 //         (민소매는 아예 건너뛰고, 캡 소매는 캡이 끝나는 곳까지만 본다 —
 //          짧게 설계한 소매를 '살이 나왔다' 고 잡으면 검사가 디자인을 막는다)
@@ -124,8 +124,25 @@ function launchOpts() {
       const m = await countMark(marked, bodyBox(w, 88, 112, 190, 206));
       if (m > 0) pairBad.push({ id: t.id + ' + ' + bo.id, body: w, where: '겹침에 상의가 앞', n: m });
     }
+    // ── 과시 카드 — PNG 가 실제로 나오는가, 방·아바타가 그려졌는가
+    // (SVG 래스터화는 조용히 실패하기 쉽다. 실패하면 빈 카드가 나가도 아무도 모른다)
+    let card = null;
+    try {
+      const blob = await window.shareCardBlob();
+      const bmp = await createImageBitmap(blob);
+      const c2 = document.createElement('canvas');
+      c2.width = bmp.width; c2.height = bmp.height;
+      const cx2 = c2.getContext('2d');
+      cx2.drawImage(bmp, 0, 0);
+      // 방 영역(위 2/3)에 색이 몇 가지나 있는가 — 한 가지뿐이면 배경만 칠해진 빈 카드다
+      const d = cx2.getImageData(0, 0, bmp.width, Math.round(bmp.height * 0.66)).data;
+      const seen = new Set();
+      for (let i = 0; i < d.length; i += 4 * 97) seen.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2]);
+      card = { type: blob.type, size: blob.size, w: bmp.width, h: bmp.height, colors: seen.size };
+    } catch (e) { card = { error: String(e && e.message || e) }; }
+
     return { cases: cases.length, steps: STEPS.length, bad,
-             pairs: tops.length * bots.length * STEPS.length, pairBad };
+             pairs: tops.length * bots.length * STEPS.length, pairBad, card };
   });
 
   if (SHOT) {
@@ -148,11 +165,22 @@ function launchOpts() {
 
   await browser.close();
 
-  const all = res.bad.concat(res.pairBad);
+  // 과시 카드
+  const c = res.card || {};
+  const cardBad = c.error ? [`카드 만들기 실패 — ${c.error}`]
+    : (c.type !== 'image/png' ? [`카드 형식이 PNG 가 아님 (${c.type})`] : [])
+      .concat(c.size < 20000 ? [`카드가 너무 작다 (${c.size}B) — 빈 그림일 수 있다`] : [])
+      .concat(c.colors < 12 ? [`방 영역에 색이 ${c.colors}가지뿐 — 배경만 칠해진 빈 카드다`] : []);
+  console.log(c.error ? `과시 카드: ❌ ${c.error}`
+    : `과시 카드: ${c.w}×${c.h} PNG ${Math.round(c.size / 1024)}KB · 방 색 ${c.colors}가지`);
+
+  const all = res.bad.concat(res.pairBad).concat(cardBad.map(m => ({ id: '과시 카드', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
   console.log(`❌ ${all.length}건`);
-  all.forEach(b => console.log(`   ${b.id} · 체형 ${b.body} · ${b.where} 살색 ${b.n}px`));
+  all.forEach(b => console.log(b.n === '-'
+    ? `   ${b.id} · ${b.where}`
+    : `   ${b.id} · 체형 ${b.body} · ${b.where} 살색 ${b.n}px`));
   process.exit(1);
 })().catch(e => { console.error(e); process.exit(2); });
