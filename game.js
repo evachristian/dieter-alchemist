@@ -36,6 +36,11 @@ const defaultState = () => ({
   // 옷 색 (슬롯 → COLORS 의 id). 비어 있으면 그 칸은 아이템 원래 색을 쓴다.
   // **기본값이 빈 객체라 예전 세이브에도 그대로 맞는다** — 마이그레이션이 필요 없다
   outfitColor: {},
+  // 염색이 풀리는 시각 (슬롯 → epoch ms). 마법 염색약은 24시간짜리다.
+  // **색과 따로 두는 이유**: 예전 세이브에 남아 있는 색은 만료 시각이 없으므로
+  // 자동으로 '풀린 것' 이 된다 — 마이그레이션 없이 옛 값이 조용히 무효가 된다
+  dyeUntil: {},
+  dye: 0,                 // 마법 염색약 보유 개수
   unlocked:  [],          // 해금한 커스터마이징 아이템 id 목록 (starter 외)
   energy:    D.ENERGY.cap,  // 현재 에너지 (행동력)
   energyDay: dayKey(),      // 마지막 충전 기준 로컬 날짜 키 (YYYYMMDD)
@@ -96,6 +101,7 @@ function tickPlayTime() {
     S.record.lastDay = today;
     S.record.days = (S.record.days || 0) + 1;
   }
+  if (expireDye()) { save(); if (currentTab === 'showcase') renderShowcase(); }
   if (++_playTick >= 30) { _playTick = 0; save(); }
 }
 
@@ -109,6 +115,7 @@ function load() {
       const st = Object.assign(defaultState(), parsed);
       st.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, st.outfit || {});
       if (!st.outfitColor || typeof st.outfitColor !== 'object') st.outfitColor = {};
+      if (!st.dyeUntil || typeof st.dyeUntil !== 'object') st.dyeUntil = {};
       st.aura = Object.assign({ happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 }, st.aura || {});
       if (!st.firstTs) st.firstTs = Date.now();
       if (!st.cauldronId) st.cauldronId = 'cd_iron_old';
@@ -136,6 +143,7 @@ function adoptState(state) {
   S = Object.assign(defaultState(), state);
   S.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, S.outfit || {});
   if (!S.outfitColor || typeof S.outfitColor !== 'object') S.outfitColor = {};
+  if (!S.dyeUntil || typeof S.dyeUntil !== 'object') S.dyeUntil = {};
   S.record = Object.assign(newRecord(), S.record || {});
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
   if (typeof render === 'function') render();
@@ -1204,6 +1212,7 @@ function wardrobeSlots() {
   return D.WARDROBE_SLOTS.filter(m => TUTORIAL_SLOTS.includes(m.slot));
 }
 function setWardrobeTab(slot) {
+  if (slot !== wardrobeTab) dyeOpen = null;   // 다른 칸으로 가면 펼친 컬러칩은 닫는다
   if (!wardrobeSlots().some(m => m.slot === slot)) return;   // 없는 칸은 무시
   wardrobeTab = slot; renderWardrobe();
 }
@@ -1288,7 +1297,8 @@ function renderRoomDevGift() {
         <span class="dev-gift-n">${have}/${list.length}</span></button>`;
     }).join('')
     + `<button class="btn btn-dev" onclick="unlockAllCosmetics()">🎁 ${T('dev_all_wear')}</button>`
-    + `<button class="btn btn-dev" onclick="unlockAllColors()">🎨 ${T('dev_all_color')}</button></div>`;
+    + `<button class="btn btn-dev" onclick="unlockAllColors()">🎨 ${T('dev_all_color')}</button>`
+    + `<button class="btn btn-dev" onclick="devGiveDye(5)">🧪 ${T('dev_dye')}</button></div>`;
 }
 
 function renderWardrobe() {
@@ -1298,12 +1308,19 @@ function renderWardrobe() {
   // 튜토리얼을 마치기 전에는 원피스 한 칸만 남긴다 — 처음부터 열두 칸을 늘어놓지 않는다
   const slots = wardrobeSlots();
   if (!slots.some(m => m.slot === wardrobeTab)) wardrobeTab = slots[0].slot;
-  const meta = slotMeta(wardrobeTab);
 
+  // 보유 개수는 **고른 탭 안에만** 쓴다. 예전에는 목록 아래에 따로 한 줄이 있었는데,
+  // 색 보유 개수까지 생기면서 같은 화면에 '보유' 가 여러 군데 흩어져 무엇의 수인지 헷갈렸다.
   const tabs = slots.map(m => {
     const dimmed = dressed && (m.slot === 'top' || m.slot === 'bottom');
-    return `<button class="cat-tab wr-tab ${wardrobeTab === m.slot ? 'active' : ''} ${dimmed ? 'dim' : ''}"
-      onclick="setWardrobeTab('${m.slot}')">${m.emoji} ${N(m.slot, m.label)}</button>`;
+    const on = wardrobeTab === m.slot;
+    const list = D.WARDROBE[m.slot] || [];
+    const n = on && m.gated
+      ? `<span class="wr-tab-n">${list.filter(x => isOwned(m.slot, x)).length}/${list.length}</span>` : '';
+    return `<button class="cat-tab wr-tab ${on ? 'active' : ''} ${dimmed ? 'dim' : ''}"
+      onclick="setWardrobeTab('${m.slot}')"
+      aria-label="${N(m.slot, m.label)}${on && m.gated ? ' · ' + T('wr_owned', { have: list.filter(x => isOwned(m.slot, x)).length, total: list.length }) : ''}"
+      >${m.emoji} ${N(m.slot, m.label)}${n}</button>`;
   }).join('');
 
   const list = D.WARDROBE[wardrobeTab] || [];
@@ -1321,20 +1338,11 @@ function renderWardrobe() {
       <span class="wr-ic">${ic}${lock}</span><span class="wr-nm">${N(it.id, it.name)}</span></button>`;
   }).join('');
 
-  // 잠금 슬롯이면 보유 현황 + 획득 안내
-  let foot = '';
-  if (meta && meta.gated) {
-    const total = list.length, have = list.filter(it => isOwned(wardrobeTab, it)).length;
-    // '랜덤 획득' 버튼은 개발용 블록으로 옮겼다 — 여기는 보유 현황만 남는다
-    foot = `<div class="wr-foot">
-      <span class="wr-count">${T('wr_owned', { have: have, total: total })}</span>
-    </div>`;
-  }
   const hint = dressed && (wardrobeTab === 'top' || wardrobeTab === 'bottom')
     ? `<div class="wr-hint">${T('dress_hint')}</div>` : '';
 
   el.innerHTML = `<div class="cat-tabs wr-tabs">${tabs}</div>${hint}<div class="wr-items">${items}</div>`
-    + colorRow(wardrobeTab) + foot;
+    + colorRow(wardrobeTab);
 
 }
 
@@ -1347,56 +1355,147 @@ function renderWardrobe() {
 // (획득 조건은 아직 붙이지 않았다. 지금은 개발용 블록으로만 연다)
 function isColorOwned(id) { return (S.unlocked || []).includes(id); }
 
+// ─── 마법 염색약 ───────────────────────────────────────────────
+// 색을 입히는 것은 **소모품 한 개**를 쓰는 일이고, 그 효과는 24시간이면 풀린다.
+// 그래서 색은 '가진 것' 이 아니라 '빌린 것' 이다 — 되돌아오는 것이 규칙이다.
+const DYE_MS = 24 * 60 * 60 * 1000;
+
+function dyeLeft(slot) {
+  const t = (S.dyeUntil || {})[slot];
+  return t ? t - Date.now() : 0;
+}
+// 시간이 다 된 염색을 걷어낸다. 하나라도 걷어냈으면 true (부른 쪽이 저장·다시 그리기)
+function expireDye() {
+  if (!S.dyeUntil) return false;
+  let changed = false;
+  Object.keys(S.dyeUntil).forEach(slot => {
+    if (dyeLeft(slot) > 0) return;
+    delete S.dyeUntil[slot];
+    if (S.outfitColor) delete S.outfitColor[slot];
+    changed = true;
+  });
+  return changed;
+}
+
+// 받침이 있으면 앞것, 없으면 뒷것 ('가디건을' / '원피스를').
+// 한글이 아니면 조사를 붙이지 않는다 — 영어 문장은 조사를 쓰지 않으므로 빈 값이 맞다
+function josa(word, pair) {
+  const w = String(word || '');
+  const c = w.charCodeAt(w.length - 1);
+  if (!(c >= 0xac00 && c <= 0xd7a3)) return '';
+  return pair[(c - 0xac00) % 28 !== 0 ? 0 : 1];
+}
+
 // '원래 색'(아이템이 갖고 태어난 색)은 언제나 쓸 수 있다 — 그 옷을 가졌으면 그 색도 가진 것이다.
-// 고른 색을 잃었다면(초기화 등) 원래 색으로 떨어진다.
+// 고른 색을 잃었거나(초기화) **염색이 풀렸으면** 원래 색으로 떨어진다.
 function slotColor(slot) {
   const id = (S.outfitColor || {})[slot];
-  if (!id || !isColorOwned(id)) return null;
+  if (!id || !isColorOwned(id) || dyeLeft(slot) <= 0) return null;
   const c = D.COLORS.find(x => x.id === id);
   return c ? c.hex : null;
 }
 
-function colorRow(slot) {
-  if (!D.COLORABLE_SLOTS.includes(slot)) return '';
+// 지금 그 칸에 입고 있는 옷
+function wornItem(slot) {
   const it = (D.WARDROBE[slot] || []).find(x => x.id === S.outfit[slot]);
-  if (!it || it.kind === 'none') return '';           // '없음' 을 입었으면 물들일 것이 없다
-  const curId = (S.outfitColor || {})[slot] || '';
-  const cur = isColorOwned(curId) ? curId : '';       // 못 가진 색은 고른 것으로 치지 않는다
-  const curName = cur ? N(cur, (D.COLORS.find(x => x.id === cur) || {}).name) : T('wr_color_orig');
-  const have = D.COLORS.filter(c => isColorOwned(c.id)).length;
-  const dots = D.COLORS.map(c => {
-    const on = cur === c.id;
-    const owned = isColorOwned(c.id);
-    // 잠긴 색은 **채도를 낮추지 않는다.** 색 자체가 내용이라 흐리게 하면 무엇을 얻는지 안 보인다.
-    // 대신 불투명도를 낮추고 자물쇠를 얹는다 (색에 기대지 않는 신호 — UI_POLICY 7장)
-    return `<button class="wr-color ${on ? 'on' : ''} ${owned ? '' : 'locked'}" style="background:${c.hex}"
-      onclick="setOutfitColor('${slot}','${c.id}')"
-      aria-label="${N(c.id, c.name)}${owned ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
-      >${owned ? '' : '<span class="wr-clock">🔒</span>'}</button>`;
-  }).join('');
-  // 맨 앞은 '원래 색' — 아이템이 원래 갖고 있던 색으로 되돌린다
-  const orig = `<button class="wr-color wr-color-orig ${cur ? '' : 'on'}" style="background:${it.color || '#ccc'}"
-    onclick="setOutfitColor('${slot}','')" aria-label="${T('wr_color_orig')}"></button>`;
-  return `<div class="wr-color-head">
-      <span class="wr-color-tt">${T('wr_color')}</span><span class="wr-color-nm">${curName}</span>
-      <span class="wr-color-n">${T('wr_owned', { have: have, total: D.COLORS.length })}</span>
-    </div><div class="wr-colors">${orig}${dots}</div>`;
+  return (it && it.kind !== 'none') ? it : null;
 }
 
-function setOutfitColor(slot, colorId) {
-  if (colorId && !isColorOwned(colorId)) {
+// 염색약 쓰기 버튼 — 없으면 열지 않는다
+let dyeOpen = null;      // 컬러칩을 펼쳐 놓은 칸 (한 번에 하나)
+function toggleDye(slot) {
+  if ((S.dye || 0) <= 0) { toast(T('dye_none')); return; }
+  dyeOpen = (dyeOpen === slot) ? null : slot;
+  renderWardrobe();
+}
+function dyeHelp() { toast(T('dye_help'), null, 3600); }
+window.toggleDye = toggleDye;
+window.dyeHelp = dyeHelp;
+
+function colorRow(slot) {
+  if (!D.COLORABLE_SLOTS.includes(slot)) return '';
+  const it = wornItem(slot);
+  if (!it) return '';                                  // '없음' 을 입었으면 물들일 것이 없다
+  const have = S.dye || 0;
+  // **줄 전체가 버튼이다.** 글자만 눌리면 어디를 눌러야 하는지 알기 어렵다.
+  // 화살표로 열림/닫힘을 알린다 — 눌러도 아무 일이 없어 보이는 순간이 없어야 한다.
+  // '?' 는 이 줄 안에 있지만 **따로 동작한다** (stopPropagation) — 안내를 보려다 열리면 안 된다
+  const open = dyeOpen === slot;
+  const head = `<div class="dye-bar ${have ? '' : 'off'}" role="button" tabindex="0"
+      aria-expanded="${open}" aria-label="${T('dye_use')}"
+      onclick="toggleDye('${slot}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleDye('${slot}')}">
+      <span class="dye-label">${T('dye_use')}</span>
+      <button class="dye-help" onclick="event.stopPropagation();dyeHelp()"
+        aria-label="${T('dye_help_label')}">?</button>
+      <span class="dye-caret" aria-hidden="true">▾</span>
+      <span class="dye-have">${T('dye_have', { n: have })}</span>
+    </div>`;
+  if (!open) return head;
+
+  const curId = (S.outfitColor || {})[slot] || '';
+  const cur = (isColorOwned(curId) && dyeLeft(slot) > 0) ? curId : '';
+  const curName = cur ? N(cur, (D.COLORS.find(x => x.id === cur) || {}).name) : T('wr_color_orig');
+  const owned = D.COLORS.filter(c => isColorOwned(c.id)).length;
+  const dots = D.COLORS.map(c => {
+    const on = cur === c.id;
+    const got = isColorOwned(c.id);
+    // 잠긴 색은 **채도를 낮추지 않는다.** 색 자체가 내용이라 흐리게 하면 무엇을 얻는지 안 보인다.
+    // 대신 불투명도를 낮추고 자물쇠를 얹는다 (색에 기대지 않는 신호 — UI_POLICY 7장)
+    return `<button class="wr-color ${on ? 'on' : ''} ${got ? '' : 'locked'}" style="background:${c.hex}"
+      onclick="askDye('${slot}','${c.id}')"
+      aria-label="${N(c.id, c.name)}${got ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
+      >${got ? '' : '<span class="wr-clock">🔒</span>'}</button>`;
+  }).join('');
+  // 맨 앞은 '원래 색' — 되돌리는 데는 염색약을 쓰지 않는다
+  const orig = `<button class="wr-color wr-color-orig ${cur ? '' : 'on'}" style="background:${it.color || '#ccc'}"
+    onclick="undye('${slot}')" aria-label="${T('wr_color_orig')}"></button>`;
+  return head + `<div class="wr-color-head">
+      <span class="wr-color-tt">${T('wr_color')}</span><span class="wr-color-nm">${curName}</span>
+    </div><div class="wr-colors">${orig}${dots}</div>
+    <div class="wr-color-foot"><span class="wr-color-n">${T('wr_owned', { have: owned, total: D.COLORS.length })}</span></div>`;
+}
+
+// 색을 눌렀을 때 — 잠겼으면 막고, 아니면 확인 패널을 띄운다
+function askDye(slot, colorId) {
+  const c = D.COLORS.find(x => x.id === colorId);
+  if (!c) return;
+  if (!isColorOwned(colorId)) {
     // 어떤 색을 눌렀는지 같이 알려 준다 — 60개가 늘어서 있어 색만으로는 무엇을 눌렀는지 모른다
-    const c = D.COLORS.find(x => x.id === colorId);
-    toast(T('locked_color', { name: c ? N(c.id, c.name) : '' }));
+    toast(T('locked_color', { name: N(c.id, c.name) }));
     return;
   }
-  if (!S.outfitColor) S.outfitColor = {};
-  if (colorId) S.outfitColor[slot] = colorId;
-  else delete S.outfitColor[slot];   // 빈 값 = 원래 색. 키를 남기지 않는다
+  if ((S.dye || 0) <= 0) { toast(T('dye_none')); return; }
+  const it = wornItem(slot);
+  if (!it) return;
+  const item = N(it.id, it.name), color = N(c.id, c.name);
+  showConfirm(T('dye_confirm', { item, color, josa: josa(item, '을를') }),
+    () => applyDye(slot, colorId));
+}
+window.askDye = askDye;
+
+function applyDye(slot, colorId) {
+  if ((S.dye || 0) <= 0) { toast(T('dye_none')); return; }
+  const c = D.COLORS.find(x => x.id === colorId);
+  const it = wornItem(slot);
+  if (!c || !it) return;
+  S.dye--;
+  S.outfitColor[slot] = colorId;
+  S.dyeUntil[slot] = Date.now() + DYE_MS;
+  dyeOpen = null;        // 다 썼으면 접는다 — 열어 둔 채로 두면 방금 바뀐 아바타가 안 보인다
   save();
+  toast(T('dye_done', { item: N(it.id, it.name), color: N(c.id, c.name) }));
   renderShowcase();                  // 아바타 + 옷장 동시 갱신
 }
-window.setOutfitColor = setOutfitColor;
+
+// 원래 색으로 되돌리기 — 염색약을 쓰지 않는다
+function undye(slot) {
+  delete S.outfitColor[slot];
+  delete S.dyeUntil[slot];
+  save();
+  renderShowcase();
+}
+window.undye = undye;
 
 // 테스트용: 팔레트를 통째로 연다
 function unlockAllColors() {
@@ -1408,6 +1507,15 @@ function unlockAllColors() {
   renderShowcase();
 }
 window.unlockAllColors = unlockAllColors;
+
+// 테스트용: 마법 염색약 채우기
+function devGiveDye(n) {
+  S.dye = (S.dye || 0) + (n || 5);
+  save();
+  toast(T('dev_dye_done', { n: S.dye }));
+  renderShowcase();
+}
+window.devGiveDye = devGiveDye;
 
 // ═══════════════════════════════════════════════════════════════
 //  바디 파츠 조절 (임시 · 테스트용 — 출시 때 이 블록과 index.html 의 #bodyTune 을 지운다)

@@ -701,10 +701,43 @@ body {
    색 60 종. 이름을 60개 다 쓰면 글자가 읽을 수 없이 작아지므로,
    **고른 색 이름 하나만** 위에 크게 쓰고 나머지는 동그라미 + aria-label 로 둔다.
    (글자가 없으니 대비 정책에 걸릴 것도 없다 — 검증기가 재는 것은 글자다) */
-.wr-color-head { display: flex; align-items: baseline; gap: 8px; margin: 12px 2px 6px; min-width: 0; }
+.wr-color-head { display: flex; align-items: baseline; gap: 8px; margin: 10px 2px 6px; min-width: 0; }
 .wr-color-tt { font-size: 0.72rem; font-weight: 800; color: var(--ink-soft); flex: none; }
 .wr-color-nm { font-size: 0.78rem; font-weight: 800; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wr-color-n { font-size: 0.7rem; font-weight: 800; color: var(--ink-soft); flex: none; margin-left: auto; }
+.wr-color-n { font-size: 0.7rem; font-weight: 800; color: var(--ink-soft); }
+.wr-color-foot { display: flex; justify-content: flex-end; margin-top: 8px; }
+
+/* 고른 탭 안의 보유 개수. 개수를 화면 여러 곳에 흩어 놓지 않으려고 탭 안으로 넣었다 */
+.wr-tab-n { font-size: 0.7rem; font-weight: 800; color: var(--ink); margin-left: 5px; }
+
+/* ─── 마법 염색약 ───────────────────────────────────────────
+   색을 고르는 것은 소모품 한 개를 쓰는 일이라, 컬러칩은 이 줄을 눌러야 펼쳐진다 */
+.dye-bar {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  margin: 12px 0 2px; padding: 8px 10px;
+  background: var(--cream); border-radius: 14px;
+  cursor: pointer; font-family: inherit;
+}
+.dye-bar:active { transform: scale(0.985); }
+.dye-label {
+  flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 0.78rem; font-weight: 800; color: var(--ink);
+}
+/* 염색약이 없을 때 — 눌리지 않는 게 아니라 **눌러서 이유를 듣는** 줄이다.
+   그래서 aria-disabled 를 달지 않는다 (UI_POLICY 7장) */
+.dye-bar.off .dye-label { color: var(--ink-soft); }
+.dye-help {
+  flex: none; width: 20px; height: 20px; border-radius: 50%;
+  border: 1.6px solid var(--ink-soft); background: none; cursor: pointer; font-family: inherit;
+  font-size: 0.7rem; font-weight: 800; color: var(--ink-soft); line-height: 1; padding: 0;
+}
+/* 열림/닫힘 화살표 — 남는 자리 한가운데 */
+.dye-caret {
+  flex: none; margin: 0 auto; font-size: 0.8rem; color: var(--ink);
+  transition: transform 0.15s ease;
+}
+.dye-bar[aria-expanded="true"] .dye-caret { transform: rotate(180deg); }
+.dye-have { flex: none; font-size: 0.7rem; font-weight: 800; color: var(--ink-soft); }
 .wr-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(28px, 1fr)); gap: 6px; }
 .wr-color {
   aspect-ratio: 1; border-radius: 50%; cursor: pointer; padding: 0;

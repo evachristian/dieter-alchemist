@@ -41,6 +41,16 @@ function blockKeys(head) {
   let d = 0;
   for (let j = 0; j < body.length; j++) {
     const ch = body[j];
+    // **문자열 안은 건너뛴다.** 안 그러면 값 속의 "Owned: {n}" 같은 것이 키로 잡혀,
+    // 있지도 않은 '한국어에 없는 키' 가 보고된다 (실제로 겪었다)
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const q = ch;
+      for (j++; j < body.length; j++) {
+        if (body[j] === '\\') { j++; continue; }
+        if (body[j] === q) break;
+      }
+      continue;
+    }
     if (ch === '{' || ch === '[') d++;
     else if (ch === '}' || ch === ']') d--;
     else if (d === 0 && /[A-Za-z_]/.test(ch)) {
