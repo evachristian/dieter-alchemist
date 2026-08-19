@@ -980,8 +980,13 @@ function renderShowcase() {
   document.getElementById('statCharm').textContent = S.stats.charm;
   document.getElementById('statTotal').textContent = total;
   document.getElementById('showcaseTier').textContent = tier.emoji;  // 아이콘만
+  // 단계 이름만 짧게 ("여신 단계" 가 아니라 "여신")
   const tierNameEl = document.getElementById('tierName');
-  if (tierNameEl) tierNameEl.textContent = T('tier_stage', { tier: TN(tier.title) });
+  if (tierNameEl) tierNameEl.textContent = TN(tier.title);
+  // 화면에서 "매력 총합" 글자를 뺀 대신, 소리로는 무엇의 수인지 알 수 있게 한다
+  const totalBox = document.querySelector('.stat-box.highlight');
+  if (totalBox) totalBox.setAttribute('aria-label',
+    `${T('tier_stage', { tier: TN(tier.title) })} · ${T('stat_total')} ${total}`);
 
   // 보유 물약
   const potEl = document.getElementById('potionShelf');

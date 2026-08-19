@@ -563,7 +563,8 @@ body {
 .stat-box { flex: 1; background: var(--cream); border-radius: 16px; padding: 12px 8px; text-align: center; }
 .stat-box.highlight { grid-column: 1 / -1; background: linear-gradient(140deg, var(--pink), var(--lav)); }
 .stat-label { font-size: 0.72rem; color: var(--ink-soft); font-weight: 700; }
-.stat-box.highlight .stat-label { color: var(--ink); }
+/* 단계 줄은 이름만 남아 짧다 — 한 단계 키워 큰 수의 머리말 노릇을 하게 한다 */
+.stat-box.highlight .stat-label { color: var(--ink); font-size: 0.85rem; }
 .stat-val { font-size: 1.5rem; font-weight: 900; margin-top: 2px; }
 
 /* ─── 신체 · 아우라 상세 수치 ─── */
