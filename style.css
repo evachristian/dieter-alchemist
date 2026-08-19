@@ -933,7 +933,9 @@ body {
 .dev-body .btn-dev { margin-top: 0; }
 /* 종류별 랜덤 획득 — 한 줄에 여러 개 늘어놓는다 (전체 폭 버튼과 달리) */
 .dev-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.dev-row .btn-dev { width: auto; flex: 1 1 auto; min-width: 0; padding: 9px 12px; }
+/* flex-grow 를 주면 줄 끝에 혼자 남은 버튼이 남은 폭을 다 먹는다 —
+   '문신' 하나만 유독 길어 보였던 이유. 글자 폭대로 두고 줄어들기만 하게 한다 */
+.dev-row .btn-dev { width: auto; flex: 0 1 auto; min-width: 0; padding: 9px 12px; }
 .dev-gift { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 /* opacity 로 흐리게 했더니 대비가 3.48:1 로 떨어졌다 (checkTextStyle).
    보조로 보이는 것은 크기 차이로 충분하다 — 색은 그대로 둔다 */

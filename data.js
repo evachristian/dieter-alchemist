@@ -788,7 +788,7 @@ const WARDROBE_SLOTS = [
   { slot: 'tattoo',    label: '문신',    emoji: '⚜️', gated: true },
   { slot: 'top',       label: '상의',    emoji: '👕' },
   { slot: 'bottom',    label: '하의',    emoji: '👖' },
-  { slot: 'dress',     label: '원피스',  emoji: '👗' },
+  { slot: 'dress',     label: '원피스',  emoji: '🥻' },   // 👗 는 '옷' 탭이 쓴다
   { slot: 'circlet',   label: '서클렛',  emoji: '👑' },
   { slot: 'earring',   label: '귀걸이',  emoji: '💎' },
   { slot: 'necklace',  label: '목걸이',  emoji: '📿' },
