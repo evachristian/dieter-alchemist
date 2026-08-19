@@ -805,6 +805,88 @@ const WARDROBE = {
   ],
 };
 
+// ─── 옷 색 팔레트 ───────────────────────────────────────────────
+// 옷 하나를 60벌로 늘리는 대신 **색을 따로 고르게** 한다. 아이템 목록에 색만 다른
+// 옷이 60개 늘어서면 4열 그리드가 15줄이 되고 서로 구분도 안 된다.
+// 고른 색은 아이템의 color 를 덮어쓴다 (안 고르면 아이템 원래 색 그대로).
+//
+// **id 는 hcol_* (헤어컬러) 와 겹치지 않게 c_ 로 시작한다.**
+// 이름은 i18n 의 NAMES.en 에도 반드시 같이 넣는다 — 안 넣으면 영어 화면에 한글이 남는다.
+const COLORS = [
+  // 화이트 — 흰색도 여러 갈래다. 노란 기운(아이보리·크림) / 회색 기운(진주) / 갈색 기운(에크루)
+  { id: 'c_white',     name: '리얼 화이트',   hex: '#ffffff' },
+  { id: 'c_ivory',     name: '아이보리',      hex: '#fffdf0' },
+  { id: 'c_pearl',     name: '진주',          hex: '#f6f2ea' },
+  { id: 'c_cream',     name: '크림',          hex: '#fff4d6' },
+  { id: 'c_ecru',      name: '에크루',        hex: '#efe4d0' },
+  { id: 'c_offwhite',  name: '오프 화이트',   hex: '#faf6f2' },
+  // 블랙 — 순흑은 화면에서 무거워서, 푸른 기운·회색 기운을 섞은 쪽을 더 많이 쓴다
+  { id: 'c_black',     name: '리얼 블랙',     hex: '#0a0a0a' },
+  { id: 'c_blueblack', name: '블루 블랙',     hex: '#121729' },
+  { id: 'c_softblack', name: '소프트 블랙',   hex: '#2c2c30' },
+  { id: 'c_charcoal',  name: '차콜',          hex: '#3d3d43' },
+  { id: 'c_ink',       name: '잉크',          hex: '#1e2a3d' },
+  // 그레이
+  { id: 'c_silver',    name: '실버',          hex: '#d9d9e0' },
+  { id: 'c_lightgray', name: '라이트 그레이', hex: '#c0c0c8' },
+  { id: 'c_gray',      name: '그레이',        hex: '#9a9aa4' },
+  { id: 'c_smoke',     name: '스모크',        hex: '#75747d' },
+  { id: 'c_deepgray',  name: '딥 그레이',     hex: '#54535b' },
+  // 베이지 · 브라운
+  { id: 'c_sand',      name: '샌드',          hex: '#e9d7ba' },
+  { id: 'c_latte',     name: '라떼',          hex: '#d8c0a4' },
+  { id: 'c_camel',     name: '카멜',          hex: '#c19a6b' },
+  { id: 'c_taupe',     name: '토프',          hex: '#b09b86' },
+  { id: 'c_cocoa',     name: '코코아',        hex: '#8b6b53' },
+  { id: 'c_choco',     name: '초콜릿',        hex: '#5f4435' },
+  { id: 'c_mocha',     name: '모카',          hex: '#705749' },
+  // 핑크
+  { id: 'c_babypink',  name: '베이비 핑크',   hex: '#ffd7e6' },
+  { id: 'c_blossom',   name: '벚꽃',          hex: '#ffc2d4' },
+  { id: 'c_coralpink', name: '코랄 핑크',     hex: '#ffb0b8' },
+  { id: 'c_rose',      name: '로즈',          hex: '#f78da7' },
+  { id: 'c_dustyrose', name: '더스티 로즈',   hex: '#d99aa8' },
+  { id: 'c_magenta',   name: '마젠타',        hex: '#d94f8a' },
+  { id: 'c_fuchsia',   name: '푸시아',        hex: '#ff5fa2' },
+  // 레드
+  { id: 'c_scarlet',   name: '스칼렛',        hex: '#e03131' },
+  { id: 'c_cherry',    name: '체리',          hex: '#c9184a' },
+  { id: 'c_burgundy',  name: '버건디',        hex: '#7b1e33' },
+  { id: 'c_brick',     name: '브릭',          hex: '#b34a3a' },
+  { id: 'c_tomato',    name: '토마토',        hex: '#ff6b4a' },
+  // 오렌지 · 옐로
+  { id: 'c_apricot',   name: '애프리콧',      hex: '#ffcaa0' },
+  { id: 'c_tangerine', name: '탠저린',        hex: '#ff9f45' },
+  { id: 'c_amber',     name: '앰버',          hex: '#f0a202' },
+  { id: 'c_mustard',   name: '머스터드',      hex: '#d9a520' },
+  { id: 'c_butter',    name: '버터',          hex: '#ffe9a8' },
+  { id: 'c_lemon',     name: '레몬',          hex: '#fff07a' },
+  { id: 'c_gold',      name: '골드',          hex: '#e6c05c' },
+  // 그린
+  { id: 'c_mint',      name: '민트',          hex: '#a8e6cf' },
+  { id: 'c_sage',      name: '세이지',        hex: '#b5c7a3' },
+  { id: 'c_olive',     name: '올리브',        hex: '#7d8c4a' },
+  { id: 'c_forest',    name: '포레스트',      hex: '#3f6b48' },
+  { id: 'c_emerald',   name: '에메랄드',      hex: '#2f9e6e' },
+  { id: 'c_lime',      name: '라임',          hex: '#b8e05a' },
+  { id: 'c_herb',      name: '허브',          hex: '#6fae7a' },
+  // 블루
+  { id: 'c_iceblue',   name: '아이스 블루',   hex: '#d6ecff' },
+  { id: 'c_sky',       name: '스카이',        hex: '#8fc7f0' },
+  { id: 'c_cobalt',    name: '코발트',        hex: '#2f6fd0' },
+  { id: 'c_navy',      name: '네이비',        hex: '#23335e' },
+  { id: 'c_denim',     name: '데님',          hex: '#5b7fae' },
+  { id: 'c_teal',      name: '틸',            hex: '#2f8f8f' },
+  { id: 'c_aqua',      name: '아쿠아',        hex: '#7fdfe0' },
+  // 퍼플
+  { id: 'c_lavender',  name: '라벤더',        hex: '#cbb6ff' },
+  { id: 'c_lilac',     name: '라일락',        hex: '#ddc4ec' },
+  { id: 'c_violet',    name: '바이올렛',      hex: '#8b5fd6' },
+  { id: 'c_plum',      name: '플럼',          hex: '#6b3f6e' },
+];
+// 색을 갈아입힐 수 있는 칸. 헤어컬러는 그 자체가 색이라 여기 넣지 않는다.
+const COLORABLE_SLOTS = ['top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
+
 // 옷장 슬롯 메타 (UI 탭 순서/라벨)
 // gated: true → 잠금/해금 대상 (starter 아이템만 처음 보유, 나머지는 획득 필요)
 const WARDROBE_SLOTS = [
@@ -855,5 +937,6 @@ for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 window.GameData = {
   INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, SLUDGE, TIERS,
   WARDROBE, WARDROBE_SLOTS, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
+  COLORS, COLORABLE_SLOTS,
   getTier, recipeKey,
 };

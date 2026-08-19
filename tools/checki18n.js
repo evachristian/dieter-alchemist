@@ -78,6 +78,7 @@ D.WARDROBE_SLOTS.forEach(x => push(x.slot, x.label, '옷장 칸'));
 Object.entries(D.WARDROBE).forEach(([slot, items]) =>
   (items || []).forEach(it => push(it.id, it.name, '옷')));
 D.RECIPE_CATS.forEach(c => push(c.id + '_cat', c.label, '레시피 카테고리'));
+D.COLORS.forEach(c => push(c.id, c.name, '옷 색'));
 
 // N() 이 한국어를 그대로 돌려주면 번역이 없는 것이다
 I.setLang('en');

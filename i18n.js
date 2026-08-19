@@ -34,6 +34,7 @@
       room_clothes: '👗 옷', room_potions: '🧴 물약', room_creatures: '🦋 크리처',
       hint_dress: '👆 눌러서 갈아입기', hint_drink: '👆 눌러서 마시기',
       // 옷장
+      wr_color: '색상', wr_color_orig: '원래 색',
       wr_owned: '보유 {have} / {total}', wr_gift: '🎁 랜덤 획득 (테스트)',
       // 빈 상태
       empty_potions: '아직 소유한 물약이 없어요. 공방에서 물약을 만들 수 있어요.',
@@ -210,6 +211,7 @@
       gather_go: 'Gather',
       room_clothes: '👗 Outfit', room_potions: '🧴 Potions', room_creatures: '🦋 Creatures',
       hint_dress: '👆 Tap to change', hint_drink: '👆 Tap to drink',
+      wr_color: 'Color', wr_color_orig: 'Original',
       wr_owned: 'Owned {have} / {total}', wr_gift: '🎁 Random Unlock (test)',
       empty_potions: 'No potions yet. You can brew potions in the Atelier.',
       empty_creatures: 'No creatures yet. You can create creatures in the Atelier.',
@@ -688,6 +690,22 @@
       circlet_none: 'None', circlet_flower: 'Flower Circlet', circlet_tiara: 'Tiara', circlet_band: 'Ribbon Band',
       earring_none: 'None', earring_drop: 'Drop', earring_hoop: 'Hoop', earring_star: 'Star',
       necklace_none: 'None', necklace_pendant: 'Pendant', necklace_pearl: 'Pearl', necklace_choker: 'Choker',
+      // 옷 색 60 종
+      c_white: 'True White', c_ivory: 'Ivory', c_pearl: 'Pearl', c_cream: 'Cream',
+      c_ecru: 'Ecru', c_offwhite: 'Off White', c_black: 'True Black', c_blueblack: 'Blue Black',
+      c_softblack: 'Soft Black', c_charcoal: 'Charcoal', c_ink: 'Ink', c_silver: 'Silver',
+      c_lightgray: 'Light Gray', c_gray: 'Gray', c_smoke: 'Smoke', c_deepgray: 'Deep Gray',
+      c_sand: 'Sand', c_latte: 'Latte', c_camel: 'Camel', c_taupe: 'Taupe',
+      c_cocoa: 'Cocoa', c_choco: 'Chocolate', c_mocha: 'Mocha', c_babypink: 'Baby Pink',
+      c_blossom: 'Blossom', c_coralpink: 'Coral Pink', c_rose: 'Rose', c_dustyrose: 'Dusty Rose',
+      c_magenta: 'Magenta', c_fuchsia: 'Fuchsia', c_scarlet: 'Scarlet', c_cherry: 'Cherry',
+      c_burgundy: 'Burgundy', c_brick: 'Brick', c_tomato: 'Tomato', c_apricot: 'Apricot',
+      c_tangerine: 'Tangerine', c_amber: 'Amber', c_mustard: 'Mustard', c_butter: 'Butter',
+      c_lemon: 'Lemon', c_gold: 'Gold', c_mint: 'Mint', c_sage: 'Sage',
+      c_olive: 'Olive', c_forest: 'Forest', c_emerald: 'Emerald', c_lime: 'Lime',
+      c_herb: 'Herb', c_iceblue: 'Ice Blue', c_sky: 'Sky', c_cobalt: 'Cobalt',
+      c_navy: 'Navy', c_denim: 'Denim', c_teal: 'Teal', c_aqua: 'Aqua',
+      c_lavender: 'Lavender', c_lilac: 'Lilac', c_violet: 'Violet', c_plum: 'Plum',
     },
   };
 

@@ -578,7 +578,8 @@
       let dots = '';
       for (let i = 0; i <= 8; i++) {
         const t = i / 8;
-        dots += `<circle cx="${(83 + t * 34).toFixed(1)}" cy="${(116 + Math.sin(t * Math.PI) * 11).toFixed(1)}" r="2.4" fill="#fff" stroke="#eadfd0" stroke-width="0.5"/>`;
+        // 알 색은 목걸이 색을 따른다 — #fff 로 박아 두면 색을 골라도 진주만 안 물든다
+        dots += `<circle cx="${(83 + t * 34).toFixed(1)}" cy="${(116 + Math.sin(t * Math.PI) * 11).toFixed(1)}" r="2.4" fill="${c}" stroke="${shade(c, 18)}" stroke-width="0.5"/>`;
       }
       return dots;
     }
@@ -636,10 +637,19 @@
     // 머리카락·귀걸이·서클렛이 전부 H() 를 지나므로 여기 한 곳이면 다 따라온다.
     const kFace = tuneOf(tune, 'face');
     const H = s => (s ? `<g transform="${headT}">${wrapU(s, kFace, 100, NECK_Y)}</g>` : s);
-    const dress = getItem('dress', outfit.dress);
+    // 고른 색이 있으면 아이템의 원래 색을 덮어쓴다.
+    // outfit.colors = { top: '#ffffff', ... } — 없는 칸은 아이템 색 그대로.
+    // **원본을 고치지 않고 사본을 만든다** — D.WARDROBE 는 모두가 공유하는 카탈로그라
+    // 여기서 물들이면 다른 화면(옷장 목록·미리보기)까지 같이 물든다.
+    const pick = (slot, id) => {
+      const it = getItem(slot, id);
+      const c = outfit.colors && outfit.colors[slot];
+      return (c && !isNone(it)) ? Object.assign({}, it, { color: c }) : it;
+    };
+    const dress = pick('dress', outfit.dress);
     const hasDress = !isNone(dress);
-    const top = hasDress ? null : getItem('top', outfit.top);
-    const bottom = hasDress ? null : getItem('bottom', outfit.bottom);
+    const top = hasDress ? null : pick('top', outfit.top);
+    const bottom = hasDress ? null : pick('bottom', outfit.bottom);
 
     const hairItem = getItem('hair', outfit.hair);
     const hairColor = getItem('hairColor', outfit.hairColor).color || HAIR_DEF;
@@ -655,15 +665,15 @@
       B(hasDress ? '' : renderBottom(bottom, tune)),
       // 신발은 **드레스보다 아래** 다 — 위에 그리면 부츠 목이 드레스를 뚫고 나온다.
       // 하의(바지)보다는 위라서 부츠가 바짓단을 덮는다.
-      B(renderShoes(getItem('shoes', outfit.shoes), tune)),
+      B(renderShoes(pick('shoes', outfit.shoes), tune)),
       B(hasDress ? renderDress(dress, tune) : renderTop(top, tune)),
       H(faceAndExpression(expItem)),
       H(hairFront(hairKind, hairColor)),
-      B(renderGlove(getItem('glove', outfit.glove), tune)),
+      B(renderGlove(pick('glove', outfit.glove), tune)),
       B(renderTattoo(getItem('tattoo', outfit.tattoo))),
-      H(renderEarring(getItem('earring', outfit.earring))),
-      B(renderNecklace(getItem('necklace', outfit.necklace))),
-      H(renderCirclet(getItem('circlet', outfit.circlet))),
+      H(renderEarring(pick('earring', outfit.earring))),
+      B(renderNecklace(pick('necklace', outfit.necklace))),
+      H(renderCirclet(pick('circlet', outfit.circlet))),
     ];
 
     return `<svg class="avatar-svg" viewBox="0 0 200 348" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="내 아바타">
