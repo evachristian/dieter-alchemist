@@ -47,7 +47,10 @@
     neckY: 96, neckBottom: 116,
     shoulderY: 113,                 // 어깨 윗선
     torsoL: 64, torsoR: 136,        // 몸통 최대 폭 (어깨)
-    waistY: 196, hipY: 214,
+    // 허리 높이. 예전에는 196 이라 잘록한 지점이 골반 바로 위까지 내려와,
+    // 상체가 길고 허리가 없어 보였다. 턱(105)~가랑이(228) 사이의 66% 지점으로 올려 잡는다.
+    // **옷의 허리선도 전부 이 값을 본다** — 여기만 고치면 상의·치마·드레스가 같이 따라온다.
+    waistY: 184, hipY: 214,
     // 허리 반폭 (waistY 에서 중심선 100 으로부터의 거리). '허리' 배율이 이 값을 늘이고 줄인다.
     // **옷의 허리도 이 값을 따라간다** — 예전에는 드레스 허리가 78~122 로 박혀 있어
     // 몸통 허리(70~130)보다 좁았고, 그래서 허리 살이 드레스 밖으로 나왔다.
@@ -217,6 +220,10 @@
     const wL = +(100 - wh).toFixed(2), wR = +(100 + wh).toFixed(2);
     const hL = +(100 - hh).toFixed(2), hR = +(100 + hh).toFixed(2);
     const tL = 100 - B.thighHalf - 1, tR = 100 + B.thighHalf + 1;
+    // 몸통 옆선이 허리로 좁아지는 곡선. 제어점을 어깨(133)~허리 사이의 **비율**로 잡아,
+    // waistY 를 올리고 내려도 곡선 모양이 그대로 따라오게 한다
+    const cy1 = +(133 + (B.waistY - 133) * 0.46).toFixed(1);
+    const cy2 = +(133 + (B.waistY - 133) * 0.68).toFixed(1);
     return `
       <rect x="91" y="96" width="18" height="20" rx="7" fill="${SKIN_SH}"/>
       <g data-part="hip">
@@ -228,9 +235,9 @@
       <g data-part="torso">
         <g${sx(kb, 100)}><path d="M100,108
           C${B.torsoR - 20},108 ${B.torsoR},117 ${B.torsoR},133
-          C${B.torsoR},162 ${wR + 3},176 ${wR},${B.waistY}
+          C${B.torsoR},${cy1} ${wR + 3},${cy2} ${wR},${B.waistY}
           L${wL},${B.waistY}
-          C${wL - 3},176 ${B.torsoL},162 ${B.torsoL},133
+          C${wL - 3},${cy2} ${B.torsoL},${cy1} ${B.torsoL},133
           C${B.torsoL},117 ${B.torsoL + 20},108 100,108 Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="arm">
@@ -326,61 +333,114 @@
   // ═══════════════════════════════════════════════════════════════
   //  옷 (상의 / 하의 / 원피스)
   // ═══════════════════════════════════════════════════════════════
+  // ─── 옷의 공통 축 ─────────────────────────────────────────────
+  // 실루엣(path)은 그대로 두고 **소매 길이 · 넥라인 · 단추**만 필드로 갈린다.
+  // 이렇게 나눠 두면 새 옷 하나를 늘릴 때 렌더러를 건드릴 일이 없다.
+
+  // 소매가 팔을 덮는 높이(px). BODY.armH 가 94 이므로 long 이 팔 전체다.
+  const SLEEVE_H = { none: 0, cap: 20, short: 42, half: 66, long: 94 };
+  function sleeveH(it) {
+    const v = SLEEVE_H[it && it.sleeve];
+    return v == null ? SLEEVE_H.short : v;
+  }
+
+  // 넥라인 — **선으로만 그린다.** 옷을 파내지 않으므로 어떤 넥라인을 골라도
+  // 어깨·가슴 구간이 드러나지 않는다 (UI_POLICY 3 의 어깨 커버리지 검사).
+  //   ty = 옷의 목 부분 윗선 y
+  function neckLine(kind, c, c2, ty) {
+    const S3 = ` stroke-width="3" fill="none" stroke-linecap="round"`;
+    if (kind === 'v') {
+      return `<path d="M89,${ty + 2} L100,${ty + 22} L111,${ty + 2}" stroke="${c2}"${S3} stroke-linejoin="round"/>`;
+    }
+    if (kind === 'square') {
+      return `<path d="M84,${ty + 1} L84,${ty + 18} L116,${ty + 18} L116,${ty + 1}" stroke="${c2}"${S3} stroke-linejoin="round"/>`;
+    }
+    if (kind === 'polo') {
+      // 폴라(터틀넥)는 목까지 올라온다 — 목을 덮는 통을 하나 더 얹는다
+      return `<rect x="87" y="${ty - 14}" width="26" height="20" rx="8" fill="${c}"/>
+        <path d="M89,${ty - 12} L111,${ty - 12}" stroke="${c2}" stroke-width="2.4" stroke-linecap="round"/>`;
+    }
+    return `<path d="M88,${ty + 4} Q100,${ty + 15} 112,${ty + 4}" stroke="${c2}"${S3}/>`;
+  }
+
+  // 앞섶 단추 — 중심선(x=100)에 세로로. 몸통 배율의 축도 100 이라 위치가 안 흔들린다
+  function buttons(c2, y0, y1) {
+    let s = '';
+    for (let y = y0; y <= y1; y += 18) s += `<circle cx="100" cy="${y}" r="2.2" fill="${c2}"/>`;
+    return s;
+  }
+
+  // 퍼프(어깨 볼륨) — 소매와 같은 팔 좌표를 쓰되 더 넓고 짧게 얹는다
+  function puffShoulder(c, tune) {
+    return armShape('L', c, 7, 24, tune) + armShape('R', c, 7, 24, tune);
+  }
+
   // 소매는 팔을, 몸판은 몸통을 따라간다
   function renderTop(it, tune) {
     if (isNone(it)) return '';
-    const c = it.color, c2 = shade(c), sh = it.sleeve === 'long' ? 94 : 42;
+    const B = BODY, c = it.color, c2 = shade(c), sh = sleeveH(it);
     const kb = tuneOf(tune, 'torso');   // 소매는 armShape 이 알아서 팔 배율을 따른다
     const ww = clothWaistHalf(tune);
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
+    // 밑단은 **골반 바로 위**까지 내려온다. 허리(WY)에 맞추면 배가 드러나 전부 크롭탑이 되고,
+    // 하의 허리춤(WY 에서 시작)을 덮지 못해 그 사이로 살이 띠처럼 보인다.
+    const WY = B.waistY, hem = B.hipY - 2;
     return `
-      ${armShape('L', c, 2, sh, tune)}
-      ${armShape('R', c, 2, sh, tune)}
+      ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
+      ${it.puff ? puffShoulder(c, tune) : ''}
       ${wrapX(`<path d="M100,110 C120,110 140,116 140,132
-        C140,162 ${wR + 4},178 ${wR},196
-        C${wR},206 ${wR - 8},212 100,212
-        C${wL + 8},212 ${wL},206 ${wL},196
-        C${wL - 4},178 60,162 60,132
+        C140,${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY}
+        C${wR},${WY + 10} ${wR - 1},${hem - 8} ${wR - 4},${hem}
+        C${wR - 14},${hem + 5} ${wL + 14},${hem + 5} ${wL + 4},${hem}
+        C${wL + 1},${hem - 8} ${wL},${WY + 10} ${wL},${WY}
+        C${wL - 4},${WY - 18} 60,${WY - 34} 60,132
         C60,116 80,110 100,110 Z" fill="${c}"/>
-      <path d="M88,114 Q100,125 112,114" stroke="${c2}" stroke-width="3" fill="none" stroke-linecap="round"/>`, kb, 100)}`;
+      ${neckLine(it.neck, c, c2, 110)}
+      ${it.button ? buttons(c2, 132, hem - 14) : ''}`, kb, 100)}`;
   }
 
-  // 하의는 허리(몸통) + 자기가 덮는 다리 파츠를 따라간다
+  // 하의는 허리(몸통) + 자기가 덮는 다리 파츠를 따라간다.
+  // 실루엣은 치마 계열과 바지 계열 둘뿐이고, **기장(hemY)·퍼짐(flare)·벌룬·벨트**는 필드가 정한다.
   function renderBottom(it, tune) {
     if (isNone(it)) return '';
-    const c = it.color, c2 = shade(c);
+    const B = BODY, c = it.color, c2 = shade(c);
     // 허리춤은 몸의 허리를, 옆선은 **엉덩이**를 따라간다.
     // (엉덩이가 허리보다 넓으므로 허리 폭만 보고 그리면 엉덩이 살이 옷 밖으로 나온다)
     const ww = clothWaistHalf(tune), hh = clothHipHalf(tune);
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     const hL = +(100 - hh).toFixed(2), hR = +(100 + hh).toFixed(2);
-    const HY = BODY.hipY;
+    const HY = B.hipY, WY = B.waistY;
+    const belt = it.belt
+      ? `<path d="M${wL},${WY} L${wR},${WY} L${wR + 1},${WY + 14} L${wL - 1},${WY + 14} Z" fill="${c2}"/>` : '';
+
     if (it.kind === 'skirt') {
-      return wrapX(`<path d="M${wL},196 L${wR},196
-          C${hR},202 ${hR},${HY - 6} ${hR},${HY}
-          C${hR},${HY + 16} ${100 + hh + 8},240 ${100 + hh + 12},252
-          C120,266 80,266 ${100 - hh - 12},252
-          C${100 - hh - 8},240 ${hL},${HY + 16} ${hL},${HY}
-          C${hL},${HY - 6} ${hL},202 ${wL},196 Z" fill="${c}"/>
-        <path d="M${wL},196 L${wR},196 L${wR + 1},210 L${wL - 1},210 Z" fill="${c2}"/>`,
-        tuneMax(tune, ['torso', 'thigh']), 100);
+      // 밑단은 엉덩이 폭 + flare. 벌룬은 중간이 더 부풀고 밑단이 다시 오므라든다
+      const hemY = Number(it.hemY) || 252;
+      const flare = Number(it.flare) || 0;
+      const hemHalf = hh + (it.balloon ? flare * 0.25 : flare) + 2;
+      const midHalf = hh + (it.balloon ? flare + 12 : flare * 0.5) + 2;
+      const my = HY + (hemY - HY) * 0.45;      // 옆선이 가장 부푸는 높이
+      const bulge = hemHalf * 0.55;            // 밑단 곡선이 아래로 처지는 폭
+      // 무릎(268) 아래까지 오는 치마는 종아리까지 덮으므로 종아리 배율도 따라야 한다
+      const k = tuneMax(tune, hemY > 268 ? ['torso', 'thigh', 'calf'] : ['torso', 'thigh']);
+      return wrapX(`<path d="M${wL},${WY} L${wR},${WY}
+          C${hR},${WY + 6} ${hR},${HY - 6} ${hR},${HY}
+          C${(100 + midHalf).toFixed(1)},${my.toFixed(1)} ${(100 + hemHalf).toFixed(1)},${hemY - 18} ${(100 + hemHalf).toFixed(1)},${hemY}
+          C${(100 + bulge).toFixed(1)},${hemY + 14} ${(100 - bulge).toFixed(1)},${hemY + 14} ${(100 - hemHalf).toFixed(1)},${hemY}
+          C${(100 - hemHalf).toFixed(1)},${hemY - 18} ${(100 - midHalf).toFixed(1)},${my.toFixed(1)} ${hL},${HY}
+          C${hL},${HY - 6} ${hL},${WY + 6} ${wL},${WY} Z" fill="${c}"/>${belt}`, k, 100);
     }
-    if (it.kind === 'shorts') {
-      // 가랑이 홈은 엉덩이 아래(hipBottom)에서 시작한다 — 위로 파면 엉덩이 살이 홈으로 드러난다
-      return wrapX(`<path d="M${wL},196 L${wR},196
-          C${hR},202 ${hR},${HY - 6} ${hR},${HY}
-          C${hR},${HY + 12} 129,234 127,246 L106,246 L100,${BODY.hipBottom} L94,246 L73,246
-          C71,234 ${hL},${HY + 12} ${hL},${HY}
-          C${hL},${HY - 6} ${hL},202 ${wL},196 Z" fill="${c}"/>`,
-        tuneMax(tune, ['torso', 'thigh']), 100);
-    }
-    // 바지는 종아리까지 덮는다
-    return wrapX(`<path d="M${wL},198 L${wR},198
-        C${hR},204 ${hR},${HY - 6} ${hR},${HY}
-        C${hR},${HY + 14} 129,238 127,250 L127,332 L107,332 L100,${BODY.hipBottom + 2} L93,332 L73,332 L73,250
-        C71,238 ${hL},${HY + 14} ${hL},${HY}
-        C${hL},${HY - 6} ${hL},204 ${wL},198 Z" fill="${c}"/>`,
-      tuneMax(tune, ['torso', 'thigh', 'calf']), 100);
+
+    // 바지 계열 — 반바지도 같은 실루엣이고 기장만 다르다.
+    // 가랑이 홈은 엉덩이 아래(hipBottom)에서 시작한다 — 위로 파면 엉덩이 살이 홈으로 드러난다
+    const hemY = Math.max(B.hipBottom + 12, Number(it.hemY) || 332);
+    const ky = HY + (hemY - HY) * 0.3;         // 옆선이 다리 폭으로 좁아지는 지점
+    const k = tuneMax(tune, hemY > 268 ? ['torso', 'thigh', 'calf'] : ['torso', 'thigh']);
+    return wrapX(`<path d="M${wL},${WY} L${wR},${WY}
+        C${hR},${WY + 6} ${hR},${HY - 6} ${hR},${HY}
+        C${hR},${HY + 12} 129,${ky.toFixed(1)} 127,${(ky + 12).toFixed(1)} L127,${hemY} L107,${hemY} L100,${B.hipBottom + 2} L93,${hemY} L73,${hemY} L73,${(ky + 12).toFixed(1)}
+        C71,${ky.toFixed(1)} ${hL},${HY + 12} ${hL},${HY}
+        C${hL},${HY - 6} ${hL},${WY + 6} ${wL},${WY} Z" fill="${c}"/>${belt}`, k, 100);
   }
 
   // 소매(팔을 덮는 부분)를 몸의 팔 좌표 그대로 만들어 준다.
@@ -450,26 +510,31 @@
       return sleevedDress(c, c2, BODY.ankleY, true, tune);
     }
 
-    const hemY = it.kind === 'gown' ? 320 : 270, flare = it.kind === 'gown' ? 40 : 46;
-    // 허리는 몸의 허리를 따라간다 (예전에는 78~122 로 박혀 있어 허리 살이 밖으로 나왔다)
+    // 기장·퍼짐·넥라인·소매는 전부 아이템 필드다 (없으면 예전 값 그대로)
     const B = BODY;
+    const hemY = Number(it.hemY) || (it.kind === 'gown' ? 320 : 270);
+    const flare = Number(it.flare) || (it.kind === 'gown' ? 40 : 46);
+    const sh = sleeveH(it);
+    // 허리는 몸의 허리를 따라간다 (예전에는 78~122 로 박혀 있어 허리 살이 밖으로 나왔다)
     const ww = clothWaistHalf(tune), hhw = clothHipHalf(tune);
+    const WY = B.waistY;
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     const hL = +(100 - hhw).toFixed(2), hR = +(100 + hhw).toFixed(2);
     return `
-      ${armShape('L', c, 2, 42, tune)}
-      ${armShape('R', c, 2, 42, tune)}
+      ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
+      ${it.puff ? puffShoulder(c, tune) : ''}
       ${wrapX(`<path d="M100,110
-        C${118},110 138,116 138,132
-        C138,162 ${wR + 4},178 ${wR},198
-        C${hR},204 ${hR},${B.hipY - 6} ${hR},${B.hipY}
+        C120,110 140,116 140,132
+        C140,${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY + 2}
+        C${hR},${WY + 8} ${hR},${B.hipY - 6} ${hR},${B.hipY}
         C${hR},${B.hipY + 24} ${100 + flare},${hemY - 40} ${100 + flare + 8},${hemY}
         C${wR},${hemY + 14} ${wL},${hemY + 14} ${100 - flare - 8},${hemY}
         C${100 - flare},${hemY - 40} ${hL},${B.hipY + 24} ${hL},${B.hipY}
-        C${hL},${B.hipY - 6} ${hL},204 ${wL},198
-        C${wL - 4},178 62,162 62,132
-        C62,116 ${82},110 100,110 Z" fill="${c}"/>
-      <path d="M${wL},196 L${wR},196" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>`, kd, 100)}`;
+        C${hL},${B.hipY - 6} ${hL},${WY + 8} ${wL},${WY + 2}
+        C${wL - 4},${WY - 18} 60,${WY - 34} 60,132
+        C60,116 80,110 100,110 Z" fill="${c}"/>
+      <path d="M${wL},${WY} L${wR},${WY}" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>
+      ${neckLine(it.neck, c, c2, 110)}`, kd, 100)}`;
   }
 
   // ═══════════════════════════════════════════════════════════════

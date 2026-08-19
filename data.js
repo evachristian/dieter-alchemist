@@ -721,25 +721,51 @@ const WARDROBE = {
     { id: 'tattoo_rune', slot: 'tattoo', kind: 'rune',  name: '룬문양', color: '#a98bff', emoji: '✴️' },
   ],
 
-  // ── 옷 / 악세사리 (기본 전부 보유) ──
+  // ── 옷 / 악세사리 ──
+  // 상의 — 실루엣은 하나고 **소매·넥라인·단추**로 갈린다 (renderTop 이 이 세 필드를 본다)
+  //   sleeve : none(민소매) / cap(캡) / short(반팔) / half(7부) / long(긴팔)
+  //   neck   : round(라운드) / v(브이넥) / square(스퀘어) / polo(폴라)
+  //   button : true 면 앞섶에 단추가 세로로 붙는다
   top: [
     { id: 'top_none',   slot: 'top', kind: 'none',  name: '없음' },
-    { id: 'top_tee',    slot: 'top', kind: 'tee',    name: '기본 티', color: '#ffb8d9', sleeve: 'short' },
-    { id: 'top_blouse', slot: 'top', kind: 'blouse', name: '블라우스', color: '#fff0b8', sleeve: 'short' },
-    { id: 'top_knit',   slot: 'top', kind: 'knit',   name: '니트',   color: '#c9b6ff', sleeve: 'long' },
-    { id: 'top_hoodie', slot: 'top', kind: 'hoodie', name: '후드티', color: '#9fe0c4', sleeve: 'long' },
+    { id: 'top_tee',    slot: 'top', kind: 'tee',    name: '기본 티', color: '#ffb8d9', sleeve: 'short', neck: 'round' },
+    { id: 'top_blouse', slot: 'top', kind: 'blouse', name: '블라우스', color: '#fff0b8', sleeve: 'short', neck: 'round', button: true },
+    { id: 'top_knit',   slot: 'top', kind: 'knit',   name: '니트',   color: '#c9b6ff', sleeve: 'long',  neck: 'round' },
+    { id: 'top_hoodie', slot: 'top', kind: 'hoodie', name: '후드티', color: '#9fe0c4', sleeve: 'long',  neck: 'round' },
+    { id: 'top_shirt',      slot: 'top', kind: 'shirt',      name: '셔츠',      color: '#cfe3ff', sleeve: 'short', neck: 'round',  button: true },
+    { id: 'top_turtle',     slot: 'top', kind: 'turtle',     name: '폴라니트',  color: '#f0c9d8', sleeve: 'long',  neck: 'polo' },
+    { id: 'top_cardigan',   slot: 'top', kind: 'cardigan',   name: '가디건',    color: '#ffd9a8', sleeve: 'long',  neck: 'v',      button: true },
+    { id: 'top_sleeveless', slot: 'top', kind: 'sleeveless', name: '민소매',    color: '#b8e6d8', sleeve: 'none',  neck: 'round' },
+    { id: 'top_vneck',      slot: 'top', kind: 'vneck',      name: '브이넥 티', color: '#d8c4ff', sleeve: 'short', neck: 'v' },
   ],
+  // 하의 — 치마(skirt) 계열과 바지(shorts/pants) 계열 두 갈래. 나머지는 필드가 정한다
+  //   hemY  : 밑단 높이(px). 246 무릎 위 · 268 무릎 · 288 무릎 아래 · 306 종아리 중간 · 330 발목
+  //   flare : 엉덩이보다 밑단이 얼마나 더 퍼지는지(px). 0 이면 H 라인
+  //   balloon: true 면 중간이 부풀고 밑단이 다시 오므라든다 (벌룬)
+  //   belt  : true 면 허리춤에 띠가 붙는다
   bottom: [
     { id: 'bottom_none',   slot: 'bottom', kind: 'none',   name: '없음' },
-    { id: 'bottom_skirt',  slot: 'bottom', kind: 'skirt',  name: '주름치마', color: '#c9b6ff' },
-    { id: 'bottom_shorts', slot: 'bottom', kind: 'shorts', name: '반바지',  color: '#ffc2a8' },
-    { id: 'bottom_pants',  slot: 'bottom', kind: 'pants',  name: '청바지',  color: '#a8c4ec' },
+    { id: 'bottom_skirt',  slot: 'bottom', kind: 'skirt',  name: '주름치마', color: '#c9b6ff', hemY: 252, flare: 12, belt: true },
+    { id: 'bottom_shorts', slot: 'bottom', kind: 'shorts', name: '반바지',  color: '#ffc2a8', hemY: 246 },
+    { id: 'bottom_pants',  slot: 'bottom', kind: 'pants',  name: '청바지',  color: '#a8c4ec', hemY: 332 },
+    { id: 'bottom_hskirt',   slot: 'bottom', kind: 'skirt', name: 'H라인 스커트',    color: '#8f9fb8', hemY: 268, flare: 0 },
+    { id: 'bottom_askirt',   slot: 'bottom', kind: 'skirt', name: '벨트 A라인 스커트', color: '#ffb8a8', hemY: 288, flare: 20, belt: true },
+    { id: 'bottom_balloon',  slot: 'bottom', kind: 'skirt', name: '벌룬 스커트',     color: '#ffe0a0', hemY: 262, flare: 22, balloon: true },
+    { id: 'bottom_longskirt',slot: 'bottom', kind: 'skirt', name: '롱스커트',        color: '#a8d8c0', hemY: 330, flare: 24 },
+    { id: 'bottom_capri',    slot: 'bottom', kind: 'pants', name: '카프리 팬츠',     color: '#d8c0a8', hemY: 306 },
   ],
+  // 원피스 — 상의의 넥라인/소매 필드를 그대로 쓰고, 치마 쪽은 hemY·flare 로 갈린다
+  //   puff: true 면 어깨에 볼륨(퍼프 소매)이 붙는다
   dress: [
     { id: 'dress_none',     slot: 'dress', kind: 'none',  name: '없음' },
     { id: 'dress_princess', slot: 'dress', kind: 'princess', name: '공주 드레스', color: '#7fa06a', starter: true },
-    { id: 'dress_onepiece', slot: 'dress', kind: 'aline', name: '원피스', color: '#ffc2e2' },
-    { id: 'dress_gown',     slot: 'dress', kind: 'gown',  name: '드레스', color: '#b8d4ff' },
+    { id: 'dress_onepiece', slot: 'dress', kind: 'aline', name: '원피스', color: '#ffc2e2', hemY: 270, flare: 46, neck: 'round', sleeve: 'short' },
+    { id: 'dress_gown',     slot: 'dress', kind: 'gown',  name: '드레스', color: '#b8d4ff', hemY: 320, flare: 40, neck: 'round', sleeve: 'short' },
+    { id: 'dress_short', slot: 'dress', kind: 'aline', name: '숏 원피스',  color: '#ffd0e0', hemY: 262, flare: 30, neck: 'round',  sleeve: 'short' },
+    { id: 'dress_midi',  slot: 'dress', kind: 'aline', name: '미디 원피스', color: '#c0d8ff', hemY: 300, flare: 40, neck: 'v',      sleeve: 'short' },
+    { id: 'dress_maxi',  slot: 'dress', kind: 'gown',  name: '맥시 원피스', color: '#d8c0ff', hemY: 332, flare: 54, neck: 'square', sleeve: 'cap' },
+    { id: 'dress_puff',  slot: 'dress', kind: 'aline', name: '퍼프 원피스', color: '#ffe8b0', hemY: 268, flare: 34, neck: 'round',  sleeve: 'short', puff: true },
+    { id: 'dress_slip',  slot: 'dress', kind: 'gown',  name: '슬립 드레스', color: '#e0c8d8', hemY: 312, flare: 22, neck: 'v',      sleeve: 'none' },
   ],
   circlet: [
     { id: 'circlet_none',   slot: 'circlet', kind: 'none',   name: '없음' },
@@ -786,14 +812,16 @@ const WARDROBE_SLOTS = [
   { slot: 'hairColor', label: '헤어컬러', emoji: '🎨', gated: true },
   { slot: 'expression',label: '표정',    emoji: '😊', gated: true },
   { slot: 'tattoo',    label: '문신',    emoji: '⚜️', gated: true },
-  { slot: 'top',       label: '상의',    emoji: '👕' },
-  { slot: 'bottom',    label: '하의',    emoji: '👖' },
-  { slot: 'dress',     label: '원피스',  emoji: '🥻' },   // 👗 는 '옷' 탭이 쓴다
-  { slot: 'circlet',   label: '서클렛',  emoji: '👑' },
-  { slot: 'earring',   label: '귀걸이',  emoji: '💎' },
-  { slot: 'necklace',  label: '목걸이',  emoji: '📿' },
-  { slot: 'glove',     label: '장갑',    emoji: '🧤' },
-  { slot: 'shoes',     label: '구두',    emoji: '👠' },
+  // 옷·악세사리도 전부 획득 대상이다. 인트로를 마친 시점에 손에 있는 옷은
+  // 인트로에서 입고 있던 '공주 드레스' 한 벌뿐이고, 나머지는 아직 얻지 않았다.
+  { slot: 'top',       label: '상의',    emoji: '👕', gated: true },
+  { slot: 'bottom',    label: '하의',    emoji: '👖', gated: true },
+  { slot: 'dress',     label: '원피스',  emoji: '🥻', gated: true },   // 👗 는 '옷' 탭이 쓴다
+  { slot: 'circlet',   label: '서클렛',  emoji: '👑', gated: true },
+  { slot: 'earring',   label: '귀걸이',  emoji: '💎', gated: true },
+  { slot: 'necklace',  label: '목걸이',  emoji: '📿', gated: true },
+  { slot: 'glove',     label: '장갑',    emoji: '🧤', gated: true },
+  { slot: 'shoes',     label: '구두',    emoji: '👠', gated: true },
 ];
 
 // ─── 에너지 (Energy / 행동력) ───
@@ -809,7 +837,8 @@ const ENERGY = {
 // 새 캐릭터 기본 착장
 const DEFAULT_OUTFIT = {
   hair: 'hair_long', hairColor: 'hcol_brown', expression: 'exp_happy', tattoo: 'tattoo_none',
-  top: 'top_tee', bottom: 'bottom_skirt', dress: 'dress_princess',
+  // 시작 착장은 인트로의 공주 그대로 — 원피스 한 벌뿐이고 상·하의는 아직 없다
+  top: 'top_none', bottom: 'bottom_none', dress: 'dress_princess',
   circlet: 'circlet_none', earring: 'earring_none', necklace: 'necklace_none',
   glove: 'glove_none', shoes: 'shoes_none',
 };

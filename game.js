@@ -9,10 +9,14 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //  4: 플레이 기록(record) 추가
 //  5: 이름이 서버에 예약됐는지 (nameClaimed) — 오프라인이면 임시 이름으로 먼저 진행한다
 //  6: 튜토리얼을 마쳤는지 (tutorialDone) — 마치기 전에는 마이 룸에 인트로의 공주가 서 있다
-const SAVE_VER = 6;
+//  7: 옷·악세사리 8칸도 획득 대상이 됨 (gated) — 시작 착장은 공주 드레스 한 벌뿐
+const SAVE_VER = 7;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
+
+// 세이브 7 에서 잠금 대상이 된 칸들. 예전 세이브에는 이 칸의 옷을 전부 채워 준다.
+const NEW_GATED_SLOTS = ['top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
 
 // ─── i18n 단축 헬퍼 (i18n.js 없으면 한국어 원문 유지) ───
 const T  = (k, v) => (window.I18N ? I18N.t(k, v) : k);
@@ -157,6 +161,15 @@ function migrate(st, from) {
     // 기본값이 false 라, 여기서 채워 주지 않으면 잘 하고 있던 사람들의 아바타가
     // 어느 날 갑자기 인트로의 공주로 되돌아간다. (기본값을 바꿀 때의 그 함정 — CLAUDE.md)
     st.tutorialDone = true;
+  }
+  if (from < 7) {
+    // 옷·악세사리 8칸이 잠금 대상이 됐다. **이미 플레이 중인 사람은 전부 갖고 있던 것**이므로
+    // 여기서 채워 주지 않으면 어제까지 입던 옷이 오늘 갑자기 자물쇠로 바뀐다.
+    // (기존 진행은 지우지 않고 없는 것만 채운다 — CLAUDE.md)
+    if (!Array.isArray(st.unlocked)) st.unlocked = [];
+    NEW_GATED_SLOTS.forEach(slot => (D.WARDROBE[slot] || []).forEach(it => {
+      if (!st.unlocked.includes(it.id)) st.unlocked.push(it.id);
+    }));
   }
   st.ver = SAVE_VER;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) {}
@@ -1220,6 +1233,22 @@ function unlockRandom(slot) {
 }
 window.unlockRandom = unlockRandom;
 
+// 테스트용: 잠긴 아이템을 전부 해금. (하나씩 토스트를 띄우지 않고 한 번에 넣는다)
+function unlockAllCosmetics() {
+  let n = 0;
+  D.WARDROBE_SLOTS.filter(m => m.gated).forEach(m =>
+    (D.WARDROBE[m.slot] || []).forEach(it => {
+      if (isOwned(m.slot, it)) return;
+      S.unlocked.push(it.id);
+      n++;
+    }));
+  if (!n) { toast(T('all_unlocked')); return; }
+  save();
+  toast(T('dev_all_wear_done', { n: n }));
+  renderShowcase();
+}
+window.unlockAllCosmetics = unlockAllCosmetics;
+
 // 잠금이 걸린 칸마다 '랜덤 획득' 버튼을 하나씩. 이모지로 어느 칸인지 알아본다.
 function renderRoomDevGift() {
   const el = document.getElementById('roomDevGift');
@@ -1232,7 +1261,8 @@ function renderRoomDevGift() {
       return `<button class="btn btn-dev dev-gift${done ? ' done' : ''}" onclick="unlockRandom('${m.slot}')"
         aria-label="${N(m.slot, m.label)} ${T('wr_gift')}">${m.emoji} ${N(m.slot, m.label)}
         <span class="dev-gift-n">${have}/${list.length}</span></button>`;
-    }).join('') + '</div>';
+    }).join('')
+    + `<button class="btn btn-dev" onclick="unlockAllCosmetics()">🎁 ${T('dev_all_wear')}</button></div>`;
 }
 
 function renderWardrobe() {
