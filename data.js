@@ -305,20 +305,35 @@ const MAPS = [
 // 크리처(creature) → 방에 전시, 패시브 매력 보너스
 // ─── 마법 솥 (Cauldrons) ───
 // slots: 재료를 넣을 수 있는 구멍 수 / unlock: 매력 총합 해금 점수
+// 솥 그림은 **실루엣 하나에 색·장식만 갈아 끼운다** (옷과 같은 방식).
+// art.body 몸통 3색(밝은→어두운) · art.trim 테두리/손잡이/다리 3색 · art.deco 장식 이름
+// 장식은 cauldron.js 가 그린다: rust 녹 · shine 광택 · granite 점박이 · facet 결정면 ·
+//                              moon 달 · stars 별 · dragon 용 · runes 룬
 const CAULDRONS = [
   // 2구 — 튜토리얼용. 여기서 기초 물약(재료 2개짜리)을 배운다
-  { id: 'cd_iron_old', emoji: '🪣', name: '낡은 무쇠 솥', slots: 2, unlock: 0 },
+  { id: 'cd_iron_old', emoji: '🪣', name: '낡은 무쇠 솥', slots: 2, unlock: 0,
+    art: { body: ['#5c5750', '#3a352f', '#221f1b'], trim: ['#a08a63', '#7a663f', '#4e3f22'], deco: 'rust' } },
   // 3구 — 튜토리얼을 마쳐야 열린다 (점수가 아니라 진행으로 잠긴 유일한 솥)
-  { id: 'cd_iron', emoji: '🫕', name: '무쇠 솥', slots: 3, unlock: 0, needsTutorial: true },
-  { id: 'cd_copper', emoji: '🥘', name: '구리 솥', slots: 4, unlock: 20 },
-  { id: 'cd_stone', emoji: '🪨', name: '돌 솥', slots: 5, unlock: 60 },
-  { id: 'cd_silver', emoji: '🍲', name: '은빛 솥', slots: 6, unlock: 110 },
-  { id: 'cd_gold', emoji: '🏺', name: '황금 솥', slots: 7, unlock: 170 },
-  { id: 'cd_crystal', emoji: '💠', name: '수정 솥', slots: 8, unlock: 240 },
-  { id: 'cd_moon', emoji: '🌙', name: '달빛 솥', slots: 9, unlock: 320 },
-  { id: 'cd_star', emoji: '⭐', name: '별빛 솥', slots: 10, unlock: 410 },
-  { id: 'cd_dragon', emoji: '🐉', name: '용비늘 솥', slots: 11, unlock: 510 },
-  { id: 'cd_myth', emoji: '👑', name: '전설의 솥', slots: 12, unlock: 620 },
+  { id: 'cd_iron', emoji: '🫕', name: '무쇠 솥', slots: 3, unlock: 0, needsTutorial: true,
+    art: { body: ['#544d5c', '#332e3a', '#1b1822'], trim: ['#ecca72', '#b8912f', '#7d5f1f'] } },
+  { id: 'cd_copper', emoji: '🥘', name: '구리 솥', slots: 4, unlock: 20,
+    art: { body: ['#e6cd94', '#b0913f', '#65511a'], trim: ['#f6e0aa', '#c4a049', '#7a5c1c'], deco: 'shine' } },
+  { id: 'cd_stone', emoji: '🪨', name: '돌 솥', slots: 5, unlock: 60,
+    art: { body: ['#b8b2a8', '#8b8579', '#514c44'], trim: ['#9a948a', '#6f6a61', '#454138'], deco: 'granite' } },
+  { id: 'cd_silver', emoji: '🍲', name: '은빛 솥', slots: 6, unlock: 110,
+    art: { body: ['#f2f4f8', '#b9c0cc', '#6e7684'], trim: ['#ffffff', '#c8cfda', '#79808c'], deco: 'shine' } },
+  { id: 'cd_gold', emoji: '🏺', name: '황금 솥', slots: 7, unlock: 170,
+    art: { body: ['#ffe9a8', '#e0b036', '#8d6614'], trim: ['#fff4c8', '#f0cd5c', '#9c7318'], deco: 'shine' } },
+  { id: 'cd_crystal', emoji: '💠', name: '수정 솥', slots: 8, unlock: 240,
+    art: { body: ['#e8f6ff', '#9fd0ee', '#4a7ea8'], trim: ['#ffffff', '#cfe3f2', '#7f96ab'], deco: 'facet' } },
+  { id: 'cd_moon', emoji: '🌙', name: '달빛 솥', slots: 9, unlock: 320,
+    art: { body: ['#5a6a9c', '#2f3a63', '#171c33'], trim: ['#f4f6ff', '#c3cbe4', '#7b849e'], deco: 'moon' } },
+  { id: 'cd_star', emoji: '⭐', name: '별빛 솥', slots: 10, unlock: 410,
+    art: { body: ['#6a4f9e', '#3a2663', '#1b1030'], trim: ['#ffe9a8', '#d8b45c', '#8a6a24'], deco: 'stars' } },
+  { id: 'cd_dragon', emoji: '🐉', name: '용비늘 솥', slots: 11, unlock: 510,
+    art: { body: ['#4c6a52', '#263b2c', '#101a13'], trim: ['#ffe08a', '#d8a63c', '#8a6412'], deco: 'dragon' } },
+  { id: 'cd_myth', emoji: '👑', name: '전설의 솥', slots: 12, unlock: 620,
+    art: { body: ['#7a4a90', '#43225a', '#1d0e2b'], trim: ['#fff0b8', '#e6c05c', '#9c7a1c'], deco: 'runes' } },
 ];
 
 const RECIPES = [

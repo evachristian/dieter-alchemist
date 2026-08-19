@@ -74,7 +74,7 @@
       map_unlocked: '🗺️ 새 채집지가 열렸어요: {name}!',
       cauldron_full: '솥이 가득 찼어요 (최대 {n}개)',
       slot_unit: '구',
-      cauldron_picked: '{name}(으)로 교체! 재료를 {n}개까지 넣을 수 있어요',
+      cauldron_picked: '{name}{josa} 교체! 재료를 {n}개까지 넣을 수 있어요',
       need_bigger_pot: '재료 {n}개가 들어가는 더 큰 솥이 필요해요',
       recipe_filled: "'{name}' 재료를 솥에 담았어요",
       cauldron_title: '🫕 마법 솥',

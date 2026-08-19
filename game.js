@@ -849,6 +849,18 @@ function renderAtelier() {
     }).join('');
   }
 
+  // 솥 그림 — 고른 솥에 맞는 것으로 갈아 끼운다.
+  // 예전에는 index.html 에 무쇠 솥 하나가 박혀 있어, 어떤 솥을 골라도 그림이 같았다.
+  const artEl = document.getElementById('cauldronArt');
+  if (artEl && window.Cauldron) {
+    const cur = D.CAULDRONS.find(x => x.id === S.cauldronId) || D.CAULDRONS[0];
+    // 같은 솥이면 다시 그리지 않는다 — 매 렌더마다 갈아 끼우면 거품·반짝임이 처음부터 다시 돈다
+    if (artEl.dataset.pot !== cur.id) {
+      artEl.dataset.pot = cur.id;
+      artEl.innerHTML = Cauldron.svg(Object.assign({}, cur, { name: N(cur.id, cur.name) }));
+    }
+  }
+
   // 재료 구멍 — 솥의 구멍 수만큼 원형으로 배치
   const slots = document.getElementById('cauldronSlots');
   const n = cauldronSlots();
@@ -1193,7 +1205,8 @@ function chooseCauldron(id, el) {
   while (S.cauldron.length > c.slots) S.cauldron.pop();
   save(); render();
   // 위와 같은 이유 — 솥 탭도 다시 그려졌다
-  toast(T('cauldron_picked', { name: N(c.id, c.name), n: c.slots }), `[data-pot="${id}"]`);
+  const nm = N(c.id, c.name);
+  toast(T('cauldron_picked', { name: nm, n: c.slots, josa: josa(nm, '으로') }), `[data-pot="${id}"]`);
 }
 
 // 채집 지대 (채집 화면의 카테고리 탭)
@@ -1396,12 +1409,15 @@ function expireDye() {
 }
 
 // 받침이 있으면 앞것, 없으면 뒷것 ('가디건을' / '원피스를').
-// 한글이 아니면 조사를 붙이지 않는다 — 영어 문장은 조사를 쓰지 않으므로 빈 값이 맞다
+// 한글이 아니면 조사를 붙이지 않는다 — 영어 문장은 조사를 쓰지 않으므로 빈 값이 맞다.
+// '으로' 만 규칙이 하나 더 있다: 받침이 없거나 **ㄹ 받침**이면 '로' 다 ('솥으로' / '칼로').
 function josa(word, pair) {
   const w = String(word || '');
   const c = w.charCodeAt(w.length - 1);
   if (!(c >= 0xac00 && c <= 0xd7a3)) return '';
-  return pair[(c - 0xac00) % 28 !== 0 ? 0 : 1];
+  const b = (c - 0xac00) % 28;                 // 받침 코드 (0 = 없음, 8 = ㄹ)
+  if (pair === '으로') return (b === 0 || b === 8) ? '로' : '으로';
+  return pair[b !== 0 ? 0 : 1];
 }
 
 // '원래 색'(아이템이 갖고 태어난 색)은 언제나 쓸 수 있다 — 그 옷을 가졌으면 그 색도 가진 것이다.
