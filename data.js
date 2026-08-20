@@ -725,12 +725,14 @@ const WARDROBE = {
     { id: 'hcol_mint',   slot: 'hairColor', kind: 'color', name: '민트',     color: '#8fe0c0' },
     { id: 'hcol_silver', slot: 'hairColor', kind: 'color', name: '실버',     color: '#d6d6e2' },
   ],
+  // 표정 — 튜토리얼을 막 마친 얼굴이 '어리둥절' 이다. 나머지는 얻어야 쓴다
   expression: [
-    { id: 'exp_smile',    slot: 'expression', kind: 'smile',    name: '방긋', emoji: '🙂', starter: true },
-    { id: 'exp_wink',     slot: 'expression', kind: 'wink',     name: '윙크', emoji: '😉', starter: true },
-    { id: 'exp_happy',    slot: 'expression', kind: 'happy',    name: '활짝', emoji: '😄', starter: true },
-    { id: 'exp_surprise', slot: 'expression', kind: 'surprise', name: '놀람', emoji: '😮' },
-    { id: 'exp_cool',     slot: 'expression', kind: 'cool',     name: '시크', emoji: '😎' },
+    { id: 'exp_puzzled',  slot: 'expression', kind: 'puzzled',  name: '어리둥절', emoji: '😯', starter: true },
+    { id: 'exp_smile',    slot: 'expression', kind: 'smile',    name: '방긋',   emoji: '🙂' },
+    { id: 'exp_wink',     slot: 'expression', kind: 'wink',     name: '윙크',   emoji: '😉' },
+    { id: 'exp_happy',    slot: 'expression', kind: 'happy',    name: '활짝',   emoji: '😄' },
+    { id: 'exp_surprise', slot: 'expression', kind: 'surprise', name: '놀람',   emoji: '😲' },
+    { id: 'exp_cool',     slot: 'expression', kind: 'cool',     name: '시크',   emoji: '😎' },
   ],
   tattoo: [
     { id: 'tattoo_none', slot: 'tattoo', kind: 'none',  name: '없음' },
@@ -937,7 +939,7 @@ const ENERGY = {
 
 // 새 캐릭터 기본 착장
 const DEFAULT_OUTFIT = {
-  hair: 'hair_long', hairColor: 'hcol_brown', expression: 'exp_happy', tattoo: 'tattoo_none',
+  hair: 'hair_long', hairColor: 'hcol_brown', expression: 'exp_puzzled', tattoo: 'tattoo_none',
   // 시작 착장은 인트로의 공주 그대로 — 원피스 한 벌뿐이고 상·하의는 아직 없다
   top: 'top_none', bottom: 'bottom_none', dress: 'dress_princess',
   circlet: 'circlet_none', earring: 'earring_none', necklace: 'necklace_none',

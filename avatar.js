@@ -337,6 +337,17 @@
           <circle cx="113" cy="75" r="6" fill="${EYE}"/><circle cx="115" cy="72.5" r="2" fill="#fff"/>`;
         mouth = `<ellipse cx="100" cy="91" rx="3.6" ry="4.6" fill="#b5566a"/>`;
         break;
+      case 'puzzled':
+        // 어리둥절 — 큰 동그란 눈에 작게 벌린 입. 튜토리얼 직후의 얼굴이다
+        eyes = `<ellipse cx="87" cy="74" rx="7" ry="8" fill="${EYE}"/><ellipse cx="113" cy="74" rx="7" ry="8" fill="${EYE}"/>
+          <circle cx="89.5" cy="70.5" r="2.6" fill="#fff"/><circle cx="115.5" cy="70.5" r="2.6" fill="#fff"/>
+          <circle cx="84.5" cy="77.5" r="1.2" fill="#fff" opacity="0.7"/><circle cx="110.5" cy="77.5" r="1.2" fill="#fff" opacity="0.7"/>`;
+        mouth = `<ellipse cx="100" cy="90" rx="3.2" ry="3.8" fill="#b5566a"/>`;
+        // 머리 위 물음표 대신 **작게 기울인 눈썹** — 이모지를 얹으면 헤어에 가린다
+        extra = `<g stroke="${EYE}" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.55">
+            <path d="M80,63 L94,60"/><path d="M120,63 L106,60"/>
+          </g>`;
+        break;
       case 'cool':
         eyes = `<path d="M81,76 L93,75" stroke="${EYE}" stroke-width="3" fill="none" stroke-linecap="round"/>
           <path d="M107,75 L119,76" stroke="${EYE}" stroke-width="3" fill="none" stroke-linecap="round"/>`;

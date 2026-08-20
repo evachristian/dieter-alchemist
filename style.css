@@ -771,13 +771,15 @@ body {
   border: 1.6px solid var(--ink-soft); background: none; cursor: pointer; font-family: inherit;
   font-size: 0.7rem; font-weight: 800; color: var(--ink-soft); line-height: 1; padding: 0;
 }
-/* 열림/닫힘 화살표 — 남는 자리 한가운데 */
+/* 열림/닫힘 화살표 — **라벨 바로 옆**에 붙인다.
+   한가운데 띄워 놨더니 무엇에 딸린 화살표인지 읽히지 않았다 */
 .dye-caret {
-  flex: none; margin: 0 auto; font-size: 0.8rem; color: var(--ink);
+  flex: none; font-size: 0.8rem; color: var(--ink);
   transition: transform 0.15s ease;
 }
 .dye-bar[aria-expanded="true"] .dye-caret { transform: rotate(180deg); }
-.dye-have { flex: none; font-size: 0.7rem; font-weight: 800; color: var(--ink-soft); }
+/* 보유 개수만 오른쪽 끝으로 민다 (화살표는 라벨 옆에 남는다) */
+.dye-have { flex: none; margin-left: auto; font-size: 0.7rem; font-weight: 800; color: var(--ink-soft); }
 .wr-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(28px, 1fr)); gap: 6px; }
 .wr-color {
   aspect-ratio: 1; border-radius: 50%; cursor: pointer; padding: 0;

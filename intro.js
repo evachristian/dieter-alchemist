@@ -122,6 +122,15 @@
               <path d="M156,178 Q162,170 168,178" stroke="#4a3a42" stroke-width="2.8" fill="none" stroke-linecap="round"/>`;
       mouth = `<path d="M142,188 Q150,196 158,188" stroke="#c97b86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
       extra = `<g class="i-blush" fill="#ff9db4" opacity="0.6"><ellipse cx="127" cy="186" rx="8.5" ry="5.2"/><ellipse cx="173" cy="186" rx="8.5" ry="5.2"/></g>`;
+    } else if (mood === 'puzzled') {
+      // 어리둥절 — 튜토리얼을 막 마치고 방에 들어선 얼굴. 아바타의 같은 표정과 짝이다
+      eyes = `<ellipse cx="138" cy="175" rx="7.6" ry="9" fill="#4a3a42"/><ellipse cx="162" cy="175" rx="7.6" ry="9" fill="#4a3a42"/>
+              <circle cx="140.6" cy="171" r="2.8" fill="#fff"/><circle cx="164.6" cy="171" r="2.8" fill="#fff"/>
+              <circle cx="135" cy="179" r="1.3" fill="#fff" opacity="0.7"/><circle cx="159" cy="179" r="1.3" fill="#fff" opacity="0.7"/>`;
+      mouth = `<ellipse cx="150" cy="191" rx="3.6" ry="4.2" fill="#b5566a"/>`;
+      extra = `<g stroke="#4a3a42" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.5">
+          <path d="M129,161 L146,157"/><path d="M171,161 L154,157"/>
+        </g>`;
     } else if (mood === 'ask') {
       eyes = `<ellipse cx="138" cy="176" rx="5.4" ry="6.6" fill="#4a3a42"/><ellipse cx="162" cy="176" rx="5.4" ry="6.6" fill="#4a3a42"/>
               <circle cx="140" cy="173.5" r="1.9" fill="#fff"/><circle cx="164" cy="173.5" r="1.9" fill="#fff"/>`;

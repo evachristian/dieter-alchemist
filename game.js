@@ -10,10 +10,14 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //  5: 이름이 서버에 예약됐는지 (nameClaimed) — 오프라인이면 임시 이름으로 먼저 진행한다
 //  6: 튜토리얼을 마쳤는지 (tutorialDone) — 마치기 전에는 마이 룸에 인트로의 공주가 서 있다
 //  7: 옷·악세사리 8칸도 획득 대상이 됨 (gated) — 시작 착장은 공주 드레스 한 벌뿐
-const SAVE_VER = 7;
+//  8: 표정이 '어리둥절' 하나로 시작 — 방긋·윙크·활짝은 이제 얻어야 쓴다
+const SAVE_VER = 8;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
+
+// 세이브 8 이전에 '처음부터 갖고 있던' 표정. 예전 세이브에는 그대로 채워 준다
+const OLD_STARTER_FACES = ['exp_smile', 'exp_wink', 'exp_happy'];
 
 // 세이브 7 에서 잠금 대상이 된 칸들. 예전 세이브에는 이 칸의 옷을 전부 채워 준다.
 const NEW_GATED_SLOTS = ['top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
@@ -183,6 +187,12 @@ function migrate(st, from) {
     NEW_GATED_SLOTS.forEach(slot => (D.WARDROBE[slot] || []).forEach(it => {
       if (!st.unlocked.includes(it.id)) st.unlocked.push(it.id);
     }));
+  }
+  if (from < 8) {
+    // 방긋·윙크·활짝은 예전에 처음부터 갖고 있던 표정이다.
+    // 채워 주지 않으면 어제까지 쓰던 얼굴이 오늘 자물쇠로 바뀐다 (CLAUDE.md)
+    if (!Array.isArray(st.unlocked)) st.unlocked = [];
+    OLD_STARTER_FACES.forEach(id => { if (!st.unlocked.includes(id)) st.unlocked.push(id); });
   }
   st.ver = SAVE_VER;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) {}
@@ -998,7 +1008,7 @@ const PRINCESS_FEET   = 294;    // 그림 안에서 신발이 바닥에 닿는 y
 const PRINCESS_GROUND = 342;    // 발밑. 아바타의 그림자 높이와 같은 줄
 function princessFigure() {
   // 전신(full) — 마이 룸에서는 방 한가운데 서 있으므로 다리·신발이 있어야 한다
-  const art = window.Intro && window.Intro.princessArt ? window.Intro.princessArt('smile', true) : '';
+  const art = window.Intro && window.Intro.princessArt ? window.Intro.princessArt('puzzled', true) : '';
   if (!art) return '';
   const s = PRINCESS_SCALE;
   const tx = (PRINCESS_BOX / 2 - 150 * s).toFixed(2);
@@ -1329,7 +1339,8 @@ function renderRoomDevGift() {
     }).join('')
     + `<button class="btn btn-dev" onclick="unlockAllCosmetics()">🎁 ${T('dev_all_wear')}</button>`
     + `<button class="btn btn-dev" onclick="unlockAllColors()">🎨 ${T('dev_all_color')}</button>`
-    + `<button class="btn btn-dev" onclick="devGiveDye(1000)">🧪 ${T('dev_dye')}</button></div>`;
+    + `<button class="btn btn-dev" onclick="devGiveDye(1000)">🧪 ${T('dev_dye')}</button>`
+    + `<button class="btn btn-dev" onclick="unlockAllOf('expression')">😄 ${T('dev_all_face')}</button></div>`;
 }
 
 function renderWardrobe() {
@@ -1530,6 +1541,18 @@ function undye(slot) {
   renderShowcase();
 }
 window.undye = undye;
+
+// 테스트용: 한 칸을 통째로 연다
+function unlockAllOf(slot) {
+  const got = (D.WARDROBE[slot] || []).filter(it => !isOwned(slot, it));
+  if (!got.length) { toast(T('all_unlocked')); return; }
+  got.forEach(it => S.unlocked.push(it.id));
+  save();
+  wardrobeTab = slot;
+  toast(T('unlocked', { name: N(got[0].id, got[0].name) + ' 외 ' + (got.length - 1) }));
+  renderShowcase();
+}
+window.unlockAllOf = unlockAllOf;
 
 // 테스트용: 팔레트를 통째로 연다
 function unlockAllColors() {
