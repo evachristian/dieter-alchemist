@@ -39,6 +39,13 @@
     // (그냥 검사에서 빼기만 하면 아웃라인을 깜빡한 순간 아무도 못 잡는다)
     roomBgSelector: '.on-room-bg',
     outlineMinDirections: 4,   // 이 방향 수 이상 그림자가 있어야 '테두리' 로 친다
+    // 아웃라인 대신 **퍼지는 음영**으로도 가독성을 보장할 수 있다 (테두리가 촌스러울 때).
+    // 다만 '흐린 그림자 하나' 로는 부족하다 — 몇 겹인지 · 얼마나 짙은지 · 글자와
+    // 대비가 되는지 셋을 다 본다. 안 그러면 있으나 마나 한 그림자도 통과한다.
+    haloMinBlur: 3,        // 이보다 흐려야 '퍼지는 음영' 한 겹으로 친다
+    haloMinLayers: 2,      // 겹 수 — 한 겹만으로는 배경이 밝을 때 묻힌다
+    haloMinAlpha: 0.9,     // 겹들의 불투명도 합
+    haloMinRatio: 4.5,     // 글자색 ↔ 음영색 대비. 흰 글자에 흰 그림자면 소용없다
     // 잠금 표현 (UI_POLICY 7장)
     lockedSelector: '.spot-card.locked, .cat-tab.locked, .wr-item.locked, .room-tab.locked, .wr-color.locked',
     lockMaxSaturate: 0.4,     // 이보다 채도가 높으면 '잠김'으로 안 보인다
@@ -67,6 +74,28 @@
       dirs.add(`${Math.sign(x)},${Math.sign(y)}`);
     }
     return dirs.size;
+  }
+
+  // 퍼지는 음영이 '가독성 보장 수단' 노릇을 하는지 — 겹 수·짙기·글자와의 대비를 잰다.
+  // 아웃라인(outlineDirections)과 나란히 놓이는 두 번째 수단이다.
+  function haloOf(shadow, textColor) {
+    const out = { layers: 0, alpha: 0, ratio: 0 };
+    if (!shadow || shadow === 'none') return out;
+    const fg = parseColor(textColor);
+    let worst = Infinity;
+    for (const part of String(shadow).split(/,(?![^(]*\))/)) {
+      const lens = part.match(/-?\d*\.?\d+px/g);
+      if (!lens || lens.length < 3) continue;          // 흐림(3번째 길이)이 없으면 아웃라인용이다
+      const blur = parseFloat(lens[2]);
+      if (blur < POLICY.haloMinBlur) continue;
+      const c = parseColor(part);
+      if (!c) continue;
+      out.layers++;
+      out.alpha += (c.a == null ? 1 : c.a);
+      if (fg) worst = Math.min(worst, contrast({ r: c.r, g: c.g, b: c.b }, fg));
+    }
+    out.ratio = worst === Infinity ? 0 : worst;
+    return out;
   }
 
   // ─── 색 계산 ───
@@ -214,10 +243,19 @@
       const issues = [];
       const onRoomBg = !!el.closest(POLICY.roomBgSelector);
       if (onRoomBg) {
-        // 방 배경 위의 글자 — 배경색을 알 수 없으니 대비 대신 아웃라인을 본다
+        // 방 배경 위의 글자 — 배경색을 알 수 없으니 대비 대신 **글자 자체가 지닌
+        // 가독성 장치**를 본다. 아웃라인이거나 퍼지는 음영이거나, 둘 중 하나면 된다.
         const dirs = outlineDirections(cs.textShadow);
-        if (dirs < POLICY.outlineMinDirections) {
-          issues.push(`방 배경 위인데 아웃라인이 없음 (테두리 방향 ${dirs}개, 최소 ${POLICY.outlineMinDirections}개)`);
+        const halo = haloOf(cs.textShadow, cs.color);
+        const okOutline = dirs >= POLICY.outlineMinDirections;
+        const okHalo = halo.layers >= POLICY.haloMinLayers
+          && halo.alpha >= POLICY.haloMinAlpha
+          && halo.ratio >= POLICY.haloMinRatio;
+        if (!okOutline && !okHalo) {
+          issues.push(`방 배경 위인데 가독성 장치가 없음 — 아웃라인 ${dirs}방향`
+            + `(최소 ${POLICY.outlineMinDirections}) · 퍼지는 음영 ${halo.layers}겹`
+            + `/불투명도 ${halo.alpha.toFixed(2)}/대비 ${halo.ratio.toFixed(2)}`
+            + `(최소 ${POLICY.haloMinLayers}겹 · ${POLICY.haloMinAlpha} · ${POLICY.haloMinRatio})`);
         }
       } else if (ratio < need && !pictogramOnly(text)) {
         // 이모지만 있는 칸은 대비를 재지 않는다 (색을 스스로 가진 그림 글자)
