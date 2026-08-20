@@ -261,6 +261,20 @@ body {
 /* 별 반짝임 */
 .cauldron-svg .twinkle { transform-box: fill-box; transform-origin: center; animation: twinkle 2.2s ease-in-out infinite; }
 @keyframes twinkle { 0%,100% { opacity: 0.2; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1.2); } }
+/* 전설의 솥 — 룬이 은은히 밝아졌다 어두워진다 */
+.cauldron-svg .rune-glow { animation: runeGlow 3.2s ease-in-out infinite; }
+@keyframes runeGlow { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+/* 솥 주위를 떠다니는 빛가루. 위로 떠오르며 사라진다 */
+.cauldron-svg .cd-mote {
+  transform-box: fill-box; transform-origin: center;
+  animation: cdMote 4.2s ease-in-out infinite;
+}
+@keyframes cdMote {
+  0%   { opacity: 0;    transform: translateY(6px)   scale(0.6); }
+  25%  { opacity: 0.95; transform: translateY(0)     scale(1); }
+  70%  { opacity: 0.7;  transform: translateY(-14px) scale(0.95); }
+  100% { opacity: 0;    transform: translateY(-26px) scale(0.5); }
+}
 .cauldron-slots { display: flex; justify-content: center; gap: 12px; margin: 14px 0 16px; }
 .c-slot {
   width: 62px; height: 62px; border-radius: 16px;

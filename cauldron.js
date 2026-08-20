@@ -30,7 +30,7 @@
   // ─── 장식 ────────────────────────────────────────────────────
   // 몸통 위에 얹는다. 전면 메달리온(cy 94 언저리)과 놋쇠 밴드(cy 60)는 나중에 그려지므로
   // 여기서 그 자리를 피할 필요는 없다 — 가려질 뿐이다.
-  function deco(kind, art) {
+  function deco(kind, art, u) {
     const t = art.trim;
     switch (kind) {
       // 낡은 무쇠 — 붉은 녹이 번진 자국
@@ -100,30 +100,32 @@
           </g>`;
       }
 
-      // 용비늘 — 몸통을 감아 도는 금빛 용
-      case 'dragon':
-        return `<g fill="none" stroke="${t[1]}" stroke-width="7" stroke-linecap="round">
-            <path d="M46,150 C64,158 84,146 92,128 C100,110 118,102 136,110"/>
-          </g>
-          <g fill="none" stroke="${t[0]}" stroke-width="3" stroke-linecap="round">
-            <path d="M46,150 C64,158 84,146 92,128 C100,110 118,102 136,110"/>
-          </g>
-          <!-- 등지느러미 -->
-          <g fill="${t[0]}">
-            <path d="M62,146 l4,-9 l5,8 Z"/><path d="M78,142 l4,-10 l5,8 Z"/>
-            <path d="M92,126 l5,-10 l5,9 Z"/><path d="M110,110 l5,-9 l5,9 Z"/>
-          </g>
-          <!-- 머리 -->
-          <g transform="translate(136,110)">
-            <path d="M0,-8 C12,-8 20,-2 20,2 C20,7 10,10 0,8 C-5,6 -5,-6 0,-8 Z" fill="${t[1]}" stroke="${t[2]}" stroke-width="1"/>
-            <path d="M2,-8 l-4,-9 l8,4 Z" fill="${t[0]}"/>
-            <circle cx="9" cy="-1" r="2.2" fill="#ff5b4a"/>
-          </g>
-          <!-- 비늘 -->
-          <g fill="${t[0]}" opacity="0.35">
-            <circle cx="66" cy="152" r="3"/><circle cx="80" cy="148" r="3"/><circle cx="96" cy="132" r="3"/>
-            <circle cx="112" cy="116" r="3"/><circle cx="126" cy="110" r="3"/>
-          </g>`;
+      // 용비늘 — **비늘만** 그린다.
+      // 처음에는 몸통을 감아 도는 용을 그렸는데, 이 크기에서는 뱀으로 읽혔다.
+      // 이름이 '용비늘 솥' 이니 용이 아니라 비늘이 주인공인 게 맞다.
+      case 'dragon': {
+        const W = 13, H = 23, STEP = 11;   // 반폭 · 높이 · 줄 간격
+        // STEP 이 H 의 절반쯤이라 **위 줄이 아래 줄의 절반을 덮는다** —
+        // 겹침이 적으면 둥근 밑단이 안 보여 벽돌처럼 각져 보인다
+        let s = '';
+        // 아래 줄부터 그린다. 지붕 기와처럼 위 비늘이 아래 비늘 위로 올라와야 한다
+        for (let row = 0, y = 186; y > 30; row++, y -= STEP) {
+          const off = row % 2 ? W : 0;
+          for (let x = 6 + off; x < 202; x += W * 2) {
+            s += `<g>
+              <path d="M${x - W},${y} L${x + W},${y}
+                       Q${x + W},${y + H * 0.72} ${x},${y + H}
+                       Q${x - W},${y + H * 0.72} ${x - W},${y} Z"
+                    fill="url(#${u}_scale)" stroke="${art.trim[2]}" stroke-width="1" stroke-linejoin="round"/>
+              <path d="M${x - W + 2.5},${y + H * 0.30} Q${x},${y + H - 2.5} ${x + W - 2.5},${y + H * 0.30}"
+                    stroke="${art.trim[0]}" stroke-width="1.1" opacity="0.55" fill="none"/>
+              <path d="M${x},${y + 3} L${x},${y + H * 0.62}"
+                    stroke="${art.trim[2]}" stroke-width="0.7" opacity="0.35" fill="none"/>
+            </g>`;
+          }
+        }
+        return s;
+      }
 
       // 전설 — 룬 문자가 원을 그리며 새겨져 있다
       case 'runes': {
@@ -144,13 +146,26 @@
         });
         return `<circle cx="100" cy="118" r="52" fill="none" stroke="${t[1]}" stroke-width="1.6" opacity="0.55"/>
           <circle cx="100" cy="118" r="44" fill="none" stroke="${t[1]}" stroke-width="1" opacity="0.35"/>
-          <g opacity="0.95">${s}</g>
+          <g class="rune-glow" opacity="0.95">${s}</g>
           <circle cx="100" cy="118" r="58" fill="${t[0]}" opacity="0.07"/>`;
       }
 
       default:
         return '';
     }
+  }
+
+  // 몸통 **밖으로** 나가도 되는 층. 떠다니는 빛가루처럼 솥 주위를 도는 것들이 여기 온다.
+  // (deco 는 몸통 타원으로 잘리므로 밖으로 떠오를 수가 없다)
+  function decoOver(kind, art) {
+    if (kind !== 'runes') return '';
+    const t = art.trim;
+    // 자리는 **정해 둔다** — 난수를 쓰면 다시 그릴 때마다 빛가루가 순간이동한다
+    const motes = [[46, 128, 2.2, 0], [62, 92, 1.6, 0.7], [88, 76, 2, 1.4], [126, 78, 1.7, 2.1],
+      [152, 96, 2.3, 2.8], [166, 132, 1.8, 3.5], [140, 158, 2, 0.4], [70, 160, 1.6, 1.1],
+      [104, 168, 2.2, 1.8], [36, 106, 1.5, 2.5]];
+    return `<g fill="${t[0]}">${motes.map(([x, y, r, d]) =>
+      `<circle class="cd-mote" style="animation-delay:${d}s" cx="${x}" cy="${y}" r="${r}"/>`).join('')}</g>`;
   }
 
   // ─── 솥 한 대 ────────────────────────────────────────────────
@@ -180,6 +195,9 @@
         <radialGradient id="${gGlow}" cx="0.5" cy="0.5" r="0.6">
           <stop offset="0" stop-color="rgba(242,184,255,0.9)"/><stop offset="1" stop-color="rgba(242,184,255,0)"/>
         </radialGradient>
+        <linearGradient id="${u}_scale" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${t[0]}"/><stop offset="0.38" stop-color="${t[1]}"/><stop offset="1" stop-color="${t[2]}"/>
+        </linearGradient>
         <clipPath id="${cBody}"><ellipse cx="${B.cx}" cy="${B.cy}" rx="${B.rx}" ry="${B.ry}"/></clipPath>
         <clipPath id="${cBrew}"><ellipse cx="100" cy="57" rx="52" ry="14"/></clipPath>
       </defs>
@@ -194,7 +212,7 @@
       <ellipse cx="${B.cx}" cy="${B.cy}" rx="${B.rx}" ry="${B.ry}" fill="url(#${gBody})"/>
       <ellipse cx="66" cy="82" rx="20" ry="30" fill="${b[0]}" opacity="0.35" transform="rotate(-20 66 82)"/>
       <!-- 솥마다 다른 장식 (몸통 안쪽으로 잘린다) -->
-      <g clip-path="url(#${cBody})">${deco(art.deco, art)}</g>
+      <g clip-path="url(#${cBody})">${deco(art.deco, art, u)}</g>
       <!-- 측면 고리 손잡이 -->
       <g stroke="url(#${gTrim})" fill="none" stroke-width="6">
         <ellipse cx="23" cy="80" rx="12" ry="16"/>
@@ -233,6 +251,8 @@
       <path d="M100,86 C97,90 97,93 100,95 C103,93 103,90 100,86 Z" fill="url(#${gTrim})"/>
       <path d="M92,92 C95,92 98,94 100,98 C97,99 92,97 92,92 Z M108,92 C105,92 102,94 100,98 C103,99 108,97 108,92 Z" fill="url(#${gTrim})"/>
       <rect x="98.7" y="94" width="2.6" height="8" rx="1" fill="url(#${gTrim})"/>
+      <!-- 솥 주위를 떠다니는 것 (몸통 밖으로 나갈 수 있다) -->
+      ${decoOver(art.deco, art)}
       <!-- 앞쪽 가운데 다리 -->
       <path d="M87,166 C85,179 89,188 100,188 C111,188 115,179 113,166 C108,170 92,170 87,166 Z"
             fill="url(#${gTrim})" stroke="${t[2]}" stroke-width="1.5" stroke-linejoin="round"/>

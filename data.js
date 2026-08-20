@@ -316,10 +316,11 @@ const CAULDRONS = [
   // 3구 — 튜토리얼을 마쳐야 열린다 (점수가 아니라 진행으로 잠긴 유일한 솥)
   { id: 'cd_iron', emoji: '🫕', name: '무쇠 솥', slots: 3, unlock: 0, needsTutorial: true,
     art: { body: ['#544d5c', '#332e3a', '#1b1822'], trim: ['#ecca72', '#b8912f', '#7d5f1f'] } },
-  { id: 'cd_copper', emoji: '🥘', name: '구리 솥', slots: 4, unlock: 20,
-    art: { body: ['#e6cd94', '#b0913f', '#65511a'], trim: ['#f6e0aa', '#c4a049', '#7a5c1c'], deco: 'shine' } },
-  { id: 'cd_stone', emoji: '🪨', name: '돌 솥', slots: 5, unlock: 60,
+  // 돌 → 구리 순. 흔한 돌이 먼저고 금속이 나중이다
+  { id: 'cd_stone', emoji: '🪨', name: '돌 솥', slots: 4, unlock: 20,
     art: { body: ['#b8b2a8', '#8b8579', '#514c44'], trim: ['#9a948a', '#6f6a61', '#454138'], deco: 'granite' } },
+  { id: 'cd_copper', emoji: '🥘', name: '구리 솥', slots: 5, unlock: 60,
+    art: { body: ['#e6cd94', '#b0913f', '#65511a'], trim: ['#f6e0aa', '#c4a049', '#7a5c1c'], deco: 'shine' } },
   { id: 'cd_silver', emoji: '🍲', name: '은빛 솥', slots: 6, unlock: 110,
     art: { body: ['#f2f4f8', '#b9c0cc', '#6e7684'], trim: ['#ffffff', '#c8cfda', '#79808c'], deco: 'shine' } },
   { id: 'cd_gold', emoji: '🏺', name: '황금 솥', slots: 7, unlock: 170,
