@@ -160,12 +160,87 @@
   function decoOver(kind, art) {
     if (kind !== 'runes') return '';
     const t = art.trim;
-    // 자리는 **정해 둔다** — 난수를 쓰면 다시 그릴 때마다 빛가루가 순간이동한다
-    const motes = [[46, 128, 2.2, 0], [62, 92, 1.6, 0.7], [88, 76, 2, 1.4], [126, 78, 1.7, 2.1],
-      [152, 96, 2.3, 2.8], [166, 132, 1.8, 3.5], [140, 158, 2, 0.4], [70, 160, 1.6, 1.1],
-      [104, 168, 2.2, 1.8], [36, 106, 1.5, 2.5]];
+    // 자리는 **정해 둔다** — 난수를 쓰면 다시 그릴 때마다 빛가루가 순간이동한다.
+    // [x, y, 반지름, 지연]
+    const motes = [
+      [30, 132, 2.6, 0], [46, 100, 3.4, 0.6], [58, 70, 2.2, 1.2], [76, 52, 2.8, 1.8],
+      [100, 40, 3.6, 2.4], [124, 50, 2.4, 3], [144, 70, 3.2, 3.6], [158, 100, 2.6, 0.3],
+      [170, 132, 3.4, 0.9], [156, 160, 2.4, 1.5], [130, 176, 3, 2.1], [100, 184, 2.6, 2.7],
+      [70, 176, 3.2, 3.3], [44, 160, 2.2, 0.45], [22, 108, 2, 1.05], [178, 108, 2.2, 1.65],
+      [88, 62, 1.8, 2.25], [112, 66, 2, 2.85], [64, 148, 2.4, 3.45], [136, 148, 2.8, 0.15],
+      [38, 78, 1.9, 0.75], [162, 78, 2.1, 1.35], [92, 172, 2.3, 1.95], [110, 30, 2.5, 2.55],
+    ];
+    // 네 갈래 별 — 빛가루보다 크고 눈에 띄게. 회전하며 커졌다 작아진다
+    const sparks = [[52, 82, 9, 0], [148, 86, 8, 1.1], [100, 30, 11, 2.2],
+      [34, 142, 7.5, 3.3], [166, 140, 8.5, 0.55], [100, 178, 8, 1.65]];
+    const spark = (x, y, r) =>
+      `M${x},${y - r} Q${x + r * 0.22},${y - r * 0.22} ${x + r},${y}` +
+      `Q${x + r * 0.22},${y + r * 0.22} ${x},${y + r}` +
+      `Q${x - r * 0.22},${y + r * 0.22} ${x - r},${y}` +
+      `Q${x - r * 0.22},${y - r * 0.22} ${x},${y - r} Z`;
     return `<g fill="${t[0]}">${motes.map(([x, y, r, d]) =>
-      `<circle class="cd-mote" style="animation-delay:${d}s" cx="${x}" cy="${y}" r="${r}"/>`).join('')}</g>`;
+        `<circle class="cd-mote" style="animation-delay:${d}s" cx="${x}" cy="${y}" r="${r}"/>`).join('')}</g>
+      <g fill="#fff">${sparks.map(([x, y, r, d]) =>
+        `<path class="cd-spark" style="animation-delay:${d}s" d="${spark(x, y, r)}"/>`).join('')}</g>`;
+  }
+
+  // ─── 최상위 솥 전용 ───────────────────────────────────────────
+  // 열한 대가 같은 실루엣을 쓰는 것이 이 그림의 규칙인데, **마지막 한 대만 그 규칙을 깬다.**
+  // 색만 바꿔서는 '마지막 솥' 이 '색 다른 솥' 으로 읽힌다 — 형태가 달라져야 등급이 보인다.
+  // 켜고 끄는 것은 데이터가 정한다 (art.aura / art.crown / art.orbit / art.beam).
+
+  // 솥 뒤로 번지는 빛무리
+  function aura(art, u) {
+    if (!art.aura) return '';
+    return `<ellipse class="cd-aura" cx="100" cy="108" rx="99" ry="95" fill="url(#${u}_aura)"/>`;
+  }
+
+  // 솥을 감아 도는 룬 고리. 몸통보다 커서 가장자리로 삐져나온다 (후광처럼)
+  function orbit(art, u) {
+    if (!art.orbit) return '';
+    const t = art.trim;
+    let ticks = '';
+    for (let i = 0; i < 24; i++) {
+      const a = i * 15 * Math.PI / 180;
+      const x = 100 + Math.cos(a) * 90, y = 110 + Math.sin(a) * 82;
+      ticks += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i % 3 ? 1.6 : 3.2}" fill="${t[0]}"/>`;
+    }
+    return `<g class="cd-orbit" opacity="0.9">
+      <ellipse cx="100" cy="110" rx="90" ry="82" fill="none" stroke="${t[1]}" stroke-width="1.6" opacity="0.55"/>
+      <ellipse cx="100" cy="110" rx="82" ry="75" fill="none" stroke="${t[1]}" stroke-width="0.9" opacity="0.3"/>
+      ${ticks}
+    </g>`;
+  }
+
+  // 솥 위로 솟는 빛기둥 — 넓게 퍼지는 것 + 가운데 밝은 심지
+  function beam(art, u) {
+    if (!art.beam) return '';
+    const c = art.aura || art.trim[0];
+    return `<g class="cd-beam">
+      <path d="M70,58 L46,2 L154,2 L130,58 Z" fill="url(#${u}_beam)"/>
+      <path d="M88,58 L80,2 L120,2 L112,58 Z" fill="url(#${u}_beam)"/>
+      <path d="M96,58 L94,6 L106,6 L104,58 Z" fill="${c}" opacity="0.5"/>
+    </g>`;
+  }
+
+  // 테두리에서 솟은 왕관. **밴드 위로 확실히 솟아야** 한다 —
+  // 처음엔 뿔이 짧아 밴드에 거의 다 가려졌고, 그러면 왕관인지 알 수 없다
+  function crown(art, u) {
+    if (!art.crown) return '';
+    const t = art.trim;
+    // [x, 꼭대기 y] — 가운데가 가장 높다
+    const spikes = [[46, 34], [64, 20], [82, 10], [100, 2], [118, 10], [136, 20], [154, 34]];
+    let s = '';
+    spikes.forEach(([x, y]) => {
+      s += `<path d="M${x - 10},60 L${x},${y} L${x + 10},60 Z" fill="url(#${u}_crown)"
+        stroke="${t[2]}" stroke-width="1.1" stroke-linejoin="round"/>`;
+    });
+    // 보석은 뿔을 다 그린 뒤에 얹는다 (앞 뿔에 가리지 않게)
+    spikes.forEach(([x, y]) => {
+      s += `<circle cx="${x}" cy="${y + 9}" r="3.2" fill="${t[0]}"/>
+        <circle class="twinkle" style="animation-delay:${((x % 40) / 20).toFixed(1)}s" cx="${x}" cy="${y + 9}" r="1.6" fill="#fff"/>`;
+    });
+    return `<g>${s}</g>`;
   }
 
   // ─── 솥 한 대 ────────────────────────────────────────────────
@@ -195,12 +270,27 @@
         <radialGradient id="${gGlow}" cx="0.5" cy="0.5" r="0.6">
           <stop offset="0" stop-color="rgba(242,184,255,0.9)"/><stop offset="1" stop-color="rgba(242,184,255,0)"/>
         </radialGradient>
+        <radialGradient id="${u}_aura" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0.45" stop-color="${art.aura || t[0]}" stop-opacity="0.42"/>
+          <stop offset="0.75" stop-color="${art.aura || t[0]}" stop-opacity="0.14"/>
+          <stop offset="1" stop-color="${art.aura || t[0]}" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="${u}_beam" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stop-color="${art.aura || t[0]}" stop-opacity="0.55"/>
+          <stop offset="1" stop-color="${art.aura || t[0]}" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="${u}_crown" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${t[0]}"/><stop offset="0.6" stop-color="${t[1]}"/><stop offset="1" stop-color="${t[2]}"/>
+        </linearGradient>
         <linearGradient id="${u}_scale" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="${t[0]}"/><stop offset="0.38" stop-color="${t[1]}"/><stop offset="1" stop-color="${t[2]}"/>
         </linearGradient>
         <clipPath id="${cBody}"><ellipse cx="${B.cx}" cy="${B.cy}" rx="${B.rx}" ry="${B.ry}"/></clipPath>
         <clipPath id="${cBrew}"><ellipse cx="100" cy="57" rx="52" ry="14"/></clipPath>
       </defs>
+      <!-- 빛무리·고리 (솥보다 뒤) -->
+      ${aura(art, u)}
+      ${orbit(art, u)}
       <!-- 그림자 -->
       <ellipse cx="100" cy="191" rx="72" ry="7" fill="rgba(80,60,40,0.16)"/>
       <!-- 뒤쪽 다리 2개 -->
@@ -220,6 +310,8 @@
       </g>
       <rect x="29" y="58" width="15" height="13" rx="3" fill="url(#${gTrim})" stroke="${t[2]}" stroke-width="1"/>
       <rect x="156" y="58" width="15" height="13" rx="3" fill="url(#${gTrim})" stroke="${t[2]}" stroke-width="1"/>
+      <!-- 왕관 (밴드에 뿌리가 가리도록 먼저) -->
+      ${crown(art, u)}
       <!-- 테두리 밴드 -->
       <ellipse cx="100" cy="65" rx="70" ry="23" fill="${t[2]}"/>
       <ellipse cx="100" cy="60" rx="70" ry="23" fill="url(#${gTrim})"/>
@@ -245,6 +337,8 @@
         <circle class="twinkle" style="animation-delay:1.1s" cx="128" cy="55" r="1.3"/>
         <circle class="twinkle" style="animation-delay:1.7s" cx="98"  cy="53" r="1.2"/>
       </g>
+      <!-- 빛기둥 (물약 위로 솟는다) -->
+      ${beam(art, u)}
       <!-- 전면 메달리온 -->
       <ellipse cx="100" cy="94" rx="19" ry="16" fill="url(#${gTrim})" stroke="${t[2]}" stroke-width="1.5"/>
       <ellipse cx="100" cy="94" rx="13" ry="10.5" fill="${t[2]}"/>

@@ -264,16 +264,39 @@ body {
 /* 전설의 솥 — 룬이 은은히 밝아졌다 어두워진다 */
 .cauldron-svg .rune-glow { animation: runeGlow 3.2s ease-in-out infinite; }
 @keyframes runeGlow { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+/* 최상위 솥 — 후광이 숨쉬고, 룬 고리가 천천히 돌고, 빛기둥이 흔들린다 */
+.cauldron-svg .cd-aura {
+  transform-box: view-box; transform-origin: 100px 112px;
+  animation: cdAura 4.6s ease-in-out infinite;
+}
+@keyframes cdAura { 0%,100% { opacity: 0.75; transform: scale(0.96); } 50% { opacity: 1; transform: scale(1.04); } }
+.cauldron-svg .cd-orbit {
+  transform-box: view-box; transform-origin: 100px 112px;
+  animation: cdOrbit 22s linear infinite;
+}
+@keyframes cdOrbit { to { transform: rotate(360deg); } }
+.cauldron-svg .cd-beam { animation: cdBeam 3.4s ease-in-out infinite; }
+@keyframes cdBeam { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
 /* 솥 주위를 떠다니는 빛가루. 위로 떠오르며 사라진다 */
 .cauldron-svg .cd-mote {
   transform-box: fill-box; transform-origin: center;
   animation: cdMote 4.2s ease-in-out infinite;
 }
 @keyframes cdMote {
-  0%   { opacity: 0;    transform: translateY(6px)   scale(0.6); }
+  0%   { opacity: 0;    transform: translateY(8px)   scale(0.5); }
   25%  { opacity: 0.95; transform: translateY(0)     scale(1); }
-  70%  { opacity: 0.7;  transform: translateY(-14px) scale(0.95); }
-  100% { opacity: 0;    transform: translateY(-26px) scale(0.5); }
+  70%  { opacity: 0.7;  transform: translateY(-16px) scale(0.95); }
+  100% { opacity: 0;    transform: translateY(-30px) scale(0.4); }
+}
+/* 네 갈래 별 — 빛가루보다 크게, 돌면서 커졌다 작아진다 */
+.cauldron-svg .cd-spark {
+  transform-box: fill-box; transform-origin: center;
+  animation: cdSpark 3.6s ease-in-out infinite;
+}
+@keyframes cdSpark {
+  0%,100% { opacity: 0;    transform: scale(0.2) rotate(0deg); }
+  35%     { opacity: 0.95; transform: scale(1)   rotate(45deg); }
+  65%     { opacity: 0.6;  transform: scale(0.8) rotate(80deg); }
 }
 .cauldron-slots { display: flex; justify-content: center; gap: 12px; margin: 14px 0 16px; }
 .c-slot {

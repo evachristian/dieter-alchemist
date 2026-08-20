@@ -333,8 +333,11 @@ const CAULDRONS = [
     art: { body: ['#6a4f9e', '#3a2663', '#1b1030'], trim: ['#ffe9a8', '#d8b45c', '#8a6a24'], deco: 'stars' } },
   { id: 'cd_dragon', emoji: '🐉', name: '용비늘 솥', slots: 11, unlock: 510,
     art: { body: ['#4c6a52', '#263b2c', '#101a13'], trim: ['#ffe08a', '#d8a63c', '#8a6412'], deco: 'dragon' } },
+  // **마지막 한 대만 실루엣 규칙을 깬다** — 왕관·후광·룬 고리·빛기둥.
+  // 색만 바꿔서는 '마지막 솥' 이 '색 다른 솥' 으로 읽힌다
   { id: 'cd_myth', emoji: '👑', name: '전설의 솥', slots: 12, unlock: 620,
-    art: { body: ['#7a4a90', '#43225a', '#1d0e2b'], trim: ['#fff0b8', '#e6c05c', '#9c7a1c'], deco: 'runes' } },
+    art: { body: ['#7a4a90', '#43225a', '#1d0e2b'], trim: ['#fff0b8', '#e6c05c', '#9c7a1c'],
+      deco: 'runes', aura: '#ffd970', crown: true, orbit: true, beam: true } },
 ];
 
 const RECIPES = [
