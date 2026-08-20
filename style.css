@@ -70,13 +70,19 @@ body {
 }
 
 /* AP (헤더 내 에너지 게이지 — 숫자 내부 표시 + ? 안내)
-   이 줄은 ⚡ · AP · 게이지 · ? 가 전부 고정 폭이거나 최소 폭을 갖는다.
-   게이지의 min-width 는 안에 겹쳐 쓰는 "1000/1000"(약 60px) 을 담기 위한 값이라
-   더 줄일 수 없다 → 아주 좁은 화면에서는 AP 글자를 감춘다 (파일 끝 좁은 화면 블록). */
-.ap-wrap { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+   ⚡ · AP · 게이지 · ? 를 **알약 하나로 묶는다.** 옆의 매력 칩(.header-charm)과
+   같은 라벤더·같은 둥근 모양이라 둘이 형제로 읽힌다 — 묶지 않으면 낱개 넷으로 흩어진다.
+   이 줄은 넷 다 고정 폭이거나 최소 폭을 갖는다. 게이지의 min-width 는 안에 겹쳐 쓰는
+   "1000/1000"(약 60px) 을 담기 위한 값이라 더 줄일 수 없다
+   → 아주 좁은 화면에서는 AP 글자를 감춘다 (파일 끝 좁은 화면 블록). */
+.ap-wrap {
+  display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0;
+  background: var(--lav); border-radius: 999px; padding: 6px 6px 6px 10px;
+}
 .ap-label { font-size: 0.82rem; font-weight: 800; color: var(--ink); }
 .en-ic { font-size: 0.95rem; }
-.en-track { position: relative; flex: 1; min-width: 60px; height: 18px; border-radius: 999px; background: rgba(180,150,170,0.22); }
+/* 트랙은 알약 안이라 밝게 — 라벤더 위에 예전의 잿빛 트랙을 두면 탁해 보인다 */
+.en-track { position: relative; flex: 1; min-width: 60px; height: 18px; border-radius: 999px; background: rgba(255,255,255,0.6); }
 .en-fill {
   position: absolute; left: 0; top: 0; height: 100%; width: 100%; border-radius: 999px;
   background: linear-gradient(90deg, #ffd76a, #ff9ec4);
@@ -89,7 +95,8 @@ body {
 }
 .ap-help {
   flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0;
-  background: rgba(154,138,149,0.28); color: var(--ink-soft); font-family: inherit;
+  /* 알약 안의 흰 동그라미 — 매력 칩의 등급 뱃지와 짝을 이룬다 */
+  background: rgba(255,255,255,0.72); color: var(--ink-soft); font-family: inherit;
   font-weight: 800; font-size: 0.74rem; line-height: 1; cursor: pointer;
   display: flex; align-items: center; justify-content: center; aspect-ratio: 1 / 1;
 }
@@ -936,6 +943,11 @@ body {
   /* ⚡ 아이콘과 ? 안내가 이미 있으니, AP 글자가 없어도 뜻이 통한다.
      이걸 감추지 않으면 ? 버튼이 .ap-wrap 밖으로 밀려난다 (265px 에서 8px) */
   .ap-label { display: none; }
+
+  /* AP 를 알약으로 묶으면서 안쪽 여백이 생겼다 — 글자를 감춰도 265px 에서는
+     ? 가 알약 밖으로 13px 나간다. 여백과 간격을 그만큼 조인다 (합쳐 15px) */
+  .app-header { gap: 6px; }
+  .ap-wrap { gap: 4px; padding: 5px 4px 5px 7px; }
 
   /* 균등 분할 탭은 가장 긴 라벨이 기준이다. 영어 "🦋 Creatures" 가
      3분할 폭을 넘어서므로 글자와 좌우 여백을 함께 줄인다 (12.5px, 최소 11px 이상) */
