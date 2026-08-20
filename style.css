@@ -59,7 +59,7 @@ body {
   color: #3f3a44; text-align: center;
 }
 
-/* ─── 상단바 (헤더 = AP + 등급) ─── */
+/* ─── 상단바 (헤더 = AP + 등급 + 설정) ─── */
 .topbar { position: sticky; top: 0; z-index: 20; }
 .app-header {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -134,7 +134,7 @@ body {
 .tier-ic { font-size: 0.95rem; }
 .stat-box.highlight { cursor: pointer; }
 .tier-name { font-weight: 800; color: var(--ink); }
-/* 설정 톱니바퀴 */
+/* 설정 톱니바퀴 — 줄 맨 오른쪽(화면 구석) */
 .hdr-gear {
   flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; border: none; padding: 0;
   background: rgba(255,255,255,0.75); font-size: 0.98rem; line-height: 1; cursor: pointer;
@@ -716,8 +716,12 @@ body {
 .rb-sub .recipe-progress { flex: 0 0 auto; }
 /* 크리처를 보는 중이면 등급 칸이 비어 자리만 차지한다 — 접어 둔다 */
 .rb-tabs:empty { display: none; }
+/* 줄바꿈이 기본이지만, **칩 하나가 줄보다 길면** 줄바꿈으로는 못 막는다 —
+   그 칩이 그대로 부모 밖으로 나간다 (265px 영어에서 솥 이름이 41px 넘쳤다).
+   UI_POLICY '3단 방어' 를 칩에도 준다: 줄어들되, 모자라면 말줄임 */
 .cat-tab {
-  flex: 0 0 auto; border: none; background: var(--cream); color: var(--ink-soft);
+  flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border: none; background: var(--cream); color: var(--ink-soft);
   font-weight: 800; font-size: 0.76rem; padding: 6px 12px; border-radius: 999px; cursor: pointer;
   font-family: inherit; transition: background 0.15s ease, color 0.15s ease;
 }

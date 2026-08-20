@@ -9,6 +9,7 @@
 //   node tools/checkui.js                       # 지금 화면만
 //   node tools/checkui.js showcase atelier gather   # 탭을 옮겨 가며
 //   BASE=https://... node tools/checkui.js showcase # 배포본을 상대로
+//   W=265 node tools/checkui.js showcase         # 좁은 화면에서 (UI_POLICY '가변 폭')
 //   VERBOSE=1 node tools/checkui.js              # 페이지 콘솔까지 같이 출력
 //
 // 종료 코드: 0 = 전부 pass, 1 = 통과 못한 화면 있음, 2 = 하네스 자체가 실패
@@ -38,7 +39,11 @@ function launchOpts() {
   const browser = await chromium.launch(launchOpts());
   // 창 크기가 0 이면 검증기가 '잴 수 없다' 로 pass:false 를 낸다 — 실제 크기를 준다.
   // (폭 0 상태의 0건은 통과가 아니다 — CLAUDE.md 참고)
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  // 폭은 W 로 바꿀 수 있다 — .app 이 max-width:480px 이라 그보다 넓으면 결과가 같다.
+  // 좁은 화면(375·320·265)은 따로 돌려야 한다: 그때만 나오는 넘침이 있다.
+  const ctx = await browser.newContext({
+    viewport: { width: Number(process.env.W) || 1280, height: Number(process.env.H) || 900 },
+  });
   const page = await ctx.newPage();
 
   const logs = [];
