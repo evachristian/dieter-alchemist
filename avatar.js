@@ -157,23 +157,38 @@
     // 둥근 끝 사이에 초승달 모양 틈이 생긴다. 늘리면 두 캡의 원 중심이 팔꿈치에서
     // 정확히 겹쳐 이음매가 사라진다 (굽혀도 회전축이 그 점이라 그대로 겹친다)
     const OV = w / 2;
-    const attrs = `width="${w}" height="%H" rx="${(w / 2).toFixed(1)}" fill="${fill}"${o.extra || ''}`;
     const baseRot = `rotate(${rot} ${+pivot.toFixed(2)} ${B.armPivotY})`;
-    let out = '';
+    // 그릴 조각들을 먼저 모은다 — 테두리가 있으면 두 번 그려야 해서(아래 참조) 목록이 필요하다
+    const segs = [];
     // 윗팔 조각
     const upFrom = from, upTo = Math.min(to, upLen);
     if (upTo > upFrom) {
-      const hh = (upTo - upFrom) + (to > upLen ? OV : 0);
-      out += `<rect x="${+(x0 - pad).toFixed(2)}" y="${+(B.armY + upFrom).toFixed(2)}"
-        ${attrs.replace('%H', hh.toFixed(2))} transform="${baseRot}"/>`;
+      segs.push({ y: B.armY + upFrom, h: (upTo - upFrom) + (to > upLen ? OV : 0), tr: baseRot });
     }
     // 아랫팔 조각 — 팔꿈치 기준 회전이 하나 더 붙는다 (기울기 → 굽힘 순으로 적용된다)
     const foFrom = Math.max(from, upLen), foTo = to;
     if (foTo > foFrom) {
       const ext = (from < upLen ? OV : 0);
-      out += `<rect x="${+(x0 - pad).toFixed(2)}" y="${+(B.armY + foFrom - ext).toFixed(2)}"
-        ${attrs.replace('%H', ((foTo - foFrom) + ext).toFixed(2))}
-        transform="${baseRot} rotate(${bend} ${+cx.toFixed(2)} ${+elbowY.toFixed(2)})"/>`;
+      segs.push({ y: B.armY + foFrom - ext, h: (foTo - foFrom) + ext,
+        tr: `${baseRot} rotate(${bend} ${+cx.toFixed(2)} ${+elbowY.toFixed(2)})` });
+    }
+    const emit = (list, extra) => list.map(g =>
+      `<rect x="${+(x0 - pad).toFixed(2)}" y="${+g.y.toFixed(2)}" width="${w}" height="${g.h.toFixed(2)}"
+        rx="${(w / 2).toFixed(1)}" fill="${fill}"${extra} transform="${g.tr}"/>`).join('');
+    let out = emit(segs, o.extra || '');
+    // 테두리(맨팔의 ARM_EDGE)가 있으면 두 마디의 테두리가 팔꿈치에서 교차해
+    // 이음매 선이 보인다. **관절 주변(±12px)만 채움 전용 덮개를 얹어** 그 선을 덮는다.
+    // 팔 전체를 두 번 칠하면 안 되는 이유: 가장자리의 반투명 픽셀이 겹쳐 진해지는데,
+    // 캡 소매의 둥근 모서리가 잘라낸 자리에서 그 픽셀이 살색 판정으로 굳어
+    // 커버리지 검사에 걸렸다 (dress_maxi 에서 실제로 났다). 관절 근처는 어떤 검사
+    // 창(x 72~128 · y ≤145)에도 안 들어가므로 덮개만은 안전하다.
+    if (o.extra && from < upLen && to > upLen) {
+      const pf = Math.max(from, upLen - 12), pt = Math.min(to, upLen + 12);
+      out += emit([
+        { y: B.armY + pf, h: (upLen - pf) + OV, tr: baseRot },
+        { y: B.armY + upLen - OV, h: (pt - upLen) + OV,
+          tr: `${baseRot} rotate(${bend} ${+cx.toFixed(2)} ${+elbowY.toFixed(2)})` },
+      ], '');
     }
     return wrapX(out, tuneOf(tune, 'arm'), cx);
   }
