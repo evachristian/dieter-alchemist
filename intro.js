@@ -194,22 +194,26 @@
   // **얼굴·머리·팔은 반신과 같은 것을 쓴다** (princessHead / princessArms).
   function princessFull(mood) {
     const f = princessFace(mood);
-    // 반신 그림은 어깨~밑단이 80밖에 안 돼, 다리를 붙이면 머리가 몸의 절반이 된다.
-    // 전신에서는 몸을 늘려 **2.5등신쯤**으로 맞춘다 (마친 뒤의 아바타가 3등신이다).
-    const HEM = 288, FOOT = 322;
+    // **2등신** — 머리(136~213, 77) 와 몸(213~292, 79) 이 거의 1:1 이다.
+    // 처음엔 다리를 내놓고 2.5등신으로 잡았는데, 짧은 다리가 치마 밑으로 삐져나와
+    // 흉했다. 치마를 바닥까지 내리고 다리를 안으로 넣었다 — 신발 코만 살짝 보인다.
+    const HEM = 284, FOOT = 289;
     return `<g>
-      <ellipse cx="150" cy="${FOOT + 2}" rx="46" ry="5.5" fill="rgba(80,60,40,0.18)"/>
-      <!-- 다리 · 신발 — 치마에 가려지도록 **먼저** 그린다 -->
-      <rect x="133" y="${HEM - 14}" width="16" height="${FOOT - HEM + 12}" rx="8" fill="${SKIN}"/>
-      <rect x="151" y="${HEM - 14}" width="16" height="${FOOT - HEM + 12}" rx="8" fill="${SKIN}"/>
-      <ellipse cx="140" cy="${FOOT}" rx="12.5" ry="6" fill="#8a5a3c"/>
-      <ellipse cx="160" cy="${FOOT}" rx="12.5" ry="6" fill="#8a5a3c"/>
-      <!-- 드레스 — 어깨에서 밑단까지 퍼지는 종 모양.
-           **반신보다 넓게** 퍼뜨려야 큰 머리와 균형이 맞는다 -->
-      <path d="M96,${HEM} C94,${HEM - 46} 112,206 150,206 C188,206 206,${HEM - 46} 204,${HEM} Z" fill="#7fa06a"/>
-      <path d="M110,${HEM - 34} L190,${HEM - 34}" stroke="#6a8a58" stroke-width="4"/>
-      <path d="M104,${HEM - 6} C126,${HEM + 4} 174,${HEM + 4} 196,${HEM - 6}" stroke="#6a8a58" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-      ${princessArms(224, 276, 278)}
+      <ellipse cx="150" cy="${FOOT + 4}" rx="50" ry="6" fill="rgba(80,60,40,0.18)"/>
+      <!-- 신발 코 — 치마 밑단에 윗부분이 가리도록 **먼저** 그린다 -->
+      <ellipse cx="136" cy="${FOOT}" rx="13" ry="5.5" fill="#8a5a3c"/>
+      <ellipse cx="164" cy="${FOOT}" rx="13" ry="5.5" fill="#8a5a3c"/>
+      <!-- 드레스 — 어깨에서 바닥까지 퍼지는 종 모양.
+           밑단을 **곡선**으로 둔다. 일자로 자르면 잘린 그림처럼 보인다 -->
+      <path d="M88,${HEM}
+        C86,${HEM - 52} 110,206 150,206
+        C190,206 214,${HEM - 52} 212,${HEM}
+        C186,${HEM + 6} 114,${HEM + 6} 88,${HEM} Z" fill="#7fa06a"/>
+      <!-- 허리 띠 · 밑단 선 -->
+      <path d="M116,244 L184,244" stroke="#6a8a58" stroke-width="4"/>
+      <path d="M96,${HEM - 10} C124,${HEM - 2} 176,${HEM - 2} 204,${HEM - 10}"
+            stroke="#6a8a58" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      ${princessArms(224, 262, 264)}
       ${princessHead(f.eyes, f.mouth, f.extra)}
     </g>`;
   }
