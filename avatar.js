@@ -67,6 +67,13 @@
     // 몸통은 허리로 좁아지는데 팔은 바깥으로 벌어져, 팔이 몸에서 떨어져 보였다.
     armX_L: 55, armX_R: 130, armY: 120, armH: 94, armW: 15,
     armRot: 4, armPivotL: 62, armPivotR: 138, armPivotY: 130,
+    // 팔꿈치 — 팔은 윗팔/아랫팔 두 마디다. 아랫팔이 몸 쪽으로 살짝 굽는다.
+    //   elbowT   팔 길이에서 팔꿈치가 있는 비율 (해부학적으로 윗팔이 조금 길다)
+    //   elbowRot 아랫팔이 안쪽으로 굽는 각도. **9° 를 크게 넘기지 말 것** —
+    //            더 굽히면 손이 치마 뒤로 완전히 숨고, 아랫팔이 커버리지 검사의
+    //            몸통 창(x 72~128)에 들어가 위반으로 잡힌다. 지금은 팔 자체가
+    //            4°(armRot) 바깥으로 기울어 있어 굽힘과 상쇄돼 2~4px 여유가 있다
+    elbowT: 0.56, elbowRot: 9,
     ankleY: 332,
   };
   // 옷이 몸을 확실히 덮도록 주는 여유 (한쪽당 px)
@@ -125,6 +132,11 @@
   // 팔과 소매를 **같은 좌표에서** 그린다.
   // 예전에는 소매 좌표가 renderTop·renderDress 에 그대로 박혀 있어서,
   // 팔 위치나 각도를 고치면 소매만 제자리에 남아 어긋났다. BODY 하나만 고치면 되게 모았다.
+  //
+  // 팔은 **윗팔/아랫팔 두 마디**고 팔꿈치에서 안쪽으로 굽는다. 곧은 좌표(armY 에서 아래로)로
+  // 그린 뒤 아랫팔 조각에만 팔꿈치 회전을 하나 더 건다. 소매·장갑도 이 함수를 지나므로
+  // 옷이 팔꿈치를 따로 알 필요가 없다 — 긴 소매는 저절로 팔꿈치에서 같이 굽는다.
+  //
   //   side  'L'|'R' · pad 팔보다 얼마나 넓게(소매) · h 길이 · extra 덧붙일 속성
   //   opts.extra 덧붙일 속성 · opts.yFrom 위쪽을 잘라 아래 구간만 그림 (장갑)
   function armShape(side, fill, pad, h, tune, opts) {
@@ -133,12 +145,55 @@
     const x0 = (left ? B.armX_L : B.armX_R) + d;
     const w = B.armW + pad * 2;
     const rot = left ? B.armRot : -B.armRot;
+    const bend = left ? -B.elbowRot : B.elbowRot;     // 안쪽(몸 쪽)으로
     const pivot = (left ? B.armPivotL : B.armPivotR) + d;
-    const y = (o.yFrom != null ? o.yFrom : B.armY - pad);
-    return wrapX(
-      `<rect x="${+(x0 - pad).toFixed(2)}" y="${+y.toFixed(2)}" width="${w}" height="${h}" rx="${(w / 2).toFixed(1)}"
-        fill="${fill}"${o.extra || ''} transform="rotate(${rot} ${+pivot.toFixed(2)} ${B.armPivotY})"/>`,
-      tuneOf(tune, 'arm'), x0 + B.armW / 2);
+    const cx = x0 + B.armW / 2;
+    const upLen = B.armH * B.elbowT;                  // 팔꿈치까지의 길이
+    const elbowY = B.armY + upLen;
+    // 그릴 구간을 팔 위 끝(armY)에서 잰 거리로 바꾼다
+    const from = (o.yFrom != null ? o.yFrom : B.armY - pad) - B.armY;
+    const to = from + h;
+    // 팔꿈치를 지나는 조각은 **반폭만큼 겹쳐 늘린다** — 캡슐 두 개를 맞대기만 하면
+    // 둥근 끝 사이에 초승달 모양 틈이 생긴다. 늘리면 두 캡의 원 중심이 팔꿈치에서
+    // 정확히 겹쳐 이음매가 사라진다 (굽혀도 회전축이 그 점이라 그대로 겹친다)
+    const OV = w / 2;
+    const attrs = `width="${w}" height="%H" rx="${(w / 2).toFixed(1)}" fill="${fill}"${o.extra || ''}`;
+    const baseRot = `rotate(${rot} ${+pivot.toFixed(2)} ${B.armPivotY})`;
+    let out = '';
+    // 윗팔 조각
+    const upFrom = from, upTo = Math.min(to, upLen);
+    if (upTo > upFrom) {
+      const hh = (upTo - upFrom) + (to > upLen ? OV : 0);
+      out += `<rect x="${+(x0 - pad).toFixed(2)}" y="${+(B.armY + upFrom).toFixed(2)}"
+        ${attrs.replace('%H', hh.toFixed(2))} transform="${baseRot}"/>`;
+    }
+    // 아랫팔 조각 — 팔꿈치 기준 회전이 하나 더 붙는다 (기울기 → 굽힘 순으로 적용된다)
+    const foFrom = Math.max(from, upLen), foTo = to;
+    if (foTo > foFrom) {
+      const ext = (from < upLen ? OV : 0);
+      out += `<rect x="${+(x0 - pad).toFixed(2)}" y="${+(B.armY + foFrom - ext).toFixed(2)}"
+        ${attrs.replace('%H', ((foTo - foFrom) + ext).toFixed(2))}
+        transform="${baseRot} rotate(${bend} ${+cx.toFixed(2)} ${+elbowY.toFixed(2)})"/>`;
+    }
+    return wrapX(out, tuneOf(tune, 'arm'), cx);
+  }
+
+  // 팔 중심선 위의 한 점 — dist 는 팔 위 끝(armY)에서 잰 거리.
+  // 손 위치 계산용이라 armShift(체형 이동)는 넣지 않는다 (기존 손 계산과 같은 기준).
+  function armPoint(side, dist) {
+    const B = BODY, left = side === 'L';
+    const rot = (left ? B.armRot : -B.armRot) * Math.PI / 180;
+    const bend = (left ? -B.elbowRot : B.elbowRot) * Math.PI / 180;
+    const cx = (left ? B.armX_L : B.armX_R) + B.armW / 2;
+    const pivot = left ? B.armPivotL : B.armPivotR;
+    const upLen = B.armH * B.elbowT, elbowY = B.armY + upLen;
+    const rotAbout = (p, a, o) => ({
+      x: o.x + (p.x - o.x) * Math.cos(a) - (p.y - o.y) * Math.sin(a),
+      y: o.y + (p.x - o.x) * Math.sin(a) + (p.y - o.y) * Math.cos(a),
+    });
+    let p = { x: cx, y: B.armY + dist };
+    if (dist > upLen) p = rotAbout(p, bend, { x: cx, y: elbowY });   // 굽힘 먼저
+    return rotAbout(p, rot, { x: pivot, y: B.armPivotY });           // 그다음 팔 기울기
   }
 
   // 장갑 — 팔 아래쪽(손목 쪽)부터 len 비율만큼 덮는다
@@ -449,18 +504,8 @@
     const B = BODY, pad = CLOTH_PAD;
     const w = B.armW + pad * 2;                 // 팔보다 좌우로 pad 만큼 넓게
     const h = B.armH * len + pad;
-    // 손 위치 = 소매 끝을 팔과 같은 각도로 회전시킨 지점
-    const rad = B.armRot * Math.PI / 180;
-    const hand = (px, cx) => {
-      const dx = cx - px, dy = (B.armY + B.armH * len) - B.armPivotY;
-      const sgn = px === B.armPivotL ? 1 : -1;  // 오른팔은 반대로 회전
-      return {
-        x: px + dx * Math.cos(rad) - dy * Math.sin(rad) * sgn,
-        y: B.armPivotY + dx * Math.sin(rad) * sgn + dy * Math.cos(rad),
-      };
-    };
-    const cxL = B.armX_L + B.armW / 2, cxR = B.armX_R + B.armW / 2;
-    const hL = hand(B.armPivotL, cxL), hR = hand(B.armPivotR, cxR);
+    // 손 위치 = 소매 끝. armPoint 가 팔꿈치 굽힘까지 따라간다
+    const hL = armPoint('L', B.armH * len), hR = armPoint('R', B.armH * len);
     // 소매만 팔 배율을 따른다. 손은 팔 중심선 위에 있고 그 선은 움직이지 않으므로
     // (좌우 각각 자기 중심을 축으로 늘린다) 그대로 둔다 — 같이 늘리면 손이 타원이 된다.
     return `
