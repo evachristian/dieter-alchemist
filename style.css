@@ -154,7 +154,8 @@ body {
 .cost-tag { font-size: 0.78rem; color: var(--text-warn); }
 .btn-cost { font-size: 0.82rem; }
 .spot-card.low-energy { opacity: 0.6; }
-.spot-card.low-energy .spot-go { color: var(--text-pink); }
+/* AP 가 모자라면 버튼을 물러나 보이게 (카드 전체 opacity 와 함께) */
+.spot-card.low-energy .btn-gather { background: var(--cream); }
 .header-charm { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
 /* 등급 아이콘 + 매력 총합을 한 덩어리로 */
 .header-charm { background: var(--lav); border-radius: 999px; padding: 3px 4px 3px 3px; gap: 4px; }
@@ -236,14 +237,27 @@ body {
 }
 .spot-card.pop { animation: cardpop 0.4s ease; }
 @keyframes cardpop { 0% { transform: scale(1); } 40% { transform: scale(1.04); box-shadow: 0 8px 22px rgba(255,150,190,0.4); } 100% { transform: scale(1); } }
-.spot-emoji { font-size: 2.4rem; flex: none; }
+/* 맵 이모지. flex:none 인 채로 두면 글자가 길어졌을 때(2배 라벨 검사) 106px 까지
+   불어나 가운데 정보 칸을 3.8px 로 짓눌렀다 — 한 글자만큼으로 폭을 묶는다 */
+.spot-emoji { font-size: 2.4rem; flex: 0 0 auto; max-width: 1.5em; overflow: hidden; }
 .spot-info { flex: 1; min-width: 0; }
 .spot-name { font-weight: 800; font-size: 1.05rem; }
 .spot-desc { font-size: 0.76rem; color: var(--ink-soft); margin: 2px 0 6px; }
-.spot-pool { font-size: 1rem; letter-spacing: 2px; }
-/* 맵마다 하나씩 있는 특별한 재료 — 찾기 전에는 ❔ 로 가려 둔다 */
+.spot-pool { font-size: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+/* 재료 이모지 한 칸 — 눌러서 이름을 본다. 버튼이지만 보이기는 글자 그대로다 */
+.spot-chip {
+  border: none; background: none; padding: 0 1px; margin: 0;
+  font: inherit; line-height: inherit; color: inherit; cursor: pointer;
+  /* 버튼은 inline-block 이라 제 콘텐츠 폭만큼 커진다 — 부모보다 커지지 않게 (.ing-dot 과 같은 이유).
+     min-width:0 이 없으면 flex 아이템이 콘텐츠 폭만큼 버텨 max-width 가 듣지 않는다 */
+  max-width: 100%; min-width: 0; overflow: hidden;
+}
+.spot-chip:active { transform: scale(0.88); }
+/* 맵마다 하나씩 있는 특별한 재료 — 찾기 전에는 ❔ 로 가려 둔다.
+   사이 간격은 margin 이 아니라 부모의 gap 이 준다 — margin 을 더하면
+   max-width:100% 를 지켜도 그만큼 부모 밖으로 나간다 (2배 라벨에서 10px 넘쳤다) */
 .spot-special {
-  display: inline-block; margin-left: 4px; padding: 0 5px;
+  padding: 0 5px;
   border-radius: 999px; background: var(--lav); font-size: 0.9rem;
 }
 .spot-special.found { background: #fff0b8; }
@@ -252,18 +266,32 @@ body {
 .spot-card.locked .spot-name,
 .spot-card.locked .spot-desc,
 .spot-card.locked .spot-go { color: var(--ink); }
+/* 잠긴 카드에는 '잠김 🔒' 글자(.spot-go)가 그대로 남는다 — 버튼이 아니라 안내다 */
+.spot-card.locked .spot-go {
+  font-size: 0.78rem; font-weight: 800;
+  flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-align: right;
+}
 /* 해금 조건은 잠긴 카드에서 유일하게 '읽어야 하는' 정보라 굵게 유지한다 */
 .spot-card.locked .spot-desc { font-weight: 800; }
 .spot-card.locked:active { transform: none; }
 .cat-tab.locked { color: var(--ink); background: var(--cream); }
 .zn-tabs { margin: 0 0 12px; }
-/* '채집' 라벨 + 비용 — 언어에 따라 길어져도 카드를 밀어내지 않게 (UI_POLICY.md '가변 폭') */
-.spot-go {
-  font-size: 0.78rem; font-weight: 800; color: var(--text-pink);
-  flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  text-align: right;
+/* '채집' 버튼 — 톡 누르면 한 번, 꾹 누르면 계속 채집한다 (startGatherHold).
+   라벨이 언어에 따라 길어져도 카드를 밀어내지 않게 (UI_POLICY.md '가변 폭').
+   touch-action 을 카드와 같게 두는 이유: 버튼 위에서 시작한 손가락으로도
+   목록을 밀어 내릴 수 있어야 한다. user-select 는 꾹 누를 때 글자가 잡히는 것을 막는다 */
+.btn-gather {
+  display: inline-flex; align-items: center; gap: 5px;
+  flex: 0 1 auto; min-width: 0; max-width: 46%;
+  font-family: inherit; font-size: 0.78rem; font-weight: 800; color: var(--ink);
+  background: var(--pink-2); border: none; border-radius: 999px; padding: 9px 13px;
+  cursor: pointer; white-space: nowrap; overflow: hidden;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none;
 }
-.spot-card > .cost-tag { flex: 0 0 auto; }
+.btn-gather:active { transform: scale(0.94); }
+/* 분홍 알약 위에서는 주황 글자(--text-warn)가 4.5:1 을 못 넘는다 — 본문 색을 그대로 쓴다 */
+.btn-gather .cost-tag { color: inherit; }
 
 /* ─── 공방: 가마솥 ─── */
 .cauldron {

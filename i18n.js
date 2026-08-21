@@ -15,8 +15,8 @@
   const STRINGS = {
     ko: {
       // 탭 / 화면
-      tab_showcase: '마이 룸', tab_atelier: '공방', tab_gather: '채집',
-      screen_gather: '🌿 채집', screen_gather_sub: '장소를 눌러 재료를 모으세요. 꾹 누르면 계속 채집돼요.',
+      tab_showcase: '마이 룸', tab_atelier: '공방', tab_gather: '탐험',
+      screen_gather: '🧭 탐험', screen_gather_sub: '장소를 골라 채집하세요. 채집 버튼을 꾹 누르면 계속 채집돼요.',
       screen_atelier: '⚗️ 공방', screen_atelier_sub: '재료를 가마솥에 넣고 조합해 새 레시피를 발견하세요.',
       screen_room: '🏠 마이 룸', screen_room_named: "🏠 '{name}'의 룸",
       // 신체 수치
@@ -242,8 +242,8 @@
       intro_11: '이제 알게 되실 거예요.',
     },
     en: {
-      tab_showcase: 'My Room', tab_atelier: 'Atelier', tab_gather: 'Gather',
-      screen_gather: '🌿 Gather', screen_gather_sub: 'Tap a place to collect. Press and hold to keep gathering.',
+      tab_showcase: 'My Room', tab_atelier: 'Atelier', tab_gather: 'Explore',
+      screen_gather: '🧭 Explore', screen_gather_sub: 'Pick a place and gather. Hold the Gather button to keep going.',
       screen_atelier: '⚗️ Atelier', screen_atelier_sub: 'Put ingredients in the cauldron and brew to discover recipes.',
       screen_room: '🏠 My Room', screen_room_named: "🏠 {name}'s Room",
       v_weight: 'Weight', v_height: 'Height', v_fat_pct: 'Body Fat', v_fat_kg: 'Fat Mass', v_muscle: 'Muscle',

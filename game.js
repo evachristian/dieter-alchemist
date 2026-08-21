@@ -1008,12 +1008,23 @@ function renderGather() {
           <div class="spot-go">${T('locked_go')}</div>
         </div>`;
     }
-    const chips = spot.pool.map(id => D.INGREDIENTS[id].emoji).join(' ');
+    // 재료 이모지는 **눌러서 이름을 볼 수 있다.** 카드 전체가 채집 버튼이라
+    // 이벤트를 여기서 끊는다 — 재료를 눌렀는데 AP 가 나가면 안 된다.
+    const poolChip = (id, cls, label, call) =>
+      `<button class="spot-chip ${cls}" aria-label="${label}"
+        onclick="event.stopPropagation();${call}"
+        onpointerdown="event.stopPropagation()" oncontextmenu="return false">`;
+    const chips = spot.pool.map(id => {
+      const ing = D.INGREDIENTS[id];
+      return poolChip(id, '', N(id, ing.name), `ingHint('${id}',this)`) + ing.emoji + '</button>';
+    }).join('');
     const sp = D.INGREDIENTS[spot.special];
     // 특별한 재료는 한 번이라도 얻었을 때만 정체를 보여 준다
     // 임시: 개발용 '모든 히든 재료 오픈' 스위치가 켜져 있으면 얻지 않았어도 정체를 보여 준다
     const found = devFlag(DEV_SPECIALS_KEY) || invCount(spot.special) > 0;
-    const spChip = `<span class="spot-special ${found ? 'found' : ''}" title="${T('special_hint')}">${found ? sp.emoji : '❔'}</span>`;
+    const spChip = poolChip(spot.special, `spot-special ${found ? 'found' : ''}`,
+      found ? N(sp.id, sp.name) : T('special_hint'), `specialHint('${spot.id}',this)`)
+      + (found ? sp.emoji : '❔') + '</button>';
     // 특별한 맵(미니게임이 있는 맵)은 카드 왼쪽 위에 배지를 단다 — UI_POLICY.md 참고
     const badge = spot.mini ? `<span class="spot-badge">${T('special_map')}</span>` : '';
     return `
@@ -1025,9 +1036,11 @@ function renderGather() {
         <div class="spot-info">
           <div class="spot-name">${N(spot.id, spot.name)}</div>
           <div class="spot-desc">${N(spot.id + '_desc', spot.desc)}</div>
-          <div class="spot-pool">${chips} ${spChip}</div>
+          <div class="spot-pool">${chips}${spChip}</div>
         </div>
-        <div class="spot-go">${T('gather_go')} <span class="cost-tag">⚡${cost}</span></div>
+        <button class="btn-gather" onclick="event.stopPropagation();tapGather('${spot.id}')"
+          onpointerdown="event.stopPropagation();startGatherHold('${spot.id}', event)"
+          oncontextmenu="return false">${T('gather_go')} <span class="cost-tag">⚡${cost}</span></button>
       </div>`;
   }).join('');
 
@@ -2299,6 +2312,17 @@ function ingHint(id, el) {
   toast(N(id, ing.name), el, null, 'above');
 }
 window.ingHint = ingHint;
+
+// 맵마다 하나씩 있는 특별한 재료 칩. 아직 못 찾았으면 **정체 대신 힌트만** 알려 준다 —
+// 눌러서 이름이 나오면 0.1% 로 찾아내는 재미가 없어진다
+function specialHint(mapId, el) {
+  const map = D.MAPS.find(m => m.id === mapId);
+  if (!map) return;
+  const found = devFlag(DEV_SPECIALS_KEY) || invCount(map.special) > 0;
+  if (found) { ingHint(map.special, el); return; }
+  toast(T('special_hint'), el, null, 'above');
+}
+window.specialHint = specialHint;
 
 // ─── 신체 · 아우라 상세 수치 표시 ───
 function renderVitals() {
