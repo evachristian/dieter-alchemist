@@ -689,6 +689,15 @@ const CRYSTAL = {
   desc: '조합은 실패했지만 결정이 남았다. 모으면 AP 를 충전할 수 있다.',
 };
 
+// ─── 다이아 상품 ───
+// **결제는 아직 붙지 않았다.** 지금은 값만 보여 주고 '지금은 구매하실 수 없습니다' 로 끝난다.
+// 결제를 붙일 때 game.js 의 buyDiamond() 안쪽만 채우면 된다.
+const SHOP = [
+  { n: 1000,   krw: 1000 },
+  { n: 10000,  krw: 9000 },
+  { n: 100000, krw: 88000 },
+];
+
 // ─── 매력 등급 (Charm Tiers) ───
 // 매력 총합(비주얼 + 아우라 + 크리처 보너스)에 따른 칭호
 const TIERS = [
@@ -972,7 +981,7 @@ const RECIPE_MAP = {};
 for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 
 window.GameData = {
-  INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, TIERS,
+  INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   WARDROBE, WARDROBE_SLOTS, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   COLORS, COLORABLE_SLOTS,
   getTier, recipeKey,

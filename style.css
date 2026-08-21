@@ -62,26 +62,36 @@ body {
 /* ─── 상단바 (헤더 = AP + 등급 + 설정) ─── */
 .topbar { position: sticky; top: 0; z-index: 20; }
 .app-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  /* 알약이 셋(AP · 결정 · 매력)이라 사이 간격을 좁게 잡는다 — 10px 이면
+     375px 에서 AP 알약이 눌려 + 가 10px 밖으로 나갔다 */
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
   padding: 12px 16px;
   background: rgba(255,255,255,0.55);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255,255,255,0.6);
 }
 
-/* AP (헤더 내 에너지 게이지 + 현자의 결정 + 충전 버튼)
-   ⚡ · 게이지 · 💎 개수 · + 를 **알약 하나로 묶는다.** 옆의 매력 칩(.header-charm)과
-   같은 라벤더·같은 둥근 모양이라 둘이 형제로 읽힌다 — 묶지 않으면 낱개로 흩어진다.
-   **'AP' 글자는 없다.** 결정 개수가 들어오면서 자리가 모자라, 게이지가 최소 폭(60px)까지
-   눌려 "1000/1000" 이 트랙 밖으로 삐져나왔다. ⚡ 아이콘이 같은 뜻을 전하므로 글자를 뺐고,
-   그만큼(33px) 이 게이지로 돌아갔다 (375px 에서 트랙 60 → 97px). */
-.ap-wrap {
-  display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0;
-  background: var(--lav); border-radius: 999px; padding: 6px 6px 6px 10px;
+/* 헤더의 알약들 — **재화 하나에 알약 하나.**
+   AP(⚡ 게이지 +) · 현자의 결정(💎 개수 +) · 매력(✨ 총합) 이 같은 라벤더·같은 둥근 모양·
+   같은 높이(32px)라 한 식구로 읽힌다. 알약 안의 + 는 '더 얻기' 로 뜻이 같다.
+   **'AP' 글자는 없다.** 알약이 늘면서 자리가 모자라, 게이지가 최소 폭(60px)까지 눌려
+   "1000/1000"(54px)이 트랙을 꽉 채웠다. ⚡ 아이콘이 같은 뜻을 전하므로 글자를 뺐다. */
+.ap-wrap, .gem-wrap {
+  display: flex; align-items: center;
+  background: var(--lav); border-radius: 999px;
 }
+/* AP 만 남는 자리를 먹는다 — 게이지는 늘어날 수 있는 유일한 것이다 */
+.ap-wrap { gap: 6px; flex: 1; min-width: 0; padding: 6px 6px 6px 9px; }
+/* ⚡ + 게이지가 통째로 누를 수 있는 한 덩어리 (AP 안내) */
+.ap-hit {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+  border: none; background: none; padding: 0; margin: 0; cursor: pointer; font-family: inherit;
+}
+.ap-hit:active { transform: scale(0.98); }
+.gem-wrap { gap: 5px; flex: 0 0 auto; padding: 6px 6px 6px 8px; }
 .en-ic { font-size: 0.95rem; }
 /* 트랙은 알약 안이라 밝게 — 라벤더 위에 예전의 잿빛 트랙을 두면 탁해 보인다 */
-.en-track { position: relative; flex: 1; min-width: 60px; height: 18px; border-radius: 999px; background: rgba(255,255,255,0.6); }
+.en-track { display: block; position: relative; flex: 1; min-width: 60px; height: 18px; border-radius: 999px; background: rgba(255,255,255,0.6); }
 .en-fill {
   position: absolute; left: 0; top: 0; height: 100%; width: 100%; border-radius: 999px;
   background: linear-gradient(90deg, #ffd76a, #ff9ec4);
@@ -108,7 +118,8 @@ body {
   flex: 0 1 auto; min-width: 0; font-size: 0.78rem; font-weight: 800; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.ap-plus {
+/* 알약 안의 + (AP 충전 · 결정 구매) — 둘은 같은 것으로 보여야 한다 */
+.hdr-plus {
   flex: 0 0 auto; min-width: 0; overflow: hidden;
   width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0;
   /* 알약 안의 흰 동그라미 — 매력 칩의 등급 뱃지와 짝을 이룬다 */
@@ -116,7 +127,7 @@ body {
   font-weight: 800; font-size: 0.92rem; line-height: 1; cursor: pointer;
   display: flex; align-items: center; justify-content: center; aspect-ratio: 1 / 1;
 }
-.ap-plus:active { transform: scale(0.92); }
+.hdr-plus:active { transform: scale(0.92); }
 
 /* 글로벌 시계 */
 /* 저장 상태 — 방 제목 옆에 조용히 붙는다. 눌러 보면 뜻을 알려 준다. */
@@ -153,7 +164,7 @@ body {
   display: flex; align-items: center; justify-content: center; font-family: inherit;
 }
 .hdr-tier:active { transform: scale(0.9); }
-.hdr-charm { font-size: 0.9rem; font-weight: 800; color: var(--ink); padding: 0 9px 0 3px; min-width: 20px; text-align: center; }
+.hdr-charm { font-size: 0.9rem; font-weight: 800; color: var(--ink); padding: 0 7px 0 2px; min-width: 20px; text-align: center; }
 .tier-ic { font-size: 0.95rem; }
 .stat-box.highlight { cursor: pointer; }
 .tier-name { font-weight: 800; color: var(--ink); }
@@ -924,6 +935,9 @@ body {
   min-width: 62px; text-align: right;
 }
 .cf-n.lack { color: var(--text-pink); }   /* 모자란 보유량 */
+/* 상품 고르기 (다이아 상점) — 칩 줄은 1장의 .cat-tabs 를 그대로 쓴다.
+   고른 것의 가격이 확인 버튼의 라벨이 된다 */
+.confirm-extra .shop-opts { justify-content: center; }
 
 /* ─── 이름 입력 팝업 ─── */
 /* 튜토리얼 인트로(z-index 9990) 위에 떠야 함 */
@@ -982,16 +996,22 @@ body {
    줄어들 수도 말줄임할 수도 없는 고정 폭 요소만 남은 줄은, 화면이 더 좁아지면
    결국 부모 밖으로 밀려난다. 그럴 때는 그 줄에서 가장 덜 중요한 것을 감춘다.
    .app 이 max-width: 480px 라 헤더 폭 == min(뷰포트, 480) 이므로 뷰포트 기준이 맞다. */
-@media (max-width: 340px) {
-  /* AP 를 알약으로 묶으면서 안쪽 여백이 생겼다 — 글자를 감춰도 265px 에서는
-     ? 가 알약 밖으로 13px 나간다. 여백과 간격을 그만큼 조인다 (합쳐 15px) */
-  .app-header { gap: 6px; }
+/* ─── 헤더가 빠듯해지는 폭 (알약 셋 + 설정) ───
+   알약이 셋이라 380px 아래부터는 기본 여백으로는 AP 알약이 눌린다.
+   **헤더만** 조인다 — 아래의 340px 블록(탭·버튼)과 목적이 달라 따로 둔다. */
+@media (max-width: 380px) {
+  .app-header { gap: 5px; padding: 12px 10px; }
   .ap-wrap { gap: 4px; padding: 5px 4px 5px 7px; }
+  .ap-hit { gap: 4px; }
+  .gem-wrap { gap: 3px; padding: 5px 4px 5px 6px; }
   .ap-gem-n { font-size: 0.74rem; }
-  /* 매력 칩도 같이 조여 게이지에 자리를 넘긴다 (320px 에서 8px) */
+  /* 매력 칩도 같이 조여 게이지에 자리를 넘긴다 */
   .header-charm { gap: 3px; padding: 3px 3px 3px 2px; }
   .hdr-tier { width: 22px; height: 22px; font-size: 0.88rem; }
   .hdr-charm { font-size: 0.84rem; padding: 0 6px 0 2px; }
+}
+
+@media (max-width: 340px) {
   /* 아이콘 버튼도 같이 줄인다 — 둘은 언제나 같은 크기여야 한다 */
   .icon-btn, .hdr-gear { width: 30px; height: 30px; }
   .icon-btn > svg, .hdr-gear > svg { width: 17px; height: 17px; }
@@ -1004,11 +1024,17 @@ body {
   .cauldron-actions > .btn { font-size: 0.86rem; padding: 13px 10px; }
 }
 
-/* 320px 미만 — 헤더에 결정 개수까지 담을 자리가 없다 (300px 에서 5px 모자란다).
-   개수를 감추고 + 버튼만 남긴다. **없어지는 정보가 아니다** — + 를 누르면
-   충전 패널의 '보유' 줄에 정확한 개수가 그대로 나온다. */
-@media (max-width: 319px) {
-  .ap-gem, .ap-gem-n { display: none; }
+/* 340px 아래 — 결정 알약의 **개수만** 감춘다 (💎 와 + 는 남는다).
+   **없어지는 정보가 아니다** — AP 의 + 를 누르면 충전 패널의 '보유' 줄에
+   정확한 개수가 나오고, 💎 를 누르면 무엇인지 알려 준다. */
+@media (max-width: 339px) {
+  .ap-gem-n { display: none; }
+}
+
+/* 300px 아래 — 개수를 감춰도 결정 알약이 들어갈 자리가 없다 (265px 에서 26px 모자란다).
+   알약을 통째로 감춘다. AP 의 + 로 충전 패널을 열면 보유량도 상점도 거기서 이어진다. */
+@media (max-width: 299px) {
+  .gem-wrap { display: none; }
 }
 
 /* ─── 파수꾼의 호박 밭 (미니게임) ───

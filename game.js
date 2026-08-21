@@ -471,7 +471,7 @@ function askCharge() {
   // 결정 아이콘은 **누를 수 있다** — 무엇인지·어디서 얻는지 토스트로 알려 준다
   const row = (label, n, lack) => `<div class="cf-row">
       <span class="cf-label">${label}</span>
-      <button class="cf-gem" onclick="crystalHelp(this)" aria-label="${T('crystal_name')}">${D.CRYSTAL.emoji}</button>
+      <button class="cf-gem" onclick="crystalHelp(this,'panel')" aria-label="${T('crystal_name')}">${D.CRYSTAL.emoji}</button>
       <span class="cf-n${lack ? ' lack' : ''}">${T('n_ea', { n: n.toLocaleString() })}</span>
     </div>`;
   showConfirm(T('ap_charge_ask'), () => doCharge(),
@@ -479,8 +479,15 @@ function askCharge() {
 }
 window.askCharge = askCharge;
 
-// 결정 아이콘 안내 — 이름과 획득처
-function crystalHelp(el) { toast(T('crystal_help'), el, 3200); }
+// AP 안내 — ⚡ 와 게이지를 누르면
+function apHelp(el) { toast(T('ap_help'), el, 3000); }
+window.apHelp = apHelp;
+
+// 결정 아이콘 안내. 헤더에서는 **무엇에 쓰는지**, 충전 패널에서는 **어디서 얻는지**를
+// 알려 준다 — 그 자리에서 궁금한 것이 서로 다르다.
+function crystalHelp(el, where) {
+  toast(T(where === 'panel' ? 'crystal_help' : 'crystal_help_hdr'), el, 3200);
+}
 window.crystalHelp = crystalHelp;
 
 function doCharge() {
@@ -499,11 +506,22 @@ function doCharge() {
   window.Sfx && Sfx.play('success');
 }
 
-// ─── 다이아 상점 (아직 없음) ───
-// 현자의 결정이 모자랄 때 이어지는 자리. 결제가 붙기 전까지는 안내만 한다.
-// **붙일 때 여기만 고치면 된다** — 모자란 경우는 전부 이 함수로 모인다.
-function openDiamondShop() { toast(T('shop_soon'), null, 3000); }
+// ─── 다이아 상점 ───
+// 현자의 결정이 모자랄 때 이어지는 자리. 수량을 고르면 확인 버튼이 그 가격이 된다.
+// **결제는 아직 없다** — buyDiamond() 안쪽만 채우면 된다.
+let _shopPick = 0;   // 고른 상품 (D.SHOP 의 인덱스)
+function openDiamondShop(pick) {
+  _shopPick = Math.max(0, Math.min(D.SHOP.length - 1, pick || 0));
+  const opts = D.SHOP.map((s, i) => `<button class="cat-tab${i === _shopPick ? ' active' : ''}"
+      onclick="openDiamondShop(${i})">${T('n_ea', { n: s.n.toLocaleString() })}</button>`).join('');
+  showConfirm(T('shop_ask'), buyDiamond,
+    `<div class="cat-tabs shop-opts">${opts}</div>`,
+    T('shop_price', { krw: D.SHOP[_shopPick].krw.toLocaleString() }));
+}
 window.openDiamondShop = openDiamondShop;
+
+// 결제. 붙기 전까지는 안내하고 패널을 닫는다 (showConfirm 의 콜백이라 이미 닫혀 있다).
+function buyDiamond() { toast(T('shop_unavailable'), null, 3000); }
 
 // 등급 아이콘 안내 — "○○ 단계"
 function tierHelp(el) {
@@ -2426,16 +2444,19 @@ function needsPlayerName() { return !S.name; }
 let _confirmCb = null;
 // html 을 주면 문구 아래에 붙는다 (보유/지불 같은 표). **문구 자체는 언제나 textContent 다** —
 // 이름처럼 사람이 넣은 값이 들어와도 태그로 해석되지 않게.
-function showConfirm(msg, cb, html) {
+function showConfirm(msg, cb, html, okLabel) {
   document.getElementById('confirmText').textContent = msg;
   const extra = document.getElementById('confirmExtra');
   extra.innerHTML = html || '';
   extra.style.display = html ? '' : 'none';
+  document.getElementById('confirmOk').textContent = okLabel || T('btn_ok');
   _confirmCb = cb;
   document.getElementById('confirmModal').classList.add('show');
 }
 function closeConfirm() {
   document.getElementById('confirmModal').classList.remove('show');
+  // 라벨을 되돌려 놓지 않으면 다음 패널이 남의 가격표를 달고 뜬다
+  document.getElementById('confirmOk').textContent = T('btn_ok');
   _confirmCb = null;
 }
 function confirmYes() {
