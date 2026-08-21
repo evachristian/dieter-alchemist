@@ -545,9 +545,32 @@ body {
   animation: recipePop 0.6s cubic-bezier(.2,1.3,.5,1) both;
 }
 @keyframes recipePop { 0% { transform: scale(0.94); opacity: 0; } 60% { transform: scale(1.03); } 100% { transform: scale(1); opacity: 1; } }
-.recipe-in { font-size: 0.95rem; }
-.recipe-arrow { color: var(--ink-soft); }
-.recipe-out { font-weight: 800; margin-left: auto; }
+/* 재료가 12가지까지 늘어나면서 오른쪽 이름이 '사막의 / 별' 로 쪼개졌다.
+   **줄여도 되는 쪽은 왼쪽 재료다** — 이모지 줄은 여러 줄로 접혀도 읽는 데 지장이 없지만,
+   이름이 두 줄로 갈라지면 무엇을 만드는지 한눈에 안 들어온다.
+   재료에 min-width:0 을 줘야 실제로 줄어든다 (flex 아이템의 자동 최소 폭은 콘텐츠 기준). */
+.recipe-in {
+  font-size: 0.95rem;
+  flex: 1 1 auto; min-width: 0; line-height: 1.55;
+}
+/* 재료 이모지 — 낱개로 누를 수 있다 (누르면 이름). 겉모습은 글자 그대로 두고
+   손가락이 닿을 자리만 조금 넓힌다 */
+.ing-dot {
+  border: none; background: none; padding: 0 1px; margin: 0;
+  font: inherit; line-height: inherit; color: inherit; cursor: pointer;
+  /* 버튼은 inline-block 이라 제 콘텐츠 폭만큼 커진다 — 부모보다 커지지 않게 막는다
+     (라벨 2배 검사에서 265px 기준 8px 넘쳤다) */
+  max-width: 100%;
+}
+.ing-dot:active { transform: scale(0.88); }
+.ing-plus { color: var(--ink-soft); padding: 0 2px; }
+.recipe-arrow { flex: none; color: var(--ink-soft); }
+.recipe-out {
+  font-weight: 800; margin-left: auto;
+  flex: 0 0 auto; white-space: nowrap;
+  /* 이름이 아무리 길어도 줄의 절반을 넘기지는 않게 — 넘치면 말줄임 (3단 방어의 마지막) */
+  max-width: 52%; overflow: hidden; text-overflow: ellipsis;
+}
 
 /* ─── 쇼케이스 ─── */
 /* 제목 · 저장 상태 · 초기화. 제목이 남는 폭을 먹고 저장 상태가 그 옆에 붙는다 */

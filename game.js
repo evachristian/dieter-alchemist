@@ -1136,7 +1136,12 @@ function renderAtelier() {
   const wantKey = (S.want && S.want.length) ? D.recipeKey(S.want) : '';
   bookEl.innerHTML = catRecipes.map(r => {
     const found = S.discovered.includes(r.result.id);
-    const inputs = r.inputs.map(id => D.INGREDIENTS[id].emoji).join(' + ');
+    // 재료 이모지 하나하나가 **누를 수 있는 것**이다 — 눌러야 이름을 알 수 있다.
+    // 줄 자체도 누르는 것이라(솥에 담기) stopPropagation 으로 갈라 놓는다
+    const inputs = r.inputs.map(id =>
+      `<button class="ing-dot" onclick="event.stopPropagation();ingHint('${id}',this)"
+        aria-label="${N(id, D.INGREDIENTS[id].name)}">${D.INGREDIENTS[id].emoji}</button>`
+    ).join('<span class="ing-plus">+</span>');
     if (found) {
       // 재료가 다 있어야 담을 수 있다. 모자라면 회색으로 두고, 눌렀을 때 이유를 알려 준다
       const ready = hasAllInputs(r);
@@ -2245,6 +2250,15 @@ function fillFromRecipe(resultId, el) {
 // 아직 모르는 레시피를 눌렀을 때
 function unknownRecipeHint(el) { toast(T('recipe_unknown'), el, null, 'above'); }
 window.unknownRecipeHint = unknownRecipeHint;
+
+// 레시피 줄의 재료 이모지를 눌렀을 때 — 그 자리에 이름을 띄운다.
+// 이모지만으로는 무엇인지 알 수 없는 재료가 많다 (씨앗·이끼·조각 종류가 특히 그렇다)
+function ingHint(id, el) {
+  const ing = D.INGREDIENTS[id];
+  if (!ing) return;
+  toast(N(id, ing.name), el, null, 'above');
+}
+window.ingHint = ingHint;
 
 // ─── 신체 · 아우라 상세 수치 표시 ───
 function renderVitals() {
