@@ -10,6 +10,7 @@
 //   node tools/checkui.js showcase atelier gather   # 탭을 옮겨 가며
 //   BASE=https://... node tools/checkui.js showcase # 배포본을 상대로
 //   W=265 node tools/checkui.js showcase         # 좁은 화면에서 (UI_POLICY '가변 폭')
+//   FULL=1 node tools/checkui.js showcase atelier   # 가진 것을 채우고, 접힌 것까지 펼쳐서
 //   VERBOSE=1 node tools/checkui.js              # 페이지 콘솔까지 같이 출력
 //
 // 종료 코드: 0 = 전부 pass, 1 = 통과 못한 화면 있음, 2 = 하네스 자체가 실패
@@ -50,13 +51,14 @@ function launchOpts() {
   page.on('console', m => logs.push(`[${m.type()}] ${m.text()}`));
   page.on('pageerror', e => logs.push(`[pageerror] ${e.message}`));
 
-  // 첫 로드 전에 localStorage 를 심어 인트로를 건너뛰고 메인 화면부터 시작한다
-  await page.addInitScript(() => {
+  // 첫 로드 전에 localStorage 를 심어 인트로를 건너뛰고 메인 화면부터 시작한다.
+  // FULL 이면 튜토리얼까지 마친 상태로 — 크리처 탭 같은 것이 잠겨 있으면 잴 수 없다.
+  await page.addInitScript((full) => {
     localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
-    localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify({
-      ver: 5, name: 'Tester', nameClaimed: true
-    }));
-  });
+    localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
+      full ? { ver: 8, name: 'Tester', nameClaimed: true, tutorialDone: true, crystal: 1240 }
+           : { ver: 5, name: 'Tester', nameClaimed: true }));
+  }, !!process.env.FULL);
 
   await page.goto(BASE, { waitUntil: 'load' });
   // 스플래시가 스스로 사라지길 기다리되, 안 사라지면 직접 치운다
@@ -68,6 +70,27 @@ function launchOpts() {
     if (i) i.style.display = 'none';
   });
   await page.waitForTimeout(300);
+
+  // ─── FULL: '가진 것' 을 채우고 접힌 것을 펼친다 ───
+  // **아무것도 없는 세이브는 검사망에 큰 구멍을 남긴다.** 재료·물약이 하나도 없으면
+  // 가방 칸도 선반 칸도 아예 그려지지 않아 checkUI 가 볼 것이 없고, 접혀 있는 가방은
+  // display:none 이라 또 빠진다. 실제로 이 구멍에 재료 개수 글자(1.4:1)와
+  // 물약 카드의 '?'(10.6px)가 오래 숨어 있었다.
+  if (process.env.FULL) {
+    const seeded = await page.evaluate(() => {
+      if (typeof devFillItems !== 'function') return '개발용 함수가 없다';
+      devFillItems();                      // 재료 전부
+      const pots = D.RECIPES.filter(r => r.result.kind === 'potion').slice(0, 3);
+      const crs  = D.RECIPES.filter(r => r.result.kind === 'creature').slice(0, 2);
+      pots.forEach((r, i) => { S.potions[r.result.id] = i + 1; });
+      S.creatures = crs.map(r => r.result.id);
+      if (typeof bagOpen !== 'undefined' && !bagOpen) toggleBag();   // 채집 가방 펼치기
+      save(); render();
+      return null;
+    });
+    if (seeded) { console.error('FULL 준비 실패:', seeded); process.exit(2); }
+    await page.waitForTimeout(250);
+  }
 
   const results = [];
   const run = async (label) => {
@@ -93,6 +116,19 @@ function launchOpts() {
       }, t);
       if (r) { results.push({ 화면: t, ...r }); continue; }
       await page.waitForTimeout(250);
+      // 마이 룸은 하위 탭마다 내용이 통째로 다르다 — FULL 이면 셋을 다 돌아본다
+      if (process.env.FULL && t === 'showcase') {
+        for (const sub of ['clothes', 'potions', 'creatures']) {
+          const bad = await page.evaluate((s) => {
+            setRoomTab(s);
+            return roomTab === s ? null : `하위 탭이 열리지 않았다 (${s})`;
+          }, sub);
+          if (bad) { results.push({ 화면: `${t}/${sub}`, 오류: bad }); continue; }
+          await page.waitForTimeout(250);
+          await run(`${t}/${sub}`);
+        }
+        continue;
+      }
       await run(t);
     }
   }
