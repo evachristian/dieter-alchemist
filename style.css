@@ -439,7 +439,9 @@ body {
   padding: 4px 10px; border-radius: 999px; cursor: pointer;
 }
 .tune-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.tune-label { flex: 1 1 auto; font-size: 0.78rem; font-weight: 700; color: var(--ink); }
+/* min-width:auto 인 flex 아이템은 글자 길이만큼 버티고 줄어들지 않는다 —
+   영어 라벨이 길어지면 그만큼 줄 전체가 넘쳐 문서에 가로 스크롤이 생겼다 */
+.tune-label { flex: 1 1 auto; min-width: 0; font-size: 0.78rem; font-weight: 700; color: var(--ink); }
 /* 값 폭을 고정해 숫자가 바뀌어도 버튼이 움직이지 않게 한다 */
 .tune-val {
   flex: 0 0 52px; text-align: center; font-size: 0.76rem; font-weight: 800;
@@ -1251,7 +1253,10 @@ body {
 /* flex-grow 를 주면 줄 끝에 혼자 남은 버튼이 남은 폭을 다 먹는다 —
    '문신' 하나만 유독 길어 보였던 이유. 글자 폭대로 두고 줄어들기만 하게 한다 */
 .dev-row .btn-dev { width: auto; flex: 0 1 auto; min-width: 0; padding: 9px 12px; }
-.dev-gift { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* <button> 은 inline-block 이라 내용만큼 커진다. nowrap 과 겹치면 좁은 화면에서
+   부모를 밀고 나가므로 폭 상한을 걸고 넘치는 글자는 잘라 낸다 (잘림은 '주의') */
+.dev-gift { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  max-width: 100%; overflow: hidden; }
 /* opacity 로 흐리게 했더니 대비가 3.48:1 로 떨어졌다 (checkTextStyle).
    보조로 보이는 것은 크기 차이로 충분하다 — 색은 그대로 둔다 */
 .dev-gift-n { font-size: 0.74rem; font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -1264,3 +1269,10 @@ body {
 }
 /* 켜져 있는 스위치 (모든 맵 오픈 등) */
 .btn-dev.on { background: linear-gradient(135deg, #ffd06a, #ffb066); border-style: solid; }
+/* 방 배경 단계 고르기 — 제목 한 칸 + 숫자 버튼 다섯 개 */
+.dev-roomlv { align-items: center; }
+.dev-roomlv-t {
+  font-size: 0.8rem; font-weight: 800; color: var(--ink); white-space: nowrap;
+}
+/* 숫자 하나뿐이라 좌우 여백을 줄이면 다섯 개가 좁은 화면에서도 한 줄에 들어간다 */
+.dev-roomlv .btn-dev { padding: 9px 0; min-width: 34px; text-align: center; }

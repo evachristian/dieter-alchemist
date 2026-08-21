@@ -759,10 +759,31 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  //  마이 룸 배경 — "텅 빈 중세 방" (아뜰리에 톤)
-  //  돌벽 · 아치 창문/달빛 · 나무 바닥만. 가구/소품은 추후 사용자가 배치.
+  //  마이 룸 배경 — 5단계로 커지는 방
+  //
+  //  구조는 **껍데기(shell) + 소품(prop)** 두 겹이다.
+  //  · 껍데기 = 벽 · 창문 · 바닥. 단계에 따라 색만 바뀌고 형태는 그대로다
+  //  · 소품   = 이름이 붙은 조각들(`ROOM_PROPS`). 단계마다 어떤 소품을 놓을지
+  //             `ROOM_LEVELS` 가 id 목록으로 정한다
+  //
+  //  **추후 '마이 룸 꾸미기' 를 붙일 자리가 여기다.** 소품이 id 로 구분돼 있으므로
+  //  플레이어가 고른 소품 id 목록을 `roomScene(level, extra)` 의 `extra` 로 넘기면
+  //  그대로 얹힌다 — 단계별 기본 소품은 건드리지 않는다.
+  //  그리는 순서는 `ROOM_Z`(뒤→앞)가 정한다. 목록에 넣은 순서와 무관하게
+  //  항상 같은 앞뒤 관계로 겹치게 하려는 것이다.
+  //
   //  (viewBox를 넓게 잡고 CSS에서 전체 폭으로 슬라이스 → 네모 프레임 없이 열린 방)
+  //  가운데(x 150~250)는 아바타가 서는 자리라 소품을 놓지 않는다.
   // ═══════════════════════════════════════════════════════════════
+  // 창문 한 곳에서만 좌표를 정한다 — 튜토리얼 인트로(intro.js)의 둥근 사각 창과 같은 모양.
+  // f* = 바깥 나무틀, i* = 유리(하늘이 보이는 안쪽), m* = 창살
+  let roomUid = 0;   // 방을 여러 개 그릴 때 SVG id 가 겹치지 않게 붙이는 일련번호
+  const WIN = {
+    fx: 262, fy: 100, fw: 80, fh: 104, fr: 7,
+    ix: 269, iy: 107, iw: 66, ih: 90,  ir: 5,
+    mx: 302, my: 152, mw: 5,
+  };
+
   // 시간대별 창밖 하늘 (한국시간 UTC+9 기준) — 아이폰 날씨 앱처럼 시간에 따라 변화
   function skyPhase(now) {
     const d = now || new Date();
@@ -775,8 +796,8 @@
     return 'night';                          // 밤
   }
 
-  // 창 안쪽(하늘 + 천체) 그리기. cx,cy = 창 중심
-  function skyView(phase) {
+  // 창 안쪽(하늘 + 천체) 그리기. skyId = 하늘 그라디언트의 id (호출마다 다르다)
+  function skyView(phase, skyId) {
     const SKY = {
       dawn:    ['#5a5a92', '#f0a97a'],
       day:     ['#7fb8e8', '#cfe6f5'],
@@ -785,99 +806,273 @@
       night:   ['#20203c', '#3b3358'],
     }[phase] || ['#20203c', '#3b3358'];
 
-    let body = `<rect x="264" y="86" width="76" height="106" fill="url(#skyDyn)"/>`;
+    // 천체 좌표는 창 안쪽(WIN.ix~ / WIN.iy~)에 맞춰 둔 값이다.
+    // 창 위치를 옮기면 여기도 같이 옮겨야 한다.
+    let body = `<rect x="${WIN.ix}" y="${WIN.iy}" width="${WIN.iw}" height="${WIN.ih}" fill="url(#${skyId})"/>`;
 
     if (phase === 'day') {
-      body += `<circle cx="316" cy="112" r="13" fill="#fff3b0"/><circle cx="316" cy="112" r="19" fill="#fff3b0" opacity="0.35"/>
-        <ellipse cx="286" cy="140" rx="17" ry="7" fill="#fff" opacity="0.75"/>
-        <ellipse cx="296" cy="136" rx="11" ry="6" fill="#fff" opacity="0.75"/>
-        <ellipse cx="320" cy="164" rx="14" ry="6" fill="#fff" opacity="0.5"/>`;
+      body += `<circle cx="316" cy="128" r="13" fill="#fff3b0"/><circle cx="316" cy="128" r="19" fill="#fff3b0" opacity="0.35"/>
+        <ellipse cx="288" cy="150" rx="17" ry="7" fill="#fff" opacity="0.75"/>
+        <ellipse cx="298" cy="146" rx="11" ry="6" fill="#fff" opacity="0.75"/>
+        <ellipse cx="318" cy="176" rx="14" ry="6" fill="#fff" opacity="0.5"/>`;
     } else if (phase === 'dawn' || phase === 'dusk') {
-      body += `<circle cx="300" cy="150" r="14" fill="#ffd08a"/><circle cx="300" cy="150" r="21" fill="#ffd08a" opacity="0.3"/>
-        <ellipse cx="300" cy="166" rx="34" ry="7" fill="#ffb27a" opacity="0.35"/>
-        <ellipse cx="284" cy="130" rx="15" ry="6" fill="#ffd9c0" opacity="0.55"/>`;
+      body += `<circle cx="302" cy="152" r="14" fill="#ffd08a"/><circle cx="302" cy="152" r="21" fill="#ffd08a" opacity="0.3"/>
+        <ellipse cx="302" cy="170" rx="34" ry="7" fill="#ffb27a" opacity="0.35"/>
+        <ellipse cx="286" cy="132" rx="15" ry="6" fill="#ffd9c0" opacity="0.55"/>`;
     } else {
-      body += `<circle cx="320" cy="110" r="11" fill="#fff7e0"/><circle cx="314" cy="106" r="8.5" fill="url(#skyDyn)" opacity="0.6"/>
-        <circle cx="280" cy="104" r="1.5" fill="#fff"/><circle cx="292" cy="126" r="1.2" fill="#fff"/>
-        <circle cx="276" cy="150" r="1.4" fill="#fff"/><circle cx="330" cy="150" r="1.1" fill="#fff"/>
-        <circle cx="300" cy="94" r="1" fill="#fff"/><circle cx="316" cy="172" r="1.2" fill="#fff"/>`;
+      body += `<circle cx="318" cy="126" r="11" fill="#fff7e0"/><circle cx="312" cy="122" r="8.5" fill="url(#${skyId})" opacity="0.6"/>
+        <circle cx="282" cy="124" r="1.5" fill="#fff"/><circle cx="292" cy="140" r="1.2" fill="#fff"/>
+        <circle cx="278" cy="166" r="1.4" fill="#fff"/><circle cx="328" cy="166" r="1.1" fill="#fff"/>
+        <circle cx="302" cy="114" r="1" fill="#fff"/><circle cx="316" cy="184" r="1.2" fill="#fff"/>`;
     }
     return { body, SKY };
   }
 
-  // 마이 룸 배경 — 텔레포트해 온 허름한 연금술 공방 (창문은 우측)
-  function roomScene() {
+  // ─── 단계별 색 (벽 위/아래, 바닥 위/아래, 벽 이음새, 창틀) ───
+  const ROOM_MAX = 5;
+  const ROOM_SKIN = {
+    1: { wall: ['#a8977c', '#7a6a54'], floor: ['#6b4e30', '#452f1b'], seam: 'rgba(40,32,26,0.26)', frame: '#4a3a2c' },
+    2: { wall: ['#cbb99c', '#9d8a70'], floor: ['#7d5c39', '#5a4026'], seam: 'rgba(40,32,26,0.22)', frame: '#4a3a2c' },
+    3: { wall: ['#dcc9a8', '#ab967a'], floor: ['#8a663f', '#63472a'], seam: 'rgba(40,32,26,0.16)', frame: '#5c4632' },
+    4: { wall: ['#e0d0bd', '#a89078'], floor: ['#7d5b46', '#523a2c'], seam: 'rgba(40,32,26,0.12)', frame: '#6b4f37' },
+    5: { wall: ['#efe6f6', '#c0aed2'], floor: ['#6e4c56', '#46303a'], seam: 'rgba(90,70,110,0.14)', frame: '#8a6f4a' },
+  };
+
+  // ─── 소품 ───
+  // 값은 「id → SVG 조각을 만드는 함수」. 인자 `k` 는 단계별 색(ROOM_SKIN 의 한 줄).
+  // 새 소품을 늘리면 여기에 넣고 ROOM_Z 의 순서에도 끼워 넣는다.
+  const ROOM_PROPS = {
+    // 갈라진 금 — 허름한 단계에만
+    crack: () => `
+      <path d="M46,66 L56,96 L44,124 L56,158" stroke="rgba(40,32,26,0.28)" stroke-width="2.2" fill="none"/>
+      <path d="M372,130 L362,160 L374,190" stroke="rgba(40,32,26,0.22)" stroke-width="1.8" fill="none"/>`,
+    // 거미줄 (좌상단)
+    cobweb: () => `
+      <g stroke="rgba(255,255,255,0.16)" stroke-width="1.4" fill="none">
+        <path d="M0,0 L52,52 M0,26 L52,52 M26,0 L52,52"/>
+        <path d="M10,10 Q24,16 28,28 M20,20 Q34,26 38,38"/>
+      </g>`,
+    // 벽 아래쪽 나무 판자(굽도리)
+    wainscot: k => `
+      <rect x="0" y="168" width="400" height="72" fill="${k.frame}" opacity="0.55"/>
+      <rect x="0" y="164" width="400" height="7" rx="2" fill="${k.frame}"/>
+      <g stroke="rgba(0,0,0,0.18)" stroke-width="1.5">
+        <line x1="50" y1="174" x2="50" y2="240"/><line x1="110" y1="174" x2="110" y2="240"/>
+        <line x1="170" y1="174" x2="170" y2="240"/><line x1="230" y1="174" x2="230" y2="240"/>
+        <line x1="350" y1="174" x2="350" y2="240"/>
+      </g>`,
+    // 천장 몰딩
+    moulding: k => `
+      <rect x="0" y="0" width="400" height="16" fill="${k.frame}"/>
+      <rect x="0" y="16" width="400" height="5" fill="rgba(255,240,200,0.35)"/>`,
+    // 벽 아치 부조 — 5단계 대저택.
+    // 기둥 대신 부조로 둔 이유: 우측은 창문·커튼·화분이 이미 차 있어 기둥을 세울 자리가 없다
+    arches: () => {
+      let s = '';
+      for (let x = 20; x < 400; x += 80) {
+        s += `<path d="M${x},108 L${x},52 A26,26 0 0 1 ${x + 52},52 L${x + 52},108 Z"
+          fill="rgba(255,255,255,0.16)" stroke="rgba(120,96,150,0.18)" stroke-width="2"/>`;
+      }
+      return s;
+    },
+    // 액자 (좌측 벽)
+    frame: k => `
+      <rect x="86" y="70" width="46" height="56" rx="3" fill="${k.frame}"/>
+      <rect x="92" y="76" width="34" height="44" rx="2" fill="#cfd9e8"/>
+      <path d="M92,120 L104,98 L114,110 L122,92 L126,120 Z" fill="#8aa87e"/>
+      <circle cx="116" cy="88" r="5" fill="#f5e08a"/>`,
+    // 벽 촛대
+    candle: () => `
+      <g>
+        <rect x="46" y="96" width="6" height="16" rx="2" fill="#8a6f4a"/>
+        <rect x="40" y="76" width="18" height="22" rx="3" fill="#f3ead6"/>
+        <ellipse cx="49" cy="70" rx="5" ry="8" fill="#ffcf6a"/>
+        <ellipse cx="49" cy="70" rx="11" ry="15" fill="#ffcf6a" opacity="0.22"/>
+        <rect x="366" y="96" width="6" height="16" rx="2" fill="#8a6f4a"/>
+        <rect x="360" y="76" width="18" height="22" rx="3" fill="#f3ead6"/>
+        <ellipse cx="369" cy="70" rx="5" ry="8" fill="#ffcf6a"/>
+        <ellipse cx="369" cy="70" rx="11" ry="15" fill="#ffcf6a" opacity="0.22"/>
+      </g>`,
+    // 낡은 선반 + 약병 (좌측)
+    shelf: k => `
+      <rect x="24" y="176" width="92" height="7" rx="2" fill="${k.frame}"/>
+      <rect x="38" y="152" width="13" height="24" rx="4" fill="#5f7a6a"/>
+      <rect x="60" y="158" width="12" height="18" rx="5" fill="#7a5f6a"/>
+      <rect x="82" y="148" width="12" height="28" rx="4" fill="#6a6a4a"/>`,
+    // 책장 (좌측 바닥까지)
+    bookshelf: k => `
+      <rect x="12" y="118" width="86" height="122" rx="4" fill="${k.frame}"/>
+      <rect x="18" y="124" width="74" height="110" fill="rgba(0,0,0,0.28)"/>
+      <g>
+        <rect x="22" y="128" width="9" height="32" fill="#a8556a"/><rect x="33" y="132" width="8" height="28" fill="#5f7a9a"/>
+        <rect x="43" y="126" width="10" height="34" fill="#6a8a5f"/><rect x="55" y="134" width="8" height="26" fill="#c08a4a"/>
+        <rect x="65" y="130" width="9" height="30" fill="#8a6a9a"/>
+        <rect x="22" y="172" width="8" height="30" fill="#7a9a8a"/><rect x="32" y="176" width="10" height="26" fill="#b06a6a"/>
+        <rect x="44" y="170" width="9" height="32" fill="#5f6a9a"/><rect x="55" y="178" width="8" height="24" fill="#9a8a4a"/>
+      </g>
+      <rect x="18" y="162" width="74" height="6" fill="${k.frame}"/>
+      <rect x="18" y="204" width="74" height="6" fill="${k.frame}"/>`,
+    // 화분 (우측 창 아래)
+    plant: () => `
+      <path d="M356,240 L352,214 L382,214 L378,240 Z" fill="#a86a4a"/>
+      <rect x="350" y="208" width="34" height="9" rx="3" fill="#bd7a56"/>
+      <g fill="#6f9a63">
+        <ellipse cx="358" cy="196" rx="8" ry="14" transform="rotate(-24 358 196)"/>
+        <ellipse cx="374" cy="196" rx="8" ry="14" transform="rotate(24 374 196)"/>
+        <ellipse cx="366" cy="188" rx="7" ry="16"/>
+      </g>`,
+    // 창문 커튼
+    curtain: () => `
+      <rect x="${WIN.fx - 14}" y="${WIN.fy - 12}" width="${WIN.fw + 28}" height="7" rx="3" fill="#8a6f4a"/>
+      <path d="M${WIN.fx - 12},${WIN.fy - 8} L${WIN.fx + 12},${WIN.fy - 8} L${WIN.fx + 6},${WIN.fy + WIN.fh + 8}
+        Q${WIN.fx - 2},${WIN.fy + WIN.fh + 2} ${WIN.fx - 12},${WIN.fy + WIN.fh + 8} Z" fill="#9a5f72"/>
+      <path d="M${WIN.fx + WIN.fw - 12},${WIN.fy - 8} L${WIN.fx + WIN.fw + 12},${WIN.fy - 8}
+        L${WIN.fx + WIN.fw + 12},${WIN.fy + WIN.fh + 8}
+        Q${WIN.fx + WIN.fw + 2},${WIN.fy + WIN.fh + 2} ${WIN.fx + WIN.fw - 6},${WIN.fy + WIN.fh + 8} Z" fill="#9a5f72"/>
+      <g stroke="rgba(0,0,0,0.16)" stroke-width="2" fill="none">
+        <path d="M${WIN.fx - 4},${WIN.fy - 6} L${WIN.fx + 1},${WIN.fy + WIN.fh}"/>
+        <path d="M${WIN.fx + WIN.fw + 4},${WIN.fy - 6} L${WIN.fx + WIN.fw - 1},${WIN.fy + WIN.fh}"/>
+      </g>`,
+    // 창틀 황금 장식
+    goldTrim: () => `
+      <rect x="${WIN.fx - 4}" y="${WIN.fy - 4}" width="${WIN.fw + 8}" height="${WIN.fh + 8}" rx="10"
+        fill="none" stroke="#d9b45f" stroke-width="3"/>
+      <circle cx="${WIN.fx + WIN.fw / 2}" cy="${WIN.fy - 10}" r="7" fill="#d9b45f"/>
+      <circle cx="${WIN.fx + WIN.fw / 2}" cy="${WIN.fy - 10}" r="3" fill="#fff2c4"/>`,
+    // 작은 러그
+    rugSmall: () => `
+      <ellipse cx="200" cy="290" rx="96" ry="26" fill="#8a5f6a" opacity="0.75"/>
+      <ellipse cx="200" cy="290" rx="76" ry="19" fill="none" stroke="rgba(255,235,205,0.4)" stroke-width="2"/>`,
+    // 큰 카펫
+    rugBig: () => `
+      <ellipse cx="200" cy="288" rx="150" ry="38" fill="#8e3f4e"/>
+      <ellipse cx="200" cy="288" rx="150" ry="38" fill="none" stroke="#d9b45f" stroke-width="3"/>
+      <ellipse cx="200" cy="288" rx="120" ry="28" fill="none" stroke="#d9b45f" stroke-width="2" opacity="0.7"/>
+      <ellipse cx="200" cy="288" rx="60" ry="14" fill="#a04d5c"/>`,
+    // 바닥 마법진
+    circle: () => `
+      <g fill="none" stroke="#cba8f0" stroke-width="2" opacity="0.75">
+        <ellipse cx="200" cy="288" rx="104" ry="26"/>
+        <ellipse cx="200" cy="288" rx="72" ry="18"/>
+        <path d="M96,288 L200,270 L304,288 L200,306 Z"/>
+      </g>
+      <g fill="#e6d0ff" opacity="0.85">
+        <circle cx="96" cy="288" r="3"/><circle cx="304" cy="288" r="3"/>
+        <circle cx="200" cy="270" r="3"/><circle cx="200" cy="306" r="3"/>
+      </g>`,
+    // 샹들리에 (천장 · 아바타 머리 위를 피해 위쪽에만)
+    chandelier: () => `
+      <line x1="200" y1="0" x2="200" y2="22" stroke="#8a6f4a" stroke-width="3"/>
+      <ellipse cx="200" cy="28" rx="46" ry="9" fill="none" stroke="#d9b45f" stroke-width="4"/>
+      <g fill="#ffcf6a">
+        <rect x="162" y="16" width="6" height="13" rx="2" fill="#f3ead6"/><ellipse cx="165" cy="12" rx="4" ry="6"/>
+        <rect x="197" y="14" width="6" height="15" rx="2" fill="#f3ead6"/><ellipse cx="200" cy="9" rx="4" ry="6"/>
+        <rect x="232" y="16" width="6" height="13" rx="2" fill="#f3ead6"/><ellipse cx="235" cy="12" rx="4" ry="6"/>
+      </g>
+      <ellipse cx="200" cy="24" rx="62" ry="24" fill="#ffcf6a" opacity="0.16"/>
+      <g fill="#ffe9a8" opacity="0.8">
+        <circle cx="176" cy="38" r="2.5"/><circle cx="200" cy="42" r="2.5"/><circle cx="224" cy="38" r="2.5"/>
+      </g>`,
+  };
+
+  // 그리는 순서(뒤 → 앞). 벽 → 창문 → 바닥 → 천장 순서로 겹친다.
+  const ROOM_Z = [
+    'wainscot', 'moulding', 'arches', 'crack', 'cobweb', 'frame', 'candle', 'bookshelf', 'shelf',
+    '@window',
+    'curtain', 'goldTrim', 'plant',
+    '@floor',
+    'rugSmall', 'rugBig', 'circle',
+    '@beam',
+    'chandelier',
+  ];
+
+  // 단계별 기본 소품. 위 단계라고 아래 것을 다 물려받지는 않는다 —
+  // 거미줄·균열은 방이 좋아지면 사라지고, 작은 러그는 큰 카펫으로 바뀐다.
+  const ROOM_LEVELS = {
+    1: ['crack', 'cobweb'],
+    2: ['crack', 'shelf', 'rugSmall'],
+    3: ['wainscot', 'shelf', 'frame', 'curtain', 'plant', 'rugSmall'],
+    4: ['wainscot', 'moulding', 'bookshelf', 'shelf', 'frame', 'candle', 'curtain', 'plant', 'rugBig'],
+    5: ['wainscot', 'moulding', 'arches', 'bookshelf', 'frame', 'candle', 'curtain', 'goldTrim',
+        'plant', 'rugBig', 'circle', 'chandelier'],
+  };
+
+  // 마이 룸 배경 — 텔레포트해 온 연금술 공방이 단계에 따라 번듯해진다 (창문은 우측)
+  // level : 1~5 (기본 1)
+  // extra : 추가로 얹을 소품 id 목록 — 추후 '마이 룸 꾸미기' 가 쓸 자리
+  function roomScene(level, extra) {
+    const lv = Math.min(ROOM_MAX, Math.max(1, Math.round(Number(level) || 1)));
+    // SVG 의 id 는 **문서 전체에서 공유된다.** 방을 두 개 이상 한 화면에 그리면
+    // 뒤에 온 쪽이 앞 쪽의 그라디언트를 그대로 써 버려 단계별 색이 전부 같아진다
+    // (5단계 미리보기를 나란히 놓다가 실제로 겪었다). 그래서 부를 때마다 꼬리표를 붙인다.
+    const u = 'r' + (++roomUid);
+    const ID = n => `${n}_${u}`;
+    const k = ROOM_SKIN[lv];
+    const want = new Set(ROOM_LEVELS[lv].concat(Array.isArray(extra) ? extra : []));
+
     const phase = skyPhase();
-    const sky = skyView(phase);
-    // 낮일수록 실내도 조금 밝게
-    const warm = (phase === 'day') ? 0.30 : (phase === 'dawn' || phase === 'dusk') ? 0.24 : 0.14;
+    const sky = skyView(phase, ID('skyDyn'));
+    // 낮일수록, 방이 좋을수록 실내도 조금 밝게
+    const warm = ((phase === 'day') ? 0.30 : (phase === 'dawn' || phase === 'dusk') ? 0.24 : 0.14)
+      + (lv - 1) * 0.03;
 
-    return `<svg class="room-svg" viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-      <defs>
-        <linearGradient id="wallG" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#cbb99c"/><stop offset="1" stop-color="#9d8a70"/>
-        </linearGradient>
-        <linearGradient id="floorG" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#7d5c39" stop-opacity="1"/><stop offset="1" stop-color="#5a4026"/>
-        </linearGradient>
-        <linearGradient id="skyDyn" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="${sky.SKY[0]}"/><stop offset="1" stop-color="${sky.SKY[1]}"/>
-        </linearGradient>
-        <linearGradient id="beamG" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="rgba(255,240,190,${warm})"/><stop offset="1" stop-color="rgba(255,240,190,0)"/>
-        </linearGradient>
-        <radialGradient id="vigG" cx="0.5" cy="0.42" r="0.78">
-          <stop offset="0.4" stop-color="rgba(0,0,0,0)"/><stop offset="1" stop-color="rgba(12,8,20,0.42)"/>
-        </radialGradient>
-      </defs>
-
-      <!-- 돌벽 -->
-      <rect x="0" y="0" width="400" height="240" fill="url(#wallG)"/>
-      <g stroke="rgba(40,32,26,0.22)" stroke-width="2">
+    // 벽 이음새 — 돌벽은 아래 단계에서만 진하게 보인다
+    const stone = `<g stroke="${k.seam}" stroke-width="2">
         <line x1="0" y1="60" x2="400" y2="60"/><line x1="0" y1="120" x2="400" y2="120"/><line x1="0" y1="180" x2="400" y2="180"/>
         <line x1="60" y1="0" x2="60" y2="60"/><line x1="210" y1="0" x2="210" y2="60"/><line x1="330" y1="0" x2="330" y2="60"/>
         <line x1="20" y1="60" x2="20" y2="120"/><line x1="140" y1="60" x2="140" y2="120"/><line x1="250" y1="60" x2="250" y2="120"/>
         <line x1="90" y1="120" x2="90" y2="180"/><line x1="360" y1="120" x2="360" y2="180"/>
-      </g>
-      <!-- 갈라진 금 -->
-      <path d="M46,66 L56,96 L44,124 L56,158" stroke="rgba(40,32,26,0.28)" stroke-width="2.2" fill="none"/>
-      <path d="M372,130 L362,160 L374,190" stroke="rgba(40,32,26,0.22)" stroke-width="1.8" fill="none"/>
-      <!-- 거미줄 (좌상단) -->
-      <g stroke="rgba(255,255,255,0.16)" stroke-width="1.4" fill="none">
-        <path d="M0,0 L52,52 M0,26 L52,52 M26,0 L52,52"/>
-        <path d="M10,10 Q24,16 28,28 M20,20 Q34,26 38,38"/>
-      </g>
+      </g>`;
 
-      <!-- 우측 아치 창문 (아바타 머리와 겹치지 않도록) -->
-      <path d="M256,196 L256,120 A46,46 0 0 1 348,120 L348,196 Z" fill="#4a3a2c"/>
-      <path d="M264,192 L264,122 A38,38 0 0 1 340,122 L340,192 Z" fill="#2a2438"/>
-      <clipPath id="winClip"><path d="M264,192 L264,122 A38,38 0 0 1 340,122 L340,192 Z"/></clipPath>
-      <g clip-path="url(#winClip)">${sky.body}</g>
-      <line x1="302" y1="84" x2="302" y2="192" stroke="#4a3a2c" stroke-width="5"/>
-      <line x1="264" y1="150" x2="340" y2="150" stroke="#4a3a2c" stroke-width="5"/>
-      <path d="M256,196 L348,196 L352,204 L252,204 Z" fill="#4a3a2c"/>
+    // 창문 — 튜토리얼 인트로와 같은 둥근 사각 창
+    const win = `
+      <rect x="${WIN.fx}" y="${WIN.fy}" width="${WIN.fw}" height="${WIN.fh}" rx="${WIN.fr}" fill="${k.frame}"/>
+      <rect x="${WIN.ix}" y="${WIN.iy}" width="${WIN.iw}" height="${WIN.ih}" rx="${WIN.ir}" fill="#2a2438"/>
+      <clipPath id="${ID('winClip')}"><rect x="${WIN.ix}" y="${WIN.iy}" width="${WIN.iw}" height="${WIN.ih}" rx="${WIN.ir}"/></clipPath>
+      <g clip-path="url(#${ID('winClip')})">${sky.body}</g>
+      <line x1="${WIN.mx}" y1="${WIN.iy}" x2="${WIN.mx}" y2="${WIN.iy + WIN.ih}" stroke="${k.frame}" stroke-width="${WIN.mw}"/>
+      <line x1="${WIN.ix}" y1="${WIN.my}" x2="${WIN.ix + WIN.iw}" y2="${WIN.my}" stroke="${k.frame}" stroke-width="${WIN.mw}"/>`;
 
-      <!-- 낡은 선반 + 약병 (좌측) -->
-      <rect x="24" y="176" width="92" height="7" rx="2" fill="#4a3a2c"/>
-      <rect x="38" y="152" width="13" height="24" rx="4" fill="#5f7a6a"/>
-      <rect x="60" y="158" width="12" height="18" rx="5" fill="#7a5f6a"/>
-      <rect x="82" y="148" width="12" height="28" rx="4" fill="#6a6a4a"/>
-
-      <!-- 나무 바닥 -->
-      <rect x="0" y="235" width="400" height="85" fill="url(#floorG)"/>
-      <rect x="0" y="235" width="400" height="6" fill="#43331f"/>
-      <g stroke="#43331f" stroke-width="2" opacity="0.55">
+    const floor = `
+      <rect x="0" y="235" width="400" height="85" fill="url(#${ID('floorG')})"/>
+      <rect x="0" y="235" width="400" height="6" fill="${k.floor[1]}"/>
+      <g stroke="${k.floor[1]}" stroke-width="2" opacity="0.55">
         <line x1="120" y1="241" x2="70" y2="320"/><line x1="200" y1="241" x2="200" y2="320"/><line x1="280" y1="241" x2="330" y2="320"/>
         <line x1="40" y1="241" x2="-40" y2="320"/><line x1="360" y1="241" x2="440" y2="320"/>
       </g>
-      <line x1="0" y1="280" x2="400" y2="280" stroke="#43331f" stroke-width="1.5" opacity="0.5"/>
+      <line x1="0" y1="280" x2="400" y2="280" stroke="${k.floor[1]}" stroke-width="1.5" opacity="0.5"/>`;
 
-      <!-- 창에서 들어오는 빛 -->
-      <path d="M268,196 L338,196 L376,320 L236,320 Z" fill="url(#beamG)"/>
-      <!-- 어두운 비네트 -->
-      <rect x="0" y="0" width="400" height="320" fill="url(#vigG)"/>
+    const beam = `<path d="M${WIN.ix},${WIN.iy + WIN.ih} L${WIN.ix + WIN.iw},${WIN.iy + WIN.ih}
+      L${WIN.ix + WIN.iw + 40},320 L${WIN.ix - 40},320 Z" fill="url(#${ID('beamG')})"/>`;
+
+    const FIXED = { '@window': win, '@floor': floor, '@beam': beam };
+    const body = ROOM_Z.map(id => FIXED[id] || (want.has(id) && ROOM_PROPS[id] ? ROOM_PROPS[id](k) : '')).join('');
+
+    return `<svg class="room-svg" viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="${ID('wallG')}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${k.wall[0]}"/><stop offset="1" stop-color="${k.wall[1]}"/>
+        </linearGradient>
+        <linearGradient id="${ID('floorG')}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${k.floor[0]}"/><stop offset="1" stop-color="${k.floor[1]}"/>
+        </linearGradient>
+        <linearGradient id="${ID('skyDyn')}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${sky.SKY[0]}"/><stop offset="1" stop-color="${sky.SKY[1]}"/>
+        </linearGradient>
+        <linearGradient id="${ID('beamG')}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="rgba(255,240,190,${warm})"/><stop offset="1" stop-color="rgba(255,240,190,0)"/>
+        </linearGradient>
+        <radialGradient id="${ID('vigG')}" cx="0.5" cy="0.42" r="0.78">
+          <stop offset="0.4" stop-color="rgba(0,0,0,0)"/><stop offset="1" stop-color="rgba(12,8,20,${(0.46 - lv * 0.05).toFixed(2)})"/>
+        </radialGradient>
+      </defs>
+
+      <rect x="0" y="0" width="400" height="240" fill="url(#${ID('wallG')})"/>
+      ${lv <= 3 ? stone : ''}
+      ${body}
+      <rect x="0" y="0" width="400" height="320" fill="url(#${ID('vigG')})"/>
     </svg>`;
   }
 
-  window.Avatar = { build, getItem, roomScene, TUNE_KEYS };
+  window.Avatar = { build, getItem, roomScene, TUNE_KEYS, ROOM_MAX, ROOM_PROPS, ROOM_LEVELS };
 })();

@@ -73,6 +73,9 @@ const defaultState = () => ({
   // 튜토리얼을 마쳤는가. 마치기 전의 마이 룸에는 인트로에서 막 넘어온 공주가
   // 그대로 서 있고, 마치는 순간 바디 파츠로 조립한 아바타로 바뀐다.
   tutorialDone: false,
+  // 마이 룸 배경 단계 (1~5). 새로 생긴 칸이라 마이그레이션이 필요 없다 —
+  // 없으면 기본값 1 이 남는다. 아직 올려 주는 조건은 없고 개발용 스위치로만 바뀐다.
+  roomLevel: 1,
   // 아우라 세부 수치 (각 0~1000)
   aura:      { happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 },
   cauldronId: 'cd_iron_old',  // 사용 중인 마법 솥 (시작은 튜토리얼용 2구)
@@ -140,7 +143,13 @@ function normalizeState(st) {
   // 옛 값은 색을 알 수 없으니 버린다 (개발용으로만 있던 값이다)
   if (!st.dyeEver || typeof st.dyeEver !== 'object') st.dyeEver = {};
   if (!Array.isArray(st.want)) st.want = [];
+  st.roomLevel = Math.min(roomMax(), Math.max(1, Math.round(Number(st.roomLevel) || 1)));
   return st;
+}
+
+// 방 배경 단계의 최댓값. avatar.js 가 아직 안 올라왔을 때를 대비해 5로 떨어진다
+function roomMax() {
+  return (window.Avatar && Avatar.ROOM_MAX) || 5;
 }
 
 function load() {
@@ -1241,7 +1250,7 @@ function renderShowcase() {
     return r ? `<span class="stage-creature">${r.result.emoji}</span>` : '';
   }).join('');
   const avatarSvg = roomFigure(tier);
-  const sceneSvg = window.Avatar && window.Avatar.roomScene ? window.Avatar.roomScene() : '';
+  const sceneSvg = window.Avatar && window.Avatar.roomScene ? window.Avatar.roomScene(S.roomLevel) : '';
   stage.innerHTML = `
     <div class="room-scene">${sceneSvg}</div>
     <div class="char-aura" style="--glow:${Math.min(total, 100)}">
@@ -2064,12 +2073,27 @@ function devToggleTutorial() {
   toast(T(S.tutorialDone ? 'dev_tut_done' : 'dev_tut_undone'));
   render();
 }
+// 방 배경 단계를 골라 본다. 아직 올려 주는 게임 조건이 없어서 눈으로 확인할 길이
+// 이것뿐이다. 단계는 세이브에 들어간다 (튜토리얼 스위치와 같은 이유 — 진짜 진행 값이다).
+function devRoomLevel(n) {
+  S.roomLevel = Math.min(roomMax(), Math.max(1, n | 0));
+  save();
+  toast(T('dev_room_lv_done', { n: S.roomLevel }));
+  renderShowcase();
+}
+window.devRoomLevel = devRoomLevel;
+
 function renderRoomDevTail() {
   const el = document.getElementById('roomDevTail');
   if (!el) return;
   const on = !!S.tutorialDone;
+  const lv = S.roomLevel || 1;
+  const bgBtns = Array.from({ length: roomMax() }, (_, i) => i + 1).map(n =>
+    `<button class="btn btn-dev${n === lv ? ' on' : ''}" onclick="devRoomLevel(${n})"
+      aria-label="${T('dev_room_lv')} ${n}">${n}</button>`).join('');
   el.innerHTML = `<button class="btn btn-dev${on ? ' on' : ''}" onclick="devToggleTutorial()">${
-    on ? '☑' : '☐'} ${T('dev_tutorial')}</button>`;
+    on ? '☑' : '☐'} ${T('dev_tutorial')}</button>`
+    + `<div class="dev-row dev-roomlv"><span class="dev-roomlv-t">🏠 ${T('dev_room_lv')}</span>${bgBtns}</div>`;
 }
 window.devToggleTutorial = devToggleTutorial;
 
@@ -2378,7 +2402,7 @@ async function shareCardBlob() {
     const w = 400 * k, h = 320 * k;
     ctx.save();
     ctx.beginPath(); ctx.rect(0, 0, CARD_W, CARD_ROOM_H); ctx.clip();
-    ctx.drawImage(await svgToImage(Avatar.roomScene(), Math.round(w), Math.round(h)),
+    ctx.drawImage(await svgToImage(Avatar.roomScene(S.roomLevel), Math.round(w), Math.round(h)),
       (CARD_W - w) / 2, CARD_ROOM_H - h, w, h);   // xMid YMax
     ctx.restore();
   }

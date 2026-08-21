@@ -85,6 +85,11 @@ function launchOpts() {
       pots.forEach((r, i) => { S.potions[r.result.id] = i + 1; });
       S.creatures = crs.map(r => r.result.id);
       if (typeof bagOpen !== 'undefined' && !bagOpen) toggleBag();   // 채집 가방 펼치기
+      // 개발용(임시) 블록도 펼친다. 접혀 있으면 display:none 이라 검사에서 통째로 빠지는데,
+      // 그 안에도 화면에 뜨는 버튼이 들어 있다 (출시 전까지는 사람이 실제로 보는 자리다)
+      ['gather', 'atelier', 'room'].forEach(name => {
+        if (typeof toggleDevTools === 'function' && !devToolsOpen(name)) toggleDevTools(name);
+      });
       save(); render();
       return null;
     });
