@@ -183,6 +183,21 @@ sed -i 's/v=20260813a/v=20260813b/g' index.html
 스크립트로 만들고 **중복 id · 중복 조합 · 없는 재료 참조 · 등급별 진입 점수**를 검사한다.
 후반 맵에서만 나오는 재료가 초반 레시피에 들어가면 밸런싱이 깨진다.
 
+커스터마이징 150벌(헤어 30 · 서클렛 20 · 귀걸이 30 · 목걸이 30 · 장갑 20 · 구두 20)도
+그렇게 만들었다. `data.js` 와 `i18n.js` 의 `// <<<GEN:...` 구간은 **손으로 고치지 않는다.**
+
+```bash
+npm run gen:wardrobe    # 축 표(tools/genwardrobe.js) → data.js · i18n.js 를 다시 쓴다
+```
+
+축 표가 유일한 원본이라 중복 id·중복 조합이 애초에 생기지 않고, **한국어와 영어 이름이
+같은 표에서 같이 나온다** — 한쪽만 늘어나는 일이 없다. `npm test` 가 맨 먼저
+`genwardrobe.js --check` 를 돌려 생성 결과와 파일이 어긋났는지 본다.
+
+**옛 id 는 절대 새로 뽑지 않는다.** 그 옷을 입고 있는 세이브가 있어서 id 가 바뀌면
+착장이 통째로 날아간다. 생성기의 `LEGACY` 표가 '지금 모습 그대로 나오는 조합' 에
+원래 id 를 붙이고, 생성 후 그 24개가 다 살아 있는지 다시 확인한다.
+
 ---
 
 ## 서버 동기화 (sync.js)
@@ -249,9 +264,10 @@ sed -i 's/v=20260813a/v=20260813b/g' index.html
 
 ```bash
 npm install
-npm start          # http://localhost:8080
-npm test           # 번역 누락 + 서버 API 검사
-npm run test:i18n  # 번역 누락만
+npm start            # http://localhost:8080
+npm test             # 생성 데이터 대조 + 번역 누락 + 서버 API 검사
+npm run test:i18n    # 번역 누락만
+npm run gen:wardrobe # 커스터마이징 150벌을 축 표에서 다시 뽑는다
 ```
 
 옷을 늘렸으면 (`WARDROBE` 의 상의·하의·원피스):

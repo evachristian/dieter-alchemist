@@ -219,12 +219,23 @@
     const len = Math.max(0.08, Math.min(0.95, Number(it.len) || 0.22));
     const h = B.armH * len + pad;
     const yFrom = B.armY + B.armH - h + pad;          // 팔 끝(손목)에 맞춰 아래로 정렬
-    // 긴 장갑은 입구에 얇은 띠(커프)를 그려 팔과 경계가 보이게 한다
-    const hasCuff = it.kind === 'lace' || it.kind === 'satin' || it.kind === 'opera';
+    // 마감(finish) — 장갑 **입구**를 어떻게 처리하는가. 길이(len)와 함께 두 축이다.
+    // 옛 세이브는 kind 로만 갈렸다 — finish 가 없으면 그때 규칙으로 떨어진다
+    const finish = it.finish || ((it.kind === 'lace') ? 'frill'
+      : (it.kind === 'satin' || it.kind === 'opera') ? 'cuff'
+      : (it.kind === 'leather') ? 'strap' : 'plain');
+    // 입구 장식은 팔 모양을 그대로 따라야 팔 밖으로 삐져나오지 않는다 — armShape 로 그린다
+    const bandAt = (col, thick, at) =>
+      armShape('L', col, pad, thick, tune, { yFrom: at }) + armShape('R', col, pad, thick, tune, { yFrom: at });
+    let trim = '';
+    if (finish === 'cuff')       trim = bandAt(c2, 3, yFrom);                       // 얇은 띠
+    else if (finish === 'frill') trim = bandAt(c2, 3, yFrom) + bandAt(c2, 2, yFrom + 5);  // 두 겹 프릴
+    else if (finish === 'ribbon') trim = bandAt(c2, 4, yFrom + 2);                  // 굵은 띠(리본 자리)
+    else if (finish === 'strap') trim = bandAt(c2, 2.4, yFrom + 3) + bandAt(c2, 2.4, yFrom + h - 8); // 위아래 스트랩
     return `<g data-part="glove">
       ${armShape('L', c, pad, h, tune, { yFrom })}
       ${armShape('R', c, pad, h, tune, { yFrom })}
-      ${hasCuff ? armShape('L', c2, pad, 3, tune, { yFrom }) + armShape('R', c2, pad, 3, tune, { yFrom }) : ''}
+      ${trim}
     </g>`;
   }
 
@@ -232,17 +243,23 @@
   function renderShoes(it, tune) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c, 22), rise = Number(it.rise) || 0;
+    const fin = it.finish || ({ maryjane: 'strap', ballet: 'ribbon', sneaker: 'sole',
+      glass: 'gloss', boots: 'plain' }[it.kind] || 'plain');
     const foot = (cx) => {
       let s = '';
       if (rise > 0) {   // 부츠·스니커즈: 발목을 감싸는 통
         s += `<rect x="${cx - 9}" y="${335 - rise}" width="18" height="${rise + 4}" rx="5" fill="${c}"/>`;
       }
       s += `<ellipse cx="${cx}" cy="335" rx="13" ry="7.6" fill="${c}"/>`;
-      if (it.kind === 'maryjane') s += `<path d="M${cx - 9},331 L${cx + 9},331" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
-      if (it.kind === 'ballet')   s += `<path d="M${cx - 7},330 Q${cx},334 ${cx + 7},330" stroke="${c2}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
-      if (it.kind === 'sneaker')  s += `<ellipse cx="${cx}" cy="338" rx="13" ry="3.4" fill="${c2}"/>`;
-      if (it.kind === 'glass')    s += `<ellipse cx="${cx - 3}" cy="333" rx="5" ry="2.4" fill="#fff" opacity="0.75"/>`;
-      if (it.kind === 'boots')    s += `<path d="M${cx - 9},${335 - rise + 5} L${cx + 9},${335 - rise + 5}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
+      // 마감(finish) — 목 높이(rise)와 함께 두 축이다.
+      // 옛 세이브는 kind 로만 갈렸다 — finish 가 없으면 그때 규칙으로 떨어진다
+      if (fin === 'strap')      s += `<path d="M${cx - 9},331 L${cx + 9},331" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
+      else if (fin === 'ribbon') s += `<path d="M${cx - 7},330 Q${cx},334 ${cx + 7},330" stroke="${c2}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`
+        + `<circle cx="${cx}" cy="330" r="2" fill="${c2}"/>`;
+      else if (fin === 'sole')  s += `<ellipse cx="${cx}" cy="338" rx="13" ry="3.4" fill="${c2}"/>`;
+      else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="333" rx="5" ry="2.4" fill="#fff" opacity="0.75"/>`;
+      // 목이 있는 구두는 입구에 띠를 하나 둘러 발목과 경계가 보이게 한다
+      if (rise > 0) s += `<path d="M${cx - 9},${335 - rise + 5} L${cx + 9},${335 - rise + 5}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
       return s;
     };
     return `<g data-part="shoes">${foot(86)}${foot(114)}</g>`;
@@ -374,10 +391,18 @@
   // ═══════════════════════════════════════════════════════════════
   //  헤어 (스타일 + 컬러)
   // ═══════════════════════════════════════════════════════════════
+  // ─── 헤어 = 뒷머리 실루엣 × 앞머리 ───────────────────────────
+  // 옷이 소매·넥라인으로 갈리듯, 머리는 이 두 축으로 갈린다.
+  // 벌을 늘려도 여기 함수는 그대로다 — 데이터가 축 값만 바꿔 넣는다.
   function hairBack(kind, c) {
     const s = shade(c, 22);
     const crown = `<ellipse cx="100" cy="63" rx="40" ry="42" fill="${c}"/>`;
     switch (kind) {
+      case 'bun':   // 올림머리 — 정수리 뒤로 묶은 덩어리
+        return crown +
+          `<ellipse cx="100" cy="27" rx="17" ry="14" fill="${c}"/>
+           <ellipse cx="100" cy="27" rx="17" ry="14" fill="none" stroke="${s}" stroke-width="1.6"/>
+           <path d="M74,44 Q100,34 126,44" stroke="${s}" stroke-width="2" fill="none"/>`;
       case 'bob':
         return crown +
           `<path d="M62,66 C58,92 62,110 75,112 C68,96 68,82 72,72 Z" fill="${c}"/>
@@ -402,13 +427,45 @@
     }
   }
 
+  // 앞머리. 'wave' 는 옛 이름 — 사이드뱅과 같은 모양이라 그쪽으로 넘긴다
   function hairFront(kind, c) {
-    if (kind === 'wave') {
-      return `<path d="M67,61 C66,36 134,36 133,61 C126,49 112,50 100,64 C99,50 95,48 91,53 C85,45 74,49 67,61 Z" fill="${c}"/>`;
+    switch (kind) {
+      case 'wave':
+      case 'side':        // 사이드뱅 — 한쪽으로 넘긴 가르마
+        return `<path d="M67,61 C66,36 134,36 133,61 C126,49 112,50 100,64 C99,50 95,48 91,53 C85,45 74,49 67,61 Z" fill="${c}"/>`;
+      case 'curtain':     // 커튼뱅 — 가운데를 열고 양옆으로 갈라 내린다
+        return `<path d="M68,60 C66,38 78,30 100,30 C122,30 134,38 132,60
+            C130,46 120,38 104,40 C102,52 100,58 99,70 C96,54 90,44 84,42 C76,44 70,50 68,60 Z" fill="${c}"/>`;
+      case 'sheer':       // 시스루뱅 — 얇게 내려 이마가 비친다.
+        // 두 겹으로 나눈다: 위쪽은 그대로, 아래쪽만 옅게. 한 겹을 통째로 옅게 하면
+        // 일자뱅과 구분이 안 됐다 (컨택트시트에서 실제로 그랬다)
+        return `<path d="M68,58 C66,38 78,30 100,30 C122,30 134,38 132,58
+            C126,52 116,51 108,57 C104,51 96,51 92,57 C84,51 74,52 68,58 Z" fill="${c}" opacity="0.4"/>
+          <path d="M68,48 C70,36 82,30 100,30 C118,30 130,36 132,48 Z" fill="${c}"/>`;
+      case 'none':        // 이마 노출 — 앞머리 없이 뒤로 넘긴다
+        return `<path d="M68,58 C68,38 80,30 100,30 C120,30 132,38 132,58
+            C128,46 116,42 100,42 C84,42 72,46 68,58 Z" fill="${c}"/>`;
+      default:            // 일자뱅 (스트레이트)
+        return `<path d="M68,60 C66,38 78,30 100,30 C122,30 134,38 132,60
+          C126,52 116,50 108,58 C104,50 96,50 92,58 C84,50 74,52 68,60 Z" fill="${c}"/>`;
     }
-    // 기본 앞머리(스트레이트 뱅)
-    return `<path d="M68,60 C66,38 78,30 100,30 C122,30 134,38 132,60
-      C126,52 116,50 108,58 C104,50 96,50 92,58 C84,50 74,52 68,60 Z" fill="${c}"/>`;
+  }
+
+  // 옷장 칸에 쓰는 작은 머리 그림. 30종에 겹치지 않는 이모지가 없어서,
+  // **실루엣을 그대로 축소해서** 무엇인지 보이게 한다.
+  // 아바타와 같은 hairBack/hairFront 를 쓰므로 머리 모양을 고치면 아이콘도 같이 바뀐다.
+  function hairIcon(it, color) {
+    const c = color || HAIR_DEF;
+    const back = (it && it.back) || (it && it.kind) || 'long';
+    const bang = (it && it.bang) || 'straight';
+    // 머리만 잘라 낸다. 꼬리 끝(양갈래 y168 · 포니테일 y182)까지 담으면 세로로 길어져
+    // 옷장 칸에서 폭이 24px 밖에 안 나온다 — 앞머리가 구분되지 않았다.
+    // 그래서 어깨 높이에서 자른다. 뒷머리 차이는 얼굴 옆 가닥에서 이미 보인다
+    return `<svg class="hair-icon" viewBox="42 12 116 128" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      ${hairBack(back, c)}
+      <ellipse cx="100" cy="78" rx="30" ry="34" fill="#ffe0cf"/>
+      ${hairFront(bang, c)}
+    </svg>`;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -611,51 +668,124 @@
   // ═══════════════════════════════════════════════════════════════
   //  악세사리 (서클렛 / 귀걸이 / 목걸이)
   // ═══════════════════════════════════════════════════════════════
+  // ─── 악세사리 = 형태 축 × 장식 축 ────────────────────────────
+  // 벌마다 그림을 하나씩 그리지 않는다. 축마다 조각 함수를 하나씩 두고 겹쳐 그린다
+  // (옷의 소매·넥라인과 같은 방식). 벌을 늘려도 여기 함수는 그대로다.
+
+  // 장식 조각 — 서클렛·귀걸이·목걸이가 같이 쓴다. cx,cy 에 크기 r 로 얹는다
+  function charmShape(kind, cx, cy, r, c) {
+    const c2 = shade(c, 30);
+    switch (kind) {
+      case 'gem':
+      case 'drop':
+        return `<path d="M${cx},${cy - r * 1.2} C${cx + r},${cy - r * 0.2} ${cx + r * 0.8},${cy + r} ${cx},${cy + r}
+          C${cx - r * 0.8},${cy + r} ${cx - r},${cy - r * 0.2} ${cx},${cy - r * 1.2} Z" fill="${c}"/>
+          <ellipse cx="${cx - r * 0.3}" cy="${cy}" rx="${r * 0.25}" ry="${r * 0.4}" fill="#fff" opacity="0.55"/>`;
+      case 'star':
+        return `<path d="${starPath(cx, cy, r * 1.15)}" fill="${c}"/>`;
+      case 'heart':
+        return `<path d="M${cx},${cy + r} C${cx - r * 1.4},${cy - r * 0.2} ${cx - r * 0.6},${cy - r * 1.2} ${cx},${cy - r * 0.35}
+          C${cx + r * 0.6},${cy - r * 1.2} ${cx + r * 1.4},${cy - r * 0.2} ${cx},${cy + r} Z" fill="${c}"/>`;
+      case 'flower': {
+        const p = [0, 72, 144, 216, 288].map(a =>
+          `<circle cx="${(cx + Math.cos(a * Math.PI / 180) * r * 0.8).toFixed(1)}"
+             cy="${(cy + Math.sin(a * Math.PI / 180) * r * 0.8).toFixed(1)}" r="${(r * 0.55).toFixed(1)}" fill="${c}"/>`).join('');
+        return p + `<circle cx="${cx}" cy="${cy}" r="${(r * 0.4).toFixed(1)}" fill="#fff3b0"/>`;
+      }
+      case 'ribbon':
+        return `<path d="M${cx - r * 1.5},${cy - r * 0.7} L${cx},${cy} L${cx - r * 1.5},${cy + r * 0.7} Z" fill="${c}"/>
+          <path d="M${cx + r * 1.5},${cy - r * 0.7} L${cx},${cy} L${cx + r * 1.5},${cy + r * 0.7} Z" fill="${c}"/>
+          <circle cx="${cx}" cy="${cy}" r="${(r * 0.42).toFixed(1)}" fill="${c2}"/>`;
+      case 'none':
+        return '';
+      default:   // circle — 동그란 알
+        return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}"/>
+          <circle cx="${(cx - r * 0.3).toFixed(1)}" cy="${(cy - r * 0.3).toFixed(1)}" r="${(r * 0.3).toFixed(1)}" fill="#fff" opacity="0.55"/>`;
+    }
+  }
+
+  // 서클렛 = 머리띠(band) × 가운데 장식(orn)
   function renderCirclet(it) {
     if (isNone(it)) return '';
     const c = it.color || '#ffd76a', c2 = shade(c, 34);
-    if (it.kind === 'tiara') {
-      return `<path d="M72,55 L82,43 L91,52 L100,38 L109,52 L118,43 L128,55 Z"
-        fill="${c}" stroke="${c2}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="100" cy="44" r="2.6" fill="#fff"/>`;
+    const band = it.band || (it.kind === 'tiara' ? 'crown' : 'arch');
+    const orn = it.orn || (it.kind === 'flower' ? 'flower' : it.kind === 'tiara' ? 'gem' : 'ribbon');
+    let s = '';
+    if (band === 'crown') {            // 왕관 톱니
+      s = `<path d="M72,55 L82,43 L91,52 L100,38 L109,52 L118,43 L128,55 Z"
+        fill="${c}" stroke="${c2}" stroke-width="1.5" stroke-linejoin="round"/>`;
+    } else if (band === 'wide') {      // 넓은 밴드
+      s = `<path d="M68,56 Q100,40 132,56 L132,62 Q100,47 68,62 Z" fill="${c}"/>`;
+    } else if (band === 'chain') {     // 체인 — 알을 늘어놓은 띠
+      for (let i = 0; i <= 10; i++) {
+        const t = i / 10, x = 70 + t * 60, y = 55 - Math.sin(t * Math.PI) * 12;
+        s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.1" fill="${c}"/>`;
+      }
+    } else {                           // 가는 아치
+      s = `<path d="M69,54 Q100,42 131,54" stroke="${c}" stroke-width="3.5" fill="none" stroke-linecap="round"/>`;
     }
-    if (it.kind === 'flower') {
-      const petals = [0, 72, 144, 216, 288].map(a =>
-        `<circle cx="${(100 + Math.cos(a * Math.PI / 180) * 6.5).toFixed(1)}" cy="${(46 + Math.sin(a * Math.PI / 180) * 6.5).toFixed(1)}" r="4.4" fill="${c}"/>`).join('');
-      return `<path d="M70,54 Q100,44 130,54" stroke="${c}" stroke-width="3.5" fill="none"/>${petals}<circle cx="100" cy="46" r="3" fill="#fff3b0"/>`;
-    }
-    return `<path d="M69,54 Q100,42 131,54" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M96,42 L100,48 L104,42 Z" fill="${c}"/>`;
+    // 장식은 띠 한가운데 위에. 왕관은 톱니 꼭대기가 이미 높아 조금 더 위로 얹는다
+    return s + charmShape(orn, 100, band === 'crown' ? 45 : 46, 4.6, c);
   }
 
+  // 귀걸이 = 거는 형태(form) × 매다는 장식(charm). 양쪽 귀(x 66 / 134)에 같은 것을 단다
   function renderEarring(it) {
     if (isNone(it)) return '';
     const c = it.color || '#ffd76a';
-    if (it.kind === 'hoop') {
-      return `<circle cx="66" cy="88" r="5" fill="none" stroke="${c}" stroke-width="2.6"/><circle cx="134" cy="88" r="5" fill="none" stroke="${c}" stroke-width="2.6"/>`;
-    }
-    if (it.kind === 'star') {
-      return `<path d="${starPath(66, 89, 4.6)}" fill="${c}"/><path d="${starPath(134, 89, 4.6)}" fill="${c}"/>`;
-    }
-    return `<circle cx="66" cy="84" r="2.3" fill="${c}"/><ellipse cx="66" cy="90" rx="3" ry="4.4" fill="${c}"/>
-      <circle cx="134" cy="84" r="2.3" fill="${c}"/><ellipse cx="134" cy="90" rx="3" ry="4.4" fill="${c}"/>`;
+    const form = it.form || (it.kind === 'hoop' ? 'hoop' : it.kind === 'star' ? 'stud' : 'drop');
+    const charm = it.charm || (it.kind === 'hoop' ? 'circle' : it.kind === 'star' ? 'star' : 'drop');
+    const one = (x) => {
+      const pin = `<circle cx="${x}" cy="83" r="1.8" fill="${c}"/>`;   // 귓불 고정 알
+      switch (form) {
+        case 'stud':                                   // 스터드 — 귓불에 딱 붙는다
+          return charmShape(charm, x, 85, 3.6, c);
+        case 'hoop':                                   // 링 — 고리 아래에 장식
+          return pin + `<circle cx="${x}" cy="89" r="5" fill="none" stroke="${c}" stroke-width="2.4"/>`
+            + charmShape(charm, x, 94.5, 2.6, c);
+        case 'chain':                                  // 체인 — 가늘고 길게 늘어뜨린다
+          return pin + `<path d="M${x},85 L${x},96" stroke="${c}" stroke-width="1.4"/>`
+            + charmShape(charm, x, 99, 3.4, c);
+        case 'cluster':                                // 뭉치 — 작은 장식 셋
+          return pin + charmShape(charm, x - 3, 90, 2.4, c) + charmShape(charm, x + 3, 90, 2.4, c)
+            + charmShape(charm, x, 95, 2.8, c);
+        case 'cuff':                                   // 이어커프 — 귀 위쪽을 감싼다
+          return `<path d="M${x - 1},80 Q${x + (x < 100 ? -5 : 5)},85 ${x - 1},90"
+              stroke="${c}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`
+            + charmShape(charm, x, 85, 2.4, c);
+        default:                                       // 드롭 — 짧게 늘어뜨린다
+          return pin + charmShape(charm, x, 90, 4, c);
+      }
+    };
+    return one(66) + one(134);
   }
 
+  // 목걸이 = 줄(chain) × 펜던트(pend)
   function renderNecklace(it) {
     if (isNone(it)) return '';
-    const c = it.color || '#ffd76a';
-    if (it.kind === 'choker') {
-      return `<path d="M85,113 Q100,121 115,113" stroke="${c}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
-    }
-    if (it.kind === 'pearl') {
-      let dots = '';
+    const c = it.color || '#ffd76a', c2 = shade(c, 18);
+    const chain = it.chain || (it.kind === 'choker' ? 'choker' : it.kind === 'pearl' ? 'pearl' : 'short');
+    const pend = it.pend || (it.kind === 'pendant' ? 'circle' : 'none');
+    // 줄마다 목 아래로 내려오는 깊이가 다르다. 펜던트는 그 끝에 매달린다
+    const DEPTH = { choker: 8, short: 16, long: 28, pearl: 14, double: 22, ribbon: 12 };
+    const dy = DEPTH[chain] || 16;
+    const arc = (d, w, col) => `<path d="M85,113 Q100,${113 + d} 115,113" stroke="${col}" stroke-width="${w}" fill="none" stroke-linecap="round"/>`;
+    let s = '';
+    if (chain === 'pearl') {                     // 알줄 — 구슬을 늘어놓는다
       for (let i = 0; i <= 8; i++) {
         const t = i / 8;
-        // 알 색은 목걸이 색을 따른다 — #fff 로 박아 두면 색을 골라도 진주만 안 물든다
-        dots += `<circle cx="${(83 + t * 34).toFixed(1)}" cy="${(116 + Math.sin(t * Math.PI) * 11).toFixed(1)}" r="2.4" fill="${c}" stroke="${shade(c, 18)}" stroke-width="0.5"/>`;
+        s += `<circle cx="${(83 + t * 34).toFixed(1)}" cy="${(116 + Math.sin(t * Math.PI) * 11).toFixed(1)}"
+          r="2.4" fill="${c}" stroke="${c2}" stroke-width="0.5"/>`;
       }
-      return dots;
+    } else if (chain === 'double') {             // 이중 줄
+      s = arc(14, 2, c) + arc(26, 2, c);
+    } else if (chain === 'ribbon') {             // 리본 끈 — 굵은 띠에 리본 매듭
+      s = arc(11, 4.5, c) + charmShape('ribbon', 100, 120, 3.4, c);
+    } else if (chain === 'choker') {
+      s = arc(8, 4, c);
+    } else {
+      s = arc(dy - 4, 2, c);
     }
-    return `<path d="M85,114 Q100,124 115,114" stroke="${c}" stroke-width="2" fill="none"/>
-      <circle cx="100" cy="129" r="4.6" fill="${c}"/><circle cx="100" cy="129" r="1.8" fill="#fff" opacity="0.6"/>`;
+    return s + charmShape(pend, 100, 113 + dy + 3, 4.6, c);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -724,11 +854,13 @@
 
     const hairItem = getItem('hair', outfit.hair);
     const hairColor = getItem('hairColor', outfit.hairColor).color || HAIR_DEF;
-    const hairKind = hairItem.kind === 'none' ? 'long' : hairItem.kind;
+    // 옛 세이브는 kind 하나로만 머리를 정했다 — back 이 없으면 kind 를 그대로 쓴다
+    const hairBackKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
+    const hairBangKind = hairItem.bang || hairItem.kind;
     const expItem = getItem('expression', outfit.expression);
 
     const layers = [
-      H(hairBack(hairKind, hairColor)),
+      H(hairBack(hairBackKind, hairColor)),
       B(legs(tune)),
       B(torsoArms(tune)),
       // 상의 → 하의 순. **상의가 뒤, 하의가 앞이다** — 옷을 넣어 입은 모양이 된다.
@@ -744,7 +876,7 @@
       B(renderShoes(pick('shoes', outfit.shoes), tune)),
       B(hasDress ? renderDress(dress, tune) : ''),
       H(faceAndExpression(expItem)),
-      H(hairFront(hairKind, hairColor)),
+      H(hairFront(hairBangKind, hairColor)),
       B(renderGlove(pick('glove', outfit.glove), tune)),
       B(renderTattoo(getItem('tattoo', outfit.tattoo))),
       H(renderEarring(pick('earring', outfit.earring))),
@@ -1077,5 +1209,5 @@
     </svg>`;
   }
 
-  window.Avatar = { build, getItem, roomScene, TUNE_KEYS, ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
+  window.Avatar = { build, getItem, roomScene, hairIcon, TUNE_KEYS, ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
 })();

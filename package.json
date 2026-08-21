@@ -10,8 +10,9 @@
   },
   "scripts": {
     "start": "node server/index.js",
-    "test": "node tools/checki18n.js && node server/test.js",
-    "test:i18n": "node tools/checki18n.js"
+    "test": "node tools/genwardrobe.js --check && node tools/checki18n.js && node server/test.js",
+    "test:i18n": "node tools/checki18n.js",
+    "gen:wardrobe": "node tools/genwardrobe.js"
   },
   "dependencies": {
     "express": "^4.19.2",

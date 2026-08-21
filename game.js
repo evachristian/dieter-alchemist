@@ -1603,6 +1603,11 @@ function renderWardrobe() {
     const owned = isOwned(wardrobeTab, it);
     let ic;
     if (it.kind === 'none') ic = '🚫';
+    // 머리는 30종이라 겹치지 않는 이모지가 없다 — **실루엣을 작게 그려서** 보여 준다.
+    // 아바타와 같은 함수를 쓰므로 머리 모양을 고치면 이 그림도 같이 바뀐다.
+    else if (wardrobeTab === 'hair' && window.Avatar && Avatar.hairIcon) {
+      ic = Avatar.hairIcon(it, (Avatar.getItem('hairColor', S.outfit.hairColor) || {}).color);
+    }
     else if (it.emoji) ic = it.emoji;
     // 지금 입고 있는 옷만 **고른 색**으로 보여 준다. 목록 전체에 칠하면
     // 검정을 골랐을 때 모든 옷이 똑같은 검정 동그라미가 돼 서로 구분이 안 된다
