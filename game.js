@@ -45,7 +45,10 @@ const defaultState = () => ({
   // 자동으로 '풀린 것' 이 된다 — 마이그레이션 없이 옛 값이 조용히 무효가 된다
   dyeUntil: {},
   dye: 0,                 // 마법 염색약 보유 개수 (24시간)
-  dyeEver: 0,             // 영원 염색약 보유 개수 (풀리지 않는다)
+  // 영원 염색약 — **색깔마다 따로 있는 아이템**이다 (색 id → 개수).
+  // 마법 염색약이 '아무 색이나 24시간' 이라면, 이쪽은 '이 색으로 영영' 이다.
+  // 그래서 개수 하나가 아니라 색깔별 칸을 둔다
+  dyeEver: {},
   // 영원 염색약으로 물들인 칸 (슬롯 → true). **만료 시각이 없다는 것만으로는
   // 영원한 색인지 알 수 없다** — 예전 세이브에도 시각 없는 색이 남아 있어서,
   // 그건 '풀린 것' 으로 봐야 한다. 그래서 영원한 것은 여기 따로 표시한다
@@ -125,15 +128,28 @@ function tickPlayTime() {
 
 let S = load();
 
+// 세이브의 모양을 맞춘다. **불러오기와 서버에서 받아오기 둘 다 이걸 쓴다** —
+// 예전에는 두 곳에 같은 정리를 따로 적어 두었다가, 한쪽에만 새 칸을 넣어
+// 서버에서 받아온 세이브만 고쳐지는 일이 있었다.
+function normalizeState(st) {
+  st.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, st.outfit || {});
+  if (!st.outfitColor || typeof st.outfitColor !== 'object') st.outfitColor = {};
+  if (!st.dyeUntil || typeof st.dyeUntil !== 'object') st.dyeUntil = {};
+  if (!st.dyePerm || typeof st.dyePerm !== 'object') st.dyePerm = {};
+  // 영원 염색약은 처음에 '개수 하나'(숫자)였다가 색깔별 칸으로 바뀌었다.
+  // 옛 값은 색을 알 수 없으니 버린다 (개발용으로만 있던 값이다)
+  if (!st.dyeEver || typeof st.dyeEver !== 'object') st.dyeEver = {};
+  if (!Array.isArray(st.want)) st.want = [];
+  return st;
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       const st = Object.assign(defaultState(), parsed);
-      st.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, st.outfit || {});
-      if (!st.outfitColor || typeof st.outfitColor !== 'object') st.outfitColor = {};
-      if (!st.dyeUntil || typeof st.dyeUntil !== 'object') st.dyeUntil = {};
+      normalizeState(st);
       st.aura = Object.assign({ happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 }, st.aura || {});
       if (!st.firstTs) st.firstTs = Date.now();
       if (!st.cauldronId) st.cauldronId = 'cd_iron_old';
@@ -158,11 +174,7 @@ function save() {
 }
 // 서버에서 더 최신 세이브를 받아 왔을 때 (sync.js 가 호출)
 function adoptState(state) {
-  S = Object.assign(defaultState(), state);
-  S.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, S.outfit || {});
-  if (!S.outfitColor || typeof S.outfitColor !== 'object') S.outfitColor = {};
-  if (!S.dyeUntil || typeof S.dyeUntil !== 'object') S.dyeUntil = {};
-  if (!S.dyePerm || typeof S.dyePerm !== 'object') S.dyePerm = {};
+  S = normalizeState(Object.assign(defaultState(), state));
   S.record = Object.assign(newRecord(), S.record || {});
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
   if (typeof render === 'function') render();
@@ -1119,13 +1131,17 @@ function renderAtelier() {
     renderAtelierDev();
     return;
   }
+  // 지금 솥에 담아 둔 레시피 — 그 줄을 골라 둔 것으로 표시한다.
+  // 재료 목록이 곧 열쇠다 (같은 조합의 레시피는 둘 있을 수 없다)
+  const wantKey = (S.want && S.want.length) ? D.recipeKey(S.want) : '';
   bookEl.innerHTML = catRecipes.map(r => {
     const found = S.discovered.includes(r.result.id);
     const inputs = r.inputs.map(id => D.INGREDIENTS[id].emoji).join(' + ');
     if (found) {
       // 재료가 다 있어야 담을 수 있다. 모자라면 회색으로 두고, 눌렀을 때 이유를 알려 준다
       const ready = hasAllInputs(r);
-      return `<div class="recipe-row clickable ${ready ? '' : 'short'} ${r.result.id === lastFound ? 'just-found' : ''}"
+      const picked = wantKey && D.recipeKey(r.inputs) === wantKey;
+      return `<div class="recipe-row clickable ${ready ? '' : 'short'} ${picked ? 'on' : ''} ${r.result.id === lastFound ? 'just-found' : ''}"
         data-recipe="${r.result.id}" onclick="fillFromRecipe('${r.result.id}', this)">
         <span class="recipe-in">${inputs}</span>
         <span class="recipe-arrow">→</span>
@@ -1579,6 +1595,13 @@ function dyeLeft(slot) {
   const t = (S.dyeUntil || {})[slot];
   return t ? t - Date.now() : 0;
 }
+// 옷이 갖고 태어난 색과 **같은 색이 팔레트에 있으면** 그 색이다.
+// 있으면 이름을 알려 줄 수 있고, 팔레트에서는 그 칩을 감춘다 (같은 것이 두 번 나오니까).
+function origColor(it) {
+  const hex = String((it && it.color) || '').toLowerCase();
+  return hex ? D.COLORS.find(c => c.hex.toLowerCase() === hex) : null;
+}
+
 // 지금 그 칸에 색이 살아 있는가 — 24시간짜리가 남았거나, 영원 염색약을 썼거나
 function dyeActive(slot) { return !!(S.dyePerm || {})[slot] || dyeLeft(slot) > 0; }
 // 시간이 다 된 염색을 걷어낸다. 하나라도 걷어냈으면 true (부른 쪽이 저장·다시 그리기)
@@ -1625,7 +1648,10 @@ function wornItem(slot) {
 // 컬러칩을 펼쳐 놓은 곳 (한 번에 하나) — '칸:종류' 로 적는다.
 // 종류가 둘이라(마법 / 영원) 칸만으로는 어느 줄이 열렸는지 알 수 없다.
 let dyeOpen = null;
-function dyeStock(kind) { return (kind === 'ever' ? S.dyeEver : S.dye) || 0; }
+// 영원 염색약은 색깔별로 있으니, 줄에 적는 '보유' 는 전부 더한 값이다
+function everCount(colorId) { return ((S.dyeEver || {})[colorId] | 0); }
+function everTotal() { return Object.values(S.dyeEver || {}).reduce((a, b) => a + (b | 0), 0); }
+function dyeStock(kind) { return kind === 'ever' ? everTotal() : (S.dye || 0); }
 function toggleDye(slot, kind) {
   if (dyeStock(kind) <= 0) { toast(T(kind === 'ever' ? 'dye_ever_none' : 'dye_none')); return; }
   const key = slot + ':' + kind;
@@ -1670,8 +1696,33 @@ function colorRow(slot) {
   const curId = (S.outfitColor || {})[slot] || '';
   const cur = (isColorOwned(curId) && dyeActive(slot)) ? curId : '';
   const curName = cur ? N(cur, (D.COLORS.find(x => x.id === cur) || {}).name) : T('wr_color_orig');
+
+  // ─── 영원 염색약 — 색깔마다 따로 있는 **아이템 칸** ───
+  // 마법 염색약처럼 60색 팔레트를 펼치지 않는다. 가진 염색약만 네모 칸으로 늘어놓는다:
+  // 색이 곧 아이템이라, 안 가진 색을 잠긴 점으로 보여 줄 이유가 없다.
+  if (openKind === 'ever') {
+    const same0 = origColor(it);     // 원래 색과 같은 것은 굳이 물들일 이유가 없다
+    const mine = D.COLORS.filter(c => everCount(c.id) > 0 && (!same0 || c.id !== same0.id));
+    const cells = mine.map(c => `<button class="dye-item" onclick="askDye('${slot}','${c.id}','ever')"
+        aria-label="${N(c.id, c.name)} ${T('n_ea', { n: everCount(c.id) })}">
+        <span class="dye-sw" style="background:${c.hex}"></span>
+        <span class="dye-nm">${N(c.id, c.name)}</span>
+        <span class="dye-n">×${everCount(c.id).toLocaleString()}</span>
+      </button>`).join('');
+    // 되돌리기는 염색약을 쓰지 않는다 — 마법 염색약 팔레트와 같은 자리에 같은 뜻으로 둔다
+    const back = `<button class="dye-item dye-item-orig" onclick="undye('${slot}',this)"
+        aria-label="${origName(it)}">
+        <span class="dye-sw" style="background:${it.color || '#ccc'}"></span>
+        <span class="dye-nm">${T('wr_color_orig')}</span>
+      </button>`;
+    return head + `<div class="wr-color-head">
+        <span class="wr-color-tt">${T('wr_color')}</span><span class="wr-color-nm">${curName}</span>
+      </div><div class="dye-items">${back}${cells}</div>`;
+  }
+
+  const same = origColor(it);          // 옷의 원래 색과 같은 팔레트 색 (있으면 칩을 감춘다)
   const owned = D.COLORS.filter(c => isColorOwned(c.id)).length;
-  const dots = D.COLORS.map(c => {
+  const dots = D.COLORS.filter(c => !same || c.id !== same.id).map(c => {
     const on = cur === c.id;
     const got = isColorOwned(c.id);
     // 잠긴 색은 **채도를 낮추지 않는다.** 색 자체가 내용이라 흐리게 하면 무엇을 얻는지 안 보인다.
@@ -1681,9 +1732,10 @@ function colorRow(slot) {
       aria-label="${N(c.id, c.name)}${got ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
       >${got ? '' : '<span class="wr-clock">🔒</span>'}</button>`;
   }).join('');
-  // 맨 앞은 '원래 색' — 되돌리는 데는 염색약을 쓰지 않는다
+  // 맨 앞은 '원래 색' — 되돌리는 데는 염색약을 쓰지 않는다.
+  // 누르면 되돌리면서 **그 색의 이름**을 알려 준다 (색만 보고는 무엇인지 모른다)
   const orig = `<button class="wr-color wr-color-orig ${cur ? '' : 'on'}" style="background:${it.color || '#ccc'}"
-    onclick="undye('${slot}')" aria-label="${T('wr_color_orig')}"></button>`;
+    onclick="undye('${slot}',this)" aria-label="${origName(it)}"></button>`;
   return head + `<div class="wr-color-head">
       <span class="wr-color-tt">${T('wr_color')}</span><span class="wr-color-nm">${curName}</span>
     </div><div class="wr-colors">${orig}${dots}</div>
@@ -1694,13 +1746,19 @@ function colorRow(slot) {
 function askDye(slot, colorId, kind) {
   const c = D.COLORS.find(x => x.id === colorId);
   if (!c) return;
-  if (!isColorOwned(colorId)) {
-    // 어떤 색을 눌렀는지 같이 알려 준다 — 60개가 늘어서 있어 색만으로는 무엇을 눌렀는지 모른다
-    toast(T('locked_color', { name: N(c.id, c.name) }));
-    return;
-  }
   const ever = kind === 'ever';
-  if (dyeStock(kind) <= 0) { toast(T(ever ? 'dye_ever_none' : 'dye_none')); return; }
+  // 마법 염색약은 **색을 획득했는지**를 보고, 영원 염색약은 **그 색 염색약을 가졌는지**를 본다.
+  // 영원 염색약은 색이 곧 아이템이라 따로 색을 얻어 둘 필요가 없다.
+  if (ever) {
+    if (everCount(colorId) <= 0) { toast(T('dye_ever_none_color', { name: N(c.id, c.name) })); return; }
+  } else {
+    if (!isColorOwned(colorId)) {
+      // 어떤 색을 눌렀는지 같이 알려 준다 — 60개가 늘어서 있어 색만으로는 무엇을 눌렀는지 모른다
+      toast(T('locked_color', { name: N(c.id, c.name) }));
+      return;
+    }
+    if ((S.dye || 0) <= 0) { toast(T('dye_none')); return; }
+  }
   const it = wornItem(slot);
   if (!it) return;
   const item = N(it.id, it.name), color = N(c.id, c.name);
@@ -1711,11 +1769,16 @@ window.askDye = askDye;
 
 function applyDye(slot, colorId, kind) {
   const ever = kind === 'ever';
-  if (dyeStock(kind) <= 0) { toast(T(ever ? 'dye_ever_none' : 'dye_none')); return; }
+  if (ever ? everCount(colorId) <= 0 : (S.dye || 0) <= 0) {
+    toast(T(ever ? 'dye_ever_none' : 'dye_none')); return;
+  }
   const c = D.COLORS.find(x => x.id === colorId);
   const it = wornItem(slot);
   if (!c || !it) return;
-  if (ever) S.dyeEver--; else S.dye--;
+  if (ever) {
+    S.dyeEver[colorId] = everCount(colorId) - 1;
+    if (S.dyeEver[colorId] <= 0) delete S.dyeEver[colorId];   // 다 쓴 칸은 지운다
+  } else S.dye--;
   S.outfitColor[slot] = colorId;
   if (ever) {
     // 영원 염색약 — 만료 시각을 지우고 '영원함' 표시를 남긴다
@@ -1734,13 +1797,38 @@ function applyDye(slot, colorId, kind) {
   renderShowcase();                  // 아바타 + 옷장 동시 갱신
 }
 
-// 원래 색으로 되돌리기 — 염색약을 쓰지 않는다
-function undye(slot) {
+// 원래 색의 이름 — 팔레트에 같은 색이 있으면 그 이름, 없으면 그냥 '원래 색'
+function origName(it) {
+  const c = origColor(it);
+  return c ? N(c.id, c.name) : T('wr_color_orig');
+}
+
+// 마법 염색약이 걸려 있을 때의 안내 — 지금 무슨 색인지 / 언제 돌아오는지
+function revertMsg(slot, it, left) {
+  const c = D.COLORS.find(x => x.id === (S.outfitColor || {})[slot]);
+  const color = c ? N(c.id, c.name) : T('wr_color');
+  const h = Math.ceil(left / 3600000);
+  const t = h > 1 ? T('dye_left_h', { h }) : T('dye_left_m', { m: Math.max(1, Math.ceil(left / 60000)) });
+  const o = origColor(it);
+  return o ? T('dye_revert_in', { color, t, orig: N(o.id, o.name) })
+           : T('dye_revert_in_plain', { color, t });
+}
+
+// 원래 색으로 되돌리기 — 염색약을 쓰지 않는다.
+// 누른 자리에 **그 색의 이름**을 띄운다 (색 조각만 보고는 무슨 색인지 모른다)
+function undye(slot, el) {
+  const it = wornItem(slot);
+  // **마법 염색약이 걸려 있으면 되돌리지 않는다.** 그건 24시간이 지나면 저절로 풀리는 것이고,
+  // 여기서 지워 버리면 쓴 염색약이 그냥 사라진다. 대신 언제 돌아오는지 알려 준다.
+  const left = dyeLeft(slot);
+  if (it && left > 0) { toast(revertMsg(slot, it, left), el, 4200); return; }
   delete S.outfitColor[slot];
   delete S.dyeUntil[slot];
   if (S.dyePerm) delete S.dyePerm[slot];
   save();
   renderShowcase();
+  const c = it && origColor(it);
+  toast(c ? T('wr_color_orig_named', { name: N(c.id, c.name) }) : T('wr_color_orig'), el);
 }
 window.undye = undye;
 
@@ -1776,11 +1864,16 @@ function devGiveDye(n) {
 }
 window.devGiveDye = devGiveDye;
 
-// 테스트용: 영원 염색약 채우기
+// 테스트용: 영원 염색약 채우기 — **색깔을 무작위로 골라** n 개를 나눠 담는다.
+// (색이 곧 아이템이라 '몇 개' 만으로는 만들 수 없다)
 function devGiveDyeEver(n) {
-  S.dyeEver = (S.dyeEver || 0) + (n || 5);
+  const total = n || 5;
+  for (let i = 0; i < total; i++) {
+    const c = D.COLORS[Math.floor(Math.random() * D.COLORS.length)];
+    S.dyeEver[c.id] = everCount(c.id) + 1;
+  }
   save();
-  toast(T('dev_dye_ever_done', { n: S.dyeEver }));
+  toast(T('dev_dye_ever_done', { n: everTotal().toLocaleString(), k: Object.keys(S.dyeEver).length }));
   renderShowcase();
 }
 window.devGiveDyeEver = devGiveDyeEver;
