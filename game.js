@@ -73,9 +73,12 @@ const defaultState = () => ({
   // 튜토리얼을 마쳤는가. 마치기 전의 마이 룸에는 인트로에서 막 넘어온 공주가
   // 그대로 서 있고, 마치는 순간 바디 파츠로 조립한 아바타로 바뀐다.
   tutorialDone: false,
-  // 마이 룸 배경 단계 (1~5). 새로 생긴 칸이라 마이그레이션이 필요 없다 —
-  // 없으면 기본값 1 이 남는다. 아직 올려 주는 조건은 없고 개발용 스위치로만 바뀐다.
-  roomLevel: 1,
+  // 마이 룸 배경 단계 (1~5). 기본은 2단계다 — 1단계는 거미줄까지 있는 '텅 빈 골방'
+  // 이라 첫인상이 너무 휑하다. 기본값은 avatar.js 한 곳(ROOM_DEFAULT)에서만 정한다.
+  // 새로 생긴 칸이라 마이그레이션이 필요 없다 — 이 칸이 처음 나가는 판에서 기본값도
+  // 같이 나가므로, 옛 기본값(1)을 들고 있는 세이브가 세상에 없다.
+  // 아직 올려 주는 게임 조건은 없고 개발용 스위치로만 바뀐다.
+  roomLevel: roomDefault(),
   // 아우라 세부 수치 (각 0~1000)
   aura:      { happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 },
   cauldronId: 'cd_iron_old',  // 사용 중인 마법 솥 (시작은 튜토리얼용 2구)
@@ -143,13 +146,17 @@ function normalizeState(st) {
   // 옛 값은 색을 알 수 없으니 버린다 (개발용으로만 있던 값이다)
   if (!st.dyeEver || typeof st.dyeEver !== 'object') st.dyeEver = {};
   if (!Array.isArray(st.want)) st.want = [];
-  st.roomLevel = Math.min(roomMax(), Math.max(1, Math.round(Number(st.roomLevel) || 1)));
+  st.roomLevel = Math.min(roomMax(), Math.max(1, Math.round(Number(st.roomLevel) || roomDefault())));
   return st;
 }
 
-// 방 배경 단계의 최댓값. avatar.js 가 아직 안 올라왔을 때를 대비해 5로 떨어진다
+// 방 배경 단계의 최댓값·기본값. 그림이 avatar.js 에 있으니 숫자도 거기서 가져온다
+// (index.html 에서 avatar.js 가 game.js 보다 먼저 온다). 못 읽으면 같은 값으로 떨어진다
 function roomMax() {
   return (window.Avatar && Avatar.ROOM_MAX) || 5;
+}
+function roomDefault() {
+  return (window.Avatar && Avatar.ROOM_DEFAULT) || 2;
 }
 
 function load() {
@@ -2087,7 +2094,7 @@ function renderRoomDevTail() {
   const el = document.getElementById('roomDevTail');
   if (!el) return;
   const on = !!S.tutorialDone;
-  const lv = S.roomLevel || 1;
+  const lv = S.roomLevel || roomDefault();
   const bgBtns = Array.from({ length: roomMax() }, (_, i) => i + 1).map(n =>
     `<button class="btn btn-dev${n === lv ? ' on' : ''}" onclick="devRoomLevel(${n})"
       aria-label="${T('dev_room_lv')} ${n}">${n}</button>`).join('');

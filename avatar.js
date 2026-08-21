@@ -830,6 +830,9 @@
 
   // ─── 단계별 색 (벽 위/아래, 바닥 위/아래, 벽 이음새, 창틀) ───
   const ROOM_MAX = 5;
+  // 시작 단계. 1단계는 거미줄·균열까지 있는 '텅 빈 골방' 이라 첫인상으로는 너무 휑하다 —
+  // 기본은 선반과 러그가 놓인 2단계로 두고, 1단계는 아래로 내려갈 자리로 남겨 둔다.
+  const ROOM_DEFAULT = 2;
   const ROOM_SKIN = {
     1: { wall: ['#a8977c', '#7a6a54'], floor: ['#6b4e30', '#452f1b'], seam: 'rgba(40,32,26,0.26)', frame: '#4a3a2c' },
     2: { wall: ['#cbb99c', '#9d8a70'], floor: ['#7d5c39', '#5a4026'], seam: 'rgba(40,32,26,0.22)', frame: '#4a3a2c' },
@@ -1001,7 +1004,7 @@
   // level : 1~5 (기본 1)
   // extra : 추가로 얹을 소품 id 목록 — 추후 '마이 룸 꾸미기' 가 쓸 자리
   function roomScene(level, extra) {
-    const lv = Math.min(ROOM_MAX, Math.max(1, Math.round(Number(level) || 1)));
+    const lv = Math.min(ROOM_MAX, Math.max(1, Math.round(Number(level) || ROOM_DEFAULT)));
     // SVG 의 id 는 **문서 전체에서 공유된다.** 방을 두 개 이상 한 화면에 그리면
     // 뒤에 온 쪽이 앞 쪽의 그라디언트를 그대로 써 버려 단계별 색이 전부 같아진다
     // (5단계 미리보기를 나란히 놓다가 실제로 겪었다). 그래서 부를 때마다 꼬리표를 붙인다.
@@ -1074,5 +1077,5 @@
     </svg>`;
   }
 
-  window.Avatar = { build, getItem, roomScene, TUNE_KEYS, ROOM_MAX, ROOM_PROPS, ROOM_LEVELS };
+  window.Avatar = { build, getItem, roomScene, TUNE_KEYS, ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
 })();
