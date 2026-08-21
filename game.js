@@ -463,11 +463,21 @@ function fmtCount(n) {
 
 // ─── AP 충전 (현자의 결정 → AP) ───
 // 헤더의 + 버튼. 확인 패널에 '보유 / 지불' 을 나란히 보여 준다.
+// 이번 충전에 드는 결정 — **모자란 만큼만** 낸다.
+// D.ENERGY.chargeCost 는 '가득(cap) 채울 때 드는 값' 이고, 여기서 비례로 나눈다.
+// 지금은 1000 / 1000 이라 AP 하나에 결정 하나다.
+// 나누는 값이 energyCap() 이 아니라 D.ENERGY.cap 인 이유: 상한이 늘어난 플레이어의
+// AP 값이 싸지면 안 된다 — **AP 하나의 값은 누구에게나 같아야 한다.**
+function chargeCost() {
+  const need = Math.max(0, energyCap() - (S.energy || 0));
+  return Math.ceil(need * D.ENERGY.chargeCost / D.ENERGY.cap);
+}
+
 function askCharge() {
   const cap = energyCap();
   refreshEnergy();
   if ((S.energy || 0) >= cap) { toast(T('ap_full')); return; }
-  const cost = D.ENERGY.chargeCost, have = S.crystal || 0;
+  const cost = chargeCost(), have = S.crystal || 0;
   // 결정 아이콘은 **누를 수 있다** — 무엇인지·어디서 얻는지 토스트로 알려 준다
   const row = (label, n, lack) => `<div class="cf-row">
       <span class="cf-label">${label}</span>
@@ -491,7 +501,9 @@ function crystalHelp(el, where) {
 window.crystalHelp = crystalHelp;
 
 function doCharge() {
-  const cost = D.ENERGY.chargeCost;
+  // 패널을 띄운 뒤에도 AP 는 줄어들 수 있다(채집·조합) — 낼 값은 **누른 시점에** 다시 센다
+  const cost = chargeCost();
+  if (cost <= 0) { toast(T('ap_full')); return; }
   if ((S.crystal || 0) < cost) {
     // 모자라면 다이아 구매로 이어진다 (아직 상점이 없다 → openDiamondShop 참고)
     toast(T('crystal_short'));
