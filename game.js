@@ -44,7 +44,12 @@ const defaultState = () => ({
   // **색과 따로 두는 이유**: 예전 세이브에 남아 있는 색은 만료 시각이 없으므로
   // 자동으로 '풀린 것' 이 된다 — 마이그레이션 없이 옛 값이 조용히 무효가 된다
   dyeUntil: {},
-  dye: 0,                 // 마법 염색약 보유 개수
+  dye: 0,                 // 마법 염색약 보유 개수 (24시간)
+  dyeEver: 0,             // 영원 염색약 보유 개수 (풀리지 않는다)
+  // 영원 염색약으로 물들인 칸 (슬롯 → true). **만료 시각이 없다는 것만으로는
+  // 영원한 색인지 알 수 없다** — 예전 세이브에도 시각 없는 색이 남아 있어서,
+  // 그건 '풀린 것' 으로 봐야 한다. 그래서 영원한 것은 여기 따로 표시한다
+  dyePerm: {},
   // 현자의 결정 보유 개수 (조합 실패로 얻어 AP 충전에 쓴다).
   // **새로 생긴 칸이라 마이그레이션이 필요 없다** — 예전 세이브에는 이 키가 없고,
   // Object.assign(defaultState(), 저장값) 이 기본값 0 을 그대로 남긴다
@@ -157,6 +162,7 @@ function adoptState(state) {
   S.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, S.outfit || {});
   if (!S.outfitColor || typeof S.outfitColor !== 'object') S.outfitColor = {};
   if (!S.dyeUntil || typeof S.dyeUntil !== 'object') S.dyeUntil = {};
+  if (!S.dyePerm || typeof S.dyePerm !== 'object') S.dyePerm = {};
   S.record = Object.assign(newRecord(), S.record || {});
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
   if (typeof render === 'function') render();
@@ -1505,6 +1511,7 @@ function renderRoomDevGift() {
     + `<button class="btn btn-dev" onclick="unlockAllCosmetics()">🎁 ${T('dev_all_wear')}</button>`
     + `<button class="btn btn-dev" onclick="unlockAllColors()">🎨 ${T('dev_all_color')}</button>`
     + `<button class="btn btn-dev" onclick="devGiveDye(1000)">🧪 ${T('dev_dye')}</button>`
+    + `<button class="btn btn-dev" onclick="devGiveDyeEver(1000)">♾️ ${T('dev_dye_ever')}</button>`
     + `<button class="btn btn-dev" onclick="devGiveCrystal(1000)">💎 ${T('dev_crystal')}</button>`
     + `<button class="btn btn-dev" onclick="unlockAllOf('expression')">😄 ${T('dev_all_face')}</button></div>`;
 }
@@ -1572,6 +1579,8 @@ function dyeLeft(slot) {
   const t = (S.dyeUntil || {})[slot];
   return t ? t - Date.now() : 0;
 }
+// 지금 그 칸에 색이 살아 있는가 — 24시간짜리가 남았거나, 영원 염색약을 썼거나
+function dyeActive(slot) { return !!(S.dyePerm || {})[slot] || dyeLeft(slot) > 0; }
 // 시간이 다 된 염색을 걷어낸다. 하나라도 걷어냈으면 true (부른 쪽이 저장·다시 그리기)
 function expireDye() {
   if (!S.dyeUntil) return false;
@@ -1613,13 +1622,17 @@ function wornItem(slot) {
 }
 
 // 염색약 쓰기 버튼 — 없으면 열지 않는다
-let dyeOpen = null;      // 컬러칩을 펼쳐 놓은 칸 (한 번에 하나)
-function toggleDye(slot) {
-  if ((S.dye || 0) <= 0) { toast(T('dye_none')); return; }
-  dyeOpen = (dyeOpen === slot) ? null : slot;
+// 컬러칩을 펼쳐 놓은 곳 (한 번에 하나) — '칸:종류' 로 적는다.
+// 종류가 둘이라(마법 / 영원) 칸만으로는 어느 줄이 열렸는지 알 수 없다.
+let dyeOpen = null;
+function dyeStock(kind) { return (kind === 'ever' ? S.dyeEver : S.dye) || 0; }
+function toggleDye(slot, kind) {
+  if (dyeStock(kind) <= 0) { toast(T(kind === 'ever' ? 'dye_ever_none' : 'dye_none')); return; }
+  const key = slot + ':' + kind;
+  dyeOpen = (dyeOpen === key) ? null : key;
   renderWardrobe();
 }
-function dyeHelp() { toast(T('dye_help'), null, 3600); }
+function dyeHelp(kind) { toast(T(kind === 'ever' ? 'dye_ever_help' : 'dye_help'), null, 3600); }
 window.toggleDye = toggleDye;
 window.dyeHelp = dyeHelp;
 
@@ -1627,25 +1640,35 @@ function colorRow(slot) {
   if (!D.COLORABLE_SLOTS.includes(slot)) return '';
   const it = wornItem(slot);
   if (!it) return '';                                  // '없음' 을 입었으면 물들일 것이 없다
-  const have = S.dye || 0;
+  // 염색약은 두 가지다 — 24시간짜리 마법 염색약과, 원래 색을 아예 바꾸는 영원 염색약.
   // **줄 전체가 버튼이다.** 글자만 눌리면 어디를 눌러야 하는지 알기 어렵다.
   // 화살표로 열림/닫힘을 알린다 — 눌러도 아무 일이 없어 보이는 순간이 없어야 한다.
   // '?' 는 이 줄 안에 있지만 **따로 동작한다** (stopPropagation) — 안내를 보려다 열리면 안 된다
-  const open = dyeOpen === slot;
-  const head = `<div class="dye-bar ${have ? '' : 'off'}" role="button" tabindex="0"
-      aria-expanded="${open}" aria-label="${T('dye_use')}"
-      onclick="toggleDye('${slot}')"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleDye('${slot}')}">
-      <span class="dye-label">${T('dye_use')}</span>
-      <button class="dye-help" onclick="event.stopPropagation();dyeHelp()"
-        aria-label="${T('dye_help_label')}">?</button>
+  const KINDS = [
+    { kind: 'magic', ic: '🧪', label: 'dye_use',      help: 'dye_help_label' },
+    { kind: 'ever',  ic: '♾️', label: 'dye_ever_use', help: 'dye_ever_help_label' },
+  ];
+  const bar = (k) => {
+    const have = dyeStock(k.kind);
+    const on = dyeOpen === slot + ':' + k.kind;
+    return `<div class="dye-bar ${have ? '' : 'off'}" role="button" tabindex="0"
+      aria-expanded="${on}" aria-label="${T(k.label)}"
+      onclick="toggleDye('${slot}','${k.kind}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleDye('${slot}','${k.kind}')}">
+      <span class="dye-ic" aria-hidden="true">${k.ic}</span>
+      <span class="dye-label">${T(k.label)}</span>
+      <button class="dye-help" onclick="event.stopPropagation();dyeHelp('${k.kind}')"
+        aria-label="${T(k.help)}">?</button>
       <span class="dye-caret" aria-hidden="true">▾</span>
       <span class="dye-have">${T('dye_have', { n: have })}</span>
     </div>`;
-  if (!open) return head;
+  };
+  const head = `<div class="dye-bars">${KINDS.map(bar).join('')}</div>`;
+  const openKind = dyeOpen && dyeOpen.startsWith(slot + ':') ? dyeOpen.split(':')[1] : null;
+  if (!openKind) return head;
 
   const curId = (S.outfitColor || {})[slot] || '';
-  const cur = (isColorOwned(curId) && dyeLeft(slot) > 0) ? curId : '';
+  const cur = (isColorOwned(curId) && dyeActive(slot)) ? curId : '';
   const curName = cur ? N(cur, (D.COLORS.find(x => x.id === cur) || {}).name) : T('wr_color_orig');
   const owned = D.COLORS.filter(c => isColorOwned(c.id)).length;
   const dots = D.COLORS.map(c => {
@@ -1654,7 +1677,7 @@ function colorRow(slot) {
     // 잠긴 색은 **채도를 낮추지 않는다.** 색 자체가 내용이라 흐리게 하면 무엇을 얻는지 안 보인다.
     // 대신 불투명도를 낮추고 자물쇠를 얹는다 (색에 기대지 않는 신호 — UI_POLICY 7장)
     return `<button class="wr-color ${on ? 'on' : ''} ${got ? '' : 'locked'}" style="background:${c.hex}"
-      onclick="askDye('${slot}','${c.id}')"
+      onclick="askDye('${slot}','${c.id}','${openKind}')"
       aria-label="${N(c.id, c.name)}${got ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
       >${got ? '' : '<span class="wr-clock">🔒</span>'}</button>`;
   }).join('');
@@ -1668,7 +1691,7 @@ function colorRow(slot) {
 }
 
 // 색을 눌렀을 때 — 잠겼으면 막고, 아니면 확인 패널을 띄운다
-function askDye(slot, colorId) {
+function askDye(slot, colorId, kind) {
   const c = D.COLORS.find(x => x.id === colorId);
   if (!c) return;
   if (!isColorOwned(colorId)) {
@@ -1676,26 +1699,38 @@ function askDye(slot, colorId) {
     toast(T('locked_color', { name: N(c.id, c.name) }));
     return;
   }
-  if ((S.dye || 0) <= 0) { toast(T('dye_none')); return; }
+  const ever = kind === 'ever';
+  if (dyeStock(kind) <= 0) { toast(T(ever ? 'dye_ever_none' : 'dye_none')); return; }
   const it = wornItem(slot);
   if (!it) return;
   const item = N(it.id, it.name), color = N(c.id, c.name);
-  showConfirm(T('dye_confirm', { item, color, josa: josa(item, '을를') }),
-    () => applyDye(slot, colorId));
+  showConfirm(T(ever ? 'dye_ever_confirm' : 'dye_confirm', { item, color, josa: josa(item, '을를') }),
+    () => applyDye(slot, colorId, kind));
 }
 window.askDye = askDye;
 
-function applyDye(slot, colorId) {
-  if ((S.dye || 0) <= 0) { toast(T('dye_none')); return; }
+function applyDye(slot, colorId, kind) {
+  const ever = kind === 'ever';
+  if (dyeStock(kind) <= 0) { toast(T(ever ? 'dye_ever_none' : 'dye_none')); return; }
   const c = D.COLORS.find(x => x.id === colorId);
   const it = wornItem(slot);
   if (!c || !it) return;
-  S.dye--;
+  if (ever) S.dyeEver--; else S.dye--;
   S.outfitColor[slot] = colorId;
-  S.dyeUntil[slot] = Date.now() + DYE_MS;
+  if (ever) {
+    // 영원 염색약 — 만료 시각을 지우고 '영원함' 표시를 남긴다
+    S.dyePerm[slot] = true;
+    delete S.dyeUntil[slot];
+  } else {
+    delete S.dyePerm[slot];
+    S.dyeUntil[slot] = Date.now() + DYE_MS;
+  }
   dyeOpen = null;        // 다 썼으면 접는다 — 열어 둔 채로 두면 방금 바뀐 아바타가 안 보인다
   save();
-  toast(T('dye_done', { item: N(it.id, it.name), color: N(c.id, c.name) }));
+  // 색 이름 뒤의 조사는 받침에 따라 달라진다 ('크림으로' / '진주로')
+  const cn = N(c.id, c.name);
+  toast(T(ever ? 'dye_ever_done' : 'dye_done',
+    { item: N(it.id, it.name), color: cn, josa: josa(cn, '으로') }));
   renderShowcase();                  // 아바타 + 옷장 동시 갱신
 }
 
@@ -1703,6 +1738,7 @@ function applyDye(slot, colorId) {
 function undye(slot) {
   delete S.outfitColor[slot];
   delete S.dyeUntil[slot];
+  if (S.dyePerm) delete S.dyePerm[slot];
   save();
   renderShowcase();
 }
@@ -1739,6 +1775,15 @@ function devGiveDye(n) {
   renderShowcase();
 }
 window.devGiveDye = devGiveDye;
+
+// 테스트용: 영원 염색약 채우기
+function devGiveDyeEver(n) {
+  S.dyeEver = (S.dyeEver || 0) + (n || 5);
+  save();
+  toast(T('dev_dye_ever_done', { n: S.dyeEver }));
+  renderShowcase();
+}
+window.devGiveDyeEver = devGiveDyeEver;
 
 // 테스트용: 현자의 결정 채우기 (충전 1회 분)
 function devGiveCrystal(n) {
