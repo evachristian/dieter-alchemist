@@ -336,6 +336,13 @@ body {
 }
 .c-slot.empty { border: 2px dashed var(--lav-2); color: var(--text-lav); background: var(--cream); }
 .c-slot.filled { background: var(--mint); cursor: pointer; box-shadow: inset 0 0 0 2px var(--mint-2); }
+/* 고른 레시피가 요구하는데 가방에 없는 재료 — 자리만 회색으로 잡아 둔다.
+   **✕ 를 달지 않는다** (뺄 것이 없다). 누르면 무엇이 모자란지 알려 준다. */
+.c-slot.lack {
+  background: var(--cream); cursor: pointer;
+  box-shadow: inset 0 0 0 2px rgba(154,138,149,0.35);
+  filter: saturate(0.12); opacity: 0.85;
+}
 
 /* 빼기 배지 — 흰 ✕ 가 읽히도록 진한 핑크를 쓴다 (TEXT_POLICY 대비 4.5:1) */
 .c-slot-x { position: absolute; top: -6px; right: -6px; font-size: 0.7rem; background: var(--text-pink); color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2; }
@@ -383,6 +390,12 @@ body {
   box-shadow: inset 0 0 0 2px rgba(224,196,120,0.9), 0 0 16px rgba(200,140,230,0.6);
 }
 .magic-circle .c-slot.filled:active { transform: translate(-50%, -50%) scale(0.92); }
+/* 마법진(어두운 판) 위의 모자란 자리 — 밝은 크림 대신 판에 맞춰 어둡게 */
+.magic-circle .c-slot.lack {
+  background: rgba(28,20,44,0.72);
+  box-shadow: inset 0 0 0 2px rgba(224,196,120,0.4);
+}
+.magic-circle .c-slot.lack:active { transform: translate(-50%, -50%) scale(0.94); }
 .cauldron-actions { display: flex; gap: 10px; min-width: 0; }
 .cauldron-actions > .btn { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -506,7 +519,13 @@ body {
   box-shadow: var(--shadow), inset 3px 0 0 var(--text-mint);
 }
 .cd-tabs { margin-bottom: 12px; }
-.recipe-row.locked { background: var(--cream); }
+/* 재료가 모자라 지금은 못 만드는 줄 — 회색으로 죽인다 (눌러 보면 이유를 알려 준다).
+   채도만 낮춘다: 명도가 그대로라 글자 대비는 떨어지지 않는다 (CLAUDE.md 4번) */
+.recipe-row.clickable.short { background: var(--cream); filter: saturate(0.15); }
+.recipe-row.clickable.short .recipe-in,
+.recipe-row.clickable.short .recipe-out { color: var(--ink); }
+/* 아직 모르는 레시피 — 연회색. '못 만드는 것'(위)과 달라 보여야 한다 */
+.recipe-row.locked { background: rgba(154,138,149,0.19); cursor: pointer; }
 .recipe-row.locked .recipe-in,
 .recipe-row.locked .recipe-out,
 .recipe-row.locked .recipe-arrow { color: var(--ink-soft); }

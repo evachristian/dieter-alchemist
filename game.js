@@ -49,6 +49,11 @@ const defaultState = () => ({
   // **새로 생긴 칸이라 마이그레이션이 필요 없다** — 예전 세이브에는 이 키가 없고,
   // Object.assign(defaultState(), 저장값) 이 기본값 0 을 그대로 남긴다
   crystal: 0,
+  // 눌러서 고른 레시피가 요구하는 재료 목록 (표시용).
+  // **조합해도 지워지지 않는다** — 재료가 남아 있으면 솥이 저절로 다시 채워지고,
+  // 모자란 자리는 회색 재료로 남아 무엇이 없는지 보여 준다.
+  // 새로 생긴 칸이라 마이그레이션이 필요 없다 (없으면 기본값 [] 이 남는다)
+  want: [],
   unlocked:  [],          // 해금한 커스터마이징 아이템 id 목록 (starter 외)
   energy:    D.ENERGY.cap,  // 현재 에너지 (행동력)
   energyDay: dayKey(),      // 마지막 충전 기준 로컬 날짜 키 (YYYYMMDD)
@@ -706,19 +711,60 @@ window.tapGather = tapGather;
 // ═══════════════════════════════════════════════════════════════
 //  공방 / 가마솥 (Atelier)
 // ═══════════════════════════════════════════════════════════════
+// 고른 레시피(S.want)를 지금 가진 재료로 다시 채운다.
+// 담을 수 있는 것만 담고, 없는 것은 담지 않는다 (그 자리는 회색 재료로 보인다).
+function refillFromWant() {
+  if (!S.want || !S.want.length) return;
+  const left = {};
+  S.want.forEach(id => { left[id] = invCount(id); });
+  S.cauldron = S.want.filter(id => (left[id]-- > 0));
+}
+
+// 구멍마다 '무엇이 있어야 하는지 / 지금 있는지' 를 낸다.
+// 레시피를 고르지 않았으면 담긴 것만 그대로 보여 준다.
+function slotView() {
+  const n = cauldronSlots();
+  const out = [];
+  if (S.want && S.want.length) {
+    const have = {};
+    S.cauldron.forEach(id => { have[id] = (have[id] || 0) + 1; });
+    S.want.forEach(id => {
+      const ok = have[id] > 0;
+      if (ok) have[id]--;
+      out.push({ id, ghost: !ok });
+    });
+  } else {
+    S.cauldron.forEach(id => out.push({ id, ghost: false }));
+  }
+  while (out.length < n) out.push(null);
+  return out.slice(0, n);
+}
+
+// 회색 재료를 눌렀을 때 — 무엇이 모자란지 알려 준다
+function lackHint(el) { toast(T('mat_lack'), el); }
+window.lackHint = lackHint;
+
 function addToCauldron(id) {
   if (S.cauldron.length >= cauldronSlots()) { toast(T('cauldron_full', { n: cauldronSlots() })); return; }
   if (invCount(id) - S.cauldron.filter(x => x === id).length <= 0) {
     toast(T('not_enough_mat')); return;
   }
   S.cauldron.push(id);
+  S.want = [];              // 손으로 담기 시작하면 레시피 선택은 놓는다
   save(); render();
 }
 function removeFromCauldron(idx) {
-  S.cauldron.splice(idx, 1);
+  // 화면의 idx 는 '구멍 번호' 다 — 회색 자리가 섞여 있으면 S.cauldron 의 순서와 다르다.
+  // 그 구멍에 실제로 담긴 것이 몇 번째인지 세어서 뺀다.
+  const view = slotView();
+  const cell = view[idx];
+  if (!cell || cell.ghost) return;
+  const real = view.slice(0, idx).filter(c => c && !c.ghost).length;
+  S.cauldron.splice(real, 1);
+  S.want = [];              // 손으로 뺐으면 레시피 선택은 놓는다
   save(); render();
 }
-function clearCauldron() { S.cauldron = []; save(); render(); }
+function clearCauldron() { S.cauldron = []; S.want = []; save(); render(); }
 
 // 채집 가방 접기/펼치기 (기본: 닫힘)
 let bagOpen = false;
@@ -741,6 +787,9 @@ function brew() {
   const key = D.recipeKey(S.cauldron);
   const result = D.RECIPE_MAP[key];
   S.cauldron = [];
+  // 고른 레시피가 있으면 남은 재료로 **다시 채운다.** 같은 것을 여러 번 만들 때
+  // 매번 레시피를 다시 누르지 않아도 된다. 모자라면 그 자리는 회색으로 남는다.
+  refillFromWant();
 
   rec('brews');
   if (!result) {
@@ -982,16 +1031,22 @@ function renderAtelier() {
   let slotsHtml = '';
   // 구멍이 많을수록 원을 조금 키워 서로 붙지 않게 한다 (36% → 41%)
   const radius = n <= 6 ? 36 : 36 + (n - 6) * (5 / 6);
+  const view = slotView();
   for (let i = 0; i < n; i++) {
-    const id = S.cauldron[i];
+    const cell = view[i];
     // 원 위에 고르게 배치 (위쪽부터 시계 방향)
     const ang = -Math.PI / 2 + i * 2 * Math.PI / n;
     const rx = 50 + Math.cos(ang) * radius, ry = 50 + Math.sin(ang) * radius;
     const pos = `left:${rx.toFixed(1)}%;top:${ry.toFixed(1)}%`;
-    if (id) {
-      const rare = D.INGREDIENTS[id].rare ? ' rare' : '';
+    if (cell && cell.ghost) {
+      // 고른 레시피가 요구하는데 가방에 없는 재료 — 회색으로 자리만 잡아 둔다.
+      // **✕ 를 달지 않는다** (뺄 것이 없다). 누르면 무엇이 모자란지 알려 준다.
+      slotsHtml += `<div class="c-slot lack" style="${pos}" data-lack="${cell.id}"
+        onclick="lackHint(this)">${D.INGREDIENTS[cell.id].emoji}</div>`;
+    } else if (cell) {
+      const rare = D.INGREDIENTS[cell.id].rare ? ' rare' : '';
       slotsHtml += `<div class="c-slot filled${rare}" style="${pos}" onclick="removeFromCauldron(${i})">
-        ${D.INGREDIENTS[id].emoji}<span class="c-slot-x">✕</span></div>`;
+        ${D.INGREDIENTS[cell.id].emoji}<span class="c-slot-x">✕</span></div>`;
     } else {
       slotsHtml += `<div class="c-slot empty" style="${pos}">+</div>`;
     }
@@ -1062,8 +1117,8 @@ function renderAtelier() {
     const found = S.discovered.includes(r.result.id);
     const inputs = r.inputs.map(id => D.INGREDIENTS[id].emoji).join(' + ');
     if (found) {
-      // 재료가 다 있고 구멍도 충분하면 눌러서 한 번에 담을 수 있다
-      const ready = canFillRecipe(r);
+      // 재료가 다 있어야 담을 수 있다. 모자라면 회색으로 두고, 눌렀을 때 이유를 알려 준다
+      const ready = hasAllInputs(r);
       return `<div class="recipe-row clickable ${ready ? '' : 'short'} ${r.result.id === lastFound ? 'just-found' : ''}"
         data-recipe="${r.result.id}" onclick="fillFromRecipe('${r.result.id}', this)">
         <span class="recipe-in">${inputs}</span>
@@ -1071,8 +1126,12 @@ function renderAtelier() {
         <span class="recipe-out">${r.result.emoji} ${N(r.result.id, r.result.name)}</span>
       </div>`;
     }
-    return `<div class="recipe-row locked">
-      <span class="recipe-in">? + ?</span>
+    // 아직 모르는 레시피 — **물음표 개수가 곧 재료 개수다.** 몇 가지가 드는지는
+    // 알려 줘도 되는 정보이고, 그래야 어떤 솥이 필요한지 가늠할 수 있다
+    const marks = r.inputs.map(() => '?').join(' + ');
+    return `<div class="recipe-row locked" data-unknown="${r.result.id}"
+      onclick="unknownRecipeHint(this)">
+      <span class="recipe-in">${marks}</span>
       <span class="recipe-arrow">→</span>
       <span class="recipe-out">❓ ???</span>
     </div>`;
@@ -1315,7 +1374,9 @@ function chooseCauldron(id, el) {
   if (!isCauldronOpen(c)) { toast(c.needsTutorial ? T('locked_tutorial') : unlockText(c.unlock), el); return; }
   S.cauldronId = id;
   if (S.record && !S.record.pots.includes(id)) S.record.pots.push(id);
-  // 구멍이 줄어들면 넘치는 재료는 가방으로 되돌린다
+  // 구멍이 줄어들면 넘치는 재료는 가방으로 되돌린다.
+  // 손으로 솥을 바꾼 것이므로 레시피 선택도 놓는다 (구멍 수가 안 맞을 수 있다)
+  S.want = [];
   while (S.cauldron.length > c.slots) S.cauldron.pop();
   save(); render();
   // 위와 같은 이유 — 솥 탭도 다시 그려졌다
@@ -2001,28 +2062,51 @@ const AURA_BY_POTION = {
 };
 
 // ─── 레시피를 눌러 재료 자동 삽입 ───
-// 필요한 재료가 가방에 다 있고 솥 구멍도 충분해야 담긴다.
-function canFillRecipe(r) {
-  if (r.inputs.length > cauldronSlots()) return false;
+// 재료가 가방에 다 있어야 담긴다. **솥은 알아서 맞춰 준다** (아래 potFor).
+function hasAllInputs(r) {
   const need = {};
   r.inputs.forEach(id => { need[id] = (need[id] || 0) + 1; });
   return Object.keys(need).every(id => invCount(id) >= need[id]);
 }
+
+// 재료 n 가지가 들어가는 **가장 작은 솥**. 열려 있는 것 중에서 찾고,
+// 없으면 열어야 할 솥을 두 번째 값으로 돌려준다 ('○○이(가) 필요해요' 안내용).
+// 가장 작은 것을 고르는 이유: 2가지 레시피에 12구 솥을 꺼내 놓으면
+// 빈 구멍 열 개가 무엇을 더 넣으라는 뜻으로 읽힌다.
+function potFor(n) {
+  const fit = D.CAULDRONS.filter(c => c.slots >= n).sort((a, b) => a.slots - b.slots);
+  const open = fit.find(c => isCauldronOpen(c));
+  return { open, need: open ? null : fit[0] };
+}
+
 function fillFromRecipe(resultId, el) {
   const r = D.RECIPES.find(x => x.result.id === resultId);
   if (!r) return;
-  if (r.inputs.length > cauldronSlots()) {
-    toast(T('need_bigger_pot', { n: r.inputs.length }), el);
+  const { open, need } = potFor(r.inputs.length);
+  if (!open) {
+    // 그만한 솥이 아직 없다 — 어떤 솥이 필요한지 이름으로 알려 준다
+    const nm = need ? N(need.id, need.name) : '';
+    toast(T('need_pot', { name: nm, josa: josa(nm, '이가') }), el);
     return;
   }
-  if (!canFillRecipe(r)) { toast(T('not_enough_mat'), el); return; }
-  S.cauldron = r.inputs.slice();
+  if (!hasAllInputs(r)) { toast(T('mat_short'), el); return; }
+  // 재료 가짓수에 딱 맞는 솥으로 갈아 끼운다 (이미 그 솥이면 그대로)
+  if (S.cauldronId !== open.id) {
+    S.cauldronId = open.id;
+    if (S.record && !S.record.pots.includes(open.id)) S.record.pots.push(open.id);
+  }
+  S.want = r.inputs.slice();
+  refillFromWant();
   save(); render();
   // render() 가 줄을 새로 그렸다 — 넘겨받은 el 은 이미 문서에서 떨어졌으므로 새로 찾는다
   toast(T('recipe_filled', { name: N(r.result.id, r.result.name) }),
     `[data-recipe="${resultId}"]`, null, 'above');
   if (window.Sfx) Sfx.play('pick');
 }
+
+// 아직 모르는 레시피를 눌렀을 때
+function unknownRecipeHint(el) { toast(T('recipe_unknown'), el, null, 'above'); }
+window.unknownRecipeHint = unknownRecipeHint;
 
 // ─── 신체 · 아우라 상세 수치 표시 ───
 function renderVitals() {
