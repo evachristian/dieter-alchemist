@@ -1547,19 +1547,28 @@ function renderWardrobe() {
 
   // 보유 개수는 **고른 탭 안에만** 쓴다. 예전에는 목록 아래에 따로 한 줄이 있었는데,
   // 색 보유 개수까지 생기면서 같은 화면에 '보유' 가 여러 군데 흩어져 무엇의 수인지 헷갈렸다.
+  // 튜토리얼 전에는 가진 것만 보여 주므로(아래) 보유 개수도 적지 않는다 —
+  // 한 칸만 놓고 '2/9' 라고 하면 나머지 일곱이 어디 있는지 되묻게 된다
+  const showCount = !!S.tutorialDone;
   const tabs = slots.map(m => {
     const dimmed = dressed && (m.slot === 'top' || m.slot === 'bottom');
     const on = wardrobeTab === m.slot;
     const list = D.WARDROBE[m.slot] || [];
-    const n = on && m.gated
+    const n = on && m.gated && showCount
       ? `<span class="wr-tab-n">${list.filter(x => isOwned(m.slot, x)).length}/${list.length}</span>` : '';
     return `<button class="cat-tab wr-tab ${on ? 'active' : ''} ${dimmed ? 'dim' : ''}"
       onclick="setWardrobeTab('${m.slot}')"
-      aria-label="${N(m.slot, m.label)}${on && m.gated ? ' · ' + T('wr_owned', { have: list.filter(x => isOwned(m.slot, x)).length, total: list.length }) : ''}"
+      aria-label="${N(m.slot, m.label)}${on && m.gated && showCount ? ' · ' + T('wr_owned', { have: list.filter(x => isOwned(m.slot, x)).length, total: list.length }) : ''}"
       >${m.emoji} ${N(m.slot, m.label)}${n}</button>`;
   }).join('');
 
-  const list = D.WARDROBE[wardrobeTab] || [];
+  // 튜토리얼을 마치기 전에는 **가진 것만** 보여 준다.
+  // 인트로가 끝나고 처음 들어온 화면에 잠긴 칸 여덟 개가 늘어서 있으면
+  // 무엇을 하라는 화면인지 읽히지 않는다. '없음' 도 뺀다 —
+  // 가진 옷이 한 벌뿐이라 벗을 이유가 없고, 눌러도 할 일이 없는 칸이다.
+  const onlyMine = !S.tutorialDone;
+  const list = (D.WARDROBE[wardrobeTab] || [])
+    .filter(it => !onlyMine || (it.kind !== 'none' && isOwned(wardrobeTab, it)));
   const items = list.map(it => {
     const on = S.outfit[wardrobeTab] === it.id;
     const owned = isOwned(wardrobeTab, it);
