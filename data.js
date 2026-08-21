@@ -9,7 +9,7 @@
 const INGREDIENTS = {
   // ── 뾰족 산악 지대 ──
   iron_ore:      { id: 'iron_ore', emoji: '⛏️', name: '무쇠 광석', zone: 'mountain', weight: 24 },
-  crystal:       { id: 'crystal', emoji: '💎', name: '수정', zone: 'mountain', weight: 6 },
+  crystal:       { id: 'crystal', emoji: '🔹', name: '수정', zone: 'mountain', weight: 6 },
   cave_moss:     { id: 'cave_moss', emoji: '🪨', name: '동굴 이끼', zone: 'mountain', weight: 26 },
   snow_bud:      { id: 'snow_bud', emoji: '❄️', name: '설화 봉오리', zone: 'mountain', weight: 14 },
   eagle_feather: { id: 'eagle_feather', emoji: '🪶', name: '매 깃털', zone: 'mountain', weight: 12 },
@@ -677,8 +677,17 @@ const RECIPE_GRADES = [
   { id: 'high',  label: '상급' },
 ];
 
-const SLUDGE = { id: 'sludge', kind: 'sludge', emoji: '🟤', name: '수상한 진흙',
-  desc: '뭔가 잘못됐다... 재료가 아까워도 다음을 노려보자.' };
+// ─── 현자의 결정 (연금 실패 보상) ───
+// 예전에는 실패하면 '수상한 진흙' 이 나왔다 — 아무 쓸모가 없어서 실패가 순손실이었다.
+// 지금은 결정이 남고, 모아서 AP 를 충전한다.
+// **아이콘은 임시로 이모지 💎 를 쓴다** (다른 아이콘과 같은 처지 — CLAUDE.md '아직 안 한 것')
+// id 가 'crystal' 이 아니라 'sage_crystal' 인 이유: 산에서 캐는 재료 '수정' 이
+// 이미 id 'crystal' 을 쓰고 있다. 같은 id 를 쓰면 NAMES 에서 이름이 서로 덮인다.
+// 그 재료의 이모지도 💎 였는데, 화폐와 같은 그림이면 헷갈려서 🔹 로 옮겼다.
+const CRYSTAL = {
+  id: 'sage_crystal', kind: 'crystal', emoji: '💎', name: '현자의 결정',
+  desc: '조합은 실패했지만 결정이 남았다. 모으면 AP 를 충전할 수 있다.',
+};
 
 // ─── 매력 등급 (Charm Tiers) ───
 // 매력 총합(비주얼 + 아우라 + 크리처 보너스)에 따른 칭호
@@ -935,6 +944,13 @@ const ENERGY = {
   cap: 1000,
   dailyFill: 1000,
   cost: { gather: 10, brew: 25 },
+  // 현자의 결정으로 AP 를 가득 채우는 값.
+  // **무한 AP 가 되지 않게 잡은 수치다** — 실패 한 번(조합 25 AP)에 결정 10 개이므로
+  // 1000 개를 모으려면 100 번 실패해야 하고, 그동안 2500 AP 를 쓴다.
+  // 결정 하나가 AP 하나보다 값이 나가면(실패당 25 개 이상) 일부러 실패해서
+  // AP 를 무한히 버는 고리가 생긴다. 수치를 바꿀 때 이 관계를 먼저 볼 것.
+  chargeCost: 1000,   // 충전 1회에 드는 현자의 결정
+  failReward: 10,     // 조합 실패 1회에 주는 현자의 결정
 };
 
 // 새 캐릭터 기본 착장
@@ -956,7 +972,7 @@ const RECIPE_MAP = {};
 for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 
 window.GameData = {
-  INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, SLUDGE, TIERS,
+  INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, TIERS,
   WARDROBE, WARDROBE_SLOTS, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   COLORS, COLORABLE_SLOTS,
   getTier, recipeKey,

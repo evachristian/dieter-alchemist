@@ -45,6 +45,10 @@ const defaultState = () => ({
   // 자동으로 '풀린 것' 이 된다 — 마이그레이션 없이 옛 값이 조용히 무효가 된다
   dyeUntil: {},
   dye: 0,                 // 마법 염색약 보유 개수
+  // 현자의 결정 보유 개수 (조합 실패로 얻어 AP 충전에 쓴다).
+  // **새로 생긴 칸이라 마이그레이션이 필요 없다** — 예전 세이브에는 이 키가 없고,
+  // Object.assign(defaultState(), 저장값) 이 기본값 0 을 그대로 남긴다
+  crystal: 0,
   unlocked:  [],          // 해금한 커스터마이징 아이템 id 목록 (starter 외)
   energy:    D.ENERGY.cap,  // 현재 에너지 (행동력)
   energyDay: dayKey(),      // 마지막 충전 기준 로컬 날짜 키 (YYYYMMDD)
@@ -432,9 +436,74 @@ function renderEnergy() {
   const text = document.getElementById('enText');
   if (fill) fill.style.width = pct.toFixed(1) + '%';
   if (text) text.textContent = `${cur}/${cap}`;
+
+  // 현자의 결정 보유 개수 — AP 알약 안, + 버튼 바로 앞
+  const gem = document.getElementById('hdrCrystal');
+  if (gem) gem.textContent = fmtCount(S.crystal || 0);
 }
 
-function apHelp(el) { toast(T('ap_help'), el); }
+// 헤더용 짧은 수 — 자릿수가 늘어도 게이지를 잡아먹지 않게 **최대 5글자**로 묶는다.
+// (6글자가 되면 320px 에서 + 버튼이 알약 밖으로 6px 밀려났다)
+// 1만 미만은 있는 그대로("9,999"), 그 위는 K·M 으로 접는다.
+// **올림하지 않고 버린다** — 99,999 를 "100.0K" 로 보여 주면 6글자가 되고,
+// 아직 10만이 아닌데 10만인 것처럼 읽힌다.
+// 정확한 값은 충전 패널의 '보유' 줄에서 그대로 보여 준다 — 접는 건 헤더뿐이다.
+function fmtCount(n) {
+  if (n < 10000) return n.toLocaleString();                 // "9,999"
+  for (const [div, unit] of [[1e3, 'K'], [1e6, 'M'], [1e9, 'B']]) {
+    const v = n / div;
+    if (v < 1000) {
+      // 100 이상이면 소수점을 뗀다 — "999K"(4) 는 되고 "999.9K"(6) 는 안 된다
+      return v < 100 ? (Math.floor(v * 10) / 10).toFixed(1) + unit
+                     : String(Math.floor(v)) + unit;
+    }
+  }
+  return '999B+';
+}
+
+// ─── AP 충전 (현자의 결정 → AP) ───
+// 헤더의 + 버튼. 확인 패널에 '보유 / 지불' 을 나란히 보여 준다.
+function askCharge() {
+  const cap = energyCap();
+  refreshEnergy();
+  if ((S.energy || 0) >= cap) { toast(T('ap_full')); return; }
+  const cost = D.ENERGY.chargeCost, have = S.crystal || 0;
+  // 결정 아이콘은 **누를 수 있다** — 무엇인지·어디서 얻는지 토스트로 알려 준다
+  const row = (label, n, lack) => `<div class="cf-row">
+      <span class="cf-label">${label}</span>
+      <button class="cf-gem" onclick="crystalHelp(this)" aria-label="${T('crystal_name')}">${D.CRYSTAL.emoji}</button>
+      <span class="cf-n${lack ? ' lack' : ''}">${T('n_ea', { n: n.toLocaleString() })}</span>
+    </div>`;
+  showConfirm(T('ap_charge_ask'), () => doCharge(),
+    row(T('ap_charge_have'), have, have < cost) + row(T('ap_charge_pay'), cost, false));
+}
+window.askCharge = askCharge;
+
+// 결정 아이콘 안내 — 이름과 획득처
+function crystalHelp(el) { toast(T('crystal_help'), el, 3200); }
+window.crystalHelp = crystalHelp;
+
+function doCharge() {
+  const cost = D.ENERGY.chargeCost;
+  if ((S.crystal || 0) < cost) {
+    // 모자라면 다이아 구매로 이어진다 (아직 상점이 없다 → openDiamondShop 참고)
+    toast(T('crystal_short'));
+    setTimeout(openDiamondShop, 900);
+    return;
+  }
+  S.crystal -= cost;
+  S.energy = energyCap();
+  S.energyDay = dayKey();
+  save(); render();
+  toast(T('ap_charged'));
+  window.Sfx && Sfx.play('success');
+}
+
+// ─── 다이아 상점 (아직 없음) ───
+// 현자의 결정이 모자랄 때 이어지는 자리. 결제가 붙기 전까지는 안내만 한다.
+// **붙일 때 여기만 고치면 된다** — 모자란 경우는 전부 이 함수로 모인다.
+function openDiamondShop() { toast(T('shop_soon'), null, 3000); }
+window.openDiamondShop = openDiamondShop;
 
 // 등급 아이콘 안내 — "○○ 단계"
 function tierHelp(el) {
@@ -646,8 +715,10 @@ function brew() {
   rec('brews');
   if (!result) {
     rec('brewFail');
+    // 실패해도 빈손으로 보내지 않는다 — 현자의 결정이 남는다
+    S.crystal = (S.crystal || 0) + D.ENERGY.failReward;
     save(); render();
-    showBrewResult(D.SLUDGE, false);
+    showBrewResult(D.CRYSTAL, false);
     return;
   }
 
@@ -746,8 +817,11 @@ function drinkPotion(potionId) {
 function showBrewResult(result, isNew) {
   const modal = document.getElementById('brewModal');
   const body = document.getElementById('brewModalBody');
-  const success = result.kind !== 'sludge';
+  const success = result.kind !== 'crystal';
   let statLine = '';
+  if (result.kind === 'crystal') {
+    statLine = `<div class="brew-stats">${T('brew_crystal', { n: D.ENERGY.failReward })}</div>`;
+  }
   if (result.kind === 'potion') {
     // 물약은 '비주얼/아우라' 숫자 대신 **실제로 몸이 어떻게 바뀌는지**를 보여 준다.
     // 물약 카드의 '?' 안내와 같은 계산을 쓴다 (potionDelta) — 규칙을 고치면 둘 다 따라온다.
@@ -1340,6 +1414,7 @@ function renderRoomDevGift() {
     + `<button class="btn btn-dev" onclick="unlockAllCosmetics()">🎁 ${T('dev_all_wear')}</button>`
     + `<button class="btn btn-dev" onclick="unlockAllColors()">🎨 ${T('dev_all_color')}</button>`
     + `<button class="btn btn-dev" onclick="devGiveDye(1000)">🧪 ${T('dev_dye')}</button>`
+    + `<button class="btn btn-dev" onclick="devGiveCrystal(1000)">💎 ${T('dev_crystal')}</button>`
     + `<button class="btn btn-dev" onclick="unlockAllOf('expression')">😄 ${T('dev_all_face')}</button></div>`;
 }
 
@@ -1573,6 +1648,14 @@ function devGiveDye(n) {
   renderShowcase();
 }
 window.devGiveDye = devGiveDye;
+
+// 테스트용: 현자의 결정 채우기 (충전 1회 분)
+function devGiveCrystal(n) {
+  S.crystal = (S.crystal || 0) + (n || D.ENERGY.chargeCost);
+  save(); render();
+  toast(T('dev_crystal_done', { n: S.crystal.toLocaleString() }));
+}
+window.devGiveCrystal = devGiveCrystal;
 
 // ═══════════════════════════════════════════════════════════════
 //  바디 파츠 조절 (임시 · 테스트용 — 출시 때 이 블록과 index.html 의 #bodyTune 을 지운다)
@@ -2341,8 +2424,13 @@ function needsPlayerName() { return !S.name; }
 
 // ─── 확인 모달 (공용) ───
 let _confirmCb = null;
-function showConfirm(msg, cb) {
+// html 을 주면 문구 아래에 붙는다 (보유/지불 같은 표). **문구 자체는 언제나 textContent 다** —
+// 이름처럼 사람이 넣은 값이 들어와도 태그로 해석되지 않게.
+function showConfirm(msg, cb, html) {
   document.getElementById('confirmText').textContent = msg;
+  const extra = document.getElementById('confirmExtra');
+  extra.innerHTML = html || '';
+  extra.style.display = html ? '' : 'none';
   _confirmCb = cb;
   document.getElementById('confirmModal').classList.add('show');
 }
