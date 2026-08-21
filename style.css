@@ -141,12 +141,8 @@ body {
 .tier-ic { font-size: 0.95rem; }
 .stat-box.highlight { cursor: pointer; }
 .tier-name { font-weight: 800; color: var(--ink); }
-/* 설정 톱니바퀴 — 줄 맨 오른쪽(화면 구석) */
-.hdr-gear {
-  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; border: none; padding: 0;
-  background: rgba(255,255,255,0.75); font-size: 0.98rem; line-height: 1; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; font-family: inherit;
-}
+/* 설정 톱니바퀴는 줄 맨 오른쪽(화면 구석).
+   모양은 초기화 버튼과 한 규칙에서 같이 정한다 → `.icon-btn, .hdr-gear` */
 .hdr-gear:active { transform: scale(0.9) rotate(40deg); }
 /* 설정 팝업 */
 .settings-card { max-width: 340px; text-align: left; }
@@ -499,14 +495,21 @@ body {
   padding: 7px 16px; border-radius: 999px; cursor: pointer;
 }
 .btn-init:active { transform: scale(0.96); }
-.icon-btn {
-  width: 38px; height: 38px; border-radius: 50%; padding: 0;
+/* ─── 아이콘 버튼 (설정 ⚙ · 초기화 ↺) ───
+   헤더의 설정과 방 제목 옆 초기화는 **같은 것으로 보여야 한다** — 크기·테두리·
+   아이콘 표현을 한 규칙에서 같이 정한다. 여기를 고치면 둘 다 바뀐다.
+   아이콘이 SVG 인 이유: 이모지는 플랫폼마다 색과 굵기가 달라 짝을 맞출 수 없다.
+   `stroke="currentColor"` 라 색은 아래 color 하나로 따라온다. */
+.icon-btn, .hdr-gear {
+  width: 34px; height: 34px; border-radius: 50%; padding: 0;
   border: 1px solid rgba(154,138,149,0.28); background: rgba(255,255,255,0.85);
-  color: var(--ink-soft); font-size: 1.25rem; line-height: 1; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow);
+  color: var(--ink-soft); line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(180,140,160,0.16);
   font-family: inherit; flex: 0 0 auto;
 }
-.icon-btn:active { transform: scale(0.9) rotate(-40deg); }
+.icon-btn > svg, .hdr-gear > svg { width: 19px; height: 19px; display: block; }
+.icon-btn:active, .hdr-gear:active { transform: scale(0.9) rotate(-40deg); }
 
 /* 나의 방 하위 탭 */
 /* ─── 인벤토리 (마이 룸) ───
@@ -948,6 +951,9 @@ body {
      ? 가 알약 밖으로 13px 나간다. 여백과 간격을 그만큼 조인다 (합쳐 15px) */
   .app-header { gap: 6px; }
   .ap-wrap { gap: 4px; padding: 5px 4px 5px 7px; }
+  /* 아이콘 버튼도 같이 줄인다 — 둘은 언제나 같은 크기여야 한다 */
+  .icon-btn, .hdr-gear { width: 30px; height: 30px; }
+  .icon-btn > svg, .hdr-gear > svg { width: 17px; height: 17px; }
 
   /* 균등 분할 탭은 가장 긴 라벨이 기준이다. 영어 "🦋 Creatures" 가
      3분할 폭을 넘어서므로 글자와 좌우 여백을 함께 줄인다 (12.5px, 최소 11px 이상) */
