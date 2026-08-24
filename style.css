@@ -871,32 +871,29 @@ body {
    벌 수가 적은 칸(표정 6·문신 5)은 내용이 짧아 이 상한에 닿지 않는다.
    overscroll-behavior: 목록 끝에서 페이지가 같이 밀려 올라가지 않게 */
 .wr-items {
-  --wr-row: 92px; --wr-gap: 8px;
+  --wr-row: 58px; --wr-gap: 8px;
   display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--wr-gap);
   max-height: calc(var(--wr-row) * 4.5 + var(--wr-gap) * 4);
   overflow-y: auto; overscroll-behavior: contain; padding-right: 4px;
 }
+
 /* 격자 칸의 자동 최소 폭은 콘텐츠 기준이다 — min-width:0 이 없으면 이름이 긴 칸
    하나가 격자 밖으로 나간다 (265px 영어 'Puff-sleeve Dress' 에서 6px) */
 .wr-item {
   min-width: 0;
   display: flex; flex-direction: column; align-items: center; gap: 5px;
   border: 2px solid transparent; background: var(--cream); border-radius: 14px;
-  padding: 9px 4px; cursor: pointer; font-family: inherit; transition: transform 0.1s ease;
+  padding: 8px 4px; cursor: pointer; font-family: inherit; transition: transform 0.1s ease;
 }
 .wr-item:active { transform: scale(0.94); }
 .wr-item.on { border-color: var(--pink-2); background: #fff0f7; }
 /* 줄 높이를 고정한다 — 이름이 한 줄인 칸과 두 줄인 칸이 섞이면
    '4.5줄' 이 몇 px 인지 정해지지 않는다 */
 .wr-items .wr-item { height: var(--wr-row); justify-content: center; }
-.wr-ic { font-size: 1.3rem; height: 44px; display: flex; align-items: center; justify-content: center; position: relative; }
+.wr-ic { font-size: 1.25rem; height: 36px; display: flex; align-items: center; justify-content: center; position: relative; }
 /* 머리 실루엣 아이콘 — 이모지 자리에 같은 크기로 들어간다 */
-.hair-icon { height: 44px; width: auto; display: block; }
-/* 이름은 두 줄까지. 세 줄이 되면 칸 높이를 넘어 아래 줄과 겹친다 */
-.wr-nm { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hair-icon { height: 36px; width: auto; display: block; }
 .wr-swatch { width: 22px; height: 22px; border-radius: 7px; display: inline-block; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06); }
-.wr-nm { font-size: 0.72rem; font-weight: 700; color: var(--ink); text-align: center; line-height: 1.15; min-width: 0; overflow-wrap: anywhere; word-break: keep-all; }
-.wr-item.locked .wr-nm { color: var(--ink); }          /* 흐려진 만큼 글자는 진하게 */
 .wr-lock { position: absolute; right: -8px; bottom: -4px; font-size: 0.8rem; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2)); }
 /* ─── 옷 색 고르기 ───────────────────────────────────────────
    색 60 종. 이름을 60개 다 쓰면 글자가 읽을 수 없이 작아지므로,

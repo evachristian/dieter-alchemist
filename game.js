@@ -1851,15 +1851,21 @@ function isOwned(slot, it) {
   return S.unlocked.includes(it.id);
 }
 
-function equip(slot, id) {
+function equip(slot, id, el) {
   const it = (D.WARDROBE[slot] || []).find(x => x.id === id);
   if (!it) return;
-  if (!isOwned(slot, it)) { toast(T('locked_item')); return; }
+  const name = N(it.id, it.name);
+  // 칸에 이름이 없으므로 **누른 자리 옆에** 이름을 띄운다.
+  // 요소가 아니라 선택자를 넘긴다 — 아래 renderShowcase() 가 칸을 새로 그려서
+  // 이 버튼은 문서에서 떨어져 나가고, 좌표가 0,0 이 되어 왼쪽 위 구석에 뜬다
+  const at = `.wr-items .wr-item[aria-label^="${name.replace(/"/g, '')}"]`;
+  if (!isOwned(slot, it)) { toast(T('locked_named', { name }), el, null, 'above'); return; }
   // 상·하의를 고르면 원피스는 벗고, 원피스를 고르면 그대로 (렌더에서 상하의 무시)
   if (slot === 'top' || slot === 'bottom') S.outfit.dress = 'dress_none';
   S.outfit[slot] = id;
   save();
   renderShowcase();  // 아바타 + 옷장 동시 갱신
+  toast(name, at, null, 'above');
 }
 
 // 커스터마이징 해금 (추후 진행 보상에서 호출) — 콘솔/보상 공용 API
@@ -1978,8 +1984,14 @@ function renderWardrobe() {
     // 검정을 골랐을 때 모든 옷이 똑같은 검정 동그라미가 돼 서로 구분이 안 된다
     else ic = `<span class="wr-swatch" style="background:${(on && slotColor(wardrobeTab)) || it.color || '#ccc'}"></span>`;
     const lock = owned ? '' : '<span class="wr-lock">🔒</span>';
-    return `<button class="wr-item ${on ? 'on' : ''} ${owned ? '' : 'locked'}" onclick="equip('${wardrobeTab}','${it.id}')">
-      <span class="wr-ic">${ic}${lock}</span><span class="wr-nm">${N(it.id, it.name)}</span></button>`;
+    // 이름은 칸에 쓰지 않는다. 30벌짜리 칸에서는 '긴 생머리 시스루뱅' 같은 이름이
+    // 세 줄을 넘겨 잘렸고, 글자는 11px 밑으로 못 줄인다 (TEXT_POLICY 1).
+    // **눌렀을 때 토스트로 알려 준다** — 그림만 남기니 한 화면에 훨씬 많이 들어간다.
+    // aria-label 에는 그대로 넣는다: 화면 낭독기에는 이름이 유일한 단서다
+    return `<button class="wr-item ${on ? 'on' : ''} ${owned ? '' : 'locked'}"
+      aria-label="${N(it.id, it.name)}${owned ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
+      onclick="equip('${wardrobeTab}','${it.id}',this)">
+      <span class="wr-ic">${ic}${lock}</span></button>`;
   }).join('');
 
   const hint = dressed && (wardrobeTab === 'top' || wardrobeTab === 'bottom')
