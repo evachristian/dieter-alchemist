@@ -726,11 +726,16 @@ function gather(mapId) {
   if (isSpecial) rec('specials');
   save();
   const ing = D.INGREDIENTS[id];
+  // 토스트는 **누른 버튼 옆**에 띄운다. 화면 아래 기본 자리에 뜨면 목록을 한참 내려온
+  // 상태에서는 방금 누른 곳과 너무 멀어 무엇이 나왔는지 눈이 따라가지 못한다.
+  // 요소가 아니라 **선택자**를 넘기는 이유: 바로 아래 render() 가 카드를 새로 그려서
+  // 지금 이 버튼은 문서에서 떨어져 나간다 (좌표가 0,0 이 되어 왼쪽 위 구석에 뜬다).
+  const at = `.spot-card[data-spot="${mapId}"] .btn-gather`;
   if (isSpecial) {
-    toast(T('got_special', { emoji: ing.emoji, name: N(ing.id, ing.name) }), null, 3200);
+    toast(T('got_special', { emoji: ing.emoji, name: N(ing.id, ing.name) }), at, 3200, 'above');
     if (window.Sfx) Sfx.play('success');
   } else {
-    toast(T('got_item', { emoji: ing.emoji, name: N(ing.id, ing.name) }));
+    toast(T('got_item', { emoji: ing.emoji, name: N(ing.id, ing.name) }), at, null, 'above');
   }
   // 채집 애니메이션
   const card = document.querySelector(`.spot-card[data-spot="${mapId}"]`);
@@ -1066,12 +1071,10 @@ function renderGather() {
           <div class="spot-go">${T('locked_go')}</div>
         </div>`;
     }
-    // 재료 이모지는 **눌러서 이름을 볼 수 있다.** 카드 전체가 채집 버튼이라
-    // 이벤트를 여기서 끊는다 — 재료를 눌렀는데 AP 가 나가면 안 된다.
+    // 재료 이모지는 **눌러서 이름을 볼 수 있다.**
     const poolChip = (id, cls, label, call) =>
       `<button class="spot-chip ${cls}" aria-label="${label}"
-        onclick="event.stopPropagation();${call}"
-        onpointerdown="event.stopPropagation()" oncontextmenu="return false">`;
+        onclick="${call}" oncontextmenu="return false">`;
     const chips = spot.pool.map(id => {
       const ing = D.INGREDIENTS[id];
       return poolChip(id, '', N(id, ing.name), `ingHint('${id}',this)`) + ing.emoji + '</button>';
@@ -1085,10 +1088,11 @@ function renderGather() {
       + (found ? sp.emoji : '❔') + '</button>';
     // 특별한 맵(미니게임이 있는 맵)은 카드 왼쪽 위에 배지를 단다 — UI_POLICY.md 참고
     const badge = spot.mini ? `<span class="spot-badge">${T('special_map')}</span>` : '';
+    // 카드 몸통은 **누르는 곳이 아니다.** 채집은 오른쪽 버튼만 한다 —
+    // 재료 이름을 보려다, 목록을 밀어 내리려다 AP 가 새던 자리였다
     return `
       <div class="spot-card ${canGather ? '' : 'low-energy'}${spot.mini ? ' special' : ''}"
-           data-spot="${spot.id}" onclick="tapGather('${spot.id}')"
-           onpointerdown="startGatherHold('${spot.id}', event)" oncontextmenu="return false">
+           data-spot="${spot.id}">
         ${badge}
         <div class="spot-emoji">${spot.emoji}</div>
         <div class="spot-info">
@@ -1096,8 +1100,8 @@ function renderGather() {
           <div class="spot-desc">${N(spot.id + '_desc', spot.desc)}</div>
           <div class="spot-pool">${chips}${spChip}</div>
         </div>
-        <button class="btn-gather" onclick="event.stopPropagation();tapGather('${spot.id}')"
-          onpointerdown="event.stopPropagation();startGatherHold('${spot.id}', event)"
+        <button class="btn-gather" onclick="tapGather('${spot.id}')"
+          onpointerdown="startGatherHold('${spot.id}', event)"
           oncontextmenu="return false">${T('gather_go')} <span class="cost-tag">⚡${cost}</span></button>
       </div>`;
   }).join('');
