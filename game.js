@@ -11,7 +11,7 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //  6: 튜토리얼을 마쳤는지 (tutorialDone) — 마치기 전에는 마이 룸에 인트로의 공주가 서 있다
 //  7: 옷·악세사리 8칸도 획득 대상이 됨 (gated) — 시작 착장은 공주 드레스 한 벌뿐
 //  8: 표정이 '어리둥절' 하나로 시작 — 방긋·윙크·활짝은 이제 얻어야 쓴다
-const SAVE_VER = 8;
+const SAVE_VER = 9;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -21,6 +21,25 @@ const OLD_STARTER_FACES = ['exp_smile', 'exp_wink', 'exp_happy'];
 
 // 세이브 7 에서 잠금 대상이 된 칸들. 예전 세이브에는 이 칸의 옷을 전부 채워 준다.
 const NEW_GATED_SLOTS = ['top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
+
+// 세이브 9 이전의 '헤어컬러' 칸 → 팔레트 색. 그 칸이 없어졌으므로,
+// 브라운이 아닌 머리색을 골라 뒀던 사람은 그 색을 잃지 않게 염색으로 옮긴다.
+// 팔레트에 똑같은 색이 없어 **가장 가까운 색**으로 보낸다 (RGB 거리로 골랐다).
+// 핑크만 거리가 더 가까운 '코랄 핑크' 대신 '벚꽃' 이다 — 코랄 쪽은 살구색으로 기울어
+// 머리색으로 보면 분홍이 아니게 된다.
+const OLD_HAIR_COLOR = {
+  hcol_black:  'c_softblack',   // #3b2f2c → #2c2c30
+  hcol_blonde: 'c_gold',        // #e6c37a → #e6c05c
+  hcol_pink:   'c_blossom',     // #ffa6cf → #ffc2d4
+  hcol_lav:    'c_lavender',    // #c4a9ff → #cbb6ff
+  hcol_mint:   'c_mint',        // #8fe0c0 → #a8e6cf
+  hcol_silver: 'c_silver',      // #d6d6e2 → #d9d9e0
+};
+
+// **마이그레이션이 쓰는 값은 전부 이 위쪽에 둔다.** load() 는 이 파일이 끝까지
+// 읽히기 전(맨 아래가 아니라 중간)에 불린다 — 아래쪽에 const 로 두면 migrate 가
+// 그 값에 닿는 순간 ReferenceError 가 나고, load() 의 catch 가 그것을 삼켜
+// **세이브가 통째로 기본값으로 되돌아간다.** (실제로 그렇게 만들었다가 잡았다)
 
 // ─── i18n 단축 헬퍼 (i18n.js 없으면 한국어 원문 유지) ───
 const T  = (k, v) => (window.I18N ? I18N.t(k, v) : k);
@@ -237,6 +256,19 @@ function migrate(st, from) {
     if (!Array.isArray(st.unlocked)) st.unlocked = [];
     OLD_STARTER_FACES.forEach(id => { if (!st.unlocked.includes(id)) st.unlocked.push(id); });
   }
+  if (from < 9) {
+    // '헤어컬러' 칸이 사라지고, 머리도 다른 칸처럼 **염색해서** 색을 정하게 됐다.
+    // 브라운 말고 다른 색을 골라 뒀던 사람의 머리색이 오늘 갑자기 브라운으로
+    // 돌아가면 안 된다 — 가장 가까운 팔레트 색으로 옮기고 '영원 염색' 으로 잡아 둔다.
+    // (그 색을 쓰고 있었으니 팔레트에서도 가진 것으로 친다)
+    const to = OLD_HAIR_COLOR[(st.outfit || {}).hairColor];
+    if (to && !(st.outfitColor || {}).hair) {
+      st.outfitColor.hair = to;
+      st.dyePerm.hair = true;
+      if (!st.unlocked.includes(to)) st.unlocked.push(to);
+    }
+  }
+
   st.ver = SAVE_VER;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) {}
 }
@@ -1668,7 +1700,8 @@ function renderWardrobe() {
     // 머리는 30종이라 겹치지 않는 이모지가 없다 — **실루엣을 작게 그려서** 보여 준다.
     // 아바타와 같은 함수를 쓰므로 머리 모양을 고치면 이 그림도 같이 바뀐다.
     else if (wardrobeTab === 'hair' && window.Avatar && Avatar.hairIcon) {
-      ic = Avatar.hairIcon(it, (Avatar.getItem('hairColor', S.outfit.hairColor) || {}).color);
+      // 지금 머리색으로 그린다 — 염색해 놓고 목록만 브라운이면 무엇을 고르는지 헷갈린다
+      ic = Avatar.hairIcon(it, slotColor('hair') || it.color);
     }
     else if (it.emoji) ic = it.emoji;
     // 지금 입고 있는 옷만 **고른 색**으로 보여 준다. 목록 전체에 칠하면

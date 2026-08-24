@@ -24,7 +24,9 @@ const CHECK = process.argv.includes('--check');
 // 헤어만 이모지를 쓰지 않고 실루엣을 작게 그린다 (Avatar.hairIcon).
 const SLOTS = {
   hair: {
-    aField: 'back', bField: 'bang', icon: 'draw',
+    // 이모지 대신 실루엣을 그리므로 emoji 는 없다. color 는 **머리의 원래 색**(브라운) —
+    // 머리색은 이 색을 염색해서 정한다 (예전의 '헤어컬러' 칸이 하던 일)
+    aField: 'back', bField: 'bang', icon: 'draw', color: '#7b5640',
     a: [
       { k: 'long',     ko: '긴 생머리', en: 'Long' },
       { k: 'bob',      ko: '단발',      en: 'Bob' },
@@ -220,7 +222,9 @@ function build() {
         const it = { id, slot, kind: a.k, name: ko };
         it[ax.aField] = (a.v !== undefined) ? a.v : a.k;
         it[ax.bField] = b.k;
-        if (ax.icon !== 'draw') {
+        if (ax.icon === 'draw') {
+          it.color = ax.color;                                  // 칸 하나에 원래 색 하나
+        } else {
           it.color = (leg && leg.color) || b.color;
           it.emoji = (leg && leg.emoji) || b.emoji;
         }

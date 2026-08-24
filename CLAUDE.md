@@ -75,6 +75,16 @@ if (from < 3) {
 
 검사할 때는 **세이브가 없는 새 플레이어만 보지 말고** 예전 버전 세이브를 심어 놓고 확인할 것.
 
+```bash
+npm run test:save   # 옛 세이브를 심어 놓고 진행이 살아남는지 (tools/checksave.js)
+```
+
+**마이그레이션이 쓰는 값은 `load()` 위쪽에 둔다.** `load()` 는 game.js 를 끝까지 읽기 전에
+불린다 — 아래쪽에 `const` 로 둔 표를 `migrate` 가 건드리면 `ReferenceError` 가 나고,
+`load()` 의 `catch` 가 그것을 삼켜 **세이브가 통째로 기본값으로 되돌아간다.**
+화면에는 아무 오류도 안 뜬다: 어제까지 키우던 캐릭터가 그냥 처음 상태로 보인다.
+(세이브 9 를 쓰다가 실제로 만들었고, `checksave` 가 그때 생겼다)
+
 ### 2. 한국어를 고치면 영어도 같이 고친다
 
 **문자열은 언제나 두 언어를 함께 넣는다.** 한국어만 추가하면 영어 화면에 한글이
@@ -267,6 +277,7 @@ npm install
 npm start            # http://localhost:8080
 npm test             # 생성 데이터 대조 + 번역 누락 + 서버 API 검사
 npm run test:i18n    # 번역 누락만
+npm run test:save    # 옛 세이브를 심어 마이그레이션 확인 (브라우저 필요)
 npm run gen:wardrobe # 커스터마이징 150벌을 축 표에서 다시 뽑는다
 ```
 

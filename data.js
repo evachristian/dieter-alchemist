@@ -737,36 +737,36 @@ const WARDROBE = {
   // <<<GEN:wardrobe
   // hair — 6 × 5 = 30
   hair: [
-    { id: 'hair_long', slot: 'hair', kind: 'long', name: '긴 생머리', back: 'long', bang: 'straight', starter: true },
-    { id: 'hair_long_side', slot: 'hair', kind: 'long', name: '긴 생머리 사이드뱅', back: 'long', bang: 'side' },
-    { id: 'hair_long_curtain', slot: 'hair', kind: 'long', name: '긴 생머리 커튼뱅', back: 'long', bang: 'curtain' },
-    { id: 'hair_long_sheer', slot: 'hair', kind: 'long', name: '긴 생머리 시스루뱅', back: 'long', bang: 'sheer' },
-    { id: 'hair_long_none', slot: 'hair', kind: 'long', name: '긴 생머리 이마 노출', back: 'long', bang: 'none' },
-    { id: 'hair_bob', slot: 'hair', kind: 'bob', name: '단발', back: 'bob', bang: 'straight', starter: true },
-    { id: 'hair_bob_side', slot: 'hair', kind: 'bob', name: '단발 사이드뱅', back: 'bob', bang: 'side' },
-    { id: 'hair_bob_curtain', slot: 'hair', kind: 'bob', name: '단발 커튼뱅', back: 'bob', bang: 'curtain' },
-    { id: 'hair_bob_sheer', slot: 'hair', kind: 'bob', name: '단발 시스루뱅', back: 'bob', bang: 'sheer' },
-    { id: 'hair_bob_none', slot: 'hair', kind: 'bob', name: '단발 이마 노출', back: 'bob', bang: 'none' },
-    { id: 'hair_twin', slot: 'hair', kind: 'twin', name: '양갈래', back: 'twin', bang: 'straight', starter: true },
-    { id: 'hair_twin_side', slot: 'hair', kind: 'twin', name: '양갈래 사이드뱅', back: 'twin', bang: 'side' },
-    { id: 'hair_twin_curtain', slot: 'hair', kind: 'twin', name: '양갈래 커튼뱅', back: 'twin', bang: 'curtain' },
-    { id: 'hair_twin_sheer', slot: 'hair', kind: 'twin', name: '양갈래 시스루뱅', back: 'twin', bang: 'sheer' },
-    { id: 'hair_twin_none', slot: 'hair', kind: 'twin', name: '양갈래 이마 노출', back: 'twin', bang: 'none' },
-    { id: 'hair_ponytail', slot: 'hair', kind: 'ponytail', name: '포니테일', back: 'ponytail', bang: 'straight' },
-    { id: 'hair_ponytail_side', slot: 'hair', kind: 'ponytail', name: '포니테일 사이드뱅', back: 'ponytail', bang: 'side' },
-    { id: 'hair_ponytail_curtain', slot: 'hair', kind: 'ponytail', name: '포니테일 커튼뱅', back: 'ponytail', bang: 'curtain' },
-    { id: 'hair_ponytail_sheer', slot: 'hair', kind: 'ponytail', name: '포니테일 시스루뱅', back: 'ponytail', bang: 'sheer' },
-    { id: 'hair_ponytail_none', slot: 'hair', kind: 'ponytail', name: '포니테일 이마 노출', back: 'ponytail', bang: 'none' },
-    { id: 'hair_wave_straight', slot: 'hair', kind: 'wave', name: '웨이브', back: 'wave', bang: 'straight' },
-    { id: 'hair_wave', slot: 'hair', kind: 'wave', name: '웨이브 사이드뱅', back: 'wave', bang: 'side' },
-    { id: 'hair_wave_curtain', slot: 'hair', kind: 'wave', name: '웨이브 커튼뱅', back: 'wave', bang: 'curtain' },
-    { id: 'hair_wave_sheer', slot: 'hair', kind: 'wave', name: '웨이브 시스루뱅', back: 'wave', bang: 'sheer' },
-    { id: 'hair_wave_none', slot: 'hair', kind: 'wave', name: '웨이브 이마 노출', back: 'wave', bang: 'none' },
-    { id: 'hair_bun_straight', slot: 'hair', kind: 'bun', name: '올림머리', back: 'bun', bang: 'straight' },
-    { id: 'hair_bun_side', slot: 'hair', kind: 'bun', name: '올림머리 사이드뱅', back: 'bun', bang: 'side' },
-    { id: 'hair_bun_curtain', slot: 'hair', kind: 'bun', name: '올림머리 커튼뱅', back: 'bun', bang: 'curtain' },
-    { id: 'hair_bun_sheer', slot: 'hair', kind: 'bun', name: '올림머리 시스루뱅', back: 'bun', bang: 'sheer' },
-    { id: 'hair_bun_none', slot: 'hair', kind: 'bun', name: '올림머리 이마 노출', back: 'bun', bang: 'none' },
+    { id: 'hair_long', slot: 'hair', kind: 'long', name: '긴 생머리', back: 'long', bang: 'straight', color: '#7b5640', starter: true },
+    { id: 'hair_long_side', slot: 'hair', kind: 'long', name: '긴 생머리 사이드뱅', back: 'long', bang: 'side', color: '#7b5640' },
+    { id: 'hair_long_curtain', slot: 'hair', kind: 'long', name: '긴 생머리 커튼뱅', back: 'long', bang: 'curtain', color: '#7b5640' },
+    { id: 'hair_long_sheer', slot: 'hair', kind: 'long', name: '긴 생머리 시스루뱅', back: 'long', bang: 'sheer', color: '#7b5640' },
+    { id: 'hair_long_none', slot: 'hair', kind: 'long', name: '긴 생머리 이마 노출', back: 'long', bang: 'none', color: '#7b5640' },
+    { id: 'hair_bob', slot: 'hair', kind: 'bob', name: '단발', back: 'bob', bang: 'straight', color: '#7b5640', starter: true },
+    { id: 'hair_bob_side', slot: 'hair', kind: 'bob', name: '단발 사이드뱅', back: 'bob', bang: 'side', color: '#7b5640' },
+    { id: 'hair_bob_curtain', slot: 'hair', kind: 'bob', name: '단발 커튼뱅', back: 'bob', bang: 'curtain', color: '#7b5640' },
+    { id: 'hair_bob_sheer', slot: 'hair', kind: 'bob', name: '단발 시스루뱅', back: 'bob', bang: 'sheer', color: '#7b5640' },
+    { id: 'hair_bob_none', slot: 'hair', kind: 'bob', name: '단발 이마 노출', back: 'bob', bang: 'none', color: '#7b5640' },
+    { id: 'hair_twin', slot: 'hair', kind: 'twin', name: '양갈래', back: 'twin', bang: 'straight', color: '#7b5640', starter: true },
+    { id: 'hair_twin_side', slot: 'hair', kind: 'twin', name: '양갈래 사이드뱅', back: 'twin', bang: 'side', color: '#7b5640' },
+    { id: 'hair_twin_curtain', slot: 'hair', kind: 'twin', name: '양갈래 커튼뱅', back: 'twin', bang: 'curtain', color: '#7b5640' },
+    { id: 'hair_twin_sheer', slot: 'hair', kind: 'twin', name: '양갈래 시스루뱅', back: 'twin', bang: 'sheer', color: '#7b5640' },
+    { id: 'hair_twin_none', slot: 'hair', kind: 'twin', name: '양갈래 이마 노출', back: 'twin', bang: 'none', color: '#7b5640' },
+    { id: 'hair_ponytail', slot: 'hair', kind: 'ponytail', name: '포니테일', back: 'ponytail', bang: 'straight', color: '#7b5640' },
+    { id: 'hair_ponytail_side', slot: 'hair', kind: 'ponytail', name: '포니테일 사이드뱅', back: 'ponytail', bang: 'side', color: '#7b5640' },
+    { id: 'hair_ponytail_curtain', slot: 'hair', kind: 'ponytail', name: '포니테일 커튼뱅', back: 'ponytail', bang: 'curtain', color: '#7b5640' },
+    { id: 'hair_ponytail_sheer', slot: 'hair', kind: 'ponytail', name: '포니테일 시스루뱅', back: 'ponytail', bang: 'sheer', color: '#7b5640' },
+    { id: 'hair_ponytail_none', slot: 'hair', kind: 'ponytail', name: '포니테일 이마 노출', back: 'ponytail', bang: 'none', color: '#7b5640' },
+    { id: 'hair_wave_straight', slot: 'hair', kind: 'wave', name: '웨이브', back: 'wave', bang: 'straight', color: '#7b5640' },
+    { id: 'hair_wave', slot: 'hair', kind: 'wave', name: '웨이브 사이드뱅', back: 'wave', bang: 'side', color: '#7b5640' },
+    { id: 'hair_wave_curtain', slot: 'hair', kind: 'wave', name: '웨이브 커튼뱅', back: 'wave', bang: 'curtain', color: '#7b5640' },
+    { id: 'hair_wave_sheer', slot: 'hair', kind: 'wave', name: '웨이브 시스루뱅', back: 'wave', bang: 'sheer', color: '#7b5640' },
+    { id: 'hair_wave_none', slot: 'hair', kind: 'wave', name: '웨이브 이마 노출', back: 'wave', bang: 'none', color: '#7b5640' },
+    { id: 'hair_bun_straight', slot: 'hair', kind: 'bun', name: '올림머리', back: 'bun', bang: 'straight', color: '#7b5640' },
+    { id: 'hair_bun_side', slot: 'hair', kind: 'bun', name: '올림머리 사이드뱅', back: 'bun', bang: 'side', color: '#7b5640' },
+    { id: 'hair_bun_curtain', slot: 'hair', kind: 'bun', name: '올림머리 커튼뱅', back: 'bun', bang: 'curtain', color: '#7b5640' },
+    { id: 'hair_bun_sheer', slot: 'hair', kind: 'bun', name: '올림머리 시스루뱅', back: 'bun', bang: 'sheer', color: '#7b5640' },
+    { id: 'hair_bun_none', slot: 'hair', kind: 'bun', name: '올림머리 이마 노출', back: 'bun', bang: 'none', color: '#7b5640' },
   ],
   // circlet — 4 × 5 = 20
   circlet: [
@@ -1062,14 +1062,16 @@ const COLORS = [
   { id: 'c_violet',    name: '바이올렛',      hex: '#8b5fd6' },
   { id: 'c_plum',      name: '플럼',          hex: '#6b3f6e' },
 ];
-// 색을 갈아입힐 수 있는 칸. 헤어컬러는 그 자체가 색이라 여기 넣지 않는다.
-const COLORABLE_SLOTS = ['top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
+// 색을 갈아입힐 수 있는 칸.
+// **헤어도 여기 있다.** 예전에는 '헤어컬러' 라는 칸을 따로 두고 7색 중에서 골랐는데,
+// 옷은 60색 팔레트로 염색하면서 머리만 7색인 것이 앞뒤가 안 맞았다.
+// 이제 머리도 '헤어 아이템의 원래 색(브라운)을 염색한다' 는 같은 규칙을 쓴다.
+const COLORABLE_SLOTS = ['hair', 'top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
 
 // 옷장 슬롯 메타 (UI 탭 순서/라벨)
 // gated: true → 잠금/해금 대상 (starter 아이템만 처음 보유, 나머지는 획득 필요)
 const WARDROBE_SLOTS = [
   { slot: 'hair',      label: '헤어',    emoji: '💇', gated: true },
-  { slot: 'hairColor', label: '헤어컬러', emoji: '🎨', gated: true },
   { slot: 'expression',label: '표정',    emoji: '😊', gated: true },
   { slot: 'tattoo',    label: '문신',    emoji: '⚜️', gated: true },
   // 옷·악세사리도 전부 획득 대상이다. 인트로를 마친 시점에 손에 있는 옷은

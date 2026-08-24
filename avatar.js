@@ -853,7 +853,12 @@
     const bottom = hasDress ? null : pick('bottom', outfit.bottom);
 
     const hairItem = getItem('hair', outfit.hair);
-    const hairColor = getItem('hairColor', outfit.hairColor).color || HAIR_DEF;
+    // 머리색 — 다른 칸과 같은 규칙이다. 염색한 색이 있으면 그것, 없으면 헤어의 원래 색.
+    // 마지막은 옛 세이브를 위한 길이다: '헤어컬러' 칸이 따로 있던 시절의 선택은
+    // 마이그레이션이 염색으로 옮기지만, 그 전에 그려질 수도 있다
+    const hairColor = (outfit.colors && outfit.colors.hair)
+      || hairItem.color
+      || getItem('hairColor', outfit.hairColor).color || HAIR_DEF;
     // 옛 세이브는 kind 하나로만 머리를 정했다 — back 이 없으면 kind 를 그대로 쓴다
     const hairBackKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
     const hairBangKind = hairItem.bang || hairItem.kind;
