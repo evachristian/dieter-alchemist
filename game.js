@@ -1677,12 +1677,26 @@ function josa(word, pair) {
   return pair[b !== 0 ? 0 : 1];
 }
 
+// 지금 그 칸에 **실제로 입혀져 있는 색 id.** 없으면 null.
+//
+// 두 염색약은 조건이 다르다 — 한 조건으로 묶으면 한쪽이 조용히 안 먹는다.
+//  · 마법 염색약 : 팔레트 색을 얻어 뒀고(isColorOwned) 24시간이 남아 있어야 한다
+//  · 영원 염색약 : **그 색 염색약 자체가 아이템**이라 팔레트 색을 따로 얻어 둘 필요가 없고,
+//                  기한도 없다. applyDye 가 dyeUntil 을 지우고 dyePerm 만 남기기 때문에,
+//                  여기서 dyeLeft 만 보면 영원 염색약이 **아예 안 먹는다** (실제로 그랬다 —
+//                  칠했다는 토스트는 뜨는데 아바타는 원래 색 그대로였다)
+//
 // '원래 색'(아이템이 갖고 태어난 색)은 언제나 쓸 수 있다 — 그 옷을 가졌으면 그 색도 가진 것이다.
-// 고른 색을 잃었거나(초기화) **염색이 풀렸으면** 원래 색으로 떨어진다.
-function slotColor(slot) {
+// 고른 색을 잃었거나(초기화) 마법 염색이 풀렸으면 원래 색으로 떨어진다.
+function dyedColorId(slot) {
   const id = (S.outfitColor || {})[slot];
-  if (!id || !isColorOwned(id) || dyeLeft(slot) <= 0) return null;
-  const c = D.COLORS.find(x => x.id === id);
+  if (!id) return null;
+  if ((S.dyePerm || {})[slot]) return id;
+  return (isColorOwned(id) && dyeLeft(slot) > 0) ? id : null;
+}
+function slotColor(slot) {
+  const id = dyedColorId(slot);
+  const c = id && D.COLORS.find(x => x.id === id);
   return c ? c.hex : null;
 }
 
@@ -1741,8 +1755,9 @@ function colorRow(slot) {
   const openKind = dyeOpen && dyeOpen.startsWith(slot + ':') ? dyeOpen.split(':')[1] : null;
   if (!openKind) return head;
 
-  const curId = (S.outfitColor || {})[slot] || '';
-  const cur = (isColorOwned(curId) && dyeActive(slot)) ? curId : '';
+  // 지금 무슨 색인지는 아바타에 실제로 입혀진 것과 같은 규칙으로 본다 —
+  // 여기만 따로 판정하면 아바타는 물들었는데 이름은 '원래 색' 이라고 적힌다
+  const cur = dyedColorId(slot) || '';
   const curName = cur ? N(cur, (D.COLORS.find(x => x.id === cur) || {}).name) : T('wr_color_orig');
 
   // ─── 영원 염색약 — 색깔마다 따로 있는 **아이템 칸** ───

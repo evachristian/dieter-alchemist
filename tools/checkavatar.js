@@ -163,6 +163,44 @@ function launchOpts() {
     console.log('대조표 →', SHOT);
   }
 
+  // ─── 염색이 실제로 아바타에 입혀지는가 ───────────────────────
+  // **조용히 깨지는 자리다.** 칠했다는 토스트는 뜨는데 아바타는 원래 색 그대로였던 적이 있다
+  // (영원 염색약이 dyeUntil 을 지우는데 slotColor 가 dyeUntil 만 봐서, 모든 칸에서 안 먹었다).
+  // 그래서 '색을 골랐다' 가 아니라 **그린 SVG 안에 그 색이 있나**로 본다.
+  const dye = await page.evaluate(() => {
+    const D = window.GameData, bad = [];
+    const HEX = { magic: '#2f9e6e', ever: '#c9184a' };       // 에메랄드 / 체리
+    const ID  = { magic: 'c_emerald', ever: 'c_cherry' };
+    // 그 칸에 '없음' 이 아닌 옷을 하나 입혀 둔다 — 안 입고 있으면 물들일 것이 없다
+    const wearSomething = (slot) => {
+      const it = (D.WARDROBE[slot] || []).find(x => x.kind !== 'none');
+      if (it) S.outfit[slot] = it.id;
+      return it;
+    };
+    S.outfit.dress = 'dress_none';
+    D.COLORS.forEach(c => { if (!isColorOwned(c.id)) S.unlocked.push(c.id); });
+    for (const slot of D.COLORABLE_SLOTS) {
+      const it = wearSomething(slot);
+      if (!it) { bad.push(`${slot}: 입힐 옷이 없다`); continue; }
+      for (const kind of ['magic', 'ever']) {
+        delete S.outfitColor[slot]; delete S.dyeUntil[slot]; delete S.dyePerm[slot];
+        S.dye = 9; S.dyeEver = Object.assign({}, S.dyeEver, { [ID[kind]]: 9 });
+        applyDye(slot, ID[kind], kind);
+        if (!Avatar.build(outfitWithColors(), 0.3).includes(HEX[kind])) {
+          bad.push(`${slot}: ${kind === 'ever' ? '영원' : '마법'} 염색약이 아바타에 안 먹는다`);
+        }
+      }
+      // 마법 염색약은 기한이 지나면 풀려야 한다 (영원 염색약과 헷갈려 둘 다 안 풀리면 안 된다)
+      delete S.outfitColor[slot]; delete S.dyeUntil[slot]; delete S.dyePerm[slot];
+      S.dye = 9; applyDye(slot, ID.magic, 'magic');
+      S.dyeUntil[slot] = Date.now() - 1000;
+      if (Avatar.build(outfitWithColors(), 0.3).includes(HEX.magic)) {
+        bad.push(`${slot}: 기한이 지난 마법 염색약이 안 풀린다`);
+      }
+    }
+    return { bad, slots: D.COLORABLE_SLOTS.length };
+  });
+
   await browser.close();
 
   // 과시 카드
@@ -174,9 +212,12 @@ function launchOpts() {
   console.log(c.error ? `과시 카드: ❌ ${c.error}`
     : `과시 카드: ${c.w}×${c.h} PNG ${Math.round(c.size / 1024)}KB · 방 색 ${c.colors}가지`);
 
-  const all = res.bad.concat(res.pairBad).concat(cardBad.map(m => ({ id: '과시 카드', body: '-', where: m, n: '-' })));
+  const all = res.bad.concat(res.pairBad)
+    .concat(cardBad.map(m => ({ id: '과시 카드', body: '-', where: m, n: '-' })))
+    .concat(dye.bad.map(m => ({ id: '염색', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
+  console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
   console.log(`❌ ${all.length}건`);
   all.forEach(b => console.log(b.n === '-'
