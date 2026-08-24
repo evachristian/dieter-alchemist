@@ -166,6 +166,12 @@ function normalizeState(st) {
   if (!st.dyeEver || typeof st.dyeEver !== 'object') st.dyeEver = {};
   if (!Array.isArray(st.want)) st.want = [];
   st.roomLevel = Math.min(roomMax(), Math.max(1, Math.round(Number(st.roomLevel) || roomDefault())));
+  // 리그 — 사다리 밖의 값이 들어오면 그릴 것이 없어 화면이 비어 버린다
+  const lgMax = (D.LEAGUES ? D.LEAGUES.length : 32) - 1;
+  st.league = Math.max(0, Math.min(lgMax, Math.round(Number(st.league) || 0)));
+  if (!st.week || typeof st.week !== 'object') st.week = { key: '', score: 0 };
+  st.week.key = String(st.week.key || '');
+  st.week.score = Math.max(0, Math.round(Number(st.week.score) || 0));
   return st;
 }
 
@@ -700,6 +706,9 @@ function energyTick() {
 // ═══════════════════════════════════════════════════════════════
 let currentTab = 'showcase';
 function switchTab(tab) {
+  // 랭킹은 '여신' 단계부터다. 잠긴 채로 들어오면(옛 세이브의 마지막 탭 등)
+  // 빈 화면이 뜨므로 홈으로 돌린다
+  if (tab === 'league' && !leagueOpen()) tab = 'showcase';
   currentTab = tab;
   window.currentTab = tab;   // 인트로에서 '이전 화면' 복귀에 사용
   document.querySelectorAll('.tab-btn').forEach(b =>
@@ -836,6 +845,256 @@ window.addEventListener('scroll', () => { if (gatherHold && !gatherHold.fired) s
 window.startGatherHold = startGatherHold;
 window.stopGatherHold = stopGatherHold;
 window.tapGather = tapGather;
+
+// ═══════════════════════════════════════════════════════════════
+//  리그 (주간 랭킹)
+// ═══════════════════════════════════════════════════════════════
+// 듀오링고의 리그와 같은 규칙이다: 12명이 한 조가 되어 **한 주 동안 얻은 점수**로
+// 겨루고, 월요일 0시에 정산해 1~3위는 위 리그로, 9~12위는 아래 리그로 간다.
+//
+// 점수는 **그 주에 물약을 마셔서 오른 매력**이다. 채집·조합만으로는 오르지 않는다 —
+// 마시는 것이 이 게임에서 '진도를 냈다' 는 뜻이고, 매력은 이미 모든 해금의 기준이다.
+//
+// 상대 11명은 **NPC 다.** 진짜 플레이어끼리 조를 짜려면 서버가 주간 점수와 조 편성을
+// 들고 있어야 하는데(지금은 누적 매력 순위표뿐이다), 그때까지 화면이 비어 있으면
+// 이 시스템은 확인할 수도 없다. NPC 는 주차·리그로 시드를 고정해 만들므로
+// **새로고침해도 같은 명단, 같은 점수**다 — 나중에 자리만 실제 사람으로 바꿔 끼운다.
+
+// 주차 키 — 로컬 월요일 0시가 경계다. 'YYYY-Www'
+function weekKey(d = new Date()) {
+  const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  // 목요일 기준 ISO 주차 (월요일 시작). getDay(): 0=일 … 6=토
+  const day = (t.getDay() + 6) % 7;           // 0=월 … 6=일
+  t.setDate(t.getDate() - day + 3);           // 그 주의 목요일
+  const first = new Date(t.getFullYear(), 0, 4);
+  const fday = (first.getDay() + 6) % 7;
+  first.setDate(first.getDate() - fday + 3);
+  const wk = 1 + Math.round((t - first) / (7 * 86400000));
+  return `${t.getFullYear()}-W${wk < 10 ? '0' + wk : wk}`;
+}
+// 이번 주가 끝나기까지 남은 ms (다음 월요일 0시)
+function msToWeekEnd(d = new Date()) {
+  const day = (d.getDay() + 6) % 7;
+  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (7 - day), 0, 0, 0, 0);
+  return end - d;
+}
+// 이번 주가 얼마나 지났나 (0 ~ 1). NPC 점수가 주 초반에 낮은 이유
+function weekProgress(d = new Date()) {
+  const day = (d.getDay() + 6) % 7;
+  return Math.min(1, (day + d.getHours() / 24) / 7);
+}
+
+// ─── 결정적 난수 ───
+// 같은 주 · 같은 리그면 **언제 봐도 같은 명단**이어야 한다. 새로고침마다 상대가
+// 바뀌면 순위를 겨룬다는 느낌이 아예 성립하지 않는다.
+function hash32(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function rng32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 리그가 높을수록 상대가 세다 — 이 값이 그 주 1위의 대략적인 점수다
+function leaguePace(i) { return 40 + i * 26; }
+
+// 같은 조 NPC 11명. rank 는 여기서 정하지 않는다 (내 점수와 섞어서 매긴다)
+function leagueNpcs(lgIndex, wkKey, atProgress) {
+  const n = D.LEAGUE.size - 1;
+  const rnd = rng32(hash32(wkKey + '|' + lgIndex));
+  const pace = leaguePace(lgIndex);
+  const used = new Set();
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    // 이름 — 앞말 × 뒷말. **앞말이 겹치지 않게** 고른다.
+    // 이름 전체로만 걸러 내면 '꽃알·꽃실·꽃씨·꽃깃' 처럼 한 앞말이 몰려서
+    // 12명이 서로 다른 사람으로 읽히지 않는다 (앞말이 12개라 11명까지는 항상 가능하다)
+    let head, tail;
+    do { head = D.NPC_HEAD[Math.floor(rnd() * D.NPC_HEAD.length)]; } while (used.has(head.id));
+    used.add(head.id);
+    tail = D.NPC_TAIL[Math.floor(rnd() * D.NPC_TAIL.length)];
+    // 이번 주에 낼 목표 점수 — 1위 근처부터 꼴찌까지 넓게 흩는다
+    const target = Math.round(pace * (0.12 + 0.95 * Math.pow(rnd(), 1.35)));
+    // 사람마다 달리는 속도가 다르다. 주 초반에 다 몰려 있으면 순위가 의미 없다
+    const speed = 0.65 + rnd() * 0.7;
+    const score = Math.max(0, Math.round(target * Math.min(1, atProgress * speed)));
+    out.push({ npc: true, head, tail, score });
+  }
+  return out;
+}
+function npcName(row) {
+  return N(row.head.id, row.head.name) + N(row.tail.id, row.tail.name);
+}
+
+// 지금(또는 주가 끝난 시점)의 순위표. 내 자리를 섞어 점수 내림차순으로 매긴다.
+// 동점이면 내가 위로 간다 — 내 순위가 남의 정렬 순서 때문에 흔들리면 안 된다.
+function leagueBoard(atProgress) {
+  const p = (atProgress === undefined) ? weekProgress() : atProgress;
+  const me = { me: true, score: (S.week && S.week.score) || 0, name: S.name || T('me') };
+  const rows = leagueNpcs(S.league, S.week.key || weekKey(), p).concat([me]);
+  rows.sort((a, b) => (b.score - a.score) || ((a.me ? 0 : 1) - (b.me ? 0 : 1)));
+  rows.forEach((r, i) => { r.rank = i + 1; });
+  return rows;
+}
+
+// 순위 → 승급 / 잔류 / 강등
+function rankKind(rank) {
+  if (rank <= D.LEAGUE.up) return 'up';
+  if (rank > D.LEAGUE.size - D.LEAGUE.down) return 'down';
+  return 'stay';
+}
+
+// 주가 바뀌었으면 정산한다. 화면을 열 때마다 부른다 (싸다 — 키만 비교한다)
+//
+// **지난 주 순위는 저장한 값에서 다시 계산한다.** 내 점수는 세이브에 있고 NPC 는
+// 주차·리그 시드로 되살아나므로, 며칠 뒤에 켜도 같은 결과가 나온다.
+// 여러 주를 비웠어도 **정산은 한 번만** 한다 — 안 한 주마다 강등시키면
+// 오래 쉬었다 돌아온 사람이 맨 아래까지 떨어진다.
+function settleLeague() {
+  const now = weekKey();
+  if (!S.week.key) { S.week.key = now; return false; }   // 첫 진입 — 겨룰 지난 주가 없다
+  if (S.week.key === now) return false;
+
+  const rows = leagueNpcs(S.league, S.week.key, 1)
+    .concat([{ me: true, score: S.week.score || 0 }]);
+  rows.sort((a, b) => (b.score - a.score) || ((a.me ? 0 : 1) - (b.me ? 0 : 1)));
+  const rank = rows.findIndex(r => r.me) + 1;
+  const kind = rankKind(rank);
+  const from = S.league;
+  const max = D.LEAGUES.length - 1;
+  const to = kind === 'up' ? Math.min(max, from + 1)
+           : kind === 'down' ? Math.max(0, from - 1) : from;
+
+  S.league = to;
+  S.leagueLast = { rank, from, to, kind, key: S.week.key };
+  S.week = { key: now, score: 0 };
+  save();
+  return true;
+}
+
+// 랭킹 탭은 '여신' 단계부터 열린다 — 그 전에는 탭 자체가 없다
+function leagueOpen() { return totalCharm() >= D.LEAGUE.openAt; }
+
+// 물약을 마셔 매력이 올랐을 때 이번 주 점수에 더한다
+function addWeekScore(n) {
+  if (!(n > 0)) return;
+  if (!S.week.key) S.week.key = weekKey();
+  S.week.score = (S.week.score || 0) + n;
+}
+
+// 지난 주 결과 배너를 닫는다 (한 번 보고 나면 치운다)
+function closeLeagueLast() {
+  S.leagueLast = null;
+  save();
+  renderLeague();
+}
+window.closeLeagueLast = closeLeagueLast;
+
+// ─── 랭킹 화면 ─────────────────────────────────────────────────
+// 듀오링고의 리더보드와 같은 짜임이다: 리그 배지 → 남은 시간 → 12행 순위표.
+// 승급 구간(1~3)과 강등 구간(9~12) **사이에 선을 그어** 지금 어느 쪽인지 한눈에 보이게 한다.
+function leagueName(i) {
+  const lg = D.league(i);
+  return N(lg.fam.id, lg.fam.name) + ' ' + lg.step;
+}
+window.leagueName = leagueName;
+
+// '3일 5시간 남음' — 하루가 안 남으면 시간·분으로 내려간다
+function leagueLeftText() {
+  const ms = msToWeekEnd();
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor(ms / 3600000) % 24;
+  if (d > 0) return T('lg_left_dh', { d, h });
+  const m = Math.max(1, Math.floor(ms / 60000) % 60);
+  return T('lg_left_hm', { h, m });
+}
+
+function leagueBadgeSvg(lg, size) {
+  const c = lg.fam.color, c2 = shadeHex(c, 34);
+  return `<svg class="lg-badge-svg" width="${size}" height="${size}" viewBox="0 0 100 100" aria-hidden="true">
+    <circle cx="50" cy="50" r="46" fill="${c}" opacity="0.16"/>
+    <circle cx="50" cy="50" r="38" fill="none" stroke="${c}" stroke-width="3"/>
+    <circle cx="50" cy="50" r="43" fill="none" stroke="${c2}" stroke-width="5"
+      stroke-dasharray="1.5 8" opacity="0.8"/>
+  </svg>`;
+}
+// 색을 어둡게 (avatar.js 의 shade 와 같은 계산 — 여기서는 hex 만 다룬다)
+function shadeHex(hex, amt) {
+  const h = String(hex).replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+  const r = Math.max(0, (n >> 16) - amt), g = Math.max(0, ((n >> 8) & 255) - amt), b = Math.max(0, (n & 255) - amt);
+  return `rgb(${r},${g},${b})`;
+}
+
+function renderLeague() {
+  const el = document.getElementById('leagueBody');
+  if (!el) return;
+  settleLeague();                    // 주가 바뀌었으면 여기서 정산된다
+
+  const lg = D.league(S.league);
+  const rows = leagueBoard();
+  const myRank = (rows.find(r => r.me) || {}).rank || D.LEAGUE.size;
+
+  // 지난 주 결과 — 한 번 보여 주고 닫는다
+  let last = '';
+  if (S.leagueLast) {
+    const L = S.leagueLast;
+    const msg = L.kind === 'up'   ? T('lg_res_up',   { n: L.rank, to: leagueName(L.to) })
+              : L.kind === 'down' ? T('lg_res_down', { n: L.rank, to: leagueName(L.to) })
+                                  : T('lg_res_stay', { n: L.rank, to: leagueName(L.to) });
+    last = `<div class="lg-last lg-${L.kind}" role="status">
+      <span class="lg-last-ic" aria-hidden="true">${L.kind === 'up' ? '▲' : L.kind === 'down' ? '▼' : '＝'}</span>
+      <span class="lg-last-tx">${msg}</span>
+      <button class="lg-last-x" onclick="closeLeagueLast()" aria-label="${T('btn_ok')}">✕</button>
+    </div>`;
+  }
+
+  // 사다리에서 지금 어디인가 — 32개 중 몇 번째인지 보여 준다
+  const ladder = `<div class="lg-ladder">
+    <span class="lg-ladder-n">${lg.index + 1} / ${D.LEAGUES.length}</span>
+    <span class="lg-ladder-track"><span class="lg-ladder-fill"
+      style="width:${((lg.index + 1) / D.LEAGUES.length * 100).toFixed(1)}%;background:${lg.fam.color}"></span></span>
+    <span class="lg-ladder-top">${lg.top ? T('lg_top') : leagueName(lg.index + 1)}</span>
+  </div>`;
+
+  const upN = D.LEAGUE.up, downFrom = D.LEAGUE.size - D.LEAGUE.down + 1;
+  const list = rows.map(r => {
+    const kind = rankKind(r.rank);
+    // 구간이 바뀌는 자리에 선을 긋는다 — 3위/4위 사이, 8위/9위 사이
+    const sep = (r.rank === upN + 1) ? `<div class="lg-sep"><span>${T('lg_zone_stay')}</span></div>`
+              : (r.rank === downFrom) ? `<div class="lg-sep lg-sep-down"><span>${T('lg_zone_down')}</span></div>`
+              : '';
+    const face = r.me ? (S.tutorialDone ? '👤' : '👑') : '🧪';
+    return sep + `<div class="lg-row ${r.me ? 'me' : ''} lg-${kind}">
+      <span class="lg-rank">${r.rank}</span>
+      <span class="lg-face" aria-hidden="true">${face}</span>
+      <span class="lg-name">${r.me ? (S.name || T('me')) : npcName(r)}</span>
+      <span class="lg-score">${T('lg_pts', { n: r.score.toLocaleString() })}</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = last + `
+    <div class="lg-head">
+      <div class="lg-badge">${leagueBadgeSvg(lg, 92)}<span class="lg-badge-em">${lg.fam.emoji}</span></div>
+      <div class="lg-title">${leagueName(lg.index)}</div>
+      <div class="lg-sub">${T('lg_rule', { up: upN, down: D.LEAGUE.down })}</div>
+      ${ladder}
+      <div class="lg-timer">⏳ ${leagueLeftText()}</div>
+    </div>
+    <div class="lg-zone-head">${T(rankKind(myRank) === 'up' ? 'lg_now_up'
+      : rankKind(myRank) === 'down' ? 'lg_now_down' : 'lg_now_stay', { n: myRank })}</div>
+    <div class="lg-list">${list}</div>
+    <div class="lg-foot">${T('lg_score_help')}</div>`;
+
+  renderLeagueDev();   // 임시(출시 때 지운다)
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  공방 / 가마솥 (Atelier)
@@ -998,6 +1257,7 @@ function drinkPotion(potionId) {
   const beforeStep = bodyStep();
   S.stats.beauty += r.result.beauty || 0;
   S.stats.charm  += r.result.charm  || 0;
+  addWeekScore(r.result.charm || 0);   // 리그 주간 점수 = 그 주에 오른 매력
   // 물약마다 아우라 세부 수치가 다르게 오른다 (아우라 획득량 × 5)
   const gain = (r.result.charm || 0) * 5;
   if (gain > 0) {
@@ -1065,7 +1325,17 @@ function render() {
   if (currentTab === 'gather') renderGather();
   if (currentTab === 'atelier') renderAtelier();
   if (currentTab === 'showcase') renderShowcase();
+  if (currentTab === 'league') renderLeague();
+  renderTabBar();
   applyDevTools();   // 임시(출시 때 지운다): 화면마다 있는 개발용 블록의 접힘 상태를 맞춘다
+}
+
+// 랭킹 탭은 '여신' 단계부터 나타난다. 잠긴 탭을 자물쇠로 보여 주지 않는 이유:
+// 하단 탭은 **지금 갈 수 있는 곳**의 목록이고, 셋에서 넷으로 늘면 그것만으로도
+// 새로 열렸다는 것이 눈에 띈다 (좁은 화면에서 라벨 자리도 아깝다)
+function renderTabBar() {
+  const btn = document.querySelector('.tab-btn[data-tab="league"]');
+  if (btn) btn.hidden = !leagueOpen();
 }
 
 function renderHeader() {
@@ -2231,6 +2501,45 @@ function renderRoomDevTail() {
     + `<div class="dev-row dev-roomlv"><span class="dev-roomlv-t">🏠 ${T('dev_room_lv')}</span>${bgBtns}</div>`;
 }
 window.devToggleTutorial = devToggleTutorial;
+
+// ─── 랭킹 화면 개발용 스위치 ───
+// 리그가 32개이고 정산은 주에 한 번뿐이라, 눌러서 확인할 길이 없으면
+// 승급·강등을 한 번도 못 보고 출시하게 된다.
+function devLeagueMove(d) {
+  S.league = Math.max(0, Math.min(D.LEAGUES.length - 1, S.league + d));
+  save();
+  toast(leagueName(S.league));
+  renderLeague();
+}
+function devLeagueScore(n) {
+  addWeekScore(n);
+  save();
+  toast(T('lg_pts', { n: S.week.score.toLocaleString() }));
+  renderLeague();
+}
+// 지난 주로 되돌려 정산을 강제한다 — 승급/강등 배너를 눌러서 확인하는 유일한 길
+function devLeagueEndWeek() {
+  const past = new Date(Date.now() - 7 * 86400000);
+  S.week.key = weekKey(past);
+  save();
+  settleLeague();
+  renderLeague();
+}
+window.devLeagueMove = devLeagueMove;
+window.devLeagueScore = devLeagueScore;
+window.devLeagueEndWeek = devLeagueEndWeek;
+
+function renderLeagueDev() {
+  const el = document.getElementById('leagueDevBody');
+  if (!el) return;
+  el.innerHTML = `<div class="dev-row">
+      <button class="btn btn-dev" onclick="devLeagueMove(-1)">▼ ${T('dev_lg_down')}</button>
+      <button class="btn btn-dev" onclick="devLeagueMove(1)">▲ ${T('dev_lg_up')}</button>
+      <button class="btn btn-dev" onclick="devLeagueScore(50)">+50 ${T('lg_pts_unit')}</button>
+      <button class="btn btn-dev" onclick="devLeagueScore(500)">+500 ${T('lg_pts_unit')}</button>
+      <button class="btn btn-dev" onclick="devLeagueEndWeek()">⏭ ${T('dev_lg_week')}</button>
+    </div>`;
+}
 
 // ─── 공방 화면 개발용 스위치 ───
 //

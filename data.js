@@ -719,6 +719,66 @@ function getTier(total) {
   return t;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  리그 (주간 랭킹) — 듀오링고식 승급/강등 사다리
+// ═══════════════════════════════════════════════════════════════
+// 32개 리그를 손으로 쓰지 않는다. **계열 8 × 단계 4** 로 곱한다.
+// 이름도 여기서 조합한다 — 리그마다 번역을 따로 두지 않고 `계열 이름 + 단계 숫자` 로
+// 만들기 때문에, 번역이 필요한 것은 **계열 이름 8개뿐**이다.
+// (32개를 다 등록하면 한쪽 언어만 빠지는 일이 반드시 생긴다 — CLAUDE.md 2번)
+//
+// 계열 순서가 곧 사다리 순서다. 흙 Ⅰ(맨 아래) → 별빛 Ⅳ(맨 위).
+const LEAGUE_FAMS = [
+  { id: 'lgf_clay',    name: '흙',   emoji: '🟤', color: '#a98a6a' },
+  { id: 'lgf_iron',    name: '무쇠', emoji: '⚙️', color: '#7f858e' },
+  { id: 'lgf_copper',  name: '구리', emoji: '🥉', color: '#c4834f' },
+  { id: 'lgf_silver',  name: '은',   emoji: '🥈', color: '#9aa3b2' },
+  { id: 'lgf_gold',    name: '황금', emoji: '🥇', color: '#c9a24a' },
+  { id: 'lgf_crystal', name: '수정', emoji: '💎', color: '#5fa8bd' },
+  { id: 'lgf_moon',    name: '달빛', emoji: '🌙', color: '#8a76c4' },
+  { id: 'lgf_star',    name: '별빛', emoji: '⭐', color: '#d4a537' },
+];
+const LEAGUE_STEPS = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'];
+
+// 리그 규칙. **승급 3 + 잔류 5 + 강등 4 = 조 인원 12** 가 맞아야 한다 —
+// 어긋나면 아무 데도 속하지 않는 순위가 생긴다.
+const LEAGUE = {
+  size: 12,      // 한 조 인원 (나 + NPC 11)
+  up: 3,         // 1~3위 승급
+  down: 4,       // 9~12위 강등
+  openAt: 100,   // 이 매력 총합(= '여신' 단계)부터 랭킹 탭이 열린다
+};
+
+// 리그 사다리 — 계열 × 단계를 곱해 만든다. index 0 이 맨 아래다
+const LEAGUES = LEAGUE_FAMS.flatMap((fam, fi) =>
+  LEAGUE_STEPS.map((step, si) => ({
+    index: fi * LEAGUE_STEPS.length + si,
+    fam, step,
+    top: fi === LEAGUE_FAMS.length - 1 && si === LEAGUE_STEPS.length - 1,
+  })));
+
+function league(i) {
+  return LEAGUES[Math.max(0, Math.min(LEAGUES.length - 1, i | 0))];
+}
+
+// ─── NPC 연금술사 이름 ───────────────────────────────────────
+// 96개 이름을 쓰지 않고 **앞말 12 × 뒷말 8** 로 곱한다 (리그와 같은 방식).
+// 번역이 필요한 것은 낱말 20개뿐이다.
+const NPC_HEAD = [
+  { id: 'npc_star', name: '별' },   { id: 'npc_moon', name: '달' },
+  { id: 'npc_dew',  name: '이슬' }, { id: 'npc_bloom', name: '꽃' },
+  { id: 'npc_frost', name: '서리' }, { id: 'npc_mist', name: '안개' },
+  { id: 'npc_dusk', name: '노을' }, { id: 'npc_dawn', name: '새벽' },
+  { id: 'npc_wind', name: '바람' }, { id: 'npc_wave', name: '물결' },
+  { id: 'npc_ember', name: '잉걸' }, { id: 'npc_ash', name: '재' },
+];
+const NPC_TAIL = [
+  { id: 'npc_leaf', name: '잎' },   { id: 'npc_drop', name: '방울' },
+  { id: 'npc_dust', name: '가루' }, { id: 'npc_shard', name: '조각' },
+  { id: 'npc_seed', name: '씨' },   { id: 'npc_plume', name: '깃' },
+  { id: 'npc_thread', name: '실' }, { id: 'npc_grain', name: '알' },
+];
+
 // ─── 옷장 (Wardrobe) ───
 // 아바타 장비 카탈로그. 슬롯별 목록의 첫 항목은 항상 '없음'(kind:'none').
 // 옷: 상의(top)/하의(bottom)는 따로 착용, 원피스(dress)는 상하 일체.
@@ -1127,5 +1187,6 @@ window.GameData = {
   INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   WARDROBE, WARDROBE_SLOTS, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   COLORS, COLORABLE_SLOTS,
+  LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   getTier, recipeKey,
 };

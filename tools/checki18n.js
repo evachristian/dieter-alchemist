@@ -89,6 +89,10 @@ Object.entries(D.WARDROBE).forEach(([slot, items]) =>
   (items || []).forEach(it => push(it.id, it.name, '옷')));
 D.RECIPE_CATS.forEach(c => push(c.id + '_cat', c.label, '레시피 카테고리'));
 D.COLORS.forEach(c => push(c.id, c.name, '옷 색'));
+// 리그 이름은 '계열 + 단계' 로, NPC 이름은 '앞말 + 뒷말' 로 조합된다 —
+// 조합 결과가 아니라 **낱말**에 번역이 있어야 한다
+D.LEAGUE_FAMS.forEach(f => push(f.id, f.name, '리그 계열'));
+D.NPC_HEAD.concat(D.NPC_TAIL).forEach(w => push(w.id, w.name, 'NPC 이름 낱말'));
 
 // N() 이 한국어를 그대로 돌려주면 번역이 없는 것이다
 I.setLang('en');

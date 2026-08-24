@@ -70,6 +70,20 @@ const CASES = [
     ],
   },
   {
+    name: '세이브 9 (리그가 없던 시절) — 첫 진입에 강등당하지 않는다',
+    save: { ver: 9, name: '리그전', nameClaimed: true, tutorialDone: true,
+            stats: { beauty: 60, charm: 140 } },
+    // 정산(settleLeague)은 **랭킹 화면을 열 때** 돈다 — 안 열어 보면 이 케이스는
+    // 그냥 기본값만 확인하고 지나간다
+    visit: 'league',
+    expect: (S) => [
+      S.league === 0 || `맨 아래 리그에서 시작해야 한다 (${S.league})`,
+      (S.week && S.week.score) === 0 || `이번 주 점수가 0이 아니다 (${S.week && S.week.score}))`,
+      // 겨룰 지난 주가 없는데 정산하면 12위로 처리돼 강등 배너가 뜬다
+      !S.leagueLast || `첫 진입인데 지난 주 결과가 생겼다 (${JSON.stringify(S.leagueLast)})`,
+    ],
+  },
+  {
     name: '세이브 8 — 이미 머리를 염색해 둔 사람은 덮어쓰지 않는다',
     save: { ver: 8, name: '이미', nameClaimed: true, tutorialDone: true,
             outfit: { hair: 'hair_bob', hairColor: 'hcol_pink' },
@@ -106,6 +120,11 @@ const CASES = [
     // window.S 를 기다리면 영영 오지 않아 하네스가 통째로 멈춘다 — 어휘 이름으로 본다
     await page.waitForFunction(() => typeof S !== 'undefined' && !!window.GameData,
       null, { timeout: 15000 });
+    // 그 화면에서만 도는 코드가 있는 경우 한 번 열어 본다 (예: 리그 정산)
+    if (c.visit) {
+      await page.evaluate((tab) => { if (typeof switchTab === 'function') switchTab(tab); }, c.visit);
+      await page.waitForTimeout(300);
+    }
     const S = await page.evaluate(() => JSON.parse(JSON.stringify(S)));
     await ctx.close();
     if (process.env.V) console.error('· 끝', c.name);

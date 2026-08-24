@@ -1053,7 +1053,112 @@ body {
   padding: 8px 0; cursor: pointer; border-radius: 14px; transition: color 0.15s;
 }
 .tab-btn .tab-icon { font-size: 1.4rem; }
+/* 탭이 셋에서 넷으로 늘 수 있다 ('여신' 단계부터 랭킹이 나타난다).
+   **글자 크기는 건드리지 않는다** — 0.66rem 으로 줄였더니 10.6px 이 되어
+   최소 11px 규칙에 걸렸다 (TEXT_POLICY 1). 아이콘과 여백만 줄여 자리를 만든다 */
+@media (max-width: 380px) {
+  .tab-btn { border-radius: 12px; padding: 7px 0; }
+  .tab-btn .tab-icon { font-size: 1.25rem; }
+}
 .tab-btn.active { color: var(--ink); background: var(--pink); }
+
+/* ═══ 랭킹 (주간 리그) ═══════════════════════════════════════
+   듀오링고의 리더보드와 같은 짜임. UI_POLICY 1-6 참고 */
+
+/* 지난 주 결과 배너 — 승급/잔류/강등을 색이 아니라 **화살표로도** 알린다 */
+.lg-last {
+  display: flex; align-items: center; gap: 9px;
+  border-radius: 14px; padding: 11px 12px; margin-bottom: 14px;
+  background: var(--cream); box-shadow: var(--shadow);
+}
+.lg-last-ic { font-size: 1rem; font-weight: 800; flex: none; }
+.lg-last-tx { flex: 1; min-width: 0; font-size: 0.86rem; font-weight: 700; color: var(--ink); }
+.lg-last-x {
+  flex: none; border: none; background: none; cursor: pointer;
+  font-family: inherit; font-size: 0.9rem; color: var(--ink-soft); padding: 2px 4px;
+}
+.lg-last.lg-up   { background: #e6f7ee; } .lg-last.lg-up   .lg-last-ic { color: var(--text-mint); }
+.lg-last.lg-down { background: #fdeef2; } .lg-last.lg-down .lg-last-ic { color: var(--text-pink); }
+.lg-last.lg-stay .lg-last-ic { color: var(--ink-soft); }
+
+/* 리그 배지 + 이름 + 남은 시간 */
+.lg-head {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: var(--card); border-radius: var(--radius); padding: 16px 14px 14px;
+  box-shadow: var(--shadow);
+}
+.lg-badge { position: relative; width: 92px; height: 92px; }
+.lg-badge-svg { display: block; }
+.lg-badge-em {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 2.5rem;
+}
+.lg-title { font-size: 1.15rem; font-weight: 800; color: var(--ink); }
+.lg-sub { font-size: 0.76rem; font-weight: 700; color: var(--ink-soft); text-align: center; }
+.lg-timer {
+  margin-top: 6px; font-size: 0.78rem; font-weight: 800; color: var(--text-warn);
+  background: var(--cream); border-radius: 999px; padding: 4px 12px;
+}
+
+/* 사다리 위치 — 32개 중 몇 번째인가 */
+.lg-ladder {
+  margin-top: 10px; width: 100%; display: flex; align-items: center; gap: 8px;
+  font-size: 0.7rem; font-weight: 800; color: var(--ink-soft);
+}
+.lg-ladder-n { flex: none; font-variant-numeric: tabular-nums; }
+.lg-ladder-track {
+  flex: 1; min-width: 0; height: 6px; border-radius: 999px; background: var(--cream); overflow: hidden;
+}
+.lg-ladder-fill { display: block; height: 100%; border-radius: 999px; }
+/* 다음 리그 이름 — 길어지면 말줄임 (UI_POLICY '가변 폭' 3단 방어) */
+.lg-ladder-top {
+  flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* 지금 내가 어느 구간인가 — 목록 위에 한 줄로 */
+.lg-zone-head {
+  margin: 14px 0 8px; font-size: 0.86rem; font-weight: 800; color: var(--ink); text-align: center;
+}
+
+.lg-list { display: flex; flex-direction: column; gap: 6px; }
+.lg-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border-radius: 14px; padding: 9px 12px;
+  border: 2px solid transparent;
+}
+/* 내 줄 — 색만으로 알리지 않는다. 테두리까지 준다 (UI_POLICY 7장의 이유와 같다) */
+.lg-row.me { background: #fff0f7; border-color: var(--pink-2); }
+.lg-rank {
+  flex: none; min-width: 22px; text-align: center;
+  font-size: 0.92rem; font-weight: 800; color: var(--ink-soft); font-variant-numeric: tabular-nums;
+}
+.lg-row.lg-up   .lg-rank { color: var(--text-mint); }
+.lg-row.lg-down .lg-rank { color: var(--text-pink); }
+.lg-face { flex: none; font-size: 1.3rem; }
+.lg-name {
+  flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lg-score {
+  flex: 0 1 auto; min-width: 0; font-size: 0.84rem; font-weight: 800; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
+}
+
+/* 구간 경계선 — 3위/4위 사이, 8위/9위 사이 */
+.lg-sep {
+  display: flex; align-items: center; gap: 8px; margin: 4px 0;
+  /* 0.68rem 은 10.9px 로 최소 11px 에 걸린다 (TEXT_POLICY 1) */
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em; color: var(--text-mint);
+}
+.lg-sep::before, .lg-sep::after {
+  content: ""; flex: 1; height: 2px; border-radius: 2px; background: currentColor; opacity: 0.45;
+}
+.lg-sep span { flex: none; }
+.lg-sep-down { color: var(--text-pink); }
+
+.lg-foot {
+  margin-top: 12px; font-size: 0.74rem; line-height: 1.55; color: var(--ink-soft); text-align: center;
+}
 
 /* ─── 모달 ─── */
 .modal {

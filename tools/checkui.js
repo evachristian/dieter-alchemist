@@ -85,6 +85,12 @@ function launchOpts() {
       pots.forEach((r, i) => { S.potions[r.result.id] = i + 1; });
       S.creatures = crs.map(r => r.result.id);
       if (typeof bagOpen !== 'undefined' && !bagOpen) toggleBag();   // 채집 가방 펼치기
+      // 랭킹 탭은 '여신' 단계(매력 100)부터 나타난다 — 매력을 안 주면 그 화면이
+      // 통째로 검사에서 빠진다. 지난 주 결과 배너도 같이 띄워 둔다 (그것도 화면이다)
+      S.stats.charm = Math.max(S.stats.charm || 0, D.LEAGUE.openAt + 40);
+      S.league = 26;
+      S.week = { key: weekKey(), score: 480 };
+      S.leagueLast = { rank: 2, from: 25, to: 26, kind: 'up', key: weekKey() };
       // 개발용(임시) 블록도 펼친다. 접혀 있으면 display:none 이라 검사에서 통째로 빠지는데,
       // 그 안에도 화면에 뜨는 버튼이 들어 있다 (출시 전까지는 사람이 실제로 보는 자리다)
       ['gather', 'atelier', 'room'].forEach(name => {

@@ -16,6 +16,23 @@
     ko: {
       // 탭 / 화면
       tab_showcase: '마이 룸', tab_atelier: '공방', tab_gather: '탐험',
+      // ─── 리그 (주간 랭킹) ───
+      tab_league: '랭킹',
+      screen_league: '🏆 랭킹', screen_league_sub: '같은 리그 12명과 이번 주 점수로 겨룹니다.',
+      me: '나',
+      lg_pts: '{n}점', lg_pts_unit: '점',
+      lg_rule: '상위 {up}명 승급 · 하위 {down}명 강등',
+      lg_left_dh: '{d}일 {h}시간 남음', lg_left_hm: '{h}시간 {m}분 남음',
+      lg_zone_stay: '잔류 구간', lg_zone_down: '강등 구간',
+      lg_now_up: '지금 {n}위 — 승급 구간이에요!',
+      lg_now_stay: '지금 {n}위 — 잔류 구간이에요.',
+      lg_now_down: '지금 {n}위 — 강등 구간이에요.',
+      lg_res_up: '지난 주 {n}위! {to} 로 올라갔어요',
+      lg_res_stay: '지난 주 {n}위. {to} 에 남았어요',
+      lg_res_down: '지난 주 {n}위. {to} 로 내려갔어요',
+      lg_top: '최상위 리그',
+      lg_score_help: '점수는 이번 주에 물약을 마셔서 오른 매력이에요. 월요일 0시에 정산돼요.',
+      dev_lg_up: '리그 올리기', dev_lg_down: '리그 내리기', dev_lg_week: '주 넘기기',
       screen_gather: '🧭 탐험', screen_gather_sub: '장소를 골라 채집하세요. 채집 버튼을 꾹 누르면 계속 채집돼요.',
       screen_atelier: '⚗️ 공방', screen_atelier_sub: '재료를 가마솥에 넣고 조합해 새 레시피를 발견하세요.',
       screen_room: '🏠 마이 룸', screen_room_named: "🏠 '{name}'의 룸",
@@ -245,6 +262,23 @@
     },
     en: {
       tab_showcase: 'My Room', tab_atelier: 'Atelier', tab_gather: 'Explore',
+      // ─── Leagues (weekly ranking) ───
+      tab_league: 'Ranking',
+      screen_league: '🏆 Ranking', screen_league_sub: "You're up against 11 others in your league this week.",
+      me: 'You',
+      lg_pts: '{n} pts', lg_pts_unit: 'pts',
+      lg_rule: 'Top {up} promote · bottom {down} demote',
+      lg_left_dh: '{d}d {h}h left', lg_left_hm: '{h}h {m}m left',
+      lg_zone_stay: 'Stay zone', lg_zone_down: 'Demotion zone',
+      lg_now_up: "You're #{n} — promotion zone!",
+      lg_now_stay: "You're #{n} — stay zone.",
+      lg_now_down: "You're #{n} — demotion zone.",
+      lg_res_up: 'Finished #{n} last week! Promoted to {to}',
+      lg_res_stay: 'Finished #{n} last week. Staying in {to}',
+      lg_res_down: 'Finished #{n} last week. Demoted to {to}',
+      lg_top: 'Highest league',
+      lg_score_help: 'Points are the charm you gained from drinking potions this week. Settled Monday at midnight.',
+      dev_lg_up: 'League up', dev_lg_down: 'League down', dev_lg_week: 'Skip week',
       screen_gather: '🧭 Explore', screen_gather_sub: 'Pick a place and gather. Hold the Gather button to keep going.',
       screen_atelier: '⚗️ Atelier', screen_atelier_sub: 'Put ingredients in the cauldron and brew to discover recipes.',
       screen_room: '🏠 My Room', screen_room_named: "🏠 {name}'s Room",
@@ -462,6 +496,15 @@
     en: {
       // 레시피 북 카테고리
       basic_cat: 'Basic Potions', low_cat: 'Low Potions', mid_cat: 'Mid Potions', high_cat: 'High Potions', creature_cat: 'Creatures',
+      // 리그 계열 — 리그 이름은 '계열 + 단계 숫자' 로 조합한다 (32개를 따로 두지 않는다)
+      lgf_clay: 'Clay', lgf_iron: 'Iron', lgf_copper: 'Copper', lgf_silver: 'Silver',
+      lgf_gold: 'Gold', lgf_crystal: 'Crystal', lgf_moon: 'Moonlight', lgf_star: 'Starlight',
+      // NPC 이름 — 앞말 × 뒷말로 조합한다
+      npc_star: 'Star', npc_moon: 'Moon', npc_dew: 'Dew', npc_bloom: 'Bloom',
+      npc_frost: 'Frost', npc_mist: 'Mist', npc_dusk: 'Dusk', npc_dawn: 'Dawn',
+      npc_wind: 'Wind', npc_wave: 'Wave', npc_ember: 'Ember', npc_ash: 'Ash',
+      npc_leaf: 'leaf', npc_drop: 'drop', npc_dust: 'dust', npc_shard: 'shard',
+      npc_seed: 'seed', npc_plume: 'plume', npc_thread: 'thread', npc_grain: 'grain',
       // 채집 지대
       mountain: 'Jagged Highlands',
       plain: 'Cozy Plains',
