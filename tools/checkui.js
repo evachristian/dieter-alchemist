@@ -103,7 +103,23 @@ function launchOpts() {
     await page.waitForTimeout(250);
   }
 
+  // ─── 잠긴 탭이 정말 안 보이는가 ───────────────────────────
+  // **`hidden` 속성만으로는 안 숨는다.** 브라우저 기본 `[hidden]{display:none}` 은
+  // 특정도가 낮아서 `.tab-btn{display:flex}` 같은 규칙에 진다 — 속성은 켜져 있는데
+  // 화면에는 그대로 보인다. 실제로 랭킹 탭이 '새싹' 단계에서 보였다.
+  // 그래서 속성이 아니라 **그려진 크기**로 본다.
+  const gate = await page.evaluate((full) => {
+    const btn = document.querySelector('.tab-btn[data-tab="league"]');
+    if (!btn) return '랭킹 탭 버튼이 없다';
+    const shown = btn.getBoundingClientRect().width > 0 && getComputedStyle(btn).display !== 'none';
+    // FULL 이면 매력을 채웠으므로 보여야 하고, 아니면(매력 0) 안 보여야 한다
+    if (full && !shown) return "매력을 채웠는데 랭킹 탭이 안 보인다";
+    if (!full && shown) return "매력 0 인데 랭킹 탭이 보인다 (hidden 속성이 CSS 에 지고 있다)";
+    return null;
+  }, !!process.env.FULL);
+
   const results = [];
+  if (gate) results.push({ 화면: '(탭 잠금)', 오류: gate });
   const run = async (label) => {
     // checkUI 는 async 다 — 여기서 await 하지 않으면 Promise 가 잡혀 0건으로 보인다
     const r = await page.evaluate(() => window.checkUI());

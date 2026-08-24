@@ -163,6 +163,38 @@ function launchOpts() {
     console.log('대조표 →', SHOT);
   }
 
+  // ─── 앞머리가 정수리를 덮는가 ────────────────────────────────
+  // 얼굴은 타원(cx100 cy70 rx33 ry35)이라 **꼭대기가 y=35** 다. 앞머리가 거기까지
+  // 안 올라오면 정수리에 살색이 그대로 드러난다 — 머리가 벗겨진 것처럼 보인다.
+  // 실제로 사이드뱅이 y=42 까지밖에 안 올라와 y35~41 이 살색이었고, 커튼뱅은
+  // 가르마가 y=40 에서 열려 정수리가 갈라져 보였다. 둘 다 눈으로는 잘 안 띄었다.
+  // ('이마 노출' 은 이마를 드러내는 것이 목적이지만, 그것도 정수리는 덮는다)
+  const hair = await page.evaluate(() => {
+    const D = window.GameData, SKIN = [255, 224, 207], CROWN_TOP = 34, CROWN_BOT = 42;
+    const near = (r, g, b) => Math.abs(r - SKIN[0]) < 14 && Math.abs(g - SKIN[1]) < 14 && Math.abs(b - SKIN[2]) < 14;
+    const cv = document.createElement('canvas'); cv.width = 200; cv.height = 348;
+    const ctx = cv.getContext('2d');
+    const draw = (svg) => new Promise(res => {
+      const img = new Image();
+      img.onload = () => { ctx.clearRect(0, 0, 200, 348); ctx.drawImage(img, 0, 0, 200, 348); res(); };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+    return (async () => {
+      const bad = [], seen = new Set();
+      for (const it of D.WARDROBE.hair) {
+        if (seen.has(it.bang)) continue;          // 앞머리 종류별로 한 번씩 (뒷머리는 정수리를 안 건드린다)
+        seen.add(it.bang);
+        await draw(Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, { hair: it.id }), 0));
+        const h = CROWN_BOT - CROWN_TOP;
+        const d = ctx.getImageData(66, CROWN_TOP, 68, h).data;
+        let n = 0;
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200 && near(d[i], d[i + 1], d[i + 2])) n++;
+        if (n > 0) bad.push(`${it.bang}: 정수리(y${CROWN_TOP}~${CROWN_BOT})에 살색 ${n}px`);
+      }
+      return { bad, kinds: seen.size };
+    })();
+  });
+
   // ─── 염색이 실제로 아바타에 입혀지는가 ───────────────────────
   // **조용히 깨지는 자리다.** 칠했다는 토스트는 뜨는데 아바타는 원래 색 그대로였던 적이 있다
   // (영원 염색약이 dyeUntil 을 지우는데 slotColor 가 dyeUntil 만 봐서, 모든 칸에서 안 먹었다).
@@ -214,10 +246,11 @@ function launchOpts() {
 
   const all = res.bad.concat(res.pairBad)
     .concat(cardBad.map(m => ({ id: '과시 카드', body: '-', where: m, n: '-' })))
-    .concat(dye.bad.map(m => ({ id: '염색', body: '-', where: m, n: '-' })));
+    .concat(dye.bad.map(m => ({ id: '염색', body: '-', where: m, n: '-' })))
+    .concat(hair.bad.map(m => ({ id: '앞머리', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
-  console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`);
+  console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회 · 앞머리 ${hair.kinds}종 정수리`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
   console.log(`❌ ${all.length}건`);
   all.forEach(b => console.log(b.n === '-'

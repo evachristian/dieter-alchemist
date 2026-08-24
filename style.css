@@ -1052,6 +1052,10 @@ body {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 8px 0; cursor: pointer; border-radius: 14px; transition: color 0.15s;
 }
+/* **[hidden] 만으로는 안 숨는다.** 브라우저 기본 [hidden]{display:none} 은
+   특정도가 낮아서 위의 .tab-btn{display:flex} 에 진다 — 속성은 켜져 있는데
+   화면에는 그대로 보인다. 랭킹 탭이 '새싹' 단계에서 보이던 것이 이것이었다 */
+.tab-btn[hidden] { display: none; }
 .tab-btn .tab-icon { font-size: 1.4rem; }
 /* 탭이 셋에서 넷으로 늘 수 있다 ('여신' 단계부터 랭킹이 나타난다).
    **글자 크기는 건드리지 않는다** — 0.66rem 으로 줄였더니 10.6px 이 되어
