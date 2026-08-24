@@ -1349,6 +1349,19 @@ function renderGather() {
   const cost = D.ENERGY.cost.gather;
   const canGather = (S.energy || 0) >= cost;
 
+  // 필드 / 마을 — 윗단 두 칸
+  document.querySelectorAll('.gt-tabs .room-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.gtab === gatherTab));
+  ['field', 'village'].forEach(t => {
+    const p = document.getElementById('gatherPanel-' + t);
+    if (p) p.classList.toggle('active', t === gatherTab);
+  });
+  // 안내 문구도 갈래마다 다르다 — 필드는 채집 요령, 마을은 아직 잠겼다는 안내
+  const subEl = document.getElementById('gatherSub');
+  if (subEl) subEl.textContent = T(gatherTab === 'village' ? 'screen_village_sub' : 'screen_gather_sub');
+
+  renderVillages();
+
   // 지대 탭 — 잠긴 지대는 자물쇠로 표시하고 조건을 안내
   const zoneEl = document.getElementById('zoneTabs');
   if (zoneEl) {
@@ -1409,6 +1422,41 @@ function renderGather() {
   }).join('');
 
   renderGatherDev();   // 임시(출시 때 지운다)
+}
+
+// ─── 마을 ───────────────────────────────────────────────────
+// 지금은 여는 조건이 정해지지 않아 **전부 잠겨 있다.** 조건이 생기면
+// isVillageOpen() 한 곳만 고치면 탭·몸통이 같이 열린다.
+function isVillageOpen(v) { return false; }
+
+function renderVillages() {
+  const list = D.villagesShown();
+  const tabEl = document.getElementById('villageTabs');
+  if (tabEl) {
+    tabEl.innerHTML = list.map(v => {
+      const open = isVillageOpen(v);
+      return `<button class="cat-tab ${villageTab === v.id ? 'active' : ''} ${open ? '' : 'locked'}"
+        data-village="${v.id}" onclick="setVillage('${v.id}')">${open ? v.emoji : '🔒'} ${N(v.id, v.name)}</button>`;
+    }).join('');
+  }
+
+  const el = document.getElementById('villageBody');
+  if (!el) return;
+  const v = list.find(x => x.id === villageTab) || list[0];
+  if (!v) { el.innerHTML = ''; return; }
+  // **잠긴 마을도 눌러서 볼 수 있다.** 지대 탭과 다른 점인데, 지대는 탭을 옮기면
+  // 아래에 채집할 목록이 뜨는 반면 마을은 아직 할 것이 없다 — 무엇이 기다리고
+  // 있는지 읽어 보는 것 말고는 이 화면에서 할 일이 없으므로 막을 이유가 없다.
+  // 잠긴 표현은 채집지 카드와 같은 것을 쓴다 (style.css '잠긴 콘텐츠 공통 표현')
+  el.innerHTML = `
+    <div class="spot-card locked" data-village-card="${v.id}" onclick="villageInfo('${v.id}', this)">
+      <div class="spot-emoji">🔒</div>
+      <div class="spot-info">
+        <div class="spot-name">${N(v.id, v.name)}</div>
+        <div class="spot-desc">${N(v.id + '_desc', v.desc)}</div>
+      </div>
+      <div class="spot-go">${T('locked_go')}</div>
+    </div>`;
 }
 
 function renderAtelier() {
@@ -1803,6 +1851,24 @@ function chooseCauldron(id, el) {
   const nm = N(c.id, c.name);
   toast(T('cauldron_picked', { name: nm, n: c.slots, josa: josa(nm, '으로') }), `[data-pot="${id}"]`);
 }
+
+// 탐험의 두 갈래 (윗단) — 필드 / 마을.
+// **세이브에 넣지 않는다.** 지대·옷장 탭과 같이 화면을 열 때마다 처음 자리에서
+// 시작하는 값이라, 저장하면 마이그레이션만 늘고 얻는 것이 없다
+let gatherTab = 'field';
+function setGatherTab(t) { gatherTab = t; render(); }
+window.setGatherTab = setGatherTab;
+
+// 지금 보고 있는 마을 (아랫단 탭)
+let villageTab = D.VILLAGES[0].id;
+function setVillage(id) { villageTab = id; renderGather(); }
+window.setVillage = setVillage;
+// 잠긴 마을 카드를 눌렀을 때 — 조건이 정해지면 여기서 조건을 안내한다
+function villageInfo(id, el) {
+  const v = D.VILLAGES.find(x => x.id === id);
+  if (v) toast(T('village_locked', { name: N(v.id, v.name) }), el);
+}
+window.villageInfo = villageInfo;
 
 // 채집 지대 (채집 화면의 카테고리 탭)
 let gatherZone = 'plain';

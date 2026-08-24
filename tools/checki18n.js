@@ -82,6 +82,8 @@ const push = (id, ko, kind) => dataNames.push({ id, ko, kind });
 Object.values(D.INGREDIENTS).forEach(x => push(x.id, x.name, '재료'));
 D.MAPS.forEach(x => { push(x.id, x.name, '맵'); push(x.id + '_desc', x.desc, '맵 설명'); });
 D.ZONES.forEach(x => push(x.id, x.name, '지대'));
+// 마을은 아직 잠겨 있어도 이름·설명이 화면에 그대로 나온다
+D.VILLAGES.forEach(x => { push(x.id, x.name, '마을'); push(x.id + '_desc', x.desc, '마을 설명'); });
 D.CAULDRONS.forEach(x => push(x.id, x.name, '솥'));
 D.RECIPES.forEach(r => push(r.result.id, r.result.name, '레시피'));
 D.WARDROBE_SLOTS.forEach(x => push(x.slot, x.label, '옷장 칸'));

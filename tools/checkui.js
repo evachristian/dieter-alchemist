@@ -143,6 +143,20 @@ function launchOpts() {
       }, t);
       if (r) { results.push({ 화면: t, ...r }); continue; }
       await page.waitForTimeout(250);
+      // 탐험도 갈래마다 내용이 통째로 다르다 — 안 보는 쪽은 display:none 이라
+      // 통째로 검사에서 빠진다 (마을은 지금 전부 잠긴 화면이라 특히 빠지기 쉽다)
+      if (process.env.FULL && t === 'gather') {
+        for (const sub of ['field', 'village']) {
+          const bad = await page.evaluate((s) => {
+            setGatherTab(s);
+            return gatherTab === s ? null : `갈래가 열리지 않았다 (${s})`;
+          }, sub);
+          if (bad) { results.push({ 화면: `${t}/${sub}`, 오류: bad }); continue; }
+          await page.waitForTimeout(250);
+          await run(`${t}/${sub}`);
+        }
+        continue;
+      }
       // 마이 룸은 하위 탭마다 내용이 통째로 다르다 — FULL 이면 셋을 다 돌아본다
       if (process.env.FULL && t === 'showcase') {
         for (const sub of ['clothes', 'potions', 'creatures']) {

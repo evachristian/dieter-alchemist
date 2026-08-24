@@ -34,6 +34,10 @@
       lg_score_help: '점수는 이번 주에 물약을 마셔서 오른 매력이에요. 월요일 0시에 정산돼요.',
       dev_lg_up: '리그 올리기', dev_lg_down: '리그 내리기', dev_lg_week: '주 넘기기',
       screen_gather: '🧭 탐험', screen_gather_sub: '장소를 골라 채집하세요. 채집 버튼을 꾹 누르면 계속 채집돼요.',
+      // 탐험의 두 갈래 — 필드(재료) / 마을(사람)
+      gather_field: '🌿 필드', gather_village: '🏘️ 마을',
+      screen_village_sub: '마을은 아직 열리지 않았어요. 여는 방법은 곧 알려 드릴게요.',
+      village_locked: '{name} — 아직 열리지 않은 마을이에요',
       screen_atelier: '⚗️ 공방', screen_atelier_sub: '재료를 가마솥에 넣고 조합해 새 레시피를 발견하세요.',
       screen_room: '🏠 마이 룸', screen_room_named: "🏠 '{name}'의 룸",
       // 신체 수치
@@ -282,6 +286,9 @@
       lg_score_help: 'Points are the charm you gained from drinking potions this week. Settled Monday at midnight.',
       dev_lg_up: 'League up', dev_lg_down: 'League down', dev_lg_week: 'Skip week',
       screen_gather: '🧭 Explore', screen_gather_sub: 'Pick a place and gather. Hold the Gather button to keep going.',
+      gather_field: '🌿 Field', gather_village: '🏘️ Villages',
+      screen_village_sub: "Villages aren't open yet. We'll tell you how soon.",
+      village_locked: '{name} — this village is not open yet',
       screen_atelier: '⚗️ Atelier', screen_atelier_sub: 'Put ingredients in the cauldron and brew to discover recipes.',
       screen_room: '🏠 My Room', screen_room_named: "🏠 {name}'s Room",
       v_weight: 'Weight', v_height: 'Height', v_fat_pct: 'Body Fat', v_fat_kg: 'Fat Mass', v_muscle: 'Muscle',
@@ -514,6 +521,15 @@
       forest: 'Deep Woods',
       waste: 'Barren Wastes',
       shore: 'Glimmer Shore',
+      // 마을 (탐험의 두 번째 갈래)
+      vl_chimney: 'Seven Chimneys', vl_chimney_desc: 'A mountain village of seven chimneys in a row.',
+      vl_apple: 'Redapple Orchard', vl_apple_desc: 'One bite of its fruit is said to put you to sleep.',
+      vl_mirror: 'Mirror Vale', vl_mirror_desc: 'Ask here and an answer always comes back.',
+      vl_hunter: "Huntsman's Rest", vl_hunter_desc: 'The lodge of a huntsman who could not strike.',
+      vl_glass: 'Glasscoffin Lake', vl_glass_desc: 'They say a glass coffin lies beneath the water.',
+      vl_mine: 'Silvermine', vl_mine_desc: 'A silver camp ringing with picks day and night.',
+      vl_thorn: 'Thornhedge', vl_thorn_desc: 'A briar hedge has swallowed the whole castle.',
+      vl_spire: "Queen's Spire", vl_spire_desc: 'A tower hung with the mirror that names the fairest.',
       // 채집 맵
       m_mine: 'Abandoned Mine', m_mine_desc: 'A long-abandoned shaft littered with ore.',
       m_lake: 'Still Lake', m_lake_desc: 'A mountaintop lake without a breath of wind.',

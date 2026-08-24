@@ -708,6 +708,32 @@ const TIERS = [
   { min: 100, emoji: '✨', title: '여신' },
 ];
 
+// ═══════════════════════════════════════════════════════════════
+//  마을 — 탐험의 두 번째 갈래
+// ═══════════════════════════════════════════════════════════════
+// 탐험은 **필드**(재료를 캐는 곳)와 **마을**(사람을 만나는 곳)로 나뉜다.
+// 이름은 백설공주 쪽 이야기에서 따왔다 — 굴뚝 일곱, 독사과, 말하는 거울,
+// 차마 베지 못한 사냥꾼, 유리관, 난쟁이 광산, 가시울타리, 여왕의 탑.
+//
+// **여는 조건은 아직 정해지지 않았다.** 그래서 지금은 전부 잠겨 있고,
+// `open` 을 판정하는 자리(game.js 의 isVillageOpen)만 만들어 두었다.
+// 조건이 정해지면 여기에 `unlock` 같은 칸을 붙이고 그 함수만 고치면 된다.
+const VILLAGES = [
+  { id: 'vl_chimney', emoji: '🏘️', name: '일곱 굴뚝',     desc: '굴뚝 일곱 개가 나란히 선 산속 마을.' },
+  { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.' },
+  { id: 'vl_mirror',  emoji: '🪞', name: '거울 골짜기',   desc: '물으면 어김없이 대답이 돌아오는 골짜기.' },
+  { id: 'vl_hunter',  emoji: '🏹', name: '사냥꾼 쉼터',   desc: '차마 베지 못한 사냥꾼이 머무는 오두막.' },
+  { id: 'vl_glass',   emoji: '⚰️', name: '유리관 호수',   desc: '물밑에 유리관이 가라앉아 있다는 호숫가.' },
+  { id: 'vl_mine',    emoji: '⛏️', name: '은빛 갱도',     desc: '곡괭이 소리가 밤낮으로 울리는 은광촌.' },
+  { id: 'vl_thorn',   emoji: '🌹', name: '가시덤불 마을', desc: '가시울타리가 성을 통째로 감싼 마을.' },
+  { id: 'vl_spire',   emoji: '🏰', name: '여왕의 첨탑',   desc: '가장 아름다운 이를 묻는 거울이 걸린 탑.' },
+];
+// 지금 화면에 내보일 마을 수 (임시).
+// **여덟 곳을 한꺼번에 잠긴 채로 늘어놓으면 '못 하는 것' 의 목록이 된다.**
+// 셋만 보여 두고, 마을이 열리는 규칙이 정해지면 이 수도 그 규칙을 따라간다.
+const VILLAGE_SHOWN = 3;
+function villagesShown() { return VILLAGES.slice(0, VILLAGE_SHOWN); }
+
 // 지대의 해금 점수 = 그 지대에서 가장 먼저 열리는 맵의 점수
 function zoneUnlock(zoneId) {
   return MAPS.filter(m => m.zone === zoneId).reduce((min, m) => Math.min(min, m.unlock), Infinity);
@@ -1209,6 +1235,7 @@ for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 
 window.GameData = {
   INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
+  VILLAGES, VILLAGE_SHOWN, villagesShown,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,

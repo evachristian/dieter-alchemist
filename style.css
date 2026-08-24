@@ -279,7 +279,19 @@ body {
 .spot-card.locked .spot-desc { font-weight: 800; }
 .spot-card.locked:active { transform: none; }
 .cat-tab.locked { color: var(--ink); background: var(--cream); }
+/* **잠긴 채로 '지금 보고 있는' 탭** — 마을에서만 생기는 조합이다 (지대·솥은 잠긴 것을
+   고를 수 없어서 이 경우가 없었다). .active 의 분홍 배경을 그대로 쓰면 채도를 걷어낸
+   글자와 만나 3.50:1 로 떨어진다 — 잠긴 팔레트(크림)를 지키고 고른 표시는 테두리로 한다.
+   테두리 색을 --ink-soft 로 잡는 이유: saturate(0.15) 를 지나도 회색으로 남아 보인다 */
+.cat-tab.locked.active {
+  background: var(--cream); color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--ink-soft);
+}
 .zn-tabs { margin: 0 0 12px; }
+/* 탐험 윗단 — 필드 / 마을. 마이 룸 인벤토리와 달리 카드 안이 아니라 화면 배경 위에
+   바로 얹히므로 위쪽 여백만 조금 더 준다 (모양·색은 .room-tabs 그대로) */
+.gt-tabs { margin: 4px 0 12px; }
+.vl-tabs { margin: 0 0 12px; }
 /* '채집' 버튼 — 톡 누르면 한 번, 꾹 누르면 계속 채집한다 (startGatherHold).
    라벨이 언어에 따라 길어져도 카드를 밀어내지 않게 (UI_POLICY.md '가변 폭').
    touch-action 을 카드와 같게 두는 이유: 버튼 위에서 시작한 손가락으로도
