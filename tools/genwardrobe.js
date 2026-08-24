@@ -35,12 +35,14 @@ const SLOTS = {
       { k: 'wave',     ko: '웨이브',    en: 'Wavy' },
       { k: 'bun',      ko: '올림머리',  en: 'Updo' },
     ],
+    // secKo/secEn — **칸 이름과 벌 이름이 다른 축.** 벌 이름에는 기본 앞머리를 안 붙이지만
+    // (그냥 '긴 생머리'), 앞머리를 따로 고르는 칸에는 부를 이름이 있어야 한다
     b: [
-      { k: 'straight', ko: '',          en: '' },   // 기본 — 이름에 안 붙는다
+      { k: 'straight', ko: '',          en: '',              secKo: '기본',   secEn: 'Basic' },
       { k: 'side',     ko: '사이드뱅',  en: 'Side Bangs' },
       { k: 'curtain',  ko: '커튼뱅',    en: 'Curtain Bangs' },
       { k: 'sheer',    ko: '시스루뱅',  en: 'Sheer Bangs' },
-      { k: 'none',     ko: '이마 노출', en: 'No Bangs' },
+      { k: 'none',     ko: '올 백',     en: 'Swept Back' },
     ],
   },
   circlet: {
@@ -284,6 +286,21 @@ for (const slot of Object.keys(SLOTS)) {
   dataBody += `  ${slot}: [\n${out[slot].map(itemLine).join('\n')}\n  ],\n`;
 }
 
+// data.js — 헤어 축 표. 옷장에서 **뒷머리와 앞머리를 따로 고르는** 데 쓴다.
+// 30벌을 늘어놓지 않고 6 + 5 칸으로 고르면, 고른 둘이 만나는 벌이 실제로 입는 벌이다.
+// 벌 목록과 같은 표에서 나오므로 축이 늘면 칸도 같이 는다.
+const HAIR = SLOTS.hair;
+const axisId = (pre, x) => `${pre}_${x.k}`;
+const axisName = x => x.secKo || x.ko;
+const axisEn = x => x.secEn || x.en;
+const axisLines = (pre, list) =>
+  list.map(x => `    { id: '${axisId(pre, x)}', k: '${x.k}', name: '${axisName(x)}' },`).join('\n');
+const axesBody =
+  `const HAIR_AXES = {\n` +
+  `  back: [\n${axisLines('hairback', HAIR.a)}\n  ],\n` +
+  `  bang: [\n${axisLines('hairbang', HAIR.b)}\n  ],\n` +
+  `};\n`;
+
 // i18n.js — 같은 표에서 뽑은 영어 이름
 const enLines = [];
 for (const slot of Object.keys(SLOTS)) {
@@ -292,14 +309,21 @@ for (const slot of Object.keys(SLOTS)) {
     enLines.push('      ' + ids.slice(i, i + 3).map(id => `${id}: '${names[id].en}'`).join(', ') + ',');
   }
 }
+// 축 이름도 화면에 나온다 — 벌 이름과 같이 여기서 뽑는다
+const axisPairs = HAIR.a.map(x => `${axisId('hairback', x)}: '${axisEn(x)}'`)
+  .concat(HAIR.b.map(x => `${axisId('hairbang', x)}: '${axisEn(x)}'`));
+for (let i = 0; i < axisPairs.length; i += 3) {
+  enLines.push('      ' + axisPairs.slice(i, i + 3).join(', ') + ',');
+}
 
+const changedAxes = replaceBlock(path.join(ROOT, 'data.js'), 'hairaxes', axesBody);
 const changedData = replaceBlock(path.join(ROOT, 'data.js'), 'wardrobe', dataBody);
 const changedI18n = replaceBlock(path.join(ROOT, 'i18n.js'), 'wardrobe-en', enLines.join('\n') + '\n');
 
 const total = Object.values(out).reduce((n, l) => n + l.filter(it => it.kind !== 'none').length, 0);
 const per = Object.keys(SLOTS).map(s => `${s} ${out[s].filter(it => it.kind !== 'none').length}`).join(' · ');
 if (CHECK) {
-  if (changedData || changedI18n) {
+  if (changedData || changedI18n || changedAxes) {
     console.error('❌ 생성 결과가 파일과 다르다 — `node tools/genwardrobe.js` 를 돌릴 것');
     process.exit(1);
   }

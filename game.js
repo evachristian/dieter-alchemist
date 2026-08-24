@@ -1868,6 +1868,59 @@ function equip(slot, id, el) {
   toast(name, at, null, 'above');
 }
 
+// ─── 헤어는 두 칸으로 고른다 (전체 실루엣 × 앞머리) ────────────────
+// 30벌을 한 줄에 늘어놓으면 '긴 생머리 시스루뱅' 과 '단발 시스루뱅' 이 서로 무엇이
+// 다른지 훑어서는 안 읽힌다. 뒷머리 6 · 앞머리 5 로 나눠 고르면 11칸이면 되고,
+// **고른 둘이 만나는 벌**이 실제로 입는 벌이다 — 벌 id 는 그대로라 세이브도 그대로다.
+function hairItemNow() {
+  const list = D.WARDROBE.hair || [];
+  return list.find(x => x.id === S.outfit.hair) || list[0];
+}
+function hairItemOf(back, bang) {
+  return (D.WARDROBE.hair || []).find(x => x.back === back && x.bang === bang);
+}
+
+// 축 하나를 갈아 끼운다. 나머지 축은 지금 쓰고 있는 것을 그대로 둔다.
+function equipHair(axis, k) {
+  const cur = hairItemNow();
+  if (!cur) return;
+  const it = hairItemOf(axis === 'back' ? k : cur.back, axis === 'bang' ? k : cur.bang);
+  if (!it) return;
+  const name = N(it.id, it.name);
+  // 누른 칸 옆에 띄운다. 요소가 아니라 선택자를 넘기는 이유는 equip() 과 같다 —
+  // 아래 renderShowcase() 가 칸을 새로 그려 이 버튼이 문서에서 떨어져 나간다
+  const at = `.wr-items[data-axis="${axis}"] .wr-item[data-k="${k}"]`;
+  // **잠금은 조합 단위다.** 뒷머리를 바꾸면 앞머리 칸의 잠금도 같이 달라진다 —
+  // 가진 것은 어디까지나 '긴 생머리 시스루뱅' 이라는 한 벌이지 '시스루뱅' 이 아니다
+  if (!isOwned('hair', it)) { toast(T('locked_named', { name }), at, null, 'above'); return; }
+  S.outfit.hair = it.id;
+  save();
+  renderShowcase();
+  toast(name, at, null, 'above');
+}
+window.equipHair = equipHair;
+
+// 축 한 줄. 칸에 이름을 같이 적는다 — 11칸이라 자리가 있고, 앞머리는 실루엣만으로는
+// 구분이 어렵다 (30벌짜리 줄에서 이름을 뺀 것과 다른 상황이다)
+function hairAxisRow(axis, list, cur) {
+  const items = list.map(ax => {
+    const it = hairItemOf(axis === 'back' ? ax.k : cur.back, axis === 'bang' ? ax.k : cur.bang);
+    if (!it) return '';
+    const on = (axis === 'back' ? cur.back : cur.bang) === ax.k;
+    const owned = isOwned('hair', it);
+    // 그림은 **고르면 나올 모습 그대로** 그린다: 나머지 축은 지금 쓰는 것을 물려받는다.
+    // 앞머리 칸은 이마만 확대한다 — 머리 전체를 담으면 다섯 개가 같은 그림으로 보인다
+    const ic = Avatar.hairIcon(it, slotColor('hair') || it.color, axis === 'bang' ? 'face' : null);
+    const lock = owned ? '' : '<span class="wr-lock">🔒</span>';
+    const name = N(ax.id, ax.name);
+    return `<button class="wr-item ${on ? 'on' : ''} ${owned ? '' : 'locked'}" data-k="${ax.k}"
+      aria-label="${N(it.id, it.name)}${owned ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
+      onclick="equipHair('${axis}','${ax.k}')">
+      <span class="wr-ic">${ic}${lock}</span><span class="wr-nm">${name}</span></button>`;
+  }).join('');
+  return `<div class="wr-items wr-axis" data-axis="${axis}">${items}</div>`;
+}
+
 // 커스터마이징 해금 (추후 진행 보상에서 호출) — 콘솔/보상 공용 API
 function unlockCosmetic(id) {
   for (const m of D.WARDROBE_SLOTS) {
@@ -1973,8 +2026,9 @@ function renderWardrobe() {
     const owned = isOwned(wardrobeTab, it);
     let ic;
     if (it.kind === 'none') ic = '🚫';
-    // 머리는 30종이라 겹치지 않는 이모지가 없다 — **실루엣을 작게 그려서** 보여 준다.
-    // 아바타와 같은 함수를 쓰므로 머리 모양을 고치면 이 그림도 같이 바뀐다.
+    // 머리는 이모지 대신 **실루엣을 작게 그려서** 보여 준다 (아바타와 같은 함수라
+    // 머리 모양을 고치면 이 그림도 같이 바뀐다). 헤어 칸은 보통 아래 두 줄짜리
+    // 축 화면으로 가고, 이 줄은 축 표가 없을 때를 위한 대비다
     else if (wardrobeTab === 'hair' && window.Avatar && Avatar.hairIcon) {
       // 지금 머리색으로 그린다 — 염색해 놓고 목록만 브라운이면 무엇을 고르는지 헷갈린다
       ic = Avatar.hairIcon(it, slotColor('hair') || it.color);
@@ -1997,7 +2051,17 @@ function renderWardrobe() {
   const hint = dressed && (wardrobeTab === 'top' || wardrobeTab === 'bottom')
     ? `<div class="wr-hint">${T('dress_hint')}</div>` : '';
 
-  el.innerHTML = `<div class="cat-tabs wr-tabs">${tabs}</div>${hint}<div class="wr-items">${items}</div>`
+  // 헤어만 한 줄이 아니라 두 줄이다 — 전체 실루엣과 앞머리를 따로 고른다
+  let body;
+  if (wardrobeTab === 'hair' && window.Avatar && Avatar.hairIcon && D.HAIR_AXES) {
+    const cur = hairItemNow();
+    body = `<div class="wr-sec">${T('wr_sec_back')}</div>${hairAxisRow('back', D.HAIR_AXES.back, cur)}`
+         + `<div class="wr-sec">${T('wr_sec_bang')}</div>${hairAxisRow('bang', D.HAIR_AXES.bang, cur)}`;
+  } else {
+    body = `<div class="wr-items">${items}</div>`;
+  }
+
+  el.innerHTML = `<div class="cat-tabs wr-tabs">${tabs}</div>${hint}${body}`
     + colorRow(wardrobeTab);
 
 }

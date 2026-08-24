@@ -801,32 +801,32 @@ const WARDROBE = {
     { id: 'hair_long_side', slot: 'hair', kind: 'long', name: '긴 생머리 사이드뱅', back: 'long', bang: 'side', color: '#7b5640' },
     { id: 'hair_long_curtain', slot: 'hair', kind: 'long', name: '긴 생머리 커튼뱅', back: 'long', bang: 'curtain', color: '#7b5640' },
     { id: 'hair_long_sheer', slot: 'hair', kind: 'long', name: '긴 생머리 시스루뱅', back: 'long', bang: 'sheer', color: '#7b5640' },
-    { id: 'hair_long_none', slot: 'hair', kind: 'long', name: '긴 생머리 이마 노출', back: 'long', bang: 'none', color: '#7b5640' },
+    { id: 'hair_long_none', slot: 'hair', kind: 'long', name: '긴 생머리 올 백', back: 'long', bang: 'none', color: '#7b5640' },
     { id: 'hair_bob', slot: 'hair', kind: 'bob', name: '단발', back: 'bob', bang: 'straight', color: '#7b5640', starter: true },
     { id: 'hair_bob_side', slot: 'hair', kind: 'bob', name: '단발 사이드뱅', back: 'bob', bang: 'side', color: '#7b5640' },
     { id: 'hair_bob_curtain', slot: 'hair', kind: 'bob', name: '단발 커튼뱅', back: 'bob', bang: 'curtain', color: '#7b5640' },
     { id: 'hair_bob_sheer', slot: 'hair', kind: 'bob', name: '단발 시스루뱅', back: 'bob', bang: 'sheer', color: '#7b5640' },
-    { id: 'hair_bob_none', slot: 'hair', kind: 'bob', name: '단발 이마 노출', back: 'bob', bang: 'none', color: '#7b5640' },
+    { id: 'hair_bob_none', slot: 'hair', kind: 'bob', name: '단발 올 백', back: 'bob', bang: 'none', color: '#7b5640' },
     { id: 'hair_twin', slot: 'hair', kind: 'twin', name: '양갈래', back: 'twin', bang: 'straight', color: '#7b5640', starter: true },
     { id: 'hair_twin_side', slot: 'hair', kind: 'twin', name: '양갈래 사이드뱅', back: 'twin', bang: 'side', color: '#7b5640' },
     { id: 'hair_twin_curtain', slot: 'hair', kind: 'twin', name: '양갈래 커튼뱅', back: 'twin', bang: 'curtain', color: '#7b5640' },
     { id: 'hair_twin_sheer', slot: 'hair', kind: 'twin', name: '양갈래 시스루뱅', back: 'twin', bang: 'sheer', color: '#7b5640' },
-    { id: 'hair_twin_none', slot: 'hair', kind: 'twin', name: '양갈래 이마 노출', back: 'twin', bang: 'none', color: '#7b5640' },
+    { id: 'hair_twin_none', slot: 'hair', kind: 'twin', name: '양갈래 올 백', back: 'twin', bang: 'none', color: '#7b5640' },
     { id: 'hair_ponytail', slot: 'hair', kind: 'ponytail', name: '포니테일', back: 'ponytail', bang: 'straight', color: '#7b5640' },
     { id: 'hair_ponytail_side', slot: 'hair', kind: 'ponytail', name: '포니테일 사이드뱅', back: 'ponytail', bang: 'side', color: '#7b5640' },
     { id: 'hair_ponytail_curtain', slot: 'hair', kind: 'ponytail', name: '포니테일 커튼뱅', back: 'ponytail', bang: 'curtain', color: '#7b5640' },
     { id: 'hair_ponytail_sheer', slot: 'hair', kind: 'ponytail', name: '포니테일 시스루뱅', back: 'ponytail', bang: 'sheer', color: '#7b5640' },
-    { id: 'hair_ponytail_none', slot: 'hair', kind: 'ponytail', name: '포니테일 이마 노출', back: 'ponytail', bang: 'none', color: '#7b5640' },
+    { id: 'hair_ponytail_none', slot: 'hair', kind: 'ponytail', name: '포니테일 올 백', back: 'ponytail', bang: 'none', color: '#7b5640' },
     { id: 'hair_wave_straight', slot: 'hair', kind: 'wave', name: '웨이브', back: 'wave', bang: 'straight', color: '#7b5640' },
     { id: 'hair_wave', slot: 'hair', kind: 'wave', name: '웨이브 사이드뱅', back: 'wave', bang: 'side', color: '#7b5640' },
     { id: 'hair_wave_curtain', slot: 'hair', kind: 'wave', name: '웨이브 커튼뱅', back: 'wave', bang: 'curtain', color: '#7b5640' },
     { id: 'hair_wave_sheer', slot: 'hair', kind: 'wave', name: '웨이브 시스루뱅', back: 'wave', bang: 'sheer', color: '#7b5640' },
-    { id: 'hair_wave_none', slot: 'hair', kind: 'wave', name: '웨이브 이마 노출', back: 'wave', bang: 'none', color: '#7b5640' },
+    { id: 'hair_wave_none', slot: 'hair', kind: 'wave', name: '웨이브 올 백', back: 'wave', bang: 'none', color: '#7b5640' },
     { id: 'hair_bun_straight', slot: 'hair', kind: 'bun', name: '올림머리', back: 'bun', bang: 'straight', color: '#7b5640' },
     { id: 'hair_bun_side', slot: 'hair', kind: 'bun', name: '올림머리 사이드뱅', back: 'bun', bang: 'side', color: '#7b5640' },
     { id: 'hair_bun_curtain', slot: 'hair', kind: 'bun', name: '올림머리 커튼뱅', back: 'bun', bang: 'curtain', color: '#7b5640' },
     { id: 'hair_bun_sheer', slot: 'hair', kind: 'bun', name: '올림머리 시스루뱅', back: 'bun', bang: 'sheer', color: '#7b5640' },
-    { id: 'hair_bun_none', slot: 'hair', kind: 'bun', name: '올림머리 이마 노출', back: 'bun', bang: 'none', color: '#7b5640' },
+    { id: 'hair_bun_none', slot: 'hair', kind: 'bun', name: '올림머리 올 백', back: 'bun', bang: 'none', color: '#7b5640' },
   ],
   // circlet — 4 × 5 = 20
   circlet: [
@@ -1128,6 +1128,30 @@ const COLORS = [
 // 이제 머리도 '헤어 아이템의 원래 색(브라운)을 염색한다' 는 같은 규칙을 쓴다.
 const COLORABLE_SLOTS = ['hair', 'top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
 
+// 헤어 축 표 — **뒷머리(전체 실루엣) × 앞머리** 를 따로 고른다.
+// 30벌을 한 칸에 늘어놓으면 무엇이 무엇과 다른지 읽히지 않는다. 6 + 5 칸으로 고르면
+// 고른 둘이 만나는 벌 하나가 실제로 입는 벌이다 (id 는 그대로라 세이브도 그대로).
+// 아래는 tools/genwardrobe.js 의 헤어 축 표에서 뽑는다 — 손으로 고치지 않는다.
+// <<<GEN:hairaxes
+const HAIR_AXES = {
+  back: [
+    { id: 'hairback_long', k: 'long', name: '긴 생머리' },
+    { id: 'hairback_bob', k: 'bob', name: '단발' },
+    { id: 'hairback_twin', k: 'twin', name: '양갈래' },
+    { id: 'hairback_ponytail', k: 'ponytail', name: '포니테일' },
+    { id: 'hairback_wave', k: 'wave', name: '웨이브' },
+    { id: 'hairback_bun', k: 'bun', name: '올림머리' },
+  ],
+  bang: [
+    { id: 'hairbang_straight', k: 'straight', name: '기본' },
+    { id: 'hairbang_side', k: 'side', name: '사이드뱅' },
+    { id: 'hairbang_curtain', k: 'curtain', name: '커튼뱅' },
+    { id: 'hairbang_sheer', k: 'sheer', name: '시스루뱅' },
+    { id: 'hairbang_none', k: 'none', name: '올 백' },
+  ],
+};
+// GEN:hairaxes>>>
+
 // 옷장 슬롯 메타 (UI 탭 순서/라벨)
 // gated: true → 잠금/해금 대상 (starter 아이템만 처음 보유, 나머지는 획득 필요)
 const WARDROBE_SLOTS = [
@@ -1185,7 +1209,7 @@ for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 
 window.GameData = {
   INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
-  WARDROBE, WARDROBE_SLOTS, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
+  WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   getTier, recipeKey,

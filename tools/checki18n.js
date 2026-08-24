@@ -87,6 +87,8 @@ D.RECIPES.forEach(r => push(r.result.id, r.result.name, '레시피'));
 D.WARDROBE_SLOTS.forEach(x => push(x.slot, x.label, '옷장 칸'));
 Object.entries(D.WARDROBE).forEach(([slot, items]) =>
   (items || []).forEach(it => push(it.id, it.name, '옷')));
+// 헤어는 벌 이름과 별개로 **축 이름**(뒷머리 6 · 앞머리 5)이 칸에 그대로 나온다
+Object.values(D.HAIR_AXES).forEach(list => list.forEach(x => push(x.id, x.name, '헤어 축')));
 D.RECIPE_CATS.forEach(c => push(c.id + '_cat', c.label, '레시피 카테고리'));
 D.COLORS.forEach(c => push(c.id, c.name, '옷 색'));
 // 리그 이름은 '계열 + 단계' 로, NPC 이름은 '앞말 + 뒷말' 로 조합된다 —

@@ -464,14 +464,19 @@
   // 옷장 칸에 쓰는 작은 머리 그림. 30종에 겹치지 않는 이모지가 없어서,
   // **실루엣을 그대로 축소해서** 무엇인지 보이게 한다.
   // 아바타와 같은 hairBack/hairFront 를 쓰므로 머리 모양을 고치면 아이콘도 같이 바뀐다.
-  function hairIcon(it, color) {
+  function hairIcon(it, color, crop) {
     const c = color || HAIR_DEF;
     const back = (it && it.back) || (it && it.kind) || 'long';
     const bang = (it && it.bang) || 'straight';
     // 머리만 잘라 낸다. 꼬리 끝(양갈래 y168 · 포니테일 y182)까지 담으면 세로로 길어져
     // 옷장 칸에서 폭이 24px 밖에 안 나온다 — 앞머리가 구분되지 않았다.
     // 그래서 어깨 높이에서 자른다. 뒷머리 차이는 얼굴 옆 가닥에서 이미 보인다
-    return `<svg class="hair-icon" viewBox="42 12 116 128" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    //
+    // crop:'face' — **앞머리를 고르는 칸용.** 다섯 가지 차이는 전부 이마(y29~60)에 있는데
+    // 머리 전체를 담으면 그 띠가 아이콘의 4분의 1로 줄어 사실상 같은 그림이 된다.
+    // 이마부터 코까지만 담아 차이가 보이게 확대한다
+    const box = crop === 'face' ? '54 18 92 76' : '42 12 116 128';
+    return `<svg class="hair-icon" viewBox="${box}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       ${hairBack(back, c)}
       <ellipse cx="100" cy="78" rx="30" ry="34" fill="#ffe0cf"/>
       ${hairFront(bang, c)}
