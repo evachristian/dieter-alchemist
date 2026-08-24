@@ -501,32 +501,84 @@ function fmtCount(n) {
 }
 
 // ─── AP 충전 (현자의 결정 → AP) ───
-// 헤더의 + 버튼. 확인 패널에 '보유 / 지불' 을 나란히 보여 준다.
-// 이번 충전에 드는 결정 — **모자란 만큼만** 낸다.
+// 헤더의 + 버튼. 확인 패널에서 **슬라이더로 채울 만큼을 고르고**, 게이지와
+// 지불 값이 같이 따라간다. 상한은 '모자란 만큼' 이다 — 가득 넘게 살 수는 없다.
+//
+// 원하는 만큼만 충전한다 — 슬라이더로 고른 값. 패널을 열 때 '모자란 만큼' 으로 맞춰 둔다.
+let chargeAmt = 0;
+
+// n AP 를 채우는 데 드는 결정 수.
 // D.ENERGY.chargeCost 는 '가득(cap) 채울 때 드는 값' 이고, 여기서 비례로 나눈다.
 // 지금은 1000 / 1000 이라 AP 하나에 결정 하나다.
 // 나누는 값이 energyCap() 이 아니라 D.ENERGY.cap 인 이유: 상한이 늘어난 플레이어의
 // AP 값이 싸지면 안 된다 — **AP 하나의 값은 누구에게나 같아야 한다.**
-function chargeCost() {
-  const need = Math.max(0, energyCap() - (S.energy || 0));
-  return Math.ceil(need * D.ENERGY.chargeCost / D.ENERGY.cap);
+function costFor(n) {
+  return Math.ceil(Math.max(0, n) * D.ENERGY.chargeCost / D.ENERGY.cap);
 }
 
 function askCharge() {
   const cap = energyCap();
   refreshEnergy();
-  if ((S.energy || 0) >= cap) { toast(T('ap_full')); return; }
-  const cost = chargeCost(), have = S.crystal || 0;
+  const cur = Math.max(0, Math.min(cap, S.energy || 0));
+  if (cur >= cap) { toast(T('ap_full')); return; }
+  const need = cap - cur;
+  chargeAmt = need;                       // 기본은 가득 채우는 값
+
   // 결정 아이콘은 **누를 수 있다** — 무엇인지·어디서 얻는지 토스트로 알려 준다
-  const row = (label, n, lack) => `<div class="cf-row">
-      <span class="cf-label">${label}</span>
-      <button class="cf-gem" onclick="crystalHelp(this,'panel')" aria-label="${T('crystal_name')}">${D.CRYSTAL.emoji}</button>
-      <span class="cf-n${lack ? ' lack' : ''}">${T('n_ea', { n: n.toLocaleString() })}</span>
+  const gem = `<button class="cf-gem" onclick="crystalHelp(this,'panel')"
+    aria-label="${T('crystal_name')}">${D.CRYSTAL.emoji}</button>`;
+  // 게이지 — 지금 AP(노랑)와 **이번에 채울 만큼**(연분홍)을 이어 붙여 보여 준다.
+  // 숫자만 있으면 320 이 많은 건지 적은 건지 감이 안 온다.
+  const html = `
+    <div class="ap-chg">
+      <div class="ap-chg-track">
+        <span class="ap-chg-now" style="width:${(cur / cap * 100).toFixed(1)}%"></span>
+        <span id="chgAdd" class="ap-chg-add" style="left:${(cur / cap * 100).toFixed(1)}%;width:${(need / cap * 100).toFixed(1)}%"></span>
+        <span id="chgText" class="ap-chg-text">${cur + need} / ${cap}</span>
+      </div>
+      <input id="chgRange" class="ap-chg-range" type="range" min="1" max="${need}" value="${need}" step="1"
+        aria-label="${T('ap_charge_amt')}" oninput="chargeSlide(this.value)" onchange="chargeSlide(this.value)">
+      <div class="cf-row">
+        <span class="cf-label">${T('ap_charge_amt')}</span>
+        <span class="cf-ap">⚡</span>
+        <span id="chgAmt" class="cf-n">${T('n_ap', { n: need.toLocaleString() })}</span>
+      </div>
+      <div class="cf-row">
+        <span class="cf-label">${T('ap_charge_have')}</span>${gem}
+        <span id="chgHave" class="cf-n">${T('n_ea', { n: (S.crystal || 0).toLocaleString() })}</span>
+      </div>
+      <div class="cf-row">
+        <span class="cf-label">${T('ap_charge_pay')}</span>${gem}
+        <span id="chgPay" class="cf-n">${T('n_ea', { n: costFor(need).toLocaleString() })}</span>
+      </div>
     </div>`;
-  showConfirm(T('ap_charge_ask'), () => doCharge(),
-    row(T('ap_charge_have'), have, have < cost) + row(T('ap_charge_pay'), cost, false));
+  showConfirm(T('ap_charge_ask'), () => doCharge(), html);
+  chargeSlide(need);      // 모자람 표시(빨간 글씨)를 처음부터 맞춰 둔다
 }
 window.askCharge = askCharge;
+
+// 슬라이더를 움직일 때 — 게이지·충전량·지불이 같이 따라간다
+function chargeSlide(v) {
+  const cap = energyCap();
+  const cur = Math.max(0, Math.min(cap, S.energy || 0));
+  const n = Math.max(1, Math.min(cap - cur, Math.round(Number(v) || 0)));
+  chargeAmt = n;
+  const cost = costFor(n), have = S.crystal || 0;
+  const add = document.getElementById('chgAdd');
+  if (add) add.style.width = (n / cap * 100).toFixed(1) + '%';
+  const txt = document.getElementById('chgText');
+  if (txt) txt.textContent = `${cur + n} / ${cap}`;
+  const amt = document.getElementById('chgAmt');
+  if (amt) amt.textContent = T('n_ap', { n: n.toLocaleString() });
+  const pay = document.getElementById('chgPay');
+  if (pay) {
+    pay.textContent = T('n_ea', { n: cost.toLocaleString() });
+    // 모자라면 지불 쪽을 붉게 — 보유가 아니라 **낼 값**에 표시한다.
+    // 슬라이더를 내리면 낼 수 있게 되는 값이므로, 움직일 대상 옆에 있어야 읽힌다
+    pay.classList.toggle('lack', have < cost);
+  }
+}
+window.chargeSlide = chargeSlide;
 
 // AP 안내 — ⚡ 와 게이지를 누르면
 function apHelp(el) { toast(T('ap_help'), el, 3000); }
@@ -540,9 +592,13 @@ function crystalHelp(el, where) {
 window.crystalHelp = crystalHelp;
 
 function doCharge() {
-  // 패널을 띄운 뒤에도 AP 는 줄어들 수 있다(채집·조합) — 낼 값은 **누른 시점에** 다시 센다
-  const cost = chargeCost();
-  if (cost <= 0) { toast(T('ap_full')); return; }
+  // 패널을 띄운 뒤에도 AP 는 줄어들 수 있다(채집·조합) — 채울 양과 낼 값은
+  // **누른 시점에** 다시 센다. 고른 양이 남은 자리보다 크면 남은 자리까지만 채운다
+  const cap = energyCap();
+  const cur = Math.max(0, Math.min(cap, S.energy || 0));
+  const n = Math.max(0, Math.min(cap - cur, chargeAmt || 0));
+  if (n <= 0) { toast(T('ap_full')); return; }
+  const cost = costFor(n);
   if ((S.crystal || 0) < cost) {
     // 모자라면 다이아 구매로 이어진다 (아직 상점이 없다 → openDiamondShop 참고)
     toast(T('crystal_short'));
@@ -550,10 +606,12 @@ function doCharge() {
     return;
   }
   S.crystal -= cost;
-  S.energy = energyCap();
-  S.energyDay = dayKey();
+  S.energy = cur + n;
+  // 가득 채웠을 때만 '오늘 채웠다' 로 본다 — 조금만 채우고 날짜를 밀면
+  // 자정 충전(dailyFill)을 통째로 잃는다
+  if (S.energy >= cap) S.energyDay = dayKey();
   save(); render();
-  toast(T('ap_charged'));
+  toast(T(S.energy >= cap ? 'ap_charged' : 'ap_charged_n', { n: n.toLocaleString() }));
   window.Sfx && Sfx.play('success');
 }
 

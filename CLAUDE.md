@@ -336,6 +336,6 @@ node tools/checkavatar.js   # 체형 5단계 × 모든 옷에서 살이 옷 밖�
   누르면 '지금은 구매하실 수 없습니다' 로 끝난다 — `buyDiamond()`(game.js) 안쪽만 채우면 된다.
   현자의 결정이 모자란 경우도 전부 `openDiamondShop()` 으로 모여 있다
 - **AP 충전 밸런스는 임시값이다.** `D.ENERGY.chargeCost`(1000 = 가득 채울 때) 와
-  `failReward`(10). 실제로 내는 값은 모자란 만큼만이다 (`chargeCost()` 가 비례로 나눈다).
+  `failReward`(10). 실제로 내는 값은 **슬라이더로 고른 만큼**이다 (`costFor(n)` 이 비례로 나눈다).
   실패 보상이 조합 값(25 AP)을 넘으면 일부러 실패해서 AP 를 무한히 버는 고리가 생긴다 —
   수치를 바꾸기 전에 이 관계를 먼저 볼 것
