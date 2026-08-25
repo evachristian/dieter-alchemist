@@ -44,6 +44,13 @@ Object.entries(D.TALKS).forEach(([id, t]) => {
   });
 });
 
+// ── 마을 이름이 데이터와 맞는가
+// **「일곱 굴뚝」은 건물이 일곱이어야 한다.** 이름이 지도에서 그대로 세어지는 마을이라,
+// 건물을 하나 더하거나 빼면 이름이 조용히 거짓말이 된다. 화면은 멀쩡해 보인다.
+const CHIMNEY = D.VILLAGES.find(v => v.id === 'vl_chimney');
+if (CHIMNEY && (CHIMNEY.spots || []).length !== 7)
+  bad.push(`vl_chimney: 「일곱 굴뚝」인데 건물이 ${(CHIMNEY.spots || []).length}채다 — 이름이 거짓말이 된다`);
+
 // ── 초상화 사양
 const NEED = ['hair', 'hairColor', 'skin', 'cloth'];
 D.SPEAKERS.forEach(sp => {

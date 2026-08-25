@@ -1514,8 +1514,11 @@ function renderVillageMap(el, v) {
   const spots = v.spots || [];
   // 명판은 좌우에 번갈아 붙는 **띠**다. 자리의 x 가 절반보다 왼쪽이면 왼쪽 끝에,
   // 오른쪽이면 오른쪽 끝에 붙인다 — 데이터의 지그재그가 그대로 좌우가 된다
+  // 자리의 x 로 명판을 어디에 붙일지 정한다 — 왼쪽 끝 · 오른쪽 끝 · 가운데.
+  // (건물이 홀수면 마지막 하나가 가운데에 남는다)
+  const side = x => (x < 40 ? 'l' : x > 60 ? 'r' : 'c');
   const pins = spots.map(s => `
-    <button class="vil-pin ${s.x < 50 ? 'l' : 'r'}" style="top:${s.y}%"
+    <button class="vil-pin ${side(s.x)}" style="top:${s.y}%"
       data-vspot="${s.id}" onclick="tapVillageSpot('${v.id}','${s.id}')">
       <span class="vil-pin-ic">${open ? s.emoji : '🔒'}</span>
       <span class="vil-pin-nm">${N(s.id, s.name)}</span>

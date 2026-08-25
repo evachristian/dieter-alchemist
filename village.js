@@ -43,25 +43,41 @@
   // ─── 건물 모양 ───────────────────────────────────────────────
   // 값은 「(x, y, 색) → SVG 조각」. 좌표는 그 자리의 **바닥 한가운데**다.
   // 명판이 건물 위에 얹히므로 그림은 자리보다 **위로** 자란다.
+  // 굴뚝 — **「일곱 굴뚝」 마을의 이름이 지도에서 세어져야 한다.**
+  // 건물마다 따로 그리지 않고 이 조각 하나를 갖다 붙인다 (연기까지 같이).
+  // **일곱 채가 모두 이 조각을 쓴다.** 건물마다 따로 그리면 세어지지 않고
+  // (예전에 집·대장간·연금술 방이 각자 그린 굴뚝을 갖고 있었다) 연기도 제각각이 된다.
+  // `class="chim"` 은 검사기가 굴뚝을 세는 표식이다.
+  const chimney = (x, y, k, smoke) => `
+    <g class="chim">
+      <rect x="${x - 4}" y="${y - 16}" width="8" height="18" rx="1.5" fill="${k.roof}"/>
+      <rect x="${x - 5.5}" y="${y - 18}" width="11" height="4" rx="1.5" fill="${k.roof}"/>
+      <circle cx="${x + 1}" cy="${y - 24}" r="3.4" fill="${smoke || '#fff'}" opacity="0.55"/>
+      <circle cx="${x + 5}" cy="${y - 31}" r="2.6" fill="${smoke || '#fff'}" opacity="0.4"/>
+      <circle cx="${x + 1}" cy="${y - 37}" r="2" fill="${smoke || '#fff'}" opacity="0.28"/>
+    </g>`;
+
   const SHAPES = {
     house: (x, y, k) => `
       <rect x="${x - 22}" y="${y - 28}" width="44" height="28" rx="2" fill="${k.wall}"/>
       <path d="M${x - 28},${y - 27} L${x},${y - 46} L${x + 28},${y - 27} Z" fill="${k.roof}"/>
       <rect x="${x - 6}" y="${y - 16}" width="12" height="16" rx="1" fill="${k.roof}" opacity="0.75"/>
-      <rect x="${x + 10}" y="${y - 44}" width="7" height="12" rx="1" fill="${k.roof}"/>`,
+      ${chimney(x + 14, y - 32, k)}`,
     forge: (x, y, k) => `
       <rect x="${x - 24}" y="${y - 26}" width="48" height="26" rx="2" fill="${k.wall}"/>
       <path d="M${x - 28},${y - 25} L${x + 28},${y - 25} L${x + 22},${y - 40} L${x - 22},${y - 40} Z" fill="${k.roof}"/>
-      <rect x="${x + 6}" y="${y - 56}" width="9" height="18" rx="1" fill="${k.roof}"/>
+      ${chimney(x + 11, y - 38, k, '#cfc4bc')}
       <ellipse cx="${x - 8}" cy="${y - 12}" rx="9" ry="8" fill="#e8944a" opacity="0.85"/>
       <ellipse cx="${x - 8}" cy="${y - 12}" rx="5" ry="4.5" fill="#ffd68a"/>`,
     tower: (x, y, k) => `
       <rect x="${x - 13}" y="${y - 52}" width="26" height="52" rx="2" fill="${k.wall}"/>
       <path d="M${x - 18},${y - 50} L${x},${y - 76} L${x + 18},${y - 50} Z" fill="${k.roof}"/>
-      <rect x="${x - 5}" y="${y - 40}" width="10" height="13" rx="4" fill="${k.roof}" opacity="0.7"/>`,
+      <rect x="${x - 5}" y="${y - 40}" width="10" height="13" rx="4" fill="${k.roof}" opacity="0.7"/>
+      ${chimney(x + 14, y - 46, k)}`,
     shop: (x, y, k) => `
       <rect x="${x - 21}" y="${y - 26}" width="42" height="26" rx="2" fill="${k.wall}"/>
       <path d="M${x - 26},${y - 25} L${x},${y - 40} L${x + 26},${y - 25} Z" fill="${k.roof}"/>
+      ${chimney(x + 13, y - 36, k)}
       <path d="M${x - 25},${y - 25} l0,9 l50,0 l0,-9 Z" fill="#f2f2f2"/>
       <path d="M${x - 25},${y - 16} l7,0 l0,-9 l-7,0 Z M${x - 11},${y - 16} l7,0 l0,-9 l-7,0 Z
                M${x + 3},${y - 16} l7,0 l0,-9 l-7,0 Z M${x + 17},${y - 16} l7,0 l0,-9 l-7,0 Z" fill="#d97a86"/>
@@ -69,9 +85,7 @@
     lab: (x, y, k) => `
       <rect x="${x - 20}" y="${y - 30}" width="40" height="30" rx="2" fill="${k.wall}"/>
       <path d="M${x - 24},${y - 29} L${x},${y - 44} L${x + 24},${y - 29} Z" fill="${k.roof}"/>
-      <rect x="${x - 13}" y="${y - 52}" width="8" height="24" rx="1" fill="${k.roof}"/>
-      <circle cx="${x - 9}" cy="${y - 58}" r="5" fill="#cbb6e8" opacity="0.75"/>
-      <circle cx="${x - 4}" cy="${y - 66}" r="3.4" fill="#cbb6e8" opacity="0.55"/>
+      ${chimney(x - 9, y - 30, k, '#cbb6e8')}
       <rect x="${x + 2}" y="${y - 18}" width="11" height="14" rx="2" fill="#8fd0c0" opacity="0.9"/>`,
     mine: (x, y, k) => `
       <path d="M${x - 34},${y} L${x - 20},${y - 40} L${x + 20},${y - 40} L${x + 34},${y} Z" fill="${k.rock}"/>
@@ -79,7 +93,8 @@
       <path d="M${x - 13},${y} L${x - 13},${y - 20} Q${x},${y - 32} ${x + 13},${y - 20} L${x + 13},${y} Z" fill="#3f3730"/>
       <rect x="${x - 17}" y="${y - 22}" width="4" height="22" fill="#7a5a3c"/>
       <rect x="${x + 13}" y="${y - 22}" width="4" height="22" fill="#7a5a3c"/>
-      <rect x="${x - 19}" y="${y - 26}" width="38" height="5" rx="1" fill="#7a5a3c"/>`,
+      <rect x="${x - 19}" y="${y - 26}" width="38" height="5" rx="1" fill="#7a5a3c"/>
+      ${chimney(x + 24, y - 30, k)}`,
     farm: (x, y, k) => {
       let out = `<path d="M${x - 38},${y} L${x - 30},${y - 20} L${x + 30},${y - 20} L${x + 38},${y} Z"
         fill="${k.crop}" opacity="0.85"/>`;

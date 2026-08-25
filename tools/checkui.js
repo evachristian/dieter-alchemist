@@ -182,6 +182,12 @@ function launchOpts() {
             return null;
           });
           if (over) results.push({ 화면: `${t}/${vid}`, 오류: over });
+          // **「일곱 굴뚝」은 지도에서 굴뚝이 일곱 개 세어져야 한다.**
+          // 데이터의 건물 수는 checktalk 이 보지만, 굴뚝을 그렸는지는 그림을 봐야 안다
+          if (vid === 'vl_chimney') {
+            const n = await page.evaluate(() => document.querySelectorAll('.vil-svg .chim').length);
+            if (n !== 7) results.push({ 화면: `${t}/${vid}`, 오류: `굴뚝이 ${n}개다 (일곱이어야 한다)` });
+          }
         }
         // **건물 안(NPC 화면)**은 또 한 단 들어가야 나온다. 거래가 있는 자리와
         // 없는 자리를 다 본다 — 버튼이 하나일 때와 둘일 때 줄 모양이 다르다

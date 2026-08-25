@@ -333,6 +333,9 @@ body {
 }
 .vil-pin.l { left: 0;  border-radius: 0 13px 13px 0; }
 .vil-pin.r { right: 0; border-radius: 13px 0 0 13px; justify-content: flex-end; }
+/* 건물이 홀수면 마지막 하나가 가운데에 남는다 — 그때만 쓰는 모양 */
+.vil-pin.c { left: 50%; transform: translate(-50%, -50%); border-radius: 13px; justify-content: center; }
+.vil-pin.c:active { transform: translate(-50%, -50%) scale(0.97); }
 .vil-pin:active { transform: translateY(-50%) scale(0.97); }
 .vil-pin-ic { flex: 0 0 auto; font-size: 1rem; }
 /* 이름은 **두 줄까지** 접고 그 이상은 자른다.
