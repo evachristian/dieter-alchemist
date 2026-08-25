@@ -9,6 +9,7 @@
 //   · 열여덟 단계가 끝까지 진행되는가 (막다른 자리가 없는가)
 //   · 구멍 안은 진짜로 눌리는가       — 아래 버튼이 클릭을 받는가
 //   · 구멍 밖은 진짜로 안 눌리는가     — 막이 정말 막는가
+//   · 구멍이 대상 **위에 정확히** 있는가 — 여백(PAD) 안에서 어긋나도 눌리기는 한다
 //   · 끝나면 tutorialDone 이 켜지고 잠겼던 것들이 열리는가
 //
 // **el.click() 을 쓰면 안 된다.** 그것은 pointer-events 를 무시하므로 막이 뚫려
@@ -137,6 +138,64 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     return after !== before ? `막힌 자리(${target.tab})가 눌렸다 — ${before} → ${after}` : null;
   }
 
+  // 구멍이 대상 위에 **정확히** 뚫려 있는가.
+  //
+  // 눌리는지만 보면 못 잡는다 — 여백이 8px 있어서 그만큼 어긋나도 한가운데는 여전히
+  // 뚫려 있다. 실제로 화면이 페이드 인 하는 동안(`.screen` 이 translateY(6px) 로 밀려
+  // 있을 때) 잰 구멍이 **끝까지 6px 어긋난 채로 남아 있었고**, 검사는 통과로 보였다.
+  //
+  // 막의 칠을 이분법으로 더듬어 네 변의 자리를 재고 대상 + PAD 와 비교한다.
+  // 모서리가 둥글기 때문에 각 변의 **한가운데**에서만 더듬는다.
+  const EDGE_TOL = 1.5;
+  async function alignCheck() {
+    return page.evaluate((tol) => {
+      const layer = document.getElementById('tut');
+      const path = layer.querySelector('.tut-hole');
+      const sels = (window.Tut && Tut.targets) ? Tut.targets() : [];
+      if (!path || !path.isPointInFill || !sels.length) return null;
+      const PAD = Tut.PAD;
+      const box = layer.getBoundingClientRect();
+      const filled = (x, y) => path.isPointInFill(new DOMPoint(x, y));
+      // 뚫린 곳(from) ↔ 칠해진 곳(to) 사이의 경계
+      const edge = (from, to, at, horiz) => {
+        let a = from, b = to;
+        for (let i = 0; i < 24; i++) {
+          const m = (a + b) / 2;
+          if (filled(horiz ? m : at, horiz ? at : m)) b = m; else a = m;
+        }
+        return (a + b) / 2;
+      };
+      const out = [];
+      for (const sel of sels) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        const L = r.left - box.left, R = r.right - box.left;
+        const T = r.top - box.top, B = r.bottom - box.top;
+        const cx = (L + R) / 2, cy = (T + B) / 2;
+        if (filled(cx, cy)) { out.push(`${sel}: 한가운데가 안 뚫렸다`); continue; }
+        const REACH = PAD + 24;
+        const sides = [
+          ['위',   () => edge(cy, T - REACH, cx, false), T - PAD, () => filled(cx, T - REACH)],
+          ['아래', () => edge(cy, B + REACH, cx, false), B + PAD, () => filled(cx, B + REACH)],
+          ['왼',   () => edge(cx, L - REACH, cy, true),  L - PAD, () => filled(L - REACH, cy)],
+          ['오른', () => edge(cx, R + REACH, cy, true),  R + PAD, () => filled(R + REACH, cy)],
+        ];
+        let measured = 0;
+        for (const [name, get, want, reachable] of sides) {
+          // 그 방향이 화면 밖이거나 옆에 다른 구멍이 붙어 있으면 잴 수 없다 (건너뛴다)
+          if (!reachable()) continue;
+          measured++;
+          const got = get();
+          if (Math.abs(got - want) > tol)
+            out.push(`${sel}: 구멍 ${name}쪽이 ${(got - want).toFixed(1)}px 어긋났다`);
+        }
+        if (!measured) out.push(`${sel}: 구멍 경계를 한 변도 잴 수 없었다`);
+      }
+      return out.length ? out : null;
+    }, EDGE_TOL);
+  }
+
   // 구멍 안의 눌러야 할 것을 진짜 마우스로 누른다
   async function doAct() {
     const target = await page.evaluate((sel) => {
@@ -177,6 +236,9 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
 
     const b = await blockedCheck();
     if (b) bad.push(`${st.step}단계: ${b}`);
+
+    const mis = await alignCheck();
+    if (mis) mis.forEach(m => bad.push(`${st.step}단계: ${m}`));
 
     const did = await doAct();
     if (await page.evaluate(() => !!document.querySelector('#brewModal.show'))) {

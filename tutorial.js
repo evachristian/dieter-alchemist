@@ -216,11 +216,13 @@
   }
 
   function hide() {
+    stopTrack();
     const el = layer();
     if (!el) return;
     el.classList.remove('on');
     el.setAttribute('aria-hidden', 'true');
     lastKey = '';
+    lastD = '';
   }
 
   // ─── 그리기 ───────────────────────────────────────────────
@@ -234,11 +236,15 @@
     if (key !== lastKey) {
       lastKey = key;
       el.innerHTML = html(s, beat);
+      // **새 path 는 d 가 비어 있다.** 자리가 그대로여서 '안 바뀌었다' 고 건너뛰면
+      // 막이 통째로 안 그려진다 — 같은 단계의 다음 대사로 넘어갈 때가 그 경우다
+      lastD = '';
       bringIntoView(s);
     }
     el.classList.add('on');
     el.setAttribute('aria-hidden', 'false');
     place(s);
+    startTrack();
   }
 
   function html(s, beat) {
@@ -307,6 +313,8 @@
       + ` V${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
   }
 
+  let lastD = '';   // 같은 자리면 다시 쓰지 않는다 (매 프레임 도는 함수다)
+
   function place(s) {
     const el = layer();
     const svg = el.querySelector('.tut-mask');
@@ -314,11 +322,19 @@
     const arrow = el.querySelector('.tut-arrow');
     const talk = el.querySelector('.tut-talk');
     if (!svg || !path || !arrow || !talk) return;
-    const de = document.documentElement;
-    const W = de.clientWidth, H = de.clientHeight;
+    // **좌표계는 이 층의 제 상자다.** documentElement.clientHeight 로 viewBox 를 잡으면
+    // 그 값과 층의 실제 높이가 어긋나는 순간(주소창이 접히는 모바일, 스크롤바가 있는
+    // 데스크톱) viewBox 가 그림을 통째로 늘려 구멍이 엉뚱한 데로 간다.
+    // 화살표도 이 층 안의 absolute 라 같은 기준을 써야 한다.
+    const box = el.getBoundingClientRect();
+    const W = box.width, H = box.height;
+    if (W < 1 || H < 1) return;      // 잴 수 없는 상태 (화면이 접혀 있다)
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
-    const rects = holeRects(s);
+    const rects = holeRects(s).map(r => ({
+      left: r.left - box.left, top: r.top - box.top, width: r.width, height: r.height,
+      right: r.right - box.left, bottom: r.bottom - box.top,
+    }));
     // 뚫을 자리를 못 찾았다 — 막지 않는다 (여기서 갇히면 게임을 시작할 수가 없다)
     el.classList.toggle('loose', !!s.hole && rects.length === 0);
 
@@ -326,7 +342,7 @@
     rects.forEach(r => {
       d += ' ' + roundRect(r.left - PAD, r.top - PAD, r.width + PAD * 2, r.height + PAD * 2, RAD);
     });
-    path.setAttribute('d', d);
+    if (d !== lastD) { lastD = d; path.setAttribute('d', d); }
 
     if (!rects.length) {
       arrow.style.display = 'none';
@@ -346,6 +362,26 @@
     talk.classList.toggle('top', below);
     talk.classList.toggle('bot', !below);
   }
+
+  // ─── 구멍은 **매 프레임 다시 잰다** ─────────────────────────
+  //
+  // 한 번 재고 마는 것으로는 못 맞춘다. 화면이 페이드 인 하는 동안 `.screen` 이
+  // translateY(6px) 로 밀려 있어서, 그때 잰 구멍은 **끝까지 6px 어긋난 채로 남았다**
+  // (스크롤·리사이즈가 없으면 다시 잴 계기가 아예 없다). 부드러운 스크롤·관성 스크롤·
+  // 주소창 접힘·폰트 로딩 뒤의 리플로도 전부 같은 종류다.
+  //
+  // 매 프레임 도는 대신 **바뀐 것만 쓴다**(lastD) — 값이 그대로면 DOM 을 건드리지 않는다.
+  let raf = 0;
+  function track() {
+    raf = 0;
+    const el = layer();
+    if (!el || !el.classList.contains('on') || !running() || !showable()) return;
+    const s = step();
+    if (s) place(s);
+    raf = requestAnimationFrame(track);
+  }
+  function startTrack() { if (!raf) raf = requestAnimationFrame(track); }
+  function stopTrack() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
 
   // ─── 진행 ─────────────────────────────────────────────────
   // 말풍선을 누르면 다음 대사로. 마지막 대사면 다음 단계로.
@@ -426,8 +462,12 @@
     paint();
   }
 
-  window.addEventListener('resize', () => { if (running()) refresh(); });
-  window.addEventListener('scroll', () => { if (running()) refresh(); }, true);
+  // 창이 숨으면 rAF 가 멈춘다 — 돌아왔을 때 다시 깨운다
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && running()) refresh(); });
 
-  window.Tut = { maybeStart, refresh, fire, tap, replay, goto, isOn: running, steps: () => STEPS.length };
+  // 검사용 — 지금 단계가 어디를 뚫으려 하는지 (checkui·checktut 이 구멍의 자리를 잰다)
+  function targets() { const s = step(); return s ? holeSels(s) : []; }
+
+  window.Tut = { maybeStart, refresh, fire, tap, replay, goto, targets,
+                 isOn: running, steps: () => STEPS.length, PAD };
 })();
