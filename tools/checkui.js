@@ -157,6 +157,31 @@ function launchOpts() {
         }
         continue;
       }
+      // **조합 결과 모달은 지금까지 한 번도 재 본 적이 없다.** 조합에 실패해야만 뜨는
+      // 화면이라 평소 검사에서 통째로 빠진다 (접힌 블록·잠긴 탭과 같은 종류의 구멍이다).
+      // 그래서 공방을 잰 뒤 **일부러 실패시켜** 모달까지 한 번 잰다.
+      if (process.env.FULL && t === 'atelier') {
+        await run(t);
+        const bad = await page.evaluate(() => {
+          // 어느 레시피도 아닌 조합을 만들어 실패시킨다 (성공하면 모달 모양이 달라진다)
+          const two = Object.keys(D.INGREDIENTS).filter(id => !D.INGREDIENTS[id].rare);
+          for (const a of two) for (const b of two) {
+            if (a === b || D.RECIPE_MAP[D.recipeKey([a, b])]) continue;
+            S.inventory[a] = (S.inventory[a] || 0) + 1;
+            S.inventory[b] = (S.inventory[b] || 0) + 1;
+            S.energy = 99999; S.cauldron = [a, b]; S.want = [];
+            brew();
+            return document.querySelector('#brewModal.show') ? null : '실패 모달이 안 떴다';
+          }
+          return '실패할 조합을 못 찾았다';
+        });
+        if (bad) { results.push({ 화면: `${t}/실패모달`, 오류: bad }); continue; }
+        await page.waitForTimeout(250);
+        await run(`${t}/실패모달`);
+        await page.evaluate(() => closeBrewModal());
+        await page.waitForTimeout(150);
+        continue;
+      }
       // 마이 룸은 하위 탭마다 내용이 통째로 다르다 — FULL 이면 셋을 다 돌아본다
       if (process.env.FULL && t === 'showcase') {
         for (const sub of ['clothes', 'potions', 'creatures']) {

@@ -1164,12 +1164,53 @@ function applyBagState() {
   if (chev) chev.textContent = bagOpen ? '▾' : '▸';
 }
 
+// ─── 실패한 조합이 정답에서 얼마나 멀었나 ────────────────────────
+// **실패를 위로금이 아니라 정보로 만든다.** 현자의 결정만 주면 다음 시도가 앞의
+// 시도와 아무 관계가 없어서, 100가지 레시피를 순서대로 다 넣어 보는 것 말고는 길이 없다.
+// 몇 가지가 맞았는지만 알려 주면 **다음 시도가 앞의 시도 위에 쌓인다** — 무작정 넣기가
+// 추리가 되고, 그게 효율을 쫓는 사람에게도 가장 빠른 길이 된다.
+//
+// **재료 가짓수가 같은 레시피끼리만 견준다.** 2가지를 넣었는데 3가지짜리 레시피와
+// 견주어 '2개 맞음' 이라고 하면, 실은 하나가 모자란 것이라 안내가 거짓말이 된다.
+// 돌려주는 값: 겹친 가짓수 / -1 이면 그 가짓수의 레시피가 아예 없다.
+function brewNear(inputs) {
+  const n = inputs.length;
+  let best = -1;
+  for (const r of D.RECIPES) {
+    if (r.inputs.length !== n) continue;
+    if (best < 0) best = 0;
+    // **같은 재료를 두 번 넣을 수 있으므로 다중집합으로 센다.**
+    // 단순 includes 로 세면 [약초, 약초] 가 [약초, 산딸기] 에 2개 맞은 것이 된다.
+    const pool = r.inputs.slice();
+    let hit = 0;
+    for (const id of inputs) {
+      const i = pool.indexOf(id);
+      if (i >= 0) { pool.splice(i, 1); hit++; }
+    }
+    if (hit > best) best = hit;
+  }
+  // n개가 다 맞았다면 애초에 성공했어야 한다 — 여기 왔다는 것은 계산이 어긋난 것이다
+  return Math.min(best, n - 1);
+}
+
+// 위 결과를 사람이 읽을 문장으로. 실패 모달 아래에 한 줄로 들어간다.
+function brewNearText(inputs) {
+  const n = inputs.length;
+  const hit = brewNear(inputs);
+  if (hit < 0)      return T('brew_near_nosize', { n: n });
+  if (hit === 0)    return T('brew_near_zero');
+  if (hit === n - 1) return T('brew_near_one', { k: hit });
+  return T('brew_near', { k: hit });
+}
+
 function brew() {
   if (S.cauldron.length < 2) { toast(T('need_two')); return; }
   if (!spendEnergy(D.ENERGY.cost.brew)) {
     toast(T('no_energy'));
     return;
   }
+  // 실패 안내에 쓸 조합을 **지우기 전에** 챙겨 둔다
+  const tried = S.cauldron.slice();
   // 재료 소모
   for (const id of S.cauldron) removeInv(id, 1);
   const key = D.recipeKey(S.cauldron);
@@ -1182,10 +1223,10 @@ function brew() {
   rec('brews');
   if (!result) {
     rec('brewFail');
-    // 실패해도 빈손으로 보내지 않는다 — 현자의 결정이 남는다
+    // 실패해도 빈손으로 보내지 않는다 — 현자의 결정과 **정보**가 남는다
     S.crystal = (S.crystal || 0) + D.ENERGY.failReward;
     save(); render();
-    showBrewResult(D.CRYSTAL, false);
+    showBrewResult(D.CRYSTAL, false, brewNearText(tried));
     return;
   }
 
@@ -1282,13 +1323,16 @@ function drinkPotion(potionId) {
 // ═══════════════════════════════════════════════════════════════
 //  조합 결과 모달
 // ═══════════════════════════════════════════════════════════════
-function showBrewResult(result, isNew) {
+function showBrewResult(result, isNew, near) {
   const modal = document.getElementById('brewModal');
   const body = document.getElementById('brewModalBody');
   const success = result.kind !== 'crystal';
   let statLine = '';
   if (result.kind === 'crystal') {
-    statLine = `<div class="brew-stats">${T('brew_crystal', { n: D.ENERGY.failReward })}</div>`;
+    // 현자의 결정 + **얼마나 가까웠는지.** 둘을 한 줄에 붙이지 않는 이유는
+    // 하나는 보상이고 하나는 단서라 읽는 목적이 다르기 때문이다
+    statLine = `<div class="brew-stats">${T('brew_crystal', { n: D.ENERGY.failReward })}</div>`
+      + (near ? `<div class="brew-near">${near}</div>` : '');
   }
   if (result.kind === 'potion') {
     // 물약은 '비주얼/아우라' 숫자 대신 **실제로 몸이 어떻게 바뀌는지**를 보여 준다.

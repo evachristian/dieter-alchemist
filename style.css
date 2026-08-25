@@ -1209,6 +1209,14 @@ body {
 .brew-name { font-size: 1.3rem; font-weight: 900; margin: 6px 0 4px; }
 .brew-desc { font-size: 0.85rem; color: var(--ink-soft); line-height: 1.5; margin-bottom: 10px; }
 .brew-stats { font-size: 0.9rem; font-weight: 800; background: var(--lav); border-radius: 12px; padding: 8px; margin-bottom: 16px; }
+/* 실패한 조합이 얼마나 가까웠는지 — 보상(현자의 결정) 아래에 따로 둔다.
+   같은 상자에 넣으면 「얻은 것」과 「알아낸 것」이 한 덩어리로 읽힌다.
+   테두리만 있고 배경이 없는 이유: 이것은 상품이 아니라 쪽지다 */
+.brew-near {
+  font-size: 0.86rem; font-weight: 800; color: var(--ink);
+  border: 2px dashed var(--pink-2); border-radius: 12px;
+  padding: 9px 10px; margin: -8px 0 16px; line-height: 1.4;
+}
 .modal-card .btn { width: 100%; }
 .confirm-text { font-size: 1.02rem; font-weight: 800; line-height: 1.55; margin-bottom: 20px; }
 /* 확인 패널의 표 (AP 충전의 보유 / 지불) — 문구와 버튼 사이 */
