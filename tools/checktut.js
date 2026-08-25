@@ -11,6 +11,7 @@
 //   · 구멍 밖은 진짜로 안 눌리는가     — 막이 정말 막는가
 //   · 구멍이 대상 **위에 정확히** 있는가 — 여백(PAD) 안에서 어긋나도 눌리기는 한다
 //   · 팝업이 떴을 때 그 팝업이 눌리는가 — 막이 팝업 위를 덮으면 화면이 죽는다
+//   · 말풍선의 이름이 **부르는 말**인가 — 설정상의 이름이 새어 나오면 안 된다
 //   · 끝나면 tutorialDone 이 켜지고 잠겼던 것들이 열리는가
 //
 // **el.click() 을 쓰면 안 된다.** 그것은 pointer-events 를 무시하므로 막이 뚫려
@@ -127,6 +128,7 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
       act: ((el && el.querySelector('.tut-act')) || {}).textContent || '',
       dots: el ? el.querySelectorAll('.tut-dot').length : 0,
       more: !!(el && el.querySelector('.tut-more')),
+      name: ((el && el.querySelector('.tut-name')) || {}).textContent || '',
       tab: window.currentTab,
     };
   });
@@ -137,6 +139,7 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
       const a = await info();
       if (!a.on || !a.more) return a;
       if (log && !log.seen.has(a.step)) { log.seen.add(a.step); log.push(a); }
+      if (a.name) names.add(a.name);
       const box = await page.evaluate(() => {
         const r = document.querySelector('#tut .tut-more').getBoundingClientRect();
         return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -253,6 +256,8 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     return target.what;
   }
 
+  // 말풍선에 뜬 이름을 전부 모은다 (아래에서 한 번에 본다)
+  const names = new Set();
   const lines = [];
   const log = { seen: new Set(), push: (st) => lines.push(
     `  ${String(st.step).padStart(2)} · 닷${st.dots} · ${st.line.slice(0, 22)}${st.act ? ' → ' + st.act : ''}`) };
@@ -260,6 +265,7 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   let guard = 0, lastSig = '', same = 0;
   while (guard++ < 80) {
     const st = await readAll(log);
+    if (st.name) names.add(st.name);
     if (!st.on || st.done) break;
     if (!log.seen.has(st.step)) { log.seen.add(st.step); log.push(st); }
     const sig = st.step + ':' + st.beat;
@@ -324,6 +330,21 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     wardrobeTabs: document.querySelectorAll('.wr-tab').length,
     brews: S.record.brews, drinks: S.record.drinks, gathered: S.record.gathered,
   }));
+
+  // ── 말풍선에 뜬 이름
+  //
+  // **설정상의 이름과 부르는 말은 다르다** (STORY.md 「호칭 규칙」).
+  // 공주의 진짜 이름 「그위리엘」은 본인도 모르는 이름이고 마지막에 되찾는 것이라,
+  // 튜토리얼에서 새어 나오면 그 장면이 통째로 죽는다. 요정 대모도 이름으로 불리지 않는다.
+  // 화면에는 **플레이어가 지은 이름**과 **「요정 대모」**만 떠야 한다.
+  {
+    const seen = [...names];
+    const 금지 = ['그위리엘', 'Gwiriel', '알테이아', 'Althea'];
+    금지.forEach(n => { if (seen.includes(n)) bad.push(`말풍선에 설정상의 이름이 떴다: ${n}`); });
+    if (!seen.includes('Tester')) bad.push(`말풍선에 플레이어 이름이 안 뜬다 (뜬 이름: ${seen.join(', ')})`);
+    if (!seen.some(n => /요정 대모|Fairy Godmother/.test(n)))
+      bad.push(`말풍선에 「요정 대모」가 안 뜬다 (뜬 이름: ${seen.join(', ')})`);
+  }
 
   // 끝났으면 **잠겼던 것이 실제로 열려 있어야 한다.** 깃발만 켜고 화면이 그대로면
   // 튜토리얼을 마친 보람이 하나도 없다 (원래 이 문들이 안 열리던 것이 문제였다)

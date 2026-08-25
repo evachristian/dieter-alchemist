@@ -1550,6 +1550,24 @@ function renderVillages() {
   else renderVillageMap(el, v);
 }
 
+// 말풍선에 붙는 이름.
+//
+// **설정 문서의 이름과 화면에 뜨는 이름은 다르다** (STORY.md 「호칭 규칙」).
+//  · 공주의 진짜 이름 「그위리엘」은 본인도 모르는 이름이고 마지막에 되찾는다.
+//    그때까지 화면에 뜨는 것은 **플레이어가 지은 연금술사 이름**이다
+//  · 요정 대모는 이름(알테이아)으로 불리지 않는다. 인트로가 쓰는 문자열(`sp_fairy`)을
+//    그대로 쓰므로 인트로와 튜토리얼이 어긋날 수가 없다
+//
+// SPEAKERS 의 `name` 은 그대로 둔다 — 그쪽은 설정상의 이름이고, 나중에 그 이름이
+// 밝혀지는 장면에서 쓸 값이다. 여기서는 **부르는 말**만 정한다.
+function speakerName(id) {
+  if (id === 'sp_gwiriel') return S.name || T('sp_princess');
+  if (id === 'sp_althea') return T('sp_fairy');
+  const sp = D.speaker(id);
+  return sp ? N(sp.id, sp.name) : '';
+}
+window.speakerName = speakerName;
+
 // ── 마을 지도 ────────────────────────────────────────────────
 // 배경은 village.js 가 SVG 로 그리고, **건물 이름표는 HTML 명판**으로 얹는다.
 // 자리(x/y)는 데이터 한 곳에 있어서 그림과 이름표가 어긋날 수가 없다.
@@ -1635,7 +1653,7 @@ function renderVillageSpot(el, v, s) {
     </div>
     <div class="npc-bubble ${talking ? 'live' : ''}"
       ${talking ? `onclick="talkNext('${s.id}')" role="button" tabindex="0"` : ''}>
-      ${sp ? `<div class="npc-name">${N(sp.id, sp.name)}</div>` : ''}
+      ${sp ? `<div class="npc-name">${speakerName(sp.id)}</div>` : ''}
       <div class="npc-line">${line}</div>
       ${dots}
       ${more ? '<span class="npc-more">▾</span>' : ''}
@@ -1643,7 +1661,7 @@ function renderVillageSpot(el, v, s) {
     <div class="npc-stage">
       ${(window.Village ? Village.interior(s, v.id) : '')}
       ${sp && window.Portrait
-        ? `<div class="npc-figure">${Portrait.bust(Object.assign({}, sp, { name: N(sp.id, sp.name) }),
+        ? `<div class="npc-figure">${Portrait.bust(Object.assign({}, sp, { name: speakerName(sp.id) }),
              talking ? (moods[talkIdx] || 'def') : greetMood, { bare: true })}</div>`
         : ''}
       <div class="npc-acts">

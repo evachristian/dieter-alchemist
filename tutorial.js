@@ -271,9 +271,11 @@
       </svg>
       <div class="tut-arrow" aria-hidden="true">▾</div>
       <div class="tut-talk" onclick="Tut.tap()">
-        <div class="tut-face">${window.Portrait ? Portrait.bust(sp, line.mood, { bare: true }) : ''}</div>
+        <div class="tut-face">${window.Portrait
+          ? Portrait.bust(Object.assign({}, sp, { name: speakerName(line.sp) }), line.mood, { bare: true })
+          : ''}</div>
         <div class="tut-bubble">
-          <div class="tut-name">${N(line.sp, sp ? sp.name : '')}</div>
+          <div class="tut-name">${speakerName(line.sp)}</div>
           <div class="tut-line">${T(line.key)}</div>
           ${act}
           <div class="tut-foot"><div class="tut-dots">${dots}</div>${more}</div>
