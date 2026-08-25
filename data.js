@@ -724,33 +724,36 @@ const TIERS = [
 // 좁은 화면에서도 이름표가 서로 부딪히지 않는 배치다.
 // shape 는 village.js 가 그 자리에 그릴 건물 모양이다.
 const VILLAGES = [
-  // 일곱 굴뚝은 시설이 갖춰진 마을이라 건물이 여덟이다. 나머지 둘은 넷 —
-  // **마을마다 수가 달라도 된다.** 그림 높이가 건물 수를 따라 늘어난다 (village.js)
+  // 일곱 굴뚝은 시설이 갖춰진 마을이라 건물이 여덟이다. 나머지 둘은 넷.
+  // **자리는 2열이다.** 한 줄에 하나씩 놓았더니 여덟 채가 세로로 늘어져
+  // 한 화면에 안 들어왔다 — 지도를 보려고 스크롤하는 것은 지도가 아니다.
+  // 그림 높이는 **줄 수**(=건물 수의 절반)를 따라간다 (village.js 의 hFor)
   { id: 'vl_chimney', emoji: '🏘️', name: '일곱 굴뚝',     desc: '굴뚝 일곱 개가 나란히 선 산속 마을.',
     spots: [
-      { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 30, y: 14 },
-      { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 70, y: 25 },
-      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 28, y: 36 },
-      { id: 'vs_chimney_shop',    emoji: '🧺', name: '잡화점',       shape: 'shop',  x: 70, y: 47 },
-      { id: 'vs_chimney_farm',    emoji: '🌾', name: '농장',         shape: 'farm',  x: 30, y: 58 },
-      { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 70, y: 69 },
-      { id: 'vs_chimney_lab',     emoji: '⚗️', name: '연금술 방',    shape: 'lab',   x: 28, y: 80 },
+      { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 26, y: 17 },
+      { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 74, y: 17, npc: 'sp_orix' },
+      // 카이로스는 떠도는 사람이라 거처가 없다 — 오늘은 여기 있다
+      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 26, y: 40, npc: 'sp_kairos', trade: false },
+      { id: 'vs_chimney_shop',    emoji: '🧺', name: '잡화점',       shape: 'shop',  x: 74, y: 40 },
+      { id: 'vs_chimney_farm',    emoji: '🌾', name: '농장',         shape: 'farm',  x: 26, y: 63 },
+      { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 74, y: 63 },
+      { id: 'vs_chimney_lab',     emoji: '⚗️', name: '연금술 방',    shape: 'lab',   x: 26, y: 86 },
       // trade: false — 거래가 없는 자리. 있는 쪽이 훨씬 많아 **없는 쪽만 적는다**
-      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 68, y: 92, trade: false },
+      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 74, y: 86, trade: false },
     ] },
   { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.',
     spots: [
-      { id: 'vs_apple_orchard', emoji: '🍎', name: '과수원',   shape: 'farm',  x: 68, y: 22 },
-      { id: 'vs_apple_press',   emoji: '🍯', name: '착즙간',   shape: 'shop',  x: 30, y: 38 },
-      { id: 'vs_apple_empty',   emoji: '🏚️', name: '빈 농가',  shape: 'ruin',  x: 70, y: 60 },
-      { id: 'vs_apple_watch',   emoji: '🔥', name: '감시탑',   shape: 'tower', x: 28, y: 82 },
+      { id: 'vs_apple_orchard', emoji: '🍎', name: '과수원',   shape: 'farm',  x: 26, y: 26 },
+      { id: 'vs_apple_press',   emoji: '🍯', name: '착즙간',   shape: 'shop',  x: 74, y: 26 },
+      { id: 'vs_apple_empty',   emoji: '🏚️', name: '빈 농가',  shape: 'ruin',  x: 26, y: 70, npc: 'sp_sylvan' },
+      { id: 'vs_apple_watch',   emoji: '🔥', name: '감시탑',   shape: 'tower', x: 74, y: 70 },
     ] },
   { id: 'vl_mirror',  emoji: '🪞', name: '거울 골짜기',   desc: '물으면 어김없이 대답이 돌아오는 골짜기.',
     spots: [
-      { id: 'vs_mirror_pond',   emoji: '🪞', name: '거울못',    shape: 'water', x: 30, y: 22 },
-      { id: 'vs_mirror_shrine', emoji: '⛩️', name: '낡은 사당', shape: 'ruin',  x: 70, y: 40 },
-      { id: 'vs_mirror_bridge', emoji: '🌫️', name: '안개 다리', shape: 'well',  x: 28, y: 62 },
-      { id: 'vs_mirror_cairn',  emoji: '🗿', name: '돌무지',    shape: 'tower', x: 68, y: 84 },
+      { id: 'vs_mirror_pond',   emoji: '🪞', name: '거울못',    shape: 'water', x: 26, y: 26, npc: 'sp_yutark', trade: false },
+      { id: 'vs_mirror_shrine', emoji: '⛩️', name: '낡은 사당', shape: 'ruin',  x: 74, y: 26 },
+      { id: 'vs_mirror_bridge', emoji: '🌫️', name: '안개 다리', shape: 'well',  x: 26, y: 70 },
+      { id: 'vs_mirror_cairn',  emoji: '🗿', name: '돌무지',    shape: 'tower', x: 74, y: 70 },
     ] },
   { id: 'vl_hunter',  emoji: '🏹', name: '사냥꾼 쉼터',   desc: '차마 베지 못한 사냥꾼이 머무는 오두막.' },
   { id: 'vl_glass',   emoji: '⚰️', name: '유리관 호수',   desc: '물밑에 유리관이 가라앉아 있다는 호숫가.' },
@@ -763,6 +766,67 @@ const VILLAGES = [
 // 셋만 보여 두고, 마을이 열리는 규칙이 정해지면 이 수도 그 규칙을 따라간다.
 const VILLAGE_SHOWN = 3;
 function villagesShown() { return VILLAGES.slice(0, VILLAGE_SHOWN); }
+
+// ═══════════════════════════════════════════════════════════════
+//  인물 — 초상화 사양과 대사
+// ═══════════════════════════════════════════════════════════════
+// **초상화를 한 명씩 그리지 않는다.** portrait.js 가 부품(머리·수염·눈·장식)을 갖고 있고
+// 여기서는 **조합만** 준다. 표정을 하나 늘려도 부품 한 곳만 고치면 아홉 명이 같이 바뀐다.
+//
+// `moods` 는 표정표다. **눈과 입만 바꾼다** — 머리와 옷은 그대로여야 같은 사람으로 보인다.
+// 이름·설명은 STORY.md 에 있다.
+const SPEAKERS = [
+  { id: 'sp_stark', name: '슈타르크', hair: 'short', hairColor: '#4a3a2e', beard: 'stub',
+    skin: '#e8c3a3', cloth: '#6b5a44', bg: '#dfe6d8', deco: 'hood', decoColor: '#4f5f42',
+    moods: { def: { eye: 'sharp', mouth: 'flat' }, warm: { eye: 'soft', mouth: 'calm' } } },
+  { id: 'sp_orix', name: '오릭스', hair: 'short', hairColor: '#b4552e', beard: 'full',
+    skin: '#f0cfae', cloth: '#7b6a4a', bg: '#f2e4cf', deco: 'none',
+    moods: { def: { eye: 'smile', mouth: 'grin' }, wink: { eye: 'closed', mouth: 'smirk' } } },
+  { id: 'sp_valen', name: '발렌', hair: 'short', hairColor: '#e2c473', beard: 'none',
+    skin: '#f3d7bd', cloth: '#3f5f9e', bg: '#dde5f4', deco: 'circlet', decoColor: '#ffd76a',
+    moods: { def: { eye: 'sharp', mouth: 'smirk' }, soft: { eye: 'normal', mouth: 'calm' } } },
+  { id: 'sp_kairos', name: '카이로스', hair: 'wave', hairColor: '#6b4a3a', beard: 'none',
+    skin: '#f0d2b6', cloth: '#8a6aa8', bg: '#ece2f4', deco: 'scarf', decoColor: '#c78fb0',
+    moods: { def: { eye: 'soft', mouth: 'smile' }, sing: { eye: 'closed', mouth: 'grin' } } },
+  { id: 'sp_clemen', name: '클레멘', hair: 'short', hairColor: '#2f2a2c', beard: 'none',
+    skin: '#eec9a8', cloth: '#c9b39a', bg: '#f4ead9', deco: 'apron', decoColor: '#f6f1e6',
+    moods: { def: { eye: 'soft', mouth: 'calm' }, smile: { eye: 'smile', mouth: 'smile' } } },
+  { id: 'sp_yutark', name: '유타르크', hair: 'long', hairColor: '#cfd3de', beard: 'none',
+    skin: '#f2e2dc', cloth: '#4a4257', bg: '#d9dde8', deco: 'mirror', decoColor: '#b9c2d4',
+    eyeColor: '#7a4a58',
+    moods: { def: { eye: 'smile', mouth: 'smirk' }, true: { eye: 'normal', mouth: 'flat' } } },
+  { id: 'sp_althea', name: '알테이아', hair: 'updo', hairColor: '#d8cfe4', beard: 'none',
+    skin: '#f3dcc8', cloth: '#8fa6c6', bg: '#e6edf4', deco: 'circlet', decoColor: '#f2e2a8',
+    moods: { def: { eye: 'soft', mouth: 'calm' }, scold: { eye: 'sharp', mouth: 'flat' } } },
+  { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', beard: 'full',
+    skin: '#e0c09a', cloth: '#6f7f52', bg: '#e2e9d6', deco: 'leaf', decoColor: '#6f9455',
+    moods: { def: { eye: 'normal', mouth: 'flat' }, warm: { eye: 'smile', mouth: 'smile' } } },
+  { id: 'sp_ygritte', name: '이그리트', hair: 'long', hairColor: '#b8442c', beard: 'none',
+    skin: '#f4dcc6', cloth: '#6b2a3c', bg: '#eddad4', deco: 'crown', decoColor: '#e8c463',
+    eyeColor: '#2f2a30',
+    moods: { def: { eye: 'sharp', mouth: 'flat' }, cold: { eye: 'sharp', mouth: 'smirk' } } },
+];
+function speaker(id) { return SPEAKERS.find(x => x.id === id) || null; }
+
+// 대사 — 지금은 **인사말 몇 줄**뿐이다. 키워드로 열리는 대화 루트는 아직 없다
+// (STORY.md 「키워드 시스템」). 줄 수가 곧 대화 화면의 닷 개수다.
+// 문자열은 i18n 의 `tk_*` 키로 건다 — 여기 한국어를 직접 적지 않는다.
+// `greet` 는 **그 자리에 들어섰을 때** 건네는 한마디다. 대화(`lines`)와 따로 둔다 —
+// 들어설 때마다 대화 첫 줄이 다시 나오면 인사가 아니라 되감기처럼 읽힌다.
+//
+// `moods` 는 줄마다의 표정이고 **줄 수와 길이가 같아야 한다.**
+// 없거나 모자라면 기본 표정(`def`)을 쓴다 — 표정 이름은 SPEAKERS 의 `moods` 에 있는 것만.
+// (없는 이름을 적으면 조용히 기본으로 떨어져서 티가 안 난다. checktalk 이 그것을 잡는다)
+const TALKS = {
+  sp_orix:   { greet: 'tk_orix_greet',   greetMood: 'def',
+               lines: ['tk_orix_1', 'tk_orix_2', 'tk_orix_3'], moods: ['def', 'def', 'wink'] },
+  sp_kairos: { greet: 'tk_kairos_greet', greetMood: 'def',
+               lines: ['tk_kairos_1', 'tk_kairos_2'],          moods: ['def', 'sing'] },
+  sp_sylvan: { greet: 'tk_sylvan_greet', greetMood: 'def',
+               lines: ['tk_sylvan_1', 'tk_sylvan_2'],          moods: ['def', 'warm'] },
+  sp_yutark: { greet: 'tk_yutark_greet', greetMood: 'def',
+               lines: ['tk_yutark_1', 'tk_yutark_2', 'tk_yutark_3'], moods: ['def', 'true', 'def'] },
+};
 
 // 지대의 해금 점수 = 그 지대에서 가장 먼저 열리는 맵의 점수
 function zoneUnlock(zoneId) {
@@ -1265,7 +1329,7 @@ for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 
 window.GameData = {
   INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
-  VILLAGES, VILLAGE_SHOWN, villagesShown,
+  VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,

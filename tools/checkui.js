@@ -185,6 +185,28 @@ function launchOpts() {
         }
         // **건물 안(NPC 화면)**은 또 한 단 들어가야 나온다. 거래가 있는 자리와
         // 없는 자리를 다 본다 — 버튼이 하나일 때와 둘일 때 줄 모양이 다르다
+        // **대화 중인 화면**은 대화를 시작해야 나온다 — 초상화·말풍선·닷이
+        // 그때만 그려지므로 안 켜면 통째로 검사에서 빠진다
+        {
+          const bad = await page.evaluate(() => {
+            setGatherTab('village');
+            setVillage('vl_chimney');
+            tapVillageSpot('vl_chimney', 'vs_chimney_forge');
+            npcAct('talk', 'vs_chimney_forge');
+            return document.querySelector('.npc-dots') ? null : '대화가 안 시작됐다';
+          });
+          if (bad) results.push({ 화면: `${t}/대화중`, 오류: bad });
+          else {
+            await page.waitForTimeout(250);
+            await run(`${t}/대화중`);
+            // 마지막 줄까지 넘겨 본다 (표정이 바뀌는 줄이 뒤에 있다)
+            await page.evaluate(() => { talkNext('vs_chimney_forge'); talkNext('vs_chimney_forge'); });
+            await page.waitForTimeout(250);
+            await run(`${t}/대화끝`);
+          }
+          await page.evaluate(() => leaveSpot());
+          await page.waitForTimeout(120);
+        }
         for (const sid of ['vs_chimney_shop', 'vs_chimney_tower']) {
           const bad = await page.evaluate((id) => {
             setGatherTab('village');
@@ -209,6 +231,7 @@ function launchOpts() {
           });
           if (bad2) results.push({ 화면: `${t}/${sid}`, 오류: bad2 });
           await page.evaluate(() => leaveSpot());
+          await page.waitForTimeout(120);
           await page.waitForTimeout(150);
         }
         continue;

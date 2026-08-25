@@ -98,6 +98,8 @@ D.RECIPE_CATS.forEach(c => push(c.id + '_cat', c.label, '레시피 카테고리'
 D.COLORS.forEach(c => push(c.id, c.name, '옷 색'));
 // 리그 이름은 '계열 + 단계' 로, NPC 이름은 '앞말 + 뒷말' 로 조합된다 —
 // 조합 결과가 아니라 **낱말**에 번역이 있어야 한다
+// 인물 이름은 초상화·대화 화면에 그대로 나온다
+D.SPEAKERS.forEach(x => push(x.id, x.name, '인물'));
 D.LEAGUE_FAMS.forEach(f => push(f.id, f.name, '리그 계열'));
 D.NPC_HEAD.concat(D.NPC_TAIL).forEach(w => push(w.id, w.name, 'NPC 이름 낱말'));
 

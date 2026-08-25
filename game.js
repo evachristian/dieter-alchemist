@@ -1541,6 +1541,7 @@ function tapVillageSpot(vid, sid) {
     return;
   }
   villageSpotIn = sid;
+  talkIdx = null;
   renderGather();
   window.scrollTo(0, 0);
 }
@@ -1553,16 +1554,47 @@ window.tapVillageSpot = tapVillageSpot;
 // **「거래」는 기본으로 있고, 없는 곳만 데이터에서 뺀다** (`spot.trade === false`).
 // 있는 쪽이 훨씬 많을 것이라 없는 쪽을 적는 편이 표가 짧다 —
 // 예: 병영에서 만난 왕자에게는 거래가 없다.
+// 대화 중이면 몇 번째 줄인지. null 이면 대화 중이 아니다.
+// (화면을 떠나면 처음부터 — 진행이 아니라 인사말이라 저장할 것이 없다)
+let talkIdx = null;
+
 function renderVillageSpot(el, v, s) {
   const trade = s.trade !== false;
+  const sp = s.npc && D.speaker(s.npc);
+  const lines = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].lines) || [];
+  const moods = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].moods) || [];
+  const greetMood = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].greetMood) || 'def';
+  const talking = talkIdx !== null && lines.length;
+  const talk = (sp && D.TALKS[sp.id]) || null;
+  // 들어섰을 때는 **인사말**, 대화를 시작하면 대사. 사람이 없으면 빈 자리 문구.
+  // 인사말이 없는 사람은 첫 대사로 떨어진다 (없어도 화면이 비지 않게)
+  const line = talking ? T(lines[talkIdx])
+    : (talk && talk.greet ? T(talk.greet)
+    : (lines.length ? T(lines[0]) : T('npc_line_soon')));
+  // 마지막 줄에서는 ▾ 를 지운다 — 더 없는데 계속 있으면 눌러도 안 넘어가는 것처럼 보인다
+  const more = talking && talkIdx < lines.length - 1;
+  const dots = talking
+    ? `<div class="npc-dots">${lines.map((_, i) =>
+        `<span class="npc-dot ${i === talkIdx ? 'on' : ''}"></span>`).join('')}</div>` : '';
+
   el.innerHTML = `
     <div class="npc-head">
-      <button class="btn-back" onclick="leaveSpot()">‹ ${N(v.id, v.name)}</button>
+      <button class="btn-back" onclick="leaveSpot()" aria-label="${T('npc_back_map')}">‹</button>
       <span class="npc-place">${s.emoji} ${N(s.id, s.name)}</span>
     </div>
-    <div class="npc-line">${T('npc_line_soon')}</div>
+    <div class="npc-bubble ${talking ? 'live' : ''}"
+      ${talking ? `onclick="talkNext('${s.id}')" role="button" tabindex="0"` : ''}>
+      ${sp ? `<div class="npc-name">${N(sp.id, sp.name)}</div>` : ''}
+      <div class="npc-line">${line}</div>
+      ${dots}
+      ${more ? '<span class="npc-more">▾</span>' : ''}
+    </div>
     <div class="npc-stage">
       ${(window.Village ? Village.interior(s, v.id) : '')}
+      ${sp && window.Portrait
+        ? `<div class="npc-figure">${Portrait.bust(Object.assign({}, sp, { name: N(sp.id, sp.name) }),
+             talking ? (moods[talkIdx] || 'def') : greetMood, { bare: true })}</div>`
+        : ''}
       <div class="npc-acts">
         ${trade ? `<button class="npc-act" onclick="npcAct('trade','${s.id}')">${T('npc_trade')}</button>` : ''}
         <button class="npc-act main" onclick="npcAct('talk','${s.id}')">${T('npc_talk')}</button>
@@ -1570,9 +1602,30 @@ function renderVillageSpot(el, v, s) {
     </div>`;
 }
 
+// 말풍선을 누르면 다음 줄. 마지막에서 한 번 더 누르면 대화가 끝난다.
+function talkNext(sid) {
+  const v = D.VILLAGES.find(x => x.id === villageTab);
+  const s = v && (v.spots || []).find(x => x.id === sid);
+  const sp = s && s.npc && D.speaker(s.npc);
+  const lines = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].lines) || [];
+  if (!lines.length) return;
+  talkIdx = (talkIdx === null || talkIdx >= lines.length - 1) ? null : talkIdx + 1;
+  renderGather();
+}
+window.talkNext = talkNext;
+
 function npcAct(kind, sid) {
-  toast(T(kind === 'trade' ? 'npc_trade_soon' : 'npc_talk_soon'),
-        `.npc-act[onclick*="${kind}"]`, null, 'above');
+  if (kind === 'talk') {
+    const v = D.VILLAGES.find(x => x.id === villageTab);
+    const s = v && (v.spots || []).find(x => x.id === sid);
+    const sp = s && s.npc && D.speaker(s.npc);
+    const lines = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].lines) || [];
+    if (!lines.length) { toast(T('npc_talk_soon'), '.npc-act.main', null, 'above'); return; }
+    talkIdx = 0;
+    renderGather();
+    return;
+  }
+  toast(T('npc_trade_soon'), '.npc-act:not(.main)', null, 'above');
 }
 window.npcAct = npcAct;
 
@@ -1983,9 +2036,9 @@ window.setGatherTab = setGatherTab;
 let villageTab = D.VILLAGES[0].id;
 // 지금 들어가 있는 **건물**. null 이면 마을 지도다 (탭 상태와 같이 저장하지 않는다)
 let villageSpotIn = null;
-function setVillage(id) { villageTab = id; villageSpotIn = null; renderGather(); }
+function setVillage(id) { villageTab = id; villageSpotIn = null; talkIdx = null; renderGather(); }
 window.setVillage = setVillage;
-function leaveSpot() { villageSpotIn = null; renderGather(); }
+function leaveSpot() { villageSpotIn = null; talkIdx = null; renderGather(); }
 window.leaveSpot = leaveSpot;
 // 잠긴 마을 카드를 눌렀을 때 — 조건이 정해지면 여기서 조건을 안내한다
 function villageInfo(id, el) {
