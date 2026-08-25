@@ -735,7 +735,8 @@ const VILLAGES = [
       { id: 'vs_chimney_farm',    emoji: '🌾', name: '농장',         shape: 'farm',  x: 30, y: 58 },
       { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 70, y: 69 },
       { id: 'vs_chimney_lab',     emoji: '⚗️', name: '연금술 방',    shape: 'lab',   x: 28, y: 80 },
-      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 68, y: 92 },
+      // trade: false — 거래가 없는 자리. 있는 쪽이 훨씬 많아 **없는 쪽만 적는다**
+      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 68, y: 92, trade: false },
     ] },
   { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.',
     spots: [

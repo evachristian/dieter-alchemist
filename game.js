@@ -1497,7 +1497,9 @@ function renderVillages() {
 
   const v = list.find(x => x.id === villageTab) || list[0];
   if (!v) { el.innerHTML = ''; return; }
-  renderVillageMap(el, v);
+  const spot = villageSpotIn && (v.spots || []).find(x => x.id === villageSpotIn);
+  if (spot) renderVillageSpot(el, v, spot);
+  else renderVillageMap(el, v);
 }
 
 // ── 마을 지도 ────────────────────────────────────────────────
@@ -1529,18 +1531,50 @@ function renderVillageMap(el, v) {
     </div>`;
 }
 
-// 건물을 누르면 그 자리의 사람과 이야기한다 — **대화는 아직 없다.**
-// 만들 때는 여기서 대화 화면을 연다 (STORY.md 의 키워드 시스템).
+// 건물을 누르면 그 안으로 들어간다 — 거기서 사람을 만난다.
 function tapVillageSpot(vid, sid) {
   const v = D.VILLAGES.find(x => x.id === vid);
   const s = v && (v.spots || []).find(x => x.id === sid);
   if (!s) return;
-  const at = `.vil-pin[data-vspot="${sid}"]`;
-  const name = N(s.id, s.name);
-  if (!isVillageOpen(v)) { toast(T('village_locked', { name: N(v.id, v.name) }), at, null, 'above'); return; }
-  toast(T('village_spot_soon', { name: name }), at, null, 'above');
+  if (!isVillageOpen(v)) {
+    toast(T('village_locked', { name: N(v.id, v.name) }), `.vil-pin[data-vspot="${sid}"]`, null, 'above');
+    return;
+  }
+  villageSpotIn = sid;
+  renderGather();
+  window.scrollTo(0, 0);
 }
 window.tapVillageSpot = tapVillageSpot;
+
+// ── 건물 안 (NPC 를 만나는 화면) ──────────────────────────────
+// **아직 사람이 없다.** 배경과 버튼만 있고, 대사는 자리를 채워 두는 문구다.
+// 사람이 생기면 여기에 초상화(STORY.md 의 SPEAKERS 표)와 대사 · 키워드가 들어온다.
+//
+// **「거래」는 기본으로 있고, 없는 곳만 데이터에서 뺀다** (`spot.trade === false`).
+// 있는 쪽이 훨씬 많을 것이라 없는 쪽을 적는 편이 표가 짧다 —
+// 예: 병영에서 만난 왕자에게는 거래가 없다.
+function renderVillageSpot(el, v, s) {
+  const trade = s.trade !== false;
+  el.innerHTML = `
+    <div class="npc-head">
+      <button class="btn-back" onclick="leaveSpot()">‹ ${N(v.id, v.name)}</button>
+      <span class="npc-place">${s.emoji} ${N(s.id, s.name)}</span>
+    </div>
+    <div class="npc-line">${T('npc_line_soon')}</div>
+    <div class="npc-stage">
+      ${(window.Village ? Village.interior(s, v.id) : '')}
+      <div class="npc-acts">
+        ${trade ? `<button class="npc-act" onclick="npcAct('trade','${s.id}')">${T('npc_trade')}</button>` : ''}
+        <button class="npc-act main" onclick="npcAct('talk','${s.id}')">${T('npc_talk')}</button>
+      </div>
+    </div>`;
+}
+
+function npcAct(kind, sid) {
+  toast(T(kind === 'trade' ? 'npc_trade_soon' : 'npc_talk_soon'),
+        `.npc-act[onclick*="${kind}"]`, null, 'above');
+}
+window.npcAct = npcAct;
 
 function renderAtelier() {
   // 가마솥 슬롯
@@ -1947,8 +1981,12 @@ window.setGatherTab = setGatherTab;
 // 마을은 셋뿐이고 탭 줄이 이미 그 셋을 다 보여 주므로, 한 단을 더 두면
 // 같은 것을 두 번 고르게 하는 셈이 된다.
 let villageTab = D.VILLAGES[0].id;
-function setVillage(id) { villageTab = id; renderGather(); }
+// 지금 들어가 있는 **건물**. null 이면 마을 지도다 (탭 상태와 같이 저장하지 않는다)
+let villageSpotIn = null;
+function setVillage(id) { villageTab = id; villageSpotIn = null; renderGather(); }
 window.setVillage = setVillage;
+function leaveSpot() { villageSpotIn = null; renderGather(); }
+window.leaveSpot = leaveSpot;
 // 잠긴 마을 카드를 눌렀을 때 — 조건이 정해지면 여기서 조건을 안내한다
 function villageInfo(id, el) {
   const v = D.VILLAGES.find(x => x.id === id);

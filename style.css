@@ -330,6 +330,55 @@ body {
 .vil-pin:active { transform: translateY(-50%) scale(0.97); }
 .vil-pin-ic { flex: 0 0 auto; font-size: 1rem; }
 .vil-pin-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ─── 건물 안 (NPC 화면) ──────────────────────────────────────
+   장소 이름 → 대사 → 그림 + 버튼. 사람은 아직 없고 자리만 잡아 둔 화면이다. */
+.npc-head { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; min-width: 0; }
+.npc-place { font-size: 0.95rem; font-weight: 800; color: var(--ink); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-back {
+  flex: 0 0 auto; border: none; background: var(--cream); color: var(--ink);
+  font-family: inherit; font-weight: 800; font-size: 0.8rem;
+  max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 9px 13px; border-radius: 999px; cursor: pointer;
+}
+.btn-back:active { transform: scale(0.96); }
+/* 대사 — 그림 위가 아니라 **그림 위쪽에** 둔다. 겹쳐 놓으면 대사가 길어질 때
+   (영어·2배 확대) 그림과 버튼을 덮는다 (마을 설명에서 같은 문제를 겪었다) */
+.npc-line {
+  background: var(--card); color: var(--ink); border-radius: var(--radius);
+  font-size: 0.86rem; font-weight: 700; line-height: 1.5;
+  padding: 13px 15px; margin-bottom: 10px; box-shadow: var(--shadow);
+  min-height: 3.2em;
+}
+.npc-stage { position: relative; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.npc-svg { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; }
+/* 버튼은 그림 아래쪽에 얹는다.
+   **「거래」가 없는 곳이 있다** (예: 병영에서 만난 왕자). 그때 「대화」가 가운데로
+   옮겨 가면, **오른쪽을 눌렀을 때 매번 다른 것이 눌린다** — 가게에서는 대화,
+   병영에서는 아무것도. 그래서 자리를 이렇게 고정한다.
+
+     · 오른쪽 끝은 **언제나 「대화」**
+     · 혼자면 줄 전체를 차지하고, 「거래」가 있으면 반씩 나눈다
+
+   빈자리도 안 생기고 손이 가는 곳도 안 바뀐다. flex-basis 를 0 으로 두는 것이
+   그 규칙 전부다 — 개수가 몇이든 줄을 꽉 채워 나눠 갖는다 */
+.npc-acts {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; gap: 8px;
+  padding: 12px; background: linear-gradient(180deg, rgba(30,20,30,0) 0%, rgba(30,20,30,0.35) 100%);
+}
+.npc-act {
+  flex: 1 1 0; min-width: 0;
+  border: none; background: var(--card); color: var(--ink);
+  font-family: inherit; font-weight: 800; font-size: 0.9rem;
+  padding: 12px 10px; border-radius: 14px; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(50,35,45,0.35);
+}
+/* 대화가 주된 행동이다 — 색으로도 그렇게 보이게 (오른쪽 끝 = 대화) */
+.npc-act.main { background: var(--pink-2); }
+.npc-act:active { transform: scale(0.97); }
 /* '채집' 버튼 — 톡 누르면 한 번, 꾹 누르면 계속 채집한다 (startGatherHold).
    라벨이 언어에 따라 길어져도 카드를 밀어내지 않게 (UI_POLICY.md '가변 폭').
    touch-action 을 카드와 같게 두는 이유: 버튼 위에서 시작한 손가락으로도

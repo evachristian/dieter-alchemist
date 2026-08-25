@@ -37,6 +37,10 @@
       // 탐험의 두 갈래 — 필드(재료) / 마을(사람)
       gather_field: '🌿 필드', gather_village: '🏘️ 마을',
       village_spot_soon: '{name} — 여기서 만날 사람은 아직 준비 중이에요',
+      // 건물 안 (NPC 화면)
+      npc_trade: '거래', npc_talk: '대화',
+      npc_line_soon: '…아직 아무도 없다. 곧 누군가 이 자리에 설 것이다.',
+      npc_trade_soon: '거래는 아직 준비 중이에요', npc_talk_soon: '대화는 아직 준비 중이에요',
       dev_villages: '마을 열기',
       screen_village_sub: '마을은 아직 열리지 않았어요. 여는 방법은 곧 알려 드릴게요.',
       screen_village_sub_open: '마을을 골라 들어가 보세요.',
@@ -296,6 +300,9 @@
       screen_gather: '🧭 Explore', screen_gather_sub: 'Pick a place and gather. Hold the Gather button to keep going.',
       gather_field: '🌿 Field', gather_village: '🏘️ Villages',
       village_spot_soon: "{name} — nobody's here to meet you yet",
+      npc_trade: 'Trade', npc_talk: 'Talk',
+      npc_line_soon: '…nobody here yet. Someone will stand in this spot soon.',
+      npc_trade_soon: 'Trading is not ready yet', npc_talk_soon: 'Talking is not ready yet',
       dev_villages: 'Open villages',
       screen_village_sub: "Villages aren't open yet. We'll tell you how soon.",
       screen_village_sub_open: 'Pick a village and step inside.',

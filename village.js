@@ -180,5 +180,53 @@
     </svg>`;
   }
 
-  window.Village = { scene, W, hFor };
+  // ─── 건물 안 (NPC 대화 화면의 배경) ────────────────────────
+  // 사람은 아직 없다. **빈 자리를 그린다** — 나중에 초상화가 그 자리에 들어온다
+  // (STORY.md 의 SPEAKERS 표). 지금 대충 사람을 그려 넣으면 나중에 지워야 한다.
+  const IW = 300, IH = 200;
+  function interior(spot, vid) {
+    const k = SKIN[vid] || DEF;
+    const u = 'i' + (++uid);
+    const s = spot || {};
+    // 가게·연금술 방은 안쪽 물건이 다르다. 나머지는 같은 방을 쓴다
+    const kind = (s.shape === 'shop' || s.shape === 'lab') ? s.shape : 'room';
+    const props = {
+      shop: `
+        <rect x="26" y="96" width="86" height="8" rx="2" fill="#8a6a4c"/>
+        <rect x="26" y="128" width="86" height="8" rx="2" fill="#8a6a4c"/>
+        ${[0,1,2,3].map(i => `<rect x="${32 + i * 20}" y="78" width="13" height="18" rx="3" fill="${['#c9899a','#8fc3b0','#e0c07a','#a6a0cf'][i]}"/>`).join('')}
+        ${[0,1,2].map(i => `<rect x="${36 + i * 26}" y="112" width="17" height="16" rx="2" fill="#cbb08c"/>`).join('')}`,
+      lab: `
+        <rect x="26" y="104" width="88" height="8" rx="2" fill="#8a6a4c"/>
+        ${[0,1,2].map(i => `<path d="M${40 + i * 26},84 l0,9 l-6,11 l12,0 l-6,-11 Z" fill="#9fd8c6" opacity="0.9"/>`).join('')}
+        <ellipse cx="196" cy="150" rx="30" ry="10" fill="#6b5a52"/>
+        <path d="M172,150 q24,-34 48,0 Z" fill="#4a4a55"/>
+        <ellipse cx="196" cy="128" rx="16" ry="5" fill="#b39be0" opacity="0.85"/>`,
+      room: `
+        <rect x="26" y="100" width="80" height="8" rx="2" fill="#8a6a4c"/>
+        ${[0,1,2].map(i => `<rect x="${34 + i * 24}" y="82" width="15" height="18" rx="2" fill="#cbb08c"/>`).join('')}
+        <rect x="168" y="120" width="70" height="10" rx="3" fill="#8a6a4c"/>
+        <rect x="176" y="130" width="8" height="22" fill="#7a5a3c"/>
+        <rect x="222" y="130" width="8" height="22" fill="#7a5a3c"/>`,
+    }[kind];
+    return `<svg class="npc-svg" viewBox="0 0 ${IW} ${IH}" preserveAspectRatio="xMidYMid slice"
+      xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="iw_${u}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${k.wall}"/><stop offset="1" stop-color="${k.roof}" stop-opacity="0.28"/>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="${IW}" height="${IH}" fill="url(#iw_${u})"/>
+      <rect x="0" y="152" width="${IW}" height="48" fill="#8a6a4c"/>
+      <rect x="0" y="152" width="${IW}" height="5" fill="#6b5137"/>
+      ${[0,1,2,3,4,5].map(i => `<rect x="${i * 50}" y="157" width="2" height="43" fill="#6b5137" opacity="0.5"/>`).join('')}
+      <rect x="196" y="34" width="70" height="54" rx="4" fill="${k.roof}" opacity="0.55"/>
+      <rect x="202" y="40" width="58" height="42" rx="3" fill="${k.sky[0]}"/>
+      <rect x="230" y="40" width="3" height="42" fill="${k.roof}" opacity="0.55"/>
+      ${props}
+      <ellipse cx="150" cy="158" rx="34" ry="8" fill="#000" opacity="0.14"/>
+    </svg>`;
+  }
+
+  window.Village = { scene, interior, W, hFor };
 })();
