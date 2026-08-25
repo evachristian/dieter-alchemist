@@ -797,16 +797,26 @@ const SPEAKERS = [
     skin: '#f2e2dc', cloth: '#4a4257', bg: '#d9dde8', deco: 'mirror', decoColor: '#b9c2d4',
     eyeColor: '#7a4a58',
     moods: { def: { eye: 'smile', mouth: 'smirk' }, true: { eye: 'normal', mouth: 'flat' } } },
-  { id: 'sp_althea', name: '알테이아', hair: 'updo', hairColor: '#d8cfe4', beard: 'none',
-    skin: '#f3dcc8', cloth: '#8fa6c6', bg: '#e6edf4', deco: 'circlet', decoColor: '#f2e2a8',
-    moods: { def: { eye: 'soft', mouth: 'calm' }, scold: { eye: 'sharp', mouth: 'flat' },
-             warm: { eye: 'smile', mouth: 'smile' }, wink: { eye: 'closed', mouth: 'grin' } } },
-  // 공주 — 튜토리얼의 또 한 사람. 인트로 그림과 같은 갈색 긴 머리 · 연두 드레스로 맞춘다
-  // (dress_princess 의 색이 #7fa06a 다. 초상화와 마이 룸의 인물이 다른 사람으로 보이면 안 된다)
-  { id: 'sp_gwiriel', name: '그위리엘', hair: 'long', hairColor: '#7a4a2e', beard: 'none',
-    skin: '#f6ddc6', cloth: '#7fa06a', bg: '#eef1e6', deco: 'none',
-    moods: { def: { eye: 'normal', mouth: 'flat' }, smile: { eye: 'smile', mouth: 'grin' },
-             soft: { eye: 'soft', mouth: 'calm' }, shock: { eye: 'normal', mouth: 'grin' } } },
+  // 요정 대모와 공주는 **인트로에 이미 그려져 있다.** `introArt` 가 있으면 초상화도
+  // 그 그림에서 머리·어깨만 잘라 쓴다 (portrait.js → Intro.bustArt).
+  // 표정마다 `art` 로 인트로의 어느 표정을 쓸지 적는다 — 여기 없는 이름을 적으면
+  // 조용히 기본 표정으로 떨어지므로 checktalk 이 그것을 본다.
+  // eye/mouth 는 intro.js 가 없을 때를 위한 대비다 (부품 조합으로 떨어진다).
+  { id: 'sp_althea', name: '알테이아', hair: 'updo', hairColor: '#eeeaf2', beard: 'none',
+    skin: '#ffdcc4', cloth: '#8fc5e8', bg: '#e6edf4', deco: 'hood', decoColor: '#7fb8de',
+    introArt: 'fairy',
+    moods: { def:   { eye: 'soft',   mouth: 'calm',  art: 'idle' },
+             scold: { eye: 'sharp',  mouth: 'flat',  art: 'glance' },
+             warm:  { eye: 'smile',  mouth: 'smile', art: 'smile' },
+             wink:  { eye: 'closed', mouth: 'grin',  art: 'smile' } } },
+  // 공주 — 인트로 그림과 같은 갈색 긴 머리 · 연두 드레스
+  { id: 'sp_gwiriel', name: '그위리엘', hair: 'long', hairColor: '#7b5640', beard: 'none',
+    skin: '#ffdcc4', cloth: '#7fa06a', bg: '#eef1e6', deco: 'none',
+    introArt: 'princess',
+    moods: { def:   { eye: 'normal', mouth: 'flat', art: 'puzzled' },
+             smile: { eye: 'smile',  mouth: 'grin', art: 'smile' },
+             soft:  { eye: 'soft',   mouth: 'calm', art: 'shy' },
+             shock: { eye: 'normal', mouth: 'grin', art: 'ask' } } },
   { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', beard: 'full',
     skin: '#e0c09a', cloth: '#6f7f52', bg: '#e2e9d6', deco: 'leaf', decoColor: '#6f9455',
     moods: { def: { eye: 'normal', mouth: 'flat' }, warm: { eye: 'smile', mouth: 'smile' } } },

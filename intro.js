@@ -301,12 +301,8 @@
     </g>`;
   }
 
-  // 요정 대모 (신데렐라풍: 하늘색 후드망토 + 지팡이)
-  function fairy(pose) {
-    // 완드: 손(302,268)을 축으로 회전 → 항상 손에 쥔 상태
-    const tap = pose === 'tap';
-    const cast = pose === 'cast' || pose === 'castbig' || tap;
-    // 표정: 기본은 걱정, 'smile'/'castbig'은 미소, 'glance'는 공주 쪽 곁눈질
+  // 요정 대모의 표정. 기본은 걱정, 'smile'/'castbig'은 미소, 'glance'는 공주 쪽 곁눈질
+  function fairyFace(pose) {
     const happy = pose === 'smile' || pose === 'castbig';
     const glance = pose === 'glance';
     // 곁눈질 — 흰자 위에서 눈동자가 공주(왼쪽) 쪽으로 굴러간다
@@ -324,7 +320,7 @@
       <ellipse cx="347" cy="195" rx="5" ry="3.4" fill="#ffb0c4" opacity="0.6"/>
       <!-- 살짝 삐딱한 입 (미심쩍은 표정) -->
       <path d="M324,201 Q329,198 336,200" stroke="#c97b86" stroke-width="2.1" fill="none" stroke-linecap="round"/>`;
-    const face = glance ? glanceFace : happy
+    return glance ? glanceFace : happy
       ? `<path d="M315,177 Q322,174 328,178" stroke="#8a7a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>
          <path d="M332,178 Q338,174 345,177" stroke="#8a7a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>
          <path d="M317,188 Q322,182 327,188" stroke="#4a3a42" stroke-width="2.8" fill="none" stroke-linecap="round"/>
@@ -339,6 +335,28 @@
          <ellipse cx="313" cy="195" rx="5" ry="3.4" fill="#ffb0c4" opacity="0.6"/>
          <ellipse cx="347" cy="195" rx="5" ry="3.4" fill="#ffb0c4" opacity="0.6"/>
          <path d="M325,201 Q330,197 335,201" stroke="#c97b86" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  }
+
+  // 요정 대모의 **머리만** (후드 뒤판 → 얼굴 → 표정 → 앞머리 → 후드 앞테두리).
+  // 전신 그림과 초상화가 같은 함수를 쓴다 — 두 곳에 따로 그리면 반드시 달라진다.
+  function fairyHead(pose) {
+    return `
+      <!-- 후드 뒤판 (얼굴보다 먼저) -->
+      <path d="M330,142 C304,142 288,162 288,190 C288,204 293,216 301,224 L359,224 C367,216 372,204 372,190 C372,162 356,142 330,142 Z" fill="#7fb8de"/>
+      <!-- 얼굴 -->
+      <ellipse cx="330" cy="186" rx="26" ry="26" fill="${SKIN}"/>
+      ${fairyFace(pose)}
+      <!-- 백발 앞머리 -->
+      <path d="M306,180 C304,160 316,152 330,152 C344,152 356,160 354,180 C348,170 340,166 330,170 C320,166 312,170 306,180 Z" fill="#eeeaf2"/>
+      <!-- 후드 앞테두리 (얼굴 감싸는 띠) -->
+      <path d="M330,142 C304,142 288,162 288,190 C288,199 290,207 294,214 L303,209 C300,203 299,197 299,190 C299,168 313,152 330,152 C347,152 361,168 361,190 C361,197 360,203 357,209 L366,214 C370,207 372,199 372,190 C372,162 356,142 330,142 Z" fill="#a8d6f2"/>`;
+  }
+
+  // 요정 대모 (신데렐라풍: 하늘색 후드망토 + 지팡이)
+  function fairy(pose) {
+    // 완드: 손(302,268)을 축으로 회전 → 항상 손에 쥔 상태
+    const tap = pose === 'tap';
+    const cast = pose === 'cast' || pose === 'castbig' || tap;
     // tap: 완드를 공주(왼쪽) 쪽으로 크게 기울여 '톡' 치는 자세
     const wandRot = tap ? -62 : (cast ? -34 : -14);
     const wandCls = tap ? 'i-wandtap' : (cast ? 'i-wandcast' : '');
@@ -359,15 +377,7 @@
       <path d="M304,232 C294,244 296,258 302,266" stroke="#8fc5e8" stroke-width="14" fill="none" stroke-linecap="round"/>
       <path d="M356,232 C366,242 366,254 360,262" stroke="#8fc5e8" stroke-width="14" fill="none" stroke-linecap="round"/>
       <circle cx="302" cy="268" r="7" fill="${SKIN}"/>
-      <!-- 후드 뒤판 (얼굴보다 먼저) -->
-      <path d="M330,142 C304,142 288,162 288,190 C288,204 293,216 301,224 L359,224 C367,216 372,204 372,190 C372,162 356,142 330,142 Z" fill="#7fb8de"/>
-      <!-- 얼굴 -->
-      <ellipse cx="330" cy="186" rx="26" ry="26" fill="${SKIN}"/>
-      ${face}
-      <!-- 백발 앞머리 -->
-      <path d="M306,180 C304,160 316,152 330,152 C344,152 356,160 354,180 C348,170 340,166 330,170 C320,166 312,170 306,180 Z" fill="#eeeaf2"/>
-      <!-- 후드 앞테두리 (얼굴 감싸는 띠) -->
-      <path d="M330,142 C304,142 288,162 288,190 C288,199 290,207 294,214 L303,209 C300,203 299,197 299,190 C299,168 313,152 330,152 C347,152 361,168 361,190 C361,197 360,203 357,209 L366,214 C370,207 372,199 372,190 C372,162 356,142 330,142 Z" fill="#a8d6f2"/>
+      ${fairyHead(pose)}
       ${wand}
     </g>`;
   }
@@ -765,5 +775,51 @@
     return full ? princessFull(mood || 'smile') : princessFront(mood || 'smile');
   }
 
-  window.Intro = { start, next, skip, finish, startEnding, isPlaying, hasSeen, toggleAuto, princessArt, SEEN_KEY };
+  // ─── 초상화 (대화 말풍선 옆) ─────────────────────────────────
+  //
+  // **인트로에 이미 그려 둔 얼굴을 그대로 쓴다.** 말풍선 옆에 다른 그림을 세우면
+  // 방금까지 보던 사람과 다른 사람으로 읽힌다 — 요정 대모를 부품 조합 초상화로
+  // 그렸더니 머리 모양이 아예 달랐고, 정수리의 쪽진 머리가 얼굴에서 떨어져 보였다.
+  //
+  // 머리와 어깨만 잘라 초상화 상자에 맞춰 옮겨 놓는다. 자르는 네모(box)는
+  // [x, y, 폭, 높이] 이고, 그보다 아래로 삐져나가는 것(망토·드레스 자락)은
+  // `<svg>` 가 viewBox 밖을 잘라 주므로 그대로 둔다.
+  const BUSTS = {
+    fairy: {
+      box: [286, 136, 88, 118],
+      poses: ['idle', 'smile', 'glance'],
+      draw: pose => `
+        <path d="M296,300 C292,240 306,206 330,206 C354,206 368,240 364,300 Z" fill="#8fc5e8"/>
+        <path d="M330,206 C318,206 310,214 308,226 L352,226 C350,214 342,206 330,206 Z" fill="#a8d6f2"/>
+        ${fairyHead(pose)}`,
+    },
+    princess: {
+      box: [102, 130, 96, 118],
+      poses: ['puzzled', 'shy', 'smile', 'ask', 'dizzy'],
+      draw: mood => {
+        const f = princessFace(mood);
+        return `
+          <path d="M104,300 C100,236 112,206 150,206 C188,206 200,236 196,300 Z" fill="#7fa06a"/>
+          <path d="M112,262 L188,262" stroke="#6a8a58" stroke-width="4"/>
+          ${princessHead(f.eyes, f.mouth, f.extra)}`;
+      },
+    },
+  };
+  // 어떤 얼굴을 어떤 표정으로 그릴 수 있는지 — 검사 도구(checktalk)가 이 표를 본다.
+  // 없는 표정 이름을 적으면 **조용히 기본 표정으로 떨어져서** 화면은 멀쩡해 보인다.
+  function bustPoses(kind) { return BUSTS[kind] ? BUSTS[kind].poses.slice() : null; }
+  // W×H 상자에 맞춘 <g> 하나를 돌려준다 (portrait.js 가 <svg> 안에 그대로 넣는다)
+  function bustArt(kind, pose, W, H) {
+    const b = BUSTS[kind];
+    if (!b) return '';
+    const [x, y, w, h] = b.box;
+    const s = Math.min(W / w, H / h);
+    const tx = (W - w * s) / 2 - x * s;
+    const ty = (H - h * s) / 2 - y * s;
+    return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${s.toFixed(4)})">${
+      b.draw(b.poses.includes(pose) ? pose : b.poses[0])}</g>`;
+  }
+
+  window.Intro = { start, next, skip, finish, startEnding, isPlaying, hasSeen, toggleAuto,
+                   princessArt, bustArt, bustPoses, SEEN_KEY };
 })();

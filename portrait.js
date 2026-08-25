@@ -80,6 +80,23 @@
     const bare = !!(opts && opts.bare);
     const u = 'p' + (++uid);
     const m = (sp.moods && sp.moods[mood]) || (sp.moods && sp.moods.def) || { eye: 'normal', mouth: 'calm' };
+    // **인트로에 이미 얼굴이 있는 사람은 그 그림을 그대로 쓴다.**
+    // 부품을 조합해 다시 그리면 방금까지 보던 사람과 다른 사람이 된다 —
+    // 요정 대모가 실제로 그랬다 (머리 모양이 아예 다르고 정수리가 떨어져 보였다).
+    // intro.js 가 없으면(스크립트 누락) 아래의 부품 조합으로 그냥 떨어진다.
+    if (sp.introArt && window.Intro && Intro.bustArt) {
+      const art = Intro.bustArt(sp.introArt, m.art, W, H);
+      if (art) {
+        return `<svg class="pt-svg ${bare ? 'bare' : ''}" viewBox="0 0 ${W} ${H}"
+          xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}">
+          ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${W}" height="${H}" rx="18"/></clipPath></defs>`}
+          <g ${bare ? '' : `clip-path="url(#ptc_${u})"`}>
+            ${bare ? '' : `<rect x="0" y="0" width="${W}" height="${H}" fill="${sp.bg || '#efe6f2'}"/>`}
+            ${art}
+          </g>
+        </svg>`;
+      }
+    }
     const hair = HAIR[sp.hair] || HAIR.short;
     const eye = EYE[m.eye] || EYE.normal;
     return `<svg class="pt-svg ${bare ? 'bare' : ''}" viewBox="0 0 ${W} ${H}"

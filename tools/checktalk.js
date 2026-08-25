@@ -13,7 +13,10 @@ global.window = {};
 global.localStorage = { getItem: () => null, setItem: () => {} };
 global.document = { querySelectorAll: () => [], documentElement: { setAttribute() {} } };
 require(path.join(ROOT, 'data.js'));
+// 인트로 그림을 쓰는 인물이 있어서 같이 읽는다 (그림 함수만 정의하고 DOM 은 안 건드린다)
+require(path.join(ROOT, 'intro.js'));
 const D = global.window.GameData;
+const Intro = global.window.Intro;
 
 const bad = [];
 const placed = new Set();
@@ -56,6 +59,16 @@ const NEED = ['hair', 'hairColor', 'skin', 'cloth'];
 D.SPEAKERS.forEach(sp => {
   NEED.forEach(k => { if (!sp[k]) bad.push(`${sp.id}: 초상화에 ${k} 가 없다`); });
   if (!sp.moods || !sp.moods.def) bad.push(`${sp.id}: 기본 표정(def)이 없다`);
+  // ── 인트로 그림을 쓰는 인물 (요정 대모·공주)
+  // 없는 표정 이름을 적으면 **조용히 첫 표정으로 떨어진다** — 화면은 멀쩡해 보인다
+  if (!sp.introArt) return;
+  const poses = Intro && Intro.bustPoses ? Intro.bustPoses(sp.introArt) : null;
+  if (!poses) { bad.push(`${sp.id}: 인트로에 '${sp.introArt}' 그림이 없다`); return; }
+  Object.entries(sp.moods).forEach(([name, m]) => {
+    if (!m.art) bad.push(`${sp.id}: 표정 '${name}' 에 인트로 표정(art)이 없다`);
+    else if (!poses.includes(m.art))
+      bad.push(`${sp.id}: 표정 '${name}' 의 인트로 표정 '${m.art}' 이 없다 (있는 것: ${poses.join(', ')})`);
+  });
 });
 
 console.log(`인물 ${D.SPEAKERS.length}명 · 대사 ${Object.keys(D.TALKS).length}묶음 · 앉은 자리 ${placed.size}곳`);
