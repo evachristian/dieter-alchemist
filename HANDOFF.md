@@ -57,6 +57,8 @@ npm install && npm test
 ```bash
 npm start &                                       # 서버가 떠 있어야 한다
 node tools/checkui.js showcase atelier gather     # 탭을 옮겨 가며 검사
+TUT=1 node tools/checkui.js                      # 튜토리얼 화면 (평소 검사에서 빠진다)
+node tools/checktut.js                           # 튜토리얼을 끝까지 눌러 본다
 ```
 
 `tools/checkui.js` 는 콘솔에서 `await checkUI()` 를 치는 것과 같은 검사를 헤드리스로 돌린다.
@@ -73,11 +75,20 @@ node tools/checkui.js showcase atelier gather     # 탭을 옮겨 가며 검사
 
 배포본을 상대로 볼 수도 있다: `BASE=https://... node tools/checkui.js showcase`
 
+## 최근에 들어간 것
+
+- **튜토리얼**(`tutorial.js`) — 인트로 다음의 열여덟 단계. 막에 구멍을 뚫어 눌러야 할 곳만
+  열어 주고, 마치면 `tutorialDone` 이 켜진다 (3구 무쇠 솥·크리처 탭·옷장 열두 칸이 열린다).
+  규칙은 `CLAUDE.md` 의 「튜토리얼」 절. `npm run test:tut` 으로 끝까지 눌러 볼 수 있다
+- **마을**(`village.js`·`portrait.js`) — 탐험 › 마을의 지도와 건물 안 NPC 화면.
+  여는 조건은 아직 없고 개발용 스위치(전체 / 마을 하나씩)가 유일한 열쇠다
+
 ## 남은 작업
 
 `CLAUDE.md` 의 **"아직 안 한 것"** 절에 있다. 요약하면:
 
+- 마을을 여는 조건 (`isVillageOpen()` 한 곳만 고치면 된다)
 - 아우라 중 우아함·근성·개성·행운이 수치만 오르고 효과가 연결돼 있지 않다
 - 이메일·소셜 로그인 (기존 `playerId` 를 계정에 연결만 하면 진행이 그대로 넘어간다)
-- 매력 총합 랭킹 — 서버는 됐고(`GET /api/ranking`) **게임 안 화면이 없다**
+- 리그(주간 랭킹)의 상대가 아직 NPC 다 — 서버가 주간 점수·조 편성을 들고 있어야 한다
 - 이모지 아트 → 실제 일러스트 교체

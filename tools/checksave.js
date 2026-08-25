@@ -37,7 +37,37 @@ const CASES = [
       S.gathered === 42 || `채집 횟수가 사라졌다 (${S.gathered})`,
       (S.inventory || {}).herb === 7 || '가방이 비었다',
       S.tutorialDone === true || '이미 플레이 중이던 사람은 튜토리얼을 마친 것으로 쳐야 한다',
+      (S.tut || {}).done === true || '옛 세이브에 튜토리얼이 처음부터 다시 뜬다',
       (S.discovered || []).includes('vitality') || '시작 레시피가 안 채워졌다',
+    ],
+  },
+  {
+    // 튜토리얼이 생기기 직전 버전. **tutorialDone 을 켜 주는 코드가 없던 시절**이라
+    // 한참 플레이한 사람도 이 값이 false 로 남아 있다 — 3구 솥·크리처 탭·옷장
+    // 열두 칸이 잠긴 채였다. 세이브 10 이 그것까지 같이 풀어 준다.
+    name: '세이브 9 (튜토리얼이 생기기 전) — 이제 와서 튜토리얼이 뜨면 안 된다',
+    save: { ver: 9, name: '고인물', nameClaimed: true, tutorialDone: false,
+            stats: { beauty: 45, charm: 88 }, inventory: { herb: 12 },
+            unlocked: ['dress_gown'] },
+    visit: 'showcase',
+    expect: (S) => [
+      (S.tut || {}).done === true || '한참 플레이한 사람에게 튜토리얼이 처음부터 뜬다',
+      S.tutorialDone === true || 'tutorialDone 이 안 켜졌다 (솥·크리처·옷장이 잠긴 채로 남는다)',
+      S.stats.charm === 88 || `진행이 사라졌다 (매력 ${S.stats.charm})`,
+      (S.inventory || {}).herb === 12 || '가방이 비었다',
+      (S.unlocked || []).includes('dress_gown') || '갖고 있던 옷이 사라졌다',
+    ],
+  },
+  {
+    // 반대쪽 — **세이브가 아예 없는 새 플레이어에게는 튜토리얼이 떠야 한다.**
+    // 위의 마이그레이션을 너무 넓게 잡으면 이쪽이 조용히 같이 꺼진다
+    name: '새 플레이어 — 튜토리얼이 뜬다',
+    save: null,
+    visit: 'showcase',
+    expect: (S) => [
+      (S.tut || {}).done === false || '새 플레이어인데 튜토리얼이 이미 끝나 있다',
+      S.tutorialDone === false || '새 플레이어인데 졸업해 있다',
+      S.__tutOn === true || '튜토리얼 막이 안 떴다',
     ],
   },
   {
@@ -109,10 +139,12 @@ const CASES = [
     await ctx.addInitScript((s) => {
       localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
       if (!localStorage.getItem('__seeded')) {
-        localStorage.setItem('dieter_alchemist_save_v1', s);
+        // s 가 null 이면 **아무것도 심지 않는다** (세이브 없는 새 플레이어)
+        if (s) localStorage.setItem('dieter_alchemist_save_v1', s);
+        else localStorage.removeItem('dieter_alchemist_save_v1');
         localStorage.setItem('__seeded', '1');
       }
-    }, JSON.stringify(c.save));
+    }, c.save === null ? null : JSON.stringify(c.save));
 
     await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 20000 });
     if (process.env.V) console.error('  goto 완료');
@@ -125,7 +157,13 @@ const CASES = [
       await page.evaluate((tab) => { if (typeof switchTab === 'function') switchTab(tab); }, c.visit);
       await page.waitForTimeout(300);
     }
-    const S = await page.evaluate(() => JSON.parse(JSON.stringify(S)));
+    const S = await page.evaluate(() => {
+      const out = JSON.parse(JSON.stringify(S));
+      // 튜토리얼 막이 실제로 떠 있는지 (세이브 값만으로는 화면을 알 수 없다)
+      const el = document.getElementById('tut');
+      out.__tutOn = !!(el && el.classList.contains('on'));
+      return out;
+    });
     await ctx.close();
     if (process.env.V) console.error('· 끝', c.name);
 

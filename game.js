@@ -11,7 +11,10 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //  6: 튜토리얼을 마쳤는지 (tutorialDone) — 마치기 전에는 마이 룸에 인트로의 공주가 서 있다
 //  7: 옷·악세사리 8칸도 획득 대상이 됨 (gated) — 시작 착장은 공주 드레스 한 벌뿐
 //  8: 표정이 '어리둥절' 하나로 시작 — 방긋·윙크·활짝은 이제 얻어야 쓴다
-const SAVE_VER = 9;
+//  9: '헤어컬러' 칸이 없어지고 머리도 염색으로 색을 정한다
+// 10: 튜토리얼(S.tut)이 생겼다 — 이 버전 이전의 세이브는 튜토리얼을 본 적이 없으므로
+//     다시 보여 주지 않고 **마친 것으로 친다** (그래야 tutorialDone 도 같이 켜진다)
+const SAVE_VER = 10;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -91,7 +94,11 @@ const defaultState = () => ({
   nameClaimed: false,
   // 튜토리얼을 마쳤는가. 마치기 전의 마이 룸에는 인트로에서 막 넘어온 공주가
   // 그대로 서 있고, 마치는 순간 바디 파츠로 조립한 아바타로 바뀐다.
+  // **켜 주는 곳은 튜토리얼(tutorial.js)의 졸업 단계 한 곳뿐이다.**
   tutorialDone: false,
+  // 튜토리얼 진행 (tutorial.js). 중간에 창을 닫아도 그 자리에서 이어지도록 세이브에 둔다.
+  //  step = 몇 번째 단계 / beat = 그 단계의 몇 번째 대사 / did = 한 번만 도는 효과의 표시
+  tut: { step: 0, beat: 0, done: false, did: {} },
   // 마이 룸 배경 단계 (1~5). 기본은 2단계다 — 1단계는 거미줄까지 있는 '텅 빈 골방'
   // 이라 첫인상이 너무 휑하다. 기본값은 avatar.js 한 곳(ROOM_DEFAULT)에서만 정한다.
   // 새로 생긴 칸이라 마이그레이션이 필요 없다 — 이 칸이 처음 나가는 판에서 기본값도
@@ -165,6 +172,13 @@ function normalizeState(st) {
   // 옛 값은 색을 알 수 없으니 버린다 (개발용으로만 있던 값이다)
   if (!st.dyeEver || typeof st.dyeEver !== 'object') st.dyeEver = {};
   if (!Array.isArray(st.want)) st.want = [];
+  // 튜토리얼 진행 — 모양이 깨져 있으면 맞춘다.
+  // 값이 통째로 없을 때는 **tutorialDone 을 따라간다** — 졸업한 사람에게 튜토리얼이
+  // 처음부터 다시 뜨는 것이 이 값이 틀렸을 때 가장 나쁜 결과다
+  if (!st.tut || typeof st.tut !== 'object') {
+    st.tut = { step: 0, beat: 0, done: !!st.tutorialDone, did: {} };
+  }
+  if (!st.tut.did || typeof st.tut.did !== 'object') st.tut.did = {};
   st.roomLevel = Math.min(roomMax(), Math.max(1, Math.round(Number(st.roomLevel) || roomDefault())));
   // 리그 — 사다리 밖의 값이 들어오면 그릴 것이 없어 화면이 비어 버린다
   const lgMax = (D.LEAGUES ? D.LEAGUES.length : 32) - 1;
@@ -217,8 +231,13 @@ function save() {
 function adoptState(state) {
   S = normalizeState(Object.assign(defaultState(), state));
   S.record = Object.assign(newRecord(), S.record || {});
+  // **받아온 세이브도 마이그레이션을 지난다.** 불러오기와 같은 손질을 하지 않으면
+  // 기기를 바꾼 사람만 새 기본값을 못 받는다 — 튜토리얼을 마친 사람에게
+  // 튜토리얼이 처음부터 다시 뜨는 식으로 드러난다. 버전은 **받아온 값**에서 읽는다
+  migrate(S, (state && state.ver) || 1);
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
   if (typeof render === 'function') render();
+  if (window.Tut) Tut.refresh();
 }
 
 // 예전 세이브에 새 기본값을 한 번만 적용한다.
@@ -273,6 +292,15 @@ function migrate(st, from) {
       st.dyePerm.hair = true;
       if (!st.unlocked.includes(to)) st.unlocked.push(to);
     }
+  }
+
+  if (from < 10) {
+    // 튜토리얼이 생기기 전부터 하던 사람에게 이제 와서 '첫 물약을 만들어 보자' 를
+    // 띄우면 안 된다. **이미 마친 것으로 친다** — 그리고 그 김에 tutorialDone 도
+    // 켜 준다. 켜 주는 코드가 없던 탓에 3구 무쇠 솥·크리처 탭·옷장 열두 칸이
+    // 잠긴 채로 남아 있던 세이브들이 여기서 함께 풀린다.
+    st.tut = { step: 0, beat: 0, done: true, did: {} };
+    st.tutorialDone = true;
   }
 
   st.ver = SAVE_VER;
@@ -716,6 +744,9 @@ function switchTab(tab) {
   document.querySelectorAll('.screen').forEach(s =>
     s.classList.toggle('active', s.id === 'screen-' + tab));
   render();
+  // 튜토리얼 신호는 **화면을 다 그린 뒤에** 보낸다 — 튜토리얼이 다음 단계의
+  // 구멍을 뚫으려면 그 버튼이 이미 문서에 있어야 한다
+  if (window.Tut) Tut.fire('tab:' + tab);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -782,6 +813,7 @@ function gather(mapId) {
   const card = document.querySelector(`.spot-card[data-spot="${mapId}"]`);
   if (card) { card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop'); }
   render();
+  if (window.Tut) Tut.fire('gather');
   return true;
 }
 
@@ -1140,6 +1172,7 @@ function addToCauldron(id) {
   S.cauldron.push(id);
   S.want = [];              // 손으로 담기 시작하면 레시피 선택은 놓는다
   save(); render();
+  if (window.Tut) Tut.fire('put');
 }
 function removeFromCauldron(idx) {
   // 화면의 idx 는 '구멍 번호' 다 — 회색 자리가 섞여 있으면 S.cauldron 의 순서와 다르다.
@@ -1156,7 +1189,11 @@ function clearCauldron() { S.cauldron = []; S.want = []; save(); render(); }
 
 // 채집 가방 접기/펼치기 (기본: 닫힘)
 let bagOpen = false;
-function toggleBag() { bagOpen = !bagOpen; applyBagState(); }
+function toggleBag() {
+  bagOpen = !bagOpen;
+  applyBagState();
+  if (window.Tut) Tut.fire('bag:' + (bagOpen ? 'open' : 'close'));
+}
 function applyBagState() {
   const bag = document.getElementById('ingredientBag');
   const chev = document.getElementById('bagChevron');
@@ -1226,6 +1263,7 @@ function brew() {
     // 실패해도 빈손으로 보내지 않는다 — 현자의 결정과 **정보**가 남는다
     S.crystal = (S.crystal || 0) + D.ENERGY.failReward;
     save(); render();
+    if (window.Tut) Tut.fire('brew:fail');
     showBrewResult(D.CRYSTAL, false, brewNearText(tried));
     return;
   }
@@ -1251,6 +1289,7 @@ function brew() {
   }
   save(); render();
   checkUnlocks();
+  if (window.Tut) Tut.fire('brew:ok');
   showBrewResult(result, isNew);
   // ??? 였던 레시피가 열리면 알림 (조합 결과 모달 위에 표시)
   if (isNew) {
@@ -1309,6 +1348,7 @@ function drinkPotion(potionId) {
   toast(T('drank', { emoji: r.result.emoji, name: N(r.result.id, r.result.name), b: r.result.beauty, c: r.result.charm }));
   render();
   checkUnlocks();
+  if (window.Tut) Tut.fire('drink');
   // 살 빠지는 연출 — 단계가 내려가면 크게, 아니면 반짝임만
   // (수치 자체는 연속으로 조금씩 움직이지만 연출까지 매번 터뜨리면 시끄럽다)
   const afterStep = bodyStep();
@@ -1357,6 +1397,8 @@ function showBrewResult(result, isNew, near) {
 }
 function closeBrewModal() {
   document.getElementById('brewModal').classList.remove('show');
+  // 모달이 떠 있는 동안 튜토리얼은 스스로 숨는다 — 닫혔으니 다시 나오라고 알려 준다
+  if (window.Tut) Tut.refresh();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1372,6 +1414,8 @@ function render() {
   if (currentTab === 'league') renderLeague();
   renderTabBar();
   applyDevTools();   // 임시(출시 때 지운다): 화면마다 있는 개발용 블록의 접힘 상태를 맞춘다
+  // 화면이 통째로 다시 그려졌다 — 튜토리얼의 구멍도 다시 재야 한다
+  if (window.Tut) Tut.refresh();
 }
 
 // 랭킹 탭은 '여신' 단계부터 나타난다. 잠긴 탭을 자물쇠로 보여 주지 않는 이유:
@@ -1472,7 +1516,11 @@ function renderGather() {
 // ─── 마을 ───────────────────────────────────────────────────
 // 여는 조건은 아직 정해지지 않았다. 그때까지는 **개발용 스위치**로만 열린다 —
 // 조건이 생기면 이 함수 한 곳만 고치면 탭·몸통·마을 안이 같이 열린다.
-function isVillageOpen(v) { return devFlag(DEV_VILLAGE_KEY); }
+// 스위치는 둘이다: 전부 열기 / 마을 하나만 열기. 하나만 여는 쪽이 있어야
+// '셋 중 하나만 열린' 줄 모양(열린 칸 옆의 잠긴 칸)을 확인할 수 있다.
+function isVillageOpen(v) {
+  return devFlag(DEV_VILLAGE_KEY) || devFlag(devVillageKey(v.id));
+}
 
 // 탐험 화면 위쪽 한 줄. 갈래 · 마을 해금 여부 · 마을 안인지에 따라 달라진다.
 function gatherSubText() {
@@ -1949,6 +1997,7 @@ function isRoomTabOpen(t) { return t !== 'creatures' || !!S.tutorialDone; }
 function setRoomTab(t, anchor) {
   if (!isRoomTabOpen(t)) { toast(T('locked_tutorial'), anchor); return; }
   roomTab = t; updateRoomTabs();
+  if (window.Tut) Tut.fire('rtab:' + t);
 }
 function updateRoomTabs() {
   // 잠긴 칸을 보고 있었는데 잠겼다면(되돌리기 등) 옷으로 물러난다
@@ -2112,6 +2161,7 @@ function equip(slot, id, el) {
   save();
   renderShowcase();  // 아바타 + 옷장 동시 갱신
   toast(name, at, null, 'above');
+  if (window.Tut) Tut.fire('equip:' + id);
 }
 
 // ─── 헤어는 두 칸으로 고른다 (전체 실루엣 × 앞머리) ────────────────
@@ -2288,7 +2338,7 @@ function renderWardrobe() {
     // 세 줄을 넘겨 잘렸고, 글자는 11px 밑으로 못 줄인다 (TEXT_POLICY 1).
     // **눌렀을 때 토스트로 알려 준다** — 그림만 남기니 한 화면에 훨씬 많이 들어간다.
     // aria-label 에는 그대로 넣는다: 화면 낭독기에는 이름이 유일한 단서다
-    return `<button class="wr-item ${on ? 'on' : ''} ${owned ? '' : 'locked'}"
+    return `<button class="wr-item ${on ? 'on' : ''} ${owned ? '' : 'locked'}" data-item="${it.id}"
       aria-label="${N(it.id, it.name)}${owned ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
       onclick="equip('${wardrobeTab}','${it.id}',this)">
       <span class="wr-ic">${ic}${lock}</span></button>`;
@@ -2760,8 +2810,11 @@ window.toggleDevTools = toggleDevTools;
 // 이 기기에만 남는 표시로 두고, 판정하는 곳에서 그때그때 본다.
 const DEV_MAPS_KEY     = 'dieter_alchemist_devmaps_v1';
 const DEV_SPECIALS_KEY = 'dieter_alchemist_devspecials_v1';
-// 마을을 여는 조건이 아직 없다 — 그때까지 이 스위치가 유일한 열쇠다 (isVillageOpen)
+// 마을을 여는 조건이 아직 없다 — 그때까지 이 스위치가 유일한 열쇠다 (isVillageOpen).
+// **마을 하나만 열어 보는 스위치도 따로 둔다.** 전부 열면 '첫 마을만 열린 상태'
+// (탭 셋 중 하나만 열려 있을 때의 줄 모양·잠금 표현)를 확인할 수가 없다.
 const DEV_VILLAGE_KEY = 'dieter_alchemist_devvillage_v1';
+function devVillageKey(id) { return DEV_VILLAGE_KEY + '_' + id; }
 function devFlag(key) {
   try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
 }
@@ -2772,7 +2825,11 @@ function devToggleFlag(key) {
 function devAllMaps()     { devToggleFlag(DEV_MAPS_KEY); }
 function devAllSpecials() { devToggleFlag(DEV_SPECIALS_KEY); }
 function devVillages()    { devToggleFlag(DEV_VILLAGE_KEY); }
+// 마을 하나만 열기/닫기. 보고 있던 마을을 닫으면 그 자리에 잠긴 지도가 그대로 남는다
+// (잠긴 마을도 지도까지는 보여 주는 것이 원래 규칙이다 — renderVillageMap 참고)
+function devVillageOne(id) { devToggleFlag(devVillageKey(id)); }
 window.devVillages = devVillages;
+window.devVillageOne = devVillageOne;
 
 // 모든 재료를 1000개씩. 이건 진짜 소지품이라 세이브에 들어간다.
 function devFillItems() {
@@ -2793,6 +2850,11 @@ function renderGatherDev() {
     sw(devFlag(DEV_MAPS_KEY), T('dev_all_maps'), 'devAllMaps') +
     sw(devFlag(DEV_SPECIALS_KEY), T('dev_all_specials'), 'devAllSpecials') +
     sw(devFlag(DEV_VILLAGE_KEY), T('dev_villages'), 'devVillages') +
+    // 마을 하나씩 — 지금 화면에 나오는 마을만 (안 나오는 마을은 열어도 볼 곳이 없다)
+    D.villagesShown().map(v =>
+      `<button class="btn btn-dev${devFlag(devVillageKey(v.id)) ? ' on' : ''}"
+        onclick="devVillageOne('${v.id}')">${devFlag(devVillageKey(v.id)) ? '☑' : '☐'} ${v.emoji} ${N(v.id, v.name)}</button>`
+    ).join('') +
     `<button class="btn btn-dev" onclick="devFillItems()">${T('dev_fill_items')}</button>`;
 }
 
@@ -2825,9 +2887,18 @@ function renderRoomDevTail() {
       aria-label="${T('dev_room_lv')} ${n}">${n}</button>`).join('');
   el.innerHTML = `<button class="btn btn-dev${on ? ' on' : ''}" onclick="devToggleTutorial()">${
     on ? '☑' : '☐'} ${T('dev_tutorial')}</button>`
+    // 튜토리얼을 처음부터 다시 본다. tutorialDone 스위치와 다르다 —
+    // 이쪽은 진행(S.tut)까지 되감아서 첫 대사부터 나온다
+    + `<button class="btn btn-dev" onclick="devReplayTutorial()">${T('dev_tut_replay')}</button>`
     + `<div class="dev-row dev-roomlv"><span class="dev-roomlv-t">🏠 ${T('dev_room_lv')}</span>${bgBtns}</div>`;
 }
 window.devToggleTutorial = devToggleTutorial;
+// 튜토리얼 되감기 — 인트로 다시보기와 짝이 되는 개발용 버튼
+function devReplayTutorial() {
+  if (!window.Tut) { toast('tutorial.js'); return; }
+  Tut.replay();
+}
+window.devReplayTutorial = devReplayTutorial;
 
 // ─── 랭킹 화면 개발용 스위치 ───
 // 리그가 32개이고 정산은 주에 한 번뿐이라, 눌러서 확인할 길이 없으면
@@ -3049,6 +3120,7 @@ function fillFromRecipe(resultId, el) {
   toast(T('recipe_filled', { name: N(r.result.id, r.result.name) }),
     `[data-recipe="${resultId}"]`, null, 'above');
   if (window.Sfx) Sfx.play('pick');
+  if (window.Tut) Tut.fire('want:' + resultId);
 }
 
 // 아직 모르는 레시피를 눌렀을 때
@@ -3628,6 +3700,9 @@ document.addEventListener('DOMContentLoaded', () => {
     b.addEventListener('click', () => switchTab(b.dataset.tab)));
   refreshEnergy();          // 접속 시 자정 롤오버 반영
   switchTab('showcase');
+  // 튜토리얼 — 인트로를 아직 안 봤으면 여기서는 그냥 돌아가고,
+  // 인트로가 끝나면서 index.html 이 걸어 둔 콜백이 다시 부른다
+  if (window.Tut) Tut.maybeStart();
   // 서버에 더 최신 세이브가 있으면 그걸로 이어서 한다 (없으면 지금 것을 올린다)
   if (window.Sync) {
     Sync.onStatus(renderSyncChip);

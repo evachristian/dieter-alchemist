@@ -11,6 +11,7 @@
 //   BASE=https://... node tools/checkui.js showcase # 배포본을 상대로
 //   W=265 node tools/checkui.js showcase         # 좁은 화면에서 (UI_POLICY '가변 폭')
 //   FULL=1 node tools/checkui.js showcase atelier   # 가진 것을 채우고, 접힌 것까지 펼쳐서
+//   TUT=1 node tools/checkui.js                  # 튜토리얼 화면(막·말풍선·지시문)만
 //   VERBOSE=1 node tools/checkui.js              # 페이지 콘솔까지 같이 출력
 //
 // 종료 코드: 0 = 전부 pass, 1 = 통과 못한 화면 있음, 2 = 하네스 자체가 실패
@@ -53,12 +54,14 @@ function launchOpts() {
 
   // 첫 로드 전에 localStorage 를 심어 인트로를 건너뛰고 메인 화면부터 시작한다.
   // FULL 이면 튜토리얼까지 마친 상태로 — 크리처 탭 같은 것이 잠겨 있으면 잴 수 없다.
-  await page.addInitScript((full) => {
+  // TUT 이면 **세이브를 아예 심지 않는다** — 진짜 새 플레이어라야 튜토리얼이 뜬다.
+  await page.addInitScript((mode) => {
     localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+    if (mode === 'tut') { localStorage.removeItem('dieter_alchemist_save_v1'); return; }
     localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
-      full ? { ver: 8, name: 'Tester', nameClaimed: true, tutorialDone: true, crystal: 1240 }
-           : { ver: 5, name: 'Tester', nameClaimed: true }));
-  }, !!process.env.FULL);
+      mode === 'full' ? { ver: 8, name: 'Tester', nameClaimed: true, tutorialDone: true, crystal: 1240 }
+                      : { ver: 5, name: 'Tester', nameClaimed: true }));
+  }, process.env.TUT ? 'tut' : (process.env.FULL ? 'full' : 'plain'));
 
   await page.goto(BASE, { waitUntil: 'load' });
   // 스플래시가 스스로 사라지길 기다리되, 안 사라지면 직접 치운다
@@ -129,7 +132,56 @@ function launchOpts() {
     results.push({ 화면: label, ...r, report: undefined });
   };
 
-  if (!TABS.length) {
+  // ─── TUT: 튜토리얼 화면 ─────────────────────────────────────
+  // **평소 검사에서 통째로 빠지는 화면이다.** 세이브가 없는 새 플레이어에게만 뜨는데,
+  // 위의 준비 스크립트는 늘 세이브를 심어 인트로·튜토리얼을 건너뛰기 때문이다.
+  // 대사만 있는 단계 · 구멍이 하나인 단계 · 구멍이 둘인 단계 · 지시문이 붙는 단계를
+  // 골고루 잰다 (말풍선이 위로 가는 경우와 아래로 가는 경우가 여기서 갈린다).
+  if (process.env.TUT) {
+    const CASES = [
+      { step: 0,  beat: 2, tab: 'showcase', label: '0 첫 주머니(구멍없음)' },
+      { step: 1,  beat: 0, tab: 'showcase', label: '1 공방으로(탭 구멍)' },
+      { step: 2,  beat: 0, tab: 'atelier',  label: '2 레시피 고르기' },
+      { step: 6,  beat: 0, tab: 'showcase', label: '6 물약 마시기', pre: 'potion' },
+      { step: 8,  beat: 0, tab: 'gather',   label: '8 채집' },
+      { step: 13, beat: 3, tab: 'atelier',  label: '13 실패도 정보(긴 대사)' },
+      { step: 14, beat: 1, tab: 'showcase', label: '14 위쪽 줄(구멍 둘)' },
+      { step: 16, beat: 2, tab: 'showcase', label: '16 갈아입기' },
+    ];
+    for (const c of CASES) {
+      const bad = await page.evaluate((c) => {
+        if (!window.Tut) return 'tutorial.js 가 없다';
+        // 물약 칸을 재려면 선반에 물약이 있어야 한다 (없으면 구멍 뚫을 카드가 없다)
+        if (c.pre === 'potion') { S.potions.vitality = 1; roomTab = 'potions'; }
+        switchTab(c.tab);
+        Tut.goto(c.step, c.beat);
+        if (c.pre === 'potion') { setRoomTab('potions'); Tut.refresh(); }
+        const el = document.getElementById('tut');
+        if (!el.classList.contains('on')) return '튜토리얼 막이 안 떴다';
+        // **loose = 구멍 뚫을 대상을 못 찾았다는 뜻이다.** 그 상태의 0건은 통과가 아니다 —
+        // 막이 클릭을 막지도 않고, 화살표도 없는 화면을 잰 것이다
+        if (el.classList.contains('loose')) return '구멍 대상을 못 찾았다 (loose)';
+        return null;
+      }, c);
+      if (bad) { results.push({ 화면: `튜토리얼/${c.label}`, 오류: bad }); continue; }
+      await page.waitForTimeout(220);
+      await run(`튜토리얼/${c.label}`);
+      // 말풍선이 자기가 가리키는 구멍을 덮으면 안 된다 (덮으면 무엇을 누르라는지 안 보인다)
+      const over = await page.evaluate(() => {
+        const talk = document.querySelector('#tut .tut-talk');
+        const holes = [...document.querySelectorAll('#tut .tut-arrow')];
+        if (!talk || !holes.length || holes[0].style.display === 'none') return null;
+        const a = talk.getBoundingClientRect(), b = holes[0].getBoundingClientRect();
+        return (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom)
+          ? '말풍선이 화살표를 덮는다' : null;
+      });
+      if (over) results.push({ 화면: `튜토리얼/${c.label}`, 오류: over });
+    }
+  }
+
+  if (process.env.TUT) {
+    // 튜토리얼만 재고 끝낸다 (막이 덮인 채로 일반 화면을 재면 그건 다른 화면이다)
+  } else if (!TABS.length) {
     await run('(현재)');
   } else {
     for (const t of TABS) {

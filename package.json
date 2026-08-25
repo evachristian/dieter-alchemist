@@ -14,6 +14,7 @@
     "test:talk": "node tools/checktalk.js",
     "test:i18n": "node tools/checki18n.js",
     "test:save": "node tools/checksave.js",
+    "test:tut": "node tools/checktut.js",
     "gen:wardrobe": "node tools/genwardrobe.js"
   },
   "dependencies": {

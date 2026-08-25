@@ -799,7 +799,14 @@ const SPEAKERS = [
     moods: { def: { eye: 'smile', mouth: 'smirk' }, true: { eye: 'normal', mouth: 'flat' } } },
   { id: 'sp_althea', name: '알테이아', hair: 'updo', hairColor: '#d8cfe4', beard: 'none',
     skin: '#f3dcc8', cloth: '#8fa6c6', bg: '#e6edf4', deco: 'circlet', decoColor: '#f2e2a8',
-    moods: { def: { eye: 'soft', mouth: 'calm' }, scold: { eye: 'sharp', mouth: 'flat' } } },
+    moods: { def: { eye: 'soft', mouth: 'calm' }, scold: { eye: 'sharp', mouth: 'flat' },
+             warm: { eye: 'smile', mouth: 'smile' }, wink: { eye: 'closed', mouth: 'grin' } } },
+  // 공주 — 튜토리얼의 또 한 사람. 인트로 그림과 같은 갈색 긴 머리 · 연두 드레스로 맞춘다
+  // (dress_princess 의 색이 #7fa06a 다. 초상화와 마이 룸의 인물이 다른 사람으로 보이면 안 된다)
+  { id: 'sp_gwiriel', name: '그위리엘', hair: 'long', hairColor: '#7a4a2e', beard: 'none',
+    skin: '#f6ddc6', cloth: '#7fa06a', bg: '#eef1e6', deco: 'none',
+    moods: { def: { eye: 'normal', mouth: 'flat' }, smile: { eye: 'smile', mouth: 'grin' },
+             soft: { eye: 'soft', mouth: 'calm' }, shock: { eye: 'normal', mouth: 'grin' } } },
   { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', beard: 'full',
     skin: '#e0c09a', cloth: '#6f7f52', bg: '#e2e9d6', deco: 'leaf', decoColor: '#6f9455',
     moods: { def: { eye: 'normal', mouth: 'flat' }, warm: { eye: 'smile', mouth: 'smile' } } },
