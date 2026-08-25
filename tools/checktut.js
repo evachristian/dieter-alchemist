@@ -10,6 +10,7 @@
 //   · 구멍 안은 진짜로 눌리는가       — 아래 버튼이 클릭을 받는가
 //   · 구멍 밖은 진짜로 안 눌리는가     — 막이 정말 막는가
 //   · 구멍이 대상 **위에 정확히** 있는가 — 여백(PAD) 안에서 어긋나도 눌리기는 한다
+//   · 팝업이 떴을 때 그 팝업이 눌리는가 — 막이 팝업 위를 덮으면 화면이 죽는다
 //   · 끝나면 tutorialDone 이 켜지고 잠겼던 것들이 열리는가
 //
 // **el.click() 을 쓰면 안 된다.** 그것은 pointer-events 를 무시하므로 막이 뚫려
@@ -80,6 +81,40 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     if (after.playing) bad.push('인트로가 안 끝났다');
     if (!after.tutOn) bad.push('인트로가 끝났는데 튜토리얼이 이어받지 않았다');
     if (after.berry !== 1 || after.herb !== 1) bad.push('첫 재료 주머니가 안 왔다');
+  }
+
+  // ── 튜토리얼 도중에 팝업이 뜨면 (설정 · 확인 패널)
+  //
+  // 조합 결과 팝업은 아래 흐름에서 저절로 뜨지만, 이 둘은 **닫을 때 render() 를
+  // 부르지 않는다** — 막이 스스로 돌아오지 못하면 안내가 통째로 사라진 채 남는다.
+  // 첫 단계에서 한 번만 본다 (진행을 건드리지 않는 자리다).
+  {
+    const on = () => page.evaluate(() => document.getElementById('tut').classList.contains('on'));
+    for (const [name, open, btn] of [
+      ['설정', () => page.evaluate(() => openSettings()), '#settingsModal .set-x'],
+      ['확인 패널', () => page.evaluate(() => showConfirm('검사', () => {})), '#confirmModal .btn-ghost'],
+    ]) {
+      if (!(await on())) { bad.push(`${name} 검사 전에 막이 안 떠 있다`); break; }
+      await open();
+      await page.waitForTimeout(320);
+      if (await on()) bad.push(`${name}: 팝업 위에 튜토리얼 막이 남아 있다 — 팝업을 누를 수 없다`);
+      const hit = await page.evaluate((sel) => {
+        const e = document.querySelector(sel);
+        if (!e) return { err: '닫기 버튼이 없다' };
+        const r = e.getBoundingClientRect();
+        const x = r.left + r.width / 2, y = r.top + r.height / 2;
+        const t = document.elementFromPoint(x, y);
+        return { x, y, covered: !(t === e || e.contains(t)),
+                 by: t ? (t.id || t.getAttribute('class') || t.tagName) : 'null' };
+      }, btn);
+      if (hit.err) { bad.push(`${name}: ${hit.err}`); continue; }
+      if (hit.covered) bad.push(`${name}: 닫기 버튼이 ${hit.by} 에 덮여 있다`);
+      await page.mouse.click(hit.x, hit.y);
+      await page.waitForTimeout(520);
+      if (!(await on())) bad.push(`${name}: 팝업을 닫았는데 튜토리얼 막이 돌아오지 않는다`);
+      await page.evaluate(() => document.querySelectorAll('.modal.show').forEach(m => m.classList.remove('show')));
+      await page.waitForTimeout(200);
+    }
   }
 
   const info = () => page.evaluate(() => {
@@ -241,9 +276,36 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     if (mis) mis.forEach(m => bad.push(`${st.step}단계: ${m}`));
 
     const did = await doAct();
+
+    // ── 조합 결과 팝업 — **진짜 마우스로 닫는다**
+    //
+    // 예전에는 closeBrewModal() 을 직접 불러서 닫았는데, 그러면 막이 팝업을 덮고
+    // 있어도 검사가 통과한다. 실제로 그랬다: 막(z 60)이 팝업(z 50)보다 위에 있어서
+    // 「확인」이 눌리지 않았고, 플레이어에게는 **화면 전체가 먹통이 된 것**으로 보였다.
     if (await page.evaluate(() => !!document.querySelector('#brewModal.show'))) {
-      await page.evaluate(() => closeBrewModal());
-      await page.waitForTimeout(260);
+      const top = await page.evaluate(() => {
+        const btn = document.querySelector('#brewModal .btn-primary');
+        if (!btn) return { err: '확인 버튼이 없다' };
+        const r = btn.getBoundingClientRect();
+        const x = r.left + r.width / 2, y = r.top + r.height / 2;
+        const el = document.elementFromPoint(x, y);
+        return { x, y, covered: !(el === btn || btn.contains(el)),
+                 by: el ? (el.id || el.getAttribute('class') || el.tagName) : 'null' };
+      });
+      if (top.err) bad.push(`${st.step}단계: ${top.err}`);
+      else {
+        if (top.covered) bad.push(`${st.step}단계: 조합 결과 팝업의 「확인」이 무언가에 덮여 있다 (${top.by})`);
+        await page.mouse.click(top.x, top.y);
+        await page.waitForTimeout(300);
+        if (await page.evaluate(() => !!document.querySelector('#brewModal.show')))
+          bad.push(`${st.step}단계: 「확인」을 눌러도 팝업이 안 닫힌다 — 화면이 먹통이 된다`);
+        // 팝업이 닫혔으면 막이 **스스로 돌아와야** 한다 (안 돌아오면 안내가 사라진다)
+        await page.waitForTimeout(260);
+        const back = await page.evaluate(() =>
+          !S.tut.done && document.getElementById('tut').classList.contains('on'));
+        if (!back && !(await info()).done)
+          bad.push(`${st.step}단계: 팝업을 닫았는데 튜토리얼 막이 돌아오지 않는다`);
+      }
     }
     if (!did) {
       const st2 = await info();

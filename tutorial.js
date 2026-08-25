@@ -215,8 +215,10 @@
     if (typeof render === 'function') render();
   }
 
+  // 화면에서 감춘다. **추적 루프는 여기서 멈추지 않는다** — 모달이 떠서 잠깐 숨은
+  // 것뿐일 수 있고, 그때 루프까지 멈추면 모달이 닫혀도 아무도 다시 그려 주지 않는다.
+  // (닫을 때 render() 를 부르지 않는 모달이 있다 — 설정·확인 패널이 그렇다)
   function hide() {
-    stopTrack();
     const el = layer();
     if (!el) return;
     el.classList.remove('on');
@@ -229,7 +231,10 @@
   function paint() {
     const el = layer();
     if (!el) return;
-    if (!started || !running() || !showable()) { hide(); return; }
+    // 튜토리얼이 끝났으면 감추고 루프도 끝낸다
+    if (!started || !running()) { hide(); stopTrack(); return; }
+    // 모달·인트로가 떠 있는 동안은 감추되 **계속 지켜본다** — 닫히면 스스로 돌아온다
+    if (!showable()) { hide(); startTrack(); return; }
     const s = step();
     const beat = Math.min(state().beat, s.talk.length - 1);
     const key = state().step + ':' + beat + ':' + (window.I18N ? I18N.getLang() : 'ko');
@@ -374,11 +379,7 @@
   let raf = 0;
   function track() {
     raf = 0;
-    const el = layer();
-    if (!el || !el.classList.contains('on') || !running() || !showable()) return;
-    const s = step();
-    if (s) place(s);
-    raf = requestAnimationFrame(track);
+    paint();   // paint() 가 보여 줄지 감출지 정하고 다음 프레임을 잇는다
   }
   function startTrack() { if (!raf) raf = requestAnimationFrame(track); }
   function stopTrack() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
