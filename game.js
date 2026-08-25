@@ -1400,9 +1400,10 @@ function renderGather() {
     const p = document.getElementById('gatherPanel-' + t);
     if (p) p.classList.toggle('active', t === gatherTab);
   });
-  // 안내 문구도 갈래마다 다르다 — 필드는 채집 요령, 마을은 아직 잠겼다는 안내
+  // 안내 문구는 **지금 상태를 말해야 한다.** 마을이 열렸는데도 "아직 열리지 않았어요"
+  // 라고 적혀 있으면 그 자체가 거짓말이다 (개발용 스위치로 열어 두고 한참 못 봤다)
   const subEl = document.getElementById('gatherSub');
-  if (subEl) subEl.textContent = T(gatherTab === 'village' ? 'screen_village_sub' : 'screen_gather_sub');
+  if (subEl) subEl.textContent = gatherSubText();
 
   renderVillages();
 
@@ -1469,13 +1470,23 @@ function renderGather() {
 }
 
 // ─── 마을 ───────────────────────────────────────────────────
-// 지금은 여는 조건이 정해지지 않아 **전부 잠겨 있다.** 조건이 생기면
-// isVillageOpen() 한 곳만 고치면 탭·몸통이 같이 열린다.
-function isVillageOpen(v) { return false; }
+// 여는 조건은 아직 정해지지 않았다. 그때까지는 **개발용 스위치**로만 열린다 —
+// 조건이 생기면 이 함수 한 곳만 고치면 탭·몸통·마을 안이 같이 열린다.
+function isVillageOpen(v) { return devFlag(DEV_VILLAGE_KEY); }
+
+// 탐험 화면 위쪽 한 줄. 갈래 · 마을 해금 여부 · 마을 안인지에 따라 달라진다.
+function gatherSubText() {
+  if (gatherTab !== 'village') return T('screen_gather_sub');
+  const list = D.villagesShown();
+  return list.some(isVillageOpen) ? T('screen_village_sub_open') : T('screen_village_sub');
+}
 
 function renderVillages() {
   const list = D.villagesShown();
   const tabEl = document.getElementById('villageTabs');
+  const el = document.getElementById('villageBody');
+  if (!el) return;
+
   if (tabEl) {
     tabEl.innerHTML = list.map(v => {
       const open = isVillageOpen(v);
@@ -1484,24 +1495,52 @@ function renderVillages() {
     }).join('');
   }
 
-  const el = document.getElementById('villageBody');
-  if (!el) return;
   const v = list.find(x => x.id === villageTab) || list[0];
   if (!v) { el.innerHTML = ''; return; }
-  // **잠긴 마을도 눌러서 볼 수 있다.** 지대 탭과 다른 점인데, 지대는 탭을 옮기면
-  // 아래에 채집할 목록이 뜨는 반면 마을은 아직 할 것이 없다 — 무엇이 기다리고
-  // 있는지 읽어 보는 것 말고는 이 화면에서 할 일이 없으므로 막을 이유가 없다.
-  // 잠긴 표현은 채집지 카드와 같은 것을 쓴다 (style.css '잠긴 콘텐츠 공통 표현')
+  renderVillageMap(el, v);
+}
+
+// ── 마을 지도 ────────────────────────────────────────────────
+// 배경은 village.js 가 SVG 로 그리고, **건물 이름표는 HTML 명판**으로 얹는다.
+// 자리(x/y)는 데이터 한 곳에 있어서 그림과 이름표가 어긋날 수가 없다.
+//
+// **잠긴 마을도 지도까지는 보여 준다.** 무엇이 기다리고 있는지 읽어 보는 것이
+// 지금 이 화면에서 할 수 있는 전부이고, 그것까지 막으면 탭 셋이 자물쇠 세 개로만 남는다.
+// 잠겨 있으면 지도 전체가 흐려지고(공통 잠금 표현) 건물을 눌러도 안내만 나온다.
+function renderVillageMap(el, v) {
+  const open = isVillageOpen(v);
+  const spots = v.spots || [];
+  // 명판은 좌우에 번갈아 붙는 **띠**다. 자리의 x 가 절반보다 왼쪽이면 왼쪽 끝에,
+  // 오른쪽이면 오른쪽 끝에 붙인다 — 데이터의 지그재그가 그대로 좌우가 된다
+  const pins = spots.map(s => `
+    <button class="vil-pin ${s.x < 50 ? 'l' : 'r'}" style="top:${s.y}%"
+      data-vspot="${s.id}" onclick="tapVillageSpot('${v.id}','${s.id}')">
+      <span class="vil-pin-ic">${open ? s.emoji : '🔒'}</span>
+      <span class="vil-pin-nm">${N(s.id, s.name)}</span>
+    </button>`).join('');
+  // **마을 설명은 지도 위에 겹쳐 놓지 않는다.** 좁은 화면·영어·2배 확대에서
+  // 설명 줄이 길어지면 첫 명판과 겹친다 (검증기가 265px 거울 골짜기에서 잡았다).
+  // 지도 바로 위에 띠로 두면 길이가 어떻든 겹칠 수가 없다.
   el.innerHTML = `
-    <div class="spot-card locked" data-village-card="${v.id}" onclick="villageInfo('${v.id}', this)">
-      <div class="spot-emoji">🔒</div>
-      <div class="spot-info">
-        <div class="spot-name">${N(v.id, v.name)}</div>
-        <div class="spot-desc">${N(v.id + '_desc', v.desc)}</div>
-      </div>
-      <div class="spot-go">${T('locked_go')}</div>
+    <div class="vil-desc">${N(v.id + '_desc', v.desc)}</div>
+    <div class="vil-map ${open ? '' : 'locked'}" data-village-map="${v.id}">
+      ${(window.Village ? Village.scene(v) : '')}
+      ${pins}
     </div>`;
 }
+
+// 건물을 누르면 그 자리의 사람과 이야기한다 — **대화는 아직 없다.**
+// 만들 때는 여기서 대화 화면을 연다 (STORY.md 의 키워드 시스템).
+function tapVillageSpot(vid, sid) {
+  const v = D.VILLAGES.find(x => x.id === vid);
+  const s = v && (v.spots || []).find(x => x.id === sid);
+  if (!s) return;
+  const at = `.vil-pin[data-vspot="${sid}"]`;
+  const name = N(s.id, s.name);
+  if (!isVillageOpen(v)) { toast(T('village_locked', { name: N(v.id, v.name) }), at, null, 'above'); return; }
+  toast(T('village_spot_soon', { name: name }), at, null, 'above');
+}
+window.tapVillageSpot = tapVillageSpot;
 
 function renderAtelier() {
   // 가마솥 슬롯
@@ -1903,7 +1942,10 @@ let gatherTab = 'field';
 function setGatherTab(t) { gatherTab = t; render(); }
 window.setGatherTab = setGatherTab;
 
-// 지금 보고 있는 마을 (아랫단 탭)
+// 지금 보고 있는 마을 (아랫단 탭).
+// **탭이 곧 마을 전환이다** — 목록 → 들어가기 → 뒤로 하는 단계를 두지 않는다.
+// 마을은 셋뿐이고 탭 줄이 이미 그 셋을 다 보여 주므로, 한 단을 더 두면
+// 같은 것을 두 번 고르게 하는 셈이 된다.
 let villageTab = D.VILLAGES[0].id;
 function setVillage(id) { villageTab = id; renderGather(); }
 window.setVillage = setVillage;
@@ -2624,6 +2666,8 @@ window.toggleDevTools = toggleDevTools;
 // 이 기기에만 남는 표시로 두고, 판정하는 곳에서 그때그때 본다.
 const DEV_MAPS_KEY     = 'dieter_alchemist_devmaps_v1';
 const DEV_SPECIALS_KEY = 'dieter_alchemist_devspecials_v1';
+// 마을을 여는 조건이 아직 없다 — 그때까지 이 스위치가 유일한 열쇠다 (isVillageOpen)
+const DEV_VILLAGE_KEY = 'dieter_alchemist_devvillage_v1';
 function devFlag(key) {
   try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
 }
@@ -2633,6 +2677,8 @@ function devToggleFlag(key) {
 }
 function devAllMaps()     { devToggleFlag(DEV_MAPS_KEY); }
 function devAllSpecials() { devToggleFlag(DEV_SPECIALS_KEY); }
+function devVillages()    { devToggleFlag(DEV_VILLAGE_KEY); }
+window.devVillages = devVillages;
 
 // 모든 재료를 1000개씩. 이건 진짜 소지품이라 세이브에 들어간다.
 function devFillItems() {
@@ -2652,6 +2698,7 @@ function renderGatherDev() {
     `<button class="btn btn-dev" onclick="fillEnergy()">${T('dev_fill_ap')}</button>` +
     sw(devFlag(DEV_MAPS_KEY), T('dev_all_maps'), 'devAllMaps') +
     sw(devFlag(DEV_SPECIALS_KEY), T('dev_all_specials'), 'devAllSpecials') +
+    sw(devFlag(DEV_VILLAGE_KEY), T('dev_villages'), 'devVillages') +
     `<button class="btn btn-dev" onclick="devFillItems()">${T('dev_fill_items')}</button>`;
 }
 

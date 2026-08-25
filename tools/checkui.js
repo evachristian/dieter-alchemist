@@ -85,6 +85,9 @@ function launchOpts() {
       pots.forEach((r, i) => { S.potions[r.result.id] = i + 1; });
       S.creatures = crs.map(r => r.result.id);
       if (typeof bagOpen !== 'undefined' && !bagOpen) toggleBag();   // 채집 가방 펼치기
+      // 마을은 여는 조건이 아직 없다 — 개발용 스위치가 유일한 열쇠라 여기서 켜 준다.
+      // 안 켜면 마을 안(지도·명판)이 통째로 검사에서 빠진다
+      try { localStorage.setItem('dieter_alchemist_devvillage_v1', '1'); } catch (e) {}
       // 랭킹 탭은 '여신' 단계(매력 100)부터 나타난다 — 매력을 안 주면 그 화면이
       // 통째로 검사에서 빠진다. 지난 주 결과 배너도 같이 띄워 둔다 (그것도 화면이다)
       S.stats.charm = Math.max(S.stats.charm || 0, D.LEAGUE.openAt + 40);
@@ -154,6 +157,31 @@ function launchOpts() {
           if (bad) { results.push({ 화면: `${t}/${sub}`, 오류: bad }); continue; }
           await page.waitForTimeout(250);
           await run(`${t}/${sub}`);
+        }
+        // 마을은 셋이고 **건물 수가 다르다.** 여덟인 마을과 넷인 마을을 다 본다 —
+        // 그림 높이가 건물 수를 따라가므로 명판이 겹치는지는 여덟짜리로만 잡힌다
+        for (const vid of ['vl_chimney', 'vl_mirror']) {
+          const bad = await page.evaluate((id) => {
+            setGatherTab('village');
+            setVillage(id);
+            return document.querySelector('.vil-map') ? null : `마을 지도가 안 떴다 (${id})`;
+          }, vid);
+          if (bad) { results.push({ 화면: `${t}/${vid}`, 오류: bad }); continue; }
+          await page.waitForTimeout(250);
+          await run(`${t}/${vid}`);
+          // **명판끼리 겹치는지는 checkUI 가 못 본다.** 그것은 부모 밖으로 나가는 것이
+          // 아니라 형제끼리 포개지는 것이라, 넘침 검사에 안 걸린다.
+          // 이 화면은 앱에서 유일하게 절대 위치로 놓는 곳이라 여기서만 따로 본다.
+          const over = await page.evaluate(() => {
+            const r = [...document.querySelectorAll('.vil-pin, .vil-desc')].map(e => e.getBoundingClientRect());
+            for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
+              const a = r[i], b = r[j];
+              if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom)
+                return `띠 ${i + 1}번과 ${j + 1}번이 겹친다 (명판·마을 설명)`;
+            }
+            return null;
+          });
+          if (over) results.push({ 화면: `${t}/${vid}`, 오류: over });
         }
         continue;
       }

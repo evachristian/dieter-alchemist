@@ -718,10 +718,39 @@ const TIERS = [
 // **여는 조건은 아직 정해지지 않았다.** 그래서 지금은 전부 잠겨 있고,
 // `open` 을 판정하는 자리(game.js 의 isVillageOpen)만 만들어 두었다.
 // 조건이 정해지면 여기에 `unlock` 같은 칸을 붙이고 그 함수만 고치면 된다.
+//
+// `spots` 는 **마을 안에 들어갔을 때 보이는 건물**이다. 누르면 그 자리의 사람과 이야기한다
+// (대화는 아직 없다). 자리는 x/y 퍼센트로 두고 **좌우로 번갈아** 놓는다 —
+// 좁은 화면에서도 이름표가 서로 부딪히지 않는 배치다.
+// shape 는 village.js 가 그 자리에 그릴 건물 모양이다.
 const VILLAGES = [
-  { id: 'vl_chimney', emoji: '🏘️', name: '일곱 굴뚝',     desc: '굴뚝 일곱 개가 나란히 선 산속 마을.' },
-  { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.' },
-  { id: 'vl_mirror',  emoji: '🪞', name: '거울 골짜기',   desc: '물으면 어김없이 대답이 돌아오는 골짜기.' },
+  // 일곱 굴뚝은 시설이 갖춰진 마을이라 건물이 여덟이다. 나머지 둘은 넷 —
+  // **마을마다 수가 달라도 된다.** 그림 높이가 건물 수를 따라 늘어난다 (village.js)
+  { id: 'vl_chimney', emoji: '🏘️', name: '일곱 굴뚝',     desc: '굴뚝 일곱 개가 나란히 선 산속 마을.',
+    spots: [
+      { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 30, y: 14 },
+      { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 70, y: 25 },
+      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 28, y: 36 },
+      { id: 'vs_chimney_shop',    emoji: '🧺', name: '잡화점',       shape: 'shop',  x: 70, y: 47 },
+      { id: 'vs_chimney_farm',    emoji: '🌾', name: '농장',         shape: 'farm',  x: 30, y: 58 },
+      { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 70, y: 69 },
+      { id: 'vs_chimney_lab',     emoji: '⚗️', name: '연금술 방',    shape: 'lab',   x: 28, y: 80 },
+      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 68, y: 92 },
+    ] },
+  { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.',
+    spots: [
+      { id: 'vs_apple_orchard', emoji: '🍎', name: '과수원',   shape: 'farm',  x: 68, y: 22 },
+      { id: 'vs_apple_press',   emoji: '🍯', name: '착즙간',   shape: 'shop',  x: 30, y: 38 },
+      { id: 'vs_apple_empty',   emoji: '🏚️', name: '빈 농가',  shape: 'ruin',  x: 70, y: 60 },
+      { id: 'vs_apple_watch',   emoji: '🔥', name: '감시탑',   shape: 'tower', x: 28, y: 82 },
+    ] },
+  { id: 'vl_mirror',  emoji: '🪞', name: '거울 골짜기',   desc: '물으면 어김없이 대답이 돌아오는 골짜기.',
+    spots: [
+      { id: 'vs_mirror_pond',   emoji: '🪞', name: '거울못',    shape: 'water', x: 30, y: 22 },
+      { id: 'vs_mirror_shrine', emoji: '⛩️', name: '낡은 사당', shape: 'ruin',  x: 70, y: 40 },
+      { id: 'vs_mirror_bridge', emoji: '🌫️', name: '안개 다리', shape: 'well',  x: 28, y: 62 },
+      { id: 'vs_mirror_cairn',  emoji: '🗿', name: '돌무지',    shape: 'tower', x: 68, y: 84 },
+    ] },
   { id: 'vl_hunter',  emoji: '🏹', name: '사냥꾼 쉼터',   desc: '차마 베지 못한 사냥꾼이 머무는 오두막.' },
   { id: 'vl_glass',   emoji: '⚰️', name: '유리관 호수',   desc: '물밑에 유리관이 가라앉아 있다는 호숫가.' },
   { id: 'vl_mine',    emoji: '⛏️', name: '은빛 갱도',     desc: '곡괭이 소리가 밤낮으로 울리는 은광촌.' },

@@ -292,6 +292,44 @@ body {
    바로 얹히므로 위쪽 여백만 조금 더 준다 (모양·색은 .room-tabs 그대로) */
 .gt-tabs { margin: 4px 0 12px; }
 .vl-tabs { margin: 0 0 12px; }
+
+/* ─── 마을 지도 (탐험 › 마을) ─────────────────────────────────
+   배경은 village.js 가 SVG 로 그리고, 건물 이름표(.vil-pin)를 그 위에 얹는다.
+   **이름표는 명판이다** — 배경이 있는 딱지라야 대비를 실제로 잴 수 있다.
+   그림 위 흰 글자(.on-room-bg)는 잴 수 없어 예외로 빼야 하는데, 예외는 최소한만 쓴다 */
+
+/* 지도는 **화면 끝까지** 나간다. .screen 의 좌우 패딩(16px)을 음수 여백으로 벗어난다 —
+   지도는 카드가 아니라 「창밖 풍경」이라 여백 안에 갇히면 작아 보인다 */
+.vil-map {
+  position: relative; margin: 0 -16px; overflow: hidden;
+  border-top: 2px solid rgba(120,90,110,0.14);
+  border-bottom: 2px solid rgba(120,90,110,0.14);
+}
+.vil-svg { display: block; width: 100%; height: auto; }
+/* 마을 설명 — 지도 **바로 위**의 띠. 지도에 겹쳐 놓지 않는다.
+   겹쳐 두면 좁은 화면·영어·2배 확대에서 첫 명판과 부딪힌다
+   (실제로 265px 거울 골짜기에서 검증기가 잡았다) */
+.vil-desc {
+  margin: 0 -16px 0; background: var(--card); color: var(--ink);
+  font-size: 0.78rem; font-weight: 800; line-height: 1.4;
+  padding: 9px 16px; border-radius: 0;
+}
+/* 명판 — **좌우 끝에 붙는 띠**다. 건물 자리의 x 가 왼쪽이면 왼쪽 끝, 오른쪽이면 오른쪽 끝.
+   가운데에 동동 띄우지 않는 이유: 좁은 화면에서 글자가 길어지면(영어·2배 확대)
+   띠가 지도 밖으로 밀려난다. 끝에 붙여 두면 늘어날 방향이 안쪽 하나뿐이라 안전하다 */
+.vil-pin {
+  position: absolute; transform: translateY(-50%);
+  display: flex; align-items: center; gap: 6px; width: 62%; max-width: 240px;
+  border: none; background: var(--card); color: var(--ink);
+  font-family: inherit; font-weight: 800; font-size: 0.82rem;
+  padding: 9px 14px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(70,50,60,0.3);
+}
+.vil-pin.l { left: 0;  border-radius: 0 13px 13px 0; }
+.vil-pin.r { right: 0; border-radius: 13px 0 0 13px; justify-content: flex-end; }
+.vil-pin:active { transform: translateY(-50%) scale(0.97); }
+.vil-pin-ic { flex: 0 0 auto; font-size: 1rem; }
+.vil-pin-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* '채집' 버튼 — 톡 누르면 한 번, 꾹 누르면 계속 채집한다 (startGatherHold).
    라벨이 언어에 따라 길어져도 카드를 밀어내지 않게 (UI_POLICY.md '가변 폭').
    touch-action 을 카드와 같게 두는 이유: 버튼 위에서 시작한 손가락으로도
@@ -837,6 +875,7 @@ body {
 .spot-card.locked,
 .cat-tab.locked,
 .wr-item.locked,
+.vil-map.locked,
 .room-tab.locked {
   filter: saturate(0.15);
   opacity: 0.8;
