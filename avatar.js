@@ -46,6 +46,7 @@
   const BODY = {
     neckY: 96, neckBottom: 116,
     shoulderY: 113,                 // 어깨 윗선
+    torsoTopY: 108,                 // 몸통의 맨 윗점 (목 바로 아래, x=100)
     torsoL: 64, torsoR: 136,        // 몸통 최대 폭 (어깨)
     // 허리 높이. 예전에는 196 이라 잘록한 지점이 골반 바로 위까지 내려와,
     // 상체가 길고 허리가 없어 보였다. 턱(105)~가랑이(228) 사이의 66% 지점으로 올려 잡는다.
@@ -78,6 +79,11 @@
   };
   // 옷이 몸을 확실히 덮도록 주는 여유 (한쪽당 px)
   const CLOTH_PAD = 3;
+  // 옷의 **어깨 윗선**. 몸통 맨 위(108)보다 위여야 한다 —
+  // 예전에는 옷이 110 에서 시작해 몸통보다 2px 아래였고, 그 사이로 살색 띠가
+  // 목 밑을 가로질렀다. 눈에는 '1px 어긋난 선' 으로만 보여서 오래 남아 있었다.
+  // (커버리지 검사도 y 112 부터 보고 있어서 이 띠를 통째로 지나쳤다)
+  const CLOTH_TOP_Y = BODY.torsoTopY - 1;
   // 맨팔에만 주는 옅은 테두리. 팔과 몸통이 같은 살색이라, 통통해져 몸통이 넓어지면
   // 팔이 몸통에 묻혀 실루엣이 사라졌다. 얇은 선 하나로 겹쳐도 팔이 읽힌다.
   // (소매를 입으면 옷 색이 대비를 만들어 주므로 옷에는 넣지 않는다)
@@ -320,12 +326,12 @@
           C${hR},${B.hipY + 2} ${hR},${B.waistY + 10} ${wR},${B.waistY} Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="torso">
-        <g${sx(kb, 100)}><path d="M100,108
-          C${B.torsoR - 20},108 ${B.torsoR},117 ${B.torsoR},133
+        <g${sx(kb, 100)}><path d="M100,${B.torsoTopY}
+          C${B.torsoR - 20},${B.torsoTopY} ${B.torsoR},117 ${B.torsoR},133
           C${B.torsoR},${cy1} ${wR + 3},${cy2} ${wR},${B.waistY}
           L${wL},${B.waistY}
           C${wL - 3},${cy2} ${B.torsoL},${cy1} ${B.torsoL},133
-          C${B.torsoL},117 ${B.torsoL + 20},108 100,108 Z" fill="${SKIN}"/></g>
+          C${B.torsoL},117 ${B.torsoL + 20},${B.torsoTopY} 100,${B.torsoTopY} Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="arm">
         ${armShape('L', SKIN, 0, BODY.armH, tune, { extra: ARM_EDGE })}
@@ -541,13 +547,13 @@
     return `
       ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      ${wrapX(`<path d="M100,110 C120,110 140,116 140,132
+      ${wrapX(`<path d="M100,${CLOTH_TOP_Y} C120,${CLOTH_TOP_Y} 140,116 140,132
         C140,${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY}
         C${wR},${WY + 10} ${wR - 1},${hem - 8} ${wR - 4},${hem}
         C${wR - 14},${hem + 5} ${wL + 14},${hem + 5} ${wL + 4},${hem}
         C${wL + 1},${hem - 8} ${wL},${WY + 10} ${wL},${WY}
         C${wL - 4},${WY - 18} 60,${WY - 34} 60,132
-        C60,116 80,110 100,110 Z" fill="${c}"/>
+        C60,116 80,${CLOTH_TOP_Y} 100,${CLOTH_TOP_Y} Z" fill="${c}"/>
       ${neckLine(it.neck, c, c2, 110)}
       ${it.button ? buttons(c2, 132, hem - 14) : ''}`, kb, 100)}`;
   }
@@ -625,8 +631,8 @@
       ${wrapX(`
       <!-- 몸통 → 밑단까지 퍼지는 치마 (어깨 폭은 몸통 기준 + 여유) -->
       <path d="M${L},${B.shoulderY + 11}
-        C${L},${B.shoulderY} ${L + 16},${B.shoulderY - 5} 100,${B.shoulderY - 5}
-        C${R - 16},${B.shoulderY - 5} ${R},${B.shoulderY} ${R},${B.shoulderY + 11}
+        C${L},${B.shoulderY} ${L + 16},${CLOTH_TOP_Y} 100,${CLOTH_TOP_Y}
+        C${R - 16},${CLOTH_TOP_Y} ${R},${B.shoulderY} ${R},${B.shoulderY + 11}
         C${R + 6},${B.waistY - 18} ${hemR - 5},${hemY - 62} ${hemR},${hemY + 5}
         C${R - 18},${hemY + 15} ${L + 18},${hemY + 15} ${hemL},${hemY + 5}
         C${hemL + 5},${hemY - 62} ${L - 6},${B.waistY - 18} ${L},${B.shoulderY + 11} Z" fill="${c}"/>
@@ -666,8 +672,8 @@
     return `
       ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      ${wrapX(`<path d="M100,110
-        C120,110 140,116 140,132
+      ${wrapX(`<path d="M100,${CLOTH_TOP_Y}
+        C120,${CLOTH_TOP_Y} 140,116 140,132
         C140,${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY + 2}
         C${hR},${WY + 8} ${hR},${B.hipY - 6} ${hR},${B.hipY}
         C${hR},${B.hipY + 24} ${100 + flare},${hemY - 40} ${100 + flare + 8},${hemY}
@@ -675,7 +681,7 @@
         C${100 - flare},${hemY - 40} ${hL},${B.hipY + 24} ${hL},${B.hipY}
         C${hL},${B.hipY - 6} ${hL},${WY + 8} ${wL},${WY + 2}
         C${wL - 4},${WY - 18} 60,${WY - 34} 60,132
-        C60,116 80,110 100,110 Z" fill="${c}"/>
+        C60,116 80,${CLOTH_TOP_Y} 100,${CLOTH_TOP_Y} Z" fill="${c}"/>
       <path d="M${wL},${WY} L${wR},${WY}" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>
       ${neckLine(it.neck, c, c2, 110)}`, kd, 100)}`;
   }
@@ -1155,7 +1161,16 @@
   // 마이 룸 배경 — 텔레포트해 온 연금술 공방이 단계에 따라 번듯해진다 (창문은 우측)
   // level : 1~5 (기본 1)
   // extra : 추가로 얹을 소품 id 목록 — 추후 '마이 룸 꾸미기' 가 쓸 자리
-  function roomScene(level, extra) {
+  // padBottom — **방을 아래로 더 그린다.** 스탯을 접었을 때 그 자리를 방 배경이
+  // 이어받게 하려는 것이다.
+  //
+  // CSS 로 상자만 늘이면 안 된다: 이 그림은 `preserveAspectRatio="…slice"` 라
+  // 늘어난 만큼 **좌우가 잘린다** (선반과 창문이 화면 밖으로 나간다).
+  // 그래서 viewBox 자체를 늘리고 **바닥을 진짜로 더 그린다** — 원근선도 기울기를
+  // 그대로 이어서 연장하므로 이음매가 생기지 않는다.
+  function roomScene(level, extra, padBottom) {
+    const pad = Math.max(0, Math.round(Number(padBottom) || 0));
+    const H = 320 + pad;
     const lv = Math.min(ROOM_MAX, Math.max(1, Math.round(Number(level) || ROOM_DEFAULT)));
     // SVG 의 id 는 **문서 전체에서 공유된다.** 방을 두 개 이상 한 화면에 그리면
     // 뒤에 온 쪽이 앞 쪽의 그라디언트를 그대로 써 버려 단계별 색이 전부 같아진다
@@ -1188,22 +1203,27 @@
       <line x1="${WIN.mx}" y1="${WIN.iy}" x2="${WIN.mx}" y2="${WIN.iy + WIN.ih}" stroke="${k.frame}" stroke-width="${WIN.mw}"/>
       <line x1="${WIN.ix}" y1="${WIN.my}" x2="${WIN.ix + WIN.iw}" y2="${WIN.my}" stroke="${k.frame}" stroke-width="${WIN.mw}"/>`;
 
+    // 원근선은 **기울기를 그대로 이어서** 늘인다 (y=241 → 320 의 기울기를 H 까지)
+    const ext = (x0, x1) => (x1 + (x1 - x0) * pad / 79).toFixed(1);
     const floor = `
-      <rect x="0" y="235" width="400" height="85" fill="url(#${ID('floorG')})"/>
+      <rect x="0" y="235" width="400" height="${85 + pad}" fill="url(#${ID('floorG')})"/>
       <rect x="0" y="235" width="400" height="6" fill="${k.floor[1]}"/>
       <g stroke="${k.floor[1]}" stroke-width="2" opacity="0.55">
-        <line x1="120" y1="241" x2="70" y2="320"/><line x1="200" y1="241" x2="200" y2="320"/><line x1="280" y1="241" x2="330" y2="320"/>
-        <line x1="40" y1="241" x2="-40" y2="320"/><line x1="360" y1="241" x2="440" y2="320"/>
+        <line x1="120" y1="241" x2="${ext(120, 70)}" y2="${H}"/><line x1="200" y1="241" x2="200" y2="${H}"/><line x1="280" y1="241" x2="${ext(280, 330)}" y2="${H}"/>
+        <line x1="40" y1="241" x2="${ext(40, -40)}" y2="${H}"/><line x1="360" y1="241" x2="${ext(360, 440)}" y2="${H}"/>
       </g>
       <line x1="0" y1="280" x2="400" y2="280" stroke="${k.floor[1]}" stroke-width="1.5" opacity="0.5"/>`;
 
-    const beam = `<path d="M${WIN.ix},${WIN.iy + WIN.ih} L${WIN.ix + WIN.iw},${WIN.iy + WIN.ih}
-      L${WIN.ix + WIN.iw + 40},320 L${WIN.ix - 40},320 Z" fill="url(#${ID('beamG')})"/>`;
+    // 창빛도 같은 기울기로 바닥 끝까지 (중간에서 끊기면 그 선이 그대로 보인다)
+    const bY = WIN.iy + WIN.ih;
+    const bW = 40 * (H - bY) / (320 - bY);
+    const beam = `<path d="M${WIN.ix},${bY} L${WIN.ix + WIN.iw},${bY}
+      L${(WIN.ix + WIN.iw + bW).toFixed(1)},${H} L${(WIN.ix - bW).toFixed(1)},${H} Z" fill="url(#${ID('beamG')})"/>`;
 
     const FIXED = { '@window': win, '@floor': floor, '@beam': beam };
     const body = ROOM_Z.map(id => FIXED[id] || (want.has(id) && ROOM_PROPS[id] ? ROOM_PROPS[id](k) : '')).join('');
 
-    return `<svg class="room-svg" viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    return `<svg class="room-svg" viewBox="0 0 400 ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
       <defs>
         <linearGradient id="${ID('wallG')}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="${k.wall[0]}"/><stop offset="1" stop-color="${k.wall[1]}"/>
@@ -1217,7 +1237,7 @@
         <linearGradient id="${ID('beamG')}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="rgba(255,240,190,${warm})"/><stop offset="1" stop-color="rgba(255,240,190,0)"/>
         </linearGradient>
-        <radialGradient id="${ID('vigG')}" cx="0.5" cy="0.42" r="0.78">
+        <radialGradient id="${ID('vigG')}" cx="0.5" cy="${(0.42 * 320 / H).toFixed(3)}" r="0.78">
           <stop offset="0.4" stop-color="rgba(0,0,0,0)"/><stop offset="1" stop-color="rgba(12,8,20,${(0.46 - lv * 0.05).toFixed(2)})"/>
         </radialGradient>
       </defs>
@@ -1225,7 +1245,7 @@
       <rect x="0" y="0" width="400" height="240" fill="url(#${ID('wallG')})"/>
       ${lv <= 3 ? stone : ''}
       ${body}
-      <rect x="0" y="0" width="400" height="320" fill="url(#${ID('vigG')})"/>
+      <rect x="0" y="0" width="400" height="${H}" fill="url(#${ID('vigG')})"/>
     </svg>`;
   }
 

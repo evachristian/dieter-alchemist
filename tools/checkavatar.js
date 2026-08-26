@@ -4,7 +4,10 @@
 // (눈으로는 잘 안 보인다 — 통통한 체형에서만 옆구리가 1~2px 나오는 식이라)
 //
 // 보는 구간 두 가지:
-//   몸통  x 72~128 · y 112~허리(184)  — 상의·원피스는 여기를 반드시 덮는다
+//   몸통  x 72~128 · y 108~허리(184)  — 상의·원피스는 여기를 반드시 덮는다
+//         위끝은 **몸통의 맨 윗점(BODY.torsoTopY=108)** 이다. 예전에는 112 에서 시작해
+//         목 밑을 가로지르는 살색 띠(옷의 어깨선이 몸통보다 2px 아래였다)를 통째로
+//         지나쳤다 — 사람 눈에는 '1px 어긋난 선' 으로만 보여 오래 남아 있었다
 //         (허리 아래는 하의가 맡는다. 상의 밑단은 골반 바로 위까지 내려와 치마 허리춤을 덮는다)
 //   팔    x 46~154 · y 112~소매 끝     — **소매가 덮기로 한 구간까지만** 본다.
 //         (민소매는 아예 건너뛰고, 캡 소매는 캡이 끝나는 곳까지만 본다 —
@@ -40,6 +43,7 @@ function launchOpts() {
   const res = await page.evaluate(async () => {
     const D = window.GameData, SKIN = [255, 220, 196];
     const STEPS = [0, 0.25, 0.5, 0.75, 1];      // 체형 5단계
+    const TORSO_TOP = 108;                       // BODY.torsoTopY (몸통 구간의 위 끝)
     const WAIST = 184;                           // BODY.waistY (몸통 구간의 아래 끝 기준)
     // **build() 가 몸을 통째로 늘린다** — 재는 창도 같은 변환을 지나야 한다.
     // (예전에 이걸 빼먹고 고정 좌표로 쟀더니, 통통한 체형에서 창이 턱·목에 걸려
@@ -88,7 +92,7 @@ function launchOpts() {
           [c.slot]: c.it.id,
         });
         const svg = window.Avatar.build(outfit, w, null);
-        const torso = await skinIn(svg, ...bodyBox(w, 72, 128, 112, WAIST));
+        const torso = await skinIn(svg, ...bodyBox(w, 72, 128, TORSO_TOP, WAIST));
         const sleeved = c.it.sleeve !== 'none';
         const arm = sleeved
           ? await skinIn(svg, ...bodyBox(w, 46, 154, 112, armBottom(c.it)))
