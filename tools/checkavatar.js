@@ -90,9 +90,10 @@ function launchOpts() {
     // 넥라인은 **일부러 판 자리**다 — 그만큼은 빼고 본다 (민소매의 팔 검사를 건너뛰는 것과 같다).
     // 파는 폭·깊이 표는 avatar.js 의 NECK_CUT 을 **그대로 읽는다** — 두 곳에 적어 두면
     // 어긋나고, 어긋나는 순간 검사가 헛돈다. 표보다 크게 파면 그 바깥에서 살이 잡힌다.
-    const NECK = window.Avatar.NECK_CUT, CLOTH_TOP = window.Avatar.CLOTH_TOP_Y;
+    const CLOTH_TOP = window.Avatar.CLOTH_TOP_Y;
     // neck 필드가 아예 없는 옷(공주 드레스)은 파지 않는다 — 빼 주면 그만큼 검사에 구멍이 생긴다
-    const cutOf = it => (it.neck && NECK[it.neck]) || { w: 0, d: 0 };
+    const cutOf = it => (it.neck ? window.Avatar.neckCutBox(it.neck) : { w: 0, d: 0, top: 0 });
+
 
     const bad = [];
     for (const c of cases) {
@@ -114,6 +115,60 @@ function launchOpts() {
         if (arm > 0) bad.push({ id: c.it.id, body: w, where: '어깨/팔', n: arm });
       }
     }
+    // ── 넥라인이 **몸통이 받쳐 주는 높이 아래**를 파는가 ──
+    //
+    // 몸통 윗선은 가운데(x=100)만 108 이고 바깥으로 갈수록 내려간다. 파낸 모서리를
+    // 그보다 위에 두면 옷도 몸도 없는 자리가 남아 목 옆에 배경이 비치는 홈이 생긴다.
+    // (넓게 파는 스퀘어일수록 심하다 — 실제로 라운드에서 3px 짜리 홈이 났다)
+    //
+    // **표가 아니라 그린 것을 잰다.** 표(neckCutBox)만 읽으면 표는 그대로인 채
+    // 그림만 바뀌었을 때 검사가 통째로 헛돈다 — 렌더 기반 검사로 한 번 겪었다.
+    // isPointInFill 은 path 자체의 좌표계에서 판정하므로 체형 변환과 무관하다.
+    const neckBad = [];
+    {
+      const host = document.createElement('div');
+      host.style.cssText = 'position:absolute;left:-9999px;top:0';
+      document.body.appendChild(host);
+      // 어떤 y 에서 그 path 가 시작되는지 (위에서 아래로 이분법)
+      const topAt = (el, x, lo, hi) => {
+        if (el.isPointInFill(new DOMPoint(x, lo))) return lo;
+        if (!el.isPointInFill(new DOMPoint(x, hi))) return null;
+        for (let i = 0; i < 22; i++) {
+          const m = (lo + hi) / 2;
+          if (el.isPointInFill(new DOMPoint(x, m))) hi = m; else lo = m;
+        }
+        return (lo + hi) / 2;
+      };
+      for (const c of cases) {
+        if (!c.it.neck) continue;                       // 안 파는 옷
+        const cut = window.Avatar.neckCutBox(c.it.neck);
+        if (!cut.w) continue;
+        const outfit = Object.assign({}, D.DEFAULT_OUTFIT, {
+          top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', [c.slot]: c.it.id,
+        });
+        host.innerHTML = window.Avatar.build(outfit, 0, null);
+        const cloth = host.querySelector('[data-part="cloth"]');
+        const torso = host.querySelector('[data-part="torso"] path');
+        if (!cloth || !torso) { neckBad.push({ id: c.it.id, msg: 'path 를 못 찾았다' }); continue; }
+        // 파낸 자리 안쪽을 훑는다. 모서리(±w)가 가장 아슬아슬하다
+        for (const t of [0.02, 0.15, 0.4, 0.85, 0.98]) {
+          for (const sgn of [-1, 1]) {
+            const x = 100 + sgn * cut.w * (1 - t) + sgn * 0.3;
+            const cy = topAt(cloth, x, 100, 150);
+            const ty = topAt(torso, x, 100, 150);
+            if (cy == null || ty == null) continue;
+            // 모서리에는 1px 여유를 준다 — 옷이 몸통 윗선에 딱 붙으면
+            // 바로 바깥에서 어깨선이 몸통 아래로 내려가 살이 비친다
+            if (cy < ty - 1.2) {
+              neckBad.push({ id: c.it.id, x: +x.toFixed(1),
+                msg: `옷 ${cy.toFixed(1)} < 몸통 ${ty.toFixed(1)} — ${(ty - cy).toFixed(1)}px 빈다` });
+            }
+          }
+        }
+      }
+      host.remove();
+    }
+
     // ── 상의 × 하의 조합 — 허리에 틈이 없는가
     const tops = (D.WARDROBE.top || []).filter(x => x.kind !== 'none');
     const bots = (D.WARDROBE.bottom || []).filter(x => x.kind !== 'none');
@@ -157,7 +212,7 @@ function launchOpts() {
       card = { type: blob.type, size: blob.size, w: bmp.width, h: bmp.height, colors: seen.size };
     } catch (e) { card = { error: String(e && e.message || e) }; }
 
-    return { cases: cases.length, steps: STEPS.length, bad,
+    return { cases: cases.length, steps: STEPS.length, bad, neckBad,
              pairs: tops.length * bots.length * STEPS.length, pairBad, card };
   });
 
@@ -261,12 +316,15 @@ function launchOpts() {
     : `과시 카드: ${c.w}×${c.h} PNG ${Math.round(c.size / 1024)}KB · 방 색 ${c.colors}가지`);
 
   const all = res.bad.concat(res.pairBad)
+    .concat((res.neckBad || []).map(b => ({ id: b.id, body: '-', n: '-',
+      where: `넥라인이 몸통 윗선 위를 판다 (x ${b.x}) — ${b.msg}` })))
     .concat(cardBad.map(m => ({ id: '과시 카드', body: '-', where: m, n: '-' })))
     .concat(dye.bad.map(m => ({ id: '염색', body: '-', where: m, n: '-' })))
     .concat(hair.bad.map(m => ({ id: '앞머리', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회 · 앞머리 ${hair.kinds}종 정수리`);
+  console.log(`넥라인: 파낸 자리를 몸통 윗선과 견줌 (그린 path 를 isPointInFill 로 직접 잰다)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
   console.log(`❌ ${all.length}건`);
   all.forEach(b => console.log(b.n === '-'

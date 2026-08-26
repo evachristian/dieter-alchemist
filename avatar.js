@@ -306,7 +306,54 @@
       </g>`;
   }
 
-  function torsoArms(tune) {
+  // ─── 목 ───────────────────────────────────────────────────────
+  //
+  // 턱 밑 그늘은 **아래로 갈수록 사라진다.** 예전에는 통째로 SKIN_SH 인 네모라
+  // 턱과 몸통(둘 다 SKIN) 사이에 어두운 띠가 딱 잘려 보였다 — 넥라인을 파고 나서
+  // 목이 드러나자 그 띠가 그대로 눈에 띄었다.
+  //
+  // 끝나는 높이를 **몸통 맨 윗선(108)** 에 맞추는 것이 핵심이다. 거기서 색이
+  // SKIN 과 같아지므로 몸통이 목을 덮는 자리에 경계가 아예 생기지 않는다.
+  // 시작(98)은 턱보다 위다 — 턱은 체형에 따라 101~106 사이를 오르내리는데(머리 배율),
+  // 어디에 있든 그 지점의 그러데이션 중간값에서 시작해 자연스럽게 옅어진다.
+  const NECK_SHADE_TOP = 98;
+
+  // 목은 아래에서 **어깨 쪽으로 벌어진다.** 곧은 네모로 두면 넥라인을 판 자리 옆에
+  // 옷도 몸도 없는 곳이 생겨 배경이 비쳤다 (몸통 돔은 가운데만 높아서, 목 옆
+  // x 109~113 은 y 110 이 되어야 비로소 몸통이 올라온다).
+  // 벌어지는 곳(y 104~)은 턱보다 아래라 얼굴 밑이 넓어 보이지도 않는다.
+  function neckShape(uid) {
+    // 벌어지기 시작하는 곳은 **몸통 윗선(108) 바로 위**다. 그보다 위에서 벌리면
+    // 안 판 옷(폴라)의 어깨선 위로 살이 1px 삐져나온다. 108 아래는 어차피 몸통도
+    // 같은 살색이라 어떤 모양이든 이음매가 안 보인다 — 그래서 아래에서만 크게 벌린다
+    return `<path d="M91,96 L109,96 L109,107
+        C112,108 120,110 126,116 L74,116
+        C80,110 88,108 91,107 Z" fill="url(#neckG_${uid})"/>`;
+  }
+
+  // 몸통 윗선(오른쪽 반)의 x 에서의 y.
+  // **넥라인은 이 선보다 위를 팔 수 없다** — 파면 옷도 몸도 없는 자리가 되어 배경이 비친다.
+  // x 는 t 에 대해 단조증가하므로 이분법으로 찾는다.
+  function torsoTopAtX(x) {
+    const R = BODY.torsoR, T = BODY.torsoTopY;
+    const P = [[100, T], [R - 20, T], [R, 117], [R, 133]];
+    const at = t => {
+      const u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+      return [a * P[0][0] + b * P[1][0] + c * P[2][0] + d * P[3][0],
+              a * P[0][1] + b * P[1][1] + c * P[2][1] + d * P[3][1]];
+    };
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (at(m)[0] < x) lo = m; else hi = m; }
+    return at((lo + hi) / 2)[1];
+  }
+  function neckDefs(uid) {
+    return `<linearGradient id="neckG_${uid}" gradientUnits="userSpaceOnUse"
+        x1="0" y1="${NECK_SHADE_TOP}" x2="0" y2="${BODY.torsoTopY}">
+        <stop offset="0" stop-color="${SKIN_SH}"/><stop offset="1" stop-color="${SKIN}"/>
+      </linearGradient>`;
+  }
+
+  function torsoArms(tune, uid) {
     const kb = tuneOf(tune, 'torso');   // 팔 배율은 armShape 이 알아서 따른다
     const kh = tuneOf(tune, 'hip');
     const B = BODY, wh = waistHalf(tune), hh = B.hipHalf;
@@ -318,7 +365,7 @@
     const cy1 = +(133 + (B.waistY - 133) * 0.46).toFixed(1);
     const cy2 = +(133 + (B.waistY - 133) * 0.68).toFixed(1);
     return `
-      <rect x="91" y="96" width="18" height="20" rx="7" fill="${SKIN_SH}"/>
+      ${neckShape(uid)}
       <g data-part="hip">
         <g${sx(kh, 100)}><path d="M${wL},${B.waistY}
           C${hL},${B.waistY + 10} ${hL},${B.hipY + 2} ${tL},${B.hipBottom}
@@ -526,6 +573,15 @@
   };
   function neckCut(kind) { return NECK_CUT[kind] || NECK_CUT.round; }
 
+  // 파낸 자리 — 반폭 · 깊이 · **모서리 높이(top)**. 검사기가 이 셋을 그대로 읽는다.
+  // top 을 여기서 같이 내주는 이유: 검사기가 몸통 윗선 계산을 따로 하면
+  // 두 벌이 되고, 어긋나는 순간 검사가 헛돈다.
+  function neckCutBox(kind) {
+    const cut = neckCut(kind);
+    if (!cut.w || !cut.d) return { w: 0, d: 0, top: 0 };
+    return { w: cut.w, d: cut.d, top: +(torsoTopAtX(100 + cut.w) - 1).toFixed(1) };
+  }
+
   // 몸판의 윗변 — 왼쪽 어깨 끝(60,132)에서 오른쪽 어깨 끝(140,132)까지.
   // `M` 부터 돌려주므로 몸판 path 의 맨 앞에 그대로 붙이면 된다.
   //
@@ -538,18 +594,22 @@
     if (!w || !d) return `M60,132 C60,116 80,${T} 100,${T} C120,${T} 140,116 140,132`;
 
     const EL = 100 - w, ER = 100 + w, B = T + d;
-    const shL = `M60,132 C60,116 ${EL - 14},${T} ${EL},${T}`;
-    const shR = `C${ER + 14},${T} 140,116 140,132`;
+    // 파낸 모서리는 **몸통 윗선 바로 위**에 둔다. 어깨끈처럼 평평하게(T) 두면
+    // 모서리 안쪽에 옷도 몸도 없는 자리가 남아 배경이 비친다 — 넓게 파는
+    // 스퀘어일수록 심하다 (몸통 윗선은 바깥으로 갈수록 내려간다)
+    const K = neckCutBox(kind).top;
+    const shL = `M60,132 C60,116 ${EL - 14},${K} ${EL},${K}`;
+    const shR = `C${ER + 14},${K} 140,116 140,132`;
     let mid;
     if (kind === 'v') {
-      mid = `L100,${B} L${ER},${T}`;
+      mid = `L100,${B} L${ER},${K}`;
     } else if (kind === 'square') {
-      mid = `L${EL},${B} L${ER},${B} L${ER},${T}`;
+      mid = `L${EL},${B} L${ER},${B} L${ER},${K}`;
     } else {
-      // 라운드 — 대칭 3차 곡선의 한가운데는 제어점의 3/4 만큼 내려온다.
-      // 그래서 제어점을 d 의 4/3 로 잡아야 가운데가 정확히 B 에 닿는다.
-      const cy = +(T + d * 4 / 3).toFixed(1);
-      mid = `C${EL + 3},${cy} ${ER - 3},${cy} ${ER},${T}`;
+      // 라운드 — 대칭 3차 곡선의 한가운데는 (끝점 + 제어점×3) / 4 에 온다.
+      // 가운데가 정확히 B 에 닿도록 제어점을 역산한다
+      const cy = +((4 * B - K) / 3).toFixed(1);
+      mid = `C${EL + 3},${cy} ${ER - 3},${cy} ${ER},${K}`;
     }
     return `${shL} ${mid} ${shR}`;
   }
@@ -588,7 +648,7 @@
     return `
       ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      ${wrapX(`<path d="${clothTopEdge(it.neck)}
+      ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck)}
         C140,${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY}
         C${wR},${WY + 10} ${wR - 1},${hem - 8} ${wR - 4},${hem}
         C${wR - 14},${hem + 5} ${wL + 14},${hem + 5} ${wL + 4},${hem}
@@ -712,7 +772,7 @@
     return `
       ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      ${wrapX(`<path d="${clothTopEdge(it.neck)}
+      ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck)}
         C140,${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY + 2}
         C${hR},${WY + 8} ${hR},${B.hipY - 6} ${hR},${B.hipY}
         C${hR},${B.hipY + 24} ${100 + flare},${hemY - 40} ${100 + flare + 8},${hemY}
@@ -872,7 +932,13 @@
   // ═══════════════════════════════════════════════════════════════
   // body: 체형 0(날씬) ~ 1(튜토리얼 인트로의 통통한 공주). 기본 0.
   // 몸통/팔다리와 '옷'을 같은 그룹으로 함께 늘려서 옷이 몸에서 어긋나지 않게 한다.
+  // SVG 의 id 는 **문서 전체에서 공유된다.** 아바타를 두 개 이상 한 화면에 그리면
+  // 뒤에 온 쪽이 앞 쪽의 그라디언트를 써 버린다 (roomScene 과 같은 이유). 그래서
+  // 부를 때마다 꼬리표를 붙인다.
+  let avatarUid = 0;
+
   function build(outfit, body, tune) {
+    const uid = 'a' + (++avatarUid);
     outfit = outfit || {};
     const w = Math.max(0, Math.min(1, Number(body) || 0));
 
@@ -926,7 +992,7 @@
     const layers = [
       H(hairBack(hairBackKind, hairColor)),
       B(legs(tune)),
-      B(torsoArms(tune)),
+      B(torsoArms(tune, uid)),
       // 상의 → 하의 순. **상의가 뒤, 하의가 앞이다** — 옷을 넣어 입은 모양이 된다.
       // (반대로 두면 상의 밑단이 치마 허리춤 위에 얹혀 빼 입은 것처럼 보인다)
       //
@@ -949,6 +1015,7 @@
     ];
 
     return `<svg class="avatar-svg" viewBox="0 0 200 348" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="내 아바타">
+      <defs>${neckDefs(uid)}</defs>
       <ellipse cx="100" cy="342" rx="${(52 * (1 + 0.18 * w)).toFixed(1)}" ry="8" fill="rgba(120,90,110,0.14)"/>
       ${layers.join('')}
     </svg>`;
@@ -1289,6 +1356,6 @@
 
   // NECK_CUT 은 커버리지 검사기(tools/checkavatar.js)도 읽는다 —
   // 파는 자리를 두 곳에 적어 두면 어긋나고, 어긋나는 순간 검사가 헛돈다
-  window.Avatar = { build, getItem, roomScene, hairIcon, TUNE_KEYS, NECK_CUT, CLOTH_TOP_Y,
+  window.Avatar = { build, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y,
     ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
 })();
