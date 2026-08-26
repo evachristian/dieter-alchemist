@@ -5,6 +5,9 @@
 //
 // 보는 구간 두 가지:
 //   몸통  x 72~128 · y 108~허리(184)  — 상의·원피스는 여기를 반드시 덮는다
+//         단 **넥라인이 판 자리는 뺀다** (avatar.js 의 NECK_CUT 을 그대로 읽는다).
+//         일부러 판 구멍을 '살이 나왔다' 고 잡으면 검사가 디자인을 막는다 —
+//         민소매의 팔 검사를 건너뛰는 것과 같은 이유다
 //         위끝은 **몸통의 맨 윗점(BODY.torsoTopY=108)** 이다. 예전에는 112 에서 시작해
 //         목 밑을 가로지르는 살색 띠(옷의 어깨선이 몸통보다 2px 아래였다)를 통째로
 //         지나쳤다 — 사람 눈에는 '1px 어긋난 선' 으로만 보여 오래 남아 있었다
@@ -84,6 +87,13 @@ function launchOpts() {
       return n;
     }
 
+    // 넥라인은 **일부러 판 자리**다 — 그만큼은 빼고 본다 (민소매의 팔 검사를 건너뛰는 것과 같다).
+    // 파는 폭·깊이 표는 avatar.js 의 NECK_CUT 을 **그대로 읽는다** — 두 곳에 적어 두면
+    // 어긋나고, 어긋나는 순간 검사가 헛돈다. 표보다 크게 파면 그 바깥에서 살이 잡힌다.
+    const NECK = window.Avatar.NECK_CUT, CLOTH_TOP = window.Avatar.CLOTH_TOP_Y;
+    // neck 필드가 아예 없는 옷(공주 드레스)은 파지 않는다 — 빼 주면 그만큼 검사에 구멍이 생긴다
+    const cutOf = it => (it.neck && NECK[it.neck]) || { w: 0, d: 0 };
+
     const bad = [];
     for (const c of cases) {
       for (const w of STEPS) {
@@ -92,7 +102,9 @@ function launchOpts() {
           [c.slot]: c.it.id,
         });
         const svg = window.Avatar.build(outfit, w, null);
-        const torso = await skinIn(svg, ...bodyBox(w, 72, 128, TORSO_TOP, WAIST));
+        const cut = cutOf(c.it);
+        const torso = await skinIn(svg, ...bodyBox(w, 72, 128, TORSO_TOP, WAIST))
+          - (cut.w ? await skinIn(svg, ...bodyBox(w, 100 - cut.w - 2, 100 + cut.w + 2, TORSO_TOP, CLOTH_TOP + cut.d + 2)) : 0);
         const sleeved = c.it.sleeve !== 'none';
         const arm = sleeved
           ? await skinIn(svg, ...bodyBox(w, 46, 154, 112, armBottom(c.it)))

@@ -503,23 +503,64 @@
     return v == null ? SLEEVE_H.short : v;
   }
 
-  // 넥라인 — **선으로만 그린다.** 옷을 파내지 않으므로 어떤 넥라인을 골라도
-  // 어깨·가슴 구간이 드러나지 않는다 (UI_POLICY 3 의 어깨 커버리지 검사).
+  // ─── 넥라인 — **옷을 진짜로 판다** ───────────────────────────
+  //
+  // 예전에는 선으로만 그렸다. 라운드든 브이든 실루엣은 똑같고 그 위에 곡선 하나를
+  // 얹을 뿐이라, 옷을 갈아입어도 목 부분이 하나도 안 변했다.
+  // 지금은 몸판의 **윗변 자체**가 넥라인 모양이다.
+  //
+  // 파도 되는 이유는 **어깨를 안 건드리기 때문**이다. 파는 것은 가운데(±w)뿐이고
+  // 어깨끈은 여전히 CLOTH_TOP_Y 에 있어서 몸통 옆·위를 그대로 덮는다.
+  // 커버리지 검사는 파인 자리를 빼고 본다 (checkavatar.js) — 민소매의 팔 검사를
+  // 건너뛰는 것과 같은 이유다. **파는 폭·깊이는 이 표가 유일한 원본이고,
+  // 검사기도 같은 표를 읽는다** — 여기보다 크게 파면 그 바깥에서 살이 잡힌다.
+  //   w = 파는 반폭 · d = CLOTH_TOP_Y 에서 내려오는 깊이
+  const NECK_CUT = {
+    round:  { w: 13, d: 13 },
+    v:      { w: 13, d: 26 },
+    // 스퀘어는 **넓고 얕다.** 목(x 91~109)보다 조금만 넓게 파면 목이 그대로 이어져
+    // 굴뚝처럼 보인다 — 가슴이 양옆으로 보여야 네모로 읽힌다
+    square: { w: 18, d: 15 },
+    polo:   { w: 0,  d: 0 },    // 목까지 올라온다 — 안 판다
+    none:   { w: 0,  d: 0 },
+  };
+  function neckCut(kind) { return NECK_CUT[kind] || NECK_CUT.round; }
+
+  // 몸판의 윗변 — 왼쪽 어깨 끝(60,132)에서 오른쪽 어깨 끝(140,132)까지.
+  // `M` 부터 돌려주므로 몸판 path 의 맨 앞에 그대로 붙이면 된다.
+  //
+  // 파는 옷은 어깨끈이 넥라인 가장자리(100±w)에서 **수평 접선**으로 끝난다.
+  // 그래야 어깨에서 목으로 넘어가는 곳이 꺾이지 않는다.
+  function clothTopEdge(kind) {
+    const T = CLOTH_TOP_Y, cut = neckCut(kind);
+    const w = cut.w, d = cut.d;
+    // 안 파는 옷 — 가운데가 가장 높은 예전의 돔 그대로
+    if (!w || !d) return `M60,132 C60,116 80,${T} 100,${T} C120,${T} 140,116 140,132`;
+
+    const EL = 100 - w, ER = 100 + w, B = T + d;
+    const shL = `M60,132 C60,116 ${EL - 14},${T} ${EL},${T}`;
+    const shR = `C${ER + 14},${T} 140,116 140,132`;
+    let mid;
+    if (kind === 'v') {
+      mid = `L100,${B} L${ER},${T}`;
+    } else if (kind === 'square') {
+      mid = `L${EL},${B} L${ER},${B} L${ER},${T}`;
+    } else {
+      // 라운드 — 대칭 3차 곡선의 한가운데는 제어점의 3/4 만큼 내려온다.
+      // 그래서 제어점을 d 의 4/3 로 잡아야 가운데가 정확히 B 에 닿는다.
+      const cy = +(T + d * 4 / 3).toFixed(1);
+      mid = `C${EL + 3},${cy} ${ER - 3},${cy} ${ER},${T}`;
+    }
+    return `${shL} ${mid} ${shR}`;
+  }
+
+  // 넥라인 위에 얹는 것 — 지금은 폴라(터틀넥)의 목 통 하나뿐이다.
+  // 나머지는 파낸 모서리 자체가 넥라인이라 덧그릴 선이 없다.
   //   ty = 옷의 목 부분 윗선 y
   function neckLine(kind, c, c2, ty) {
-    const S3 = ` stroke-width="3" fill="none" stroke-linecap="round"`;
-    if (kind === 'v') {
-      return `<path d="M89,${ty + 2} L100,${ty + 22} L111,${ty + 2}" stroke="${c2}"${S3} stroke-linejoin="round"/>`;
-    }
-    if (kind === 'square') {
-      return `<path d="M84,${ty + 1} L84,${ty + 18} L116,${ty + 18} L116,${ty + 1}" stroke="${c2}"${S3} stroke-linejoin="round"/>`;
-    }
-    if (kind === 'polo') {
-      // 폴라(터틀넥)는 목까지 올라온다 — 목을 덮는 통을 하나 더 얹는다
-      return `<rect x="87" y="${ty - 14}" width="26" height="20" rx="8" fill="${c}"/>
-        <path d="M89,${ty - 12} L111,${ty - 12}" stroke="${c2}" stroke-width="2.4" stroke-linecap="round"/>`;
-    }
-    return `<path d="M88,${ty + 4} Q100,${ty + 15} 112,${ty + 4}" stroke="${c2}"${S3}/>`;
+    if (kind !== 'polo') return '';
+    return `<rect x="87" y="${ty - 14}" width="26" height="20" rx="8" fill="${c}"/>
+      <path d="M89,${ty - 12} L111,${ty - 12}" stroke="${c2}" stroke-width="2.4" stroke-linecap="round"/>`;
   }
 
   // 앞섶 단추 — 중심선(x=100)에 세로로. 몸통 배율의 축도 100 이라 위치가 안 흔들린다
@@ -547,13 +588,12 @@
     return `
       ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      ${wrapX(`<path d="M100,${CLOTH_TOP_Y} C120,${CLOTH_TOP_Y} 140,116 140,132
+      ${wrapX(`<path d="${clothTopEdge(it.neck)}
         C140,${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY}
         C${wR},${WY + 10} ${wR - 1},${hem - 8} ${wR - 4},${hem}
         C${wR - 14},${hem + 5} ${wL + 14},${hem + 5} ${wL + 4},${hem}
         C${wL + 1},${hem - 8} ${wL},${WY + 10} ${wL},${WY}
-        C${wL - 4},${WY - 18} 60,${WY - 34} 60,132
-        C60,116 80,${CLOTH_TOP_Y} 100,${CLOTH_TOP_Y} Z" fill="${c}"/>
+        C${wL - 4},${WY - 18} 60,${WY - 34} 60,132 Z" fill="${c}"/>
       ${neckLine(it.neck, c, c2, 110)}
       ${it.button ? buttons(c2, 132, hem - 14) : ''}`, kb, 100)}`;
   }
@@ -672,16 +712,14 @@
     return `
       ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      ${wrapX(`<path d="M100,${CLOTH_TOP_Y}
-        C120,${CLOTH_TOP_Y} 140,116 140,132
+      ${wrapX(`<path d="${clothTopEdge(it.neck)}
         C140,${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY + 2}
         C${hR},${WY + 8} ${hR},${B.hipY - 6} ${hR},${B.hipY}
         C${hR},${B.hipY + 24} ${100 + flare},${hemY - 40} ${100 + flare + 8},${hemY}
         C${wR},${hemY + 14} ${wL},${hemY + 14} ${100 - flare - 8},${hemY}
         C${100 - flare},${hemY - 40} ${hL},${B.hipY + 24} ${hL},${B.hipY}
         C${hL},${B.hipY - 6} ${hL},${WY + 8} ${wL},${WY + 2}
-        C${wL - 4},${WY - 18} 60,${WY - 34} 60,132
-        C60,116 80,${CLOTH_TOP_Y} 100,${CLOTH_TOP_Y} Z" fill="${c}"/>
+        C${wL - 4},${WY - 18} 60,${WY - 34} 60,132 Z" fill="${c}"/>
       <path d="M${wL},${WY} L${wR},${WY}" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>
       ${neckLine(it.neck, c, c2, 110)}`, kd, 100)}`;
   }
@@ -1249,5 +1287,8 @@
     </svg>`;
   }
 
-  window.Avatar = { build, getItem, roomScene, hairIcon, TUNE_KEYS, ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
+  // NECK_CUT 은 커버리지 검사기(tools/checkavatar.js)도 읽는다 —
+  // 파는 자리를 두 곳에 적어 두면 어긋나고, 어긋나는 순간 검사가 헛돈다
+  window.Avatar = { build, getItem, roomScene, hairIcon, TUNE_KEYS, NECK_CUT, CLOTH_TOP_Y,
+    ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
 })();
