@@ -354,6 +354,47 @@ function launchOpts() {
     }
   }
 
+  // ─── 화면 설정이 이 기기에 남는가 (FULL, 맨 마지막) ───────────
+  //
+  // 스탯 접힘은 **세이브가 아니라 이 기기의 localStorage** 에 있다.
+  // 그래서 「새로고침해도 그대로인가」는 checkUI 로는 안 잡힌다 — 한 번 껐다 켜 봐야 안다.
+  // **양쪽 방향을 다 본다.** 접힘만 확인하면, 「값이 있으면 무조건 접힘」 같은 구현이
+  // 통과해 버린다 (펼침을 저장하는 쪽이 조용히 깨진다).
+  //
+  // 새로고침을 하면 페이지 상태가 초기화되므로 **모든 측정이 끝난 뒤**에 돈다.
+  if (process.env.FULL) {
+    const reload = async () => {
+      await page.goto(BASE, { waitUntil: 'load' });
+      await page.waitForTimeout(2200);
+      await page.evaluate(() => {
+        const s = document.getElementById('splash'); if (s) s.classList.add('done');
+        const i = document.getElementById('intro'); if (i) i.style.display = 'none';
+        if (typeof switchTab === 'function') switchTab('showcase');
+      });
+      await page.waitForTimeout(250);
+    };
+    const setLite = (want) => page.evaluate((w) => {
+      if (typeof toggleStats !== 'function') return null;
+      const box = document.getElementById('roomStats');
+      if (box.classList.contains('lite') !== w) toggleStats();
+      return box.classList.contains('lite');
+    }, want);
+    const isLite = () => page.evaluate(() =>
+      document.getElementById('roomStats').classList.contains('lite'));
+
+    for (const want of [true, false]) {
+      const name = want ? '접음' : '펼침';
+      const set = await setLite(want);
+      if (set === null) { results.push({ 화면: '스탯 설정 유지', 오류: 'toggleStats 가 없다' }); break; }
+      if (set !== want) { results.push({ 화면: `스탯 설정 유지/${name}`, 오류: '접힘이 안 바뀐다' }); continue; }
+      await reload();
+      const after = await isLite();
+      results.push(after === want
+        ? { 화면: `스탯 설정 유지/${name}`, pass: true, total: 0, blocked: false }
+        : { 화면: `스탯 설정 유지/${name}`, 오류: `새로고침하니 ${after ? '접힘' : '펼침'} 으로 돌아갔다` });
+    }
+  }
+
   console.log('\n=== checkUI 결과 ===');
   for (const r of results) console.log(JSON.stringify(r));
 
