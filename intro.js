@@ -44,12 +44,34 @@
       <line x1="0" y1="530" x2="400" y2="530" stroke="#8a6038" stroke-width="1.6" opacity="0.45"/>`;
   }
 
+  // ─── 공주 드레스의 넥라인 ──────────────────────────────────
+  //
+  // **네 군데(먹는 중 · 반신 · 전신 · 초상화)가 같은 것을 쓴다.** 얼굴·팔과 같은 이유다 —
+  // 나눠 두면 한쪽만 고쳐 조용히 어긋난다 (실제로 팔에서 한 번 겪었다).
+  //
+  // 아바타의 라운드 넥라인과 **같은 모양**이다 (avatar.js 의 NECK_CUT.round).
+  // 인트로와 마이 룸에 같은 공주가 이어서 나오므로 한쪽만 파여 있으면 눈에 띈다.
+  //
+  // 파낸 **가운데**만 돌려준다 — 어깨는 반신과 전신이 서로 달라서 각자 붙인다.
+  // 앞의 `C…` 가 왼쪽 모서리(137,207.5)까지 데려다 준다.
+  const P_NECK = { l: 138, r: 162, y: 207.5, cy: 229.5 };   // cy: 가운데가 224 에 닿도록 역산한 제어점
+  function princessNeckCut() {
+    return `${P_NECK.l},${P_NECK.y} C${P_NECK.l + 2},${P_NECK.cy} ${P_NECK.r - 2},${P_NECK.cy} ${P_NECK.r},${P_NECK.y}`;
+  }
+  // 파낸 자리를 받쳐 주는 목·가슴. **드레스보다 먼저** 그린다 —
+  // 안 그러면 파낸 자리로 배경이 그대로 비친다
+  function princessNeckSkin() {
+    return `<path d="M136,190 L164,190 L164,212
+      C168,220 172,226 175,240 L125,240 C128,226 132,220 136,212 Z" fill="${SKIN}"/>`;
+  }
+
   // 통통한 공주 — 앞모습으로 치킨 먹는 중
   function princessEating() {
     return `<g>
       <ellipse cx="150" cy="286" rx="52" ry="8" fill="rgba(80,60,40,0.18)"/>
       <!-- 드레스(넉넉한 실루엣) -->
-      <path d="M104,286 C100,236 112,206 150,206 C188,206 200,236 196,286 Z" fill="#7fa06a"/>
+      ${princessNeckSkin()}
+      <path d="M104,286 C100,236 112,206 ${princessNeckCut()} C188,206 200,236 196,286 Z" fill="#7fa06a"/>
       <path d="M112,262 L188,262" stroke="#6a8a58" stroke-width="4"/>
       <!-- 팔: 오른팔은 치킨을 들고 입으로, 왼팔은 접시 옆으로 -->
       <path d="M108,228 C100,216 106,204 118,202" stroke="#7fa06a" stroke-width="16" fill="none" stroke-linecap="round"/>
@@ -161,7 +183,8 @@
     const eyes = f.eyes, mouth = f.mouth, extra = f.extra, over = f.over;
     return `<g>
       <ellipse cx="150" cy="286" rx="52" ry="8" fill="rgba(80,60,40,0.18)"/>
-      <path d="M104,286 C100,236 112,206 150,206 C188,206 200,236 196,286 Z" fill="#7fa06a"/>
+      ${princessNeckSkin()}
+      <path d="M104,286 C100,236 112,206 ${princessNeckCut()} C188,206 200,236 196,286 Z" fill="#7fa06a"/>
       <path d="M112,262 L188,262" stroke="#6a8a58" stroke-width="4"/>
       ${princessArms(224, 268, 270)}
       ${princessHead(eyes, mouth, extra)}
@@ -214,8 +237,9 @@
       <ellipse cx="164" cy="${FOOT}" rx="13" ry="5.5" fill="#8a5a3c"/>
       <!-- 드레스 — 어깨에서 바닥까지 퍼지는 종 모양.
            밑단을 **곡선**으로 둔다. 일자로 자르면 잘린 그림처럼 보인다 -->
+      ${princessNeckSkin()}
       <path d="M88,${HEM}
-        C86,${HEM - 52} 110,206 150,206
+        C86,${HEM - 52} 110,206 ${princessNeckCut()}
         C190,206 214,${HEM - 52} 212,${HEM}
         C186,${HEM + 6} 114,${HEM + 6} 88,${HEM} Z" fill="#7fa06a"/>
       <!-- 허리 띠 · 밑단 선 -->
@@ -799,7 +823,8 @@
       draw: mood => {
         const f = princessFace(mood);
         return `
-          <path d="M104,300 C100,236 112,206 150,206 C188,206 200,236 196,300 Z" fill="#7fa06a"/>
+          ${princessNeckSkin()}
+          <path d="M104,300 C100,236 112,206 ${princessNeckCut()} C188,206 200,236 196,300 Z" fill="#7fa06a"/>
           <path d="M112,262 L188,262" stroke="#6a8a58" stroke-width="4"/>
           ${princessHead(f.eyes, f.mouth, f.extra)}`;
       },

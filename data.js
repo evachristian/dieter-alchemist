@@ -1171,7 +1171,7 @@ const WARDROBE = {
   //   puff: true 면 어깨에 볼륨(퍼프 소매)이 붙는다
   dress: [
     { id: 'dress_none',     slot: 'dress', kind: 'none',  name: '없음' },
-    { id: 'dress_princess', slot: 'dress', kind: 'princess', name: '공주 드레스', color: '#7fa06a', starter: true },
+    { id: 'dress_princess', slot: 'dress', kind: 'princess', name: '공주 드레스', color: '#7fa06a', neck: 'round', starter: true },
     { id: 'dress_onepiece', slot: 'dress', kind: 'aline', name: '원피스', color: '#ffc2e2', hemY: 270, flare: 46, neck: 'round', sleeve: 'short' },
     { id: 'dress_gown',     slot: 'dress', kind: 'gown',  name: '드레스', color: '#b8d4ff', hemY: 320, flare: 40, neck: 'round', sleeve: 'short' },
     { id: 'dress_short', slot: 'dress', kind: 'aline', name: '숏 원피스',  color: '#ffd0e0', hemY: 262, flare: 30, neck: 'round',  sleeve: 'short' },

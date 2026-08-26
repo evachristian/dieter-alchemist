@@ -587,31 +587,31 @@
   //
   // 파는 옷은 어깨끈이 넥라인 가장자리(100±w)에서 **수평 접선**으로 끝난다.
   // 그래야 어깨에서 목으로 넘어가는 곳이 꺾이지 않는다.
-  function clothTopEdge(kind) {
+  // 파낸 **가운데 부분만.** 왼쪽 모서리(EL,K)에서 시작해 오른쪽 모서리(ER,K)로 간다.
+  // 어깨는 옷마다 달라서(공주 드레스는 좁고 높다) 부르는 쪽이 각자 붙인다.
+  function neckMid(kind) {
     const T = CLOTH_TOP_Y, cut = neckCut(kind);
-    const w = cut.w, d = cut.d;
-    // 안 파는 옷 — 가운데가 가장 높은 예전의 돔 그대로
-    if (!w || !d) return `M60,132 C60,116 80,${T} 100,${T} C120,${T} 140,116 140,132`;
-
-    const EL = 100 - w, ER = 100 + w, B = T + d;
+    const w = cut.w, B = T + cut.d;
+    const EL = 100 - w, ER = 100 + w;
     // 파낸 모서리는 **몸통 윗선 바로 위**에 둔다. 어깨끈처럼 평평하게(T) 두면
     // 모서리 안쪽에 옷도 몸도 없는 자리가 남아 배경이 비친다 — 넓게 파는
     // 스퀘어일수록 심하다 (몸통 윗선은 바깥으로 갈수록 내려간다)
     const K = neckCutBox(kind).top;
-    const shL = `M60,132 C60,116 ${EL - 14},${K} ${EL},${K}`;
-    const shR = `C${ER + 14},${K} 140,116 140,132`;
-    let mid;
-    if (kind === 'v') {
-      mid = `L100,${B} L${ER},${K}`;
-    } else if (kind === 'square') {
-      mid = `L${EL},${B} L${ER},${B} L${ER},${K}`;
-    } else {
-      // 라운드 — 대칭 3차 곡선의 한가운데는 (끝점 + 제어점×3) / 4 에 온다.
-      // 가운데가 정확히 B 에 닿도록 제어점을 역산한다
-      const cy = +((4 * B - K) / 3).toFixed(1);
-      mid = `C${EL + 3},${cy} ${ER - 3},${cy} ${ER},${K}`;
-    }
-    return `${shL} ${mid} ${shR}`;
+    if (kind === 'v') return { K, EL, ER, d: `L100,${B} L${ER},${K}` };
+    if (kind === 'square') return { K, EL, ER, d: `L${EL},${B} L${ER},${B} L${ER},${K}` };
+    // 라운드 — 대칭 3차 곡선의 한가운데는 (끝점 + 제어점×3) / 4 에 온다.
+    // 가운데가 정확히 B 에 닿도록 제어점을 역산한다
+    const cy = +((4 * B - K) / 3).toFixed(1);
+    return { K, EL, ER, d: `C${EL + 3},${cy} ${ER - 3},${cy} ${ER},${K}` };
+  }
+
+  function clothTopEdge(kind) {
+    const T = CLOTH_TOP_Y, cut = neckCut(kind);
+    // 안 파는 옷 — 가운데가 가장 높은 예전의 돔 그대로
+    if (!cut.w || !cut.d) return `M60,132 C60,116 80,${T} 100,${T} C120,${T} 140,116 140,132`;
+
+    const m = neckMid(kind);
+    return `M60,132 C60,116 ${m.EL - 14},${m.K} ${m.EL},${m.K} ${m.d} C${m.ER + 14},${m.K} 140,116 140,132`;
   }
 
   // 넥라인 위에 얹는 것 — 지금은 폴라(터틀넥)의 목 통 하나뿐이다.
@@ -720,19 +720,27 @@
   }
 
   // 몸통을 덮고 hemY 까지 퍼지는 드레스 (+ 팔 소매)
-  function sleevedDress(c, c2, hemY, longSleeve, tune) {
+  // 어깨가 좁고 높은 드레스(공주 드레스). 넥라인 가운데는 다른 옷과 **같은 것**을 쓰고,
+  // 어깨만 자기 것을 붙인다 — neckMid 참고
+  function sleevedDress(c, c2, hemY, longSleeve, tune, neck) {
     const B = BODY, pad = CLOTH_PAD;
     const L = B.torsoL - pad, R = B.torsoR + pad;         // 어깨는 몸통보다 넓게
     const flare = 21;                                     // 밑단이 퍼지는 정도
     const hemL = L - flare, hemR = R + flare;
     // 몸통부터 다리까지 덮으므로 그중 가장 큰 배율을 따른다
     const kd = tuneMax(tune, ['torso', 'thigh', 'calf']);
+    const cut = neck && neckCut(neck).w ? neckMid(neck) : null;
+    const top = cut
+      ? `C${L},${B.shoulderY} ${cut.EL - 14},${cut.K} ${cut.EL},${cut.K}
+         ${cut.d}
+         C${cut.ER + 14},${cut.K} ${R},${B.shoulderY} ${R},${B.shoulderY + 11}`
+      : `C${L},${B.shoulderY} ${L + 16},${CLOTH_TOP_Y} 100,${CLOTH_TOP_Y}
+         C${R - 16},${CLOTH_TOP_Y} ${R},${B.shoulderY} ${R},${B.shoulderY + 11}`;
     return `<g data-part="dress">
       ${wrapX(`
       <!-- 몸통 → 밑단까지 퍼지는 치마 (어깨 폭은 몸통 기준 + 여유) -->
-      <path d="M${L},${B.shoulderY + 11}
-        C${L},${B.shoulderY} ${L + 16},${CLOTH_TOP_Y} 100,${CLOTH_TOP_Y}
-        C${R - 16},${CLOTH_TOP_Y} ${R},${B.shoulderY} ${R},${B.shoulderY + 11}
+      <path data-part="cloth" d="M${L},${B.shoulderY + 11}
+        ${top}
         C${R + 6},${B.waistY - 18} ${hemR - 5},${hemY - 62} ${hemR},${hemY + 5}
         C${R - 18},${hemY + 15} ${L + 18},${hemY + 15} ${hemL},${hemY + 5}
         C${hemL + 5},${hemY - 62} ${L - 6},${B.waistY - 18} ${L},${B.shoulderY + 11} Z" fill="${c}"/>
@@ -741,9 +749,9 @@
       <!-- 밑단 -->
       <path d="M${hemL + 3},${hemY - 8} C${L + 12},${hemY + 2} ${R - 12},${hemY + 2} ${hemR - 3},${hemY - 8}"
             stroke="${c2}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-      <!-- 목선 -->
+      ${cut ? '' : `<!-- 목선 — 안 파는 경우에만. 파냈으면 그 모서리가 곧 넥라인이다 -->
       <path d="M88,${B.shoulderY} Q100,${B.shoulderY + 9} 112,${B.shoulderY}"
-            stroke="${c2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`, kd, 100)}
+            stroke="${c2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`}`, kd, 100)}
       ${sleeves(c, longSleeve ? 0.92 : 0.42, tune)}
     </g>`;
   }
@@ -756,7 +764,7 @@
     // 튜토리얼 인트로의 공주 드레스 — 어깨에서 발목까지 내려오는 종 모양 + 소매
     // (인트로 princessFront 의 실루엣을 아바타 좌표계로 옮긴 것)
     if (it.kind === 'princess') {
-      return sleevedDress(c, c2, BODY.ankleY, true, tune);
+      return sleevedDress(c, c2, BODY.ankleY, true, tune, it.neck);
     }
 
     // 기장·퍼짐·넥라인·소매는 전부 아이템 필드다 (없으면 예전 값 그대로)

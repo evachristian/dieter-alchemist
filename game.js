@@ -1922,7 +1922,7 @@ function outfitWithColors() {
 // 아래로 늘이는 양 (px). 「스탯 자세히 보기」 **글자 아래까지** 덮어야 해서
 // 스탯 덩어리 높이(접었을 때)보다 조금 더 준다. 다만 인벤토리 카드는 침범하면 안 된다 —
 // 둘 다 checkui 의 「방 배경 늘이기」가 잰다
-const ROOM_BLEED = 84;
+const ROOM_BLEED = 78;
 const SCENE_INSET = { x: 16, top: 14, bottom: 8 };     // .room-scene 이 .char-stage 밖으로 나간 만큼
 const STAGE_H = 320;                                   // .char-aura 의 높이
 // ↑ 셋 다 style.css 의 값과 짝이다. 한쪽만 고치면 이음매가 어긋난다.
