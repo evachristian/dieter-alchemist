@@ -345,6 +345,52 @@ function launchOpts() {
     return { bad, n: D.SPEAKERS.length };
   });
 
+  // ─── 웅크린 뒷모습 — 무릎이 입은 옷을 따라가는가 ─────────────
+  //
+  // 「혼자 먹은 밤」 컷씬의 무릎은 **늘 살색**이었다. 그래서 발목까지 오는 공주 드레스를
+  // 입고도 무릎만 맨살 덩어리가 되어 치마 옆으로 삐져나왔다 — 서 있는 아바타의
+  // 커버리지 검사는 `build()` 만 보므로 이 그림은 한 번도 검사받은 적이 없었다.
+  //
+  // 규칙: 무릎(서 있을 때 y≈285)보다 아래로 내려오는 밑단이면 무릎은 **옷 색**,
+  // 그보다 짧거나 안 입었으면 **살색**이다. 표가 아니라 **그린 fill 을** 읽는다.
+  const crouch = await page.evaluate(() => {
+    const D = window.GameData, bad = [];
+    const KNEE_Y = 285;
+    const kneeFill = (outfit) => {
+      const host = document.createElement('div');
+      host.innerHTML = Avatar.crouchBack(outfit, 0.4, '🍰');
+      const el = host.querySelector('[data-part="knee"]');
+      const rect = host.querySelector('rect[clip-path]');       // 치마로 갈아 칠한 아랫도리
+      return { knee: el && el.getAttribute('fill'), skirt: rect && rect.getAttribute('fill') };
+    };
+    const SKIN = kneeFill({ dress: 'dress_none', bottom: 'bottom_none' }).knee;   // 아무것도 안 입은 색
+    let n = 0;
+    const check = (label, outfit, wear) => {
+      n++;
+      const { knee, skirt } = kneeFill(Object.assign({ hair: 'hair_long', colors: {} }, outfit));
+      const hem = wear ? (Number(wear.hemY) || 999) : null;
+      const want = (hem !== null && hem >= KNEE_Y) ? (wear.color || '').toLowerCase() : SKIN.toLowerCase();
+      if ((knee || '').toLowerCase() !== want) {
+        bad.push(`${label}: 무릎이 ${knee} — ${want} 여야 한다 (밑단 ${hem === null ? '없음' : hem})`);
+      }
+      // 상의와 치마를 따로 입었으면 아랫도리도 치마 색이어야 한다
+      if (outfit.bottom && hem !== null && hem >= KNEE_Y) {
+        if (!skirt) bad.push(`${label}: 아랫도리가 상의 색 그대로다 — 치마 색으로 갈아 칠해야 한다`);
+        else if (skirt.toLowerCase() !== want) bad.push(`${label}: 아랫도리가 ${skirt} — ${want} 여야 한다`);
+      }
+    };
+    (D.WARDROBE.dress || []).forEach(dr => {
+      if (dr.kind === 'none') return;
+      check(`드레스 ${dr.id}`, { dress: dr.id }, dr);
+    });
+    (D.WARDROBE.bottom || []).forEach(bt => {
+      if (bt.kind === 'none') return;
+      check(`상의+${bt.id}`, { top: 'top_tee', bottom: bt.id }, bt);
+    });
+    check('아무것도 안 입음', {}, null);
+    return { bad, n };
+  });
+
   // ─── 염색이 실제로 아바타에 입혀지는가 ───────────────────────
   // **조용히 깨지는 자리다.** 칠했다는 토스트는 뜨는데 아바타는 원래 색 그대로였던 적이 있다
   // (영원 염색약이 만료 시각을 지우는데 slotColor 가 그것만 봐서, 모든 칸에서 안 먹었다).
@@ -416,13 +462,15 @@ function launchOpts() {
     .concat(cardBad.map(m => ({ id: '과시 카드', body: '-', where: m, n: '-' })))
     .concat(dye.bad.map(m => ({ id: '염색', body: '-', where: m, n: '-' })))
     .concat(hair.bad.map(m => ({ id: '앞머리', body: '-', where: m, n: '-' })))
-    .concat(face.bad.map(m => ({ id: '초상화', body: '-', where: m, n: '-' })));
+    .concat(face.bad.map(m => ({ id: '초상화', body: '-', where: m, n: '-' })))
+    .concat(crouch.bad.map(m => ({ id: '웅크린 뒷모습', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
     + ` · 다른 옷으로 갈아입어 확인 ${dye.others}회 · 앞머리 ${hair.kinds}종 정수리`);
   console.log(`넥라인: 파낸 자리를 몸통 윗선과 견줌 (그린 path 를 isPointInFill 로 직접 잰다)`);
   console.log(`초상화: 인물 ${face.n}명 — 머리와 얼굴 사이의 틈 · 헤어라인 높이(이마 6~18px)`);
+  console.log(`웅크린 뒷모습: 옷 ${crouch.n}가지 — 무릎이 입은 옷을 따라가는가`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
   console.log(`❌ ${all.length}건`);
   all.forEach(b => console.log(b.n === '-'

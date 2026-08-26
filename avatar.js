@@ -940,6 +940,12 @@
   // ═══════════════════════════════════════════════════════════════
   // body: 체형 0(날씬) ~ 1(튜토리얼 인트로의 통통한 공주). 기본 0.
   // 몸통/팔다리와 '옷'을 같은 그룹으로 함께 늘려서 옷이 몸에서 어긋나지 않게 한다.
+  // SVG 의 id 는 **문서 전체에서 공유된다.** 아바타를 두 개 이상 한 화면에 그리면
+  // 뒤에 온 쪽이 앞 쪽의 그라디언트를 써 버린다 (roomScene 과 같은 이유). 그래서
+  // 부를 때마다 꼬리표를 붙인다. build 와 crouchBack 이 같이 쓴다 —
+  // **두 함수보다 위에 있어야 한다** (let 은 끌어올려지지 않는다)
+  let avatarUid = 0;
+
   // ─── 웅크려 먹는 뒷모습 — 「혼자 먹은 밤」 컷씬 ─────────────
   //
   // **지금 그 캐릭터의 뒷모습이다.** 머리 모양·머리색·옷 색·체형을 다 따라간다 —
@@ -960,6 +966,19 @@
     const hairItem = it('hair');
     const hairC = col.hair || hairItem.color || HAIR_DEF;
     const backKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
+    // 무릎 색 — **다리를 덮는 옷이면 옷 색이다.** 예전에는 늘 살색이라, 발목까지 오는
+    // 공주 드레스를 입고도 무릎만 맨살 덩어리로 옆에 삐져나와 있었다.
+    // 서 있을 때 무릎은 y≈285 근처다 (엉덩이 아래 228 ~ 발목 332 의 가운데).
+    // 그보다 아래로 내려오는 밑단이면 무릎을 덮는다. `hemY` 가 없는 것(공주 드레스)은
+    // 바닥까지 오는 옷이라 덮는 쪽으로 친다.
+    const KNEE_Y = 285;
+    const legSlot = !isNone(dress) ? 'dress' : 'bottom';
+    const legWear = legSlot === 'dress' ? dress : it('bottom');
+    const legHem = isNone(legWear) ? null : (Number(legWear.hemY) || 999);
+    const legC = isNone(legWear) ? null : (col[legSlot] || legWear.color);
+    const kneeCovered = legHem !== null && legHem >= KNEE_Y && !!legC;
+    const kneeC = kneeCovered ? legC : SKIN;
+    const kneeSh = shade(kneeC, kneeCovered ? 16 : 10);
     // 신발 — **모양까지 따라간다.** 색만 바꾸면 유리구두를 신고도 맨발과 같은 모양이라,
     // 「신발이 안 그려진다」로 읽힌다. 뒤에서 보이는 것은 **뒤꿈치**이므로
     // 목(rise)과 마감(finish) 두 축을 그대로 쓴다 (renderShoes 와 같은 필드)
@@ -988,9 +1007,19 @@
     // 통통할수록 등이 넓어진다. 가로만 늘린다 — 앉은 키는 그대로다
     const k = 1 + 0.22 * w;
     const kS = k.toFixed(3);
+    // 웅크린 등의 실루엣. 색을 두 가지로 나눠 칠하려면 같은 모양을 clip 으로도 써야 해서
+    // 한 곳에만 적어 둔다 — 두 벌로 두면 한쪽만 고쳐 놓고 못 알아챈다
+    const BACK_D = 'M70,116 C60,144 54,176 54,200 C72,214 128,214 146,200'
+      + ' C146,176 140,144 130,116 C118,106 82,106 70,116 Z';
+    const SKIRT_Y = 166;                       // 허리 — 여기부터 아래가 치마다
+    const twoTone = legSlot === 'bottom' && kneeCovered && legC !== cloth;
+    // SVG 의 id 는 문서 전체에서 공유된다 — 옷장 미리보기처럼 여럿을 한 화면에 그리면
+    // 뒤에 온 것이 앞의 clip 을 덮어쓴다 (roomScene·build 와 같은 이유)
+    const uid = 'c' + (++avatarUid);
 
     return `<svg class="cb-svg" viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg"
       role="img" aria-label="">
+      ${twoTone ? `<defs><clipPath id="cbb_${uid}"><path d="${BACK_D}"/></clipPath></defs>` : ''}
       <!-- 그림자도 같이 눌린다. 몸만 움직이면 바닥에서 뜬 것처럼 보인다 -->
       <ellipse class="cb-shadow" cx="100" cy="226"
         rx="${(66 * (1 + 0.15 * w)).toFixed(1)}" ry="10" fill="rgba(20,10,25,0.28)"/>
@@ -1003,16 +1032,22 @@
           <!-- 발 — 등 뒤에서는 발끝이 아니라 **뒤꿈치**가 보인다 -->
           ${heel(76)}${heel(124)}
 
-          <!-- 무릎 — 쭈그리면 좌우로 벌어져 등 옆으로 삐져나온다 -->
-          <ellipse cx="58" cy="190" rx="16" ry="19" fill="${SKIN}"/>
-          <ellipse cx="142" cy="190" rx="16" ry="19" fill="${SKIN}"/>
+          <!-- 무릎 — 쭈그리면 좌우로 벌어져 등 옆으로 삐져나온다.
+               **살짝만 내민다.** 예전에는 엉덩이 높이에서 발보다 넓게 튀어나와,
+               다리라기보다 옆에 놓인 살색 덩어리로 보였다.
+               색은 입은 옷을 따라간다 — 긴 치마 아래로 맨무릎이 나오면 안 된다 -->
+          <ellipse data-part="knee" cx="60" cy="193" rx="15" ry="16" fill="${kneeC}"
+            stroke="${kneeSh}" stroke-width="1.6"/>
+          <ellipse data-part="knee" cx="140" cy="193" rx="15" ry="16" fill="${kneeC}"
+            stroke="${kneeSh}" stroke-width="1.6"/>
 
           <!-- 등 — 어깨에서 엉덩이로 퍼지는 웅크린 덩어리 -->
-          <path d="M70,116
-            C60,144 54,176 54,200
-            C72,214 128,214 146,200
-            C146,176 140,144 130,116
-            C118,106 82,106 70,116 Z" fill="${cloth}"/>
+          <path d="${BACK_D}" fill="${cloth}"/>
+          <!-- 상의와 치마를 따로 입었으면 **아랫도리는 치마 색**이다.
+               한 색으로 칠하면 몸통은 상의 색인데 무릎만 치마 색이 되어,
+               민트 치마에 분홍 몸통 + 민트 무릎이라는 이상한 그림이 나온다.
+               실루엣을 clip 으로 잘라 쓰므로 옷 모양을 다시 그릴 필요가 없다 -->
+          ${twoTone ? `<rect clip-path="url(#cbb_${uid})" x="40" y="${SKIRT_Y}" width="120" height="80" fill="${legC}"/>` : ''}
           <!-- 등 한가운데 접힌 자국 하나. 없으면 그냥 색 덩어리로 보인다 -->
           <path d="M100,126 C97,152 97,178 100,198" stroke="${clothSh}" stroke-width="2.4"
             fill="none" stroke-linecap="round" opacity="0.7"/>
@@ -1081,11 +1116,6 @@
       <circle class="cb-crumb cb-crumb3" cx="150" cy="224" r="2" fill="rgba(90,60,40,0.5)"/>
     </svg>`;
   }
-
-  // SVG 의 id 는 **문서 전체에서 공유된다.** 아바타를 두 개 이상 한 화면에 그리면
-  // 뒤에 온 쪽이 앞 쪽의 그라디언트를 써 버린다 (roomScene 과 같은 이유). 그래서
-  // 부를 때마다 꼬리표를 붙인다.
-  let avatarUid = 0;
 
   function build(outfit, body, tune) {
     const uid = 'a' + (++avatarUid);
