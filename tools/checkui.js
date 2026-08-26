@@ -96,6 +96,8 @@ function launchOpts() {
       // 운동 — 근성을 **중간쯤**으로 잡아 잠긴 종목과 열린 종목이 같이 나오게 한다.
       // 음식도 몇 개 넣는다: 없으면 음식 칸이 아예 안 그려져 검사망에 구멍이 남는다
       S.aura = Object.assign({}, S.aura, { grit: 200 });
+      // 「흡입」 뱃지는 안 본 밤이 있어야 뜬다. 없으면 hidden 이라 검사에서 빠진다
+      S.binges = [{ food: 'food_cake', happy: 20, grit: 8, fit: 0.8 }];
       D.FOODS.slice(0, 3).forEach((f, i) => { S.foods[f.id] = i + 1; });
       S.stats.charm = Math.max(S.stats.charm || 0, D.LEAGUE.openAt + 40);
       S.league = 26;
@@ -369,6 +371,22 @@ function launchOpts() {
         else { await page.waitForTimeout(250); await run(`${t}/운동`); }
         await page.evaluate(() => closeConfirm());
         await page.waitForTimeout(150);
+
+        // 「혼자 먹은 밤」 컷씬 — **평소에는 display:none 이라 검사에서 통째로 빠진다.**
+        // 어두운 바탕에 흰 글자를 얹는 유일한 화면이라 반드시 재야 한다
+        const bsBad = await page.evaluate(() => {
+          if (typeof playBinge !== 'function') return 'playBinge 가 없다';
+          S.binges = [{ food: 'food_cake', happy: 20, grit: 8, fit: 0.8 },
+                      { food: 'food_meat', happy: 20, grit: 8, fit: 0.8 }];
+          render();                      // 뱃지도 같이 재려면 먼저 그려야 한다
+          playBinge();
+          return document.getElementById('bingeScene').classList.contains('show')
+            ? null : '컷씬이 안 떴다';
+        });
+        if (bsBad) results.push({ 화면: `${t}/혼자먹은밤`, 오류: bsBad });
+        else { await page.waitForTimeout(250); await run(`${t}/혼자먹은밤`); }
+        await page.evaluate(() => { closeBingeScene(); S.binges = []; render(); });
+        await page.waitForTimeout(200);
         continue;
       }
       await run(t);

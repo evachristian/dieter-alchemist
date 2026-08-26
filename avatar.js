@@ -940,6 +940,148 @@
   // ═══════════════════════════════════════════════════════════════
   // body: 체형 0(날씬) ~ 1(튜토리얼 인트로의 통통한 공주). 기본 0.
   // 몸통/팔다리와 '옷'을 같은 그룹으로 함께 늘려서 옷이 몸에서 어긋나지 않게 한다.
+  // ─── 웅크려 먹는 뒷모습 — 「혼자 먹은 밤」 컷씬 ─────────────
+  //
+  // **지금 그 캐릭터의 뒷모습이다.** 머리 모양·머리색·옷 색·체형을 다 따라간다 —
+  // 다른 그림을 하나 더 그리면 「내 공주」가 아니라 삽화가 되어 버린다.
+  // 뒷머리(hairBack)는 원래 뒤통수를 그리는 함수라 **그대로** 쓴다.
+  //
+  // 얼굴은 안 그린다. 그게 이 장면의 전부다 — 등을 돌리고 있다.
+  function crouchBack(outfit, body, foodEmoji) {
+    const w = Math.max(0, Math.min(1, Number(body) || 0));   // 1 = 통통
+    const o = outfit || {};
+    const col = (o.colors || {});
+    const it = (slot) => getItem(slot, o[slot]);
+    // 옷 색 — 원피스가 있으면 그것, 없으면 상의. 아무것도 없으면 살색(속옷 아님, 맨몸)
+    const dress = it('dress'), top = it('top');
+    const cloth = (!isNone(dress) && (col.dress || dress.color))
+      || (!isNone(top) && (col.top || top.color)) || SKIN;
+    const clothSh = shade(cloth, 16);
+    const hairItem = it('hair');
+    const hairC = col.hair || hairItem.color || HAIR_DEF;
+    const backKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
+    // 신발 — **모양까지 따라간다.** 색만 바꾸면 유리구두를 신고도 맨발과 같은 모양이라,
+    // 「신발이 안 그려진다」로 읽힌다. 뒤에서 보이는 것은 **뒤꿈치**이므로
+    // 목(rise)과 마감(finish) 두 축을 그대로 쓴다 (renderShoes 와 같은 필드)
+    const shoes = it('shoes');
+    const bare = isNone(shoes);
+    const shoeC = (!bare && (col.shoes || shoes.color)) || SKIN;
+    const shoeSh = shade(shoeC, 22);
+    const rise = bare ? 0 : (Number(shoes.rise) || 0);
+    const fin = bare ? 'plain' : (shoes.finish || 'plain');
+    // 뒤꿈치 한 짝. 앉아 있으므로 발목이 위로 조금 올라온다
+    const heel = (cx) => {
+      let g = '';
+      if (rise > 0) g += `<rect x="${cx - 11}" y="${210 - rise}" width="22" height="${rise + 6}" rx="6" fill="${shoeC}"/>`;
+      g += `<ellipse cx="${cx}" cy="214" rx="15" ry="9" fill="${shoeC}"/>`;
+      if (fin === 'sole')       g += `<ellipse cx="${cx}" cy="218" rx="15" ry="3.6" fill="${shoeSh}"/>`;
+      else if (fin === 'strap') g += `<path d="M${cx - 11},209 L${cx + 11},209" stroke="${shoeSh}" stroke-width="2.4" stroke-linecap="round"/>`;
+      else if (fin === 'ribbon') g += `<path d="M${cx - 8},208 Q${cx},213 ${cx + 8},208" stroke="${shoeSh}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+        + `<circle cx="${cx}" cy="208" r="2.4" fill="${shoeSh}"/>`;
+      else if (fin === 'gloss') g += `<ellipse cx="${cx - 4}" cy="211" rx="6" ry="2.8" fill="#fff" opacity="0.75"/>`;
+      if (rise > 0) g += `<path d="M${cx - 11},${210 - rise + 6} L${cx + 11},${210 - rise + 6}" stroke="${shoeSh}" stroke-width="2.2" stroke-linecap="round"/>`;
+      // 맨발이면 뒤꿈치에 그늘을 하나 — 안 그러면 살색 덩어리가 두 개 붙은 것으로 보인다
+      if (bare) g += `<ellipse cx="${cx}" cy="217" rx="11" ry="4" fill="${SKIN_SH}"/>`;
+      return g;
+    };
+
+    // 통통할수록 등이 넓어진다. 가로만 늘린다 — 앉은 키는 그대로다
+    const k = 1 + 0.22 * w;
+    const kS = k.toFixed(3);
+
+    return `<svg class="cb-svg" viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg"
+      role="img" aria-label="">
+      <!-- 그림자도 같이 눌린다. 몸만 움직이면 바닥에서 뜬 것처럼 보인다 -->
+      <ellipse class="cb-shadow" cx="100" cy="226"
+        rx="${(66 * (1 + 0.15 * w)).toFixed(1)}" ry="10" fill="rgba(20,10,25,0.28)"/>
+
+      <g transform="translate(100,0) scale(${kS},1) translate(-100,0)">
+        <!-- 씹는 박자에 몸 전체가 아주 살짝 눌렸다 편다 (스쿼시 & 스트레치).
+             **바깥 그룹의 체형 배율과 겹치면 안 되므로** 한 겹 안에서 따로 움직인다 —
+             CSS transform 은 SVG transform 속성을 덮어쓴다 -->
+        <g class="cb-body">
+          <!-- 발 — 등 뒤에서는 발끝이 아니라 **뒤꿈치**가 보인다 -->
+          ${heel(76)}${heel(124)}
+
+          <!-- 무릎 — 쭈그리면 좌우로 벌어져 등 옆으로 삐져나온다 -->
+          <ellipse cx="58" cy="190" rx="16" ry="19" fill="${SKIN}"/>
+          <ellipse cx="142" cy="190" rx="16" ry="19" fill="${SKIN}"/>
+
+          <!-- 등 — 어깨에서 엉덩이로 퍼지는 웅크린 덩어리 -->
+          <path d="M70,116
+            C60,144 54,176 54,200
+            C72,214 128,214 146,200
+            C146,176 140,144 130,116
+            C118,106 82,106 70,116 Z" fill="${cloth}"/>
+          <!-- 등 한가운데 접힌 자국 하나. 없으면 그냥 색 덩어리로 보인다 -->
+          <path d="M100,126 C97,152 97,178 100,198" stroke="${clothSh}" stroke-width="2.4"
+            fill="none" stroke-linecap="round" opacity="0.7"/>
+
+          <!-- 팔 — 앞으로 안고 있어서 팔꿈치만 등 옆으로 삐져나온다.
+               등과 같은 색이라 옆선을 그늘로 잡아 줘야 팔로 읽힌다.
+               **회전축은 어깨**다. 팔꿈치를 축으로 돌리면 어깨가 빠져 보인다 -->
+          <g class="cb-arm cb-arm-l">
+            <ellipse cx="56" cy="154" rx="12" ry="20" fill="${cloth}"
+              stroke="${clothSh}" stroke-width="1.6" transform="rotate(-12 56 154)"/>
+          </g>
+          <g class="cb-arm cb-arm-r">
+            <ellipse cx="144" cy="154" rx="12" ry="20" fill="${cloth}"
+              stroke="${clothSh}" stroke-width="1.6" transform="rotate(12 144 154)"/>
+          </g>
+
+          <!-- 목덜미 (머리에 거의 가린다) -->
+          <rect x="88" y="100" width="24" height="20" rx="9" fill="${SKIN_SH}"/>
+        </g>
+      </g>
+
+      <!-- 머리 — 고개를 숙이고 우적우적. **뒷머리 함수를 그대로 쓴다**.
+           우적우적은 CSS 로 흔든다 (.cb-head) — 무한 반복이라 검증기가 건드리지 않는다 -->
+      <g transform="translate(0,26)">
+        <g class="cb-head">
+          <g transform="rotate(-3 100 105)">
+            <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
+            ${hairBack(backKind, hairC)}
+          </g>
+        </g>
+      </g>
+
+      <!-- 들고 있는 것 — **뺨 옆으로 삐져나온다.** 등을 돌리고 있어서 입도 얼굴도 안 보이지만,
+           머리 옆으로 나온 이것 하나면 「입에 가져가는 중」으로 읽힌다.
+           **머리보다 뒤에 두면 안 된다** — 뒤통수에 가려 닭다리 끝만 삐죽 나온다 (실제로 그랬다).
+           체형 배율(k) 밖에 두는 이유: 이모지가 가로로 늘어나면 안 된다.
+           대신 팔이 나오는 밑동만 k 를 따라가서, 통통해도 몸에서 떨어지지 않는다 -->
+      <g class="cb-bite">
+        <!-- 그늘을 **한 번 더 굵게 깔아** 테두리를 만든다. 같은 굵기로 덧칠하면
+             전체가 어두워질 뿐이고, 팔꿈치 덩어리와 한 색으로 붙어 버린다 -->
+        <path d="M${(100 + 44 * k).toFixed(1)},168 C${(100 + 52 * k).toFixed(1)},148 156,132 150,124"
+          stroke="${clothSh}" stroke-width="17.6" fill="none" stroke-linecap="round"/>
+        <path d="M${(100 + 44 * k).toFixed(1)},168 C${(100 + 52 * k).toFixed(1)},148 156,132 150,124"
+          stroke="${cloth}" stroke-width="15" fill="none" stroke-linecap="round"/>
+        <circle cx="149" cy="120" r="9.5" fill="${SKIN}"/>
+        ${foodEmoji ? `<text class="cb-food" x="157" y="114" font-size="28" text-anchor="middle">${foodEmoji}</text>` : ''}
+      </g>
+
+      <!-- 「우적」 — 씹을 때마다 머리 옆에서 톡 터지는 효과선. 애니메이션의 박자를 눈으로
+           보여 주는 것이라, 이게 없으면 고개만 까딱이는 것으로 보인다.
+           오른쪽은 **든 손을 피해 위로** 뺀다 -->
+      <g class="cb-spark cb-spark-l" fill="none" stroke="rgba(120,90,70,0.6)" stroke-width="2.4"
+        stroke-linecap="round">
+        <path d="M56,92 q-7,-4 -12,-2"/><path d="M58,104 q-8,1 -12,5"/>
+      </g>
+      <g class="cb-spark cb-spark-r" fill="none" stroke="rgba(120,90,70,0.6)" stroke-width="2.4"
+        stroke-linecap="round">
+        <path d="M150,74 q8,-5 13,-3"/><path d="M156,86 q9,-1 13,3"/>
+      </g>
+
+      <!-- 바닥에 남은 것 — 접시가 「몇 번째인지」를 말해 준다 -->
+      ${foodEmoji ? `<text x="34" y="216" font-size="30" text-anchor="middle" opacity="0.9">${foodEmoji}</text>` : ''}
+      <!-- 부스러기 — 씹을 때마다 톡톡 튄다. 시작 시각을 어긋나게 줘야 같이 안 튄다 -->
+      <circle class="cb-crumb cb-crumb1" cx="62" cy="222" r="2.4" fill="rgba(90,60,40,0.55)"/>
+      <circle class="cb-crumb cb-crumb2" cx="72" cy="228" r="1.8" fill="rgba(90,60,40,0.45)"/>
+      <circle class="cb-crumb cb-crumb3" cx="150" cy="224" r="2" fill="rgba(90,60,40,0.5)"/>
+    </svg>`;
+  }
+
   // SVG 의 id 는 **문서 전체에서 공유된다.** 아바타를 두 개 이상 한 화면에 그리면
   // 뒤에 온 쪽이 앞 쪽의 그라디언트를 써 버린다 (roomScene 과 같은 이유). 그래서
   // 부를 때마다 꼬리표를 붙인다.
@@ -1364,6 +1506,6 @@
 
   // NECK_CUT 은 커버리지 검사기(tools/checkavatar.js)도 읽는다 —
   // 파는 자리를 두 곳에 적어 두면 어긋나고, 어긋나는 순간 검사가 헛돈다
-  window.Avatar = { build, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y,
+  window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y,
     ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
 })();

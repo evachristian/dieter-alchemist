@@ -308,6 +308,40 @@ function launchOpts() {
       // 1px 은 안티에일리어싱이다. 2px 부터 눈에 보이는 틈이다
       if (worst >= 2) bad.push(`${sp.id}: 머리와 얼굴 사이가 ${worst}px 떨어졌다 (x=${at})`);
     }
+
+    // ── 이마 — **틈이 없다고 얼굴이 맞는 것은 아니다** ──────────
+    //
+    // 틈 검사는 '머리와 얼굴이 붙었나' 만 본다. 앞머리를 정수리 쪽으로 올려 버려도
+    // 붙어 있기는 하므로 **통과한다.** 그래서 「이마가 너무 크고 둥그렇게 보인다」는
+    // 말을 두 번 듣고서야 알았다 — 앞머리 안쪽 선이 y=34 라 얼굴 위끝(36)에
+    // 거의 안 걸쳐 있었고, 얼굴의 40%가 맨이마였다.
+    //
+    // 헤어라인은 **얼굴 위끝(36)과 눈(위끝 60.8) 사이**에 와야 한다.
+    // 너무 높으면 민머리, 너무 낮으면 헬멧이다. 그린 path 를 직접 더듬어 잰다 —
+    // HAIR 표를 읽으면 표만 고치고 그림을 안 고쳐도 통과한다.
+    const FORE_MIN = 6, FORE_MAX = 18, EYE_TOP = 60.8;
+    for (const sp of D.SPEAKERS) {
+      const host = document.createElement('div');
+      host.style.cssText = 'position:fixed;left:-9999px;top:0;width:120px;height:130px';
+      host.innerHTML = window.Portrait.bust(sp, 'def', { bare: true });
+      document.body.appendChild(host);
+      const svg = host.querySelector('svg');
+      const fronts = [...svg.querySelectorAll('[data-part="hair-front"]')];
+      const hasFace = !!svg.querySelector('[data-part="face"]');
+      if (hasFace && !fronts.length) bad.push(`${sp.id}: 앞머리가 없다 — 이마만 남는다`);
+      if (hasFace && fronts.length) {
+        // 얼굴 한가운데 세로줄에서 앞머리가 끝나는 곳 = 헤어라인
+        let line = null;
+        for (let y = 10; y <= 96; y += 0.25) {
+          if (fronts.some(el => el.isPointInFill(new DOMPoint(60, y)))) line = y;
+        }
+        const fore = line == null ? null : EYE_TOP - line;
+        if (fore == null) bad.push(`${sp.id}: 앞머리가 얼굴 한가운데를 안 지난다`);
+        else if (fore > FORE_MAX) bad.push(`${sp.id}: 이마가 ${fore.toFixed(1)}px — 너무 넓다 (${FORE_MAX} 이하)`);
+        else if (fore < FORE_MIN) bad.push(`${sp.id}: 이마가 ${fore.toFixed(1)}px — 앞머리가 눈까지 내려왔다 (${FORE_MIN} 이상)`);
+      }
+      host.remove();
+    }
     return { bad, n: D.SPEAKERS.length };
   });
 
@@ -388,7 +422,7 @@ function launchOpts() {
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
     + ` · 다른 옷으로 갈아입어 확인 ${dye.others}회 · 앞머리 ${hair.kinds}종 정수리`);
   console.log(`넥라인: 파낸 자리를 몸통 윗선과 견줌 (그린 path 를 isPointInFill 로 직접 잰다)`);
-  console.log(`초상화: 인물 ${face.n}명 — 머리와 얼굴 사이에 틈이 없는가`);
+  console.log(`초상화: 인물 ${face.n}명 — 머리와 얼굴 사이의 틈 · 헤어라인 높이(이마 6~18px)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
   console.log(`❌ ${all.length}건`);
   all.forEach(b => console.log(b.n === '-'

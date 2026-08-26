@@ -834,8 +834,9 @@ body {
    가로 줄을 하나 더 얹으면 그 작업이 무의미해진다.
    **명판이다.** 방 배경 위 흰 글자(.on-room-bg)는 대비를 잴 수 없어 예외로 빼야 하는데,
    예외는 최소한만 쓴다 — 배경이 있는 알약이라야 대비를 실제로 잰다 (마을 이름표와 같은 판단) */
+/* 오른쪽 여백은 **뱃지가 삐져나오는 만큼** 준다 — right:2px 이면 뱃지가 방 밖으로 나간다 */
 .room-acts {
-  position: absolute; right: 2px; bottom: 6px; z-index: 3;
+  position: absolute; right: 8px; bottom: 6px; z-index: 3;
   display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
 }
 .room-act {
@@ -846,6 +847,18 @@ body {
   box-shadow: 0 2px 8px rgba(60,40,55,0.28);
 }
 .room-act:active { transform: scale(0.97); }
+/* 안 본 밤이 몇 번인지. **레드닷이 아니라 숫자다** — 점 하나로는 「하나 있나 보다」로
+   읽혀서 세 밤이 쌓인 것을 못 알린다.
+   흰 글자를 얹으므로 바탕은 대비가 나오는 진한 붉은색이어야 한다 (checkTextStyle 이 잰다) */
+.act-badge {
+  position: absolute; top: -6px; right: -4px;
+  min-width: 19px; height: 19px; padding: 0 5px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: #c2183c; color: #fff;
+  font-size: 0.7rem; font-weight: 900; line-height: 1;
+  box-shadow: 0 1px 4px rgba(60,10,25,0.45);
+}
+.room-act { position: relative; }
 
 .char-stage { position: relative; display: flex; justify-content: center; margin: 6px 0 10px; }
 /* 배경을 네모 카드에 가두지 않고 전체 폭으로 열린 방처럼. 위/아래는 부드럽게 페이드 */
@@ -925,8 +938,11 @@ body {
    (AP 와 같은 부류) 표에 섞지 않고 맨 위에 따로 둔다.
    눌러서 설명이 뜨므로 button 이다 — .stat-box 의 생김새를 그대로 쓴다 */
 .now-row { margin-top: 10px; }
-.now-box { font-family: inherit; border: none; cursor: pointer; padding: 8px 6px; }
-.now-box:active { transform: scale(0.99); }
+/* 눌러서 설명이 뜨는 것은 **`?` 하나뿐이다.** 칸 전체를 누르게 두면 무엇이 눌리는
+   자리인지 안 보이고, 숫자를 보려다 매번 토스트가 뜬다 (물약 카드와 같은 규칙) */
+.now-box { padding: 8px 6px; }
+.stat-label { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.now-why { margin-left: 1px; }
 .now-val { font-size: 1.05rem; font-weight: 800; margin-top: 2px; color: var(--ink); }
 /* 이대로 날이 바뀌면 혼자 먹게 되는 자리. **색만으로 알리지 않는다** —
    눌러서 뜨는 안내에 그 규칙이 적혀 있고, 여기 색은 거들 뿐이다 */
@@ -1845,6 +1861,12 @@ body {
 .ex-min-lock { font-size: 0.9em; }
 
 /* 드는 것과 얻는 것 — 고른 만큼 계산해서 보여 준다 (AP 충전 패널과 같은 규칙) */
+/* 지금이 언제인지 — 고르기 전에 보여 준다 (밤이면 눈에 띄게) */
+.ex-when {
+  text-align: center; font-size: 0.76rem; font-weight: 700; color: var(--ink-soft);
+}
+.ex-when.night { color: var(--text-lav); font-weight: 800; }
+
 /* 종목마다 한 줄 — 겉은 말랑하고 안은 진지한 이 게임의 톤이 여기서 난다 */
 .ex-desc {
   text-align: center; font-size: 0.76rem; font-weight: 500; color: var(--ink-soft);
@@ -1861,3 +1883,120 @@ body {
 .stuff-tabs .cat-tab { flex: 1 1 0; min-width: 0; }
 .stuff-panel { display: none; }
 .stuff-panel.active { display: block; }
+
+
+/* ═══ 혼자 먹은 밤 — 컷씬 (STORY.md) ═══════════════════════════
+   토스트로 흘려보내지 않는다. **등을 돌린 뒷모습**이 이 장면의 전부라,
+   흘러가는 글자로는 전달되지 않는다.
+   모달(50)·튜토리얼 막(40)보다 위에 뜬다 — 화면을 통째로 가져가는 장면이다. */
+.binge-scene {
+  position: fixed; inset: 0; z-index: 9400; display: none;
+  flex-direction: column; align-items: center; justify-content: flex-end;
+  /* 밤이다. 방보다 어둡게 깔아 두면 뒷모습의 실루엣이 산다 */
+  background: radial-gradient(circle at 50% 38%, #4a3846, #241a26 70%);
+}
+.binge-scene.show { display: flex; }
+
+/* 나가는 길은 **늘 오른쪽 위에** 있다. 장면이 몇 개든 여기서 빠져나올 수 있다 */
+.bs-close {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  padding: 8px 14px; border: none; border-radius: 999px; cursor: pointer;
+  font-family: inherit; font-size: 0.82rem; font-weight: 800;
+  color: var(--ink); background: rgba(255,255,255,0.92);
+}
+.bs-close:active { transform: scale(0.97); }
+
+.bs-art {
+  flex: 1; display: flex; align-items: flex-end; justify-content: center;
+  width: 100%; min-height: 0; padding-bottom: 6px;
+}
+.bs-art .cb-svg { width: min(88vw, 360px); height: auto; max-height: 100%; }
+/* ── 우적우적 ──────────────────────────────────────────────────
+   **끝이 없는 반복이라 검증기가 건드리지 않는다** (settle 은 끝이 있는 것만 끝낸다).
+
+   부품마다 따로 두되 **박자(--cb-beat)는 하나**로 묶는다. 고개·몸·팔·손이 제각기
+   다른 주기로 움직이면 씹는 것이 아니라 각자 떠는 것으로 보인다.
+   손·효과선·부스러기만 두 배 주기(한 입)로 돌려 변화를 준다.
+
+   좌표는 viewBox(200×250) 기준이다 — SVG 요소의 transform-box 는 view-box 가 기본이라
+   transform-origin 의 px 가 그대로 사용자 좌표가 된다. */
+.cb-svg { --cb-beat: 0.34s; }
+.cb-head {
+  animation: cbChew var(--cb-beat) ease-in-out infinite alternate;
+  /* 목 언저리 — 여기를 축으로 고개가 까딱인다.
+     **바깥 그룹이 translate(0,26) 을 걸고 있으므로 그만큼 뺀 제 좌표로 적는다** —
+     transform-origin 은 조상 변환이 아니라 그 요소의 좌표계에서 풀린다 */
+  transform-origin: 100px 84px;
+}
+@keyframes cbChew { from { transform: translateY(0) rotate(-1.2deg); }
+                    to   { transform: translateY(4px) rotate(1.6deg); } }
+
+/* 몸 — 씹는 박자에 눌렸다 편다. 축은 **바닥**이라 엉덩이가 안 뜬다 */
+.cb-body {
+  animation: cbSquash var(--cb-beat) ease-in-out infinite alternate;
+  transform-origin: 100px 214px;
+}
+@keyframes cbSquash { from { transform: scale(1, 1); }
+                      to   { transform: scale(1.014, 0.986); } }
+
+/* 팔 — 어깨를 축으로 아주 조금. 크게 돌리면 등에서 팔이 떨어져 보인다 */
+.cb-arm { animation: cbArm var(--cb-beat) ease-in-out infinite alternate; }
+.cb-arm-l { transform-origin: 66px 126px; }
+.cb-arm-r { transform-origin: 134px 126px; }
+@keyframes cbArm { from { transform: rotate(0deg); }
+                   to   { transform: rotate(2.4deg); } }
+
+/* 손에 든 것 — 한 입은 씹기 두 박자다. 입으로 밀어 넣었다가 살짝 물러난다 */
+.cb-bite {
+  animation: cbBite calc(var(--cb-beat) * 4) ease-in-out infinite;
+  transform-origin: 152px 168px;   /* 팔 밑동 — 여기를 축으로 손목이 오르내린다 */
+}
+@keyframes cbBite {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  30%      { transform: translate(-5px, 5px) rotate(-7deg); }   /* 입으로 */
+  55%      { transform: translate(-2px, 1px) rotate(-3deg); }
+  80%      { transform: translate(2px, -2px) rotate(3deg); }    /* 다시 들어 올린다 */
+}
+/* 한 입 베어 물 때마다 잠깐 작아진다 — 줄어드는 것이 눈에 보여야 '먹는 중' 이다 */
+.cb-food {
+  animation: cbFood calc(var(--cb-beat) * 4) ease-in-out infinite;
+  transform-origin: 157px 106px;
+}
+@keyframes cbFood { 0%, 100% { transform: scale(1); }
+                    30%      { transform: scale(0.86); }
+                    60%      { transform: scale(0.95); } }
+
+/* 「우적」 효과선 — 씹을 때만 톡 나타난다. 좌우를 반 박자 어긋나게 준다 */
+.cb-spark { animation: cbSpark calc(var(--cb-beat) * 2) ease-out infinite; opacity: 0; }
+.cb-spark-l { transform-origin: 56px 98px; }
+.cb-spark-r { transform-origin: 156px 80px; animation-delay: calc(var(--cb-beat) * -1); }
+@keyframes cbSpark { 0%   { opacity: 0;   transform: scale(0.5); }
+                     25%  { opacity: 0.9; transform: scale(1); }
+                     70%  { opacity: 0;   transform: scale(1.25); }
+                     100% { opacity: 0;   transform: scale(0.5); } }
+
+/* 부스러기 — 톡 튀어 올랐다 떨어진다. 셋이 같이 튀면 기계처럼 보이므로 시작을 어긋낸다 */
+.cb-crumb { animation: cbCrumb calc(var(--cb-beat) * 4) ease-in-out infinite; }
+.cb-crumb2 { animation-delay: calc(var(--cb-beat) * -1.3); }
+.cb-crumb3 { animation-delay: calc(var(--cb-beat) * -2.6); }
+@keyframes cbCrumb { 0%, 100% { transform: translate(0, 0); opacity: 0.55; }
+                     35%      { transform: translate(-3px, -7px); opacity: 1; }
+                     70%      { transform: translate(-5px, 0); opacity: 0.7; } }
+
+/* 흔들림에 약한 사람에게는 **정지 화면**으로 준다. 장면의 뜻은 그림만으로도 전해진다 */
+@media (prefers-reduced-motion: reduce) {
+  .cb-head, .cb-body, .cb-arm, .cb-bite, .cb-food, .cb-crumb { animation: none; }
+  .cb-spark { animation: none; opacity: 0.9; }
+}
+
+/* 대사창 — 인트로와 같은 자리(화면 아래)에 둔다 */
+.bs-box {
+  width: 100%; max-width: 480px; padding: 18px 20px calc(20px + env(safe-area-inset-bottom));
+  background: rgba(28,20,30,0.92); color: #fff;
+  border-radius: 22px 22px 0 0;
+}
+.bs-line { font-size: 0.98rem; font-weight: 700; line-height: 1.5; margin: 0; }
+.bs-stats { margin: 8px 0 0; font-size: 0.86rem; font-weight: 800; color: #ffb3c4; }
+/* 마지막 줄. **여기가 이 장면의 전부다** — 그래서 한 박자 늦게, 조용히 */
+.bs-tail { margin: 10px 0 0; font-size: 0.9rem; font-weight: 500; color: #d8ccd6; }
+.bs-next { width: 100%; margin-top: 16px; }

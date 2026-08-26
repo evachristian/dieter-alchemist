@@ -110,6 +110,10 @@ const defaultState = () => ({
   lastWorkoutTs: 0,       // 마지막으로 운동한 시각 (방치 감소의 기준)
   decayTs: 0,             // 방치 감소를 **어디까지 반영했는지**. 두 번 깎지 않기 위한 값
   bingeDay: 0,            // 「혼자 먹은 밤」을 마지막으로 판정한 날짜 키
+  // **아직 안 본** 폭식 이벤트. 밤 하나에 칸 하나 — 보면 앞에서부터 지운다.
+  // 토스트로 흘려보내지 않는 이유: 그날 밤은 이 게임에서 제일 중요한 장면이라
+  // 「나중에 보겠다」가 가능해야 한다 (STORY.md 「혼자 먹은 밤」)
+  binges: [],
   // 눌러서 고른 레시피가 요구하는 재료 목록 (표시용).
   // **조합해도 지워지지 않는다** — 재료가 남아 있으면 솥이 저절로 다시 채워지고,
   // 모자란 자리는 회색 재료로 남아 무엇이 없는지 보여 준다.
@@ -203,6 +207,7 @@ function normalizeState(st) {
   st.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, st.outfit || {});
   if (typeof st.fit !== 'number' || !isFinite(st.fit)) st.fit = 0;
   if (!st.foods || typeof st.foods !== 'object') st.foods = {};
+  if (!Array.isArray(st.binges)) st.binges = [];
   const NUM_DEF = { fullness: 100, stamina: 9999, bodyTs: 0, lastWorkoutTs: 0,
                     decayTs: 0, bingeDay: 0 };
   Object.keys(NUM_DEF).forEach(k => {
@@ -601,11 +606,7 @@ function refreshEnergy() {
   if (S.energyDay === today) return false;
   // 날짜가 넘어갔으니 방치 감소·밤 판정도 여기서 한 번 본다 (창을 며칠 열어 둔 경우)
   decayIdle();
-  const alone = checkBinge();
-  if (alone) {
-    toast(T('binge_night', { n: alone.nights, happy: alone.happy,
-      grit: alone.grit, fit: alone.fit.toFixed(2) }), null, 6000);
-  }
+  if (checkBinge()) renderActBadges();   // 뱃지만 켠다 (토스트로 안 알린다)
   // (여러 날 지났어도) 상한까지 충전 — 현재 dailyFill == cap
   S.energy = Math.min(energyCap(), (S.energy || 0) + D.ENERGY.dailyFill);
   S.energyDay = today;
@@ -724,6 +725,7 @@ const BINGE = {
   fit: -0.8,          // 단련 — 체지방·체중이 는다
   grit: -8,           // 근성 — 혼자 쌓은 것은 혼자 무너진다 (STORY.md 「양날」)
   maxNights: 3,       // 오래 비웠어도 한 번에 이만큼까지만
+  keep: 5,            // 안 본 장면을 이만큼까지만 들고 있는다
 };
 
 // 혼자 먹은 밤이 있었으면 { nights, happy, fit, grit } 를, 아니면 null
@@ -740,15 +742,31 @@ function checkBinge() {
   S.bingeDay = today;
   if (fullness() > BINGE.atFullness) return null;
 
-  const h0 = auraVal('happy'), g0 = auraVal('grit'), f0 = S.fit || 0;
-  addAura('happy', BINGE.happy * nights);
-  addAura('grit', BINGE.grit * nights);
-  S.fit = +(f0 + BINGE.fit * nights).toFixed(3);
+  // **밤마다 한 칸씩 쌓는다.** 여러 밤을 하나로 뭉치면 「그날 밤」이 사라진다
+  for (let i = 0; i < nights; i++) {
+    const h0 = auraVal('happy'), g0 = auraVal('grit'), f0 = S.fit || 0;
+    addAura('happy', BINGE.happy);
+    addAura('grit', BINGE.grit);
+    S.fit = +(f0 + BINGE.fit).toFixed(3);
+    S.binges.push({ food: pickBingeFood().id,
+      happy: h0 - auraVal('happy'), grit: g0 - auraVal('grit'), fit: +(f0 - S.fit).toFixed(2) });
+  }
+  // 오래된 것부터 버린다 — 몇 달 만에 돌아온 사람에게 스무 장면을 보게 할 수는 없다
+  if (S.binges.length > BINGE.keep) S.binges = S.binges.slice(-BINGE.keep);
   // 배는 부르다 — 여러 밤이어도 마지막 밤의 배부름만 남는다
   S.fullness = Math.max(fullness(), BINGE.fullnessBack);
   rec('aloneNights', nights);
-  return { nights, happy: h0 - auraVal('happy'), grit: g0 - auraVal('grit'),
-           fit: +(f0 - S.fit).toFixed(2) };
+  return { nights };
+}
+
+// 그날 밤 먹은 것. **많이 채우는 것일수록 잘 나온다** — 혼자 먹는 밤엔 큰 걸 먹는다.
+// ⚠️ 무엇을 먹었느냐는 **수치에 영향을 주지 않는다.** 판정 기준은 「혼자 먹었느냐」다
+// (STORY.md). 음식 이름은 그 밤을 부르는 말일 뿐이다.
+function pickBingeFood() {
+  const total = D.FOODS.reduce((n, f) => n + f.full, 0);
+  let r = Math.random() * total;
+  for (const f of D.FOODS) { r -= f.full; if (r <= 0) return f; }
+  return D.FOODS[D.FOODS.length - 1];
 }
 
 // 날짜 키(YYYYMMDD 정수) 두 개 사이의 날 수. 정수 뺄셈이 안 되므로 날짜로 되돌린다
@@ -1542,7 +1560,7 @@ function brew() {
   checkUnlocks();
   if (window.Tut) Tut.fire('brew:ok');
   showBrewResult(result, isNew);
-  // ??? 였던 레시피가 열리면 알림 (조합 결과 모달 위에 표시)
+  // 모르던 레시피가 열리면 알림 (조합 결과 모달 위에 표시)
   if (isNew) {
     setTimeout(() => toast(T('recipe_found', { name: N(result.id, result.name) }), null, 3000), 900);
   }
@@ -2034,7 +2052,7 @@ function renderAtelier() {
   // 윗단 — 물약 / 크리처. 마이 룸 인벤토리와 같은 세그먼트 모양이라 라벨도 같은 것을 쓴다
   const kindEl = document.getElementById('recipeKinds');
   if (kindEl) {
-    kindEl.innerHTML = [['potion', 'room_potions'], ['creature', 'room_creatures']].map(([k, key]) =>
+    kindEl.innerHTML = [['potion', 'stuff_potions'], ['creature', 'room_creatures']].map(([k, key]) =>
       `<button class="room-tab ${recipeKind === k ? 'active' : ''}" onclick="setRecipeKind('${k}')">${T(key)}</button>`
     ).join('');
   }
@@ -2048,7 +2066,7 @@ function renderAtelier() {
         T('g_' + g.id)} ${kindWord}</button>`
     ).join('');
   }
-  // 알아낸 레시피를 위로 (방금 알아낸 것이 가장 위), ??? 는 아래로
+  // 알아낸 레시피를 위로 (방금 알아낸 것이 가장 위), 모르는 것은 아래로
   const catRecipes = currentRecipeList().slice().sort((a, b) => {
     const rank = r => (r.result.id === lastFound ? 0 : S.discovered.includes(r.result.id) ? 1 : 2);
     return rank(a) - rank(b);
@@ -2091,7 +2109,7 @@ function renderAtelier() {
       onclick="unknownRecipeHint(this)">
       <span class="recipe-in">${marks}</span>
       <span class="recipe-arrow">→</span>
-      <span class="recipe-out">❓ ???</span>
+      <span class="recipe-out">❓</span>
     </div>`;
   }).join('');
   // 진행도는 현재 카테고리 기준
@@ -2239,6 +2257,7 @@ function renderShowcase() {
   // 신체 · 아우라 상세 수치
   renderVitals();
   renderBodyState();
+  renderActBadges();
 
   // 스탯을 접었는지 펼쳤는지 (이 기기의 화면 설정)
   applyStatsView();
@@ -3274,8 +3293,23 @@ function renderRoomDevTail() {
     // 튜토리얼을 처음부터 다시 본다. tutorialDone 스위치와 다르다 —
     // 이쪽은 진행(S.tut)까지 되감아서 첫 대사부터 나온다
     + `<button class="btn btn-dev" onclick="devReplayTutorial()">${T('dev_tut_replay')}</button>`
-    + `<div class="dev-row dev-roomlv"><span class="dev-roomlv-t">🏠 ${T('dev_room_lv')}</span>${bgBtns}</div>`;
+    + `<div class="dev-row dev-roomlv"><span class="dev-roomlv-t">🏠 ${T('dev_room_lv')}</span>${bgBtns}</div>`
+    // 폭식은 **날이 바뀔 때만** 일어나서 그냥은 볼 수가 없다 (하루를 기다려야 한다).
+    // 그래서 한 밤을 강제로 만든다 — 수치도 실제와 똑같이 깎인다
+    + `<button class="btn btn-dev" onclick="devBinge()">${T('dev_binge')}</button>`;
 }
+// 개발용: 「혼자 먹은 밤」 한 번을 지금 만든다.
+// **실제 경로를 그대로 지난다** — 포만감을 비우고 어제로 돌려 checkBinge() 를 부른다.
+// 따로 이벤트를 손으로 만들면 진짜 경로가 안 검사된다
+function devBinge() {
+  S.fullness = 0;
+  S.bingeDay = dayKey(new Date(Date.now() - DAY_MS));
+  const r = checkBinge();
+  save();
+  render();
+  toast(r ? T('dev_binge_ok', { n: bingeCount() }) : T('dev_binge_no'));
+}
+window.devBinge = devBinge;
 window.devToggleTutorial = devToggleTutorial;
 // 튜토리얼 되감기 — 인트로 다시보기와 짝이 되는 개발용 버튼
 function devReplayTutorial() {
@@ -3551,6 +3585,11 @@ function renderBodyState() {
     f.classList.toggle('low', fullness() <= BINGE.atFullness);
   }
   if (st) st.textContent = `${Math.floor(stamina())} / ${staminaMax()}`;
+  // 소리로 읽을 이름 — index.html 에 한국어를 박아 두면 영어 화면에서 한글이 읽힌다
+  const wf = document.getElementById('whyFull');
+  if (wf) wf.setAttribute('aria-label', T('why_of', { name: T('now_full') }));
+  const ws = document.getElementById('whyStam');
+  if (ws) ws.setAttribute('aria-label', T('why_of', { name: T('now_stam') }));
 }
 
 // 두 칸을 누르면 무엇인지 알려 준다 — 처음 보는 사람에게는 숫자만으로는 안 읽힌다
@@ -4082,6 +4121,92 @@ function eatFood(id) {
 }
 window.eatFood = eatFood;
 
+// ─── 「흡입」 — 혼자 먹은 밤을 보는 컷씬 ──────────────────────
+//
+// 토스트로 흘려보내지 않는다. **등을 돌린 뒷모습**이 이 장면의 전부라, 흘러가는
+// 글자로는 전달되지 않는다. 안 본 밤이 있으면 버튼에 **붉은 뱃지**로 몇 번인지 알린다.
+function bingeCount() { return (S.binges || []).length; }
+
+function renderActBadges() {
+  const el = document.getElementById('bingeBadge');
+  if (!el) return;
+  const n = bingeCount();
+  el.textContent = n > 9 ? '9+' : String(n);
+  el.hidden = n === 0;
+  const btn = document.getElementById('actBinge');
+  if (btn) btn.setAttribute('aria-label',
+    n ? T('act_binge_n', { n }) : T('act_binge'));
+}
+
+function openBingeScene() {
+  const n = bingeCount();
+  // 볼 것이 없으면 그렇게 말해 준다 — 버튼이 그냥 안 먹히면 고장으로 읽힌다
+  if (!n) { toast(T('bs_none'), document.getElementById('actBinge')); return; }
+  // 여러 밤이면 먼저 물어본다. 세 장면이 예고 없이 이어지면 갇힌 느낌이 든다
+  if (n > 1) { showConfirm(T('bs_ask_all', { n }), playBinge, null, T('bs_ask_ok')); return; }
+  playBinge();
+}
+window.openBingeScene = openBingeScene;
+
+// 이번에 보기 시작한 밤의 수 — 「(2번째)」를 세는 데 쓴다
+let bingeRun = 0, bingeSeen = 0;
+
+function playBinge() {
+  bingeRun = bingeCount();
+  bingeSeen = 0;
+  const el = document.getElementById('bingeScene');
+  if (!el) return;
+  el.classList.add('show');
+  el.setAttribute('aria-hidden', 'false');
+  renderBinge();
+}
+
+function renderBinge() {
+  const e = (S.binges || [])[0];
+  if (!e) { closeBingeScene(); return; }
+  const f = foodOf(e.food) || D.FOODS[0];
+  const name = N(f.id, f.name);
+  const art = document.getElementById('bsArt');
+  // **지금 그 캐릭터의 뒷모습이다** — 착장·머리·체형을 그대로 따라간다
+  if (art && window.Avatar && Avatar.crouchBack) {
+    art.innerHTML = Avatar.crouchBack(outfitWithColors(), bodyLevel(), f.emoji);
+  }
+  const line = document.getElementById('bsLine');
+  if (line) line.textContent = T('bs_line', {
+    name, josa: josa(name, '을를'), n: bingeSeen + 1 });
+  const st = document.getElementById('bsStats');
+  if (st) st.textContent = [
+    `${T('a_happy')} −${e.happy}`,
+    `${T('a_grit')} −${e.grit}`,
+    `${T('v_fit')} −${Math.abs(e.fit).toFixed(2)}`,
+  ].join(' · ');
+  const tail = document.getElementById('bsTail');
+  if (tail) tail.textContent = T('bs_tail');
+  const next = document.getElementById('bsNext');
+  if (next) next.textContent = T(bingeCount() > 1 ? 'bs_next' : 'bs_done');
+}
+
+// 본 것은 **지운다** — 그래서 뱃지가 준다
+function bingeNext() {
+  (S.binges || []).shift();
+  bingeSeen++;
+  save();
+  renderActBadges();
+  if (bingeCount()) renderBinge();
+  else closeBingeScene();
+}
+window.bingeNext = bingeNext;
+
+function closeBingeScene() {
+  const el = document.getElementById('bingeScene');
+  if (!el) return;
+  el.classList.remove('show');
+  el.setAttribute('aria-hidden', 'true');
+  // 몸이 달라졌을 수 있다 (단련이 깎였다) — 방으로 돌아가며 다시 그린다
+  render();
+}
+window.closeBingeScene = closeBingeScene;
+
 // ═══════════════════════════════════════════════════════════════
 //  운동 (EXERCISE.md)
 // ═══════════════════════════════════════════════════════════════
@@ -4091,17 +4216,44 @@ window.eatFood = eatFood;
 // lastWorkoutTs 옆에 끝나는 시각을 하나 더 두면 된다.
 let exPickId = null, exPickMin = 0;
 
+// ─── 언제 운동했는가 ──────────────────────────────────────────
+//
+// **같은 운동도 시간에 따라 남는 것이 다르다.**
+//
+// 밤에 혼자 몰아붙이면 근성은 더 붙지만 마음이 깎이고, 배가 더 고파진 채로 자게 된다 —
+// 그 밤이 바로 「혼자 먹은 밤」이다. `STORY.md` 의 **근성의 양날**이 여기 그대로 온다:
+// 근성을 **혼자만의 것**으로 쌓으면 이그리트가 되고, 그러지 않으면 공주가 된다.
+//
+// ⚠️ 이것은 「밤 운동은 나쁘다」는 잔소리가 아니다. **고르는 문제**로 두는 것이다 —
+// 근성이 급하면 밤에 하면 되고, 대신 그날 밤이 위험해진다. 팝업이 그 값을 미리 보여 준다.
+const EX_WHEN = {
+  morning: { grit: 1.0,  happy: 6,  full: 1.0, emoji: '🌅' },
+  day:     { grit: 1.0,  happy: 0,  full: 1.0, emoji: '☀️' },
+  night:   { grit: 1.25, happy: -8, full: 1.3, emoji: '🌙' },
+};
+// 아침 05~11 · 낮 11~21 · 밤 21~05.
+// **nowDate() 를 지난다** — 시계를 옮겨 놓고 검사할 수 있어야 한다
+function exWhenKey() {
+  const h = nowDate().getHours();
+  if (h >= 5 && h < 11) return 'morning';
+  if (h >= 11 && h < 21) return 'day';
+  return 'night';
+}
+function exWhen() { return EX_WHEN[exWhenKey()]; }
+
 function exOf(id) { return D.EXERCISES.find(x => x.id === id) || null; }
 function exOpen(ex) { return auraVal('grit') >= (ex.need || 0); }
 // 종목 × 시간의 값. 화면에 적는 것과 실제로 빼는 것이 **같은 함수**를 지난다 —
 // 따로 계산하면 적힌 값과 빠지는 값이 조용히 어긋난다
 function exCost(ex, min) {
+  const w = exWhen();
   return {
-    ap:   Math.round(ex.ap * min),
-    stam: Math.round(ex.stam * min),
-    grit: Math.round(ex.grit * min),
-    fit:  +(ex.fit * min).toFixed(2),
-    full: +(ex.full * min).toFixed(1),
+    ap:    Math.round(ex.ap * min),
+    stam:  Math.round(ex.stam * min),
+    grit:  Math.round(ex.grit * min * w.grit),
+    fit:   +(ex.fit * min).toFixed(2),
+    full:  +(ex.full * min * w.full).toFixed(1),
+    happy: w.happy,
   };
 }
 // 그 시간을 고를 수 있는가 — 스태미나가 있어야 한다 (AP 는 충전할 수 있으니 막지 않는다)
@@ -4145,6 +4297,7 @@ function exPanel() {
     </div>
     <div class="ex-items">${items}</div>
     <div class="ex-mins">${mins}</div>
+    <div id="exWhen" class="ex-when"></div>
     <div id="exDesc" class="ex-desc"></div>
     <div id="exLine" class="ex-line"></div>
     <div id="exGain" class="ex-gain"></div>
@@ -4198,6 +4351,13 @@ function exSync() {
     if (g) g.textContent = lock ? ' 🔒' : '';
   });
 
+  // 지금이 언제인지 **고르기 전에** 보여 준다 — 누르고 나서 알면 고른 것이 아니다
+  const when = document.getElementById('exWhen');
+  if (when) {
+    const w = exWhen();
+    when.textContent = `${w.emoji} ${T('ex_when_' + exWhenKey())}`;
+    when.classList.toggle('night', exWhenKey() === 'night');
+  }
   const desc = document.getElementById('exDesc');
   if (desc) desc.textContent = T(ex.id + '_d');
   const line = document.getElementById('exLine');
@@ -4206,7 +4366,8 @@ function exSync() {
     + `<span class="ex-cost">🏃 −${c.stam}</span>`
     + `<span class="ex-cost">🍚 −${c.full}</span>`;
   const gain = document.getElementById('exGain');
-  if (gain) gain.textContent = T('ex_gain', { grit: c.grit, fit: c.fit.toFixed(2) });
+  if (gain) gain.textContent = T('ex_gain', { grit: c.grit, fit: c.fit.toFixed(2) })
+    + (c.happy ? ` · ${T('a_happy')} ${signed(c.happy, 0)}` : '');
 }
 
 function doWorkout() {
@@ -4222,6 +4383,7 @@ function doWorkout() {
   S.fullness = Math.max(0, fullness() - c.full);
   S.fit = +((S.fit || 0) + c.fit).toFixed(3);
   addAura('grit', c.grit);
+  if (c.happy) addAura('happy', c.happy);
   S.lastWorkoutTs = S.decayTs = Date.now();
   rec('workouts');
   rec('exMin', exPickMin);
@@ -4336,19 +4498,14 @@ document.addEventListener('DOMContentLoaded', () => {
   tickBody();               // 창을 닫아 둔 사이에 흐른 포만감·스태미나
   // 쉬는 동안 되돌아간 만큼. **조용히 줄어 있으면 안 된다** — 알려 준다
   const lost = decayIdle();
-  // 혼자 먹은 밤. **tickBody 다음이라야** 비운 사이에 줄어든 포만감을 보고 판정한다
+  // 혼자 먹은 밤. **tickBody 다음이라야** 비운 사이에 줄어든 포만감을 보고 판정한다.
+  // **토스트로 알리지 않는다** — 마이 룸의 「흡입」 버튼에 뱃지가 붙고, 눌러서 본다.
+  // 흘러가는 토스트로 때우기에는 그날 밤이 이 게임에서 너무 중요한 장면이다
   const alone = checkBinge();
   if (lost || alone) save();
-  // 둘 다 있으면 폭식 쪽을 먼저 — 그날 밤 이야기가 먼저고, 방치는 그 뒤의 결과다
-  if (alone) {
-    setTimeout(() => toast(T('binge_night', {
-      n: alone.nights, happy: alone.happy, grit: alone.grit,
-      fit: alone.fit.toFixed(2) }), null, 6000), 900);
-  }
   if (lost) {
     setTimeout(() => toast(T('decay_back', {
-      d: lost.days, grit: lost.grit, fit: lost.fit.toFixed(2) }), null, 5200),
-      alone ? 7200 : 900);
+      d: lost.days, grit: lost.grit, fit: lost.fit.toFixed(2) }), null, 5200), 900);
   }
   switchTab('showcase');
   // 튜토리얼 — 인트로를 아직 안 봤으면 여기서는 그냥 돌아가고,

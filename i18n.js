@@ -69,11 +69,27 @@
       v_fit: '단련',
       // 지금 상태 — 포만감·스태미나
       now_full: '포만감', now_stam: '스태미나',
+      why_of: '{name}이(가) 무엇인가요',
       // ─── 운동 ───
-      act_exercise: '운동',
+      dev_binge: '🌙 폭식 한 밤 (임시)',
+      dev_binge_ok: '혼자 먹은 밤을 하나 만들었어요. (안 본 것 {n}번)',
+      dev_binge_no: '지금은 안 만들어졌어요 (같은 날이거나 배가 부릅니다).',
+      act_exercise: '운동', act_binge: '흡입',
+      act_binge_n: '흡입 — 안 본 밤 {n}번',
+      // 「흡입」 컷씬 — 겉은 웃기고 안은 아프게. 마지막 줄이 이 장면의 전부다
+      bs_none: '이미 벌어진 참사는 모두 목격하셨습니다.',
+      bs_ask_all: '혼자 먹은 밤이 {n}번 있었어요.\n연속해서 보시겠습니까?',
+      bs_ask_ok: '보겠습니다',
+      bs_line: '도저히 참지 못하고 {name}{josa} 폭풍 흡입했다. ({n}번)',
+      bs_tail: '배는 불렀는데, 채워지진…',
+      bs_next: '다음 밤 ▸', bs_done: '그만 볼래요', bs_close: '닫기',
       ex_ask: '오늘은 무엇을 해 볼까요?',
       ex_go: '운동 시작',
       ex_min: '{n}분',
+      // 시간대 — 「밤 운동은 나쁘다」가 아니라 **고르는 문제**로 읽히게 쓴다
+      ex_when_morning: '아침 — 하루가 가벼워진다 (행복 +6)',
+      ex_when_day: '낮 — 평범하게',
+      ex_when_night: '밤 — 근성이 더 붙지만 마음은 깎이고, 더 배고파진다',
       // 종목마다 한 줄. 가볍게 웃기되 가끔은 한 대 맞은 것 같게 —
       // 이 게임의 톤이 그렇다 (겉은 말랑하고 안은 진지하다)
       ex_walk_d: '창밖을 보러 나갔다가 그냥 걷는다.',
@@ -170,11 +186,6 @@
       food_full: '지금은 더 못 먹겠어요. 배가 부르거든요.',
       rec_meals: '식사',
       decay_back: '{d}일 쉬었어요.\n근성 −{grit} · 단련 −{fit}\n몸은 정직해서, 쉬면 그만큼 돌아가요.',
-      // 「혼자 먹은 밤」 — 판정 기준은 무엇을 먹었느냐가 아니라 혼자 먹었느냐다.
-      // 마지막 줄이 이 시스템의 전부다 (STORY.md)
-      binge_night: '🌙 밤에 혼자 부엌에 다녀왔어요 ({n}번)\n'
-        + '행복 −{happy} · 근성 −{grit} · 단련 −{fit}\n'
-        + '배는 불렀는데, 채워지진 않았어요.',
       rec_alone: '혼자 먹은 밤',
       potion_effect_head: '{name} 을(를) 마시면',
       potion_effect_none: '신체 수치는 거의 그대로예요',
@@ -434,10 +445,24 @@
       v_weight: 'Weight', v_height: 'Height', v_fat_pct: 'Body Fat', v_fat_kg: 'Fat Mass', v_muscle: 'Muscle',
       v_fit: 'Fitness',
       now_full: 'Fullness', now_stam: 'Stamina',
-      act_exercise: 'Exercise',
+      why_of: 'What is {name}?',
+      dev_binge: '🌙 Force one binge (temp)',
+      dev_binge_ok: 'Added one night alone. ({n} unseen)',
+      dev_binge_no: 'Nothing happened (same day, or she is full).',
+      act_exercise: 'Exercise', act_binge: 'Devour',
+      act_binge_n: 'Devour — {n} night(s) unseen',
+      bs_none: 'You have already witnessed every disaster on record.',
+      bs_ask_all: 'She ate alone on {n} nights.\nWatch them one after another?',
+      bs_ask_ok: 'Watch',
+      bs_line: 'She could not hold out, and inhaled the {name}. ({n})',
+      bs_tail: 'Her stomach was full. Nothing else was…',
+      bs_next: 'Next night ▸', bs_done: 'That is enough', bs_close: 'Close',
       ex_ask: 'What shall we do today?',
       ex_go: 'Start',
       ex_min: '{n} min',
+      ex_when_morning: 'Morning — the day starts lighter (Happiness +6)',
+      ex_when_day: 'Daytime — nothing special',
+      ex_when_night: 'Night — more grit, but it costs her, and she gets hungrier',
       ex_walk_d: 'She goes to look out the window, and just keeps walking.',
       ex_stretch_d: 'A pose the fairy godmother taught her. Surely this is not right.',
       ex_run_d: 'The wasteland is wide, and nobody is watching.',
@@ -522,9 +547,6 @@
       food_full: 'She could not manage another bite. She is full.',
       rec_meals: 'Meals',
       decay_back: '{d} days off.\nGrit −{grit} · Fitness −{fit}\nThe body is honest. Rest, and it goes back.',
-      binge_night: '🌙 She went down to the kitchen alone at night ({n}×)\n'
-        + 'Happiness −{happy} · Grit −{grit} · Fitness −{fit}\n'
-        + 'Her stomach was full. Nothing else was.',
       rec_alone: 'Nights alone',
       potion_effect_none: 'Body stats stay about the same',
       potion_effect_head: 'Drinking {name}',

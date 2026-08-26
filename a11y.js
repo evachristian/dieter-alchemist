@@ -24,6 +24,9 @@
     minFontPx: 11,                // 이보다 작은 글씨 금지
     allowedWeights: [400, 500, 700, 800, 900],   // 실제로 로드한 웨이트만
     allowedFamily: 'Noto Sans KR',               // body 스택의 첫 폰트
+    // 번역 키처럼 생긴 글자 — 소문자 + 밑줄, 공백 없음 (`room_potions`).
+    // 화면에 나오는 진짜 문구는 한글이거나 공백이 있어서 여기 안 걸린다
+    keyLike: /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/,
     // 검사 제외
     //  · 장식용 그래픽/이모지 — 읽는 글자가 아님
     //  · 완전 비활성 컴포넌트 — WCAG 도 inactive 요소는 대비 요건에서 제외한다
@@ -262,6 +265,14 @@
         // 이모지만 있는 칸은 대비를 재지 않는다 (색을 스스로 가진 그림 글자)
         issues.push(`대비 ${ratio.toFixed(2)}:1 (필요 ${need}:1)`);
       }
+      // **번역 키가 그대로 화면에 나온 것.**
+      // 없는 키를 부르면 i18n 이 키 문자열을 그대로 돌려준다 — 오류도 안 나고,
+      // 화면에 `room_potions` 라고 적힌 탭이 뜬다 (실제로 그랬다).
+      // 소스에서 `T('키')` 를 훑는 것으로는 못 잡는다: `T(key)` 처럼 변수로 넘기면
+      // 리터럴이 없기 때문이다. **그려진 글자**를 보는 쪽이 확실하다.
+      if (POLICY.keyLike.test(text)) {
+        issues.push(`번역 키가 그대로 나왔다 — i18n 에 '${text}' 가 없다`);
+      }
       if (sizePx < POLICY.minFontPx) {
         issues.push(`글자 ${sizePx.toFixed(1)}px (최소 ${POLICY.minFontPx}px)`);
       }
@@ -407,14 +418,25 @@
   }
 
   // 라벨을 인위적으로 늘려 '더 긴 언어'를 흉내 낸다 (되돌리는 함수를 반환)
+  //
+  // ⚠️ **한 글자 마디를 두 번 늘리면 안 된다.** 대상 선택자에는 서로 겹치는 것이 있다 —
+  // `.now-box` 안에 `button`(? 버튼)이 들어 있는 식이다. 그러면 같은 글자를
+  // 바깥 것으로 한 번, 안쪽 것으로 또 한 번 만나 **4배**가 되고, 되돌릴 때는
+  // 나중에 저장한 '이미 2배가 된 값' 이 마지막에 덮어써서 **2배인 채로 남는다.**
+  //
+  // 화면 하나만 재면 안 보인다. 한 페이지에서 여러 화면을 이어 재면 화면마다 2배씩
+  // 늘어나 서른 번쯤에서 문자열 한계를 넘고, 하네스가 통째로 죽었다
+  // (`RangeError: Invalid string length` — 실제로 겪었다).
   function stressLabels(factor) {
     const saved = [];
+    const seen = new Set();
     for (const el of document.querySelectorAll(LAYOUT.targetSelector)) {
       const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       let n;
       while ((n = w.nextNode())) {
         const t = n.nodeValue;
-        if (!t || !t.trim()) continue;
+        if (!t || !t.trim() || seen.has(n)) continue;
+        seen.add(n);
         saved.push([n, t]);
         n.nodeValue = new Array(factor).fill(t.trim()).join(' ');
       }

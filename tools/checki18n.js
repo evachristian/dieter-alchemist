@@ -75,6 +75,36 @@ const extraStr = [...enKeys].filter(k => !koKeys.has(k));
 if (missingStr.length) problems.push(['영어에 없는 UI 문자열', missingStr]);
 if (extraStr.length) problems.push(['한국어에 없는 UI 문자열 (영어에만 있음)', extraStr]);
 
+// ── 1-2. **쓰고 있는데 없는 키** — 화면에 키 이름이 그대로 나온다
+//
+// `T('room_potions')` 처럼 없는 키를 부르면 i18n 이 **키 문자열을 그대로 돌려준다.**
+// 오류도 안 나고, 화면에 `room_potions` 라고 적힌 탭이 뜬다 — 실제로 그랬다
+// (잡화 탭을 만들며 room_potions 를 지웠는데 레시피 북이 그걸 쓰고 있었다).
+//
+// 리터럴로 적힌 것만 본다. `T(ex.id + '_d')` 같은 조립형은 안 잡히지만,
+// 안 잡히는 쪽으로 틀리는 것이 낫다 — 거짓 경보가 나면 이 검사를 아무도 안 믿는다.
+const SRC = ['index.html', 'game.js', 'tutorial.js', 'village.js', 'intro.js', 'portrait.js', 'sfx.js'];
+const missingKeys = [];
+SRC.forEach(f => {
+  const file = path.join(__dirname, '..', f);
+  if (!fs.existsSync(file)) return;
+  const src = fs.readFileSync(file, 'utf8');
+  const seen = new Set();
+  // T('key') · T("key") · data-i18n="key"
+  // 따옴표 **다음에 바로 `,` 나 `)`** 가 와야 리터럴 한 개다.
+  // 이 조건이 없으면 `T('a_' + k)` 의 앞토막까지 키로 잡힌다 (실제로 5건 오탐이 났다)
+  const RE = /(?:\bT\(\s*['"]([a-z0-9_]+)['"]\s*[,)]|data-i18n="([a-z0-9_]+)")/g;
+  let m;
+  while ((m = RE.exec(src))) {
+    const key = m[1] || m[2];
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!koKeys.has(key)) missingKeys.push(`${f} — ${key}`);
+  }
+});
+
+if (missingKeys.length) problems.push(['쓰고 있는데 STRINGS 에 없는 키 (화면에 키 이름이 그대로 나온다)', missingKeys]);
+
 // ── 2. 데이터 이름
 // 화면에 이름이 나오는 것 전부. N(id, 한국어) 로 부르는 것들이다.
 const dataNames = [];

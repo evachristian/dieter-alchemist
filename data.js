@@ -1124,7 +1124,7 @@ const WARDROBE = {
     { id: 'exp_wink',     slot: 'expression', kind: 'wink',     name: '윙크',   emoji: '😉' },
     { id: 'exp_happy',    slot: 'expression', kind: 'happy',    name: '활짝',   emoji: '😄' },
     { id: 'exp_surprise', slot: 'expression', kind: 'surprise', name: '놀람',   emoji: '😲' },
-    { id: 'exp_cool',     slot: 'expression', kind: 'cool',     name: '시크',   emoji: '😎' },
+    { id: 'exp_cool',     slot: 'expression', kind: 'cool',     name: '시크',   emoji: '😑' },
   ],
   tattoo: [
     { id: 'tattoo_none', slot: 'tattoo', kind: 'none',  name: '없음' },
