@@ -1052,22 +1052,49 @@
           <path d="M100,126 C97,152 97,178 100,198" stroke="${clothSh}" stroke-width="2.4"
             fill="none" stroke-linecap="round" opacity="0.7"/>
 
-          <!-- 팔 — 앞으로 안고 있어서 팔꿈치만 등 옆으로 삐져나온다.
+          <!-- 왼팔 — 앞으로 안고 있어서 팔꿈치만 등 옆으로 삐져나온다.
                등과 같은 색이라 옆선을 그늘로 잡아 줘야 팔로 읽힌다.
-               **회전축은 어깨**다. 팔꿈치를 축으로 돌리면 어깨가 빠져 보인다 -->
+               **회전축은 어깨**다. 팔꿈치를 축으로 돌리면 어깨가 빠져 보인다.
+               (오른팔은 음식을 들고 있어서 아래 .cb-bite 가 따로 그린다) -->
           <g class="cb-arm cb-arm-l">
             <ellipse cx="56" cy="154" rx="12" ry="20" fill="${cloth}"
               stroke="${clothSh}" stroke-width="1.6" transform="rotate(-12 56 154)"/>
-          </g>
-          <g class="cb-arm cb-arm-r">
-            <ellipse cx="144" cy="154" rx="12" ry="20" fill="${cloth}"
-              stroke="${clothSh}" stroke-width="1.6" transform="rotate(12 144 154)"/>
           </g>
 
           <!-- 목덜미 (머리에 거의 가린다) -->
           <rect x="88" y="100" width="24" height="20" rx="9" fill="${SKIN_SH}"/>
         </g>
       </g>
+
+      <!-- 오른팔 — 음식을 들고 입으로 가져가는 팔. **머리보다 먼저 그린다.**
+           뒤에서 보고 있으니 손은 얼굴 쪽(저쪽 편)에 있고, 뒤통수가 팔을 가려야 맞다.
+           머리 위에 그렸더니 팔이 머리를 가로질러 앞으로 넘어와 보였다.
+           그러면서도 손과 음식은 **머리 옆으로 비켜나** 있어서 가려지지 않는다 —
+           엄밀히는 얼굴 뒤에 숨어야 하지만, 그러면 무엇을 하는 장면인지 안 읽힌다.
+
+           **밑동은 어깨다.** 예전에는 y=168(엉덩이 높이)에서 시작해서, 팔이 허리 뒤에서
+           돋아난 것처럼 보였다 — 팔꿈치 덩어리보다도 아래였다.
+           어깨(위) → 팔꿈치(아래 바깥) → 손목(위) 의 꺾인 선 하나로 그린다.
+
+           가로는 k 를 따라가되 손과 음식은 그 자리에 놓기만 한다 —
+           이모지가 가로로 늘어나면 안 되기 때문이다 -->
+      ${(() => {
+        const sx = (100 + 33 * k).toFixed(1);   // 어깨 — 등 실루엣의 오른쪽 끝
+        const ex = (100 + 47 * k).toFixed(1);   // 팔꿈치 — 등 옆으로 조금 나온다
+        const wx = (100 + 43 * k).toFixed(1);   // 손목
+        const arm = `M${sx},128 L${ex},157 L${wx},126`;
+        const hx = Number(wx), fx = hx + 9;
+        return `<g class="cb-bite">
+        <!-- 그늘을 **한 번 더 굵게 깔아** 테두리를 만든다. 같은 굵기로 덧칠하면
+             전체가 어두워질 뿐이고, 몸통과 한 색으로 붙어 버린다 -->
+        <path d="${arm}" stroke="${clothSh}" stroke-width="17.6" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="${arm}" stroke="${cloth}" stroke-width="15" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${hx}" cy="120" r="9.5" fill="${SKIN}"/>
+        ${foodEmoji ? `<text class="cb-food" x="${fx}" y="114" font-size="28" text-anchor="middle">${foodEmoji}</text>` : ''}
+      </g>`;
+      })()}
 
       <!-- 머리 — 고개를 숙이고 우적우적. **뒷머리 함수를 그대로 쓴다**.
            우적우적은 CSS 로 흔든다 (.cb-head) — 무한 반복이라 검증기가 건드리지 않는다 -->
@@ -1078,22 +1105,6 @@
             ${hairBack(backKind, hairC)}
           </g>
         </g>
-      </g>
-
-      <!-- 들고 있는 것 — **뺨 옆으로 삐져나온다.** 등을 돌리고 있어서 입도 얼굴도 안 보이지만,
-           머리 옆으로 나온 이것 하나면 「입에 가져가는 중」으로 읽힌다.
-           **머리보다 뒤에 두면 안 된다** — 뒤통수에 가려 닭다리 끝만 삐죽 나온다 (실제로 그랬다).
-           체형 배율(k) 밖에 두는 이유: 이모지가 가로로 늘어나면 안 된다.
-           대신 팔이 나오는 밑동만 k 를 따라가서, 통통해도 몸에서 떨어지지 않는다 -->
-      <g class="cb-bite">
-        <!-- 그늘을 **한 번 더 굵게 깔아** 테두리를 만든다. 같은 굵기로 덧칠하면
-             전체가 어두워질 뿐이고, 팔꿈치 덩어리와 한 색으로 붙어 버린다 -->
-        <path d="M${(100 + 44 * k).toFixed(1)},168 C${(100 + 52 * k).toFixed(1)},148 156,132 150,124"
-          stroke="${clothSh}" stroke-width="17.6" fill="none" stroke-linecap="round"/>
-        <path d="M${(100 + 44 * k).toFixed(1)},168 C${(100 + 52 * k).toFixed(1)},148 156,132 150,124"
-          stroke="${cloth}" stroke-width="15" fill="none" stroke-linecap="round"/>
-        <circle cx="149" cy="120" r="9.5" fill="${SKIN}"/>
-        ${foodEmoji ? `<text class="cb-food" x="157" y="114" font-size="28" text-anchor="middle">${foodEmoji}</text>` : ''}
       </g>
 
       <!-- 「우적」 — 씹을 때마다 머리 옆에서 톡 터지는 효과선. 애니메이션의 박자를 눈으로

@@ -1944,7 +1944,7 @@ body {
 /* 손에 든 것 — 한 입은 씹기 두 박자다. 입으로 밀어 넣었다가 살짝 물러난다 */
 .cb-bite {
   animation: cbBite calc(var(--cb-beat) * 4) ease-in-out infinite;
-  transform-origin: 152px 168px;   /* 팔 밑동 — 여기를 축으로 손목이 오르내린다 */
+  transform-origin: 134px 128px;   /* **어깨** — 팔은 어깨에서 돈다 */
 }
 @keyframes cbBite {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
