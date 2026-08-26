@@ -399,7 +399,26 @@
       if (cut > 1) add('잘림', el, `라벨이 ${Math.round(cut)}px 잘림`, '주의');
     }
 
-    // ④ 페이지 자체에 가로 스크롤이 생겼는가
+    // ④ `hidden` 인데 화면에 그려져 있는가
+    //
+    // **`hidden` 속성만으로는 안 숨는다.** 브라우저 기본 `[hidden]{display:none}` 은
+    // 사용자 에이전트 스타일이라 **작성자 스타일에 무조건 진다** — `.act-badge{display:flex}`
+    // 같은 규칙이 하나만 있으면 `el.hidden = true` 를 해 놓고도 그대로 보인다.
+    //
+    // 이 프로젝트에서 **두 번** 겪었다: 랭킹 탭이 '새싹' 단계에서 보였고,
+    // 「흡입」 뱃지가 볼 것이 없는데도 빨간 「0」으로 붙어 있었다. 둘 다 코드는 멀쩡했다.
+    // 그래서 속성이 아니라 **그려진 크기**로 본다 — `display` 를 주는 규칙을 새로 쓸 때마다
+    // 짝이 되는 `[hidden]` 규칙을 잊지 않게 해 준다.
+    for (const el of document.querySelectorAll('[hidden]')) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const r = rectOf(el);
+      if (r.width < 0.5 && r.height < 0.5) continue;      // 조상이 이미 감췄다
+      add('숨김실패', el, `hidden 인데 ${Math.round(r.width)}×${Math.round(r.height)}px 로 그려져 있다`
+        + ` — [hidden]{display:none} 이 '${cs.display}' 에 지고 있다`);
+    }
+
+    // ⑤ 페이지 자체에 가로 스크롤이 생겼는가
     const de = document.documentElement;
     if (de.scrollWidth - de.clientWidth > 1) {
       found.push({ 종류: '가로스크롤', 선택자: '(문서)', 텍스트: '',

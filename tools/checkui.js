@@ -387,6 +387,10 @@ function launchOpts() {
         else { await page.waitForTimeout(250); await run(`${t}/혼자먹은밤`); }
         await page.evaluate(() => { closeBingeScene(); S.binges = []; render(); });
         await page.waitForTimeout(200);
+        // **볼 것이 없을 때의 「흡입」 버튼도 잰다.** FULL 은 뱃지가 뜨도록 밤을 심어 두므로,
+        // 여기서 비우지 않으면 **0 일 때의 모습이 한 번도 검사받지 않는다** —
+        // 실제로 그 구멍에 「빨간 0 뱃지」가 숨어 있었다 (hidden 인데 display:flex 라 그려졌다)
+        await run(`${t}/흡입뱃지없음`);
         continue;
       }
       await run(t);

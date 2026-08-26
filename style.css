@@ -858,6 +858,11 @@ body {
   font-size: 0.7rem; font-weight: 900; line-height: 1;
   box-shadow: 0 1px 4px rgba(60,10,25,0.45);
 }
+/* ⚠️ **`hidden` 속성만으로는 안 숨는다.** 브라우저 기본 `[hidden]{display:none}` 은
+   작성자 스타일에 지므로, 위의 `display:flex` 가 그대로 이긴다 —
+   `el.hidden = true` 를 해 놓고도 빨간 「0」이 버튼에 붙어 있었다.
+   랭킹 탭에서 이미 한 번 겪은 함정이다 (`display` 를 주는 규칙이면 늘 짝을 지어 둘 것) */
+.act-badge[hidden] { display: none; }
 .room-act { position: relative; }
 
 .char-stage { position: relative; display: flex; justify-content: center; margin: 6px 0 10px; }
