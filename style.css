@@ -1897,14 +1897,9 @@ body {
 }
 .binge-scene.show { display: flex; }
 
-/* 나가는 길은 **늘 오른쪽 위에** 있다. 장면이 몇 개든 여기서 빠져나올 수 있다 */
-.bs-close {
-  position: absolute; top: 14px; right: 14px; z-index: 2;
-  padding: 8px 14px; border: none; border-radius: 999px; cursor: pointer;
-  font-family: inherit; font-size: 0.82rem; font-weight: 800;
-  color: var(--ink); background: rgba(255,255,255,0.92);
-}
-.bs-close:active { transform: scale(0.97); }
+/* 우상단 「✕ 닫기」는 뺐다 — 그림이 화면의 전부인 장면이라 오른쪽 위에 떠 있는
+   흰 딱지가 눈에 먼저 걸렸다. 나가는 길은 아래 버튼(.bs-next)이고,
+   키보드에서는 Esc 로도 닫힌다 */
 
 .bs-art {
   flex: 1; display: flex; align-items: flex-end; justify-content: center;

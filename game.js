@@ -4158,6 +4158,7 @@ function playBinge() {
   if (!el) return;
   el.classList.add('show');
   el.setAttribute('aria-hidden', 'false');
+  document.addEventListener('keydown', bingeKey);
   renderBinge();
 }
 
@@ -4197,9 +4198,15 @@ function bingeNext() {
 }
 window.bingeNext = bingeNext;
 
+// 우상단 「✕ 닫기」를 뺐으므로 **키보드에는 나갈 길이 없어진다.**
+// 화면 전체가 그림이라 '바깥 터치' 로 쓸 여백도 없다 — Esc 하나를 남긴다.
+// 열 때 걸고 닫을 때 떼어서, 다른 화면의 Esc 까지 가로채지 않게 한다.
+function bingeKey(e) { if (e.key === 'Escape') { e.preventDefault(); closeBingeScene(); } }
+
 function closeBingeScene() {
   const el = document.getElementById('bingeScene');
   if (!el) return;
+  document.removeEventListener('keydown', bingeKey);
   el.classList.remove('show');
   el.setAttribute('aria-hidden', 'true');
   // 몸이 달라졌을 수 있다 (단련이 깎였다) — 방으로 돌아가며 다시 그린다
