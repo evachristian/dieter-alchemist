@@ -254,6 +254,7 @@
       dev_all_specials: '❔ 모든 히든 재료 오픈',
       dev_fill_items: '📦 모든 재료 1000개씩 얻기',
       dev_items_done: '재료 {n}종을 1000개씩 넣었어요',
+      stats_more: '스탯 자세히 보기', stats_less: '스탯 간단히 보기',
       dev_tutorial: '🎓 튜토리얼 완료',
       dev_tut_replay: '🎬 튜토리얼 다시',
       // ─── 튜토리얼 (tutorial.js) ───
@@ -563,6 +564,7 @@
       dev_all_specials: '❔ Reveal every hidden ingredient',
       dev_fill_items: '📦 Give 1000 of every ingredient',
       dev_items_done: 'Added 1000 each of {n} ingredients',
+      stats_more: 'Show full stats', stats_less: 'Show simple stats',
       dev_tutorial: '🎓 Finish tutorial',
       dev_tut_replay: '🎬 Replay tutorial',
       tut_next: 'Next',

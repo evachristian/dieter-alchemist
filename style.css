@@ -895,6 +895,30 @@ body {
 .stat-box.highlight .stat-label { color: var(--ink); font-size: 0.98rem; }
 .stat-val { font-size: 1.5rem; font-weight: 900; margin-top: 2px; }
 
+/* ─── 스탯 간단히 보기 (.lite) ───
+   접으면 **카드도 상자도 없이** 단계와 매력 총합만 한 줄로 남는다.
+   테두리를 남기면 '접었는데도 여전히 덩어리' 로 보여서 접은 보람이 없다.
+   글자는 앱 배경(그러데이션) 위에 바로 앉는다 — 화면 제목과 같은 자리다. */
+.room-stats.lite {
+  background: none; box-shadow: none; padding: 0; margin-top: 12px;
+}
+.room-stats.lite .stat-box.highlight {
+  background: none; padding: 2px 6px;
+  display: flex; align-items: baseline; justify-content: center; gap: 10px;
+}
+.room-stats.lite .stat-val { margin-top: 0; }
+.room-stats.lite .stats-detail { display: none; }
+
+/* 접기/펼치기 — 조용한 줄 하나. 글자는 applyStatsView() 가 넣는다 */
+.stats-toggle {
+  display: block; width: 100%; margin: 8px 0 0; padding: 8px 10px;
+  font-family: inherit; font-size: 0.8rem; font-weight: 700;
+  color: var(--ink-soft); background: none; border: none; border-radius: 12px;
+  cursor: pointer;
+}
+.stats-toggle:active { transform: scale(0.99); }
+.room-stats.lite .stats-toggle { margin-top: 2px; }
+
 /* ─── 신체 · 아우라 상세 수치 ─── */
 .vitals {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px;

@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260825f">
+<link rel="stylesheet" href="style.css?v=20260825g">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260825f" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260825g" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -446,8 +446,9 @@
       <span id="clockKST" class="room-clock on-room-bg"></span>
     </div>
 
-    <!-- 능력치 — 요약·상세·기록·과시를 한 덩어리로 묶는다 (UI_POLICY.md 참고) -->
-    <div class="room-stats">
+    <!-- 능력치 — 요약·상세·기록·과시를 한 덩어리로 묶는다 (UI_POLICY.md 참고).
+         접으면(.lite) 단계와 매력 총합만 테두리 없이 남는다 — applyStatsView() -->
+    <div id="roomStats" class="room-stats">
       <!-- 매력 총합 — 이 화면에서 제일 큰 수. 맨 위에 혼자 놓는다 -->
       <div class="stat-row">
         <!-- 단계 이름과 점수만. "○○ 단계 매력 총합" 은 길어서 정작 큰 수를 가렸다.
@@ -457,6 +458,9 @@
           <div id="statTotal" class="stat-val">0</div>
         </div>
       </div>
+
+      <!-- 접으면 여기부터 통째로 사라진다 -->
+      <div id="statsDetail" class="stats-detail">
 
       <!-- 신체 · 아우라 상세 수치.
            합계(비주얼·아우라)를 따로 된 상자로 빼지 않고 각 칸의 머리줄에 얹는다 —
@@ -483,6 +487,12 @@
       </details>
 
       <button class="btn btn-flex" onclick="flexCharm()" data-i18n="flex_btn">📢 매력 과시</button>
+
+      </div><!-- /statsDetail -->
+
+      <!-- 글자는 applyStatsView() 가 넣는다 (접힘 상태에 따라 바뀐다) -->
+      <button id="statsToggle" class="stats-toggle" onclick="toggleStats()"
+              aria-controls="statsDetail" aria-expanded="true"></button>
     </div>
 
     <!-- 인벤토리 — 탭·목록·안내를 한 덩어리로 묶는다 (UI_POLICY.md 참고) -->
@@ -642,18 +652,18 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260825f"></script>
-<script src="intro.js?v=20260825f"></script>
-<script src="data.js?v=20260825f"></script>
-<script src="avatar.js?v=20260825f"></script>
-<script src="village.js?v=20260825f"></script>
-<script src="portrait.js?v=20260825f"></script>
-<script src="cauldron.js?v=20260825f"></script>
-<script src="pumpkin.js?v=20260825f"></script>
-<script src="sfx.js?v=20260825f"></script>
-<script src="sync.js?v=20260825f"></script>
-<script src="game.js?v=20260825f"></script>
-<script src="tutorial.js?v=20260825f"></script>
-<script src="a11y.js?v=20260825f"></script>
+<script src="i18n.js?v=20260825g"></script>
+<script src="intro.js?v=20260825g"></script>
+<script src="data.js?v=20260825g"></script>
+<script src="avatar.js?v=20260825g"></script>
+<script src="village.js?v=20260825g"></script>
+<script src="portrait.js?v=20260825g"></script>
+<script src="cauldron.js?v=20260825g"></script>
+<script src="pumpkin.js?v=20260825g"></script>
+<script src="sfx.js?v=20260825g"></script>
+<script src="sync.js?v=20260825g"></script>
+<script src="game.js?v=20260825g"></script>
+<script src="tutorial.js?v=20260825g"></script>
+<script src="a11y.js?v=20260825g"></script>
 </body>
 </html>

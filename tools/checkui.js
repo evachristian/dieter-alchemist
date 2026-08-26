@@ -321,6 +321,24 @@ function launchOpts() {
       }
       // 마이 룸은 하위 탭마다 내용이 통째로 다르다 — FULL 이면 셋을 다 돌아본다
       if (process.env.FULL && t === 'showcase') {
+        // 스탯은 접었을 때와 펼쳤을 때가 **다른 화면**이다 — 접으면 카드도 테두리도 없이
+        // 글자가 앱 배경 위에 바로 앉는다. 한쪽만 재면 다른 쪽은 통째로 검사에서 빠진다
+        for (const lite of [false, true]) {
+          const bad = await page.evaluate((want) => {
+            if (typeof toggleStats !== 'function') return 'toggleStats 가 없다';
+            const box = document.getElementById('roomStats');
+            if (box.classList.contains('lite') !== want) toggleStats();
+            return box.classList.contains('lite') === want ? null : '스탯 접힘이 안 바뀐다';
+          }, lite);
+          if (bad) { results.push({ 화면: `${t}/스탯${lite ? '접음' : '펼침'}`, 오류: bad }); continue; }
+          await page.waitForTimeout(200);
+          await run(`${t}/스탯${lite ? '접음' : '펼침'}`);
+        }
+        // 아래 하위 탭 검사는 펼친 상태로 본다 (원래 모습)
+        await page.evaluate(() => {
+          const box = document.getElementById('roomStats');
+          if (box.classList.contains('lite')) toggleStats();
+        });
         for (const sub of ['clothes', 'potions', 'creatures']) {
           const bad = await page.evaluate((s) => {
             setRoomTab(s);

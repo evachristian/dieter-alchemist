@@ -1945,6 +1945,9 @@ function renderShowcase() {
   // 신체 · 아우라 상세 수치
   renderVitals();
 
+  // 스탯을 접었는지 펼쳤는지 (이 기기의 화면 설정)
+  applyStatsView();
+
   // 개발용 도구 (임시 · 테스트용) — 접힘 상태는 render() 끝에서 한 번에 맞춘다
   renderRoomDevGift();
   renderBodyTune();
@@ -2005,6 +2008,33 @@ function renderShowcase() {
     }).join('');
   }
 }
+
+// ─── 스탯 간단히 / 자세히 ────────────────────────────────────
+//
+// 마이 룸의 능력치 덩어리는 세로를 많이 먹는다 — 늘 보고 싶은 것은 **단계와 매력 총합**
+// 둘뿐이라, 접으면 그 둘만 **테두리 없이** 남기고 나머지(신체·아우라·기록·과시)를 감춘다.
+//
+// **세이브에 넣지 않는다.** 진행이 아니라 이 기기에서 화면을 어떻게 볼지의 문제라,
+// 개발용 블록의 접힘 상태와 같은 자리에 둔다 (SAVE_VER 를 건드릴 이유가 없다).
+const STATS_LITE_KEY = 'dieter_alchemist_statslite_v1';
+function statsLite() {
+  try { return localStorage.getItem(STATS_LITE_KEY) === '1'; } catch (e) { return false; }
+}
+function applyStatsView() {
+  const box = document.getElementById('roomStats');
+  const btn = document.getElementById('statsToggle');
+  if (!box || !btn) return;
+  const lite = statsLite();
+  box.classList.toggle('lite', lite);
+  // 화살표는 **여는 쪽**을 가리킨다 — 접혀 있으면 아래(펼침), 펼쳐져 있으면 위(접힘)
+  btn.textContent = (lite ? '▾ ' : '▴ ') + T(lite ? 'stats_more' : 'stats_less');
+  btn.setAttribute('aria-expanded', lite ? 'false' : 'true');
+}
+function toggleStats() {
+  try { localStorage.setItem(STATS_LITE_KEY, statsLite() ? '0' : '1'); } catch (e) {}
+  applyStatsView();
+}
+window.toggleStats = toggleStats;
 
 // ─── 나의 방 하위 탭 (옷 / 물약 / 크리처) ───
 let roomTab = 'clothes';
