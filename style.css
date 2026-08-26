@@ -836,6 +836,16 @@ body {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 13%, #000 90%, transparent 100%);
           mask-image: linear-gradient(to bottom, transparent 0, #000 13%, #000 90%, transparent 100%);
 }
+/* 스탯을 접으면(.room-stats.lite) 배경이 그 자리까지 내려와 글자를 받아 준다.
+   늘이는 양(--room-bleed)과 그림의 viewBox 연장은 game.js 의 ROOM_BLEED · roomPadBottom 이
+   짝으로 정한다 — 여기서 상자만 늘이면 slice 라서 좌우가 잘린다.
+   페이드는 %가 아니라 px 로 다시 잡는다. %로 두면 상자가 길어진 만큼 아래 페이드도 두꺼워져
+   정작 덮으려던 글자가 옅은 자리에 앉는다. */
+.room-canvas.bleed .room-scene {
+  bottom: calc(-8px - var(--room-bleed, 0px));
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 26px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 26px), transparent 100%);
+}
 .room-svg { width: 100%; height: 100%; display: block; }
 .char-aura { position: relative; z-index: 1; width: 240px; height: 320px; display: flex; align-items: center; justify-content: center; }
 .char-aura::before {
@@ -899,9 +909,19 @@ body {
    접으면 **카드도 상자도 없이** 단계와 매력 총합만 한 줄로 남는다.
    테두리를 남기면 '접었는데도 여전히 덩어리' 로 보여서 접은 보람이 없다.
    글자는 앱 배경(그러데이션) 위에 바로 앉는다 — 화면 제목과 같은 자리다. */
+/* 방 배경(.room-scene)이 위치를 가진 요소라 그냥 두면 **이 글자를 덮는다.**
+   같은 쌓임 맥락(.room-canvas 는 z-index:auto)이므로 z-index 로 올려 준다 */
 .room-stats.lite {
   background: none; box-shadow: none; padding: 0; margin-top: 12px;
+  position: relative; z-index: 1;
 }
+/* 흰 글자와 퍼지는 음영은 .on-room-bg 가 준다 (applyStatsView 가 붙인다).
+   색을 따로 잡아 둔 칸만 되돌린다 — 상속으로는 안 온다 */
+.room-stats.lite .stat-box.highlight .stat-label,
+.room-stats.lite .tier-name,
+.room-stats.lite .stats-toggle { color: #fff; }
+/* 버튼은 UA 스타일이 음영을 끊는다 — 부모(.on-room-bg)의 것을 그대로 끌어온다 */
+.room-stats.lite .stats-toggle { text-shadow: inherit; }
 .room-stats.lite .stat-box.highlight {
   background: none; padding: 2px 6px;
   display: flex; align-items: baseline; justify-content: center; gap: 10px;

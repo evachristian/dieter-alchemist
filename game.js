@@ -1910,6 +1910,44 @@ function outfitWithColors() {
   return Object.assign({}, S.outfit, { colors });
 }
 
+// ─── 마이 룸 배경 ────────────────────────────────────────────
+//
+// 스탯을 접으면(.lite) 그 자리는 테두리 없는 글자 한 줄뿐이라 **앱 배경이 그대로 드러난다.**
+// 방 그림을 그만큼 아래로 늘여 글자가 방 바닥 위에 앉게 한다.
+//
+// **CSS 로 상자만 늘이면 안 된다.** 그림은 `preserveAspectRatio="…slice"` 라 상자가
+// 세로로 길어지면 확대율이 올라가 **좌우가 잘린다** — 창문과 선반이 화면 밖으로 나간다.
+// 그래서 늘일 픽셀을 viewBox 단위로 환산해 `roomScene` 에 넘기고, 그림이 **바닥을 진짜로
+// 더 그리게** 한다. 확대율이 그대로라 좌우 잘림도 그대로다.
+const ROOM_BLEED = 74;                                 // 아래로 늘이는 양 (px)
+const SCENE_INSET = { x: 16, top: 14, bottom: 8 };     // .room-scene 이 .char-stage 밖으로 나간 만큼
+const STAGE_H = 320;                                   // .char-aura 의 높이
+// ↑ 셋 다 style.css 의 값과 짝이다. 한쪽만 고치면 이음매가 어긋난다.
+
+function roomPadBottom(bleed) {
+  if (!bleed) return 0;
+  const canvas = document.querySelector('.room-canvas');
+  const w = (canvas ? canvas.clientWidth : 360) + SCENE_INSET.x * 2;
+  const h = STAGE_H + SCENE_INSET.top + SCENE_INSET.bottom;
+  const scale = Math.max(w / 400, h / 320);            // slice — 상자를 덮는 쪽 배율
+  // 늘어난 픽셀을 **그 배율 그대로** viewBox 단위로 바꾼다. 이렇게 잡으면 확대율도,
+  // 이미 잘려 있던 좌우·위도 그대로라 **그림이 한 칸도 안 움직인다.**
+  // (상자 높이로 되짚어 계산하면 폭이 넓은 화면에서 그림이 40px 쯤 미끄러진다)
+  return Math.max(0, Math.round(bleed / scale));
+}
+
+function renderRoomScene() {
+  const scene = document.querySelector('.room-scene');
+  if (!scene || !window.Avatar || !window.Avatar.roomScene) return;
+  const bleed = statsLite() ? ROOM_BLEED : 0;
+  const canvas = document.querySelector('.room-canvas');
+  if (canvas) {
+    canvas.classList.toggle('bleed', !!bleed);
+    canvas.style.setProperty('--room-bleed', bleed + 'px');
+  }
+  scene.innerHTML = window.Avatar.roomScene(S.roomLevel, null, roomPadBottom(bleed));
+}
+
 function renderShowcase() {
   const total = totalCharm();
   const tier = D.getTier(total);
@@ -1921,14 +1959,14 @@ function renderShowcase() {
     return r ? `<span class="stage-creature">${r.result.emoji}</span>` : '';
   }).join('');
   const avatarSvg = roomFigure(tier);
-  const sceneSvg = window.Avatar && window.Avatar.roomScene ? window.Avatar.roomScene(S.roomLevel) : '';
   stage.innerHTML = `
-    <div class="room-scene">${sceneSvg}</div>
+    <div class="room-scene"></div>
     <div class="char-aura" style="--glow:${Math.min(total, 100)}">
       <div class="char-body">${avatarSvg}</div>
       <div id="slimFx" class="slim-fx"></div>
       <div class="stage-creatures">${creatureEmojis}</div>
     </div>`;
+  renderRoomScene();   // 배경은 스탯이 접혔는지에 따라 아래로 더 그려진다
   // 물약을 마신 직후면 살 빠지는 연출을 이어서 재생
   if (pendingSlimFx) { const lv = pendingSlimFx; pendingSlimFx = null; playSlimFx(lv); }
 
@@ -2026,6 +2064,10 @@ function applyStatsView() {
   if (!box || !btn) return;
   const lite = statsLite();
   box.classList.toggle('lite', lite);
+  // 접으면 글자가 카드가 아니라 **방 배경 위**에 앉는다 (renderRoomScene 이 배경을 내려 준다).
+  // 그림 위 글자의 가독성은 대비로 못 재므로 공통 규칙인 `.on-room-bg`(흰 글자 + 퍼지는 음영)를
+  // 그대로 쓴다 — a11y.js 가 이 클래스를 보고 음영 겹수·불투명도를 대신 검사한다
+  box.classList.toggle('on-room-bg', lite);
   // 화살표는 **여는 쪽**을 가리킨다 — 접혀 있으면 아래(펼침), 펼쳐져 있으면 위(접힘)
   btn.textContent = (lite ? '▾ ' : '▴ ') + T(lite ? 'stats_more' : 'stats_less');
   btn.setAttribute('aria-expanded', lite ? 'false' : 'true');
@@ -2033,6 +2075,7 @@ function applyStatsView() {
 function toggleStats() {
   try { localStorage.setItem(STATS_LITE_KEY, statsLite() ? '0' : '1'); } catch (e) {}
   applyStatsView();
+  renderRoomScene();
 }
 window.toggleStats = toggleStats;
 

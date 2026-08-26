@@ -354,6 +354,65 @@ function launchOpts() {
     }
   }
 
+  // ─── 스탯을 접었을 때 방 배경이 그 자리를 덮는가 (FULL) ───────
+  //
+  // 접으면 스탯은 테두리 없는 글자 한 줄이라 방 그림을 아래로 늘여 받아 준다.
+  // 그림은 `preserveAspectRatio="…slice"` 라 **상자만 늘이면 확대율이 올라가
+  // 좌우가 잘린다** — 창문과 선반이 화면 밖으로 나간다. 그래서 늘일 픽셀을
+  // viewBox 단위로 환산해 바닥을 진짜로 더 그린다 (game.js 의 roomPadBottom).
+  //
+  // 눈으로는 잘 안 보이는 실수다: 상자 높이로 되짚어 계산하면 **폭이 넓은 화면에서만**
+  // 그림이 40px 쯤 아래로 미끄러진다 (실제로 한 번 그렇게 짰다). 그래서 확대율·좌우
+  // 잘림·그림의 세로 위치 셋을 접기 전후로 견준다.
+  if (process.env.FULL) {
+    const geom = () => page.evaluate(() => {
+      const svg = document.querySelector('.room-svg');
+      if (!svg) return null;
+      const r = svg.getBoundingClientRect();
+      const H = Number(svg.getAttribute('viewBox').split(' ')[3]);
+      const scale = Math.max(r.width / 400, r.height / H);
+      const stats = document.getElementById('roomStats').getBoundingClientRect();
+      const inv = document.querySelector('.room-inv').getBoundingClientRect();
+      return {
+        scale, unitsW: r.width / scale,
+        // 상자 위에서 '원래 바닥 끝(viewBox y=320)' 까지 — 그림이 위아래로 밀렸는지
+        floorY: r.height - (H - 320) * scale,
+        // 스탯 글자를 덮었는가 / 인벤토리 카드를 침범하지 않았는가 (상자 바닥 기준)
+        overStats: r.bottom - stats.bottom, underInv: inv.top - r.bottom,
+      };
+    });
+    const setLite = (w) => page.evaluate((want) => {
+      if (typeof toggleStats !== 'function') return null;
+      const box = document.getElementById('roomStats');
+      if (box.classList.contains('lite') !== want) toggleStats();
+      return box.classList.contains('lite');
+    }, w);
+
+    await page.evaluate(() => { if (typeof switchTab === 'function') switchTab('showcase'); });
+    await page.waitForTimeout(250);
+    if (await setLite(false) === null) {
+      results.push({ 화면: '방 배경 늘이기', 오류: 'toggleStats 가 없다' });
+    } else {
+      await page.waitForTimeout(150);
+      const open = await geom();
+      await setLite(true);
+      await page.waitForTimeout(150);
+      const lite = await geom();
+      const bad = [];
+      if (!open || !lite) bad.push('방 그림을 못 찾았다');
+      else {
+        if (Math.abs(open.scale - lite.scale) > 0.005) bad.push(`확대율이 달라졌다 ${open.scale.toFixed(3)} → ${lite.scale.toFixed(3)}`);
+        if (Math.abs(open.unitsW - lite.unitsW) > 1) bad.push(`좌우 잘림이 달라졌다 ${open.unitsW.toFixed(1)} → ${lite.unitsW.toFixed(1)} 단위`);
+        if (Math.abs(open.floorY - lite.floorY) > 1.5) bad.push(`그림이 ${(lite.floorY - open.floorY).toFixed(1)}px 밀렸다`);
+        if (lite.overStats < 0) bad.push(`스탯 글자를 ${(-lite.overStats).toFixed(1)}px 못 덮었다`);
+        if (lite.underInv < 0) bad.push(`인벤토리 카드를 ${(-lite.underInv).toFixed(1)}px 침범했다`);
+      }
+      results.push(bad.length
+        ? { 화면: '방 배경 늘이기', 오류: bad.join(' · ') }
+        : { 화면: '방 배경 늘이기', pass: true, total: 0, blocked: false });
+    }
+  }
+
   // ─── 화면 설정이 이 기기에 남는가 (FULL, 맨 마지막) ───────────
   //
   // 스탯 접힘은 **세이브가 아니라 이 기기의 localStorage** 에 있다.
