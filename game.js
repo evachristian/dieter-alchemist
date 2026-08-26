@@ -14,7 +14,7 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //  9: '헤어컬러' 칸이 없어지고 머리도 염색으로 색을 정한다
 // 10: 튜토리얼(S.tut)이 생겼다 — 이 버전 이전의 세이브는 튜토리얼을 본 적이 없으므로
 //     다시 보여 주지 않고 **마친 것으로 친다** (그래야 tutorialDone 도 같이 켜진다)
-const SAVE_VER = 10;
+const SAVE_VER = 11;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -59,22 +59,25 @@ const defaultState = () => ({
   cauldron:  [],          // 현재 마법 솥에 넣은 재료 id (솥의 구멍 수만큼)
   gathered:  0,           // 총 채집 횟수 (통계)
   outfit:    { ...D.DEFAULT_OUTFIT },  // 아바타 착장 (슬롯 → 아이템 id)
-  // 옷 색 (슬롯 → COLORS 의 id). 비어 있으면 그 칸은 아이템 원래 색을 쓴다.
-  // **기본값이 빈 객체라 예전 세이브에도 그대로 맞는다** — 마이그레이션이 필요 없다
-  outfitColor: {},
-  // 염색이 풀리는 시각 (슬롯 → epoch ms). 마법 염색약은 24시간짜리다.
-  // **색과 따로 두는 이유**: 예전 세이브에 남아 있는 색은 만료 시각이 없으므로
-  // 자동으로 '풀린 것' 이 된다 — 마이그레이션 없이 옛 값이 조용히 무효가 된다
-  dyeUntil: {},
+  // 옷 색 (**아이템 id** → COLORS 의 id). 비어 있으면 그 옷은 원래 색을 쓴다.
+  //
+  // **칸(slot)이 아니라 옷 한 벌에 붙는다.** 예전에는 칸에 붙어 있어서,
+  // 장갑 하나를 물들이면 가진 장갑이 **전부** 그 색이 됐다 — 염색약 한 개로
+  // 그 칸 전체를 칠하는 셈이라, 아이템을 늘려도 색이 개성이 되지 못했다.
+  itemColor: {},
+  // 마법 염색이 풀리는 시각 (**아이템 id** → epoch ms). 24시간짜리다.
+  // **색과 따로 두는 이유**: 영원 염색약은 여기 안 들어오므로, 시각이 없는 것은
+  // 곧 '영원한 색' 이거나 '풀린 색' 이다 — 어느 쪽인지는 dyeForever 가 가른다
+  dyeEnd: {},
   dye: 0,                 // 마법 염색약 보유 개수 (24시간)
   // 영원 염색약 — **색깔마다 따로 있는 아이템**이다 (색 id → 개수).
   // 마법 염색약이 '아무 색이나 24시간' 이라면, 이쪽은 '이 색으로 영영' 이다.
   // 그래서 개수 하나가 아니라 색깔별 칸을 둔다
   dyeEver: {},
-  // 영원 염색약으로 물들인 칸 (슬롯 → true). **만료 시각이 없다는 것만으로는
+  // 영원 염색약으로 물들인 옷 (**아이템 id** → true). **만료 시각이 없다는 것만으로는
   // 영원한 색인지 알 수 없다** — 예전 세이브에도 시각 없는 색이 남아 있어서,
   // 그건 '풀린 것' 으로 봐야 한다. 그래서 영원한 것은 여기 따로 표시한다
-  dyePerm: {},
+  dyeForever: {},
   // 현자의 결정 보유 개수 (조합 실패로 얻어 AP 충전에 쓴다).
   // **새로 생긴 칸이라 마이그레이션이 필요 없다** — 예전 세이브에는 이 키가 없고,
   // Object.assign(defaultState(), 저장값) 이 기본값 0 을 그대로 남긴다
@@ -165,9 +168,9 @@ let S = load();
 // 서버에서 받아온 세이브만 고쳐지는 일이 있었다.
 function normalizeState(st) {
   st.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, st.outfit || {});
-  if (!st.outfitColor || typeof st.outfitColor !== 'object') st.outfitColor = {};
-  if (!st.dyeUntil || typeof st.dyeUntil !== 'object') st.dyeUntil = {};
-  if (!st.dyePerm || typeof st.dyePerm !== 'object') st.dyePerm = {};
+  if (!st.itemColor || typeof st.itemColor !== 'object') st.itemColor = {};
+  if (!st.dyeEnd || typeof st.dyeEnd !== 'object') st.dyeEnd = {};
+  if (!st.dyeForever || typeof st.dyeForever !== 'object') st.dyeForever = {};
   // 영원 염색약은 처음에 '개수 하나'(숫자)였다가 색깔별 칸으로 바뀌었다.
   // 옛 값은 색을 알 수 없으니 버린다 (개발용으로만 있던 값이다)
   if (!st.dyeEver || typeof st.dyeEver !== 'object') st.dyeEver = {};
@@ -288,6 +291,11 @@ function migrate(st, from) {
     // (그 색을 쓰고 있었으니 팔레트에서도 가진 것으로 친다)
     const to = OLD_HAIR_COLOR[(st.outfit || {}).hairColor];
     if (to && !(st.outfitColor || {}).hair) {
+      // **옛 칸 구조(outfitColor/dyePerm)에 그대로 쓴다.** 바로 아래 v11 이 그것을
+      // 아이템별 구조로 옮겨 준다 — 여기서 새 구조에 직접 쓰면 옮기는 규칙이 두 벌이 된다.
+      // 기본값에서 빠진 칸이므로 없으면 만들어 준다
+      st.outfitColor = st.outfitColor || {};
+      st.dyePerm = st.dyePerm || {};
       st.outfitColor.hair = to;
       st.dyePerm.hair = true;
       if (!st.unlocked.includes(to)) st.unlocked.push(to);
@@ -301,6 +309,25 @@ function migrate(st, from) {
     // 잠긴 채로 남아 있던 세이브들이 여기서 함께 풀린다.
     st.tut = { step: 0, beat: 0, done: true, did: {} };
     st.tutorialDone = true;
+  }
+
+  if (from < 11) {
+    // 염색이 **칸(slot)에서 옷(아이템 id)으로** 옮겨 갔다.
+    // 예전에는 장갑 하나를 물들이면 가진 장갑이 전부 그 색이 됐다.
+    //
+    // **지금 입고 있는 옷에 옮겨 붙인다.** 물들일 때 입고 있던 옷이 그것이었을
+    // 가능성이 가장 높고, 무엇보다 화면이 그대로 유지된다 — 어제까지 보던 색이
+    // 오늘 원래 색으로 돌아가면 그게 더 큰 손실이다.
+    // (그 칸에 아무것도 안 입고 있었으면 옮길 곳이 없으니 버린다)
+    const oc = st.outfitColor || {}, du = st.dyeUntil || {}, dp = st.dyePerm || {};
+    Object.keys(oc).forEach(slot => {
+      const id = (st.outfit || {})[slot];
+      if (!id || st.itemColor[id]) return;
+      st.itemColor[id] = oc[slot];
+      if (dp[slot]) st.dyeForever[id] = true;
+      else if (du[slot]) st.dyeEnd[id] = du[slot];
+    });
+    delete st.outfitColor; delete st.dyeUntil; delete st.dyePerm;
   }
 
   st.ver = SAVE_VER;
@@ -1902,8 +1929,9 @@ function roomFigure(tier) {
 function outfitWithColors() {
   const colors = {};
   // slotColor() 를 지나므로 **못 가진 색은 자동으로 빠진다** — 세이브에 남아 있어도
-  // 아바타에는 안 나온다 (원래 색으로 떨어진다)
-  Object.keys(S.outfitColor || {}).forEach(slot => {
+  // 아바타에는 안 나온다 (원래 색으로 떨어진다).
+  // **입고 있는 칸을 돈다** — 염색은 옷에 붙어 있으므로, 안 입은 옷의 색은 볼 이유가 없다
+  Object.keys(S.outfit || {}).forEach(slot => {
     const hex = slotColor(slot);
     if (hex) colors[slot] = hex;
   });
@@ -2299,8 +2327,10 @@ function hairAxisRow(axis, list, cur) {
     const on = (axis === 'back' ? cur.back : cur.bang) === ax.k;
     const owned = isOwned('hair', it);
     // 그림은 **고르면 나올 모습 그대로** 그린다: 나머지 축은 지금 쓰는 것을 물려받는다.
+    // 색도 그 머리에 물들여 둔 색이다 — 염색은 칸이 아니라 옷에 붙으므로,
+    // 다른 머리로 갈아 끼우면 그 머리의 색으로 나온다
     // 앞머리 칸은 이마만 확대한다 — 머리 전체를 담으면 다섯 개가 같은 그림으로 보인다
-    const ic = Avatar.hairIcon(it, slotColor('hair') || it.color, axis === 'bang' ? 'face' : null);
+    const ic = Avatar.hairIcon(it, itemHex(it), axis === 'bang' ? 'face' : null);
     const lock = owned ? '' : '<span class="wr-lock">🔒</span>';
     const name = N(ax.id, ax.name);
     return `<button class="wr-item ${on ? 'on' : ''} ${owned ? '' : 'locked'}" data-k="${ax.k}"
@@ -2420,13 +2450,14 @@ function renderWardrobe() {
     // 머리 모양을 고치면 이 그림도 같이 바뀐다). 헤어 칸은 보통 아래 두 줄짜리
     // 축 화면으로 가고, 이 줄은 축 표가 없을 때를 위한 대비다
     else if (wardrobeTab === 'hair' && window.Avatar && Avatar.hairIcon) {
-      // 지금 머리색으로 그린다 — 염색해 놓고 목록만 브라운이면 무엇을 고르는지 헷갈린다
-      ic = Avatar.hairIcon(it, slotColor('hair') || it.color);
+      // 그 머리에 물들여 둔 색으로 그린다 — 염색해 놓고 목록만 브라운이면 무엇을 고르는지 헷갈린다
+      ic = Avatar.hairIcon(it, itemHex(it));
     }
     else if (it.emoji) ic = it.emoji;
-    // 지금 입고 있는 옷만 **고른 색**으로 보여 준다. 목록 전체에 칠하면
-    // 검정을 골랐을 때 모든 옷이 똑같은 검정 동그라미가 돼 서로 구분이 안 된다
-    else ic = `<span class="wr-swatch" style="background:${(on && slotColor(wardrobeTab)) || it.color || '#ccc'}"></span>`;
+    // **각자 자기 색으로** 보여 준다. 염색이 옷에 붙으므로 칸마다 색이 다르고,
+    // 그래서 목록 전체가 같은 색이 되는 일이 없다 (예전에는 칸에 붙어 있어서
+    // 지금 입은 것만 칠했다 — 안 그러면 60벌이 전부 같은 동그라미가 됐다)
+    else ic = `<span class="wr-swatch" style="background:${itemHex(it) || '#ccc'}"></span>`;
     const lock = owned ? '' : '<span class="wr-lock">🔒</span>';
     // 이름은 칸에 쓰지 않는다. 30벌짜리 칸에서는 '긴 생머리 시스루뱅' 같은 이름이
     // 세 줄을 넘겨 잘렸고, 글자는 11px 밑으로 못 줄인다 (TEXT_POLICY 1).
@@ -2470,8 +2501,13 @@ function isColorOwned(id) { return (S.unlocked || []).includes(id); }
 // 그래서 색은 '가진 것' 이 아니라 '빌린 것' 이다 — 되돌아오는 것이 규칙이다.
 const DYE_MS = 24 * 60 * 60 * 1000;
 
-function dyeLeft(slot) {
-  const t = (S.dyeUntil || {})[slot];
+// 지금 그 칸에 입고 있는 옷의 id. **염색은 칸이 아니라 이 id 에 붙는다** —
+// 부르는 쪽은 여전히 칸으로 물어보고, 옷으로 옮기는 것은 여기 한 곳에서 한다
+function wornId(slot) { const it = wornItem(slot); return it ? it.id : null; }
+
+function dyeLeft(slot) { return itemDyeLeft(wornId(slot)); }
+function itemDyeLeft(itemId) {
+  const t = itemId && (S.dyeEnd || {})[itemId];
   return t ? t - Date.now() : 0;
 }
 // 옷이 갖고 태어난 색과 **같은 색이 팔레트에 있으면** 그 색이다.
@@ -2482,15 +2518,19 @@ function origColor(it) {
 }
 
 // 지금 그 칸에 색이 살아 있는가 — 24시간짜리가 남았거나, 영원 염색약을 썼거나
-function dyeActive(slot) { return !!(S.dyePerm || {})[slot] || dyeLeft(slot) > 0; }
+function dyeActive(slot) {
+  const id = wornId(slot);
+  return !!(id && (S.dyeForever || {})[id]) || dyeLeft(slot) > 0;
+}
 // 시간이 다 된 염색을 걷어낸다. 하나라도 걷어냈으면 true (부른 쪽이 저장·다시 그리기)
+// **입고 있지 않은 옷도 함께 본다** — 벗어 둔 사이에도 24시간은 흐른다
 function expireDye() {
-  if (!S.dyeUntil) return false;
+  if (!S.dyeEnd) return false;
   let changed = false;
-  Object.keys(S.dyeUntil).forEach(slot => {
-    if (dyeLeft(slot) > 0) return;
-    delete S.dyeUntil[slot];
-    if (S.outfitColor) delete S.outfitColor[slot];
+  Object.keys(S.dyeEnd).forEach(itemId => {
+    if (itemDyeLeft(itemId) > 0) return;
+    delete S.dyeEnd[itemId];
+    if (S.itemColor) delete S.itemColor[itemId];
     changed = true;
   });
   return changed;
@@ -2513,21 +2553,24 @@ function josa(word, pair) {
 // 두 염색약은 조건이 다르다 — 한 조건으로 묶으면 한쪽이 조용히 안 먹는다.
 //  · 마법 염색약 : 팔레트 색을 얻어 뒀고(isColorOwned) 24시간이 남아 있어야 한다
 //  · 영원 염색약 : **그 색 염색약 자체가 아이템**이라 팔레트 색을 따로 얻어 둘 필요가 없고,
-//                  기한도 없다. applyDye 가 dyeUntil 을 지우고 dyePerm 만 남기기 때문에,
+//                  기한도 없다. applyDye 가 dyeEnd 를 지우고 dyeForever 만 남기기 때문에,
 //                  여기서 dyeLeft 만 보면 영원 염색약이 **아예 안 먹는다** (실제로 그랬다 —
 //                  칠했다는 토스트는 뜨는데 아바타는 원래 색 그대로였다)
 //
 // '원래 색'(아이템이 갖고 태어난 색)은 언제나 쓸 수 있다 — 그 옷을 가졌으면 그 색도 가진 것이다.
 // 고른 색을 잃었거나(초기화) 마법 염색이 풀렸으면 원래 색으로 떨어진다.
-function dyedColorId(slot) {
-  const id = (S.outfitColor || {})[slot];
+function dyedColorId(slot) { return itemColorId(wornId(slot)); }
+function itemColorId(itemId) {
+  const id = itemId && (S.itemColor || {})[itemId];
   if (!id) return null;
-  if ((S.dyePerm || {})[slot]) return id;
-  return (isColorOwned(id) && dyeLeft(slot) > 0) ? id : null;
+  if ((S.dyeForever || {})[itemId]) return id;
+  return (isColorOwned(id) && itemDyeLeft(itemId) > 0) ? id : null;
 }
-function slotColor(slot) {
-  const id = dyedColorId(slot);
-  const c = id && D.COLORS.find(x => x.id === id);
+function slotColor(slot) { return hexOf(dyedColorId(slot)); }
+// 그 옷에 **실제로 입혀지는 색.** 염색이 살아 있으면 그 색, 아니면 옷이 갖고 태어난 색
+function itemHex(it) { return (it && hexOf(itemColorId(it.id))) || (it && it.color) || null; }
+function hexOf(colorId) {
+  const c = colorId && D.COLORS.find(x => x.id === colorId);
   return c ? c.hex : null;
 }
 
@@ -2673,14 +2716,15 @@ function applyDye(slot, colorId, kind) {
     S.dyeEver[colorId] = everCount(colorId) - 1;
     if (S.dyeEver[colorId] <= 0) delete S.dyeEver[colorId];   // 다 쓴 칸은 지운다
   } else S.dye--;
-  S.outfitColor[slot] = colorId;
+  // **그 옷 한 벌에만 붙는다.** 칸에 붙이면 가진 장갑이 전부 같은 색이 된다
+  S.itemColor[it.id] = colorId;
   if (ever) {
     // 영원 염색약 — 만료 시각을 지우고 '영원함' 표시를 남긴다
-    S.dyePerm[slot] = true;
-    delete S.dyeUntil[slot];
+    S.dyeForever[it.id] = true;
+    delete S.dyeEnd[it.id];
   } else {
-    delete S.dyePerm[slot];
-    S.dyeUntil[slot] = Date.now() + DYE_MS;
+    delete S.dyeForever[it.id];
+    S.dyeEnd[it.id] = Date.now() + DYE_MS;
   }
   dyeOpen = null;        // 다 썼으면 접는다 — 열어 둔 채로 두면 방금 바뀐 아바타가 안 보인다
   save();
@@ -2699,7 +2743,7 @@ function origName(it) {
 
 // 마법 염색약이 걸려 있을 때의 안내 — 지금 무슨 색인지 / 언제 돌아오는지
 function revertMsg(slot, it, left) {
-  const c = D.COLORS.find(x => x.id === (S.outfitColor || {})[slot]);
+  const c = D.COLORS.find(x => x.id === (S.itemColor || {})[wornId(slot)]);
   const color = c ? N(c.id, c.name) : T('wr_color');
   const h = Math.ceil(left / 3600000);
   const t = h > 1 ? T('dye_left_h', { h }) : T('dye_left_m', { m: Math.max(1, Math.ceil(left / 60000)) });
@@ -2716,9 +2760,12 @@ function undye(slot, el) {
   // 여기서 지워 버리면 쓴 염색약이 그냥 사라진다. 대신 언제 돌아오는지 알려 준다.
   const left = dyeLeft(slot);
   if (it && left > 0) { toast(revertMsg(slot, it, left), el, 4200); return; }
-  delete S.outfitColor[slot];
-  delete S.dyeUntil[slot];
-  if (S.dyePerm) delete S.dyePerm[slot];
+  const id = it && it.id;
+  if (id) {
+    delete S.itemColor[id];
+    delete S.dyeEnd[id];
+    if (S.dyeForever) delete S.dyeForever[id];
+  }
   save();
   renderShowcase();
   const c = it && origColor(it);

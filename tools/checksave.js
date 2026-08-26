@@ -86,8 +86,10 @@ const CASES = [
     expect: (S) => [
       S.name === '핑크' || '이름이 사라졌다',
       S.outfit.hair === 'hair_wave' || `머리 모양이 바뀌었다 (${S.outfit.hair})`,
-      S.outfitColor.hair === 'c_blossom' || `머리색이 안 옮겨졌다 (${S.outfitColor.hair})`,
-      S.dyePerm.hair === true || '옮긴 머리색이 24시간짜리로 잡혔다 (풀려 버린다)',
+      // 세이브 11 에서 염색이 칸(hair) → 옷(hair_wave) 으로 옮겨 갔다.
+      // 두 마이그레이션이 이어 달리므로 **최종 자리**에서 확인한다
+      S.itemColor.hair_wave === 'c_blossom' || `머리색이 안 옮겨졌다 (${JSON.stringify(S.itemColor)})`,
+      S.dyeForever.hair_wave === true || '옮긴 머리색이 24시간짜리로 잡혔다 (풀려 버린다)',
       (S.unlocked || []).includes('c_blossom') || '쓰고 있던 색인데 안 가진 것으로 남았다',
     ],
   },
@@ -96,7 +98,7 @@ const CASES = [
     save: { ver: 8, name: '브라운', nameClaimed: true, tutorialDone: true,
             outfit: { hair: 'hair_bob', hairColor: 'hcol_brown' } },
     expect: (S) => [
-      !S.outfitColor.hair || `안 골랐던 사람에게 염색이 생겼다 (${S.outfitColor.hair})`,
+      !Object.keys(S.itemColor || {}).length || `안 골랐던 사람에게 염색이 생겼다 (${JSON.stringify(S.itemColor)})`,
     ],
   },
   {
@@ -119,7 +121,29 @@ const CASES = [
             outfit: { hair: 'hair_bob', hairColor: 'hcol_pink' },
             outfitColor: { hair: 'c_mint' }, dyePerm: { hair: true } },
     expect: (S) => [
-      S.outfitColor.hair === 'c_mint' || `고른 색을 옛 값이 덮었다 (${S.outfitColor.hair})`,
+      S.itemColor.hair_bob === 'c_mint' || `고른 색을 옛 값이 덮었다 (${JSON.stringify(S.itemColor)})`,
+    ],
+  },
+  {
+    // 염색이 **칸에서 옷으로** 옮겨 간 판이다. 옮겨 주지 않으면 어제까지 보던
+    // 색이 오늘 원래 색으로 돌아간다 — 화면에는 아무 오류도 안 뜬다
+    name: '세이브 10 (염색이 칸에 붙어 있던 시절)',
+    save: { ver: 10, name: '염색', nameClaimed: true, tutorialDone: true,
+            outfit: { glove: 'glove_knit', shoes: 'shoes_flat_plain' },
+            outfitColor: { glove: 'c_cherry', shoes: 'c_mint' },
+            dyePerm: { glove: true },
+            dyeUntil: { shoes: Date.now() + 3600000 },
+            unlocked: ['c_mint'] },
+    expect: (S) => [
+      S.itemColor.glove_knit === 'c_cherry' || `영원 염색이 안 옮겨졌다 (${JSON.stringify(S.itemColor)})`,
+      S.dyeForever.glove_knit === true || '영원 염색이 24시간짜리로 잡혔다',
+      S.itemColor.shoes_flat_plain === 'c_mint' || '마법 염색이 안 옮겨졌다',
+      (S.dyeEnd.shoes_flat_plain > Date.now()) || `마법 염색의 남은 시간이 사라졌다 (${S.dyeEnd.shoes_flat_plain})`,
+      !S.dyeForever.shoes_flat_plain || '24시간짜리가 영원 염색으로 바뀌었다',
+      // 옮긴 뒤에는 옛 칸이 남아 있으면 안 된다 — 남으면 다음 판에서 또 옮긴다
+      !S.outfitColor && !S.dyeUntil && !S.dyePerm || '옛 칸 구조가 그대로 남았다',
+      // **다른 장갑으로 갈아입으면 원래 색이어야 한다** (이게 고치려던 버그다)
+      !S.itemColor.glove_wrist_cuff || '다른 장갑까지 물들었다',
     ],
   },
 ];

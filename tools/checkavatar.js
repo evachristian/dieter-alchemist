@@ -268,8 +268,12 @@ function launchOpts() {
 
   // ─── 염색이 실제로 아바타에 입혀지는가 ───────────────────────
   // **조용히 깨지는 자리다.** 칠했다는 토스트는 뜨는데 아바타는 원래 색 그대로였던 적이 있다
-  // (영원 염색약이 dyeUntil 을 지우는데 slotColor 가 dyeUntil 만 봐서, 모든 칸에서 안 먹었다).
+  // (영원 염색약이 만료 시각을 지우는데 slotColor 가 그것만 봐서, 모든 칸에서 안 먹었다).
   // 그래서 '색을 골랐다' 가 아니라 **그린 SVG 안에 그 색이 있나**로 본다.
+  //
+  // **염색이 그 옷 한 벌에만 붙는지도 같이 본다.** 예전에는 칸(slot)에 붙어 있어서
+  // 장갑 하나를 물들이면 가진 장갑이 전부 그 색이 됐다 — 눈에는 잘 안 띄는데,
+  // 다른 옷으로 갈아입어 봐야 드러난다.
   const dye = await page.evaluate(() => {
     const D = window.GameData, bad = [];
     const HEX = { magic: '#2f9e6e', ever: '#c9184a' };       // 에메랄드 / 체리
@@ -282,26 +286,38 @@ function launchOpts() {
     };
     S.outfit.dress = 'dress_none';
     D.COLORS.forEach(c => { if (!isColorOwned(c.id)) S.unlocked.push(c.id); });
+    const wipe = () => { S.itemColor = {}; S.dyeEnd = {}; S.dyeForever = {}; };
+    let others = 0;
     for (const slot of D.COLORABLE_SLOTS) {
       const it = wearSomething(slot);
       if (!it) { bad.push(`${slot}: 입힐 옷이 없다`); continue; }
       for (const kind of ['magic', 'ever']) {
-        delete S.outfitColor[slot]; delete S.dyeUntil[slot]; delete S.dyePerm[slot];
+        wipe();
         S.dye = 9; S.dyeEver = Object.assign({}, S.dyeEver, { [ID[kind]]: 9 });
         applyDye(slot, ID[kind], kind);
         if (!Avatar.build(outfitWithColors(), 0.3).includes(HEX[kind])) {
           bad.push(`${slot}: ${kind === 'ever' ? '영원' : '마법'} 염색약이 아바타에 안 먹는다`);
         }
+        // **그 옷 한 벌에만** 붙었는가 — 같은 칸의 다른 옷으로 갈아입으면 원래 색이어야 한다
+        const other = (D.WARDROBE[slot] || []).find(x => x.kind !== 'none' && x.id !== it.id);
+        if (other) {
+          others++;
+          S.outfit[slot] = other.id;
+          if (Avatar.build(outfitWithColors(), 0.3).includes(HEX[kind])) {
+            bad.push(`${slot}: ${kind === 'ever' ? '영원' : '마법'} 염색이 같은 칸의 다른 옷(${other.id})까지 물들였다`);
+          }
+          S.outfit[slot] = it.id;
+        }
       }
       // 마법 염색약은 기한이 지나면 풀려야 한다 (영원 염색약과 헷갈려 둘 다 안 풀리면 안 된다)
-      delete S.outfitColor[slot]; delete S.dyeUntil[slot]; delete S.dyePerm[slot];
+      wipe();
       S.dye = 9; applyDye(slot, ID.magic, 'magic');
-      S.dyeUntil[slot] = Date.now() - 1000;
+      S.dyeEnd[it.id] = Date.now() - 1000;
       if (Avatar.build(outfitWithColors(), 0.3).includes(HEX.magic)) {
         bad.push(`${slot}: 기한이 지난 마법 염색약이 안 풀린다`);
       }
     }
-    return { bad, slots: D.COLORABLE_SLOTS.length };
+    return { bad, slots: D.COLORABLE_SLOTS.length, others };
   });
 
   await browser.close();
@@ -323,7 +339,8 @@ function launchOpts() {
     .concat(hair.bad.map(m => ({ id: '앞머리', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
-  console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회 · 앞머리 ${hair.kinds}종 정수리`);
+  console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
+    + ` · 다른 옷으로 갈아입어 확인 ${dye.others}회 · 앞머리 ${hair.kinds}종 정수리`);
   console.log(`넥라인: 파낸 자리를 몸통 윗선과 견줌 (그린 path 를 isPointInFill 로 직접 잰다)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
   console.log(`❌ ${all.length}건`);
