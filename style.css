@@ -843,8 +843,8 @@ body {
    정작 덮으려던 글자가 옅은 자리에 앉는다. */
 .room-canvas.bleed .room-scene {
   bottom: calc(-8px - var(--room-bleed, 0px));
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 26px), transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 26px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 18px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 18px), transparent 100%);
 }
 .room-svg { width: 100%; height: 100%; display: block; }
 .char-aura { position: relative; z-index: 1; width: 240px; height: 320px; display: flex; align-items: center; justify-content: center; }
