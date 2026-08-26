@@ -329,6 +329,21 @@
   function fairyFace(pose) {
     const happy = pose === 'smile' || pose === 'castbig';
     const glance = pose === 'glance';
+    // 대노 — 「혼자 먹은 밤」을 다섯 번 보고 나면 나온다.
+    // `glance`(미심쩍음)로는 안 된다. 눈썹이 안쪽으로 내려오고 입이 열려야 화난 것으로 읽힌다
+    if (pose === 'cross') return `
+      <path d="M313,170 L329,180" stroke="#8a7a86" stroke-width="3" stroke-linecap="round"/>
+      <path d="M347,170 L331,180" stroke="#8a7a86" stroke-width="3" stroke-linecap="round"/>
+      <ellipse cx="322" cy="189" rx="4.2" ry="4.6" fill="#4a3a42"/>
+      <ellipse cx="338" cy="189" rx="4.2" ry="4.6" fill="#4a3a42"/>
+      <!-- 눈꺼풀 — 위를 눌러 눈을 부라린 것으로 보이게 한다 -->
+      <path d="M317,185 L327,187" stroke="${SKIN}" stroke-width="4" stroke-linecap="round"/>
+      <path d="M343,185 L333,187" stroke="${SKIN}" stroke-width="4" stroke-linecap="round"/>
+      <ellipse cx="313" cy="196" rx="5.4" ry="3.6" fill="#ff8fa4" opacity="0.85"/>
+      <ellipse cx="347" cy="196" rx="5.4" ry="3.6" fill="#ff8fa4" opacity="0.85"/>
+      <!-- 벌린 입 (외치는 중) -->
+      <path d="M321,199 Q330,196 339,199 Q336,211 330,211 Q324,211 321,199 Z" fill="#b4505f"/>
+      <path d="M323.5,200.4 Q330,199 336.5,200.4 Q330,203 323.5,200.4 Z" fill="#fff"/>`;
     // 곁눈질 — 흰자 위에서 눈동자가 공주(왼쪽) 쪽으로 굴러간다
     const glanceFace = `
       <path d="M316,176 Q322,172 327,176" stroke="#8a7a86" stroke-width="2.2" fill="none" stroke-linecap="round" transform="rotate(-14 321.5 174)"/>
@@ -373,7 +388,21 @@
       <!-- 백발 앞머리 -->
       <path d="M306,180 C304,160 316,152 330,152 C344,152 356,160 354,180 C348,170 340,166 330,170 C320,166 312,170 306,180 Z" fill="#eeeaf2"/>
       <!-- 후드 앞테두리 (얼굴 감싸는 띠) -->
-      <path d="M330,142 C304,142 288,162 288,190 C288,199 290,207 294,214 L303,209 C300,203 299,197 299,190 C299,168 313,152 330,152 C347,152 361,168 361,190 C361,197 360,203 357,209 L366,214 C370,207 372,199 372,190 C372,162 356,142 330,142 Z" fill="#a8d6f2"/>`;
+      <path d="M330,142 C304,142 288,162 288,190 C288,199 290,207 294,214 L303,209 C300,203 299,197 299,190 C299,168 313,152 330,152 C347,152 361,168 361,190 C361,197 360,203 357,209 L366,214 C370,207 372,199 372,190 C372,162 356,142 330,142 Z" fill="#a8d6f2"/>
+      ${pose === 'cross' ? angerMark(354, 166) : ''}`;
+  }
+
+  // 💢 — 화난 표시. **얼굴이 아니라 후드 위에** 얹는다: fairyFace 의 결과는
+  // 앞머리와 후드 테두리가 나중에 덮으므로, 얼굴 안에 그리면 가려진다.
+  //
+  // **선이 아니라 채운 별이다.** 처음에는 네 갈래를 선으로 그렸는데, 이 크기에서는
+  // 선 굵기가 안쪽 구멍을 거의 메워 **빨간 도넛**으로 보였다.
+  // 바깥 10 · 안쪽 3.5 의 네모진 별이라야 네 갈래가 읽힌다.
+  function angerMark(cx, cy) {
+    const O = 10, I = 3.5;
+    return `<path fill="#e0455f" d="M${cx},${cy - O} L${cx + I},${cy - I} L${cx + O},${cy}`
+      + ` L${cx + I},${cy + I} L${cx},${cy + O} L${cx - I},${cy + I}`
+      + ` L${cx - O},${cy} L${cx - I},${cy - I} Z"/>`;
   }
 
   // 요정 대모 (신데렐라풍: 하늘색 후드망토 + 지팡이)
@@ -811,7 +840,7 @@
   const BUSTS = {
     fairy: {
       box: [286, 136, 88, 118],
-      poses: ['idle', 'smile', 'glance'],
+      poses: ['idle', 'smile', 'glance', 'cross'],
       draw: pose => `
         <path d="M296,300 C292,240 306,206 330,206 C354,206 368,240 364,300 Z" fill="#8fc5e8"/>
         <path d="M330,206 C318,206 310,214 308,226 L352,226 C350,214 342,206 330,206 Z" fill="#a8d6f2"/>

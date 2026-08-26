@@ -1995,6 +1995,9 @@ body {
   background: rgba(28,20,30,0.92); color: #fff;
   border-radius: 22px 22px 0 0;
 }
+/* 말하는 사람 — 인트로 대사창의 이름 줄(#introSpeaker)과 같은 모양으로 맞춘다.
+   `display` 를 안 주므로 `hidden` 속성이 그대로 먹는다 (블록 기본값) */
+.bs-who { margin: 0 0 7px; font-size: 0.9rem; font-weight: 800; color: #ffd076; }
 .bs-line { font-size: 0.98rem; font-weight: 700; line-height: 1.5; margin: 0; }
 .bs-stats { margin: 8px 0 0; font-size: 0.86rem; font-weight: 800; color: #ffb3c4; }
 /* 마지막 줄. **여기가 이 장면의 전부다** — 그래서 한 박자 늦게, 조용히 */

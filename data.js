@@ -807,6 +807,8 @@ const SPEAKERS = [
     introArt: 'fairy',
     moods: { def:   { eye: 'soft',   mouth: 'calm',  art: 'idle' },
              scold: { eye: 'sharp',  mouth: 'flat',  art: 'glance' },
+             // 대노 — 「혼자 먹은 밤」을 다섯 번 보고 나면 나온다 (scold 는 미심쩍은 곁눈질이라 약하다)
+             cross: { eye: 'sharp',  mouth: 'flat',  art: 'cross' },
              warm:  { eye: 'smile',  mouth: 'smile', art: 'smile' },
              wink:  { eye: 'closed', mouth: 'grin',  art: 'smile' } } },
   // 공주 — 인트로 그림과 같은 갈색 긴 머리 · 연두 드레스

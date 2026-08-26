@@ -83,6 +83,8 @@
       bs_line: '도저히 참지 못하고 {name}{josa} 폭풍 흡입했다. ({n}번)',
       bs_tail: '배는 불렀는데, 채워지진…',
       bs_next: '다음 밤 ▸', bs_done: '그만 볼래요',
+      // 다섯 밤을 내리 보고 나면 요정 대모가 참다 못해 나온다
+      bs_scold: '그만 먹어요 그만!', bs_scold_ok: '…네',
       ex_ask: '오늘은 무엇을 해 볼까요?',
       ex_go: '운동 시작',
       ex_min: '{n}분',
@@ -103,10 +105,10 @@
       ex_done: '{emoji} {name} {n}분!\n근성 +{grit} · 단련 +{fit}',
       rec_workouts: '운동',
       rec_workouts_v: '{n}회 ({m}분)',
-      now_full_help: '배가 얼마나 찼는지. 시간이 지나면 준다 (지금 시간당 {n} · 하루 {d}).\n'
-        + '마음이 채워져 있으면 덜 배고프다 — 행복이 높을수록 천천히 준다.\n'
-        + '날이 바뀔 때 비어 있으면 밤에 혼자 먹게 된다.',
-      now_stam_help: '운동에 드는 힘. 시간당 {h}씩 찬다.\n'
+      now_full_help: '시간이 지나면 배가 고파진다.\n'
+        + '행복하면 덜 배가 고픈 것 같기도 하다.\n'
+        + '밤에 자기 전 배가 고프면 폭식하게 될지도?',
+      now_stam_help: '운동에 드는 힘.\n'
         + '상한은 근육량과 포만감이 정한다. 굶으면 아예 안 찬다.',
       // 아우라 세부
       a_happy: '행복', a_grace: '우아함', a_unique: '개성', a_grit: '근성', a_luck: '행운',
@@ -457,6 +459,7 @@
       bs_line: 'She could not hold out, and inhaled the {name}. ({n})',
       bs_tail: 'Her stomach was full. Nothing else was…',
       bs_next: 'Next night ▸', bs_done: 'That is enough',
+      bs_scold: 'Enough! No more eating!', bs_scold_ok: '…Yes.',
       ex_ask: 'What shall we do today?',
       ex_go: 'Start',
       ex_min: '{n} min',
@@ -474,10 +477,10 @@
       ex_done: '{emoji} {name}, {n} min!\nGrit +{grit} · Fitness +{fit}',
       rec_workouts: 'Workouts',
       rec_workouts_v: '{n} ({m} min)',
-      now_full_help: 'How full she is. It drops over time ({n}/hour, {d}/day right now).\n'
-        + 'A full heart needs less food — the happier she is, the slower it drops.\n'
-        + 'If it is empty when the day turns, she eats alone that night.',
-      now_stam_help: 'What exercise costs. Refills {h} per hour.\n'
+      now_full_help: 'Time passes, and she gets hungry.\n'
+        + 'A happy heart seems to feel it less. Maybe.\n'
+        + 'Go to bed hungry, and the night may end in a binge?',
+      now_stam_help: 'What exercise costs.\n'
         + 'The cap comes from muscle and fullness. On an empty stomach it does not refill at all.',
       a_happy: 'Happiness', a_grace: 'Grace', a_unique: 'Individuality', a_grit: 'Grit', a_luck: 'Luck',
       stat_visual: '🪞 Visual', stat_aura: '💖 Aura', stat_total: 'Total Charm',

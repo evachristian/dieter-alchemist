@@ -3592,15 +3592,12 @@ function renderBodyState() {
   if (ws) ws.setAttribute('aria-label', T('why_of', { name: T('now_stam') }));
 }
 
-// 두 칸을 누르면 무엇인지 알려 준다 — 처음 보는 사람에게는 숫자만으로는 안 읽힌다
-function fullnessHelp(el) {
-  const perH = fullnessDropPerHour();
-  toast(T('now_full_help', { n: perH.toFixed(1), d: Math.round(perH * 24) }), el, 4600);
-}
+// 두 칸을 누르면 무엇인지 알려 준다 — 처음 보는 사람에게는 숫자만으로는 안 읽힌다.
+// **수치를 적지 않는다.** 시간당 감소량·회복량까지 적어 두면 도움말이 아니라 사양서가 된다 —
+// 여기서 알아야 할 것은 「무엇이 이걸 움직이나」 하나다.
+function fullnessHelp(el) { toast(T('now_full_help'), el, 4600); }
 window.fullnessHelp = fullnessHelp;
-function staminaHelp(el) {
-  toast(T('now_stam_help', { h: STAMINA.perHour }), el, 4600);
-}
+function staminaHelp(el) { toast(T('now_stam_help'), el, 4600); }
 window.staminaHelp = staminaHelp;
 
 function renderVitals() {
@@ -4148,12 +4145,19 @@ function openBingeScene() {
 }
 window.openBingeScene = openBingeScene;
 
-// 이번에 보기 시작한 밤의 수 — 「(2번째)」를 세는 데 쓴다
-let bingeRun = 0, bingeSeen = 0;
+// 이번에 몇 밤째를 보고 있는지 — 대사의 「(2번)」과 잔소리 조건이 이걸 본다
+let bingeSeen = 0;
+
+// 한 번에 이만큼을 내리 보고 나면 요정 대모가 참다 못해 나온다.
+// **다섯인 이유**: BINGE.keep 이 5 라 한 번에 쌓일 수 있는 최대치다 —
+// 여기까지 왔다는 것은 닷새를 내리 혼자 먹었다는 뜻이다.
+// **쓰는 곳(playBinge)보다 위에 둔다** — let 은 끌어올려지지 않는다
+const BINGE_SCOLD = 5;
+let bingeScolding = false;
 
 function playBinge() {
-  bingeRun = bingeCount();
   bingeSeen = 0;
+  bingeScolding = false;
   const el = document.getElementById('bingeScene');
   if (!el) return;
   el.classList.add('show');
@@ -4172,31 +4176,60 @@ function renderBinge() {
   if (art && window.Avatar && Avatar.crouchBack) {
     art.innerHTML = Avatar.crouchBack(outfitWithColors(), bodyLevel(), f.emoji);
   }
+  const who = document.getElementById('bsWho');
+  if (who) who.hidden = true;                 // 폭식 장면에는 말하는 사람이 없다
   const line = document.getElementById('bsLine');
   if (line) line.textContent = T('bs_line', {
     name, josa: josa(name, '을를'), n: bingeSeen + 1 });
   const st = document.getElementById('bsStats');
-  if (st) st.textContent = [
-    `${T('a_happy')} −${e.happy}`,
-    `${T('a_grit')} −${e.grit}`,
-    `${T('v_fit')} −${Math.abs(e.fit).toFixed(2)}`,
-  ].join(' · ');
+  if (st) {
+    st.hidden = false;
+    st.textContent = [
+      `${T('a_happy')} −${e.happy}`,
+      `${T('a_grit')} −${e.grit}`,
+      `${T('v_fit')} −${Math.abs(e.fit).toFixed(2)}`,
+    ].join(' · ');
+  }
   const tail = document.getElementById('bsTail');
-  if (tail) tail.textContent = T('bs_tail');
+  if (tail) { tail.hidden = false; tail.textContent = T('bs_tail'); }
   const next = document.getElementById('bsNext');
   if (next) next.textContent = T(bingeCount() > 1 ? 'bs_next' : 'bs_done');
 }
 
 // 본 것은 **지운다** — 그래서 뱃지가 준다
 function bingeNext() {
+  if (bingeScolding) { closeBingeScene(); return; }   // 잔소리를 듣고 나면 방으로
   (S.binges || []).shift();
   bingeSeen++;
   save();
   renderActBadges();
-  if (bingeCount()) renderBinge();
-  else closeBingeScene();
+  if (bingeCount()) { renderBinge(); return; }
+  if (bingeSeen >= BINGE_SCOLD) { renderBingeScold(); return; }
+  closeBingeScene();
 }
 window.bingeNext = bingeNext;
+
+// 요정 대모의 대노 — 같은 층을 그대로 쓴다. 새 오버레이를 만들면 나가는 길도
+// 두 벌이 되고, 둘 중 하나만 고치는 일이 반드시 생긴다
+function renderBingeScold() {
+  bingeScolding = true;
+  const art = document.getElementById('bsArt');
+  if (art && window.Portrait) {
+    // **배경 판 없이(bare)** — 판을 깔면 이 어두운 장면에 카드 한 장을 붙인 것처럼 보인다
+    art.innerHTML = Portrait.bust(D.speaker('sp_althea'), 'cross', { bare: true });
+  }
+  const who = document.getElementById('bsWho');
+  // 이름은 설정상의 「알테이아」가 아니라 **부르는 말**이다 (STORY.md 호칭 규칙)
+  if (who) { who.hidden = false; who.textContent = speakerName('sp_althea'); }
+  const line = document.getElementById('bsLine');
+  if (line) line.textContent = T('bs_scold');
+  const st = document.getElementById('bsStats');
+  if (st) { st.textContent = ''; st.hidden = true; }
+  const tail = document.getElementById('bsTail');
+  if (tail) { tail.textContent = ''; tail.hidden = true; }
+  const next = document.getElementById('bsNext');
+  if (next) next.textContent = T('bs_scold_ok');
+}
 
 // 우상단 「✕ 닫기」를 뺐으므로 **키보드에는 나갈 길이 없어진다.**
 // 화면 전체가 그림이라 '바깥 터치' 로 쓸 여백도 없다 — Esc 하나를 남긴다.

@@ -374,10 +374,13 @@ function launchOpts() {
 
         // 「혼자 먹은 밤」 컷씬 — **평소에는 display:none 이라 검사에서 통째로 빠진다.**
         // 어두운 바탕에 흰 글자를 얹는 유일한 화면이라 반드시 재야 한다
+        // **다섯 밤을 심는다.** 잔소리 장면(요정 대모)이 다섯 번째를 다 보고 나야 뜨는데,
+        // 두 밤만 심으면 그 화면이 통째로 검사에서 빠진다 — 어두운 바탕에 금색 이름
+        // (`.bs-who`)을 얹는 유일한 자리다
         const bsBad = await page.evaluate(() => {
           if (typeof playBinge !== 'function') return 'playBinge 가 없다';
-          S.binges = [{ food: 'food_cake', happy: 20, grit: 8, fit: 0.8 },
-                      { food: 'food_meat', happy: 20, grit: 8, fit: 0.8 }];
+          S.binges = ['food_cake', 'food_meat', 'food_bread', 'food_salad', 'food_porridge']
+            .map(food => ({ food, happy: 20, grit: 8, fit: 0.8 }));
           render();                      // 뱃지도 같이 재려면 먼저 그려야 한다
           playBinge();
           return document.getElementById('bingeScene').classList.contains('show')
@@ -385,6 +388,19 @@ function launchOpts() {
         });
         if (bsBad) results.push({ 화면: `${t}/혼자먹은밤`, 오류: bsBad });
         else { await page.waitForTimeout(250); await run(`${t}/혼자먹은밤`); }
+
+        // 다섯 밤을 다 보고 난 뒤의 잔소리 장면
+        const scoldBad = await page.evaluate(() => {
+          for (let i = 0; i < 5 && (S.binges || []).length; i++) bingeNext();
+          const who = document.getElementById('bsWho');
+          if (!document.getElementById('bingeScene').classList.contains('show')) {
+            return '다섯 밤을 다 봤는데 잔소리 장면이 안 떴다 (그냥 닫혔다)';
+          }
+          return who && !who.hidden ? null : '말하는 사람(요정 대모) 줄이 안 뜬다';
+        });
+        if (scoldBad) results.push({ 화면: `${t}/잔소리`, 오류: scoldBad });
+        else { await page.waitForTimeout(250); await run(`${t}/잔소리`); }
+
         await page.evaluate(() => { closeBingeScene(); S.binges = []; render(); });
         await page.waitForTimeout(200);
         // **볼 것이 없을 때의 「흡입」 버튼도 잰다.** FULL 은 뱃지가 뜨도록 밤을 심어 두므로,
