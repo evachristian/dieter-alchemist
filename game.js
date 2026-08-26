@@ -82,6 +82,33 @@ const defaultState = () => ({
   // **새로 생긴 칸이라 마이그레이션이 필요 없다** — 예전 세이브에는 이 키가 없고,
   // Object.assign(defaultState(), 저장값) 이 기본값 0 을 그대로 남긴다
   crystal: 0,
+  // 음식 (음식 id → 개수). 새로 생긴 칸이라 마이그레이션이 필요 없다
+  foods: {},
+  // 단련도 — **운동으로 쌓고 방치로 잃는다.** 몸(체중·체지방·근육량·체형)은
+  // 비주얼이 아니라 `비주얼 + 단련`(bodyPoint)을 본다.
+  //
+  // 축을 나눈 이유: 운동이 비주얼을 주면 **물약의 싼 대체재**가 된다. 하급 물약 한 병이
+  // 비주얼 1이라, 운동 한 번에 1만 줘도 채집·조합을 통째로 건너뛰는 길이 생긴다.
+  // 게다가 비주얼은 매력 총합에 들어가 리그 점수까지 흔든다 — 운동의 보상은 **몸**이다.
+  //
+  // **음수로 내려간다.** 그래야 방치가 물약으로 쌓은 진행을 실제로 갉아먹는다
+  // (bodyPoint 가 0 밑으로는 안 내려가므로 통통이 하한이다).
+  // 새로 생긴 칸이라 마이그레이션이 필요 없다 — 옛 세이브에는 없고 기본값 0 이 남는다
+  fit: 0,
+  // 포만감 (0~100) — **높을수록 배부르다.** 시간이 지나면 준다.
+  // 행복이 높으면 천천히, 낮으면 빨리 준다 — STORY.md 의 「정신적 허기는
+  // 애정결핍이다」가 수치로 나오는 자리다. 마음이 채워져 있으면 덜 먹어도 된다
+  fullness: 100,
+  // 스태미나 — 운동에 드는 값. **상한이 몸(근육량·포만감)에 따라 변하므로
+  // 저장값은 언제나 상한으로 잘라서 읽는다.** 기본값을 상한보다 크게 두면
+  // 새 플레이어가 가득 찬 상태로 시작한다 (defaultState 는 S 가 아직 없어
+  // 상한을 계산할 수 없다 — 그래서 여기서 정확한 값을 넣을 방법이 없다)
+  stamina: 9999,
+  // 포만감·스태미나를 마지막으로 계산한 시각. **값을 계속 더하지 않고 볼 때 계산한다**
+  // (AP 의 자정 충전과 같은 생각이지만, 이쪽은 연속이라 시각이 필요하다)
+  bodyTs: 0,
+  lastWorkoutTs: 0,       // 마지막으로 운동한 시각 (방치 감소의 기준)
+  decayTs: 0,             // 방치 감소를 **어디까지 반영했는지**. 두 번 깎지 않기 위한 값
   // 눌러서 고른 레시피가 요구하는 재료 목록 (표시용).
   // **조합해도 지워지지 않는다** — 재료가 남아 있으면 솥이 저절로 다시 채워지고,
   // 모자란 자리는 회색 재료로 남아 무엇이 없는지 보여 준다.
@@ -130,6 +157,10 @@ function newRecord() {
     brewFail:    0,   // 실패 (찌꺼기)
     discoveries: 0,   // 새로 알아낸 레시피
     drinks:      0,   // 마신 물약
+    workouts:    0,   // 운동한 횟수
+    meals:       0,   // 먹은 음식
+    foodsGot:    0,   // 채집으로 얻은 음식
+    exMin:       0,   // 운동한 시간 (분, 누적)
     creatures:   0,   // 만든 크리처 (누적 — 전시 목록과 달리 줄지 않는다)
     pots:        ['cd_iron_old'],   // 써 본 마법 솥 (중복 없이)
     playSec:     0,   // 실제로 화면을 보고 있던 시간 (초)
@@ -168,6 +199,12 @@ let S = load();
 // 서버에서 받아온 세이브만 고쳐지는 일이 있었다.
 function normalizeState(st) {
   st.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, st.outfit || {});
+  if (typeof st.fit !== 'number' || !isFinite(st.fit)) st.fit = 0;
+  if (!st.foods || typeof st.foods !== 'object') st.foods = {};
+  const NUM_DEF = { fullness: 100, stamina: 9999, bodyTs: 0, lastWorkoutTs: 0, decayTs: 0 };
+  Object.keys(NUM_DEF).forEach(k => {
+    if (typeof st[k] !== 'number' || !isFinite(st[k])) st[k] = NUM_DEF[k];
+  });
   if (!st.itemColor || typeof st.itemColor !== 'object') st.itemColor = {};
   if (!st.dyeEnd || typeof st.dyeEnd !== 'object') st.dyeEnd = {};
   if (!st.dyeForever || typeof st.dyeForever !== 'object') st.dyeForever = {};
@@ -351,14 +388,19 @@ const BODY_PER_STEP = 15;      // 한 단계 내려가는 데 필요한 ✨비�
 // 예전에는 floor(비주얼/15) 라 15점을 채우기 전까지는 아무 변화가 없었다
 // (체중·체지방이 4번만 뚝뚝 끊겨 바뀌었다). 이제 1점만 올라도 그만큼 반영된다.
 const BODY_MAX_BEAUTY = BODY_STEPS * BODY_PER_STEP;   // 완전히 날씬해지는 비주얼 (60)
-function bodyLevel(beauty) {
+// 몸이 보는 값 — **비주얼 + 단련.** 물약이 비주얼을 올리고, 운동이 단련을 올린다.
+// 아래 신체 수치는 전부 이 값을 본다 (매력 총합은 여전히 비주얼 + 매력이다).
+// 인자를 주면 '그 비주얼이었다면' 을 물어볼 수 있다 — 물약 미리보기가 그렇게 쓴다.
+function bodyPoint(beauty) {
   const b = (beauty === undefined ? (S.stats.beauty || 0) : beauty);
-  return 1 - Math.min(1, Math.max(0, b / BODY_MAX_BEAUTY));
+  return Math.max(0, b + (S.fit || 0));
+}
+function bodyLevel(beauty) {
+  return 1 - Math.min(1, bodyPoint(beauty) / BODY_MAX_BEAUTY);
 }
 // 살 빠지는 연출은 여전히 '단계' 로 친다 — 매번 크게 터지면 시끄럽다
 function bodyStep(beauty) {
-  const b = (beauty === undefined ? (S.stats.beauty || 0) : beauty);
-  return Math.min(BODY_STEPS, Math.floor(b / BODY_PER_STEP));
+  return Math.min(BODY_STEPS, Math.floor(bodyPoint(beauty) / BODY_PER_STEP));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -460,6 +502,14 @@ function totalCharm() {
 }
 
 // 가중 랜덤 추첨
+// 음식 가중 추첨 — 많이 채우는 것일수록 드물다
+function pickFood() {
+  const total = D.FOODS.reduce((s, f) => s + (f.w || 1), 0);
+  let r = Math.random() * total;
+  for (const f of D.FOODS) { r -= (f.w || 1); if (r <= 0) return f; }
+  return D.FOODS[D.FOODS.length - 1];
+}
+
 function weightedPick(pool) {
   const total = pool.reduce((s, id) => s + D.INGREDIENTS[id].weight, 0);
   let r = Math.random() * total;
@@ -540,11 +590,101 @@ function energyCap() { return D.ENERGY.cap + (S.energyBonusCap || 0); }
 function refreshEnergy() {
   const today = dayKey();
   if (S.energyDay === today) return false;
+  // 날짜가 넘어갔으니 방치 감소도 여기서 한 번 본다 (창을 며칠 열어 둔 경우)
+  decayIdle();
   // (여러 날 지났어도) 상한까지 충전 — 현재 dailyFill == cap
   S.energy = Math.min(energyCap(), (S.energy || 0) + D.ENERGY.dailyFill);
   S.energyDay = today;
   save();
   return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  포만감 · 스태미나 — 시간이 채우고, 운동이 쓴다 (EXERCISE.md)
+// ═══════════════════════════════════════════════════════════════
+//
+// **값을 계속 더하지 않는다.** 마지막으로 계산한 시각(bodyTs)만 두고, 볼 때
+// 그동안 흐른 시간만큼 한 번에 옮긴다 — 창을 닫아 둔 사이에도 시간은 흐른다.
+const FULLNESS = {
+  max: 100,
+  happyMax: 5.0,      // 행복 0   → 시간당 이만큼 준다 (하루 -120)
+  happyMin: 2.0,      // 행복 1000 → 시간당 이만큼    (하루 -48)
+};
+const STAMINA = {
+  base: 20,           // 아무것도 없어도 이만큼
+  perMuscle: 1.0,     // 근육량 1kg 당
+  perFull: 0.25,      // 포만감 1 당
+  perHour: 6,         // 시간당 회복 — 상한 60 기준 10시간에 가득
+};
+// 한 번에 반영하는 시간의 상한. 오래 쉬었다 온 사람에게 몇 달치를 한꺼번에
+// 계산해 봤자 어차피 바닥/가득이고, 큰 수가 오가면 오차만 커진다
+const BODY_TICK_MAX_H = 24 * 7;
+
+// 포만감이 시간당 얼마나 주는가 — 행복이 높으면 천천히, 낮으면 빨리
+function fullnessDropPerHour() {
+  return lerp(FULLNESS.happyMax, FULLNESS.happyMin, auraVal('happy') / AURA_MAX);
+}
+function fullness() { return Math.max(0, Math.min(FULLNESS.max, S.fullness || 0)); }
+
+// 스태미나 상한 = 밑값 + 근육량 + 포만감.
+// **근육량이 근성을 보므로 운동할수록 상한도 는다** — 이 되먹임이 너무 세면
+// 후반에 무한 운동이 된다. perMuscle 을 올리기 전에 근성 1000 에서의 값을 먼저 잴 것
+function staminaMax() {
+  return Math.round(STAMINA.base + muscleKg() * STAMINA.perMuscle
+    + fullness() * STAMINA.perFull);
+}
+// **저장값은 언제나 상한으로 잘라서 읽는다** — 상한이 몸에 따라 변하기 때문이다
+function stamina() { return Math.max(0, Math.min(staminaMax(), S.stamina || 0)); }
+
+// 흐른 시간만큼 포만감·스태미나를 옮긴다. 하나라도 움직였으면 true
+function tickBody() {
+  const now = Date.now();
+  if (!S.bodyTs) { S.bodyTs = now; return false; }
+  const h = Math.min(BODY_TICK_MAX_H, (now - S.bodyTs) / 3600000);
+  if (h <= 0) return false;
+  S.bodyTs = now;
+
+  const f0 = fullness(), st0 = stamina();
+  const drop = fullnessDropPerHour();
+  S.fullness = Math.max(0, f0 - drop * h);
+  // **굶으면 스태미나가 안 찬다.** 포만감이 도중에 바닥나면 그 전까지만 회복한다 —
+  // 이 한 줄을 빼면 굶은 채로 오래 두는 것이 오히려 이득이 된다
+  const fedH = drop > 0 ? Math.min(h, f0 / drop) : h;
+  S.stamina = Math.min(staminaMax(), st0 + STAMINA.perHour * fedH);
+  return Math.abs(fullness() - f0) > 0.01 || Math.abs(stamina() - st0) > 0.01;
+}
+
+// ─── 방치하면 되돌아간다 ────────────────────────────────────
+//
+// **이 게임에서 처음으로 수치가 내려가는 곳이다.** 조심해서 다룰 것 —
+// 오래 쉬었다 돌아온 사람이 「내 캐릭터가 망가졌다」고 느끼면 그대로 떠난다.
+// 그래서 셋을 둔다: 하루는 봐 주고(graceDays), 한 번에 최대 7일치까지만 깎고,
+// 깎였으면 **말해 준다** (조용히 줄어 있는 것이 제일 나쁘다).
+const DECAY = {
+  gritPerDay: 8,      // 근성
+  fitPerDay: 0.6,     // 단련
+  graceDays: 1,       // 이만큼은 봐 준다
+  maxDays: 7,         // 한 번에 반영하는 상한
+};
+const DAY_MS = 86400000;
+
+// 깎였으면 { grit, fit, days } 를, 아니면 null 을 돌려준다
+function decayIdle() {
+  const now = Date.now();
+  // 아직 한 번도 운동한 적이 없으면 기준이 없다 — 지금부터 센다
+  if (!S.lastWorkoutTs) { S.lastWorkoutTs = now; S.decayTs = now; return null; }
+  // **이미 반영한 데까지는 다시 안 깎는다** (decayTs). 이게 없으면 부를 때마다 깎인다
+  const from = Math.max(S.lastWorkoutTs + DECAY.graceDays * DAY_MS, S.decayTs || 0);
+  S.decayTs = now;
+  const days = Math.min(DECAY.maxDays, (now - from) / DAY_MS);
+  if (days <= 0) return null;
+
+  const g0 = auraVal('grit'), f0 = S.fit || 0;
+  addAura('grit', -Math.round(DECAY.gritPerDay * days));
+  S.fit = +(f0 - DECAY.fitPerDay * days).toFixed(3);
+  const dg = g0 - auraVal('grit'), df = +(f0 - S.fit).toFixed(2);
+  if (dg <= 0 && df <= 0) return null;
+  return { grit: dg, fit: df, days: Math.floor(days) };
 }
 
 // 에너지 소모 시도. 부족하면 false.
@@ -752,8 +892,14 @@ function renderClock() {
 function energyTick() {
   renderClock();
   tickPlayTime();
+  // 포만감·스태미나도 여기서 흐른다. **1초마다 저장하지는 않는다** —
+  // 화면만 갱신하고, 저장은 다른 행동이 일어날 때 같이 실린다
+  const moved = tickBody();
   if (refreshEnergy()) render();   // 충전되면 화면 전체 갱신(비활성 상태 등)
-  else renderEnergy();
+  else {
+    renderEnergy();
+    if (moved && currentTab === 'showcase') renderBodyState();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -823,6 +969,10 @@ function gather(mapId) {
   S.gathered++;
   rec('gathered'); rec('itemsGot');
   if (isSpecial) rec('specials');
+  // 음식은 **재료와 별개로** 같이 나온다 (재료를 대신 뺏지 않는다).
+  // 요리사 클레멘이 들어오면 이 자리를 그가 가져간다 — STORY.md
+  const food = Math.random() < D.FOOD_RATE ? pickFood() : null;
+  if (food) { S.foods[food.id] = foodCount(food.id) + 1; rec('foodsGot'); }
   save();
   const ing = D.INGREDIENTS[id];
   // 토스트는 **누른 버튼 옆**에 띄운다. 화면 아래 기본 자리에 뜨면 목록을 한참 내려온
@@ -833,6 +983,10 @@ function gather(mapId) {
   if (isSpecial) {
     toast(T('got_special', { emoji: ing.emoji, name: N(ing.id, ing.name) }), at, 3200, 'above');
     if (window.Sfx) Sfx.play('success');
+  } else if (food) {
+    // 둘이 같이 나오면 **한 줄로 합쳐서** 알린다 — 토스트를 두 번 띄우면 앞것이 잘린다
+    toast(T('got_item_food', { emoji: ing.emoji, name: N(ing.id, ing.name),
+      femoji: food.emoji, fname: N(food.id, food.name) }), at, 2600, 'above');
   } else {
     toast(T('got_item', { emoji: ing.emoji, name: N(ing.id, ing.name) }), at, null, 'above');
   }
@@ -2004,8 +2158,9 @@ function renderShowcase() {
   // 옷장
   renderWardrobe();
 
-  // 하위 탭(옷/물약/크리처) 표시 상태 반영
+  // 하위 탭(옷/잡화/크리처) 표시 상태 반영
   updateRoomTabs();
+  updateStuffTabs();
 
   // 제목 — "'이름'의 룸" (이름이 아직 없으면 기본 문구)
   const titleEl = document.getElementById('roomTitle');
@@ -2013,6 +2168,7 @@ function renderShowcase() {
 
   // 신체 · 아우라 상세 수치
   renderVitals();
+  renderBodyState();
 
   // 스탯을 접었는지 펼쳤는지 (이 기기의 화면 설정)
   applyStatsView();
@@ -2034,6 +2190,8 @@ function renderShowcase() {
   const totalBox = document.querySelector('.stat-box.highlight');
   if (totalBox) totalBox.setAttribute('aria-label',
     `${T('tier_stage', { tier: TN(tier.title) })} · ${T('stat_total')} ${total}`);
+
+  renderFoods();
 
   // 보유 물약
   const potEl = document.getElementById('potionShelf');
@@ -2115,6 +2273,21 @@ let roomTab = 'clothes';
 // 튜토리얼을 마치기 전에는 크리처 칸이 잠긴다.
 // (아직 공주가 방에 막 들어온 참이라 크리처를 모을 단계가 아니다)
 function isRoomTabOpen(t) { return t !== 'creatures' || !!S.tutorialDone; }
+
+// 잡화 안의 하위 탭 (물약 / 음식). **이 기기의 화면 상태라 세이브에 안 넣는다** —
+// 옷장의 슬롯 탭(wardrobeTab)과 같은 자리다
+let stuffTab = 'potions';
+function setStuffTab(t) {
+  stuffTab = t;
+  updateStuffTabs();
+}
+window.setStuffTab = setStuffTab;
+function updateStuffTabs() {
+  document.querySelectorAll('.stuff-tabs .cat-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.stuff === stuffTab));
+  document.querySelectorAll('.stuff-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'stuffPanel-' + stuffTab));
+}
 
 function setRoomTab(t, anchor) {
   if (!isRoomTabOpen(t)) { toast(T('locked_tutorial'), anchor); return; }
@@ -3289,6 +3462,33 @@ function specialHint(mapId, el) {
 window.specialHint = specialHint;
 
 // ─── 신체 · 아우라 상세 수치 표시 ───
+// 부호를 붙인 숫자 ('+1.8' / '−0.6' / '0'). 0 에는 부호를 안 붙인다
+function signed(n, dec) {
+  const v = Number(n) || 0;
+  if (Math.abs(v) < Math.pow(10, -dec) / 2) return (0).toFixed(dec);
+  return (v > 0 ? '+' : '−') + Math.abs(v).toFixed(dec);
+}
+
+// 지금 상태 두 칸 — 1초마다 갱신되므로 **여기만 따로** 그린다
+// (renderShowcase 를 통째로 다시 부르면 아바타가 매초 새로 그려진다)
+function renderBodyState() {
+  const f = document.getElementById('statFull');
+  const st = document.getElementById('statStam');
+  if (f) f.textContent = `${Math.floor(fullness())} / ${FULLNESS.max}`;
+  if (st) st.textContent = `${Math.floor(stamina())} / ${staminaMax()}`;
+}
+
+// 두 칸을 누르면 무엇인지 알려 준다 — 처음 보는 사람에게는 숫자만으로는 안 읽힌다
+function fullnessHelp(el) {
+  const perH = fullnessDropPerHour();
+  toast(T('now_full_help', { n: perH.toFixed(1), d: Math.round(perH * 24) }), el, 4600);
+}
+window.fullnessHelp = fullnessHelp;
+function staminaHelp(el) {
+  toast(T('now_stam_help', { h: STAMINA.perHour }), el, 4600);
+}
+window.staminaHelp = staminaHelp;
+
 function renderVitals() {
   const bodyEl = document.getElementById('vitalsBody');
   const auraEl = document.getElementById('vitalsAura');
@@ -3302,7 +3502,10 @@ function renderVitals() {
     row(T('v_height'), `${fix1(heightCm())} cm`) +
     row(T('v_fat_pct'), `${fix2(bodyFatPct())} %`) +
     row(T('v_fat_kg'), `${fix2(bodyFatKg())} kg`) +
-    row(T('v_muscle'), `${fix2(muscleKg())} kg`);
+    row(T('v_muscle'), `${fix2(muscleKg())} kg`) +
+    // 단련도 — 운동이 몸을 얼마나 바꿔 놨는지. **부호를 붙여 보여 준다**:
+    // 방치하면 음수로 내려가는 값이라, 0 을 기준으로 어느 쪽인지가 이 칸의 전부다
+    row(T('v_fit'), signed(S.fit || 0, 1));
 
   auraEl.innerHTML = AURA_KEYS.map(k =>
     row(T('a_' + k), `${auraVal(k)} / ${AURA_MAX}`)).join('');
@@ -3329,6 +3532,8 @@ function renderRecord(row) {
     row(T('rec_brews'), `${r.brews || 0} (${T('rec_succ', { n: succRate })})`) +
     row(T('rec_discoveries'), `${S.discovered.length} / ${D.RECIPES.length}`) +
     row(T('rec_drinks'), `${r.drinks || 0}`) +
+    row(T('rec_workouts'), T('rec_workouts_v', { n: r.workouts || 0, m: r.exMin || 0 })) +
+    row(T('rec_meals'), `${r.meals || 0}`) +
     row(T('rec_creatures'), `${r.creatures || 0}`) +
     row(T('rec_maps'), `${openMaps} / ${D.MAPS.length}`) +
     row(T('rec_pots'), `${(r.pots || []).length} / ${D.CAULDRONS.length}`) +
@@ -3741,6 +3946,218 @@ function confirmYes() {
   if (cb) cb();
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  음식 (EXERCISE.md) — 먹으면 포만감이 찬다
+// ═══════════════════════════════════════════════════════════════
+function foodOf(id) { return D.FOODS.find(x => x.id === id) || null; }
+function foodCount(id) { return (S.foods || {})[id] || 0; }
+
+function renderFoods() {
+  const el = document.getElementById('foodShelf');
+  const hint = document.getElementById('foodHint');
+  if (!el) return;
+  const ids = D.FOODS.filter(f => foodCount(f.id) > 0).map(f => f.id);
+  if (hint) hint.style.display = ids.length ? 'block' : 'none';
+  if (!ids.length) {
+    // 채집으로 나온다는 것을 여기서 알려 준다 — 빈 칸만 두면 어디서 얻는지 모른다
+    el.innerHTML = `<div class="empty-hint clickable" onclick="switchTab('gather')">${T('empty_foods')}</div>`;
+    return;
+  }
+  el.innerHTML = ids.map(id => {
+    const f = foodOf(id);
+    return `<div class="potion-card" onclick="eatFood('${id}')">
+      <div class="potion-emoji">${f.emoji}</div>
+      <div class="potion-name">${N(f.id, f.name)}<button class="potion-why"
+        aria-label="${T('food_why')}"
+        onclick="event.stopPropagation(); showFoodEffect('${id}', this)">?</button></div>
+      <div class="potion-count">×${foodCount(id)}</div>
+    </div>`;
+  }).join('');
+}
+
+// 먹으면 무슨 일이 일어나는지 — 물약의 '?' 와 같은 규칙이다
+function showFoodEffect(id, anchor) {
+  const f = foodOf(id);
+  if (!f) return;
+  const lines = [`🍴 ${T('now_full')} +${f.full}`];
+  if (f.happy) lines.push(`💖 ${T('a_happy')} ${signed(f.happy, 0)}`);
+  if (f.fit) lines.push(`🏃 ${T('v_fit')} ${signed(f.fit, 1)}`);
+  toast(`${N(f.id, f.name)}\n${lines.join('\n')}`, anchor, 4200);
+}
+window.showFoodEffect = showFoodEffect;
+
+function eatFood(id) {
+  const f = foodOf(id);
+  if (!f || foodCount(id) <= 0) return;
+  tickBody();
+  // **절반 넘게 버려질 상황이면 안 먹는다.** 넘치는 만큼은 그냥 사라지는데,
+  // 포만감 98 에서 케이크(+50)를 눌러 48을 날리는 것이 화면에는 전혀 안 보인다.
+  // 「가득일 때만 막기」로는 이 손해를 못 막는다 — 가득 직전이 제일 위험하다
+  if (fullness() + f.full * 0.5 > FULLNESS.max) { toast(T('food_full')); return; }
+  S.foods[id]--;
+  if (S.foods[id] <= 0) delete S.foods[id];
+  S.fullness = Math.min(FULLNESS.max, fullness() + f.full);
+  if (f.happy) addAura('happy', f.happy);
+  if (f.fit) S.fit = +((S.fit || 0) + f.fit).toFixed(3);
+  rec('meals');
+  save();
+  toast(T('food_ate', { emoji: f.emoji, name: N(f.id, f.name), n: f.full }));
+  render();
+}
+window.eatFood = eatFood;
+
+// ═══════════════════════════════════════════════════════════════
+//  운동 (EXERCISE.md)
+// ═══════════════════════════════════════════════════════════════
+//
+// **즉시 끝난다.** 「30분 뒤에 돌아오세요」로 하지 않는다 — 채집·조합과 같은 방식이라
+// 새 개념이 안 늘고, 팝업에 타이머가 안 들어간다. 나중에 바꾸고 싶으면
+// lastWorkoutTs 옆에 끝나는 시각을 하나 더 두면 된다.
+let exPickId = null, exPickMin = 0;
+
+function exOf(id) { return D.EXERCISES.find(x => x.id === id) || null; }
+function exOpen(ex) { return auraVal('grit') >= (ex.need || 0); }
+// 종목 × 시간의 값. 화면에 적는 것과 실제로 빼는 것이 **같은 함수**를 지난다 —
+// 따로 계산하면 적힌 값과 빠지는 값이 조용히 어긋난다
+function exCost(ex, min) {
+  return {
+    ap:   Math.round(ex.ap * min),
+    stam: Math.round(ex.stam * min),
+    grit: Math.round(ex.grit * min),
+    fit:  +(ex.fit * min).toFixed(2),
+    full: +(ex.full * min).toFixed(1),
+  };
+}
+// 그 시간을 고를 수 있는가 — 스태미나가 있어야 한다 (AP 는 충전할 수 있으니 막지 않는다)
+function exMinOk(ex, min) { return exCost(ex, min).stam <= stamina(); }
+
+function openExercise() {
+  tickBody();
+  // 처음 열면 **열려 있는 것 중 제일 센 종목**을 골라 둔다 — 매번 산책부터 고르게 하면
+  // 근성을 올린 보람이 안 난다
+  const open = D.EXERCISES.filter(exOpen);
+  exPickId = (open[open.length - 1] || D.EXERCISES[0]).id;
+  const ex = exOf(exPickId);
+  // 시간도 **지금 할 수 있는 것 중 제일 긴 것**으로. 하나도 못 하면 제일 짧은 것을 둔다
+  const oks = D.EXERCISE_MINS.filter(m => exMinOk(ex, m));
+  exPickMin = oks.length ? oks[oks.length - 1] : D.EXERCISE_MINS[0];
+  showConfirm(T('ex_ask'), doWorkout, exPanel(), T('ex_go'));
+  exSync();
+}
+window.openExercise = openExercise;
+
+function exPanel() {
+  const items = D.EXERCISES.map(ex => {
+    const on = exOpen(ex);
+    // 잠긴 것도 **보여 준다** — 무엇이 기다리는지 알아야 근성을 올릴 이유가 생긴다
+    return `<button class="ex-item ${on ? '' : 'locked'}" data-ex="${ex.id}"
+      aria-label="${N(ex.id, ex.name)}${on ? '' : ' 🔒'}"
+      onclick="exPick('${ex.id}')">
+      <span class="ex-emoji">${ex.emoji}</span>
+      <span class="ex-name">${N(ex.id, ex.name)}</span>
+      ${on ? '' : `<span class="ex-need">🔒 ${T('a_grit')} ${ex.need}</span>`}
+    </button>`;
+  }).join('');
+  // 자물쇠 글자는 **비워 두고 exSync 가 채운다** — 스태미나에 따라 매번 달라지기 때문이다.
+  // (색만으로 잠금을 알리면 색약 사용자에게 안 전달된다 — UI_POLICY 7장 · checkLocked)
+  const mins = D.EXERCISE_MINS.map(m =>
+    `<button class="ex-min" data-min="${m}" onclick="exMin(${m})">${T('ex_min', { n: m })}<span class="ex-min-lock"></span></button>`).join('');
+  return `<div class="ex-box">
+    <div class="ex-now">
+      <span>🍴 <b id="exFull">0</b></span>
+      <span>🏃 <b id="exStam">0</b></span>
+    </div>
+    <div class="ex-items">${items}</div>
+    <div class="ex-mins">${mins}</div>
+    <div id="exDesc" class="ex-desc"></div>
+    <div id="exLine" class="ex-line"></div>
+    <div id="exGain" class="ex-gain"></div>
+  </div>`;
+}
+
+function exPick(id) {
+  const ex = exOf(id);
+  if (!ex) return;
+  if (!exOpen(ex)) { toast(T('ex_locked', { name: N(ex.id, ex.name), n: ex.need })); return; }
+  exPickId = id;
+  // 고른 종목으로 못 하는 시간이면 할 수 있는 것 중 제일 긴 것으로 내려 준다 —
+  // 못 누르는 칸만 남겨 두면 '왜 시작이 안 되지' 로 끝난다
+  if (!exMinOk(ex, exPickMin)) {
+    const oks = D.EXERCISE_MINS.filter(m => exMinOk(ex, m));
+    exPickMin = oks.length ? oks[oks.length - 1] : D.EXERCISE_MINS[0];
+  }
+  exSync();
+}
+window.exPick = exPick;
+
+function exMin(m) {
+  const ex = exOf(exPickId);
+  if (!ex) return;
+  if (!exMinOk(ex, m)) { toast(T('ex_no_stam')); return; }
+  exPickMin = m;
+  exSync();
+}
+window.exMin = exMin;
+
+// 고른 것에 맞춰 패널을 갱신한다. **다시 그리지 않고 값만 바꾼다** —
+// innerHTML 을 갈아 끼우면 누른 버튼이 문서에서 떨어져 나가 토스트가 붙을 곳을 잃는다
+function exSync() {
+  const ex = exOf(exPickId);
+  if (!ex) return;
+  const c = exCost(ex, exPickMin);
+  const f = document.getElementById('exFull');
+  const st = document.getElementById('exStam');
+  if (f) f.textContent = `${Math.floor(fullness())} / ${FULLNESS.max}`;
+  if (st) st.textContent = `${Math.floor(stamina())} / ${staminaMax()}`;
+
+  document.querySelectorAll('.ex-item').forEach(b =>
+    b.classList.toggle('on', b.dataset.ex === exPickId));
+  document.querySelectorAll('.ex-min').forEach(b => {
+    const m = Number(b.dataset.min);
+    const lock = !exMinOk(ex, m);
+    b.classList.toggle('on', m === exPickMin);
+    // 스태미나가 모자란 시간은 잠금 표현으로 (UI_POLICY 7장 — 눌리기는 한다)
+    b.classList.toggle('locked', lock);
+    const g = b.querySelector('.ex-min-lock');
+    if (g) g.textContent = lock ? ' 🔒' : '';
+  });
+
+  const desc = document.getElementById('exDesc');
+  if (desc) desc.textContent = T(ex.id + '_d');
+  const line = document.getElementById('exLine');
+  if (line) line.innerHTML =
+    `<span class="ex-cost">⚡ ${T('n_ap', { n: c.ap })}</span>`
+    + `<span class="ex-cost">🏃 −${c.stam}</span>`
+    + `<span class="ex-cost">🍴 −${c.full}</span>`;
+  const gain = document.getElementById('exGain');
+  if (gain) gain.textContent = T('ex_gain', { grit: c.grit, fit: c.fit.toFixed(2) });
+}
+
+function doWorkout() {
+  const ex = exOf(exPickId);
+  if (!ex) return;
+  tickBody();
+  const c = exCost(ex, exPickMin);
+  if (c.stam > stamina()) { toast(T('ex_no_stam')); return; }
+  if (!spendEnergy(c.ap)) { toast(T('no_energy')); return; }
+
+  const beforeStep = bodyStep();
+  S.stamina = Math.max(0, stamina() - c.stam);
+  S.fullness = Math.max(0, fullness() - c.full);
+  S.fit = +((S.fit || 0) + c.fit).toFixed(3);
+  addAura('grit', c.grit);
+  S.lastWorkoutTs = S.decayTs = Date.now();
+  rec('workouts');
+  rec('exMin', exPickMin);
+  save();
+  toast(T('ex_done', { emoji: ex.emoji, name: N(ex.id, ex.name), n: exPickMin,
+                       grit: c.grit, fit: c.fit.toFixed(2) }), null, 3000);
+  render();
+  // 살이 빠지는 연출은 물약과 같은 것을 쓴다 — 단계가 내려가면 크게, 아니면 반짝임만
+  playSlimFx(bodyStep() > beforeStep ? 'step' : 'sip');
+  checkUnlocks();
+}
+
 // ─── 외형 초기화 (착장을 기본값으로) ───
 function askResetAppearance() {
   showConfirm(T('confirm_reset_look'), () => {
@@ -3840,6 +4257,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.tab-btn').forEach(b =>
     b.addEventListener('click', () => switchTab(b.dataset.tab)));
   refreshEnergy();          // 접속 시 자정 롤오버 반영
+  tickBody();               // 창을 닫아 둔 사이에 흐른 포만감·스태미나
+  // 쉬는 동안 되돌아간 만큼. **조용히 줄어 있으면 안 된다** — 알려 준다
+  const lost = decayIdle();
+  if (lost) {
+    save();
+    setTimeout(() => toast(T('decay_back', {
+      d: lost.days, grit: lost.grit, fit: lost.fit.toFixed(2) }), null, 5200), 900);
+  }
   switchTab('showcase');
   // 튜토리얼 — 인트로를 아직 안 봤으면 여기서는 그냥 돌아가고,
   // 인트로가 끝나면서 index.html 이 걸어 둔 콜백이 다시 부른다

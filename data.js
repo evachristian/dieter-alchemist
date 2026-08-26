@@ -1328,6 +1328,54 @@ const ENERGY = {
   failReward: 10,     // 조합 실패 1회에 주는 현자의 결정
 };
 
+// ─── 운동 (EXERCISE.md) ───────────────────────────────────────
+// **근성이 문을 연다.** 근성이 오를수록 고강도 종목이 열리고, 고강도일수록
+// 근성이 더 오른다 — 다만 스태미나도 그만큼 더 든다.
+//
+// 값은 전부 **1분당**이다. 「종목 × 시간」으로 곱해서 쓴다.
+//   need  이 종목이 열리는 근성
+//   stam  스태미나 소모 · ap AP 소모 · grit 근성 상승 · fit 단련 상승 · full 포만감 소모
+//
+// ⚠️ 밸런스의 축 셋을 같이 보고 정한 값이다. 하나만 바꾸지 말 것.
+//   1. AP 는 하루 1000 이고 채집 10 · 조합 25 다. 운동에 하루 200~300 쯤 쓰는 것을 봤다
+//   2. 스태미나 상한은 초반에 ~60 이다. 서킷 60분(300)은 애초에 못 고르는 것이 맞다
+//   3. 근성은 1000 이 상한이다. 달리기 60분이 +60 이라 서킷(600)까지 여러 주 걸린다
+const EXERCISES = [
+  { id: 'ex_walk',    emoji: '🚶', name: '산책',      need: 0,
+    stam: 1.0, ap: 1.0, grit: 0.4, fit: 0.010, full: 0.3 },
+  { id: 'ex_stretch', emoji: '🧘', name: '스트레칭',  need: 50,
+    stam: 1.5, ap: 1.5, grit: 0.6, fit: 0.015, full: 0.4 },
+  { id: 'ex_run',     emoji: '🏃', name: '달리기',    need: 150,
+    stam: 2.5, ap: 2.5, grit: 1.0, fit: 0.030, full: 0.7 },
+  { id: 'ex_lift',    emoji: '🏋️', name: '근력 운동', need: 350,
+    stam: 3.5, ap: 3.5, grit: 1.4, fit: 0.045, full: 1.0 },
+  { id: 'ex_circuit', emoji: '🤸', name: '서킷',      need: 600,
+    stam: 5.0, ap: 5.0, grit: 2.0, fit: 0.070, full: 1.4 },
+];
+// 고를 수 있는 시간 (분)
+const EXERCISE_MINS = [10, 20, 30, 60];
+
+// ─── 음식 (EXERCISE.md) ───────────────────────────────────────
+// 먹으면 **포만감**이 찬다. 포만감은 스태미나 상한을 정하므로, 결국 음식이 운동을 굴린다.
+//
+// **무엇을 먹느냐가 선택이어야 한다.** 그래서 「많이 채우지만 단련을 깎는」 음식을 둔다 —
+// 안 그러면 사람은 언제나 제일 큰 것만 먹고, 목록이 다섯 줄일 이유가 없어진다.
+//   full 포만감 · happy 행복(아우라) · fit 단련
+//   w    채집에서 나오는 가중치 (많이 채우는 것일수록 드물다)
+//
+// 지금은 **채집에서 재료와 함께** 나온다. 요리사 클레멘이 들어오면 그가 주는 것으로
+// 옮긴다 — 폭식 시스템의 반대편이라 서사가 거기에 맞는다 (STORY.md).
+const FOODS = [
+  { id: 'food_porridge', emoji: '🥣', name: '죽',        full: 15, w: 30 },
+  { id: 'food_bread',    emoji: '🍞', name: '빵',        full: 25, w: 26 },
+  { id: 'food_salad',    emoji: '🥗', name: '샐러드',    full: 20, happy: 5,  w: 20 },
+  { id: 'food_meat',     emoji: '🍗', name: '구운 고기', full: 40, fit: -0.2, w: 16 },
+  { id: 'food_cake',     emoji: '🍰', name: '케이크',    full: 50, happy: 20, fit: -0.5, w: 8 },
+];
+// 채집 한 번에 음식이 같이 나올 확률. 하루 AP 1000 이면 채집 100번이라
+// 대략 12개가 나온다 — 운동 두어 번 분의 포만감이다
+const FOOD_RATE = 0.12;
+
 // 새 캐릭터 기본 착장
 const DEFAULT_OUTFIT = {
   hair: 'hair_long', hairColor: 'hcol_brown', expression: 'exp_puzzled', tattoo: 'tattoo_none',
@@ -1350,6 +1398,7 @@ window.GameData = {
   INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
+  EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   getTier, recipeKey,

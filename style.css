@@ -829,6 +829,24 @@ body {
   font-size: 0.72rem; font-weight: 800; letter-spacing: 0.01em;
   white-space: nowrap; pointer-events: none;
 }
+/* ─── 방 안에서 하는 일 (🏃 운동 …) ───
+   방 그림 오른쪽 아래에 쌓는다. **세로를 안 먹는다** — 스탯을 접어 자리를 만든 화면에
+   가로 줄을 하나 더 얹으면 그 작업이 무의미해진다.
+   **명판이다.** 방 배경 위 흰 글자(.on-room-bg)는 대비를 잴 수 없어 예외로 빼야 하는데,
+   예외는 최소한만 쓴다 — 배경이 있는 알약이라야 대비를 실제로 잰다 (마을 이름표와 같은 판단) */
+.room-acts {
+  position: absolute; right: 2px; bottom: 6px; z-index: 3;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+}
+.room-act {
+  display: flex; align-items: center; gap: 5px;
+  padding: 7px 12px; border: none; border-radius: 999px; cursor: pointer;
+  font-family: inherit; font-size: 0.82rem; font-weight: 800; color: var(--ink);
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 2px 8px rgba(60,40,55,0.28);
+}
+.room-act:active { transform: scale(0.97); }
+
 .char-stage { position: relative; display: flex; justify-content: center; margin: 6px 0 10px; }
 /* 배경을 네모 카드에 가두지 않고 전체 폭으로 열린 방처럼. 위/아래는 부드럽게 페이드 */
 .room-scene {
@@ -901,6 +919,15 @@ body {
 .stat-box { flex: 1; background: var(--cream); border-radius: 16px; padding: 12px 8px; text-align: center; }
 .stat-box.highlight { grid-column: 1 / -1; background: linear-gradient(140deg, var(--pink), var(--lav)); }
 .stat-label { font-size: 0.72rem; color: var(--ink-soft); font-weight: 700; }
+
+/* ─── 지금 상태 (포만감 · 스태미나) ───
+   비주얼/아우라와 **성격이 다르다** — 저 둘은 쌓이는 값이고 이 둘은 차고 주는 값이라
+   (AP 와 같은 부류) 표에 섞지 않고 맨 위에 따로 둔다.
+   눌러서 설명이 뜨므로 button 이다 — .stat-box 의 생김새를 그대로 쓴다 */
+.now-row { margin-top: 10px; }
+.now-box { font-family: inherit; border: none; cursor: pointer; padding: 8px 6px; }
+.now-box:active { transform: scale(0.99); }
+.now-val { font-size: 1.05rem; font-weight: 800; margin-top: 2px; color: var(--ink); }
 /* 단계 줄은 이름만 남아 짧다 — 큰 수의 머리말 노릇을 하도록 키웠다 (13.6px → 15.6px) */
 .stat-box.highlight .stat-label { color: var(--ink); font-size: 0.98rem; }
 .stat-val { font-size: 1.5rem; font-weight: 900; margin-top: 2px; }
@@ -1011,6 +1038,8 @@ body {
 .cat-tab.locked,
 .wr-item.locked,
 .vil-map.locked,
+.ex-item.locked,
+.ex-min.locked,
 .room-tab.locked {
   filter: saturate(0.15);
   opacity: 0.8;
@@ -1777,3 +1806,55 @@ body {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(3px); }
 }
+
+
+/* ═══ 운동 팝업 (EXERCISE.md) ═══════════════════════════════════
+   확인 패널(.modal) 의 confirmExtra 자리에 들어간다 — AP 충전 패널과 같은 짜임이다. */
+.ex-box { display: flex; flex-direction: column; gap: 10px; }
+/* 지금 상태를 **크게** 보여 준다. 접힌 스탯에서는 안 보이는 값이라, 여기가 유일하게
+   포만감·스태미나를 확인하는 자리인 경우가 많다 */
+.ex-now {
+  display: flex; justify-content: center; gap: 18px;
+  font-size: 0.92rem; font-weight: 700; color: var(--ink);
+}
+.ex-now b { font-weight: 900; }
+
+/* 종목 — 3열 격자. 잠긴 것도 보여 준다 (무엇이 기다리는지 알아야 근성을 올릴 이유가 생긴다) */
+.ex-items { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.ex-item {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 4px; border: 2px solid transparent; border-radius: 14px; cursor: pointer;
+  font-family: inherit; background: var(--cream); color: var(--ink);
+}
+.ex-item.on { border-color: var(--pink-2); background: var(--pink); }
+.ex-emoji { font-size: 1.3rem; line-height: 1.1; }
+.ex-name { font-size: 0.74rem; font-weight: 700; }
+.ex-need { font-size: 0.72rem; font-weight: 700; color: var(--ink); }   /* 11px 밑으로 못 내려간다 (TEXT_POLICY 1) */
+
+/* 시간 — 4칸 균등 분할 (UI_POLICY 1장: 셋~넷은 줄바꿈이 아니라 균등 분할) */
+.ex-mins { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.ex-min {
+  padding: 9px 2px; border: 2px solid transparent; border-radius: 12px; cursor: pointer;
+  font-family: inherit; font-size: 0.8rem; font-weight: 800;
+  background: var(--cream); color: var(--ink);
+}
+.ex-min.on { border-color: var(--lav-2); background: var(--lav); }
+.ex-min-lock { font-size: 0.9em; }
+
+/* 드는 것과 얻는 것 — 고른 만큼 계산해서 보여 준다 (AP 충전 패널과 같은 규칙) */
+/* 종목마다 한 줄 — 겉은 말랑하고 안은 진지한 이 게임의 톤이 여기서 난다 */
+.ex-desc {
+  text-align: center; font-size: 0.76rem; font-weight: 500; color: var(--ink-soft);
+  min-height: 1.2em;
+}
+.ex-line { display: flex; justify-content: center; gap: 12px; }
+.ex-cost { font-size: 0.86rem; font-weight: 800; color: var(--ink); }
+.ex-gain { text-align: center; font-size: 0.78rem; font-weight: 700; color: var(--text-pink); }
+
+/* 잡화 안의 하위 탭 (물약 / 음식) — 옷 › 슬롯 탭과 같은 .cat-tabs 를 쓴다.
+   **둘뿐이라 줄바꿈이 아니라 균등 분할이다** (UI_POLICY 1장: 셋~넷 고정이면 균등 분할 행).
+   .cat-tabs 는 flex-wrap 이라, 여기서 각 칸을 늘려 두 칸으로 만든다 */
+.stuff-tabs { margin-bottom: 10px; }
+.stuff-tabs .cat-tab { flex: 1 1 0; min-width: 0; }
+.stuff-panel { display: none; }
+.stuff-panel.active { display: block; }

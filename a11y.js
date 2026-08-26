@@ -47,7 +47,8 @@
     haloMinAlpha: 0.9,     // 겹들의 불투명도 합
     haloMinRatio: 4.5,     // 글자색 ↔ 음영색 대비. 흰 글자에 흰 그림자면 소용없다
     // 잠금 표현 (UI_POLICY 7장)
-    lockedSelector: '.spot-card.locked, .cat-tab.locked, .wr-item.locked, .room-tab.locked, .wr-color.locked, .vil-map.locked',
+    lockedSelector: '.spot-card.locked, .cat-tab.locked, .wr-item.locked, .room-tab.locked, .wr-color.locked, .vil-map.locked,'
+      + ' .ex-item.locked, .ex-min.locked',
     lockMaxSaturate: 0.4,     // 이보다 채도가 높으면 '잠김'으로 안 보인다
     lockMaxOpacity: 0.92,     // 살짝이라도 투명해야 뒤로 물러나 보인다
     lockMinOpacity: 0.7,      // 그렇다고 글자를 못 읽을 만큼 흐리면 안 된다
@@ -315,7 +316,8 @@
     tolerance: 0.5,                       // 반올림 오차 허용 (px)
     // 검사 대상 — 눌리는 요소와 값이 바뀌는 텍스트
     targetSelector: 'button, .cat-tab, .set-opt, .room-tab, .tab-btn, .spot-card, .stat-box,'
-      + ' .recipe-row, .wr-item, .ing-chip, .potion-card, .room-clock, .sync-chip, .wr-count, .recipe-progress',
+      + ' .recipe-row, .wr-item, .ing-chip, .potion-card, .room-clock, .sync-chip, .wr-count, .recipe-progress,'
+      + ' .room-act, .ex-item, .ex-min, .now-box',
     // 넘쳐도 되는 곳 — 지금은 없다.
     // 예전에는 .cat-tabs 가 가로 스크롤이라 예외였는데, 줄바꿈으로 바뀌어
     // **넘치면 진짜 버그**가 됐다. 예외로 두면 그걸 가려 버린다.

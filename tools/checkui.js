@@ -93,6 +93,10 @@ function launchOpts() {
       try { localStorage.setItem('dieter_alchemist_devvillage_v1', '1'); } catch (e) {}
       // 랭킹 탭은 '여신' 단계(매력 100)부터 나타난다 — 매력을 안 주면 그 화면이
       // 통째로 검사에서 빠진다. 지난 주 결과 배너도 같이 띄워 둔다 (그것도 화면이다)
+      // 운동 — 근성을 **중간쯤**으로 잡아 잠긴 종목과 열린 종목이 같이 나오게 한다.
+      // 음식도 몇 개 넣는다: 없으면 음식 칸이 아예 안 그려져 검사망에 구멍이 남는다
+      S.aura = Object.assign({}, S.aura, { grit: 200 });
+      D.FOODS.slice(0, 3).forEach((f, i) => { S.foods[f.id] = i + 1; });
       S.stats.charm = Math.max(S.stats.charm || 0, D.LEAGUE.openAt + 40);
       S.league = 26;
       S.week = { key: weekKey(), score: 480 };
@@ -152,10 +156,10 @@ function launchOpts() {
       const bad = await page.evaluate((c) => {
         if (!window.Tut) return 'tutorial.js 가 없다';
         // 물약 칸을 재려면 선반에 물약이 있어야 한다 (없으면 구멍 뚫을 카드가 없다)
-        if (c.pre === 'potion') { S.potions.vitality = 1; roomTab = 'potions'; }
+        if (c.pre === 'potion') { S.potions.vitality = 1; roomTab = 'stuff'; }
         switchTab(c.tab);
         Tut.goto(c.step, c.beat);
-        if (c.pre === 'potion') { setRoomTab('potions'); Tut.refresh(); }
+        if (c.pre === 'potion') { setRoomTab('stuff'); setStuffTab('potions'); Tut.refresh(); }
         const el = document.getElementById('tut');
         if (!el.classList.contains('on')) return '튜토리얼 막이 안 떴다';
         // **loose = 구멍 뚫을 대상을 못 찾았다는 뜻이다.** 그 상태의 0건은 통과가 아니다 —
@@ -339,15 +343,32 @@ function launchOpts() {
           const box = document.getElementById('roomStats');
           if (box.classList.contains('lite')) toggleStats();
         });
-        for (const sub of ['clothes', 'potions', 'creatures']) {
-          const bad = await page.evaluate((s) => {
+        // 잡화는 그 안에 또 하위 탭이 둘이다 (물약 / 음식) — 둘 다 재야 한다.
+        // 한쪽만 재면 다른 쪽 목록이 통째로 검사에서 빠진다
+        const SUBS = [['clothes'], ['stuff', 'potions'], ['stuff', 'foods'], ['creatures']];
+        for (const [sub, inner] of SUBS) {
+          const bad = await page.evaluate(([s, i]) => {
             setRoomTab(s);
+            if (i) setStuffTab(i);
             return roomTab === s ? null : `하위 탭이 열리지 않았다 (${s})`;
-          }, sub);
-          if (bad) { results.push({ 화면: `${t}/${sub}`, 오류: bad }); continue; }
+          }, [sub, inner]);
+          const name = inner ? `${sub}/${inner}` : sub;
+          if (bad) { results.push({ 화면: `${t}/${name}`, 오류: bad }); continue; }
           await page.waitForTimeout(250);
-          await run(`${t}/${sub}`);
+          await run(`${t}/${name}`);
         }
+        // 운동 팝업 — 잠긴 종목·잠긴 시간이 **둘 다 있는** 상태로 잰다.
+        // 전부 열려 있으면 잠금 표현이 검사에서 빠지고, 전부 잠겨 있으면
+        // 고른 칸의 대비를 못 잰다 (FULL 준비에서 근성을 그 사이 값으로 잡아 뒀다)
+        const exBad = await page.evaluate(() => {
+          if (typeof openExercise !== 'function') return 'openExercise 가 없다';
+          openExercise();
+          return document.querySelector('.ex-item') ? null : '운동 팝업이 안 떴다';
+        });
+        if (exBad) results.push({ 화면: `${t}/운동`, 오류: exBad });
+        else { await page.waitForTimeout(250); await run(`${t}/운동`); }
+        await page.evaluate(() => closeConfirm());
+        await page.waitForTimeout(150);
         continue;
       }
       await run(t);

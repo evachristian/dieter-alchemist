@@ -15,7 +15,8 @@
     "test:i18n": "node tools/checki18n.js",
     "test:save": "node tools/checksave.js",
     "test:tut": "node tools/checktut.js",
-    "gen:wardrobe": "node tools/genwardrobe.js"
+    "gen:wardrobe": "node tools/genwardrobe.js",
+    "test:time": "node tools/checktime.js"
   },
   "dependencies": {
     "express": "^4.19.2",

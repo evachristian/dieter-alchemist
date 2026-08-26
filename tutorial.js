@@ -53,7 +53,7 @@
     { id: 'go_room', talk: [say('gwiriel', 'tut_b1', 'smile'), say('althea', 'tut_b2')],
       act: 'tut_act_room', hole: '.tab-btn[data-tab="showcase"]', wait: 'tab:showcase' },
     { id: 'room_potions', talk: [say('althea', 'tut_b3')],
-      tab: 'showcase', act: 'tut_act_shelf', hole: '.room-tab[data-rtab="potions"]', wait: 'rtab:potions' },
+      tab: 'showcase', act: 'tut_act_shelf', hole: '.room-tab[data-rtab="stuff"]', wait: 'rtab:stuff' },
     { id: 'drink', talk: [say('althea', 'tut_b4', 'warm')],
       tab: 'showcase', act: 'tut_act_drink', hole: '.potion-card', wait: 'drink' },
 
