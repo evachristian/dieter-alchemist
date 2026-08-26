@@ -81,6 +81,32 @@ function launchOpts() {
     d = decayIdle();
     ok(d && d.days === 7, `두 달 방치해도 7일치까지만 (${d && d.days}일)`);
 
+    // ── 혼자 먹은 밤 (STORY.md) ──
+    // **날이 바뀔 때만 판정한다.** 낮에 포만감이 0 이 돼도 아무 일도 없어야 한다
+    S.aura.happy = 500; S.aura.grit = 500; S.fit = 0;
+    S.fullness = 0; S.bingeDay = dayKey();
+    ok(!checkBinge(), '같은 날에는 아무리 굶어도 밤이 오지 않는다');
+
+    jumpH(24);
+    let n = checkBinge();
+    ok(n && n.nights === 1, `굶은 채 날이 바뀌면 혼자 먹는다 (${n && n.nights}밤)`);
+    ok(n && n.happy === 20 && n.grit === 8, `행복 −${n && n.happy} · 근성 −${n && n.grit}`);
+    ok(Math.floor(fullness()) === 70, `배는 부르다 — 포만감 ${Math.floor(fullness())}`);
+    // 같은 날 다시 불러도 두 번 먹지 않는다
+    const h = S.aura.happy;
+    ok(!checkBinge() && S.aura.happy === h, '같은 날 다시 불러도 또 먹지 않는다');
+
+    // **배가 차 있으면 안 먹는다** — 이게 이 시스템의 유일한 예방책이다
+    S.fullness = 80; S.bingeDay = dayKey();
+    jumpH(24);
+    ok(!checkBinge(), `배가 찬 채로 날이 바뀌면 아무 일도 없다 (포만감 ${Math.floor(fullness())})`);
+
+    // 오래 비웠어도 세 밤까지
+    S.fullness = 0; S.bingeDay = dayKey();
+    jumpH(24 * 30);
+    n = checkBinge();
+    ok(n && n.nights === 3, `한 달을 비워도 세 밤까지 (${n && n.nights}밤)`);
+
     // ── 단련이 몸을 움직이는가 ──
     S.stats.beauty = 30; S.fit = 0;
     const w0 = weightKg(), f0 = bodyFatPct();

@@ -928,6 +928,9 @@ body {
 .now-box { font-family: inherit; border: none; cursor: pointer; padding: 8px 6px; }
 .now-box:active { transform: scale(0.99); }
 .now-val { font-size: 1.05rem; font-weight: 800; margin-top: 2px; color: var(--ink); }
+/* 이대로 날이 바뀌면 혼자 먹게 되는 자리. **색만으로 알리지 않는다** —
+   눌러서 뜨는 안내에 그 규칙이 적혀 있고, 여기 색은 거들 뿐이다 */
+.now-val.low { color: var(--text-warn); }
 /* 단계 줄은 이름만 남아 짧다 — 큰 수의 머리말 노릇을 하도록 키웠다 (13.6px → 15.6px) */
 .stat-box.highlight .stat-label { color: var(--ink); font-size: 0.98rem; }
 .stat-val { font-size: 1.5rem; font-weight: 900; margin-top: 2px; }

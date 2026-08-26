@@ -109,6 +109,7 @@ const defaultState = () => ({
   bodyTs: 0,
   lastWorkoutTs: 0,       // 마지막으로 운동한 시각 (방치 감소의 기준)
   decayTs: 0,             // 방치 감소를 **어디까지 반영했는지**. 두 번 깎지 않기 위한 값
+  bingeDay: 0,            // 「혼자 먹은 밤」을 마지막으로 판정한 날짜 키
   // 눌러서 고른 레시피가 요구하는 재료 목록 (표시용).
   // **조합해도 지워지지 않는다** — 재료가 남아 있으면 솥이 저절로 다시 채워지고,
   // 모자란 자리는 회색 재료로 남아 무엇이 없는지 보여 준다.
@@ -159,6 +160,7 @@ function newRecord() {
     drinks:      0,   // 마신 물약
     workouts:    0,   // 운동한 횟수
     meals:       0,   // 먹은 음식
+    aloneNights: 0,   // 혼자 먹은 밤 (STORY.md 「혼자 먹은 밤」)
     foodsGot:    0,   // 채집으로 얻은 음식
     exMin:       0,   // 운동한 시간 (분, 누적)
     creatures:   0,   // 만든 크리처 (누적 — 전시 목록과 달리 줄지 않는다)
@@ -201,7 +203,8 @@ function normalizeState(st) {
   st.outfit = Object.assign({ ...D.DEFAULT_OUTFIT }, st.outfit || {});
   if (typeof st.fit !== 'number' || !isFinite(st.fit)) st.fit = 0;
   if (!st.foods || typeof st.foods !== 'object') st.foods = {};
-  const NUM_DEF = { fullness: 100, stamina: 9999, bodyTs: 0, lastWorkoutTs: 0, decayTs: 0 };
+  const NUM_DEF = { fullness: 100, stamina: 9999, bodyTs: 0, lastWorkoutTs: 0,
+                    decayTs: 0, bingeDay: 0 };
   Object.keys(NUM_DEF).forEach(k => {
     if (typeof st[k] !== 'number' || !isFinite(st[k])) st[k] = NUM_DEF[k];
   });
@@ -574,13 +577,19 @@ function toast(msg, anchor, ms, place) {
 // ═══════════════════════════════════════════════════════════════
 //  에너지 (행동력) — 현실 24h = 게임 24h, 로컬 자정에 충전
 // ═══════════════════════════════════════════════════════════════
+// ─── 지금 시각 ───
+// **시간에 기대는 것은 전부 이 한 곳을 지난다.** `new Date()` 를 여기저기서 부르면
+// 시계를 옮겨 놓고 검사할 수가 없다 — 「하루 뒤」를 만들 구멍이 없어진다.
+// (tools/checktime.js 가 Date.now 하나만 갈아 끼우고 나머지가 다 따라오는 이유다)
+function nowDate() { return new Date(Date.now()); }
+
 // 로컬 날짜 키 (YYYYMMDD 정수) — 날짜가 바뀌면(자정) 값이 달라짐
-function dayKey(d = new Date()) {
+function dayKey(d = nowDate()) {
   return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 }
 // 다음 로컬 자정까지 남은 ms
 function msToNextMidnight() {
-  const now = new Date();
+  const now = nowDate();
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
   return next - now;
 }
@@ -590,8 +599,13 @@ function energyCap() { return D.ENERGY.cap + (S.energyBonusCap || 0); }
 function refreshEnergy() {
   const today = dayKey();
   if (S.energyDay === today) return false;
-  // 날짜가 넘어갔으니 방치 감소도 여기서 한 번 본다 (창을 며칠 열어 둔 경우)
+  // 날짜가 넘어갔으니 방치 감소·밤 판정도 여기서 한 번 본다 (창을 며칠 열어 둔 경우)
   decayIdle();
+  const alone = checkBinge();
+  if (alone) {
+    toast(T('binge_night', { n: alone.nights, happy: alone.happy,
+      grit: alone.grit, fit: alone.fit.toFixed(2) }), null, 6000);
+  }
   // (여러 날 지났어도) 상한까지 충전 — 현재 dailyFill == cap
   S.energy = Math.min(energyCap(), (S.energy || 0) + D.ENERGY.dailyFill);
   S.energyDay = today;
@@ -685,6 +699,62 @@ function decayIdle() {
   const dg = g0 - auraVal('grit'), df = +(f0 - S.fit).toFixed(2);
   if (dg <= 0 && df <= 0) return null;
   return { grit: dg, fit: df, days: Math.floor(days) };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  혼자 먹은 밤 (STORY.md 「폭식 시스템의 판정 기준」)
+// ═══════════════════════════════════════════════════════════════
+//
+// **판정 기준은 무엇을 먹었느냐가 아니라 「혼자 먹었느냐」다.**
+// 밤에 몰래 혼자 먹는 것과 누가 차려 준 것을 먹는 것은 같은 '먹는 행위' 인데,
+// 하나는 **연결의 대체물**이고 하나는 **연결 그 자체**다.
+//
+// ⚠️ **덜 먹는 게임이 아니라 혼자 먹지 않는 게임이다.** 그래서 벌이 「많이 먹어서」로
+// 읽히면 안 된다 — 깎이는 것의 중심은 체지방이 아니라 **행복**이고, 행복이 깎이면
+// 포만감이 더 빨리 줄어 또 혼자 먹게 된다. 그 나선이 이 시스템의 전부다.
+// (STORY.md — 정신적 허기는 애정결핍이지 마법 탓이 아니다)
+//
+// 지금은 **늘 혼자다.** 요리사 클레멘이 들어오면 여기에 「부엌에 갔었나」 갈래가
+// 붙고, 갔던 밤은 폭식이 아니라 **함께한 식사**가 된다 (포만감은 차고, 깎이는 것은 없다).
+// 그가 깎지 않는 것이 그의 이름이다 — clementia, 벌할 수 있는데 벌하지 않는 것.
+const BINGE = {
+  atFullness: 15,     // 날이 바뀔 때 포만감이 이보다 낮으면 혼자 먹는다
+  fullnessBack: 70,   // 먹고 나면 이만큼까지 찬다 — **배는 부르다**
+  happy: -20,         // 행복. **이게 고리의 핵심이다** (낮으면 더 빨리 배고파진다)
+  fit: -0.8,          // 단련 — 체지방·체중이 는다
+  grit: -8,           // 근성 — 혼자 쌓은 것은 혼자 무너진다 (STORY.md 「양날」)
+  maxNights: 3,       // 오래 비웠어도 한 번에 이만큼까지만
+};
+
+// 혼자 먹은 밤이 있었으면 { nights, happy, fit, grit } 를, 아니면 null
+// **tickBody() 다음에 부른다** — 비운 사이에 줄어든 포만감을 보고 판정해야 한다
+function checkBinge() {
+  const today = dayKey();
+  // 처음 들어온 사람은 기준이 없다. 지금부터 센다
+  if (!S.bingeDay) { S.bingeDay = today; return null; }
+  if (S.bingeDay === today) return null;
+
+  // 며칠이 지났는지 — 날짜 키는 정수라 뺄셈이 안 되므로 **마지막 계산 시각**으로 센다.
+  // (bodyTs 는 tickBody 가 방금 지금으로 맞춰 놓았으므로 lastWorkoutTs 를 쓰지 않는다)
+  const nights = Math.min(BINGE.maxNights, Math.max(1, daysBetween(S.bingeDay, today)));
+  S.bingeDay = today;
+  if (fullness() > BINGE.atFullness) return null;
+
+  const h0 = auraVal('happy'), g0 = auraVal('grit'), f0 = S.fit || 0;
+  addAura('happy', BINGE.happy * nights);
+  addAura('grit', BINGE.grit * nights);
+  S.fit = +(f0 + BINGE.fit * nights).toFixed(3);
+  // 배는 부르다 — 여러 밤이어도 마지막 밤의 배부름만 남는다
+  S.fullness = Math.max(fullness(), BINGE.fullnessBack);
+  rec('aloneNights', nights);
+  return { nights, happy: h0 - auraVal('happy'), grit: g0 - auraVal('grit'),
+           fit: +(f0 - S.fit).toFixed(2) };
+}
+
+// 날짜 키(YYYYMMDD 정수) 두 개 사이의 날 수. 정수 뺄셈이 안 되므로 날짜로 되돌린다
+function daysBetween(fromKey, toKey) {
+  const toDate = k => new Date(Math.floor(k / 10000), Math.floor(k / 100) % 100 - 1, k % 100);
+  return Math.round((toDate(toKey) - toDate(fromKey)) / DAY_MS);
 }
 
 // 에너지 소모 시도. 부족하면 false.
@@ -874,7 +944,7 @@ function tierHelp(el) {
 // ─── 글로벌 시계 (한국 UTC+9 / UTC-7) ───
 // 낮(06~18시)=☀️ 해, 밤=🌙 달 로 오전/오후를 예쁘게 표시
 function zoneTime(offsetHours) {
-  const now = new Date();
+  const now = nowDate();
   const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
   const d = new Date(utcMs + offsetHours * 3600000);
   const h = d.getHours();
@@ -1074,7 +1144,7 @@ window.tapGather = tapGather;
 // **새로고침해도 같은 명단, 같은 점수**다 — 나중에 자리만 실제 사람으로 바꿔 끼운다.
 
 // 주차 키 — 로컬 월요일 0시가 경계다. 'YYYY-Www'
-function weekKey(d = new Date()) {
+function weekKey(d = nowDate()) {
   const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   // 목요일 기준 ISO 주차 (월요일 시작). getDay(): 0=일 … 6=토
   const day = (t.getDay() + 6) % 7;           // 0=월 … 6=일
@@ -1086,13 +1156,13 @@ function weekKey(d = new Date()) {
   return `${t.getFullYear()}-W${wk < 10 ? '0' + wk : wk}`;
 }
 // 이번 주가 끝나기까지 남은 ms (다음 월요일 0시)
-function msToWeekEnd(d = new Date()) {
+function msToWeekEnd(d = nowDate()) {
   const day = (d.getDay() + 6) % 7;
   const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (7 - day), 0, 0, 0, 0);
   return end - d;
 }
 // 이번 주가 얼마나 지났나 (0 ~ 1). NPC 점수가 주 초반에 낮은 이유
-function weekProgress(d = new Date()) {
+function weekProgress(d = nowDate()) {
   const day = (d.getDay() + 6) % 7;
   return Math.min(1, (day + d.getHours() / 24) / 7);
 }
@@ -3474,7 +3544,12 @@ function signed(n, dec) {
 function renderBodyState() {
   const f = document.getElementById('statFull');
   const st = document.getElementById('statStam');
-  if (f) f.textContent = `${Math.floor(fullness())} / ${FULLNESS.max}`;
+  if (f) {
+    f.textContent = `${Math.floor(fullness())} / ${FULLNESS.max}`;
+    // 이대로 날이 바뀌면 혼자 먹게 되는 자리 — **미리 보이게 한다.**
+    // 아침에 와서 "왜 깎였지" 를 알게 되는 것보다, 밤에 "아 먹어야겠다" 가 낫다
+    f.classList.toggle('low', fullness() <= BINGE.atFullness);
+  }
   if (st) st.textContent = `${Math.floor(stamina())} / ${staminaMax()}`;
 }
 
@@ -3534,6 +3609,7 @@ function renderRecord(row) {
     row(T('rec_drinks'), `${r.drinks || 0}`) +
     row(T('rec_workouts'), T('rec_workouts_v', { n: r.workouts || 0, m: r.exMin || 0 })) +
     row(T('rec_meals'), `${r.meals || 0}`) +
+    row(T('rec_alone'), `${r.aloneNights || 0}`) +
     row(T('rec_creatures'), `${r.creatures || 0}`) +
     row(T('rec_maps'), `${openMaps} / ${D.MAPS.length}`) +
     row(T('rec_pots'), `${(r.pots || []).length} / ${D.CAULDRONS.length}`) +
@@ -3979,7 +4055,7 @@ function renderFoods() {
 function showFoodEffect(id, anchor) {
   const f = foodOf(id);
   if (!f) return;
-  const lines = [`🍴 ${T('now_full')} +${f.full}`];
+  const lines = [`🍚 ${T('now_full')} +${f.full}`];
   if (f.happy) lines.push(`💖 ${T('a_happy')} ${signed(f.happy, 0)}`);
   if (f.fit) lines.push(`🏃 ${T('v_fit')} ${signed(f.fit, 1)}`);
   toast(`${N(f.id, f.name)}\n${lines.join('\n')}`, anchor, 4200);
@@ -4064,7 +4140,7 @@ function exPanel() {
     `<button class="ex-min" data-min="${m}" onclick="exMin(${m})">${T('ex_min', { n: m })}<span class="ex-min-lock"></span></button>`).join('');
   return `<div class="ex-box">
     <div class="ex-now">
-      <span>🍴 <b id="exFull">0</b></span>
+      <span>🍚 <b id="exFull">0</b></span>
       <span>🏃 <b id="exStam">0</b></span>
     </div>
     <div class="ex-items">${items}</div>
@@ -4128,7 +4204,7 @@ function exSync() {
   if (line) line.innerHTML =
     `<span class="ex-cost">⚡ ${T('n_ap', { n: c.ap })}</span>`
     + `<span class="ex-cost">🏃 −${c.stam}</span>`
-    + `<span class="ex-cost">🍴 −${c.full}</span>`;
+    + `<span class="ex-cost">🍚 −${c.full}</span>`;
   const gain = document.getElementById('exGain');
   if (gain) gain.textContent = T('ex_gain', { grit: c.grit, fit: c.fit.toFixed(2) });
 }
@@ -4260,10 +4336,19 @@ document.addEventListener('DOMContentLoaded', () => {
   tickBody();               // 창을 닫아 둔 사이에 흐른 포만감·스태미나
   // 쉬는 동안 되돌아간 만큼. **조용히 줄어 있으면 안 된다** — 알려 준다
   const lost = decayIdle();
+  // 혼자 먹은 밤. **tickBody 다음이라야** 비운 사이에 줄어든 포만감을 보고 판정한다
+  const alone = checkBinge();
+  if (lost || alone) save();
+  // 둘 다 있으면 폭식 쪽을 먼저 — 그날 밤 이야기가 먼저고, 방치는 그 뒤의 결과다
+  if (alone) {
+    setTimeout(() => toast(T('binge_night', {
+      n: alone.nights, happy: alone.happy, grit: alone.grit,
+      fit: alone.fit.toFixed(2) }), null, 6000), 900);
+  }
   if (lost) {
-    save();
     setTimeout(() => toast(T('decay_back', {
-      d: lost.days, grit: lost.grit, fit: lost.fit.toFixed(2) }), null, 5200), 900);
+      d: lost.days, grit: lost.grit, fit: lost.fit.toFixed(2) }), null, 5200),
+      alone ? 7200 : 900);
   }
   switchTab('showcase');
   // 튜토리얼 — 인트로를 아직 안 봤으면 여기서는 그냥 돌아가고,

@@ -266,6 +266,51 @@ function launchOpts() {
     })();
   });
 
+  // ─── 초상화 — 머리와 얼굴이 붙어 있는가 ──────────────────────
+  //
+  // 머리 부품은 안쪽을 파 놓은 띠(crescent)라, 얼굴 타원보다 넓은 자리에서는
+  // 그 사이로 배경이 비쳤다 — **관자놀이에서 6px 짜리 틈**이 나서 머리와 얼굴이
+  // 떨어져 보였다 (오릭스·슈타르크·발렌·클레멘·이그리트가 그랬다).
+  //
+  // **얼굴이 있는 가로 구간만 본다.** 그 구간에서는 위에서 아래로 내려갈 때
+  // 「머리 → 얼굴」이 끊기지 않아야 한다 — 중간에 투명한 줄이 있으면 떨어진 것이다.
+  // (바깥 구간은 머리 옆의 빈 곳이라 정상적으로 비어 있다)
+  const face = await page.evaluate(async () => {
+    const D = window.GameData, bad = [];
+    const cv = document.createElement('canvas');
+    cv.width = 120; cv.height = 130;                    // Portrait.W × H 와 1:1
+    const cx = cv.getContext('2d');
+    // 얼굴 타원은 cx60 cy66 rx26 ry30 이다. 양 끝은 타원이 종잇장처럼 얇아
+    // 안티에일리어싱만 남으므로 안쪽으로 4px 들어와서 본다
+    const X0 = 38, X1 = 82, Y0 = 12, Y1 = 88;
+    for (const sp of D.SPEAKERS) {
+      // **배경 판 없이(bare)** 그린다 — 판을 깔면 틈이 판 색으로 메워져 안 보인다
+      const svg = window.Portrait.bust(sp, 'def', { bare: true });
+      const img = new Image();
+      await new Promise(ok => { img.onload = ok; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      cx.clearRect(0, 0, 120, 130);
+      cx.drawImage(img, 0, 0, 120, 130);
+      const d = cx.getImageData(0, 0, 120, 130).data;
+      const alpha = (x, y) => d[(y * 120 + x) * 4 + 3];
+      let worst = 0, at = null;
+      for (let x = X0; x <= X1; x++) {
+        let started = false, run = 0;
+        for (let y = Y0; y <= Y1; y++) {
+          const a = alpha(x, y);
+          if (a > 200) {
+            if (started && run > worst) { worst = run; at = x; }
+            started = true; run = 0;
+          } else if (started && a < 40) {
+            run++;
+          }
+        }
+      }
+      // 1px 은 안티에일리어싱이다. 2px 부터 눈에 보이는 틈이다
+      if (worst >= 2) bad.push(`${sp.id}: 머리와 얼굴 사이가 ${worst}px 떨어졌다 (x=${at})`);
+    }
+    return { bad, n: D.SPEAKERS.length };
+  });
+
   // ─── 염색이 실제로 아바타에 입혀지는가 ───────────────────────
   // **조용히 깨지는 자리다.** 칠했다는 토스트는 뜨는데 아바타는 원래 색 그대로였던 적이 있다
   // (영원 염색약이 만료 시각을 지우는데 slotColor 가 그것만 봐서, 모든 칸에서 안 먹었다).
@@ -336,12 +381,14 @@ function launchOpts() {
       where: `넥라인이 몸통 윗선 위를 판다 (x ${b.x}) — ${b.msg}` })))
     .concat(cardBad.map(m => ({ id: '과시 카드', body: '-', where: m, n: '-' })))
     .concat(dye.bad.map(m => ({ id: '염색', body: '-', where: m, n: '-' })))
-    .concat(hair.bad.map(m => ({ id: '앞머리', body: '-', where: m, n: '-' })));
+    .concat(hair.bad.map(m => ({ id: '앞머리', body: '-', where: m, n: '-' })))
+    .concat(face.bad.map(m => ({ id: '초상화', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
     + ` · 다른 옷으로 갈아입어 확인 ${dye.others}회 · 앞머리 ${hair.kinds}종 정수리`);
   console.log(`넥라인: 파낸 자리를 몸통 윗선과 견줌 (그린 path 를 isPointInFill 로 직접 잰다)`);
+  console.log(`초상화: 인물 ${face.n}명 — 머리와 얼굴 사이에 틈이 없는가`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
   console.log(`❌ ${all.length}건`);
   all.forEach(b => console.log(b.n === '-'

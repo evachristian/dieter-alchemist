@@ -88,7 +88,8 @@
       rec_workouts: '운동',
       rec_workouts_v: '{n}회 ({m}분)',
       now_full_help: '배가 얼마나 찼는지. 시간이 지나면 준다 (지금 시간당 {n} · 하루 {d}).\n'
-        + '마음이 채워져 있으면 덜 배고프다 — 행복이 높을수록 천천히 준다.',
+        + '마음이 채워져 있으면 덜 배고프다 — 행복이 높을수록 천천히 준다.\n'
+        + '날이 바뀔 때 비어 있으면 밤에 혼자 먹게 된다.',
       now_stam_help: '운동에 드는 힘. 시간당 {h}씩 찬다.\n'
         + '상한은 근육량과 포만감이 정한다. 굶으면 아예 안 찬다.',
       // 아우라 세부
@@ -169,6 +170,12 @@
       food_full: '지금은 더 못 먹겠어요. 배가 부르거든요.',
       rec_meals: '식사',
       decay_back: '{d}일 쉬었어요.\n근성 −{grit} · 단련 −{fit}\n몸은 정직해서, 쉬면 그만큼 돌아가요.',
+      // 「혼자 먹은 밤」 — 판정 기준은 무엇을 먹었느냐가 아니라 혼자 먹었느냐다.
+      // 마지막 줄이 이 시스템의 전부다 (STORY.md)
+      binge_night: '🌙 밤에 혼자 부엌에 다녀왔어요 ({n}번)\n'
+        + '행복 −{happy} · 근성 −{grit} · 단련 −{fit}\n'
+        + '배는 불렀는데, 채워지진 않았어요.',
+      rec_alone: '혼자 먹은 밤',
       potion_effect_head: '{name} 을(를) 마시면',
       potion_effect_none: '신체 수치는 거의 그대로예요',
       pk_title: '파수꾼의 호박 밭',
@@ -443,7 +450,8 @@
       rec_workouts: 'Workouts',
       rec_workouts_v: '{n} ({m} min)',
       now_full_help: 'How full she is. It drops over time ({n}/hour, {d}/day right now).\n'
-        + 'A full heart needs less food — the happier she is, the slower it drops.',
+        + 'A full heart needs less food — the happier she is, the slower it drops.\n'
+        + 'If it is empty when the day turns, she eats alone that night.',
       now_stam_help: 'What exercise costs. Refills {h} per hour.\n'
         + 'The cap comes from muscle and fullness. On an empty stomach it does not refill at all.',
       a_happy: 'Happiness', a_grace: 'Grace', a_unique: 'Individuality', a_grit: 'Grit', a_luck: 'Luck',
@@ -514,6 +522,10 @@
       food_full: 'She could not manage another bite. She is full.',
       rec_meals: 'Meals',
       decay_back: '{d} days off.\nGrit −{grit} · Fitness −{fit}\nThe body is honest. Rest, and it goes back.',
+      binge_night: '🌙 She went down to the kitchen alone at night ({n}×)\n'
+        + 'Happiness −{happy} · Grit −{grit} · Fitness −{fit}\n'
+        + 'Her stomach was full. Nothing else was.',
+      rec_alone: 'Nights alone',
       potion_effect_none: 'Body stats stay about the same',
       potion_effect_head: 'Drinking {name}',
       pk_title: "Warden's Pumpkin Patch",
