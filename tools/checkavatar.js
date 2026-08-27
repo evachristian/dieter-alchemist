@@ -417,7 +417,7 @@ function launchOpts() {
   const neck = await page.evaluate(() => {
     const D = window.GameData, bad = [];
     const MIN = 5;                 // 가장 짧은 곳(통통)도 이만큼은 남아야 한다
-    const MAX = 12;                // 너무 길어도 이상하다 (기린 목). 위아래로 다 막는다
+    const MAX = 16;                // 너무 길어도 이상하다 (기린 목). 위아래로 다 막는다
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:-9999px;top:0;width:200px';
     document.body.appendChild(host);
