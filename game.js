@@ -57,6 +57,9 @@ const defaultState = () => ({
   // 마이 룸에 두는 **애착 크리처 한 마리.** 매력에 반영되는 것도 이 한 마리뿐이다.
   // 예전에는 가진 전부가 중복까지 다 더해져 무한 누적이었다 (CREATURE.md 0장)
   petRoom: null,
+  // 탐험에 데려갈 크리처. **애착(petRoom)과 따로다** — 방에 둔 아이와 데리고 나갈 아이를
+  // 다르게 고를 수 있어야 「무엇을 고르느냐」가 두 번 생긴다
+  petField: null,
   // 여태 닿은 최고 매력. **해금 판정은 이 값으로 한다** — 위의 charmPeak() 참고
   charmPeak: 0,
   stats:     { beauty: 0, charm: 0 },
@@ -162,6 +165,7 @@ function newRecord() {
     gathered:    0,   // 채집 횟수
     specials:    0,   // 특별한 재료를 뽑은 횟수 (0.1%)
     itemsGot:    0,   // 얻은 재료 개수 (누적)
+    palFinds:    0,   // 동행 크리처가 덤으로 찾아 준 횟수
     brews:       0,   // 조합 시도
     brewOk:      0,   // 성공
     brewFail:    0,   // 실패 (찌꺼기)
@@ -550,6 +554,29 @@ function resultArt(r, size) {
 }
 // 지금 마이 룸에 있는 애착 크리처. **가진 것인지 한 번 거른다**
 function roomPet() { return ownsCreature(S.petRoom) ? creatureOf(S.petRoom) : null; }
+// 탐험에 데리고 나가는 크리처. 여기도 **가진 것인지 한 번 거른다** —
+// 재료로 녹였거나 데이터에서 빠진 id 가 세이브에 남을 수 있다
+function fieldPet() { return ownsCreature(S.petField) ? creatureOf(S.petField) : null; }
+
+// ─── 동행 보너스 ─────────────────────────────────────────────
+// **덤** — 채집 한 번에 재료가 하나 더 나온다.
+//
+// 왜 덤인가: 채집은 이미 100% 재료를 준다. 「획득 확률」로 올릴 자리가 없다.
+// 히든 재료(0.1%)에 배율만 곱하면 화면에 아무 변화가 없어서 아무도 못 느낀다 —
+// 덤은 토스트가 두 줄이 되고 가방 숫자가 눈에 띄게 는다 (CREATURE.md 5장).
+//
+// 지금은 **속성 일치 하나만** 본다. 날씨·시간·로열티는 4·6단계다.
+const PAL = {
+  base: 0.08,        // 데려가기만 해도
+  sameAttr: 0.10,    // 크리처 속성 = 맵 속성
+  max: 0.45,         // 상한. 1.0 에 붙으면 조건을 맞춘 보람이 사라진다
+};
+function palBonusRate(mapId) {
+  const pet = fieldPet();
+  if (!pet) return 0;
+  const same = pet.attr && D.mapAttr(mapId) === pet.attr;
+  return Math.min(PAL.max, PAL.base + (same ? PAL.sameAttr : 0));
+}
 
 // ⚠️ **해금은 「지금 매력」이 아니라 「여태 닿은 최고 매력」으로 판정한다.**
 // 애착 크리처를 센 것에서 약한 것으로 바꾸면 총합이 내려간다 — 그게 이 시스템의
@@ -1119,6 +1146,11 @@ function gather(mapId) {
   S.gathered++;
   rec('gathered'); rec('itemsGot');
   if (isSpecial) rec('specials');
+  // 동행 크리처가 하나 더 찾아 준다. **히든 재료를 또 뽑지는 않는다** —
+  // 덤으로 히든이 두 배 나오면 그쪽이 본 효과가 되어 버린다 (CREATURE.md 5장)
+  const pal = fieldPet();
+  const bonusId = (pal && Math.random() < palBonusRate(mapId)) ? weightedPick(map.pool) : null;
+  if (bonusId) { addInv(bonusId, 1); rec('itemsGot'); rec('palFinds'); }
   // 음식은 **재료와 별개로** 같이 나온다 (재료를 대신 뺏지 않는다).
   // 요리사 클레멘이 들어오면 이 자리를 그가 가져간다 — STORY.md
   const food = Math.random() < D.FOOD_RATE ? pickFood() : null;
@@ -1130,7 +1162,18 @@ function gather(mapId) {
   // 요소가 아니라 **선택자**를 넘기는 이유: 바로 아래 render() 가 카드를 새로 그려서
   // 지금 이 버튼은 문서에서 떨어져 나간다 (좌표가 0,0 이 되어 왼쪽 위 구석에 뜬다).
   const at = `.spot-card[data-spot="${mapId}"] .btn-gather`;
-  if (isSpecial) {
+  if (bonusId) {
+    // 덤이 나오면 **한 줄로 합쳐서** 알린다 — 토스트를 두 번 띄우면 앞것이 잘린다.
+    // 그리고 **누가 찾아 줬는지**를 적는다. 안 적으면 「원래 두 개 나오나?」로 읽혀
+    // 동행의 효과가 화면에서 사라진다
+    const bi = D.INGREDIENTS[bonusId];
+    toast(T('got_item_pal', {
+      emoji: ing.emoji, name: N(ing.id, ing.name),
+      emoji2: bi.emoji, name2: N(bi.id, bi.name),
+      pal: N(pal.id, pal.name), josa: josa(N(pal.id, pal.name), '이가'),
+    }), at, 3000, 'above');
+    if (window.Sfx) Sfx.play('success');
+  } else if (isSpecial) {
     toast(T('got_special', { emoji: ing.emoji, name: N(ing.id, ing.name) }), at, 3200, 'above');
     if (window.Sfx) Sfx.play('success');
   } else if (food) {
@@ -1779,6 +1822,7 @@ function renderGather() {
   // 라고 적혀 있으면 그 자체가 거짓말이다 (개발용 스위치로 열어 두고 한참 못 봤다)
   const subEl = document.getElementById('gatherSub');
   if (subEl) subEl.textContent = gatherSubText();
+  renderPalRow();
 
   renderVillages();
 
@@ -2456,6 +2500,72 @@ function setRoomPet(id) {
   checkUnlocks();
 }
 window.setRoomPet = setRoomPet;
+
+// ─── 동행 고르기 ────────────────────────────────────────────
+// 탐험 화면 위쪽 한 줄을 누르면 시트가 뜬다. **가진 것만** 나온다 —
+// 여기는 고르는 곳이지 보는 곳이 아니다 (못 가진 것을 보는 곳은 도감이다)
+function renderPalRow() {
+  const el = document.getElementById('palRow');
+  if (!el) return;
+  const pet = fieldPet();
+  const attr = pet && D.creatureAttr(pet.attr);
+  const nm = pet ? N(pet.id, pet.name) : '';
+  el.innerHTML = pet
+    ? `<span class="pal-art">${window.Creature ? Creature.icon(pet, 30) : ''}</span>
+       <span class="pal-name">${T('pal_row', { name: nm, josa: josa(nm, '과와') })}</span>
+       ${attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : ''}`
+    : `<span class="pal-name pal-off">${T('pal_row_none')}</span>`;
+  el.setAttribute('aria-label', T('pal_pick_title'));
+}
+
+function openPalPick() {
+  const el = document.getElementById('palPick');
+  if (!el) return;
+  const t = document.getElementById('palPickTitle');
+  if (t) t.textContent = T('pal_pick_title');
+  const list = document.getElementById('palPickList');
+  if (list) {
+    // 가진 것만. 중복은 한 줄로 묶는다 — 데려가는 것은 어차피 한 마리다
+    const ids = [...new Set(S.creatures)].filter(id => creatureOf(id));
+    if (!ids.length) {
+      list.innerHTML = `<div class="empty-hint">${T('pal_empty')}</div>`;
+    } else {
+      const cur = S.petField;
+      // 「안 데려감」을 맨 위에 둔다 — 되돌릴 길이 늘 첫 칸에 있어야 한다
+      const none = `<button class="pal-item${!cur ? ' on' : ''}" onclick="setFieldPet(null)">
+        <span class="pal-art">🚶</span><span class="pal-name">${T('pal_none')}</span></button>`;
+      list.innerHTML = none + ids.map(id => {
+        const c = creatureOf(id);
+        const attr = D.creatureAttr(c.attr);
+        return `<button class="pal-item${cur === id ? ' on' : ''}" onclick="setFieldPet('${id}')">
+          <span class="pal-art">${window.Creature ? Creature.icon(c, 34) : ''}</span>
+          <span class="pal-name">${N(c.id, c.name)}</span>
+          ${attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : ''}
+        </button>`;
+      }).join('');
+    }
+  }
+  el.classList.add('show');
+}
+window.openPalPick = openPalPick;
+
+function closePalPick() {
+  const el = document.getElementById('palPick');
+  if (el) el.classList.remove('show');
+}
+window.closePalPick = closePalPick;
+
+function setFieldPet(id) {
+  if (id && !ownsCreature(id)) return;
+  S.petField = id || null;
+  const c = id ? creatureOf(id) : null;
+  const name = c ? N(c.id, c.name) : '';
+  toast(c ? T('pal_set', { name, josa: josa(name, '을를') }) : T('pal_off'));
+  save();
+  closePalPick();
+  render();
+}
+window.setFieldPet = setFieldPet;
 
 // ─── 스탯 간단히 / 자세히 ────────────────────────────────────
 //

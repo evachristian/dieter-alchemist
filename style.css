@@ -229,6 +229,36 @@ body {
 /* ─── 특별한 맵 배지 ─── UI_POLICY.md 참고
    미니게임이 있는 맵(spot.mini)에만 붙는다. 카드 왼쪽 위 모서리에 얹는다. */
 .spot-card.special { overflow: visible; }
+/* ─── 동행 크리처 한 줄 (탐험 화면) ───
+   **세로를 거의 안 먹는다.** 지대 탭 위에 얇게 얹어서 지도 목록을 밀지 않는다
+   (운동 버튼을 방 그림 위에 얹은 것과 같은 판단 — UI_POLICY) */
+.pal-row {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  margin: 0 0 8px; padding: 7px 12px;
+  border: 1px dashed var(--pink-2); border-radius: 999px;
+  background: var(--cream); font-family: inherit; color: var(--ink);
+  font-size: 0.82rem; font-weight: 800; cursor: pointer; text-align: left;
+}
+.pal-row:active { transform: scale(0.99); }
+.pal-art { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.pal-art svg { display: block; }
+.pal-name { flex: 1 1 auto; min-width: 0; }
+/* 아무도 안 데려갈 때 — 물러나 보이되 **읽을 수는 있어야 한다** */
+.pal-name.pal-off { color: var(--ink-soft); font-weight: 700; }
+
+/* 고르기 시트 — 한 줄에 한 마리. 도감처럼 격자로 깔면 「고르는 곳」이 아니라
+   「보는 곳」으로 읽힌다 */
+.pal-card { max-width: 340px; }
+.pal-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; max-height: 46vh; overflow-y: auto; }
+.pal-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border: 2px solid transparent; border-radius: 14px;
+  background: var(--cream); font-family: inherit; color: inherit;
+  font-size: 0.86rem; font-weight: 800; cursor: pointer; text-align: left;
+}
+.pal-item.on { border-color: var(--text-pink); background: var(--pink-1); }
+.pal-item:active { transform: scale(0.98); }
+
 /* 속성 배지 — 카드 **오른쪽 위**. 「특별한 맵」 배지(왼쪽 위)와 같은 모양이되 자리가 다르다.
    글자색은 고정(--ink)이고 배경만 속성 색을 옅게 깐다 — 여섯 색 위에 흰 글자를 얹으면
    대비를 여섯 번 다 맞춰야 하고, 그중 하나는 반드시 걸린다 (TEXT_POLICY.md) */

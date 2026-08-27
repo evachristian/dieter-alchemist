@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260828r">
+<link rel="stylesheet" href="style.css?v=20260828t">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260828r" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260828t" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -323,6 +323,9 @@
     </div>
 
     <div id="gatherPanel-field" class="room-panel active">
+      <!-- 동행 크리처 한 줄. **세로를 거의 안 먹는다** — 지대 탭 위에 얇게 얹는다
+           (운동 버튼을 방 그림 위에 얹은 것과 같은 판단 — UI_POLICY) -->
+      <button id="palRow" class="pal-row" onclick="openPalPick()"></button>
       <!-- 지대 카테고리 탭 -->
       <div id="zoneTabs" class="cat-tabs zn-tabs"></div>
       <div id="spotList" class="spot-list"></div>
@@ -701,6 +704,17 @@
   </div>
 </div>
 
+<!-- ── 동행 크리처 고르기 (바깥 터치 = 닫기) ──
+     가진 크리처 + 「안 데려감」 한 칸. 도감과 달리 **가진 것만** 나온다 —
+     여기는 고르는 곳이지 보는 곳이 아니다 -->
+<div id="palPick" class="modal" onclick="if(event.target===this) closePalPick()">
+  <div class="modal-card pal-card">
+    <div id="palPickTitle" class="confirm-text"></div>
+    <div id="palPickList" class="pal-list"></div>
+    <button class="btn btn-ghost" onclick="closePalPick()" data-i18n="pal_close">닫기</button>
+  </div>
+</div>
+
 <!-- ── 확인 모달 (바깥 터치 = 취소) ── -->
 <div id="confirmModal" class="modal" onclick="if(event.target===this) closeConfirm()">
   <div class="modal-card">
@@ -719,19 +733,19 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260828r"></script>
-<script src="intro.js?v=20260828r"></script>
-<script src="data.js?v=20260828r"></script>
-<script src="avatar.js?v=20260828r"></script>
-<script src="village.js?v=20260828r"></script>
-<script src="portrait.js?v=20260828r"></script>
-<script src="creature.js?v=20260828r"></script>
-<script src="cauldron.js?v=20260828r"></script>
-<script src="pumpkin.js?v=20260828r"></script>
-<script src="sfx.js?v=20260828r"></script>
-<script src="sync.js?v=20260828r"></script>
-<script src="game.js?v=20260828r"></script>
-<script src="tutorial.js?v=20260828r"></script>
-<script src="a11y.js?v=20260828r"></script>
+<script src="i18n.js?v=20260828t"></script>
+<script src="intro.js?v=20260828t"></script>
+<script src="data.js?v=20260828t"></script>
+<script src="avatar.js?v=20260828t"></script>
+<script src="village.js?v=20260828t"></script>
+<script src="portrait.js?v=20260828t"></script>
+<script src="creature.js?v=20260828t"></script>
+<script src="cauldron.js?v=20260828t"></script>
+<script src="pumpkin.js?v=20260828t"></script>
+<script src="sfx.js?v=20260828t"></script>
+<script src="sync.js?v=20260828t"></script>
+<script src="game.js?v=20260828t"></script>
+<script src="tutorial.js?v=20260828t"></script>
+<script src="a11y.js?v=20260828t"></script>
 </body>
 </html>

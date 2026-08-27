@@ -216,6 +216,34 @@ function launchOpts() {
           await page.waitForTimeout(250);
           await run(`${t}/${sub}`);
         }
+        // **동행 고르기 시트는 눌러야만 뜬다.** 안 열면 통째로 검사에서 빠지는데,
+        // 크리처 그림 · 이름 · 속성 딱지가 한 줄에 같이 들어가는 자리라 폭이 제일 빡빡하다.
+        // 한 줄 자체도 **동행이 있을 때와 없을 때 모양이 다르다** (없을 때는 흐린 글자
+        // 하나뿐이라 위의 gather/field 가 이미 재고 있다) — 여기서는 있는 쪽을 잰다
+        {
+          const bad = await page.evaluate(() => {
+            setGatherTab('field');
+            const cr = (S.creatures || [])[0];
+            if (!cr) return '가진 크리처가 없다 (FULL 준비가 덜 됐다)';
+            setFieldPet(cr);
+            return document.querySelector('#palRow .pal-art') ? null : '동행 한 줄이 안 그려졌다';
+          });
+          if (bad) results.push({ 화면: `${t}/동행있음`, 오류: bad });
+          else { await page.waitForTimeout(250); await run(`${t}/동행있음`); }
+
+          const bad2 = await page.evaluate(() => {
+            openPalPick();
+            const m = document.getElementById('palPick');
+            if (!m || !m.classList.contains('show')) return '고르기 시트가 안 열렸다';
+            // 「혼자 간다」 + 가진 크리처 수만큼이어야 한다. 하나뿐이면 목록이 안 그려진 것이다
+            const n = document.querySelectorAll('#palPickList .pal-item').length;
+            return n === (S.creatures || []).length + 1 ? null : `고를 칸이 ${n}개다`;
+          });
+          if (bad2) results.push({ 화면: `${t}/동행고르기`, 오류: bad2 });
+          else { await page.waitForTimeout(250); await run(`${t}/동행고르기`); }
+          await page.evaluate(() => { closePalPick(); setFieldPet(null); });
+          await page.waitForTimeout(150);
+        }
         // 마을은 셋이고 **건물 수가 다르다.** 여덟인 마을과 넷인 마을을 다 본다 —
         // 그림 높이가 건물 수를 따라가므로 명판이 겹치는지는 여덟짜리로만 잡힌다
         for (const vid of ['vl_chimney', 'vl_mirror']) {
