@@ -565,17 +565,79 @@ function fieldPet() { return ownsCreature(S.petField) ? creatureOf(S.petField) :
 // 히든 재료(0.1%)에 배율만 곱하면 화면에 아무 변화가 없어서 아무도 못 느낀다 —
 // 덤은 토스트가 두 줄이 되고 가방 숫자가 눈에 띄게 는다 (CREATURE.md 5장).
 //
-// 지금은 **속성 일치 하나만** 본다. 날씨·시간·로열티는 4·6단계다.
+// ⚠️ **곱셈이 아니라 덧셈으로 쌓는다.** 덤은 자주 일어나는 일이라 곱하면 금세 상한에
+// 붙어 버리고, 그러면 조건을 하나 더 맞춘 보람이 사라진다. (히든은 반대로 곱셈이다 —
+// 0.1% 대라 열두 배를 해도 1.2% 다. CREATURE.md 5장)
+//
+// 로열티 항(0~0.10)만 아직 비어 있다 — 6단계다.
 const PAL = {
   base: 0.08,        // 데려가기만 해도
   sameAttr: 0.10,    // 크리처 속성 = 맵 속성
+  weather: 0.06,     // 크리처 속성 = 지금 날씨가 편드는 속성
+  daypart: 0.06,     // 크리처 속성 = 지금 시간대가 편드는 속성
   max: 0.45,         // 상한. 1.0 에 붙으면 조건을 맞춘 보람이 사라진다
 };
-function palBonusRate(mapId) {
+// 무엇이 맞았는지를 **하나로 모아** 돌려준다. 확률을 내는 곳과 화면에 적는 곳이
+// 갈라지면 「맞았다고 써 있는데 확률은 그대로」가 생긴다 — 같은 함수를 지나게 한다
+function palMatch(mapId) {
   const pet = fieldPet();
-  if (!pet) return 0;
-  const same = pet.attr && D.mapAttr(mapId) === pet.attr;
-  return Math.min(PAL.max, PAL.base + (same ? PAL.sameAttr : 0));
+  if (!pet || !pet.attr) return null;
+  const we = weatherOf(mapId);
+  const dp = daypartNow();
+  return {
+    pet,
+    attr:    D.mapAttr(mapId) === pet.attr,
+    weather: !!we && we.attr === pet.attr,
+    daypart: !!dp && dp.attrs.indexOf(pet.attr) >= 0,
+    we, dp,
+  };
+}
+function palBonusRate(mapId) {
+  const m = palMatch(mapId);
+  if (!m) return 0;
+  return Math.min(PAL.max, PAL.base
+    + (m.attr    ? PAL.sameAttr : 0)
+    + (m.weather ? PAL.weather  : 0)
+    + (m.daypart ? PAL.daypart  : 0));
+}
+
+// ─── 히든 재료 ───────────────────────────────────────────────
+// 맵마다 기본 확률이 다르고(D.specialTier), 조건이 맞으면 **곱해서** 오른다.
+// 동행이 없으면 배율이 없다 — 맵의 기본 확률 그대로다.
+const PAL_SP = { attr: 3, weather: 2, daypart: 2 };   // 다 맞으면 12배
+function specialMult(mapId) {
+  const m = palMatch(mapId);
+  if (!m) return 1;
+  return (m.attr ? PAL_SP.attr : 1) * (m.weather ? PAL_SP.weather : 1)
+       * (m.daypart ? PAL_SP.daypart : 1);
+}
+function specialRate(map) {
+  return D.specialTier(map.unlock).rate * specialMult(map.id);
+}
+
+// ─── 날씨 ────────────────────────────────────────────────────
+// ⚠️ **`Math.random()` 으로 정하면 안 된다.** `render()` 는 아주 자주 불려서
+// 화면을 다시 그릴 때마다 날씨가 바뀐다 — 채집 한 번에 비가 왔다 갔다 한다.
+// 리그 NPC 와 같은 방식으로 **시간과 맵 id 에서 결정론적으로** 뽑는다.
+//
+// `nowDate()` 를 지나야 `tools/checktime.js` 가 시계를 옮겨 놓고 검사할 수 있다.
+// 세이브에는 안 남긴다 — 남기면 기기마다 달라지고 동기화 충돌거리가 하나 는다.
+function weatherSlot(d = nowDate()) {
+  return Math.floor(d.getTime() / (D.WEATHER_HOURS * 3600e3));
+}
+function weatherOf(mapId, d = nowDate()) {
+  if (!mapId) return null;
+  return D.WEATHERS[hash32(mapId + ':' + weatherSlot(d)) % D.WEATHERS.length];
+}
+
+// ─── 시간대 ──────────────────────────────────────────────────
+// 경계는 운동(EX_WHEN)과 어긋나지 않는다 — 운동의 「낮」을 낮·해질녘으로 한 번 더 자른 것뿐이다.
+// D.DAYPARTS 는 from 이 오름차순이고, 첫 칸(아침 5시)보다 이른 시각은 전날 밤이다
+function daypartNow(d = nowDate()) {
+  const h = d.getHours();
+  const list = D.DAYPARTS;
+  for (let i = list.length - 1; i >= 0; i--) if (h >= list[i].from) return list[i];
+  return list[list.length - 1];      // 00~05 시 = 밤
 }
 
 // ⚠️ **해금은 「지금 매력」이 아니라 「여태 닿은 최고 매력」으로 판정한다.**
@@ -1139,8 +1201,9 @@ function gather(mapId) {
     startPumpkinRun(map);
     return false;
   }
-  // 0.1% 확률로 그 맵에서만 나오는 '특별한 재료'
-  const isSpecial = Math.random() < D.SPECIAL_RATE;
+  // 그 맵에서만 나오는 '특별한 재료'. **맵마다 기본 확률이 다르고**(초반 0.5% ~ 후반 0.05%),
+  // 동행의 속성·날씨·시간대가 맞으면 최대 12배까지 곱해진다 (CREATURE.md 5장)
+  const isSpecial = Math.random() < specialRate(map);
   const id = isSpecial ? map.special : weightedPick(map.pool);
   addInv(id, 1);
   S.gathered++;
@@ -1823,6 +1886,7 @@ function renderGather() {
   const subEl = document.getElementById('gatherSub');
   if (subEl) subEl.textContent = gatherSubText();
   renderPalRow();
+  renderDayPart();
 
   renderVillages();
 
@@ -1870,8 +1934,16 @@ function renderGather() {
     // 속성은 **글자로** 적는다 (이모지 아님 — CREATURE.md 2장). 오른쪽 위 배지.
     // 재료 칩(둥근 알약)과 자리·모양이 달라야 무엇이 무엇인지 헷갈리지 않는다
     const at = D.creatureAttr(D.mapAttr(spot.id));
-    const attrBadge = at
-      ? `<span class="spot-attr" style="--at:${at.color}">${N(at.id, at.name)}</span>` : '';
+    // 날씨는 **이모지**다 (속성은 글자). 이모지 하나로는 「비가 추적추적」이 안 읽혀서
+    // 누르면 토스트로 이름을 알려 준다 — 속성에는 토스트가 없다. 이름이 이미 적혀 있어서다
+    const we = weatherOf(spot.id);
+    // 둘을 한 상자에 담아 오른쪽 위에 붙인다. 따로 절대배치하면 영어처럼 속성 이름이
+    // 길어질 때 서로 겹친다 (`Water` 는 `물` 의 세 배다)
+    const attrBadge = (we || at) ? `<div class="spot-tags">`
+      + (we ? `<button class="spot-weather" onclick="weatherInfo('${spot.id}', this)"
+               aria-label="${N(we.id, we.name)}">${we.emoji}</button>` : '')
+      + (at ? `<span class="spot-attr" style="--at:${at.color}">${N(at.id, at.name)}</span>` : '')
+      + `</div>` : '';
     // 카드 몸통은 **누르는 곳이 아니다.** 채집은 오른쪽 버튼만 한다 —
     // 재료 이름을 보려다, 목록을 밀어 내리려다 AP 가 새던 자리였다
     return `
@@ -2341,7 +2413,8 @@ function renderShowcase() {
   const stage = document.getElementById('charStage');
   const pet = roomPet();
   const petArt = (pet && window.Creature)
-    ? `<span class="stage-creature">${Creature.draw(pet, { flat: true })}</span>` : '';
+    ? `<span class="stage-creature ${pet.move === 'air' ? 'cr-air' : 'cr-ground'}">${
+        Creature.draw(pet, { flat: true })}</span>` : '';
   const avatarSvg = roomFigure(tier);
   stage.innerHTML = `
     <div class="room-scene"></div>
@@ -3798,6 +3871,35 @@ window.ingHint = ingHint;
 
 // 맵마다 하나씩 있는 특별한 재료 칩. 아직 못 찾았으면 **정체 대신 힌트만** 알려 준다 —
 // 눌러서 이름이 나오면 0.1% 로 찾아내는 재미가 없어진다
+// 날씨 이모지를 누르면 이름과 **편드는 속성**을 알려 준다. 속성만 적어 두면
+// 「이게 왜 좋은 건데」가 화면 어디에도 없다 — 표를 밖에서 외워 오라는 뜻이 된다
+function weatherInfo(mapId, el) {
+  const we = weatherOf(mapId);
+  if (!we) return;
+  const at = D.creatureAttr(we.attr);
+  toast(T('weather_info', { emoji: we.emoji, name: N(we.id, we.name),
+    attr: at ? N(at.id, at.name) : '' }), el, 2600, 'above');
+}
+window.weatherInfo = weatherInfo;
+
+function daypartInfo(el) {
+  const dp = daypartNow();
+  if (!dp) return;
+  const names = dp.attrs.map(k => { const a = D.creatureAttr(k); return a ? N(a.id, a.name) : k; });
+  toast(T('daypart_info', { emoji: dp.emoji, name: N(dp.id, dp.name),
+    attr: names.join(' · '), time: zoneTime(9) }), el, 2600, 'above');
+}
+window.daypartInfo = daypartInfo;
+
+function renderDayPart() {
+  const el = document.getElementById('dayPart');
+  if (!el) return;
+  const dp = daypartNow();
+  if (!dp) return;
+  el.innerHTML = `${dp.emoji} <span class="dp-name">${N(dp.id, dp.name)}</span>`;
+  el.setAttribute('aria-label', N(dp.id, dp.name));
+}
+
 function specialHint(mapId, el) {
   const map = D.MAPS.find(m => m.id === mapId);
   if (!map) return;

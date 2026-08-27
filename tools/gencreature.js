@@ -51,6 +51,21 @@ const GRADES = {
 //   pat    none / spot / stripe / glow
 const C = (body, ear, horn, wing, tail, eye, pat) => ({ body, ear, horn, wing, tail, eye, pat });
 
+// ─── 땅에 선 것 / 떠 있는 것 ──────────────────────────────────
+//
+// **손으로 붙이지 않고 그림 부품에서 끌어낸다.** 서른 마리에 하나씩 적으면
+// 새 마리를 넣을 때 반드시 빠뜨리고, 빠뜨린 쪽은 조용히 「땅」이 된다.
+//
+//   날개가 있으면 뜬다 — 나비 · 박쥐 · 새 날개
+//   물고기도 뜬다 — 방바닥에 세워 놓을 수가 없다
+//   그 밖에는 전부 네 발로 선다
+//
+// ⚠️ **몸통(body)으로 가르면 틀린다.** 「햇살 암탉」은 body 가 bird 인데 날개가 없다 —
+// 암탉은 걸어 다닌다. 유니콘(deer + 뿔, 날개 없음)도 같은 이유로 땅이다.
+function moveOf(art) {
+  return (art.wing !== 'none' || art.body === 'fish') ? 'air' : 'ground';
+}
+
 // ─── 서른 마리 ────────────────────────────────────────────────
 // 속성마다 다섯: 기초 2 · 중급 2 · 상급 1.
 // **기초는 평야·숲 재료만 쓴다** — 그 둘이 제일 먼저 열리는 지대라(0 · 38),
@@ -208,6 +223,27 @@ for (const a of ATTRS) {
 }
 for (const id of LEGACY) if (!seenId.has(id)) problems.push(`옛 id 가 사라졌다: ${id}`);
 
+// 땅/공중이 **눈으로 본 것과 맞는가.** 규칙 한 줄이라 조용히 뒤집히기 쉬워서
+// 사람이 「이건 분명 이쪽」이라고 아는 몇 마리를 못으로 박아 둔다.
+// 유니콘이 허공에 뜬 채로 배포됐던 적이 있다 — 그때는 서른 마리가 다 떠 있었다.
+const MOVE_MUST = {
+  unicorn: 'ground', frog: 'ground', butterfly: 'air',
+  sunbeam_hen: 'ground',      // body 가 bird 인데 날개가 없다 — 암탉은 걷는다
+  ember_phoenix: 'air', moss_deer: 'ground', boulder_bear: 'ground',
+  coral_seahorse: 'air',      // 물고기는 방바닥에 세울 수가 없다
+};
+for (const c of TABLE) {
+  const want = MOVE_MUST[c.id];
+  if (want && moveOf(c.art) !== want) {
+    problems.push(`${c.id}: ${want} 여야 하는데 ${moveOf(c.art)} 로 나온다`);
+  }
+}
+// 한쪽으로 다 쏠리면 규칙이 죽은 것이다 (전부 air 였던 것이 원래 사고였다)
+{
+  const air = TABLE.filter(c => moveOf(c.art) === 'air').length;
+  if (air === 0 || air === TABLE.length) problems.push(`땅/공중이 한쪽으로 쏠렸다: 공중 ${air}/${TABLE.length}`);
+}
+
 // **기존 물약 레시피와 조합이 겹치면 안 된다** — RECIPE_MAP 이 덮어쓴다
 for (const r of D.RECIPES) {
   if (r.result.kind === 'creature') continue;      // 크리처는 이 표가 통째로 갈아 끼운다
@@ -245,7 +281,7 @@ for (const a of ATTRS) {
     dataBody +=
       `  { inputs: [${c.inputs.map(q).join(', ')}],\n` +
       `    result: { id: ${q(c.id)}, kind: 'creature', grade: ${q(c.grade)}, name: ${q(c.ko)},\n` +
-      `      attr: ${q(c.attr)}, charmBonus: ${g.charm},\n` +
+      `      attr: ${q(c.attr)}, charmBonus: ${g.charm}, move: ${q(moveOf(c.art))},\n` +
       `      combat: { atk: ${cb.atk}, matk: ${cb.matk}, def: ${cb.def}, mdef: ${cb.mdef} },\n` +
       `      art: { ${art} } } },\n`;
   }

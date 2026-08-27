@@ -124,6 +124,36 @@ function launchOpts() {
     ok(at(8) === 'morning' && at(14) === 'day' && at(23) === 'night' && at(3) === 'night',
       `시간대 판정 — 8시 ${at(8)} · 14시 ${at(14)} · 23시 ${at(23)} · 3시 ${at(3)}`);
 
+    // ── 채집 시간대 · 날씨 (CREATURE.md 3·4장) ──
+    //
+    // 채집 시간대는 **운동 구간을 더 잘게 자른 것**이어야 한다. 하나가 운동 구간 둘에
+    // 걸치면 20시 30분에 「운동은 낮인데 채집은 밤」이 되어 설명이 두 벌이 된다
+    {
+      const span = {};
+      for (let h = 0; h < 24; h++) { at(h); (span[daypartNow().k] = span[daypartNow().k] || new Set()).add(exWhenKey()); }
+      const bad = Object.entries(span).filter(([, s]) => s.size > 1).map(([k]) => k);
+      ok(!bad.length, `채집 시간대가 운동 구간을 넘지 않는다${bad.length ? ` — ${bad}` : ''}`);
+      at(8);  const m = daypartNow().k;
+      at(14); const d2 = daypartNow().k;
+      at(19); const k = daypartNow().k;
+      at(23); const n = daypartNow().k;
+      ok(m === 'morning' && d2 === 'day' && k === 'dusk' && n === 'night',
+        `채집 시간대 — 8시 ${m} · 14시 ${d2} · 19시 ${k} · 23시 ${n}`);
+    }
+    {
+      // **날씨는 부를 때마다 바뀌면 안 된다.** render() 마다 뽑으면 채집 한 번에 비가 왔다 갔다 한다
+      at(14);
+      const same = new Set(); for (let i = 0; i < 30; i++) same.add(weatherOf('p_hill').k);
+      ok(same.size === 1, `같은 시각에 서른 번 물어도 같은 날씨 (${[...same].join(',')})`);
+      // 그리고 시간이 지나면 바뀌긴 해야 한다 — 안 바뀌면 그냥 상수다
+      const day = new Set(); for (let h = 0; h < 24; h++) { at(h); day.add(weatherOf('p_hill').k); }
+      ok(day.size > 1, `하루 안에서는 바뀐다 (${day.size}가지)`);
+      // 같은 시각에 맵마다 달라야 한다 — 같으면 시드가 맵 id 를 안 탄 것이다
+      at(14);
+      const perMap = new Set(GameData.MAPS.map(m => weatherOf(m.id).k));
+      ok(perMap.size >= 4, `같은 시각에도 맵마다 다르다 (${perMap.size}가지)`);
+    }
+
     const ex = GameData.EXERCISES.find(x => x.id === 'ex_run');
     at(14); const day = exCost(ex, 60);
     at(23); const night = exCost(ex, 60);

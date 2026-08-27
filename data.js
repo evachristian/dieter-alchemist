@@ -5,7 +5,7 @@
 
 // ─── 재료 (Ingredients) ───
 // weight: 채집 시 뽑힐 가중치 (클수록 흔함)
-// rare:   맵마다 하나씩 있는 '특별한 재료'. 가중 추첨과 별개로 SPECIAL_RATE 확률로 나온다.
+// rare:   맵마다 하나씩 있는 '특별한 재료'. 가중 추첨과 별개로 specialTier() 확률로 나온다.
 const INGREDIENTS = {
   // ── 뾰족 산악 지대 ──
   iron_ore:      { id: 'iron_ore', emoji: '⛏️', name: '무쇠 광석', zone: 'mountain', weight: 24 },
@@ -121,8 +121,9 @@ const INGREDIENTS = {
   sp_mermaidscale: { id: 'sp_mermaidscale', emoji: '🧜‍♀️', name: '인어의 비늘', zone: 'shore', weight: 0, rare: true },
 };
 
-// 특별한 재료가 나올 확률 (0.001 = 0.1%)
-const SPECIAL_RATE = 0.001;
+// 특별한 재료가 나올 확률은 **맵마다 다르다** — SPECIAL_TIERS · specialTier() 를 볼 것.
+// 예전에는 여기 있던 SPECIAL_RATE(0.1%) 하나로 51곳이 전부 같았다. 지운 이유는
+// 쓰지 않는 값이 남아 있으면 다음 사람이 그것을 진짜 확률로 읽기 때문이다.
 
 // ─── 채집 지대 (Zones) ─── 채집 화면의 카테고리 탭
 const ZONES = [
@@ -653,157 +654,157 @@ const RECIPES = [
   // 불 — 기초 2 · 중급 2 · 상급 1
   { inputs: ['sun_seed', 'tree_resin'],
     result: { id: 'ember_newt', kind: 'creature', grade: 'basic', name: '불씨 도롱뇽',
-      attr: 'fire', charmBonus: 2,
+      attr: 'fire', charmBonus: 2, move: 'ground',
       combat: { atk: 6, matk: 4, def: 3, mdef: 3 },
       art: { body: 'quad', ear: 'none', horn: 'none', wing: 'none', tail: 'long', eye: 'dot', pat: 'spot' } } },
   { inputs: ['spider_silk', 'thistle'],
     result: { id: 'ash_moth', kind: 'creature', grade: 'basic', name: '잿빛 나방',
-      attr: 'fire', charmBonus: 2,
+      attr: 'fire', charmBonus: 2, move: 'air',
       combat: { atk: 6, matk: 4, def: 3, mdef: 3 },
       art: { body: 'bug', ear: 'tuft', horn: 'none', wing: 'butterfly', tail: 'none', eye: 'dot', pat: 'stripe' } } },
   { inputs: ['berry', 'dry_root', 'flint'],
     result: { id: 'flame_fox', kind: 'creature', grade: 'mid', name: '화염 여우',
-      attr: 'fire', charmBonus: 4,
+      attr: 'fire', charmBonus: 4, move: 'ground',
       combat: { atk: 14, matk: 9, def: 7, mdef: 6 },
       art: { body: 'quad', ear: 'tuft', horn: 'none', wing: 'none', tail: 'puff', eye: 'sharp', pat: 'none' } } },
   { inputs: ['flint', 'mushroom', 'walnut'],
     result: { id: 'charcoal_toad', kind: 'creature', grade: 'mid', name: '숯불 두꺼비',
-      attr: 'fire', charmBonus: 4,
+      attr: 'fire', charmBonus: 4, move: 'ground',
       combat: { atk: 14, matk: 9, def: 7, mdef: 6 },
       art: { body: 'blob', ear: 'none', horn: 'none', wing: 'none', tail: 'none', eye: 'sleepy', pat: 'spot' } } },
   { inputs: ['eagle_feather', 'flint', 'lizard_scale', 'sun_seed'],
     result: { id: 'ember_phoenix', kind: 'creature', grade: 'high', name: '불꽃 봉황',
-      attr: 'fire', charmBonus: 6,
+      attr: 'fire', charmBonus: 6, move: 'air',
       combat: { atk: 26, matk: 16, def: 13, mdef: 9 },
       art: { body: 'bird', ear: 'none', horn: 'none', wing: 'bird', tail: 'long', eye: 'sharp', pat: 'glow' } } },
   // 땅 — 기초 2 · 중급 2 · 상급 1
   { inputs: ['clover', 'moss_branch'],
     result: { id: 'pebble_turtle', kind: 'creature', grade: 'basic', name: '조약돌 거북',
-      attr: 'earth', charmBonus: 2,
+      attr: 'earth', charmBonus: 2, move: 'ground',
       combat: { atk: 3, matk: 2, def: 7, mdef: 4 },
       art: { body: 'blob', ear: 'none', horn: 'none', wing: 'none', tail: 'none', eye: 'sleepy', pat: 'spot' } } },
   { inputs: ['fern', 'walnut'],
     result: { id: 'root_mole', kind: 'creature', grade: 'basic', name: '뿌리 두더지',
-      attr: 'earth', charmBonus: 2,
+      attr: 'earth', charmBonus: 2, move: 'ground',
       combat: { atk: 3, matk: 2, def: 7, mdef: 4 },
       art: { body: 'bear', ear: 'round', horn: 'none', wing: 'none', tail: 'puff', eye: 'dot', pat: 'none' } } },
   { inputs: ['cave_moss', 'herb', 'moss_branch'],
     result: { id: 'moss_deer', kind: 'creature', grade: 'mid', name: '이끼 사슴',
-      attr: 'earth', charmBonus: 4,
+      attr: 'earth', charmBonus: 4, move: 'ground',
       combat: { atk: 7, matk: 5, def: 16, mdef: 8 },
       art: { body: 'deer', ear: 'long', horn: 'antler', wing: 'none', tail: 'leaf', eye: 'round', pat: 'spot' } } },
   { inputs: ['crystal', 'echo_stone', 'wild_ivy'],
     result: { id: 'crystal_pangolin', kind: 'creature', grade: 'mid', name: '수정 천산갑',
-      attr: 'earth', charmBonus: 4,
+      attr: 'earth', charmBonus: 4, move: 'ground',
       combat: { atk: 7, matk: 5, def: 16, mdef: 8 },
       art: { body: 'bear', ear: 'none', horn: 'crystal', wing: 'none', tail: 'long', eye: 'dot', pat: 'stripe' } } },
   { inputs: ['chestnut_pumpkin', 'echo_stone', 'iron_ore', 'pine_cone'],
     result: { id: 'boulder_bear', kind: 'creature', grade: 'high', name: '바위 곰',
-      attr: 'earth', charmBonus: 6,
+      attr: 'earth', charmBonus: 6, move: 'ground',
       combat: { atk: 13, matk: 10, def: 29, mdef: 12 },
       art: { body: 'bear', ear: 'round', horn: 'none', wing: 'none', tail: 'puff', eye: 'sharp', pat: 'spot' } } },
   // 바람 — 기초 2 · 중급 2 · 상급 1
   { inputs: ['butter_flower', 'clover'],
     result: { id: 'dandelion_hare', kind: 'creature', grade: 'basic', name: '민들레 토끼',
-      attr: 'wind', charmBonus: 2,
+      attr: 'wind', charmBonus: 2, move: 'ground',
       combat: { atk: 5, matk: 5, def: 3, mdef: 3 },
       art: { body: 'deer', ear: 'long', horn: 'none', wing: 'none', tail: 'puff', eye: 'round', pat: 'none' } } },
   { inputs: ['owl_feather', 'wheat'],
     result: { id: 'breeze_sparrow', kind: 'creature', grade: 'basic', name: '산들 참새',
-      attr: 'wind', charmBonus: 2,
+      attr: 'wind', charmBonus: 2, move: 'air',
       combat: { atk: 5, matk: 5, def: 3, mdef: 3 },
       art: { body: 'bird', ear: 'none', horn: 'none', wing: 'bird', tail: 'none', eye: 'dot', pat: 'none' } } },
   { inputs: ['eagle_feather', 'wheat', 'wild_ivy'],
     result: { id: 'whirl_marten', kind: 'creature', grade: 'mid', name: '회오리 담비',
-      attr: 'wind', charmBonus: 4,
+      attr: 'wind', charmBonus: 4, move: 'ground',
       combat: { atk: 11, matk: 11, def: 7, mdef: 7 },
       art: { body: 'quad', ear: 'tuft', horn: 'none', wing: 'none', tail: 'long', eye: 'sharp', pat: 'stripe' } } },
   { inputs: ['cloud_moss', 'clover', 'snow_bud'],
     result: { id: 'cloud_goat', kind: 'creature', grade: 'mid', name: '구름 염소',
-      attr: 'wind', charmBonus: 4,
+      attr: 'wind', charmBonus: 4, move: 'ground',
       combat: { atk: 11, matk: 11, def: 7, mdef: 7 },
       art: { body: 'deer', ear: 'long', horn: 'pair', wing: 'none', tail: 'puff', eye: 'sleepy', pat: 'none' } } },
   { inputs: ['cloud_moss', 'eagle_feather', 'mist_drop', 'sun_seed'],
     result: { id: 'sky_falcon', kind: 'creature', grade: 'high', name: '하늘 매',
-      attr: 'wind', charmBonus: 6,
+      attr: 'wind', charmBonus: 6, move: 'air',
       combat: { atk: 19, matk: 19, def: 13, mdef: 13 },
       art: { body: 'bird', ear: 'none', horn: 'none', wing: 'bird', tail: 'long', eye: 'sharp', pat: 'stripe' } } },
   // 물 — 기초 2 · 중급 2 · 상급 1
   { inputs: ['mushroom', 'petal'],
     result: { id: 'frog', kind: 'creature', grade: 'basic', name: '꽃개구리',
-      attr: 'water', charmBonus: 2,
+      attr: 'water', charmBonus: 2, move: 'ground',
       combat: { atk: 2, matk: 4, def: 3, mdef: 7 },
       art: { body: 'blob', ear: 'none', horn: 'none', wing: 'none', tail: 'none', eye: 'round', pat: 'spot' } } },
   { inputs: ['dew', 'night_dew'],
     result: { id: 'droplet_otter', kind: 'creature', grade: 'basic', name: '물방울 수달',
-      attr: 'water', charmBonus: 2,
+      attr: 'water', charmBonus: 2, move: 'ground',
       combat: { atk: 2, matk: 4, def: 3, mdef: 7 },
       art: { body: 'quad', ear: 'round', horn: 'none', wing: 'none', tail: 'long', eye: 'round', pat: 'none' } } },
   { inputs: ['coral', 'foam', 'seaweed'],
     result: { id: 'coral_seahorse', kind: 'creature', grade: 'mid', name: '산호 해마',
-      attr: 'water', charmBonus: 4,
+      attr: 'water', charmBonus: 4, move: 'air',
       combat: { atk: 5, matk: 9, def: 7, mdef: 15 },
       art: { body: 'fish', ear: 'fin', horn: 'none', wing: 'fin', tail: 'fish', eye: 'dot', pat: 'glow' } } },
   { inputs: ['moss_branch', 'night_dew', 'shell'],
     result: { id: 'dew_snail', kind: 'creature', grade: 'mid', name: '이슬 달팽이',
-      attr: 'water', charmBonus: 4,
+      attr: 'water', charmBonus: 4, move: 'ground',
       combat: { atk: 5, matk: 9, def: 7, mdef: 15 },
       art: { body: 'blob', ear: 'long', horn: 'none', wing: 'none', tail: 'none', eye: 'sleepy', pat: 'glow' } } },
   { inputs: ['driftwood', 'pearl_bit', 'sea_dew', 'seaweed'],
     result: { id: 'deepsea_whale', kind: 'creature', grade: 'high', name: '심해 고래',
-      attr: 'water', charmBonus: 6,
+      attr: 'water', charmBonus: 6, move: 'air',
       combat: { atk: 10, matk: 16, def: 13, mdef: 25 },
       art: { body: 'fish', ear: 'fin', horn: 'none', wing: 'fin', tail: 'fish', eye: 'sleepy', pat: 'glow' } } },
   // 빛 — 기초 2 · 중급 2 · 상급 1
   { inputs: ['crystal', 'dew'],
     result: { id: 'butterfly', kind: 'creature', grade: 'basic', name: '반짝 나비',
-      attr: 'light', charmBonus: 2,
+      attr: 'light', charmBonus: 2, move: 'air',
       combat: { atk: 2, matk: 7, def: 2, mdef: 5 },
       art: { body: 'bug', ear: 'tuft', horn: 'none', wing: 'butterfly', tail: 'none', eye: 'round', pat: 'glow' } } },
   { inputs: ['sun_seed', 'wheat'],
     result: { id: 'sunbeam_hen', kind: 'creature', grade: 'basic', name: '햇살 암탉',
-      attr: 'light', charmBonus: 2,
+      attr: 'light', charmBonus: 2, move: 'ground',
       combat: { atk: 2, matk: 7, def: 2, mdef: 5 },
       art: { body: 'bird', ear: 'none', horn: 'none', wing: 'none', tail: 'puff', eye: 'dot', pat: 'none' } } },
   { inputs: ['butter_flower', 'honey', 'snow_bud'],
     result: { id: 'starlit_fawn', kind: 'creature', grade: 'mid', name: '별무리 사슴',
-      attr: 'light', charmBonus: 4,
+      attr: 'light', charmBonus: 4, move: 'ground',
       combat: { atk: 5, matk: 16, def: 5, mdef: 10 },
       art: { body: 'deer', ear: 'long', horn: 'antler', wing: 'none', tail: 'leaf', eye: 'round', pat: 'glow' } } },
   { inputs: ['honey', 'mist_drop', 'owl_feather'],
     result: { id: 'dawn_owl', kind: 'creature', grade: 'mid', name: '여명 부엉이',
-      attr: 'light', charmBonus: 4,
+      attr: 'light', charmBonus: 4, move: 'air',
       combat: { atk: 5, matk: 16, def: 5, mdef: 10 },
       art: { body: 'bird', ear: 'tuft', horn: 'none', wing: 'bird', tail: 'none', eye: 'round', pat: 'spot' } } },
   { inputs: ['berry', 'crystal', 'mushroom'],
     result: { id: 'unicorn', kind: 'creature', grade: 'high', name: '유니콘',
-      attr: 'light', charmBonus: 6,
+      attr: 'light', charmBonus: 6, move: 'ground',
       combat: { atk: 10, matk: 29, def: 10, mdef: 15 },
       art: { body: 'deer', ear: 'long', horn: 'single', wing: 'none', tail: 'long', eye: 'round', pat: 'glow' } } },
   // 암흑 — 기초 2 · 중급 2 · 상급 1
   { inputs: ['firefly', 'night_dew'],
     result: { id: 'newmoon_bat', kind: 'creature', grade: 'basic', name: '그믐 박쥐',
-      attr: 'dark', charmBonus: 2,
+      attr: 'dark', charmBonus: 2, move: 'air',
       combat: { atk: 4, matk: 6, def: 2, mdef: 4 },
       art: { body: 'bug', ear: 'long', horn: 'none', wing: 'bat', tail: 'none', eye: 'dot', pat: 'none' } } },
   { inputs: ['petal', 'spider_silk'],
     result: { id: 'shadow_cat', kind: 'creature', grade: 'basic', name: '그림자 고양이',
-      attr: 'dark', charmBonus: 2,
+      attr: 'dark', charmBonus: 2, move: 'ground',
       combat: { atk: 4, matk: 6, def: 2, mdef: 4 },
       art: { body: 'quad', ear: 'tuft', horn: 'none', wing: 'none', tail: 'long', eye: 'sharp', pat: 'none' } } },
   { inputs: ['berry', 'mist_drop', 'wild_ivy'],
     result: { id: 'nightmist_fox', kind: 'creature', grade: 'mid', name: '밤안개 여우',
-      attr: 'dark', charmBonus: 4,
+      attr: 'dark', charmBonus: 4, move: 'ground',
       combat: { atk: 9, matk: 14, def: 5, mdef: 8 },
       art: { body: 'quad', ear: 'tuft', horn: 'none', wing: 'none', tail: 'puff', eye: 'sleepy', pat: 'stripe' } } },
   { inputs: ['bone_frag', 'flint', 'lizard_scale'],
     result: { id: 'obsidian_lizard', kind: 'creature', grade: 'mid', name: '흑요석 도마뱀',
-      attr: 'dark', charmBonus: 4,
+      attr: 'dark', charmBonus: 4, move: 'ground',
       combat: { atk: 9, matk: 14, def: 5, mdef: 8 },
       art: { body: 'quad', ear: 'none', horn: 'crystal', wing: 'none', tail: 'long', eye: 'sharp', pat: 'stripe' } } },
   { inputs: ['black_feather', 'bone_frag', 'echo_stone', 'night_dew'],
     result: { id: 'abyss_raven', kind: 'creature', grade: 'high', name: '심연 까마귀',
-      attr: 'dark', charmBonus: 6,
+      attr: 'dark', charmBonus: 6, move: 'air',
       combat: { atk: 16, matk: 26, def: 10, mdef: 12 },
       art: { body: 'bird', ear: 'none', horn: 'none', wing: 'bird', tail: 'long', eye: 'sharp', pat: 'glow' } } },
 // GEN:creature>>>
@@ -889,6 +890,62 @@ const MAP_ATTRS = {
 };
 // GEN:mapattr>>>
 function mapAttr(id) { return MAP_ATTRS[id] || null; }
+
+// ─── 날씨 여섯 ───
+//
+// **여섯 날씨가 여섯 속성을 하나씩 맡는다.** 하나가 둘을 맡거나 비는 속성이 있으면
+// 「내 크리처는 언제 좋은가」를 외워야 한다. 하나씩이면 볼 것이 없다.
+//
+// ❄️ 가 빛인 이유는 눈밭이 볕을 되쏘기 때문이다. 억지스럽지만, 여섯을 하나씩 맡기려면
+// 어딘가는 이렇게 이어야 한다 — 비는 쪽이 생기는 것보다 낫다.
+//
+// ⚠️ **맵마다 나오는 날씨를 가리지 않는다.** 화산에 눈이 오는 것이 이상하긴 한데,
+// 가리기 시작하면 속성마다 「날씨가 맞을 확률」이 달라져서 어떤 크리처는 영영 손해다.
+const WEATHERS = [
+  { id: 'we_sun',  k: 'sun',  emoji: '☀️',  name: '해가 쨍쨍',     attr: 'fire'  },
+  { id: 'we_rain', k: 'rain', emoji: '🌧️', name: '비가 추적추적', attr: 'water' },
+  { id: 'we_wind', k: 'wind', emoji: '🌬️', name: '바람 쌩쌩',     attr: 'wind'  },
+  { id: 'we_sand', k: 'sand', emoji: '🌪️', name: '모래 폭풍',     attr: 'earth' },
+  { id: 'we_fog',  k: 'fog',  emoji: '🌫️', name: '안개 자욱',     attr: 'dark'  },
+  { id: 'we_snow', k: 'snow', emoji: '❄️',  name: '눈이 펄펄',     attr: 'light' },
+];
+// 날씨가 바뀌는 주기. 3시간이면 하루에 여덟 번 — 한 번 앉아서 채집하는 동안은 안 바뀌고,
+// 다음에 들어왔을 때는 대개 바뀌어 있다
+const WEATHER_HOURS = 3;
+
+// ─── 시간대 넷 ───
+//
+// **운동의 세 구간(EX_WHEN: 아침 05·낮 11·밤 21) 위에 얹는다.** 경계를 따로 잡으면
+// 20시 30분에 「운동은 낮인데 채집은 밤」이 되어 설명이 두 벌이 된다.
+// 여기서는 운동의 「낮」을 낮과 해질녘으로 **한 번 더 자를** 뿐이다 —
+// 낱말이 하나 늘 뿐 경계는 하나도 안 어긋난다. (CREATURE.md 14장에서 정했다)
+//
+// 속성은 시간대마다 하나씩 또는 둘씩 붙는다. 넷에 여섯이라 딱 나뉘지 않는데,
+// **긴 시간대에 적게 붙인다** — 밤이 여덟 시간으로 제일 길어서 암흑 하나만 맡는다.
+const DAYPARTS = [
+  { id: 'dp_morning', k: 'morning', emoji: '🌅', name: '아침',   from: 5,  attrs: ['water', 'wind'] },
+  { id: 'dp_day',     k: 'day',     emoji: '☀️', name: '낮',     from: 11, attrs: ['fire', 'earth'] },
+  { id: 'dp_dusk',    k: 'dusk',    emoji: '🌆', name: '해질녘', from: 17, attrs: ['light'] },
+  { id: 'dp_night',   k: 'night',   emoji: '🌙', name: '밤',     from: 21, attrs: ['dark'] },
+];
+
+// ─── 히든 재료 등급 ───
+//
+// 예전에는 51곳이 전부 SPECIAL_RATE(0.1%) 하나였다. **맵의 해금 매력으로 등급을 나눈다** —
+// 데이터에 칸을 더하지 않는 이유는 51곳에 손으로 붙이면 새 맵이 늘 때 반드시 빠뜨리기
+// 때문이다. 규칙이면 새 맵도 저절로 등급을 받는다.
+//
+// 초반 맵의 히든이 흔해지는 것은 **일부러 그렇게 한 것**이다. 처음 몇 시간 안에
+// 「히든이라는 것이 있구나」를 한 번은 봐야 조건을 맞출 마음이 생긴다.
+// ⚠️ specials 기록은 행운 아우라로 간다 — 확률을 올린 만큼 행운이 빨리 쌓인다 (CREATURE.md 5장)
+const SPECIAL_TIERS = [
+  { need: 300, rate: 0.0005, label: '귀한' },   // 후반
+  { need: 100, rate: 0.002,  label: '보통' },   // 중반
+  { need: 0,   rate: 0.005,  label: '흔한' },   // 초반
+];
+function specialTier(unlock) {
+  return SPECIAL_TIERS.find(t => (unlock || 0) >= t.need) || SPECIAL_TIERS[SPECIAL_TIERS.length - 1];
+}
 
 // ─── 레시피 북 카테고리 ───
 // 물약은 등급(grade)으로, 크리처는 kind 로 분류한다.
@@ -1631,12 +1688,13 @@ const RECIPE_MAP = {};
 for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 
 window.GameData = {
-  INGREDIENTS, ZONES, MAPS, SPECIAL_RATE, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
+  INGREDIENTS, ZONES, MAPS, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   CREATURE_ATTRS, creatureAttr, MAP_ATTRS, mapAttr,
+  WEATHERS, WEATHER_HOURS, DAYPARTS, SPECIAL_TIERS, specialTier,
   getTier, recipeKey,
 };

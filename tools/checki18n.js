@@ -127,6 +127,8 @@ Object.values(D.HAIR_AXES).forEach(list => list.forEach(x => push(x.id, x.name, 
 D.RECIPE_CATS.forEach(c => push(c.id + '_cat', c.label, '레시피 카테고리'));
 D.COLORS.forEach(c => push(c.id, c.name, '옷 색'));
 D.CREATURE_ATTRS.forEach(x => push(x.id, x.name, '크리처 속성'));
+D.WEATHERS.forEach(x => push(x.id, x.name, '날씨'));
+D.DAYPARTS.forEach(x => push(x.id, x.name, '시간대'));
 D.EXERCISES.forEach(x => push(x.id, x.name, '운동 종목'));
 D.FOODS.forEach(x => push(x.id, x.name, '음식'));
 // 리그 이름은 '계열 + 단계' 로, NPC 이름은 '앞말 + 뒷말' 로 조합된다 —
