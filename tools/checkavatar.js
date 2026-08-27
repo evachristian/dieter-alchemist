@@ -391,6 +391,69 @@ function launchOpts() {
     return { bad, n };
   });
 
+  // ─── 물고기가 어항 밖으로 새지 않는가 ───────────────────────
+  //
+  // 물고기(`move: 'water'`)는 마이 룸에서 어항에 들어가고, 그 안에서 좌우로 헤엄친다.
+  // **여유가 몇 px 밖에 안 된다** — 그림 부품을 손보거나 헤엄 폭을 늘리면 곧바로
+  // 지느러미가 유리를 뚫고 나간다. 눈으로는 「살짝 걸쳤나?」 정도로만 보여 오래 남는다.
+  //
+  // 헤엄 애니메이션의 **양 끝 자세를 직접 만들어** 재고, 유리통(원)과 수면을 견준다.
+  // 애니메이션이 도는 것을 기다리지 않는다 — 그러면 어느 순간을 쟀는지 알 수 없다.
+  const bowl = await page.evaluate(() => {
+    const D = window.GameData, bad = [];
+    const fish = D.RECIPES.filter(r => r.result.kind === 'creature' && r.result.move === 'water')
+      .map(r => r.result);
+    if (!fish.length) return { bad: ['물(water) 크리처가 하나도 없다 — move 축이 죽었다'], n: 0 };
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:0;top:0;width:200px;height:200px';
+    document.body.appendChild(host);
+    // 어항 유리통 — creature.js 의 shell 과 같은 값이어야 한다 (원 중심 50,54.2 · 반지름 33)
+    const GLASS = { cx: 50, cy: 54.2, r: 33, surface: 36 };
+    const MARGIN = 1.5;                    // 유리에 닿기 전에 잡는다
+    for (const c of fish) {
+      host.innerHTML = `<div class="char-aura" style="position:relative;width:200px;height:200px">
+        <div class="stage-creatures">${petStage(c)}</div></div>`;
+      const wrap = host.querySelector('.stage-creature');
+      const sw = host.querySelector('.cr-swim');
+      const svg = sw && sw.querySelector('svg');
+      const bowlSvg = host.querySelector('.cr-bowl');
+      if (!wrap || !sw || !svg || !bowlSvg) { bad.push(`${c.name}: 어항이 안 그려졌다`); continue; }
+      if (!wrap.classList.contains('cr-water')) { bad.push(`${c.name}: cr-water 가 안 붙었다`); continue; }
+      // 헤엄의 양 끝 — style.css 의 @keyframes swim 과 같은 값
+      for (const [label, tf] of [['왼끝', 'translate(-8px,5px) scaleX(1)'],
+                                 ['오른끝', 'translate(8px,1px) scaleX(-1)']]) {
+        sw.style.animation = 'none';
+        sw.style.transform = tf;
+        const bb = svg.getBBox(), sr = svg.getBoundingClientRect();
+        if (!sr.width) { bad.push(`${c.name}: 물고기 상자가 0폭이다`); break; }
+        const k = sr.width / 100;
+        const f = { l: sr.left + bb.x * k, r: sr.left + (bb.x + bb.width) * k,
+                    t: sr.top + bb.y * k,  b: sr.top + (bb.y + bb.height) * k };
+        const bs = bowlSvg.getBoundingClientRect(), q = bs.width / 100;
+        const g = { cx: bs.left + GLASS.cx * q, cy: bs.top + GLASS.cy * q,
+                    r: GLASS.r * q, top: bs.top + GLASS.surface * q };
+        let worst = 0;
+        for (const [x, y] of [[f.l, f.t], [f.r, f.t], [f.l, f.b], [f.r, f.b]]) {
+          worst = Math.max(worst, Math.hypot(x - g.cx, y - g.cy));
+        }
+        if (worst > g.r - MARGIN) {
+          bad.push(`${c.name} ${label}: 유리를 ${Math.round(worst - g.r)}px 넘어섰다`);
+        }
+        // 수면 위로 떠오르면 물 밖에 뜬 것으로 보인다
+        if (f.t < g.top) bad.push(`${c.name} ${label}: 수면 위로 ${Math.round(g.top - f.t)}px 나왔다`);
+      }
+    }
+    // 물이 아닌 크리처에는 어항이 안 붙어야 한다 (붙으면 유니콘이 어항에 들어간다)
+    const dry = D.RECIPES.filter(r => r.result.kind === 'creature' && r.result.move !== 'water')
+      .map(r => r.result);
+    for (const c of dry) {
+      host.innerHTML = `<div class="stage-creatures">${petStage(c)}</div>`;
+      if (host.querySelector('.cr-bowl')) bad.push(`${c.name}(${c.move}): 물이 아닌데 어항이 붙었다`);
+    }
+    host.remove();
+    return { bad, n: fish.length, dry: dry.length };
+  });
+
   // ─── 염색이 실제로 아바타에 입혀지는가 ───────────────────────
   // **조용히 깨지는 자리다.** 칠했다는 토스트는 뜨는데 아바타는 원래 색 그대로였던 적이 있다
   // (영원 염색약이 만료 시각을 지우는데 slotColor 가 그것만 봐서, 모든 칸에서 안 먹었다).
@@ -463,7 +526,8 @@ function launchOpts() {
     .concat(dye.bad.map(m => ({ id: '염색', body: '-', where: m, n: '-' })))
     .concat(hair.bad.map(m => ({ id: '앞머리', body: '-', where: m, n: '-' })))
     .concat(face.bad.map(m => ({ id: '초상화', body: '-', where: m, n: '-' })))
-    .concat(crouch.bad.map(m => ({ id: '웅크린 뒷모습', body: '-', where: m, n: '-' })));
+    .concat(crouch.bad.map(m => ({ id: '웅크린 뒷모습', body: '-', where: m, n: '-' })))
+    .concat(bowl.bad.map(m => ({ id: '어항', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
@@ -471,6 +535,8 @@ function launchOpts() {
   console.log(`넥라인: 파낸 자리를 몸통 윗선과 견줌 (그린 path 를 isPointInFill 로 직접 잰다)`);
   console.log(`초상화: 인물 ${face.n}명 — 머리와 얼굴 사이의 틈 · 헤어라인 높이(이마 6~18px)`);
   console.log(`웅크린 뒷모습: 옷 ${crouch.n}가지 — 무릎이 입은 옷을 따라가는가`);
+  console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
+    + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
   console.log(`❌ ${all.length}건`);
   all.forEach(b => console.log(b.n === '-'

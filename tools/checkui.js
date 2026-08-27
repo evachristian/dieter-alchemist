@@ -434,6 +434,27 @@ function launchOpts() {
           await page.waitForTimeout(250);
           await run(`${t}/${name}`);
         }
+        // 방에 **어항이 선 모습**도 잰다. FULL 이 심는 두 마리는 땅·공중이라
+        // 물고기를 따로 넣지 않으면 어항이 통째로 검사에서 빠진다 —
+        // 방 그림 위에 얹히는 유일한 큰 소품이라 넘치는지 한 번은 봐야 한다
+        const fishBad = await page.evaluate(() => {
+          const f = D.RECIPES.find(r => r.result.kind === 'creature' && r.result.move === 'water');
+          if (!f) return '물(water) 크리처가 없다';
+          if (!S.creatures.includes(f.result.id)) S.creatures.push(f.result.id);
+          setRoomTab('creatures');
+          setRoomPet(f.result.id);
+          const el = document.querySelector('.stage-creature.cr-water');
+          if (!el) return '어항이 안 그려졌다';
+          // 방 그림(.char-aura) 밖으로 나가면 안 된다
+          const r = el.getBoundingClientRect(), a = document.querySelector('.char-aura').getBoundingClientRect();
+          if (r.left < a.left - 0.5 || r.right > a.right + 0.5 || r.bottom > a.bottom + 0.5) {
+            return `어항이 방 밖으로 나갔다 (${Math.round(r.left)}..${Math.round(r.right)} / ${Math.round(a.left)}..${Math.round(a.right)})`;
+          }
+          return null;
+        });
+        if (fishBad) results.push({ 화면: `${t}/어항`, 오류: fishBad });
+        else { await page.waitForTimeout(300); await run(`${t}/어항`); }
+
         // 운동 팝업 — 잠긴 종목·잠긴 시간이 **둘 다 있는** 상태로 잰다.
         // 전부 열려 있으면 잠금 표현이 검사에서 빠지고, 전부 잠겨 있으면
         // 고른 칸의 대비를 못 잰다 (FULL 준비에서 근성을 그 사이 값으로 잡아 뒀다)

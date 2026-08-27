@@ -1024,6 +1024,31 @@ body {
 .stage-creature.cr-air    { bottom: 14%; animation: float 3s ease-in-out infinite; }
 @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes breathe { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+
+/* ─── 물고기는 어항에 들어간다 (move: 'water') ───
+   어항이 크리처보다 커야 안에 든 것으로 보인다. 통 자체는 안 움직인다 —
+   어항이 같이 흔들리면 물고기가 아니라 **어항을 든 사람**이 움직이는 것으로 읽힌다. */
+.stage-creature.cr-water { bottom: 4%; width: 96px; height: 96px; animation: none; }
+.stage-creature.cr-water .cr-bowl,
+.stage-creature.cr-water .cr-swim { position: absolute; inset: 0; }
+.stage-creature.cr-water .cr-bowl { width: 100%; height: 100%; display: block; }
+/* 물고기는 물 안(대략 y 40~80)에서만 논다. 상자째로 줄여서 어항 밖으로 안 나가게 한다 */
+.stage-creature.cr-water .cr-swim {
+  display: flex; align-items: center; justify-content: center;
+  transform-origin: 50% 58%;
+  animation: swim 6s ease-in-out infinite;
+}
+.stage-creature.cr-water .cr-swim svg { width: 48%; height: 48%; }
+/* 한 바퀴: 왼쪽에서 오른쪽으로 헤엄쳐 가서 **몸을 돌리고** 돌아온다.
+   `scaleX(-1)` 이 방향 전환이다 — 안 돌면 뒤로 헤엄치는 것처럼 보인다.
+   ⚠️ 반드시 `infinite` 다. 끝이 있는 애니메이션은 검증기의 settle() 이 끝 상태로 보내 버린다 */
+@keyframes swim {
+  0%   { transform: translate(-8px, 5px) scaleX(1); }
+  44%  { transform: translate(8px, 1px) scaleX(1); }
+  50%  { transform: translate(8px, 1px) scaleX(-1); }
+  94%  { transform: translate(-8px, 5px) scaleX(-1); }
+  100% { transform: translate(-8px, 5px) scaleX(1); }
+}
 .showcase-tier { text-align: center; font-size: 1.15rem; font-weight: 800; margin-bottom: 14px; }
 
 /* ─── 능력치 묶음 (요약 · 상세 · 기록 · 과시) ───

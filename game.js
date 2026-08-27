@@ -2470,6 +2470,25 @@ function roomPadBottom(bleed) {
   return Math.max(0, Math.round(bleed / scale));
 }
 
+// 방에 놓는 애착 크리처 한 마리. **어디에 있느냐(`move`)로 세 갈래다.**
+//   ground 네 발로 선다 · air 떠 있다 · water **어항에 들어간다**
+//
+// 어항은 방 배경(roomScene)이 아니라 **여기서 크리처와 같은 상자 안에** 그린다 —
+// 배경은 `preserveAspectRatio="…slice"` 라 창 비율에 따라 확대·잘림이 달라져서
+// 배경에 그리면 비율이 바뀔 때 물고기가 어항 밖으로 새어 나간다 (creature.js 참고)
+function petStage(pet) {
+  if (!pet || !window.Creature) return '';
+  if (pet.move === 'water') {
+    const b = Creature.bowl();
+    // 어항 안에서는 바닥 그림자를 뺀다 — 물속에 그림자가 깔리면 유리 위에 앉은 것처럼 보인다
+    return `<span class="stage-creature cr-water">${b.back}`
+      + `<span class="cr-swim">${Creature.draw(pet, { flat: true, noShadow: true })}</span>`
+      + `${b.front}</span>`;
+  }
+  return `<span class="stage-creature ${pet.move === 'air' ? 'cr-air' : 'cr-ground'}">`
+    + `${Creature.draw(pet, { flat: true })}</span>`;
+}
+
 function renderRoomScene() {
   const scene = document.querySelector('.room-scene');
   if (!scene || !window.Avatar || !window.Avatar.roomScene) return;
@@ -2491,8 +2510,7 @@ function renderShowcase() {
   const stage = document.getElementById('charStage');
   const pet = roomPet();
   const petArt = (pet && window.Creature)
-    ? `<span class="stage-creature ${pet.move === 'air' ? 'cr-air' : 'cr-ground'}">${
-        Creature.draw(pet, { flat: true })}</span>` : '';
+    ? petStage(pet) : '';
   const avatarSvg = roomFigure(tier);
   stage.innerHTML = `
     <div class="room-scene"></div>

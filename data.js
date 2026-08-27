@@ -742,7 +742,7 @@ const RECIPES = [
       art: { body: 'quad', ear: 'round', horn: 'none', wing: 'none', tail: 'long', eye: 'round', pat: 'none' } } },
   { inputs: ['coral', 'foam', 'seaweed'],
     result: { id: 'coral_seahorse', kind: 'creature', grade: 'mid', name: '산호 해마',
-      attr: 'water', charmBonus: 4, move: 'air',
+      attr: 'water', charmBonus: 4, move: 'water',
       combat: { atk: 5, matk: 9, def: 7, mdef: 15 },
       art: { body: 'fish', ear: 'fin', horn: 'none', wing: 'fin', tail: 'fish', eye: 'dot', pat: 'glow' } } },
   { inputs: ['moss_branch', 'night_dew', 'shell'],
@@ -752,7 +752,7 @@ const RECIPES = [
       art: { body: 'blob', ear: 'long', horn: 'none', wing: 'none', tail: 'none', eye: 'sleepy', pat: 'glow' } } },
   { inputs: ['driftwood', 'pearl_bit', 'sea_dew', 'seaweed'],
     result: { id: 'deepsea_whale', kind: 'creature', grade: 'high', name: '심해 고래',
-      attr: 'water', charmBonus: 6, move: 'air',
+      attr: 'water', charmBonus: 6, move: 'water',
       combat: { atk: 10, matk: 16, def: 13, mdef: 25 },
       art: { body: 'fish', ear: 'fin', horn: 'none', wing: 'fin', tail: 'fish', eye: 'sleepy', pat: 'glow' } } },
   // 빛 — 기초 2 · 중급 2 · 상급 1

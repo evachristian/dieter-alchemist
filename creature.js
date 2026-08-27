@@ -205,9 +205,56 @@
       role="img" aria-label="${(c.name || '').replace(/"/g, '')}"
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
       ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(base, 84)}"/>`}
-      <ellipse cx="50" cy="88" rx="26" ry="5" fill="${dark}" opacity="0.18"/>
+      ${opts.noShadow ? '' : `<ellipse cx="50" cy="88" rx="26" ry="5" fill="${dark}" opacity="0.18"/>`}
       ${wing}${tail}${body}${pat}${ear}${horn}${eye}
     </svg>`;
+  }
+
+  // ─── 어항 ────────────────────────────────────────────────────
+  //
+  // 물고기(`move: 'water'`)를 마이 룸에 두면 이것이 같이 나온다.
+  //
+  // **방 배경(avatar.js 의 roomScene)에 그리지 않는다.** 방 그림은
+  // `preserveAspectRatio="…slice"` 라 창 비율에 따라 확대·잘림이 달라지는데,
+  // 크리처는 DOM 요소로 퍼센트 자리에 놓인다 — 둘의 좌표계가 다르므로
+  // 어항만 배경에 그리면 **비율이 바뀔 때 물고기가 어항 밖으로 새어 나간다.**
+  // 그래서 어항도 크리처와 **같은 상자 안에** 그린다 (viewBox 도 100×100 으로 같다).
+  //
+  // 앞뒤가 갈려야 유리 너머로 보인다 — `back`(유리통·물) 뒤, 물고기, `front`(테·반사) 앞.
+  function bowl() {
+    const u = 'b' + (++uid);
+    // 위가 트인 둥근 어항. 테두리(y=28)에서 시작해 아래로 크게 돌아 반대편 테두리로 돌아온다
+    const shell = 'M30,28 A33,33 0 1 0 70,28';
+    const WATER = '#7ec8ef', GLASS = '#cfeaf7';
+    return {
+      back: `<svg class="cr-bowl" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <clipPath id="${u}c"><path d="${shell} Z"/></clipPath>
+          <linearGradient id="${u}g" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="${WATER}" stop-opacity="0.55"/>
+            <stop offset="1" stop-color="#4f9ada" stop-opacity="0.75"/>
+          </linearGradient>
+        </defs>
+        <path d="${shell} Z" fill="${GLASS}" opacity="0.5"/>
+        <g clip-path="url(#${u}c)">
+          <rect x="0" y="36" width="100" height="64" fill="url(#${u}g)"/>
+          <ellipse cx="50" cy="36" rx="40" ry="3.5" fill="#fff" opacity="0.5"/>
+          <ellipse cx="34" cy="82" rx="13" ry="4" fill="#3f7fb8" opacity="0.35"/>
+          <path d="M40,86 C38,74 44,68 42,60" stroke="#3f8f6a" stroke-width="3"
+                fill="none" stroke-linecap="round" opacity="0.75"/>
+          <path d="M58,86 C60,76 55,72 57,64" stroke="#4fa87c" stroke-width="2.6"
+                fill="none" stroke-linecap="round" opacity="0.7"/>
+        </g>
+      </svg>`,
+      front: `<svg class="cr-bowl" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="${shell}" fill="none" stroke="#a8d8ee" stroke-width="2.4"/>
+        <path d="M26,48 C24,60 27,70 33,77" stroke="#fff" stroke-width="3.4"
+              fill="none" stroke-linecap="round" opacity="0.6"/>
+        <ellipse cx="50" cy="28" rx="20" ry="5.5" fill="none" stroke="#a8d8ee" stroke-width="2.4"/>
+        <ellipse cx="50" cy="92" rx="15" ry="4" fill="#b9a48f"/>
+        <rect x="42" y="86" width="16" height="6" rx="2" fill="#c9b49f"/>
+      </svg>`,
+    };
   }
 
   // 목록 칸에 쓰는 작은 그림 (도감·인벤토리). 배경 판이 이미 있으므로 flat.
@@ -221,5 +268,5 @@
     return r ? r.result : null;
   }
 
-  window.Creature = { draw, icon, of, W, H, BODY, EAR, HORN, WING, TAIL, EYE, PAT };
+  window.Creature = { draw, icon, bowl, of, W, H, BODY, EAR, HORN, WING, TAIL, EYE, PAT };
 })();
