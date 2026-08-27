@@ -154,6 +154,42 @@ function launchOpts() {
       ok(perMap.size >= 4, `같은 시각에도 맵마다 다르다 (${perMap.size}가지)`);
     }
 
+    // ── 먹이 버프 만료 (CREATURE.md 7장) ──
+    //
+    // **버프는 시각으로만 산다.** 「몇 시간 남았다」를 세이브에 카운트다운으로 넣으면
+    // 앱을 꺼 둔 동안 시간이 안 가고, 두 기기에서 서로 다르게 흐른다.
+    // 끝나는 시각 하나만 두고 nowDate() 와 견준다 — 그래서 여기서 검사할 수 있다
+    {
+      at(12);
+      S.creatures = ['flame_fox'];
+      S.petField = 'flame_fox';
+      S.feeds = { feed_star: 3 };
+      S.pets = {};
+      const star = GameData.FEEDS.find(f => f.id === 'feed_star');
+      openFeed('flame_fox'); setFeedKind('feed_star'); setFeedQty(1); doFeed(); closeFeed();
+      const on = buffLeft('flame_fox') > 0, rate1 = palBonusRate('p_sunset');
+      ok(on, `먹이면 버프가 걸린다 (${Math.round(buffLeft('flame_fox') / 60000)}분)`);
+      jumpH(star.hours - 1);
+      ok(buffLeft('flame_fox') > 0, '만료 한 시간 전에는 아직 살아 있다');
+      jumpH(2);
+      // ⚠️ 이름을 `off` 로 두면 **바깥의 시간 오프셋을 가린다** — jumpH/at 이 그것을 쓴다
+      const expired = buffLeft('flame_fox') === 0, rate2 = palBonusRate('p_sunset');
+      ok(expired, '시간이 지나면 저절로 풀린다');
+      ok(rate1 - rate2 > 0.05, `버프가 확률을 올린다 (${rate1.toFixed(2)} → ${rate2.toFixed(2)})`);
+      // 로열티는 **영구다** — 버프가 풀려도 안 줄어야 한다
+      ok(loyaltyOf('flame_fox') === star.loyalty,
+        `버프가 풀려도 로열티는 그대로 (${loyaltyOf('flame_fox')})`);
+      // 다시 먹이면 **이어 붙지 않고 지금부터 다시**다 (몰아 먹여 하루짜리 버프를 못 만든다)
+      S.feeds = { feed_grass: 2 };
+      const grass = GameData.FEEDS.find(f => f.id === 'feed_grass');
+      openFeed('flame_fox'); setFeedKind('feed_grass'); setFeedQty(1); doFeed();
+      const a1 = buffLeft('flame_fox');
+      setFeedQty(1); doFeed(); closeFeed();
+      const a2 = buffLeft('flame_fox');
+      ok(Math.abs(a1 - a2) < 2000 && a1 <= grass.hours * 3600e3 + 2000,
+        `다시 먹여도 버프가 쌓이지 않는다 (${Math.round(a1 / 60000)}분 → ${Math.round(a2 / 60000)}분)`);
+    }
+
     const ex = GameData.EXERCISES.find(x => x.id === 'ex_run');
     at(14); const day = exCost(ex, 60);
     at(23); const night = exCost(ex, 60);

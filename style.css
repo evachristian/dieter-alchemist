@@ -1448,6 +1448,80 @@ body {
   cursor: pointer; transition: transform 0.1s ease;
 }
 .creature-card:active { transform: scale(0.95); }
+/* 격자 칸 = 셀. **먹이 버튼을 카드 안에 못 넣는다** — 카드가 곧 `<button>` 이라
+   그 안에 또 버튼을 두면 겹친 버튼이 되어 어느 쪽이 눌리는지 브라우저마다 다르다.
+   그래서 셀로 한 번 감싸고 먹이 버튼을 그 위에 얹는다 */
+.creature-cell { position: relative; min-width: 0; display: flex; }
+.creature-cell > .creature-card { width: 100%; }
+.cr-feed {
+  position: absolute; left: 4px; top: 4px; z-index: 1;
+  width: 24px; height: 24px; padding: 0; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--card); font-family: inherit; font-size: 0.8rem;
+  color: inherit; cursor: pointer;
+}
+.cr-feed:active { transform: scale(0.9); }
+/* 로열티 — 숫자와 **그래서 덤이 몇 개인가**를 같이 적는다.
+   숫자만 적으면 「42가 뭔데」로 끝나고, 올린 보람이 화면에 안 남는다 */
+.cr-loyal { font-size: 0.7rem; color: var(--ink-soft); margin-top: 1px; }
+.cr-drop { margin-left: 3px; font-weight: 800; color: var(--text-pink); }
+/* 버프 남은 시간 — 안 보여 주면 「먹였는데 아무 일도 안 일어났다」로 읽힌다 */
+.cr-buff {
+  position: absolute; right: 4px; bottom: 4px;
+  font-size: 0.66rem; font-weight: 800; color: var(--text-lav);
+  background: var(--lav); border-radius: 999px; padding: 1px 5px;
+}
+
+/* ─── 먹이주기 팝업 ─── 크리처 · 먹이 · 수량을 한 화면에 */
+.feed-card { max-width: 340px; width: 100%; }
+/* 크리처 줄 — 가로로 넘치면 밀어서 본다. 서른 마리를 세로로 쌓으면 팝업이 화면을 넘는다 */
+.feed-pets {
+  display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 6px;
+  scrollbar-width: none;
+}
+.feed-pets::-webkit-scrollbar { display: none; }
+.feed-pet {
+  flex: 0 0 auto; width: 42px; height: 42px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid transparent; border-radius: 12px;
+  background: var(--cream); cursor: pointer;
+}
+.feed-pet.on { border-color: var(--text-pink); background: var(--pink-1); }
+.feed-pet-art { width: 30px; height: 30px; display: block; }
+.feed-pet-art svg { display: block; }
+.feed-petname { font-size: 0.82rem; font-weight: 800; margin: 2px 0 8px; }
+.feed-lv { margin-left: 6px; font-weight: 700; color: var(--ink-soft); }
+.feed-buff { margin-left: 6px; font-weight: 800; color: var(--text-lav); }
+
+.feed-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.feed-item {
+  display: flex; align-items: center; gap: 8px; text-align: left;
+  padding: 7px 10px; border: 2px solid transparent; border-radius: 14px;
+  background: var(--cream); font-family: inherit; color: inherit;
+  font-size: 0.8rem; font-weight: 800; cursor: pointer;
+}
+.feed-item.on { border-color: var(--text-pink); background: var(--pink-1); }
+.feed-emoji { flex: 0 0 auto; font-size: 1.1rem; }
+.feed-name { flex: 0 0 auto; }
+/* 효과는 **줄어드는 쪽**이다 — 좁아지면 여기가 먼저 밀린다 (UI_POLICY 가변 폭) */
+.feed-eff { flex: 1 1 auto; min-width: 0; font-size: 0.7rem; font-weight: 700;
+  color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-n { flex: 0 0 auto; font-weight: 800; }
+
+.feed-qty { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
+.qty-btn {
+  width: 32px; height: 32px; padding: 0; border: none; border-radius: 999px;
+  background: var(--lav); color: var(--text-lav); font-family: inherit;
+  font-size: 1rem; font-weight: 800; cursor: pointer;
+}
+.qty-btn:active { transform: scale(0.92); }
+.qty-n { min-width: 30px; text-align: center; font-weight: 800; font-size: 0.95rem; }
+.qty-all {
+  padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--card); font-family: inherit; color: var(--ink);
+  font-size: 0.76rem; font-weight: 800; cursor: pointer;
+}
 /* 고른 것 — **글자가 아니라 테두리와 딱지로** 알린다. 목록에서 훑을 때 먼저 눈에 든다 */
 .creature-card.on { border-color: var(--text-pink); background: var(--pink-1); }
 /* 0.66rem 은 10.6px 이라 최소 글자 크기(11px)에 걸린다 — TEXT_POLICY.md */

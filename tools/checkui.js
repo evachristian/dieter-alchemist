@@ -422,7 +422,7 @@ function launchOpts() {
         });
         // 잡화는 그 안에 또 하위 탭이 둘이다 (물약 / 음식) — 둘 다 재야 한다.
         // 한쪽만 재면 다른 쪽 목록이 통째로 검사에서 빠진다
-        const SUBS = [['clothes'], ['stuff', 'potions'], ['stuff', 'foods'], ['creatures']];
+        const SUBS = [['clothes'], ['stuff', 'potions'], ['stuff', 'foods'], ['stuff', 'feeds'], ['creatures']];
         for (const [sub, inner] of SUBS) {
           const bad = await page.evaluate(([s, i]) => {
             setRoomTab(s);
@@ -434,6 +434,35 @@ function launchOpts() {
           await page.waitForTimeout(250);
           await run(`${t}/${name}`);
         }
+        // **먹이주기 팝업** — 눌러야만 뜬다. 크리처 줄 · 먹이 줄 · 수량 · 버튼이
+        // 한 화면에 다 들어가는 자리라 265px 영어가 제일 빡빡하다
+        const feedBad = await page.evaluate(() => {
+          const cr = (S.creatures || [])[0];
+          if (!cr) return '가진 크리처가 없다';
+          // 먹이를 넣어 둔다 — 없으면 「먹이가 없어요」 한 줄만 뜨고 목록이 통째로 빠진다
+          D.FEEDS.forEach((f, i) => { S.feeds[f.id] = (i + 1) * 3; });
+          setRoomTab('creatures');
+          openFeed(cr);
+          if (!document.getElementById('feedPick').classList.contains('show')) return '팝업이 안 떴다';
+          const n = document.querySelectorAll('.feed-item').length;
+          return n === D.FEEDS.length ? null : `먹이 칸이 ${n}개다 (${D.FEEDS.length} 이어야 한다)`;
+        });
+        if (feedBad) results.push({ 화면: `${t}/먹이주기`, 오류: feedBad });
+        else { await page.waitForTimeout(280); await run(`${t}/먹이주기`); }
+        // 팝업이 화면 밖으로 나가면 「먹이기」 버튼을 못 누른다
+        const feedBad2 = await page.evaluate(() => {
+          const c = document.querySelector('#feedPick .modal-card');
+          if (!c) return '팝업 카드가 없다';
+          const r = c.getBoundingClientRect();
+          const W = document.documentElement.clientWidth, H = window.innerHeight;
+          if (r.left < -0.5 || r.right > W + 0.5) return `가로로 넘쳤다 (${Math.round(r.left)}..${Math.round(r.right)} / ${W})`;
+          if (r.top < -0.5 || r.bottom > H + 0.5) return `세로로 넘쳤다 (${Math.round(r.top)}..${Math.round(r.bottom)} / ${H})`;
+          return null;
+        });
+        if (feedBad2) results.push({ 화면: `${t}/먹이주기`, 오류: feedBad2 });
+        await page.evaluate(() => closeFeed());
+        await page.waitForTimeout(150);
+
         // 방에 **어항이 선 모습**도 잰다. FULL 이 심는 두 마리는 땅·공중이라
         // 물고기를 따로 넣지 않으면 어항이 통째로 검사에서 빠진다 —
         // 방 그림 위에 얹히는 유일한 큰 소품이라 넘치는지 한 번은 봐야 한다

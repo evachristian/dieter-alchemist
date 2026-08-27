@@ -131,6 +131,7 @@ D.WEATHERS.forEach(x => push(x.id, x.name, '날씨'));
 D.DAYPARTS.forEach(x => push(x.id, x.name, '시간대'));
 D.EXERCISES.forEach(x => push(x.id, x.name, '운동 종목'));
 D.FOODS.forEach(x => push(x.id, x.name, '음식'));
+D.FEEDS.forEach(x => push(x.id, x.name, '먹이'));
 // 리그 이름은 '계열 + 단계' 로, NPC 이름은 '앞말 + 뒷말' 로 조합된다 —
 // 조합 결과가 아니라 **낱말**에 번역이 있어야 한다
 // 인물 이름은 초상화·대화 화면에 그대로 나온다

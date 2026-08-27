@@ -1669,6 +1669,41 @@ const FOODS = [
 // 대략 12개가 나온다 — 운동 두어 번 분의 포만감이다
 const FOOD_RATE = 0.12;
 
+// ═══════════════════════════════════════════════════════════════
+//  먹이 — 크리처가 먹는 것 (CREATURE.md 7장)
+// ═══════════════════════════════════════════════════════════════
+//
+// **음식과 먹이는 다른 것이다.** 음식은 사람이 먹고 포만감이 차고, 먹이는 크리처가 먹고
+// 로열티와 버프가 붙는다. 같은 탭에 두면 「케이크를 크리처에게 먹이나?」가 된다.
+//
+// 먹이 하나가 **두 가지**를 한다 — 이 둘을 하나로 묶으면 안 된다 (7장):
+//   · 로열티(영구·쌓인다)  → 덤이 나올 때 **개수**가 는다
+//   · 버프(일시적·시간이 지나면 사라진다) → 덤이 나올 **확률**이 오른다
+// 버프만 있으면 먹이가 그냥 소모품이고, 로열티만 있으면 「나가기 전에 먹인다」는
+// 순간의 판단이 사라진다.
+//
+// 셋의 값이 **비례하지 않게** 잡았다. 들풀은 로열티당 싸고 버프가 짧다 —
+// 로열티를 쌓을 때는 들풀, 지금 한 번 나갈 때는 사탕. 비례하면 고를 이유가 없다.
+const FEEDS = [
+  { id: 'feed_grass', emoji: '🌿', name: '들풀 뭉치', loyalty: 2,  hours: 1, w: 60 },
+  { id: 'feed_dew',   emoji: '🫐', name: '이슬 열매', loyalty: 6,  hours: 3, w: 30 },
+  { id: 'feed_star',  emoji: '🍬', name: '별빛 사탕', loyalty: 15, hours: 8, w: 10 },
+];
+// 채집 한 번에 먹이가 같이 나올 확률. 음식(0.12)보다 낮게 둔다 —
+// 로열티 100 까지가 들풀로 50개쯤이라, 이 값이면 며칠은 걸린다
+const FEED_RATE = 0.09;
+
+// 로열티가 덤 **개수**를 정한다. 확률이 아니다 —
+// 확률에는 이미 넷(기본·속성·날씨·시간)이 붙어 있어서, 다섯 번째를 같은 자리에 얹으면
+// 무엇이 효과가 있는지 아무도 모른다 (CREATURE.md 7장)
+const LOYALTY_MAX = 100;
+const LOYALTY_STEPS = [0, 40, 80];        // 이 값을 넘으면 덤이 한 개씩 는다 → 1 · 2 · 3개
+function loyaltyBonus(v) {
+  let n = 0;
+  for (const s of LOYALTY_STEPS) if ((v || 0) >= s) n++;
+  return Math.max(1, n);
+}
+
 // 새 캐릭터 기본 착장
 const DEFAULT_OUTFIT = {
   hair: 'hair_long', hairColor: 'hcol_brown', expression: 'exp_puzzled', tattoo: 'tattoo_none',
@@ -1692,6 +1727,7 @@ window.GameData = {
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,
+  FEEDS, FEED_RATE, LOYALTY_MAX, LOYALTY_STEPS, loyaltyBonus,
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   CREATURE_ATTRS, creatureAttr, MAP_ATTRS, mapAttr,

@@ -92,6 +92,12 @@ const defaultState = () => ({
   crystal: 0,
   // 음식 (음식 id → 개수). 새로 생긴 칸이라 마이그레이션이 필요 없다
   foods: {},
+  // 먹이 (먹이 id → 개수). 사람이 먹는 음식과 **다른 칸**이다 (CREATURE.md 7장)
+  feeds: {},
+  // 크리처별 상태 — { [크리처id]: { loyalty, buffEnd } }
+  // 로열티는 영구히 쌓이고, 버프는 시각이라 지나면 저절로 풀린다.
+  // **가진 크리처만 담기는 것이 아니다** — 재료로 녹인 뒤에도 남을 수 있으니 읽는 곳에서 거른다
+  pets: {},
   // 단련도 — **운동으로 쌓고 방치로 잃는다.** 몸(체중·체지방·근육량·체형)은
   // 비주얼이 아니라 `비주얼 + 단련`(bodyPoint)을 본다.
   //
@@ -175,6 +181,8 @@ function newRecord() {
     meals:       0,   // 먹은 음식
     aloneNights: 0,   // 혼자 먹은 밤 (STORY.md 「혼자 먹은 밤」)
     foodsGot:    0,   // 채집으로 얻은 음식
+    feedsGot:    0,   // 채집으로 얻은 먹이 (크리처용)
+    fed:         0,   // 크리처에게 먹인 횟수
     exMin:       0,   // 운동한 시간 (분, 누적)
     creatures:   0,   // 만든 크리처 (누적 — 전시 목록과 달리 줄지 않는다)
     pots:        ['cd_iron_old'],   // 써 본 마법 솥 (중복 없이)
@@ -568,13 +576,12 @@ function fieldPet() { return ownsCreature(S.petField) ? creatureOf(S.petField) :
 // ⚠️ **곱셈이 아니라 덧셈으로 쌓는다.** 덤은 자주 일어나는 일이라 곱하면 금세 상한에
 // 붙어 버리고, 그러면 조건을 하나 더 맞춘 보람이 사라진다. (히든은 반대로 곱셈이다 —
 // 0.1% 대라 열두 배를 해도 1.2% 다. CREATURE.md 5장)
-//
-// 로열티 항(0~0.10)만 아직 비어 있다 — 6단계다.
 const PAL = {
   base: 0.08,        // 데려가기만 해도
   sameAttr: 0.10,    // 크리처 속성 = 맵 속성
   weather: 0.06,     // 크리처 속성 = 지금 날씨가 편드는 속성
   daypart: 0.06,     // 크리처 속성 = 지금 시간대가 편드는 속성
+  buff: 0.10,        // 먹이 버프가 걸려 있는 동안 (6단계)
   max: 0.45,         // 상한. 1.0 에 붙으면 조건을 맞춘 보람이 사라진다
 };
 // 무엇이 맞았는지를 **하나로 모아** 돌려준다. 확률을 내는 곳과 화면에 적는 곳이
@@ -589,6 +596,7 @@ function palMatch(mapId) {
     attr:    D.mapAttr(mapId) === pet.attr,
     weather: !!we && we.attr === pet.attr,
     daypart: !!dp && dp.attrs.indexOf(pet.attr) >= 0,
+    buff:    buffLeft(pet.id) > 0,
     we, dp,
   };
 }
@@ -598,7 +606,37 @@ function palBonusRate(mapId) {
   return Math.min(PAL.max, PAL.base
     + (m.attr    ? PAL.sameAttr : 0)
     + (m.weather ? PAL.weather  : 0)
-    + (m.daypart ? PAL.daypart  : 0));
+    + (m.daypart ? PAL.daypart  : 0)
+    + (m.buff    ? PAL.buff     : 0));
+}
+
+// ─── 먹이 · 로열티 · 버프 (CREATURE.md 7장) ──────────────────
+//
+// 먹이 하나가 **두 가지**를 한다. 하나로 묶으면 안 된다:
+//   · 로열티 — 영구히 쌓이고, 덤이 나올 때 **개수**를 늘린다
+//   · 버프   — 일시적이고, 덤이 나올 **확률**을 올린다 (PAL.buff)
+//
+// 로열티를 확률에 얹지 않는 이유: 확률에는 이미 넷이 붙어 있어서 다섯째를 같은 자리에
+// 얹으면 무엇이 효과가 있는지 아무도 모른다. 개수는 토스트에 그대로 보인다.
+function feedOf(id) { return D.FEEDS.find(f => f.id === id) || null; }
+function feedCount(id) { return (S.feeds || {})[id] || 0; }
+// 크리처 상태 칸을 **필요할 때 만든다.** 서른 마리 몫을 미리 잡아 두면 세이브만 커진다
+function petState(id) {
+  if (!S.pets) S.pets = {};
+  if (!S.pets[id]) S.pets[id] = { loyalty: 0, buffEnd: 0 };
+  return S.pets[id];
+}
+function loyaltyOf(id) { return (S.pets && S.pets[id] ? S.pets[id].loyalty : 0) || 0; }
+// 버프가 몇 밀리초 남았나. **`nowDate()` 를 지난다** — 시계를 옮겨 놓고 검사해야 한다
+function buffLeft(id) {
+  const p = S.pets && S.pets[id];
+  if (!p || !p.buffEnd) return 0;
+  return Math.max(0, p.buffEnd - nowDate().getTime());
+}
+// 덤이 나올 때 **몇 개**인가. 동행의 로열티만 본다
+function palBonusCount() {
+  const pet = fieldPet();
+  return pet ? D.loyaltyBonus(loyaltyOf(pet.id)) : 1;
 }
 
 // ─── 채집 결과의 「단서」 (CREATURE.md 6장) ───────────────────
@@ -625,6 +663,9 @@ const CLUE_WHY = {
   dp:   ['clue_dp_1', 'clue_dp_2', 'clue_dp_3'],
 };
 const CLUE_GOT   = ['clue_got_1', 'clue_got_2', 'clue_got_3'];
+// 덤이 여럿일 때 쓰는 꼬리. **「하나 더」라고 하면 거짓말이 된다** —
+// 로열티를 올려 놨는데 화면은 그대로면 올린 보람이 사라진다
+const CLUE_GOTN  = ['clue_gotn_1', 'clue_gotn_2', 'clue_gotn_3'];
 const CLUE_RARE  = ['clue_rare_1', 'clue_rare_2', 'clue_rare_3'];
 const CLUE_LUCK  = ['clue_luck_1', 'clue_luck_2', 'clue_luck_3'];
 const CLUE_MISS  = ['clue_miss_1', 'clue_miss_2', 'clue_miss_3'];
@@ -641,7 +682,7 @@ function clueVars(pal) {
 
 // kind: 'pal'(덤) · 'rare'(히든) · 'plain'(평범하게 하나)
 // 붙일 말이 없으면 빈 문자열을 돌려준다 — 부르는 쪽이 그때는 예전 토스트를 쓴다
-function gatherClue(mapId, kind) {
+function gatherClue(mapId, kind, n) {
   const pal = fieldPet();
   const at = D.creatureAttr(D.mapAttr(mapId));
   const attrName = at ? N(at.id, at.name) : '';
@@ -661,7 +702,9 @@ function gatherClue(mapId, kind) {
     if (hit.length || !attrName || Math.random() >= CLUE.miss) return '';
     return T(pickOne(CLUE_MISS), Object.assign({ attr: attrName }, v));
   }
-  const tail = T(pickOne(kind === 'rare' ? CLUE_RARE : CLUE_GOT), v);
+  const tail = kind === 'rare'
+    ? T(pickOne(CLUE_RARE), v)
+    : T(pickOne(n > 1 ? CLUE_GOTN : CLUE_GOT), Object.assign({ n }, v));
   // 맞은 것이 여럿이면 그중 하나만 말한다. 셋을 다 늘어놓으면 토스트가 다섯 줄이 된다
   if (!hit.length) return T(pickOne(CLUE_LUCK), v) + ' ' + tail;
   const one = pickOne(hit);
@@ -729,6 +772,14 @@ function totalCharm() {
 
 // 가중 랜덤 추첨
 // 음식 가중 추첨 — 많이 채우는 것일수록 드물다
+// 먹이 가중 추첨 — 로열티가 큰 것일수록 드물다 (음식과 같은 방식)
+function pickFeed() {
+  const total = D.FEEDS.reduce((s, f) => s + (f.w || 1), 0);
+  let r = Math.random() * total;
+  for (const f of D.FEEDS) { r -= (f.w || 1); if (r <= 0) return f; }
+  return D.FEEDS[D.FEEDS.length - 1];
+}
+
 function pickFood() {
   const total = D.FOODS.reduce((s, f) => s + (f.w || 1), 0);
   let r = Math.random() * total;
@@ -1279,12 +1330,18 @@ function gather(mapId) {
   // 동행 크리처가 하나 더 찾아 준다. **히든 재료를 또 뽑지는 않는다** —
   // 덤으로 히든이 두 배 나오면 그쪽이 본 효과가 되어 버린다 (CREATURE.md 5장)
   const pal = fieldPet();
-  const bonusId = (pal && Math.random() < palBonusRate(mapId)) ? weightedPick(map.pool) : null;
-  if (bonusId) { addInv(bonusId, 1); rec('itemsGot'); rec('palFinds'); }
+  // **로열티가 개수를 정한다** (1~3개). 확률은 위의 네 항이 정한다 — 축이 둘로 갈려 있다
+  const bonusN = (pal && Math.random() < palBonusRate(mapId)) ? palBonusCount() : 0;
+  const bonusId = bonusN ? weightedPick(map.pool) : null;
+  if (bonusId) { addInv(bonusId, bonusN); rec('itemsGot', bonusN); rec('palFinds'); }
   // 음식은 **재료와 별개로** 같이 나온다 (재료를 대신 뺏지 않는다).
   // 요리사 클레멘이 들어오면 이 자리를 그가 가져간다 — STORY.md
   const food = Math.random() < D.FOOD_RATE ? pickFood() : null;
   if (food) { S.foods[food.id] = foodCount(food.id) + 1; rec('foodsGot'); }
+  // 먹이도 **재료와 별개로** 같이 나온다 (CREATURE.md 7장). 음식과도 별개다 —
+  // 한쪽이 나왔다고 다른 쪽이 안 나오지는 않는다
+  const feed = Math.random() < D.FEED_RATE ? pickFeed() : null;
+  if (feed) { S.feeds[feed.id] = feedCount(feed.id) + 1; rec('feedsGot'); }
   save();
   const ing = D.INGREDIENTS[id];
   // 토스트는 **누른 버튼 옆**에 띄운다. 화면 아래 기본 자리에 뜨면 목록을 한참 내려온
@@ -1297,10 +1354,12 @@ function gather(mapId) {
     // 둘째 줄은 단서가 **대신** 맡는다. 「하나 더 찾았어요」를 따로 두면 단서까지
     // 세 줄이 되는데, 단서가 이미 누가 왜 찾았는지를 말하고 있다
     const bi = D.INGREDIENTS[bonusId];
+    // 로열티가 높으면 덤이 여러 개다 — **개수를 적는다.** 안 적으면 가방 숫자만
+    // 조용히 늘어 로열티를 올린 보람이 화면에서 사라진다
     toast(T('got_item_pal', {
       emoji: ing.emoji, name: N(ing.id, ing.name),
-      emoji2: bi.emoji, name2: N(bi.id, bi.name),
-      clue: gatherClue(mapId, 'pal'),
+      emoji2: bi.emoji, name2: N(bi.id, bi.name) + (bonusN > 1 ? ` ×${bonusN}` : ''),
+      clue: gatherClue(mapId, 'pal', bonusN),
     }), at, 3400, 'above');
     if (window.Sfx) Sfx.play('success');
   } else if (isSpecial) {
@@ -2561,6 +2620,7 @@ function renderShowcase() {
     `${T('tier_stage', { tier: TN(tier.title) })} · ${T('stat_total')} ${total}`);
 
   renderFoods();
+  renderFeeds();
 
   // 보유 물약
   const potEl = document.getElementById('potionShelf');
@@ -2629,26 +2689,172 @@ function renderCreatures() {
     const tag = attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : '';
     // ── 못 가진 것 — 물음표 한 칸. **이름도 안 알려 준다** (레시피 북과 같은 규칙)
     if (!owned(c.id)) {
-      return `<div class="creature-card unknown" aria-label="${T('cr_unknown')}">
+      return `<div class="creature-cell"><div class="creature-card unknown" aria-label="${T('cr_unknown')}">
         <div class="creature-art">❓</div>
         <div class="creature-name">${T('cr_unknown')}</div>
         <div class="creature-eff">${tag}</div>
-      </div>`;
+      </div></div>`;
     }
     // ── 가진 것 — **누르면 마이 룸에 두는 애착 크리처가 된다.**
     // 블럭 하나가 곧 버튼이다. 해제 버튼은 따로 없다 — 다른 것을 누르면 그것으로 바뀐다
     const cur = on && on.id === c.id;
-    return `<button class="creature-card${cur ? ' on' : ''}" data-cr="${c.id}"
+    const lv = loyaltyOf(c.id);
+    const left = buffLeft(c.id);
+    // **먹이 버튼은 카드 밖에 둔다.** 카드가 곧 `<button>` 이라 그 안에 또 버튼을 넣으면
+    // 겹친 버튼이 되어 어느 쪽이 눌리는지 브라우저마다 다르다
+    return `<div class="creature-cell">
+      <button class="creature-card${cur ? ' on' : ''}" data-cr="${c.id}"
       aria-pressed="${cur}" aria-label="${T('pet_pick', { name })}"
       onclick="setRoomPet('${c.id}')">
       <div class="creature-art">${window.Creature ? Creature.icon(c, 46) : ''}</div>
       <div class="creature-name">${name}</div>
       <div class="creature-eff">${tag}💖+${c.charmBonus}</div>
+      <div class="cr-loyal" aria-label="${T('loyal_of', { n: lv })}">🦴${lv}<span class="cr-drop">×${D.loyaltyBonus(lv)}</span></div>
       ${counts[c.id] > 1 ? `<div class="creature-count">×${counts[c.id]}</div>` : ''}
       ${cur ? `<div class="creature-on">${T('pet_on')}</div>` : ''}
-    </button>`;
+      ${left > 0 ? `<div class="cr-buff">⏳${leftText(left)}</div>` : ''}
+      </button>
+      <button class="cr-feed" aria-label="${T('feed_open', { name })}"
+        onclick="openFeed('${c.id}')">🦴</button>
+    </div>`;
   }).join('');
 }
+
+// 남은 시간 — 한 시간이 안 남았으면 분으로 적는다. 「0시간」은 끝난 것처럼 읽힌다
+function leftText(ms) {
+  const m = Math.ceil(ms / 60000);
+  return m >= 60 ? T('left_h', { n: Math.floor(m / 60) }) : T('left_m', { n: m });
+}
+
+// ─── 먹이주기 팝업 ───────────────────────────────────────────
+// 크리처 고르기 → 먹이 종류 → 수량. 셋을 **한 화면에** 둔다 —
+// 단계를 나누면 「뒤로」가 필요해지고, 세 번 눌러야 한 번 먹인다
+let feedPet = null, feedKind = null, feedQty = 1;
+function openFeed(petId) {
+  const owned = [...new Set(S.creatures)].filter(ownsCreature);
+  if (!owned.length) { toast(T('feed_no_pet')); return; }
+  feedPet = ownsCreature(petId) ? petId : owned[0];
+  // 가진 먹이 중 첫 번째를 미리 골라 둔다 — 아무것도 안 골라 두면 「먹이기」가 죽어 보인다
+  const have = D.FEEDS.filter(f => feedCount(f.id) > 0);
+  feedKind = have.length ? have[0].id : null;
+  feedQty = 1;
+  const m = document.getElementById('feedPick');
+  if (m) m.classList.add('show');
+  renderFeedPick();
+}
+window.openFeed = openFeed;
+function closeFeed() {
+  const m = document.getElementById('feedPick');
+  if (m) m.classList.remove('show');
+}
+window.closeFeed = closeFeed;
+function setFeedPet(id) { if (ownsCreature(id)) { feedPet = id; renderFeedPick(); } }
+window.setFeedPet = setFeedPet;
+function setFeedKind(id) {
+  if (feedCount(id) <= 0) return;
+  feedKind = id;
+  feedQty = Math.min(feedQty, feedCount(id));
+  renderFeedPick();
+}
+window.setFeedKind = setFeedKind;
+function setFeedQty(n) {
+  const max = feedKind ? feedCount(feedKind) : 1;
+  feedQty = Math.max(1, Math.min(max, n));
+  renderFeedPick();
+}
+window.setFeedQty = setFeedQty;
+
+function renderFeedPick() {
+  const titleEl = document.getElementById('feedTitle');
+  const petEl = document.getElementById('feedPick-pets');
+  const listEl = document.getElementById('feedList');
+  const qtyEl = document.getElementById('feedQty');
+  const goEl = document.getElementById('feedGo');
+  if (!petEl || !listEl) return;
+  if (titleEl) titleEl.textContent = T('feed_title');
+
+  const owned = [...new Set(S.creatures)].filter(ownsCreature);
+  petEl.innerHTML = owned.map(id => {
+    const c = creatureOf(id);
+    const on = id === feedPet;
+    return `<button class="feed-pet${on ? ' on' : ''}" onclick="setFeedPet('${id}')"
+      aria-pressed="${on}" aria-label="${N(c.id, c.name)}">
+      <span class="feed-pet-art">${window.Creature ? Creature.icon(c, 30) : ''}</span>
+    </button>`;
+  }).join('');
+
+  const pet = creatureOf(feedPet);
+  const lv = loyaltyOf(feedPet);
+  const left = buffLeft(feedPet);
+  const nameEl = document.getElementById('feedPetName');
+  if (nameEl) {
+    nameEl.innerHTML = `${pet ? N(pet.id, pet.name) : ''}`
+      + `<span class="feed-lv">🦴${lv}/${D.LOYALTY_MAX} · ${T('feed_drop', { n: D.loyaltyBonus(lv) })}</span>`
+      + (left > 0 ? `<span class="feed-buff">⏳${leftText(left)}</span>` : '');
+  }
+
+  const have = D.FEEDS.filter(f => feedCount(f.id) > 0);
+  if (!have.length) {
+    listEl.innerHTML = `<div class="empty-hint clickable" onclick="closeFeed(); switchTab('gather')">${T('empty_feeds')}</div>`;
+    if (qtyEl) qtyEl.innerHTML = '';
+    if (goEl) goEl.hidden = true;
+    return;
+  }
+  if (goEl) goEl.hidden = false;
+  listEl.innerHTML = have.map(f => {
+    const on = f.id === feedKind;
+    return `<button class="feed-item${on ? ' on' : ''}" onclick="setFeedKind('${f.id}')" aria-pressed="${on}">
+      <span class="feed-emoji">${f.emoji}</span>
+      <span class="feed-name">${N(f.id, f.name)}</span>
+      <span class="feed-eff">🦴+${f.loyalty} · ⏳${T('left_h', { n: f.hours })}</span>
+      <span class="feed-n">×${feedCount(f.id)}</span>
+    </button>`;
+  }).join('');
+
+  const f = feedOf(feedKind);
+  const max = f ? feedCount(f.id) : 1;
+  if (qtyEl) {
+    qtyEl.innerHTML = `
+      <button class="qty-btn" onclick="setFeedQty(${feedQty - 1})" aria-label="−">−</button>
+      <span class="qty-n">${feedQty}</span>
+      <button class="qty-btn" onclick="setFeedQty(${feedQty + 1})" aria-label="+">+</button>
+      <button class="qty-all" onclick="setFeedQty(${max})">${T('feed_all')}</button>`;
+  }
+  if (goEl) {
+    // **먹여도 로열티가 안 오르는 경우를 미리 알린다** (이미 가득). 버프는 그래도 걸린다
+    const gain = f ? Math.min(D.LOYALTY_MAX - lv, f.loyalty * feedQty) : 0;
+    goEl.textContent = T('feed_go', { n: gain });
+  }
+}
+
+// 실제로 먹인다
+function doFeed() {
+  const f = feedOf(feedKind), pet = creatureOf(feedPet);
+  if (!f || !pet) return;
+  const n = Math.min(feedQty, feedCount(f.id));
+  if (n <= 0) return;
+  S.feeds[f.id] -= n;
+  if (S.feeds[f.id] <= 0) delete S.feeds[f.id];
+  const p = petState(feedPet);
+  const before = p.loyalty || 0;
+  p.loyalty = Math.min(D.LOYALTY_MAX, before + f.loyalty * n);
+  // **버프는 이어 붙이지 않고 「지금부터 다시」다.** 쌓이면 사탕을 몰아 먹여
+  // 하루짜리 버프를 만들 수 있는데, 그러면 「나가기 직전에 먹인다」가 사라진다
+  p.buffEnd = nowDate().getTime() + f.hours * 3600e3;
+  rec('fed', n);
+  save();
+  const nm = N(pet.id, pet.name);
+  const gain = p.loyalty - before;
+  toast(T('feed_done', {
+    emoji: f.emoji, name: nm, josa: josa(nm, '이가'),
+    n: gain, drop: D.loyaltyBonus(p.loyalty), h: leftText(f.hours * 3600e3),
+  }), null, 3200);
+  if (window.Sfx) Sfx.play('success');
+  feedQty = 1;
+  renderFeedPick();
+  render();
+}
+window.doFeed = doFeed;
 
 // 애착 크리처를 바꾼다.
 // **같은 것을 다시 누르면 아무 일도 안 일어난다** — 안 바뀌었는데 「교체되었어요」가
@@ -4528,6 +4734,39 @@ function renderFoods() {
     </div>`;
   }).join('');
 }
+
+// ─── 잡화 › 먹이 칸 ───
+// 여기서는 **보여 주기만** 한다. 실제로 먹이는 곳은 먹이주기 팝업 하나뿐이다 —
+// 먹이는 「누구에게」가 반드시 필요해서, 크리처를 안 고르고 누를 수 있으면 안 된다
+function renderFeeds() {
+  const el = document.getElementById('feedShelf');
+  const hint = document.getElementById('feedHint');
+  if (!el) return;
+  const ids = D.FEEDS.filter(f => feedCount(f.id) > 0).map(f => f.id);
+  if (hint) hint.style.display = ids.length ? 'block' : 'none';
+  if (!ids.length) {
+    el.innerHTML = `<div class="empty-hint clickable" onclick="switchTab('gather')">${T('empty_feeds')}</div>`;
+    return;
+  }
+  el.innerHTML = ids.map(id => {
+    const f = feedOf(id);
+    return `<div class="potion-card" onclick="openFeed(S.petField || S.petRoom)">
+      <div class="potion-emoji">${f.emoji}</div>
+      <div class="potion-name">${N(f.id, f.name)}<button class="potion-why"
+        aria-label="${T('feed_why')}"
+        onclick="event.stopPropagation(); showFeedEffect('${id}', this)">?</button></div>
+      <div class="potion-count">×${feedCount(id)}</div>
+    </div>`;
+  }).join('');
+}
+
+function showFeedEffect(id, anchor) {
+  const f = feedOf(id);
+  if (!f) return;
+  toast(`${f.emoji} ${N(f.id, f.name)}\n${T('feed_eff', { n: f.loyalty, h: leftText(f.hours * 3600e3) })}`,
+    anchor, 4200);
+}
+window.showFeedEffect = showFeedEffect;
 
 // 먹으면 무슨 일이 일어나는지 — 물약의 '?' 와 같은 규칙이다
 function showFoodEffect(id, anchor) {
