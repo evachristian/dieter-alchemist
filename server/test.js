@@ -204,6 +204,8 @@ async function run(label, env) {
   // 12) 서버 소스·의존성·설정은 밖으로 내보내지 않는다
   for (const p of ['/server/index.js', '/server/store.js', '/node_modules/express/package.json',
                    '/package.json', '/package-lock.json', '/railway.json', '/.gitignore',
+                   // 검사기·생성기도 게임이 안 쓴다. 예전에는 /tools/checkui.js 가 200 이었다
+                   '/tools/checkui.js', '/tools/hooks/post-commit',
                    '/server/../server/store.js', '/%2Eenv']) {
     const r = await fetch(base + p);
     const body = await r.text();

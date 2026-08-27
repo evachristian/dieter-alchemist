@@ -1082,14 +1082,15 @@ body {
 }
 /* 줄별 여백만 개별 지정 */
 .wr-tabs { margin-bottom: 9px; }
-/* 레시피 북 아랫단 — 등급 칩 줄과 진행도를 한 줄에.
-   진행도는 오른쪽 끝에 고정하고, 칩이 늘면 칩 쪽이 줄바꿈한다 */
-.rb-sub {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
-  margin: 8px 0 6px; min-width: 0;
+/* 레시피 북 아랫단 — 등급 칩 줄 **아래**에 진행도를 오른쪽 끝으로.
+   예전에는 한 줄에 같이 뒀는데, 진행도가 폭을 가져가는 바람에 **등급 칩이 두 줄로
+   밀렸다** (390px 한국어에서도 「상급 물약」이 혼자 다음 줄로 떨어졌다).
+   칩 넉 줄을 한 줄에 앉히는 쪽이 낫다 — 진행도는 한 줄을 통째로 쓸 만큼 크지 않다. */
+.rb-sub { margin: 8px 0 6px; min-width: 0; }
+.rb-sub .rb-tabs { margin: 0; }
+.rb-sub .recipe-progress {
+  display: block; width: max-content; margin: 6px 0 0 auto;   /* 왼쪽 auto = 오른쪽 정렬 */
 }
-.rb-sub .rb-tabs { flex: 1 1 auto; min-width: 0; margin: 0; }
-.rb-sub .recipe-progress { flex: 0 0 auto; }
 /* 크리처를 보는 중이면 등급 칸이 비어 자리만 차지한다 — 접어 둔다 */
 .rb-tabs:empty { display: none; }
 /* 줄바꿈이 기본이지만, **칩 하나가 줄보다 길면** 줄바꿈으로는 못 막는다 —

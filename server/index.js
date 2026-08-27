@@ -215,7 +215,10 @@ const GAME_DIR = path.join(__dirname, '..');
 
 // 게임에 필요 없는 것은 내보내지 않는다.
 // (서버 소스·의존성·설정 파일이 그대로 열려 있을 이유가 없다)
-const HIDDEN = /^\/(server|node_modules|data)(\/|$)|^\/\.|^\/package(-lock)?\.json$|^\/railway\.json$/;
+// `tools` 는 검사기·생성기가 사는 곳이다. 게임은 한 줄도 안 쓰는데 그대로 열려 있었다
+// (`/tools/checkui.js` 가 200 이었다). 공개 저장소라 비밀이 새는 것은 아니지만,
+// 배포에 내보낼 이유가 없다 — 이 규칙의 뜻이 그것이다.
+const HIDDEN = /^\/(server|node_modules|data|tools)(\/|$)|^\/\.|^\/package(-lock)?\.json$|^\/railway\.json$/;
 app.use((req, res, next) => {
   if (HIDDEN.test(decodeURIComponent(req.path))) return res.status(404).send('Not found');
   next();
