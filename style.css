@@ -222,10 +222,23 @@ body {
   transition: transform 0.12s ease, box-shadow 0.12s ease;
   /* 세로 스크롤은 살리고 더블탭 확대만 막는다 */
   touch-action: pan-y;
+  /* 배지들이 모서리에 얹히는 기준이다. **없으면 배지가 화면 어딘가로 날아간다** —
+     예전에는 `.special` 에만 있어서 속성 배지가 스페셜 맵에만 보였다 */
+  position: relative;
 }
 /* ─── 특별한 맵 배지 ─── UI_POLICY.md 참고
    미니게임이 있는 맵(spot.mini)에만 붙는다. 카드 왼쪽 위 모서리에 얹는다. */
-.spot-card.special { position: relative; overflow: visible; }
+.spot-card.special { overflow: visible; }
+/* 속성 배지 — 카드 **오른쪽 위**. 「특별한 맵」 배지(왼쪽 위)와 같은 모양이되 자리가 다르다.
+   글자색은 고정(--ink)이고 배경만 속성 색을 옅게 깐다 — 여섯 색 위에 흰 글자를 얹으면
+   대비를 여섯 번 다 맞춰야 하고, 그중 하나는 반드시 걸린다 (TEXT_POLICY.md) */
+.spot-attr {
+  position: absolute; right: 8px; top: -8px; z-index: 1;
+  font-size: 0.7rem; font-weight: 800; color: var(--ink);
+  background: color-mix(in srgb, var(--at) 26%, #fff);
+  border: 1px solid color-mix(in srgb, var(--at) 55%, #fff);
+  border-radius: 999px; padding: 3px 9px;
+}
 .spot-badge {
   position: absolute; left: -4px; top: -8px; z-index: 1;
   /* 흰 글자 + 주황은 어떤 조합으로도 2.4:1 을 못 넘는다. 진한 갈색 글자로 바꿔 5.5:1.
@@ -915,13 +928,17 @@ body {
   20%  { opacity: 1; }
   100% { opacity: 0; transform: translateY(-150px) scale(1.15) rotate(28deg); }
 }
+/* 방에 있는 **애착 크리처 한 마리.** 예전에는 가진 것 넷을 방 여기저기 흩어 놓았고
+   이모지라 font-size 로 크기를 줬는데, 지금은 SVG 라 **상자 크기를 직접 줘야 한다** —
+   안 주면 span 이 0 폭으로 접혀 아무것도 안 보인다 (실제로 그랬다).
+   자리는 아바타 왼쪽 바닥. **창문(오른쪽 위)은 피한다** — 유리에 붙은 것처럼 보인다 */
 .stage-creatures { position: absolute; inset: 0; z-index: 3; }
-.stage-creature { position: absolute; font-size: 1.6rem; animation: float 3s ease-in-out infinite; }
-.stage-creature:nth-child(1) { top: 10%; left: 12%; animation-delay: 0s; }
-.stage-creature:nth-child(2) { top: 18%; right: 10%; animation-delay: 0.6s; }
-.stage-creature:nth-child(3) { bottom: 16%; left: 8%; animation-delay: 1.2s; }
-.stage-creature:nth-child(4) { bottom: 12%; right: 14%; animation-delay: 1.8s; }
-.stage-creature:nth-child(n+5) { display: none; }
+.stage-creature {
+  position: absolute; left: 6%; bottom: 8%;
+  width: 76px; height: 76px; display: block;
+  animation: float 3s ease-in-out infinite;
+}
+.stage-creature svg { width: 100%; height: 100%; display: block; }
 @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .showcase-tier { text-align: center; font-size: 1.15rem; font-weight: 800; margin-bottom: 14px; }
 
@@ -1064,6 +1081,12 @@ body {
 .vil-map.locked,
 .ex-item.locked,
 .ex-min.locked,
+/* ⚠️ **도감의 미발견 칸은 「잠금」이 아니라 「미발견」이다.**
+   흐리게 만드는 값은 여기 한 곳에서 관리하되(화면마다 따로 흐리게 만들지 않는다 — CLAUDE.md 4번),
+   `checkLocked` 의 자물쇠 검사 대상에는 **넣지 않는다.** 자물쇠는 「조건을 채우면 열린다」는
+   뜻인데 도감 빈칸은 「아직 안 만들어 봤다」는 뜻이고, 그것은 `❓` 와 `???` 가 이미 말한다.
+   미발견 레시피 줄(.recipe-row.locked)도 같은 이유로 검사 대상이 아니다 */
+.creature-card.unknown,
 .room-tab.locked {
   filter: saturate(0.15);
   opacity: 0.8;
@@ -1291,11 +1314,24 @@ body {
 .creature-art svg { display: block; }
 .potion-name, .creature-name { font-size: 0.76rem; font-weight: 800; margin-top: 3px; overflow-wrap: anywhere; }
 .creature-eff { font-size: 0.7rem; color: var(--ink-soft); margin-top: 2px; }
-/* 속성은 **글자로** 적는다 (이모지 아님 — CREATURE.md 2장) */
+/* 속성은 **글자로** 적는다 (이모지 아님 — CREATURE.md 2장).
+   글자색은 고정(--ink)이고 배경만 속성 색을 옅게 깐다 — 여섯 색 위에 흰 글자를 얹으면
+   대비를 여섯 번 다 맞춰야 하고 그중 하나는 반드시 걸린다 (TEXT_POLICY.md) */
 .cr-attr {
   display: inline-block; margin-right: 4px; padding: 0 5px; border-radius: 999px;
-  background: var(--pink-1); color: var(--ink); font-weight: 800;
+  background: color-mix(in srgb, var(--at, var(--pink-2)) 26%, #fff);
+  color: var(--ink); font-weight: 800;
 }
+/* 도감의 「가진 수 / 전체 수」 — **탭이 아니라 그 아래 한 줄**에 둔다.
+   탭마다 붙였더니 칸 폭이 두 배가 되어 265px 영어에서 네 줄이 됐다 */
+.cr-count {
+  margin: 6px 2px 2px; text-align: right;
+  font-size: 0.74rem; font-weight: 800; color: var(--ink-soft);
+}
+/* 아직 못 만든 칸 — 흐리게 만드는 값은 위의 공통 블록에서 온다.
+   `button` 이 아니라 `div` 라 눌리지도 않는다 */
+.creature-card.unknown { cursor: default; }
+.creature-card.unknown .creature-art { font-size: 1.7rem; }
 /* 크리처 칸이 곧 버튼이다 — 누르면 마이 룸에 두는 애착 크리처가 된다.
    `button` 이라 기본 테두리·글꼴이 붙으므로 걷어 낸다 */
 .creature-card {
@@ -1305,8 +1341,9 @@ body {
 .creature-card:active { transform: scale(0.95); }
 /* 고른 것 — **글자가 아니라 테두리와 딱지로** 알린다. 목록에서 훑을 때 먼저 눈에 든다 */
 .creature-card.on { border-color: var(--text-pink); background: var(--pink-1); }
+/* 0.66rem 은 10.6px 이라 최소 글자 크기(11px)에 걸린다 — TEXT_POLICY.md */
 .creature-on {
-  margin-top: 4px; font-size: 0.66rem; font-weight: 900; color: var(--text-pink);
+  margin-top: 4px; font-size: 0.72rem; font-weight: 900; color: var(--text-pink);
 }
 /* 개수 — **--pink-2 는 글자색으로 쓰지 않는다.** 크림 배경에서 1.4:1 이라 읽을 수 없다.
    파스텔 위 강조 글자는 --text-pink 를 쓴다 (TEXT_POLICY.md) */

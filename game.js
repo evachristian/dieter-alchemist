@@ -1823,12 +1823,17 @@ function renderGather() {
       + (found ? sp.emoji : '❔') + '</button>';
     // 특별한 맵(미니게임이 있는 맵)은 카드 왼쪽 위에 배지를 단다 — UI_POLICY.md 참고
     const badge = spot.mini ? `<span class="spot-badge">${T('special_map')}</span>` : '';
+    // 속성은 **글자로** 적는다 (이모지 아님 — CREATURE.md 2장). 오른쪽 위 배지.
+    // 재료 칩(둥근 알약)과 자리·모양이 달라야 무엇이 무엇인지 헷갈리지 않는다
+    const at = D.creatureAttr(D.mapAttr(spot.id));
+    const attrBadge = at
+      ? `<span class="spot-attr" style="--at:${at.color}">${N(at.id, at.name)}</span>` : '';
     // 카드 몸통은 **누르는 곳이 아니다.** 채집은 오른쪽 버튼만 한다 —
     // 재료 이름을 보려다, 목록을 밀어 내리려다 AP 가 새던 자리였다
     return `
       <div class="spot-card ${canGather ? '' : 'low-energy'}${spot.mini ? ' special' : ''}"
            data-spot="${spot.id}">
-        ${badge}
+        ${badge}${attrBadge}
         <div class="spot-emoji">${spot.emoji}</div>
         <div class="spot-info">
           <div class="spot-name">${N(spot.id, spot.name)}</div>
@@ -2367,33 +2372,69 @@ function renderShowcase() {
     }).join('');
   }
 
-  // 크리처 — **누르면 마이 룸에 두는 애착 크리처가 된다.**
-  // 블럭 하나가 곧 버튼이다. 해제 버튼은 따로 없다 — 다른 것을 누르면 그것으로 바뀐다
+  renderCreatures();
+}
+
+// ─── 크리처 도감 ────────────────────────────────────────────
+// **가진 것만 보여 주면 도감이 아니다.** 못 가진 것도 `❓` 로 자리를 남겨야
+// 「무엇이 더 있는지」가 보이고, 속성 탭도 그제야 쓸모가 생긴다 —
+// 가진 것만 있으면 처음에는 모든 탭이 비어 있다.
+let creatureTab = 'all';
+function setCreatureTab(k) { creatureTab = k; renderCreatures(); }
+window.setCreatureTab = setCreatureTab;
+
+function renderCreatures() {
+  const tabsEl = document.getElementById('creatureTabs');
   const colEl = document.getElementById('creatureCollection');
-  if (S.creatures.length === 0) {
-    colEl.innerHTML = `<div class="empty-hint clickable" onclick="switchTab('atelier')">${T('empty_creatures')}</div>`;
-  } else {
-    const counts = {};
-    S.creatures.forEach(c => counts[c] = (counts[c] || 0) + 1);
-    const on = roomPet();
-    colEl.innerHTML = Object.keys(counts).map(cid => {
-      const c = creatureOf(cid);
-      if (!c) return '';
-      const cur = on && on.id === cid;
-      const name = N(c.id, c.name);
-      const attr = D.creatureAttr(c.attr);
-      // 속성은 **글자로** 적는다 (이모지 아님 — CREATURE.md 2장)
-      return `<button class="creature-card${cur ? ' on' : ''}" data-cr="${cid}"
-        aria-pressed="${cur}" aria-label="${T('pet_pick', { name })}"
-        onclick="setRoomPet('${cid}')">
-        <div class="creature-art">${window.Creature ? Creature.icon(c, 46) : ''}</div>
-        <div class="creature-name">${name}</div>
-        <div class="creature-eff">${attr ? `<span class="cr-attr">${N(attr.id, attr.name)}</span>` : ''}💖+${c.charmBonus}</div>
-        ${counts[cid] > 1 ? `<div class="creature-count">×${counts[cid]}</div>` : ''}
-        ${cur ? `<div class="creature-on">${T('pet_on')}</div>` : ''}
-      </button>`;
-    }).join('');
+  if (!colEl) return;
+
+  const all = D.RECIPES.filter(r => r.result.kind === 'creature').map(r => r.result);
+  const counts = {};
+  S.creatures.forEach(c => counts[c] = (counts[c] || 0) + 1);
+  const owned = (id) => (counts[id] || 0) > 0;
+
+  // ── 속성 탭. **글자로 적는다** (이모지 아님 — CREATURE.md 2장).
+  //
+  // ⚠️ **탭에 「5/30」을 같이 적으면 안 된다.** 칸 폭이 두 배가 되어
+  // 265px 영어에서 **네 줄**이 됐다 — 탭 줄이 화면의 3분의 1을 먹는다.
+  // 가진 수는 아래 한 줄에 **지금 탭 것만** 적는다 (일곱 번 셀 필요가 없다).
+  if (tabsEl) {
+    const tabs = [{ k: 'all', name: T('cr_all') }]
+      .concat(D.CREATURE_ATTRS.map(a => ({ k: a.k, name: N(a.id, a.name) })));
+    tabsEl.innerHTML = tabs.map(t =>
+      `<button class="cat-tab${creatureTab === t.k ? ' active' : ''}"
+        data-cr-tab="${t.k}" onclick="setCreatureTab('${t.k}')">${t.name}</button>`).join('');
   }
+
+  const list = creatureTab === 'all' ? all : all.filter(c => c.attr === creatureTab);
+  const countEl = document.getElementById('creatureCount');
+  if (countEl) countEl.textContent = T('cr_count', { n: list.filter(c => owned(c.id)).length, m: list.length });
+  const on = roomPet();
+  colEl.innerHTML = list.map(c => {
+    const name = N(c.id, c.name);
+    const attr = D.creatureAttr(c.attr);
+    const tag = attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : '';
+    // ── 못 가진 것 — 물음표 한 칸. **이름도 안 알려 준다** (레시피 북과 같은 규칙)
+    if (!owned(c.id)) {
+      return `<div class="creature-card unknown" aria-label="${T('cr_unknown')}">
+        <div class="creature-art">❓</div>
+        <div class="creature-name">${T('cr_unknown')}</div>
+        <div class="creature-eff">${tag}</div>
+      </div>`;
+    }
+    // ── 가진 것 — **누르면 마이 룸에 두는 애착 크리처가 된다.**
+    // 블럭 하나가 곧 버튼이다. 해제 버튼은 따로 없다 — 다른 것을 누르면 그것으로 바뀐다
+    const cur = on && on.id === c.id;
+    return `<button class="creature-card${cur ? ' on' : ''}" data-cr="${c.id}"
+      aria-pressed="${cur}" aria-label="${T('pet_pick', { name })}"
+      onclick="setRoomPet('${c.id}')">
+      <div class="creature-art">${window.Creature ? Creature.icon(c, 46) : ''}</div>
+      <div class="creature-name">${name}</div>
+      <div class="creature-eff">${tag}💖+${c.charmBonus}</div>
+      ${counts[c.id] > 1 ? `<div class="creature-count">×${counts[c.id]}</div>` : ''}
+      ${cur ? `<div class="creature-on">${T('pet_on')}</div>` : ''}
+    </button>`;
+  }).join('');
 }
 
 // 애착 크리처를 바꾼다.

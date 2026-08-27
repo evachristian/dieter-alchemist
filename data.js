@@ -825,6 +825,71 @@ const CREATURE_ATTRS = [
 // GEN:creature-attrs>>>
 function creatureAttr(k) { return CREATURE_ATTRS.find(a => a.k === k) || null; }
 
+// 채집지의 속성 — **이름의 낱말에서 규칙으로 뽑는다** (tools/genmapattr.js).
+// MAPS 배열은 손으로 쓴 것이라 안 건드리고, id → 속성 표만 따로 둔다. 손으로 고치지 않는다:
+//   node tools/genmapattr.js
+// <<<GEN:mapattr
+const MAP_ATTRS = {
+  // 포근 평야 지대 — light 2 · earth 5 · water 1 · wind 1 · fire 1 · dark 1
+  p_hill: 'light',            // 햇살 언덕
+  p_gourmet: 'earth',         // 미식가의 들
+  p_mirror: 'water',          // 거울 저수지
+  p_walnut: 'earth',          // 호두 마루
+  p_windmill: 'wind',         // 바람개비 밭
+  p_bee: 'earth',             // 꿀벌 목장
+  p_sunset: 'fire',           // 노을 밀밭
+  p_clover: 'earth',          // 네잎 들판
+  p_picnic: 'earth',          // 소풍 바위
+  p_starfield: 'light',       // 별헤는 평지
+  p_pumpkin: 'dark',          // 파수꾼의 호박 밭
+  // 울창 숲 지대 — dark 3 · earth 3 · water 1 · light 2 · wind 1
+  f_mist: 'dark',             // 안개 숲 외곽
+  f_path: 'earth',            // 완만한 숲길
+  f_mushroom: 'earth',        // 버섯 마을
+  f_firefly: 'water',         // 반딧불 늪가
+  f_owl: 'dark',              // 부엉이 고목
+  f_spider: 'dark',           // 거미줄 다리
+  f_spirit: 'light',          // 이끼 정령터
+  f_bush: 'wind',             // 속삭이는 덤불
+  f_moon: 'light',            // 달빛 공터
+  f_door: 'earth',            // 오래된 나무문
+  // 뾰족 산악 지대 — earth 2 · water 2 · wind 4 · light 1 · fire 1
+  m_mine: 'earth',            // 버려진 광산
+  m_lake: 'water',            // 고요 호수
+  m_rock: 'earth',            // 흔들 바위산
+  m_cloud: 'wind',            // 구름모자 산중턱
+  m_eyrie: 'wind',            // 매 둥지 절벽
+  m_frost: 'water',           // 서리 골짜기
+  m_echo: 'wind',             // 메아리 협곡
+  m_ropeway: 'wind',          // 낡은 삭도 터
+  m_observe: 'light',         // 별빛 전망대
+  m_ash: 'fire',              // 화산재 능선
+  // 반짝 해안 지대 — light 2 · dark 2 · water 4 · wind 1 · fire 1
+  s_beach: 'light',           // 반짝 모래사장
+  s_cave: 'dark',             // 소라 동굴
+  s_rock: 'water',            // 파도 바위
+  s_light: 'light',           // 등대 언덕
+  s_coral: 'water',           // 산호 여울
+  s_gull: 'wind',             // 갈매기 절벽
+  s_wreck: 'dark',            // 난파선 잔해
+  s_foam: 'water',            // 물거품 웅덩이
+  s_pier: 'fire',             // 해질녘 방파제
+  s_mermaid: 'water',         // 인어의 바위
+  // 황량 황무지 — water 1 · earth 2 · fire 3 · dark 3 · light 1
+  w_swamp: 'water',           // 청개구리의 늪
+  w_dune: 'earth',            // 까끌 모래 언덕
+  w_salt: 'fire',             // 소금 평원
+  w_cart: 'earth',            // 부서진 수레길
+  w_thorn: 'dark',            // 가시덤불 협곡
+  w_bone: 'dark',             // 뼈의 골짜기
+  w_mirage: 'light',          // 신기루 오아시스
+  w_tower: 'fire',            // 녹슨 철탑
+  w_lizard: 'fire',           // 도마뱀 바위굴
+  w_crow: 'dark',             // 까마귀 언덕
+};
+// GEN:mapattr>>>
+function mapAttr(id) { return MAP_ATTRS[id] || null; }
+
 // ─── 레시피 북 카테고리 ───
 // 물약은 등급(grade)으로, 크리처는 kind 로 분류한다.
 // 등급 기준: 하급 = 효과 합 3 이하 / 중급 = 4~6 / 상급 = 7 이상
@@ -1572,6 +1637,6 @@ window.GameData = {
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
-  CREATURE_ATTRS, creatureAttr,
+  CREATURE_ATTRS, creatureAttr, MAP_ATTRS, mapAttr,
   getTier, recipeKey,
 };
