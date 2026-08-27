@@ -14,7 +14,7 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //  9: '헤어컬러' 칸이 없어지고 머리도 염색으로 색을 정한다
 // 10: 튜토리얼(S.tut)이 생겼다 — 이 버전 이전의 세이브는 튜토리얼을 본 적이 없으므로
 //     다시 보여 주지 않고 **마친 것으로 친다** (그래야 tutorialDone 도 같이 켜진다)
-const SAVE_VER = 11;
+const SAVE_VER = 12;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -53,7 +53,12 @@ const TN = ko => (window.I18N ? I18N.n(ko, ko) : ko);          // 등급 이름
 const defaultState = () => ({
   inventory: {},          // { ingredientId: count }
   potions:   {},          // { potionId: count } (미사용 물약 보관)
-  creatures: [],          // [creatureId, ...] (전시 중)
+  creatures: [],          // [creatureId, ...] (가진 것. 중복이 들어갈 수 있다)
+  // 마이 룸에 두는 **애착 크리처 한 마리.** 매력에 반영되는 것도 이 한 마리뿐이다.
+  // 예전에는 가진 전부가 중복까지 다 더해져 무한 누적이었다 (CREATURE.md 0장)
+  petRoom: null,
+  // 여태 닿은 최고 매력. **해금 판정은 이 값으로 한다** — 위의 charmPeak() 참고
+  charmPeak: 0,
   stats:     { beauty: 0, charm: 0 },
   discovered: [...STARTER_RECIPES],   // 처음부터 알고 있는 하급 물약 2종
   cauldron:  [],          // 현재 마법 솥에 넣은 재료 id (솥의 구멍 수만큼)
@@ -374,6 +379,31 @@ function migrate(st, from) {
     });
     delete st.outfitColor; delete st.dyeUntil; delete st.dyePerm;
   }
+  if (from < 12) {
+    // ⚠️ **크리처 매력이 무한 누적이던 것을 없앤다.**
+    // 예전에는 `S.creatures` 전부(중복까지)의 charmBonus 를 다 더했다.
+    // 이제는 **마이 룸에 장착한 한 마리만** 반영된다 (CREATURE.md 0장).
+    //
+    // 그냥 바꾸면 **매력 총합이 내려간다.** `isMapOpen()` 이 그 값을 보므로
+    // **열려 있던 맵과 지대가 다시 잠긴다** — 유니콘 셋을 가진 사람은 −12 다.
+    // 그래서 잃는 만큼을 `stats.charm` 으로 **옮겨 적는다.** 지우는 게 아니라 옮기는 것이다.
+    const list = Array.isArray(st.creatures) ? st.creatures : [];
+    const bonus = (id) => {
+      const r = D.RECIPES.find(x => x.result.id === id && x.result.kind === 'creature');
+      return r ? (r.result.charmBonus || 0) : 0;
+    };
+    const all = list.reduce((s, id) => s + bonus(id), 0);
+    // 제일 센 것을 자동으로 장착해 준다 — 고르라고 하면 그 전까지 매력이 비어 보인다
+    let best = null, bestN = -1;
+    list.forEach(id => { const n = bonus(id); if (n > bestN) { bestN = n; best = id; } });
+    if (!st.petRoom && best) st.petRoom = best;
+    const keep = st.petRoom ? bonus(st.petRoom) : 0;
+    if (!st.stats) st.stats = { beauty: 0, charm: 0 };
+    st.stats.charm = (st.stats.charm || 0) + Math.max(0, all - keep);
+    // 해금 최고 기록도 지금 값으로 채워 둔다 — 0 이면 이미 연 맵이 전부 닫힌다
+    st.charmPeak = Math.max(st.charmPeak || 0,
+      (st.stats.beauty || 0) + (st.stats.charm || 0) + keep);
+  }
 
   st.ver = SAVE_VER;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) {}
@@ -501,12 +531,44 @@ function checkUnlocks() {
   }, 2200);
 }
 
+// ─── 크리처 ─────────────────────────────────────────────────
+// 크리처 결과물 찾기. **없는 id 를 견뎌야 한다** — 세이브에는 남았는데 데이터에서
+// 빠진 크리처가 있을 수 있다 (초기화·데이터 변경). 그 자리에서 null 로 떨어뜨린다
+function creatureOf(id) {
+  if (!id) return null;
+  const r = D.RECIPES.find(x => x.result.id === id && x.result.kind === 'creature');
+  return r ? r.result : null;
+}
+function ownsCreature(id) { return !!id && S.creatures.includes(id); }
+// 결과물 한 개의 **그림**. 물약·실패작은 이모지, 크리처는 SVG 다.
+// 이 한 곳을 지나게 해서 `result.emoji` 를 여기저기서 읽지 않게 한다 —
+// 크리처에서 emoji 를 뺐을 때 조합 팝업·레시피 북·과시 카드가 한꺼번에 깨졌다
+function resultArt(r, size) {
+  if (!r) return '';
+  if (r.kind === 'creature' && window.Creature) return Creature.icon(r, size || 40);
+  return r.emoji || '';
+}
+// 지금 마이 룸에 있는 애착 크리처. **가진 것인지 한 번 거른다**
+function roomPet() { return ownsCreature(S.petRoom) ? creatureOf(S.petRoom) : null; }
+
+// ⚠️ **해금은 「지금 매력」이 아니라 「여태 닿은 최고 매력」으로 판정한다.**
+// 애착 크리처를 센 것에서 약한 것으로 바꾸면 총합이 내려간다 — 그게 이 시스템의
+// 고르는 맛이다. 그런데 `isMapOpen()` 이 총합을 그대로 보면 **열려 있던 맵이 다시 잠긴다.**
+// 한 번 연 것은 무슨 이유로도 닫히면 안 된다.
+//
+// 최고 기록은 저장해 둔다 — 안 그러면 새로고침할 때마다 지금 값으로 되돌아간다.
+function charmPeak() {
+  const now = totalCharm();
+  if (now > (S.charmPeak || 0)) S.charmPeak = now;
+  return S.charmPeak || 0;
+}
+
+// **매력에 반영되는 크리처는 장착한 한 마리뿐이다.**
+// 예전에는 `S.creatures` 전부를 중복까지 다 더해서, 같은 것을 여러 번 만들기만 해도
+// 매력이 끝없이 올랐다. 그것을 없애면서 세이브 12 로 잃는 만큼을 stats.charm 에 옮겼다.
 function totalCharm() {
-  const creatureBonus = S.creatures.reduce((sum, cid) => {
-    const r = D.RECIPES.find(x => x.result.id === cid);
-    return sum + (r ? r.result.charmBonus : 0);
-  }, 0);
-  return S.stats.beauty + S.stats.charm + creatureBonus;
+  const pet = roomPet();
+  return S.stats.beauty + S.stats.charm + (pet ? (pet.charmBonus || 0) : 0);
 }
 
 // 가중 랜덤 추첨
@@ -1281,7 +1343,7 @@ function settleLeague() {
 }
 
 // 랭킹 탭은 '여신' 단계부터 열린다 — 그 전에는 탭 자체가 없다
-function leagueOpen() { return totalCharm() >= D.LEAGUE.openAt; }
+function leagueOpen() { return charmPeak() >= D.LEAGUE.openAt; }
 
 // 물약을 마셔 매력이 올랐을 때 이번 주 점수에 더한다
 function addWeekScore(n) {
@@ -1656,9 +1718,9 @@ function showBrewResult(result, isNew, near) {
   }
   body.innerHTML = `
     ${isNew ? `<div class="brew-new">${T('brew_new')}</div>` : ''}
-    <div class="brew-emoji ${success ? 'pop' : ''}">${result.emoji}</div>
+    <div class="brew-emoji ${success ? 'pop' : ''}">${resultArt(result)}</div>
     <div class="brew-name">${N(result.id, result.name)}</div>
-    <div class="brew-desc">${N(result.id + '_desc', result.desc)}</div>
+    ${result.desc ? `<div class="brew-desc">${N(result.id + '_desc', result.desc)}</div>` : ''}
     ${statLine}
   `;
   modal.classList.add('show');
@@ -2099,7 +2161,7 @@ function renderAtelier() {
         data-recipe="${r.result.id}" onclick="fillFromRecipe('${r.result.id}', this)">
         <span class="recipe-in">${inputs}</span>
         <span class="recipe-arrow">→</span>
-        <span class="recipe-out">${r.result.emoji} ${N(r.result.id, r.result.name)}</span>
+        <span class="recipe-out">${resultArt(r.result, 22)} ${N(r.result.id, r.result.name)}</span>
       </div>`;
     }
     // 아직 모르는 레시피 — **물음표 개수가 곧 재료 개수다.** 몇 가지가 드는지는
@@ -2225,19 +2287,19 @@ function renderShowcase() {
   const total = totalCharm();
   const tier = D.getTier(total);
 
-  // 아바타(내 캐릭터) + 전시 크리처
+  // 아바타(내 캐릭터) + **애착 크리처 한 마리.**
+  // 예전에는 가진 것 전부(최대 넷)를 늘어놓았는데, 이제 방에 있는 것은 고른 한 마리다
   const stage = document.getElementById('charStage');
-  const creatureEmojis = S.creatures.map(cid => {
-    const r = D.RECIPES.find(x => x.result.id === cid);
-    return r ? `<span class="stage-creature">${r.result.emoji}</span>` : '';
-  }).join('');
+  const pet = roomPet();
+  const petArt = (pet && window.Creature)
+    ? `<span class="stage-creature">${Creature.draw(pet, { flat: true })}</span>` : '';
   const avatarSvg = roomFigure(tier);
   stage.innerHTML = `
     <div class="room-scene"></div>
     <div class="char-aura" style="--glow:${Math.min(total, 100)}">
       <div class="char-body">${avatarSvg}</div>
       <div id="slimFx" class="slim-fx"></div>
-      <div class="stage-creatures">${creatureEmojis}</div>
+      <div class="stage-creatures">${petArt}</div>
     </div>`;
   renderRoomScene();   // 배경은 스탯이 접혔는지에 따라 아래로 더 그려진다
   // 물약을 마신 직후면 살 빠지는 연출을 이어서 재생
@@ -2305,25 +2367,54 @@ function renderShowcase() {
     }).join('');
   }
 
-  // 크리처 컬렉션
+  // 크리처 — **누르면 마이 룸에 두는 애착 크리처가 된다.**
+  // 블럭 하나가 곧 버튼이다. 해제 버튼은 따로 없다 — 다른 것을 누르면 그것으로 바뀐다
   const colEl = document.getElementById('creatureCollection');
   if (S.creatures.length === 0) {
     colEl.innerHTML = `<div class="empty-hint clickable" onclick="switchTab('atelier')">${T('empty_creatures')}</div>`;
   } else {
     const counts = {};
     S.creatures.forEach(c => counts[c] = (counts[c] || 0) + 1);
+    const on = roomPet();
     colEl.innerHTML = Object.keys(counts).map(cid => {
-      const r = D.RECIPES.find(x => x.result.id === cid);
-      if (!r) return '';
-      return `<div class="creature-card">
-        <div class="creature-emoji">${r.result.emoji}</div>
-        <div class="creature-name">${N(r.result.id, r.result.name)}</div>
-        <div class="creature-eff">💖+${r.result.charmBonus}</div>
+      const c = creatureOf(cid);
+      if (!c) return '';
+      const cur = on && on.id === cid;
+      const name = N(c.id, c.name);
+      const attr = D.creatureAttr(c.attr);
+      // 속성은 **글자로** 적는다 (이모지 아님 — CREATURE.md 2장)
+      return `<button class="creature-card${cur ? ' on' : ''}" data-cr="${cid}"
+        aria-pressed="${cur}" aria-label="${T('pet_pick', { name })}"
+        onclick="setRoomPet('${cid}')">
+        <div class="creature-art">${window.Creature ? Creature.icon(c, 46) : ''}</div>
+        <div class="creature-name">${name}</div>
+        <div class="creature-eff">${attr ? `<span class="cr-attr">${N(attr.id, attr.name)}</span>` : ''}💖+${c.charmBonus}</div>
         ${counts[cid] > 1 ? `<div class="creature-count">×${counts[cid]}</div>` : ''}
-      </div>`;
+        ${cur ? `<div class="creature-on">${T('pet_on')}</div>` : ''}
+      </button>`;
     }).join('');
   }
 }
+
+// 애착 크리처를 바꾼다.
+// **같은 것을 다시 누르면 아무 일도 안 일어난다** — 안 바뀌었는데 「교체되었어요」가
+// 뜨면 거짓말이고, 해제할 방법을 찾다가 같은 것을 누른 사람에게는 더 헷갈린다
+function setRoomPet(id) {
+  if (!ownsCreature(id)) return;
+  if (S.petRoom === id) return;
+  const before = roomPet();
+  S.petRoom = id;
+  const now = creatureOf(id);
+  const name = N(now.id, now.name);
+  toast(before
+    ? T('pet_swap', { from: N(before.id, before.name), to: name, josa: josa(name, '으로') })
+    : T('pet_set', { name, josa: josa(name, '을를') }));
+  save();
+  render();
+  // 매력이 달라졌으므로 새로 열린 맵이 있는지 본다 (물약을 마셨을 때와 같다)
+  checkUnlocks();
+}
+window.setRoomPet = setRoomPet;
 
 // ─── 스탯 간단히 / 자세히 ────────────────────────────────────
 //
@@ -2417,8 +2508,8 @@ let wardrobeTab = 'hair';
 //  안내 문구: "○○ 단계 N점 달성 시 오픈" (단계 이름은 N 에서 자동 계산)
 // ═══════════════════════════════════════════════════════════════
 // 임시(출시 때 devFlag 조건을 지운다): 개발용 '모든 맵 오픈' 스위치가 켜져 있으면 전부 열린 것으로 본다
-function isMapOpen(m)  { return devFlag(DEV_MAPS_KEY) || totalCharm() >= m.unlock; }
-function isZoneOpen(z) { return devFlag(DEV_MAPS_KEY) || totalCharm() >= D.zoneUnlock(z.id); }
+function isMapOpen(m)  { return devFlag(DEV_MAPS_KEY) || charmPeak() >= m.unlock; }
+function isZoneOpen(z) { return devFlag(DEV_MAPS_KEY) || charmPeak() >= D.zoneUnlock(z.id); }
 // 해금 조건 문구 — 점수에 해당하는 단계 이름을 붙여 준다
 function unlockText(score) {
   const tier = D.getTier(score);
@@ -3729,14 +3820,16 @@ async function shareCardBlob() {
     (CARD_W - avW) / 2, CARD_ROOM_H - avH - 30, avW, avH);
   ctx.restore();
 
-  // ③ 전시 중인 크리처 — 벽과 바닥 쪽으로. **창문(오른쪽 위)은 피한다** — 겹치면 유리에 붙은 것처럼 보인다
-  const spots = [[0.15, 0.24], [0.12, 0.60], [0.85, 0.82], [0.30, 0.88]];
+  // ③ 애착 크리처 **한 마리** — 아바타 왼쪽 바닥에.
+  // **창문(오른쪽 위)은 피한다** — 겹치면 유리에 붙은 것처럼 보인다.
+  // 예전에는 가진 것 넷을 방 여기저기 흩어 놓았는데, 이제 방에 있는 것은 고른 한 마리다
+  const pet = roomPet();
+  if (pet && window.Creature) {
+    const CR = 132;
+    ctx.drawImage(await svgToImage(Creature.draw(pet, { flat: true }), CR, CR),
+      CARD_W * 0.14, CARD_ROOM_H * 0.74, CR, CR);
+  }
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = '46px "Noto Sans KR", sans-serif';
-  S.creatures.slice(0, 4).forEach((cid, i) => {
-    const r = D.RECIPES.find(x => x.result.id === cid);
-    if (r) ctx.fillText(r.result.emoji, CARD_W * spots[i][0], CARD_ROOM_H * spots[i][1]);
-  });
 
   // ④ 아래 정보 판
   ctx.fillStyle = cssVar('--cream', '#fff7f2');

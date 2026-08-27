@@ -146,6 +146,42 @@ const CASES = [
       !S.itemColor.glove_wrist_cuff || '다른 장갑까지 물들었다',
     ],
   },
+  {
+    // ⚠️ **이 프로젝트에서 제일 위험한 마이그레이션이다.**
+    // 크리처 매력이 「가진 것 전부(중복까지)」에서 「장착한 한 마리」로 바뀌었다.
+    // 그냥 바꾸면 매력 총합이 내려가고, isMapOpen() 이 그 값을 보므로
+    // **열려 있던 맵과 지대가 다시 잠긴다.** 유니콘 셋을 가진 사람은 −12 다.
+    //
+    // 옛 규칙 총합 = 비주얼 100 + 매력 100 + (나비 2 + 유니콘 6 × 3) = 220.
+    // 옮겨 적기가 제대로 됐으면 불러온 뒤에도 **정확히 220** 이어야 한다.
+    name: '세이브 11 (크리처 매력이 무한 누적이던 시절) — 총합도 열린 맵도 그대로',
+    save: { ver: 11, name: '크리처', nameClaimed: true, tutorialDone: true,
+            stats: { beauty: 100, charm: 100 },
+            creatures: ['butterfly', 'unicorn', 'unicorn', 'unicorn'] },
+    visit: 'showcase',
+    // **약한 크리처로 바꿔 보고** 맵이 다시 잠기는지 화면 안에서 잰다
+    probe: () => {
+      const before = GameData.MAPS.filter(isMapOpen).length;
+      setRoomPet('butterfly');
+      const after = GameData.MAPS.filter(isMapOpen).length;
+      const charmAfter = totalCharm();
+      setRoomPet('unicorn');
+      return { before, after, charmAfter };
+    },
+    expect: (S) => [
+      S.__charm === 220 || `매력 총합이 달라졌다 (${S.__charm} — 220 이어야 한다)`,
+      S.petRoom === 'unicorn' || `제일 센 크리처가 자동 장착되지 않았다 (${S.petRoom})`,
+      // 잃는 만큼(나비2 + 유니콘 두 마리 12 = 14)을 stats.charm 으로 옮겨 적었는가
+      S.stats.charm === 114 || `옮겨 적기가 틀렸다 (매력 ${S.stats.charm} — 114 여야 한다)`,
+      (S.creatures || []).length === 4 || '가진 크리처가 사라졌다',
+      S.charmPeak >= 220 || `해금 최고 기록이 안 채워졌다 (${S.charmPeak})`,
+      // 약한 것으로 바꾸면 **총합은 내려가야 한다** (그게 고르는 맛이다)
+      S.__probe.charmAfter === 216 || `애착을 바꿔도 총합이 안 변한다 (${S.__probe.charmAfter})`,
+      // 그런데 **맵은 하나도 안 잠겨야 한다** — 해금은 최고 기록으로 판정하기 때문
+      S.__probe.after >= S.__probe.before
+        || `약한 크리처로 바꾸니 맵이 ${S.__probe.before - S.__probe.after}개 다시 잠겼다`,
+    ],
+  },
 ];
 
 (async () => {
@@ -186,8 +222,16 @@ const CASES = [
       // 튜토리얼 막이 실제로 떠 있는지 (세이브 값만으로는 화면을 알 수 없다)
       const el = document.getElementById('tut');
       out.__tutOn = !!(el && el.classList.contains('on'));
+      // **세이브 값만으로는 못 보는 것**이 있다 — 매력 총합처럼 계산해야 나오는 값,
+      // 그리고 열린 맵 수. expect() 는 노드에서 도는 JSON 사본을 볼 뿐이라
+      // 여기서 미리 재 둔다 (아래 probe 로 케이스마다 더 잴 수도 있다)
+      out.__charm = typeof totalCharm === 'function' ? totalCharm() : null;
+      out.__openMaps = typeof isMapOpen === 'function'
+        ? GameData.MAPS.filter(isMapOpen).length : null;
       return out;
     });
+    // 케이스가 화면 안에서 더 확인할 것이 있으면 여기서 잰다
+    if (c.probe) S.__probe = await page.evaluate(c.probe);
     await ctx.close();
     if (process.env.V) console.error('· 끝', c.name);
 

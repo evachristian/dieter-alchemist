@@ -150,6 +150,11 @@
       empty_potions: '아직 소유한 물약이 없어요. 공방에서 물약을 만들 수 있어요.',
       empty_foods: '먹을 것이 없어요. 채집을 다니다 보면 가끔 주울 수 있어요.',
       empty_creatures: '아직 소유한 크리처가 없어요. 공방에서 크리처를 만들 수 있어요.',
+      // 애착 크리처 — 마이 룸에 두는 한 마리
+      pet_pick: '{name} 을(를) 애착 크리처로 삼기',
+      pet_on: '애착',
+      pet_set: '{name}{josa} 애착 크리처로 삼았어요.',
+      pet_swap: '나의 애착 크리처가 {from}에서 {to}{josa} 교체되었어요.',
       empty_grade: '이 등급의 레시피는 아직 없어요.',
       kind_potion: '물약', kind_creature: '크리처',
       g_basic: '기초', g_low: '하급', g_mid: '중급', g_high: '상급',
@@ -515,6 +520,10 @@
       empty_potions: 'No potions yet. You can brew potions in the Atelier.',
       empty_foods: 'Nothing to eat. Foraging turns something up now and then.',
       empty_creatures: 'No creatures yet. You can create creatures in the Atelier.',
+      pet_pick: 'Make {name} your companion',
+      pet_on: 'Chosen',
+      pet_set: '{name} is now your companion.',
+      pet_swap: 'Your companion changed from {from} to {to}.',
       empty_grade: 'No recipes at this grade yet.',
       kind_potion: 'Potions', kind_creature: 'Creatures',
       g_basic: 'Basic', g_low: 'Low', g_mid: 'Mid', g_high: 'High',
@@ -1067,15 +1076,59 @@
       // 물약 / 크리처
       vitality: 'Vitality Potion', blush: 'Blush Potion', fragrance: 'Fragrance Potion',
       mystic: 'Mystic Potion', rainbow: 'Rainbow Elixir',
-      butterfly: 'Glimmer Butterfly', frog: 'Flower Frog', unicorn: 'Unicorn', sage_crystal: "Sage's Crystal",
+      sage_crystal: "Sage's Crystal",
+      // 크리처 30종 — **손으로 고치지 않는다.** 축 표에서 한국어와 함께 나온다:
+      //   node tools/gencreature.js
+      // <<<GEN:creature-en
+      // Fire
+      ember_newt: 'Ember Newt',
+      ash_moth: 'Ash Moth',
+      flame_fox: 'Flame Fox',
+      charcoal_toad: 'Charcoal Toad',
+      ember_phoenix: 'Ember Phoenix',
+      // Earth
+      pebble_turtle: 'Pebble Turtle',
+      root_mole: 'Root Mole',
+      moss_deer: 'Moss Deer',
+      crystal_pangolin: 'Crystal Pangolin',
+      boulder_bear: 'Boulder Bear',
+      // Wind
+      dandelion_hare: 'Dandelion Hare',
+      breeze_sparrow: 'Breeze Sparrow',
+      whirl_marten: 'Whirl Marten',
+      cloud_goat: 'Cloud Goat',
+      sky_falcon: 'Sky Falcon',
+      // Water
+      frog: 'Blossom Frog',
+      droplet_otter: 'Droplet Otter',
+      coral_seahorse: 'Coral Seahorse',
+      dew_snail: 'Dewdrop Snail',
+      deepsea_whale: 'Deepsea Whale',
+      // Light
+      butterfly: 'Glimmer Butterfly',
+      sunbeam_hen: 'Sunbeam Hen',
+      starlit_fawn: 'Starlit Fawn',
+      dawn_owl: 'Dawn Owl',
+      unicorn: 'Unicorn',
+      // Dark
+      newmoon_bat: 'Newmoon Bat',
+      shadow_cat: 'Shadow Cat',
+      nightmist_fox: 'Nightmist Fox',
+      obsidian_lizard: 'Obsidian Lizard',
+      abyss_raven: 'Abyss Raven',
+      // 속성 이름 (UI 낱말이라 STRINGS 쪽에도 있다)
+      attr_fire: 'Fire',
+      attr_earth: 'Earth',
+      attr_wind: 'Wind',
+      attr_water: 'Water',
+      attr_light: 'Light',
+      attr_dark: 'Dark',
+// GEN:creature-en>>>
       vitality_desc: 'A green potion that brings life to your skin.',
       blush_desc: 'Adds a rosy blush to your cheeks.',
       fragrance_desc: 'Wraps you in a subtle floral scent.',
       mystic_desc: 'A potion radiating a mysterious aura.',
       rainbow_desc: 'The legendary elixir. Greatly boosts Visual and Aura.',
-      butterfly_desc: 'A crystal-winged butterfly fluttering around you.',
-      frog_desc: 'A cute frog carrying a flower petal.',
-      unicorn_desc: 'A legendary unicorn said to appear only to the pure.',
       sage_crystal_desc: 'The brew failed, but a crystal was left behind. Collect them to recharge AP.',
       // 등급
       '새싹': 'Sprout', '꽃봉오리': 'Bud', '요정': 'Fairy', '뮤즈': 'Muse', '여신': 'Goddess',

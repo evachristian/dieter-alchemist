@@ -10,12 +10,14 @@
   },
   "scripts": {
     "start": "node server/index.js",
-    "test": "node tools/genwardrobe.js --check && node tools/checki18n.js && node tools/checktalk.js && node server/test.js",
+    "test": "node tools/genwardrobe.js --check && node tools/gencreature.js --check && node tools/checkdata.js && node tools/checki18n.js && node tools/checktalk.js && node server/test.js",
     "test:talk": "node tools/checktalk.js",
+    "test:data": "node tools/checkdata.js",
     "test:i18n": "node tools/checki18n.js",
     "test:save": "node tools/checksave.js",
     "test:tut": "node tools/checktut.js",
     "gen:wardrobe": "node tools/genwardrobe.js",
+    "gen:creature": "node tools/gencreature.js",
     "test:time": "node tools/checktime.js"
   },
   "dependencies": {

@@ -13,13 +13,14 @@
 dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비워 둔다
 ├── index.html             게임 셸. 스플래시·인트로는 인라인 <style>/<script>
 │                          (style.css 캐시가 깨져도 항상 뜨게 하려는 의도된 중복)
-├── data.js                재료 100 · 채집지 50 · 레시피 100 · 솥 10  → window.GameData
+├── data.js                재료 105 · 채집지 51 · 레시피 130(크리처 30 포함) · 솥 11 → window.GameData
 ├── game.js                상태·로직·렌더링. 세이브는 localStorage
 ├── sync.js                서버 동기화 → window.Sync
 ├── avatar.js              SVG 페이퍼돌 → window.Avatar
 ├── intro.js               튜토리얼 인트로 → window.Intro
 ├── tutorial.js            튜토리얼(인트로 다음) → window.Tut
 ├── portrait.js            인물 초상화 → window.Portrait
+├── creature.js            크리처 SVG (부품 조합) → window.Creature
 ├── village.js             마을 지도·건물 안 → window.Village
 ├── i18n.js                한국어/영어 → window.I18N
 ├── sfx.js                 WebAudio 효과음(에셋 없음) → window.Sfx
@@ -30,7 +31,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── UI_POLICY.md           컴포넌트 정책 (탭·가변폭·잠금 표현 등)
 ├── STORY.md               세계관·인물·3막·키워드 시스템 (**아직 안 만든 것**)
 ├── EXERCISE.md            운동·포만감·스태미나 시스템 (수치를 바꾸기 전에 읽을 것)
-├── CREATURE.md            크리처 — 애착·동행·속성·먹이·생산 (**초안. 코드 없음**)
+├── CREATURE.md            크리처 — 1단계는 만들었고 나머지는 기획 (동행·날씨·먹이·생산)
 ├── tools/hooks/           git 훅 — 세션마다 `git config core.hooksPath tools/hooks`
 └── server/
     ├── index.js           API + 게임 정적 서빙
@@ -224,7 +225,16 @@ sed -i 's/v=20260813a/v=20260813b/g' index.html
 
 ```bash
 npm run gen:wardrobe    # 축 표(tools/genwardrobe.js) → data.js · i18n.js 를 다시 쓴다
+npm run gen:creature    # 크리처 30종도 같은 방식이다 (tools/gencreature.js)
 ```
+
+**크리처 서른 종도 축 표에서 나온다.** 속성 여섯 × 다섯 마리이고, 레시피 조합·수치·
+그림 부품·영어 이름이 한 줄에서 같이 나온다. 여기서도 **옛 id 셋**(`butterfly` ·
+`frog` · `unicorn`)은 절대 새로 뽑지 않는다 — 세이브에 들어 있다.
+
+**`npm test` 가 `tools/checkdata.js` 를 돌린다.** 레시피 **중복 조합**(`RECIPE_MAP` 이
+조용히 덮어써서 레시피 하나가 소리 없이 사라지던 자리) · 중복 결과물 · 없는 재료 참조 ·
+id 중복을 본다.
 
 축 표가 유일한 원본이라 중복 id·중복 조합이 애초에 생기지 않고, **한국어와 영어 이름이
 같은 표에서 같이 나온다** — 한쪽만 늘어나는 일이 없다. `npm test` 가 맨 먼저
@@ -430,15 +440,15 @@ TUT=1 node tools/checkui.js            # 튜토리얼 화면의 대비·레이�
   (`EXERCISE.md` 7-3), 판정 기준은 **혼자 먹었느냐**다. 그가 들어오면
   `checkBinge()` 에 「부엌에 갔었나」 갈래가 붙고, 갔던 밤은 **함께한 식사**가 된다 —
   포만감은 차고 깎이는 것은 없다. 그리고 **폭식해도 그의 호감도는 안 깎는다** (STORY.md)
-- **크리처는 방에 놓아 두는 장식뿐이다.** 만들면 매력 총합만 오르는데,
-  **가진 전부가 중복까지 다 더해진다**(`totalCharm()`) — 무한 누적이다.
-  이걸 없애고 애착·동행·속성·먹이·생산까지 붙이는 기획이 `CREATURE.md` 에 있다
-  (**초안이고 코드는 없다**). 거기에 확인해 둔 것 셋:
-  · **매력 누적을 없애면 세이브가 깨진다.** `isMapOpen` 이 `totalCharm()` 을 보므로
-    열려 있던 맵이 다시 잠긴다 — 잃는 만큼을 `stats.charm` 으로 옮겨 적는 마이그레이션이 필요하다
-  · **레시피 중복 조합 검사가 없다.** `RECIPE_MAP` 이 조용히 덮어쓴다 — 크리처를 늘리기 전에 만든다
+- **크리처는 아직 「방에 두는 한 마리」까지만 됐다.** 서른 종을 만들고(`tools/gencreature.js`)
+  이모지 대신 SVG 로 그리고(`creature.js`), 매력 무한 누적을 없애 **장착한 한 마리만**
+  반영되게 했다 (세이브 12). **속성은 데이터에만 있고 화면·확률에는 아직 안 쓰인다.**
+  동행·날씨·시간·먹이·로열티·생산·전투는 `CREATURE.md` 에 기획만 있다.
+  · **해금은 `charmPeak()`(여태 닿은 최고 매력)으로 판정한다.** 애착을 약한 것으로 바꾸면
+    총합이 내려가는데, `isMapOpen` 이 총합을 그대로 보면 열려 있던 맵이 다시 잠긴다.
+    **한 번 연 것은 무슨 이유로도 닫히지 않는다**
   · **날씨 같은 것을 `Math.random()` 으로 정하면 안 된다.** `render()` 마다 바뀐다 —
-    리그 NPC 처럼 시간으로 시드를 고정한다
+    리그 NPC 처럼 시간으로 시드를 고정한다 (`CREATURE.md` 3장)
 - 아우라 중 **우아함**은 아직 효과가 붙어 있지 않다.
   **개성**(옷 획득 확률)과 **행운**도 수치만 오르고 아직 연결되지 않았다.
   **근성**은 운동이 붙었다 — 고강도 종목을 열고 근육량을 올린다 (`EXERCISE.md`)
