@@ -23,6 +23,7 @@
 ```bash
 git config user.email                                              # 이 저장소만 따로 잡혀 있다
 curl -s https://alchemist-production-7583.up.railway.app/api/health # store 가 memory 면 문제다
+# ver 도 같이 본다 — index.html 의 캐시 버스터다. 손댄 판과 다르면 **배포가 안 된 것**이다
 npm install && npm test
 ```
 

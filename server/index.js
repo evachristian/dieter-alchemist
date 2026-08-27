@@ -9,6 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const { createStore } = require('./store');
 
 const app = express();
@@ -71,11 +72,33 @@ app.use('/api/', (req, res, next) => {
 });
 
 // ─── 상태 확인 ───
-app.get('/api/health', async (req, res) => {
+// 지금 **어떤 판이 떠 있는지**를 같이 알려 준다.
+//
+// 「고쳤다」와 「안 고쳐졌다」가 엇갈릴 때 제일 먼저 갈라야 하는 것이 이것이다 —
+// 코드가 틀린 것인가, 배포가 안 된 것인가. 눈으로는 절대 구분이 안 된다.
+// (실제로 목 길이를 고치고도 화면이 그대로라 한참 코드만 다시 봤다)
+//
+//   ver    index.html 의 캐시 버스터 (?v=…). 브라우저가 받아 가는 파일 판을 정한다
+//   commit 배포된 커밋 (Railway 가 넣어 주는 값. 로컬에서는 없다)
+let CACHE_VER = null;
+function cacheVer() {
+  if (CACHE_VER !== null) return CACHE_VER;
   try {
-    res.json({ ok: true, store: store.kind, saves: await store.count() });
+    const html = fs.readFileSync(path.join(GAME_DIR, 'index.html'), 'utf8');
+    const m = html.match(/\?v=([0-9a-z]+)/);
+    CACHE_VER = m ? m[1] : '';
+  } catch (e) { CACHE_VER = ''; }
+  return CACHE_VER;
+}
+app.get('/api/health', async (req, res) => {
+  const build = {
+    ver: cacheVer(),
+    commit: (process.env.RAILWAY_GIT_COMMIT_SHA || '').slice(0, 7) || null,
+  };
+  try {
+    res.json({ ok: true, store: store.kind, saves: await store.count(), ...build });
   } catch (e) {
-    res.status(500).json({ ok: false, store: store.kind, error: String(e.message || e) });
+    res.status(500).json({ ok: false, store: store.kind, error: String(e.message || e), ...build });
   }
 });
 

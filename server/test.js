@@ -39,6 +39,9 @@ async function run(label, env) {
   // 1) 상태 확인
   let r = await J('GET', '/api/health');
   ok(r.status === 200 && r.body.ok === true, `health: ${JSON.stringify(r.body)}`);
+  // **떠 있는 판을 알려 주는가.** 「고쳤다 / 안 고쳐졌다」가 엇갈릴 때
+  // 코드가 틀린 것인지 배포가 안 된 것인지를 갈라 주는 유일한 단서다
+  ok(/^\d{8}[a-z]$/.test(r.body.ver || ''), `캐시 버스터를 알려 준다 (ver=${r.body.ver})`);
 
   // 2) 없는 세이브는 404
   r = await J('GET', `/api/save/${ID}?secret=${SEC}`);
