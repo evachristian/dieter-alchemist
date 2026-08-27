@@ -601,6 +601,73 @@ function palBonusRate(mapId) {
     + (m.daypart ? PAL.daypart  : 0));
 }
 
+// ─── 채집 결과의 「단서」 (CREATURE.md 6장) ───────────────────
+//
+// 「🌿 이끼」 한 줄 옆에 **왜 그게 나왔는지**를 붙인다. 조건을 맞춘 보람이 화면에
+// 안 보이면 동행 시스템은 숫자놀음으로만 남는다.
+//
+// **문장을 다 쓸 수는 없다.** 맵 51 × 날씨 6 × 시간 4 × 속성 6 = 7천 가지가 넘고
+// 그것도 두 언어다. 그래서 **조각을 조립한다**: {왜} + {결과}.
+// 조각이 셋씩·넷씩이라 문장 수가 곱으로 는다.
+//
+// ⚠️ **맵 조각은 안 만들었다.** 51곳의 산문을 두 언어로 쓰면 백 번 읽는 한 줄치고
+// 손이 너무 많이 간다 — 게다가 맵 이름은 방금 누른 카드에 이미 적혀 있다.
+// 지금은 날씨·시간대·속성만 말한다.
+//
+// ⚠️ **매번 띄우지 않는다.** 꾹 누르기 자동 채집이 있어서 매번 두 줄이 되면 잔소리가 된다.
+// 덤·히든이 나온 순간에만 반드시 띄우고(그때가 「왜?」가 생기는 순간이다),
+// 평범하게 하나 주웠을 때는 **조건이 하나도 안 맞았을 때만 가끔** 권유한다.
+const CLUE = { miss: 0.14 };
+// 조각 — 실제 문장은 i18n 에 있다. 여기는 **어느 조각을 쓰는지**만 안다
+const CLUE_WHY = {
+  attr: ['clue_attr_1', 'clue_attr_2', 'clue_attr_3'],
+  we:   ['clue_we_1', 'clue_we_2', 'clue_we_3'],
+  dp:   ['clue_dp_1', 'clue_dp_2', 'clue_dp_3'],
+};
+const CLUE_GOT   = ['clue_got_1', 'clue_got_2', 'clue_got_3'];
+const CLUE_RARE  = ['clue_rare_1', 'clue_rare_2', 'clue_rare_3'];
+const CLUE_LUCK  = ['clue_luck_1', 'clue_luck_2', 'clue_luck_3'];
+const CLUE_MISS  = ['clue_miss_1', 'clue_miss_2', 'clue_miss_3'];
+const CLUE_ALONE = ['clue_alone_1', 'clue_alone_2', 'clue_alone_3'];
+function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// 조사는 **조각마다 다른 것이 필요하다**(이/가 · 은/는 · 을/를). 조각 하나하나에서
+// 고르게 하면 빠뜨리는 데가 생기므로 **세 벌을 미리 다 만들어 넘긴다** —
+// 안 쓰는 것은 그냥 안 쓰인다. 영어 조각은 이것들을 아예 안 본다
+function clueVars(pal) {
+  const nm = pal ? N(pal.id, pal.name) : '';
+  return { pal: nm, josaIga: josa(nm, '이가'), josaEun: josa(nm, '은는'), josaEul: josa(nm, '을를') };
+}
+
+// kind: 'pal'(덤) · 'rare'(히든) · 'plain'(평범하게 하나)
+// 붙일 말이 없으면 빈 문자열을 돌려준다 — 부르는 쪽이 그때는 예전 토스트를 쓴다
+function gatherClue(mapId, kind) {
+  const pal = fieldPet();
+  const at = D.creatureAttr(D.mapAttr(mapId));
+  const attrName = at ? N(at.id, at.name) : '';
+  // 동행이 아예 없을 때 — **여기가 이 시스템에서 제일 값진 한 줄이다.**
+  // 「다음엔 누구를 데려와 봐」가 다음 채집의 이유를 만든다
+  if (!pal) {
+    if (kind !== 'plain' || Math.random() >= CLUE.miss) return '';
+    return T(pickOne(CLUE_ALONE));
+  }
+  const v = clueVars(pal);
+  const m = palMatch(mapId);
+  const hit = [];
+  if (m.attr)    hit.push(['attr', { attr: attrName }]);
+  if (m.weather) hit.push(['we', { we: N(m.we.id, m.we.name) }]);
+  if (m.daypart) hit.push(['dp', { dp: N(m.dp.id, m.dp.name) }]);
+  if (kind === 'plain') {
+    if (hit.length || !attrName || Math.random() >= CLUE.miss) return '';
+    return T(pickOne(CLUE_MISS), Object.assign({ attr: attrName }, v));
+  }
+  const tail = T(pickOne(kind === 'rare' ? CLUE_RARE : CLUE_GOT), v);
+  // 맞은 것이 여럿이면 그중 하나만 말한다. 셋을 다 늘어놓으면 토스트가 다섯 줄이 된다
+  if (!hit.length) return T(pickOne(CLUE_LUCK), v) + ' ' + tail;
+  const one = pickOne(hit);
+  return T(pickOne(CLUE_WHY[one[0]]), Object.assign({}, v, one[1])) + ' ' + tail;
+}
+
 // ─── 히든 재료 ───────────────────────────────────────────────
 // 맵마다 기본 확률이 다르고(D.specialTier), 조건이 맞으면 **곱해서** 오른다.
 // 동행이 없으면 배율이 없다 — 맵의 기본 확률 그대로다.
@@ -1227,24 +1294,35 @@ function gather(mapId) {
   const at = `.spot-card[data-spot="${mapId}"] .btn-gather`;
   if (bonusId) {
     // 덤이 나오면 **한 줄로 합쳐서** 알린다 — 토스트를 두 번 띄우면 앞것이 잘린다.
-    // 그리고 **누가 찾아 줬는지**를 적는다. 안 적으면 「원래 두 개 나오나?」로 읽혀
-    // 동행의 효과가 화면에서 사라진다
+    // 둘째 줄은 단서가 **대신** 맡는다. 「하나 더 찾았어요」를 따로 두면 단서까지
+    // 세 줄이 되는데, 단서가 이미 누가 왜 찾았는지를 말하고 있다
     const bi = D.INGREDIENTS[bonusId];
     toast(T('got_item_pal', {
       emoji: ing.emoji, name: N(ing.id, ing.name),
       emoji2: bi.emoji, name2: N(bi.id, bi.name),
-      pal: N(pal.id, pal.name), josa: josa(N(pal.id, pal.name), '이가'),
-    }), at, 3000, 'above');
+      clue: gatherClue(mapId, 'pal'),
+    }), at, 3400, 'above');
     if (window.Sfx) Sfx.play('success');
   } else if (isSpecial) {
-    toast(T('got_special', { emoji: ing.emoji, name: N(ing.id, ing.name) }), at, 3200, 'above');
+    const clue = gatherClue(mapId, 'rare');
+    const nm = N(ing.id, ing.name);
+    toast(clue
+      ? T('got_special_clue', { emoji: ing.emoji, name: nm, clue })
+      : T('got_special', { emoji: ing.emoji, name: nm, josa: josa(nm, '을를') }),
+      at, 3400, 'above');
     if (window.Sfx) Sfx.play('success');
   } else if (food) {
     // 둘이 같이 나오면 **한 줄로 합쳐서** 알린다 — 토스트를 두 번 띄우면 앞것이 잘린다
     toast(T('got_item_food', { emoji: ing.emoji, name: N(ing.id, ing.name),
       femoji: food.emoji, fname: N(food.id, food.name) }), at, 2600, 'above');
   } else {
-    toast(T('got_item', { emoji: ing.emoji, name: N(ing.id, ing.name) }), at, null, 'above');
+    // 평범하게 하나 주웠을 때는 단서가 **대개 빈 문자열**이다 (CLUE.miss 확률로만 뜬다)
+    const clue = gatherClue(mapId, 'plain');
+    const nm = N(ing.id, ing.name);
+    toast(clue
+      ? T('got_item_clue', { emoji: ing.emoji, name: nm, clue })
+      : T('got_item', { emoji: ing.emoji, name: nm }),
+      at, clue ? 3000 : null, 'above');
   }
   // 채집 애니메이션
   const card = document.querySelector(`.spot-card[data-spot="${mapId}"]`);

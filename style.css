@@ -1710,8 +1710,10 @@ body {
 /* 아이콘 옆에 붙는 토스트 (좌표는 JS가 지정) */
 .toast.anchored { bottom: auto; left: 0; transform: translateY(-6px); transform-origin: top center; }
 .toast.anchored.show { transform: translateY(0); }
-/* 여러 줄 토스트 (이름 규칙 안내 등) */
-.toast.multi { white-space: pre-line; border-radius: 14px; text-align: center; line-height: 1.5; max-width: 280px; word-break: keep-all; }
+/* 여러 줄 토스트 (이름 규칙 안내 · 채집 단서 등)
+   280px 로는 채집 단서 한 문장이 **다섯 줄**이 됐다 — 한국어는 `keep-all` 이라
+   낱말 단위로만 꺾여서 좁으면 금세 세로로 길어진다. 좁은 화면에서는 88vw 가 받는다 */
+.toast.multi { white-space: pre-line; border-radius: 14px; text-align: center; line-height: 1.5; max-width: min(340px, 88vw); word-break: keep-all; }
 .toast.multi.anchored { text-align: left; }
 
 /* ─── 아주 좁은 화면 (UI_POLICY.md '가변 폭' 4단계) ───

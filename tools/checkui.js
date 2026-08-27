@@ -216,6 +216,53 @@ function launchOpts() {
           await page.waitForTimeout(250);
           await run(`${t}/${sub}`);
         }
+        // **채집 단서 토스트**도 평소에는 안 보인다 (opacity 0 · 화면 밖).
+        // 흰 글자를 진한 바탕에 얹는 몇 안 되는 자리이고, **여러 줄로 꺾이는 유일한 토스트**다 —
+        // 280px 로 두었을 때 한 문장이 다섯 줄이 됐던 자리라 폭을 실제로 재야 한다
+        {
+          const bad = await page.evaluate(() => {
+            setGatherTab('field');
+            const cr = (S.creatures || [])[0];
+            if (!cr) return '가진 크리처가 없다';
+            S.petField = cr;
+            // 조각 중 **제일 긴 것**을 골라 띄운다. 짧은 것이 걸리면 안 재고 지나간다
+            let longest = '';
+            for (let i = 0; i < 4000; i++) {
+              for (const k of ['pal', 'rare']) {
+                const s = gatherClue('p_hill', k);
+                if (s && s.length > longest.length) longest = s;
+              }
+            }
+            if (!longest) return '단서가 한 번도 안 나왔다';
+            const ing = D.INGREDIENTS[D.MAPS[0].pool[0]], bi = D.INGREDIENTS[D.MAPS[0].pool[1]];
+            toast(T('got_item_pal', { emoji: ing.emoji, name: N(ing.id, ing.name),
+              emoji2: bi.emoji, name2: N(bi.id, bi.name), clue: longest }),
+              `.spot-card[data-spot="p_hill"] .btn-gather`, 60000, 'above');
+            return document.getElementById('toast').classList.contains('show') ? null : '토스트가 안 떴다';
+          });
+          if (bad) results.push({ 화면: `${t}/채집단서`, 오류: bad });
+          else { await page.waitForTimeout(300); await run(`${t}/채집단서`); }
+          // 토스트가 화면 밖으로 나가면 무엇이 나왔는지 아예 못 본다.
+          // **줄 수도 같이 잰다** — 넓은 창에서는 아무리 세로로 길어져도 안 넘쳐서
+          // 「화면 밖인가」만 보면 통과한다. 폭을 90px 로 줄여도 잡히지 않았다.
+          // 다섯 줄짜리 토스트가 원래 사고였으니 거기서 끊는다
+          const bad2 = await page.evaluate(() => {
+            const el = document.getElementById('toast');
+            const r = el.getBoundingClientRect();
+            const W = document.documentElement.clientWidth, H = window.innerHeight;
+            if (r.left < -0.5 || r.right > W + 0.5) return `가로로 넘쳤다 (${Math.round(r.left)}..${Math.round(r.right)} / ${W})`;
+            if (r.top < -0.5 || r.bottom > H + 0.5) return `세로로 넘쳤다 (${Math.round(r.top)}..${Math.round(r.bottom)} / ${H})`;
+            const cs = getComputedStyle(el);
+            const lh = parseFloat(cs.lineHeight);
+            const inner = r.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+            const lines = Math.round(inner / lh);
+            if (lines > 5) return `${lines}줄이다 (다섯 줄까지)`;
+            return null;
+          });
+          if (bad2) results.push({ 화면: `${t}/채집단서`, 오류: bad2 });
+          await page.evaluate(() => { document.getElementById('toast').classList.remove('show', 'multi', 'anchored'); S.petField = null; });
+          await page.waitForTimeout(150);
+        }
         // **동행 고르기 시트는 눌러야만 뜬다.** 안 열면 통째로 검사에서 빠지는데,
         // 크리처 그림 · 이름 · 속성 딱지가 한 줄에 같이 들어가는 자리라 폭이 제일 빡빡하다.
         // 한 줄 자체도 **동행이 있을 때와 없을 때 모양이 다르다** (없을 때는 흐린 글자
