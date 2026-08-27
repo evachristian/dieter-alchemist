@@ -1,0 +1,22 @@
+#!/bin/sh
+# 커밋할 때마다 **세션 작업 브랜치를 main 과 같은 자리로** 옮긴다.
+#
+# 왜: 이 저장소에서는 main 에서 작업하고 `git push origin main:<브랜치>` 로 올린다.
+# 그러면 원격 브랜치는 늘 맞는데 **로컬 브랜치 참조만 뒤처진다** — 「머지해줘」 할 때마다
+# 안 맞아 보이는 자리가 그것이다.
+#
+# 안전장치 둘:
+#   · main 위에서 커밋할 때만 움직인다
+#   · 그 브랜치에만 있는 커밋이 하나라도 있으면 **건드리지 않는다** (덮어쓰지 않는다)
+BR=claude/handoff-claude-review-95n0tm
+
+[ "$(git symbolic-ref --quiet --short HEAD)" = "main" ] || exit 0
+git show-ref --verify --quiet "refs/heads/$BR" || exit 0
+
+ahead=$(git rev-list --count "HEAD..refs/heads/$BR" 2>/dev/null || echo 0)
+[ "$ahead" = "0" ] || {
+  echo "post-commit: $BR 에만 있는 커밋 $ahead 개 — 그대로 둔다" >&2
+  exit 0
+}
+
+git branch -f "$BR" HEAD 2>/dev/null

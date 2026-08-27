@@ -31,6 +31,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── STORY.md               세계관·인물·3막·키워드 시스템 (**아직 안 만든 것**)
 ├── EXERCISE.md            운동·포만감·스태미나 시스템 (수치를 바꾸기 전에 읽을 것)
 ├── CREATURE.md            크리처 — 애착·동행·속성·먹이·생산 (**초안. 코드 없음**)
+├── tools/hooks/           git 훅 — 세션마다 `git config core.hooksPath tools/hooks`
 └── server/
     ├── index.js           API + 게임 정적 서빙
     ├── store.js           Postgres / 파일 / 메모리 3단 폴백
@@ -52,6 +53,25 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 
 커밋 작성자는 **이 저장소에만** 따로 잡아 두었다 (`git config user.name/email`, `--global` 아님).
 전역 설정과 다르니 `git config user.email` 로 확인하고 커밋할 것.
+
+### 세션을 시작하면 훅부터 건다
+
+```bash
+git config core.hooksPath tools/hooks
+```
+
+**한 줄이지만 안 하면 조용히 어긋난다.** `.git/hooks` 는 저장소에 안 들어가서
+새 세션마다 비어 있다 — 그래서 훅을 `tools/hooks/` 에 두고 이 설정으로 가리킨다.
+
+지금 걸리는 것은 `post-commit` 하나다: **커밋할 때마다 세션 작업 브랜치를
+`main` 과 같은 자리로 옮긴다.**
+
+이 저장소에서는 `main` 에서 작업하고 `git push origin main:<브랜치>` 로 올린다.
+그러면 원격 브랜치는 늘 맞는데 **로컬 브랜치 참조만 뒤처진다** —
+「머지해줘」 할 때마다 안 맞아 보이던 자리가 그것이다 (실제로 두 번 겪었다).
+
+훅은 **`main` 위에서 커밋할 때만** 움직이고, 그 브랜치에만 있는 커밋이 하나라도 있으면
+건드리지 않는다. 밀어내지 않고 알리기만 한다.
 
 ---
 
