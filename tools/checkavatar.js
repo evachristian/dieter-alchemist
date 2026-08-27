@@ -240,8 +240,23 @@ function launchOpts() {
   // 실제로 사이드뱅이 y=42 까지밖에 안 올라와 y35~41 이 살색이었고, 커튼뱅은
   // 가르마가 y=40 에서 열려 정수리가 갈라져 보였다. 둘 다 눈으로는 잘 안 띄었다.
   // ('이마 노출' 은 이마를 드러내는 것이 목적이지만, 그것도 정수리는 덮는다)
+  //
+  // ⚠️ **창을 고정 y 로 박아 두면 안 된다.** 머리는 체형·목 길이에 따라 위아래로 움직인다
+  // (NECK_LIFT 를 넣자 6px 올라가면서, y34~42 창이 정수리를 지나쳐 이마에 걸렸다 —
+  //  멀쩡한 앞머리 셋이 전부 '정수리에 살색' 으로 잡혔다). **그린 머리의 실제 위치에서 잡는다.**
   const hair = await page.evaluate(() => {
-    const D = window.GameData, SKIN = [255, 224, 207], CROWN_TOP = 34, CROWN_BOT = 42;
+    const D = window.GameData, SKIN = [255, 224, 207];
+    // 지금 아바타에서 얼굴 타원의 꼭대기가 실제로 몇 y 인지 재고, 거기서 창을 잡는다
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:-9999px;top:0;width:200px';
+    document.body.appendChild(probe);
+    probe.innerHTML = Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT), 0);
+    const psvg = probe.querySelector('svg'), pr = psvg.getBoundingClientRect();
+    const pk = 200 / pr.width;
+    const hr = probe.querySelector('[data-part="head"]').getBoundingClientRect();
+    const faceTop = (hr.top - pr.top) * pk;
+    probe.remove();
+    const CROWN_TOP = Math.round(faceTop - 1), CROWN_BOT = CROWN_TOP + 8;
     const near = (r, g, b) => Math.abs(r - SKIN[0]) < 14 && Math.abs(g - SKIN[1]) < 14 && Math.abs(b - SKIN[2]) < 14;
     const cv = document.createElement('canvas'); cv.width = 200; cv.height = 348;
     const ctx = cv.getContext('2d');
@@ -391,6 +406,55 @@ function launchOpts() {
     return { bad, n };
   });
 
+  // ─── 목이 남아 있는가 (체형 5단계) ──────────────────────────
+  //
+  // 머리와 몸통은 **축이 다른 변환**을 탄다 — 머리는 NECK_Y(112)를, 몸은 바닥(342)을
+  // 축으로 삼는다. 그래서 체형을 움직이면 **턱과 어깨 사이가 저 혼자 벌어졌다 좁아진다.**
+  // 예전에는 날씬 쪽이 2.8px 까지 좁아져 목이 사라지고 어깨가 솟아 보였다.
+  //
+  // 눈으로는 「어? 좀 이상한데」 정도로만 보여 오래 남는다 — 그래서 숫자로 박아 둔다.
+  // **날씬할수록 목이 길어야 한다** (4등신). 통통은 짧아도 된다 (3등신이 귀엽다).
+  const neck = await page.evaluate(() => {
+    const D = window.GameData, bad = [];
+    const MIN = 5;                 // 가장 짧은 곳(통통)도 이만큼은 남아야 한다
+    const MAX = 12;                // 너무 길어도 이상하다 (기린 목). 위아래로 다 막는다
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:-9999px;top:0;width:200px';
+    document.body.appendChild(host);
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT,
+      { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none' });
+    const gaps = [];
+    for (const w of [0, 0.25, 0.5, 0.75, 1]) {
+      host.innerHTML = window.Avatar.build(outfit, w, null);
+      const svg = host.querySelector('svg');
+      const sr = svg.getBoundingClientRect();
+      if (!sr.width) { bad.push('아바타 상자가 0폭이다'); break; }
+      const k = 200 / sr.width;                       // 화면 px → viewBox 단위
+      const box = e => { const r = e.getBoundingClientRect();
+        return { t: (r.top - sr.top) * k, b: (r.bottom - sr.top) * k }; };
+      const head = host.querySelector('[data-part="head"]');
+      const torso = host.querySelector('[data-part="torso"]');
+      if (!head || !torso) { bad.push('머리/몸통 조각을 못 찾았다'); break; }
+      const gap = box(torso).t - box(head).b;         // 턱끝 ~ 몸통 윗선
+      gaps.push({ w, gap: Math.round(gap * 10) / 10 });
+      if (gap < MIN) bad.push(`체형 ${w}: 목이 ${gap.toFixed(1)}px 뿐이다 (${MIN}px 이상)`);
+      if (gap > MAX) bad.push(`체형 ${w}: 목이 ${gap.toFixed(1)}px 로 너무 길다 (${MAX}px 이하)`);
+      // 머리가 화면 위로 잘리면 안 된다 (목을 빼면 머리가 같이 올라간다)
+      let top = 1e9;
+      host.querySelectorAll('[data-part="hair"],[data-part="head"]')
+        .forEach(e => { top = Math.min(top, box(e).t); });
+      if (top < 0) bad.push(`체형 ${w}: 머리가 화면 위로 ${Math.round(-top)}px 잘렸다`);
+    }
+    // **날씬할수록 길어야 한다.** 뒤집히면 규칙이 반대로 걸린 것이다
+    for (let i = 1; i < gaps.length; i++) {
+      if (gaps[i].gap > gaps[i - 1].gap + 0.2) {
+        bad.push(`체형 ${gaps[i - 1].w}(${gaps[i - 1].gap}px) 보다 ${gaps[i].w}(${gaps[i].gap}px) 의 목이 길다`);
+      }
+    }
+    host.remove();
+    return { bad, gaps };
+  });
+
   // ─── 물고기가 어항 밖으로 새지 않는가 ───────────────────────
   //
   // 물고기(`move: 'water'`)는 마이 룸에서 어항에 들어가고, 그 안에서 좌우로 헤엄친다.
@@ -527,7 +591,8 @@ function launchOpts() {
     .concat(hair.bad.map(m => ({ id: '앞머리', body: '-', where: m, n: '-' })))
     .concat(face.bad.map(m => ({ id: '초상화', body: '-', where: m, n: '-' })))
     .concat(crouch.bad.map(m => ({ id: '웅크린 뒷모습', body: '-', where: m, n: '-' })))
-    .concat(bowl.bad.map(m => ({ id: '어항', body: '-', where: m, n: '-' })));
+    .concat(bowl.bad.map(m => ({ id: '어항', body: '-', where: m, n: '-' })))
+    .concat(neck.bad.map(m => ({ id: '목', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
@@ -535,6 +600,8 @@ function launchOpts() {
   console.log(`넥라인: 파낸 자리를 몸통 윗선과 견줌 (그린 path 를 isPointInFill 로 직접 잰다)`);
   console.log(`초상화: 인물 ${face.n}명 — 머리와 얼굴 사이의 틈 · 헤어라인 높이(이마 6~18px)`);
   console.log(`웅크린 뒷모습: 옷 ${crouch.n}가지 — 무릎이 입은 옷을 따라가는가`);
+  console.log(`목: 체형별 턱~어깨 ${neck.gaps.map(g => g.gap + 'px').join(' → ')}`
+    + ` (날씬할수록 길어야 한다 · 가장 짧은 곳도 5px 이상)`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
     + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
