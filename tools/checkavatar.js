@@ -59,7 +59,13 @@ function launchOpts() {
       return [Math.round(100 + (x0 - 100) * kx), Math.round(100 + (x1 - 100) * kx), my(y0), my(y1)];
     };
     const SLEEVE_H = { none: 0, cap: 20, short: 42, half: 66, long: 94 };
-    const armBottom = it => Math.min(145, 120 + (SLEEVE_H[it.sleeve] == null ? 42 : SLEEVE_H[it.sleeve]) - 4);
+    // 아래끝을 소매 끝보다 **6px 위**에서 끊는다. 소매 밑단은 둥글어서 **바깥쪽이
+    // 안쪽보다 높이 끝나는데**, 그 아래로 나오는 팔은 소매가 짧아서 나오는 것이지
+    // 옷이 몸을 못 덮은 것이 아니다.
+    // 예전에는 4 였다 — 맨팔에 두르던 테두리(ARM_EDGE)가 팔의 맨 바깥 1px 을
+    // 살색이 아닌 색으로 덮고 있어서 안 잡혔을 뿐이다. 테두리를 없애자 그 1px 이
+    // 드러났다 (dress_maxi 의 캡 소매). 창을 그만큼 물린다
+    const armBottom = it => Math.min(145, 120 + (SLEEVE_H[it.sleeve] == null ? 42 : SLEEVE_H[it.sleeve]) - 6);
     const cases = [];
     (D.WARDROBE.top || []).forEach(it => { if (it.kind !== 'none') cases.push({ slot: 'top', it }); });
     (D.WARDROBE.dress || []).forEach(it => { if (it.kind !== 'none') cases.push({ slot: 'dress', it }); });
@@ -435,6 +441,15 @@ function launchOpts() {
       const head = host.querySelector('[data-part="head"]');
       const torso = host.querySelector('[data-part="torso"]');
       if (!head || !torso) { bad.push('머리/몸통 조각을 못 찾았다'); break; }
+      // **턱과 목이 붙어 있는가.** 목은 몸통 그룹, 머리는 머리 그룹이라 변환이 다르다 —
+      // 목 윗변을 96 으로 박아 두면 머리를 올리는 순간 얼굴과 목이 벌어진다 (실제로 배포됐다)
+      const neckEl = [...host.querySelectorAll('path')]
+        .find(e => (e.getAttribute('fill') || '').startsWith('url(#neckG'));
+      if (!neckEl) bad.push(`체형 ${w}: 목 path 를 못 찾았다`);
+      else {
+        const d = box(neckEl).t - box(head).b;
+        if (d > -0.5) bad.push(`체형 ${w}: 턱과 목이 ${d.toFixed(1)}px 떨어져 있다 (겹쳐야 한다)`);
+      }
       const gap = box(torso).t - box(head).b;         // 턱끝 ~ 몸통 윗선
       gaps.push({ w, gap: Math.round(gap * 10) / 10 });
       if (gap < MIN) bad.push(`체형 ${w}: 목이 ${gap.toFixed(1)}px 뿐이다 (${MIN}px 이상)`);
@@ -453,6 +468,48 @@ function launchOpts() {
     }
     host.remove();
     return { bad, gaps };
+  });
+
+  // ─── 몸통과 팔 사이로 배경이 비치지 않는가 ───────────────────
+  //
+  // 몸통 옆선은 어깨에서 허리로 **좁아지고**, 팔은 armRot 만큼 바깥으로 **기울어** 내려간다.
+  // 둘이 반대로 가서 y 170 언저리에 **1px 짜리 실틈**이 생겼다 — 같은 살색이라 색은
+  // 안 튀는데 배경이 실처럼 비쳐 「팔이 몸에서 떨어져 있다」로 읽힌다. 눈으로는
+  // 「선이 하나 있나?」 정도로만 보여서 오래 남는다.
+  //
+  // 체형을 21단계로 훑는다 — 5단계만 보면 그 사이에서 벌어지는 것을 놓친다
+  // (실제로 0.25 와 0.2 에서만 벌어진 적이 있다).
+  const seam = await page.evaluate(async () => {
+    const D = window.GameData, bad = [];
+    const cv = document.createElement('canvas'); cv.width = 200; cv.height = 348;
+    const ctx = cv.getContext('2d');
+    const draw = (svg) => new Promise(r => {
+      const i = new Image();
+      i.onload = () => { ctx.clearRect(0, 0, 200, 348); ctx.drawImage(i, 0, 0, 200, 348); r(); };
+      i.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+    const nude = Object.assign({}, D.DEFAULT_OUTFIT,
+      { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none' });
+    const STEPS = 21;
+    for (let i = 0; i < STEPS; i++) {
+      const w = i / (STEPS - 1);
+      await draw(window.Avatar.build(nude, w, null));
+      const d = ctx.getImageData(0, 0, 200, 348).data;
+      // 어깨가 다 벌어지는 높이부터 아래로 — 그 위는 목 옆이라 원래 배경이다
+      const ky = 1 + (84 - 84 * (0.979 + (1.314 - 0.979) * w)) / 229;
+      const from = Math.round(342 + (133 - 342) * ky);
+      let n = 0;
+      for (let y = from; y < from + 50; y++) {
+        let seen = false, gs = -1;
+        for (let x = 100; x < 190; x++) {          // 오른쪽 반만 봐도 좌우 대칭이다
+          const a = d[(y * 200 + x) * 4 + 3];
+          if (a > 200) { if (gs >= 0) { n++; gs = -1; } seen = true; }
+          else if (seen && gs < 0) gs = x;
+        }
+      }
+      if (n) bad.push(`체형 ${w.toFixed(2)}: 몸통과 팔 사이에 배경이 ${n}줄 비친다`);
+    }
+    return { bad, steps: STEPS };
   });
 
   // ─── 물고기가 어항 밖으로 새지 않는가 ───────────────────────
@@ -592,7 +649,8 @@ function launchOpts() {
     .concat(face.bad.map(m => ({ id: '초상화', body: '-', where: m, n: '-' })))
     .concat(crouch.bad.map(m => ({ id: '웅크린 뒷모습', body: '-', where: m, n: '-' })))
     .concat(bowl.bad.map(m => ({ id: '어항', body: '-', where: m, n: '-' })))
-    .concat(neck.bad.map(m => ({ id: '목', body: '-', where: m, n: '-' })));
+    .concat(neck.bad.map(m => ({ id: '목', body: '-', where: m, n: '-' })))
+    .concat(seam.bad.map(m => ({ id: '몸통↔팔', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
@@ -602,6 +660,7 @@ function launchOpts() {
   console.log(`웅크린 뒷모습: 옷 ${crouch.n}가지 — 무릎이 입은 옷을 따라가는가`);
   console.log(`목: 체형별 턱~어깨 ${neck.gaps.map(g => g.gap + 'px').join(' → ')}`
     + ` (날씬할수록 길어야 한다 · 가장 짧은 곳도 5px 이상)`);
+  console.log(`몸통↔팔: 체형 ${seam.steps}단계 — 옆구리에 배경이 실처럼 비치지 않는가`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
     + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }

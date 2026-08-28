@@ -80,8 +80,12 @@
     // **팔을 옮기면 소매도 같이 따라온다** — armShape() 이 이 값만 본다.
     // 몸통 쪽으로 조금 붙이고(52→55) 벌어짐을 줄였다(7°→4°). 예전에는 날씬할 때
     // 몸통은 허리로 좁아지는데 팔은 바깥으로 벌어져, 팔이 몸에서 떨어져 보였다.
-    armX_L: 55, armX_R: 130, armY: 120, armH: 94, armW: 15,
-    armRot: 4, armPivotL: 62, armPivotR: 138, armPivotY: 130,
+    // 팔은 **몸통에 2px 물려 둔다.** 몸통 옆선은 어깨(133)에서 허리(184)로 좁아지는데
+    // 팔은 armRot 만큼 바깥으로 기울어 내려간다 — 둘이 반대로 가서 y 170 언저리에서
+    // **1px 짜리 틈**이 생겼다. 같은 살색이라 색은 안 튀는데 배경이 실처럼 비쳐
+    // 「팔이 몸에서 떨어져 있다」로 읽혔다. 회전축(armPivot)도 같이 옮겨야 기울기가 그대로다.
+    armX_L: 59, armX_R: 126, armY: 120, armH: 94, armW: 15,
+    armRot: 4, armPivotL: 66, armPivotR: 134, armPivotY: 130,
     // 팔꿈치 — 팔은 윗팔/아랫팔 두 마디다. 아랫팔이 몸 쪽으로 살짝 굽는다.
     //   elbowT   팔 길이에서 팔꿈치가 있는 비율 (해부학적으로 윗팔이 조금 길다)
     //   elbowRot 아랫팔이 안쪽으로 굽는 각도. **9° 를 크게 넘기지 말 것** —
@@ -101,7 +105,13 @@
   // 맨팔에만 주는 옅은 테두리. 팔과 몸통이 같은 살색이라, 통통해져 몸통이 넓어지면
   // 팔이 몸통에 묻혀 실루엣이 사라졌다. 얇은 선 하나로 겹쳐도 팔이 읽힌다.
   // (소매를 입으면 옷 색이 대비를 만들어 주므로 옷에는 넣지 않는다)
-  const ARM_EDGE = ` stroke="${SKIN_SH}" stroke-width="1.6"`;
+  // 맨팔에는 **테두리를 두르지 않는다.**
+  //
+  // 예전에는 살색 그림자선(SKIN_SH)을 팔 둘레에 둘렀는데, 그 선이 어깨에서도 이어져
+  // **팔이 몸에서 떨어져 붙인 것처럼** 보였다. 어깨 실루엣에는 테두리가 없으므로
+  // 없는 쪽으로 맞춘 것이다 — 같은 살색끼리는 선 없이 그냥 이어지는 편이 몸으로 읽힌다.
+  // (선을 지우면 팔꿈치 이음매를 덮던 덧칠도 필요 없어진다 — armShape 참고)
+  const ARM_EDGE = '';
 
   // ─── 등신 비율 기준값 ───
   // 머리(머리카락 끝 ~ 턱) 높이와 몸(어깨 ~ 발) 길이. 이 둘의 비가 등신을 만든다.
@@ -227,7 +237,10 @@
           tr: `${baseRot} rotate(${bend} ${+cx.toFixed(2)} ${+elbowY.toFixed(2)})` },
       ], '');
     }
-    return wrapX(out, tuneOf(tune, 'arm'), cx);
+    // 굵기 배율의 축은 **몸 쪽 가장자리**다. 팔 한가운데를 축으로 하면 가늘게 만들 때
+    // 안쪽 변이 바깥으로 밀려 **몸통에서 떨어진다** (팔 배율 0.5 에서 실제로 벌어졌다).
+    // 안쪽 변을 축으로 두면 굵어지든 가늘어지든 어깨에 붙은 채로 바깥쪽만 움직인다.
+    return wrapX(out, tuneOf(tune, 'arm'), left ? x0 + w : x0);
   }
 
   // 팔 중심선 위의 한 점 — dist 는 팔 위 끝(armY)에서 잰 거리.
@@ -353,13 +366,31 @@
   // 옷도 몸도 없는 곳이 생겨 배경이 비쳤다 (몸통 돔은 가운데만 높아서, 목 옆
   // x 109~113 은 y 110 이 되어야 비로소 몸통이 올라온다).
   // 벌어지는 곳(y 104~)은 턱보다 아래라 얼굴 밑이 넓어 보이지도 않는다.
-  function neckShape(uid) {
+  // 목 굵기는 **얼굴 반폭과 어깨 반폭의 평균**에서 나온다.
+  //
+  // 고정 폭이면 안 되는 이유: 머리는 등신 비율(headK)과 「얼굴」 배율을, 어깨는 체형과
+  // 「몸통」 배율을 탄다. 목만 고정이면 얼굴을 키웠을 때 목이 가늘어 보이고,
+  // 어깨를 넓혔을 때 목이 몸에 안 붙어 보인다 — 어느 쪽도 사람 몸으로 안 읽힌다.
+  //
+  // 두 계수는 **지금 모습(반폭 9)을 기준으로 역산한 값**이다. 기본값에서는
+  // (32.3×0.27 + 36×0.26) / 2 ≈ 9.0 이라 예전 그림과 같다.
+  const NECK_OF_FACE = 0.27, NECK_OF_SHOULDER = 0.26;
+
+  //   top   목의 윗변 y (**턱에 맞춘다** — build 가 계산해서 넘긴다)
+  //   half  목의 반폭
+  //
+  // ⚠️ 윗변을 96 으로 박아 두면 안 된다. 머리는 NECK_LIFT 만큼 위로 올라가는데
+  // 목이 그 자리에 남아 **턱과 목 사이가 벌어진다** (실제로 그렇게 배포됐다).
+  function neckShape(uid, top, half) {
+    const B = BODY;
+    const L = +(100 - half).toFixed(1), R = +(100 + half).toFixed(1);
     // 벌어지기 시작하는 곳은 **몸통 윗선(108) 바로 위**다. 그보다 위에서 벌리면
     // 안 판 옷(폴라)의 어깨선 위로 살이 1px 삐져나온다. 108 아래는 어차피 몸통도
     // 같은 살색이라 어떤 모양이든 이음매가 안 보인다 — 그래서 아래에서만 크게 벌린다
-    return `<path d="M91,96 L109,96 L109,107
-        C112,108 120,110 126,116 L74,116
-        C80,110 88,108 91,107 Z" fill="url(#neckG_${uid})"/>`;
+    const mid = B.torsoTopY - 1, bot = B.neckBottom, F = 17;
+    return `<path d="M${L},${+top.toFixed(1)} L${R},${+top.toFixed(1)} L${R},${mid}
+        C${R + 3},${mid + 1} ${R + F},${mid + 3} ${R + F},${bot} L${L - F},${bot}
+        C${L - F},${mid + 3} ${L - 3},${mid + 1} ${L},${mid} Z" fill="url(#neckG_${uid})"/>`;
   }
 
   // 몸통 윗선(오른쪽 반)의 x 에서의 y.
@@ -383,7 +414,7 @@
       </linearGradient>`;
   }
 
-  function torsoArms(tune, uid) {
+  function torsoArms(tune, uid, neck) {
     const kb = tuneOf(tune, 'torso');   // 팔 배율은 armShape 이 알아서 따른다
     const kh = tuneOf(tune, 'hip');
     const B = BODY, wh = waistHalf(tune), hh = B.hipHalf;
@@ -398,7 +429,7 @@
     const cy1 = +(133 + (B.waistY - 133) * 0.46).toFixed(1);
     const cy2 = +(133 + (B.waistY - 133) * 0.68).toFixed(1);
     return `
-      ${neckShape(uid)}
+      ${neckShape(uid, neck.top, neck.half)}
       <g data-part="hip">
         <g${sx(kh, 100)}><path d="M${wL},${B.waistY}
           C${hL},${B.waistY + 10} ${hL},${B.hipY + 2} ${tL},${B.hipBottom}
@@ -414,8 +445,8 @@
           C${mir(sc[1])[0]},${sc[1][1]} ${mir(sc[0])[0]},${sc[0][1]} 100,${B.torsoTopY} Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="arm">
-        ${armShape('L', SKIN, 0, BODY.armH, tune, { extra: ARM_EDGE })}
-        ${armShape('R', SKIN, 0, BODY.armH, tune, { extra: ARM_EDGE })}
+        ${armShape('L', SKIN, 0, BODY.armH, tune)}
+        ${armShape('R', SKIN, 0, BODY.armH, tune)}
       </g>`;
   }
 
@@ -1189,6 +1220,21 @@
     // 머리카락·귀걸이·서클렛이 전부 H() 를 지나므로 여기 한 곳이면 다 따라온다.
     const kFace = tuneOf(tune, 'face');
     const H = s => (s ? `<g transform="${headT}">${wrapU(s, kFace, 100, NECK_Y)}</g>` : s);
+
+    // ── 목 — **머리와 몸통은 변환이 서로 다르다.** 목은 몸통 그룹에 그려지므로
+    // 머리 쪽 값을 몸통 좌표계로 환산해서 넘긴다. 안 그러면 체형·배율을 움직일 때마다
+    // 턱과 목이 어긋난다 (NECK_LIFT 를 넣고 실제로 벌어졌다).
+    //
+    //   턱   머리 안에서 y=105. 머리 변환(kFace → headK, 그리고 dy-lift)을 지난 값
+    //   폭   얼굴 반폭 33 이 머리 가로 배율을 지난 값 (몸통 가로 배율로 나눠 되돌린다)
+    const kx = 1 + 0.36 * w, hx = headK * (1 + 0.06 * w) * kFace;
+    const chinY = NECK_Y + (105 - NECK_Y) * headK * kFace + (dy - lift);
+    const neck = {
+      // 몸통 좌표계로 되돌리고 2px 겹친다 — 딱 맞추면 경계에 배경이 1px 비친다
+      top: FLOOR_Y + (chinY - FLOOR_Y) / bodyKy - 2,
+      half: (33 * hx / kx * NECK_OF_FACE
+           + (BODY.torsoR - 100) * tuneOf(tune, 'torso') * NECK_OF_SHOULDER) / 2,
+    };
     // 고른 색이 있으면 아이템의 원래 색을 덮어쓴다.
     // outfit.colors = { top: '#ffffff', ... } — 없는 칸은 아이템 색 그대로.
     // **원본을 고치지 않고 사본을 만든다** — D.WARDROBE 는 모두가 공유하는 카탈로그라
@@ -1218,7 +1264,7 @@
     const layers = [
       H(hairBack(hairBackKind, hairColor)),
       B(legs(tune)),
-      B(torsoArms(tune, uid)),
+      B(torsoArms(tune, uid, neck)),
       // 상의 → 하의 순. **상의가 뒤, 하의가 앞이다** — 옷을 넣어 입은 모양이 된다.
       // (반대로 두면 상의 밑단이 치마 허리춤 위에 얹혀 빼 입은 것처럼 보인다)
       //
