@@ -587,8 +587,8 @@ function launchOpts() {
   // 안쪽(x=100)에서 바깥으로 훑으며 「여태 가장 낮았던 y」보다 다시 올라오면 그게 홈이다.
   const SHOULDER_DIP = 1;        // px. 래스터 반올림 탓에 0 은 못 잡는다
   // 어깨 마개의 **세로 / 팔 폭**. 반원이면 0.88 로 나온다(그늘이 폭에 얹혀서
-  // 이론값 0.5 보다 크게 잰다). 타원으로 늘이면 1.16 이다 — 그 사이에 금을 긋는다
-  const CAP_MIN = 1.05;
+  // 이론값 0.5 보다 크게 잰다). 타원으로 늘이면 1.07 이다 — 그 사이에 금을 긋는다
+  const CAP_MIN = 1.0;
   const shoulder = await page.evaluate(async (MAXDIP) => {
     const D = window.GameData, bad = [], beakBad = [], S = 4;
     const cv = document.createElement('canvas');
