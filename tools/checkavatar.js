@@ -586,6 +586,9 @@ function launchOpts() {
   // (머리를 남기면 어깨 위를 머리가 덮어 프로필이 머리 윤곽이 된다)
   // 안쪽(x=100)에서 바깥으로 훑으며 「여태 가장 낮았던 y」보다 다시 올라오면 그게 홈이다.
   const SHOULDER_DIP = 1;        // px. 래스터 반올림 탓에 0 은 못 잡는다
+  // 어깨 마개의 **세로 / 팔 폭**. 반원이면 0.88 로 나온다(그늘이 폭에 얹혀서
+  // 이론값 0.5 보다 크게 잰다). 타원으로 늘이면 1.16 이다 — 그 사이에 금을 긋는다
+  const CAP_MIN = 1.05;
   const shoulder = await page.evaluate(async (MAXDIP) => {
     const D = window.GameData, bad = [], beakBad = [], S = 4;
     const cv = document.createElement('canvas');
@@ -679,7 +682,30 @@ function launchOpts() {
           + ` (y≈${at}) — 목 자락이나 어깨 끝이 팔 밖으로 나온다`);
       }
     }
-    return { bad, beakBad, worst, beak: Math.max.apply(null, beaks), beakN: beaks.length };
+    // ─── 어깨 마개가 반원보다 완만한가 ─────────────────────────
+    //
+    // 팔 위 끝의 마개가 **반원**이면 폭의 절반(7.5px)만에 가로에서 세로로 돌아서,
+    // 평평한 어깨선과 거의 곧은 팔이 작은 모서리 하나로 만난다 — 어깨와 팔이
+    // **직각**으로 보이던 것이 이것이다. 세로로 늘인 타원이면 같은 폭을 더 긴 거리에
+    // 걸쳐 돌아 어깨가 둥글게 흘러내린다 (`ARM_CAP_H`).
+    // 재는 법: 팔만 그려 놓고 **맨 위에서 「제 폭이 다 나올 때까지」 몇 px 내려가는지.**
+    let capH = 0, capW = 0;
+    {
+      const d = await pixels(keepOnly(window.Avatar.build(outfit, 0, null), 'arm'));
+      const wide = y => {
+        const row = Math.round(y * S); let i = null, o2 = null;
+        for (let x = 100 * S; x <= 185 * S; x++) if (d[(row * 200 * S + x) * 4 + 3] > 128) { i = x / S; break; }
+        if (i == null) return null;
+        for (let x = 185 * S; x >= 100 * S; x--) if (d[(row * 200 * S + x) * 4 + 3] > 128) { o2 = x / S; break; }
+        return o2 - i;
+      };
+      let top = null;
+      for (let y = 100; y <= 140; y += 0.25) if (wide(y) != null) { top = y; break; }
+      for (let y = top; y <= top + 30; y += 0.25) { const v = wide(y); if (v > capW) capW = v; }
+      for (let y = top; y <= top + 30; y += 0.25) { if (wide(y) >= capW - 0.3) { capH = y - top; break; } }
+    }
+    return { bad, beakBad, worst, beak: Math.max.apply(null, beaks), beakN: beaks.length,
+             capH: +capH.toFixed(2), capW: +capW.toFixed(2) };
   }, SHOULDER_DIP);
 
   // ─── 팔꿈치 바깥에 턱이 생기지 않는가 ────────────────────────
@@ -1590,6 +1616,10 @@ function launchOpts() {
     .concat(seam.bad.map(m => ({ id: '몸통↔팔', body: '-', where: m, n: '-' })))
     .concat(shoulder.bad.map(m => ({ id: '어깨 홈', body: '-', where: m, n: '-' })))
     .concat(shoulder.beakBad.map(m => ({ id: '어깨 부리', body: '-', where: m, n: '-' })))
+    .concat(shoulder.capH >= shoulder.capW * CAP_MIN ? []
+      : [{ id: '어깨 마개', body: '-', n: '-',
+           where: `팔 위 끝에서 제 폭까지 ${shoulder.capH}px 밖에 안 된다`
+             + ` (폭 ${shoulder.capW}px 의 ${CAP_MIN}배 이상) — 반원 마개라 어깨가 팔과 직각으로 보인다` }])
     .concat(elbow.bad.map(m => ({ id: '팔꿈치 턱', body: '-', where: m, n: '-' })))
     .concat(armCover.bad.map(m => ({ id: '치마가 팔을 덮음', body: '-', where: m, n: '-' })))
     .concat(kink.bad.map(m => ({ id: '허리↔엉덩이↔허벅지', body: '-', where: m, n: '-' })))
@@ -1615,6 +1645,9 @@ function launchOpts() {
     + ` (목→팔 실루엣이 다시 솟지 않아야 한다 · ${SHOULDER_DIP}px 까지)`);
   console.log(`어깨 부리: 몸통×팔 배율 ${shoulder.beakN}조합 — 가장 튀어나온 곳 ${shoulder.beak}px`
     + ` (어깨·목이 팔 밖으로 나오면 안 된다)`);
+  console.log(`어깨 마개: 팔 위 끝에서 제 폭까지 ${shoulder.capH}px (폭 ${shoulder.capW}px)`
+    + ` — 반원이면 폭의 절반이다. 그보다 완만해야 어깨가 팔과 직각으로 안 보인다`
+    + ` — 폭의 ${(shoulder.capH/shoulder.capW).toFixed(2)}배 (${CAP_MIN}배 이상)`);
   console.log(`팔꿈치 턱: 팔 배율 ${elbow.n}가지 × 좌우 — 옆선이 가장 튄 곳 ${elbow.worst}px`
     + ` (${ELBOW_STEP}px 까지 · 두 마디가 굽힘까지 같이 이어져야 한다)`);
   console.log(`치마가 팔을 덮음: 옷 ${armCover.cases}조합 × 허리 아래 팔 ${armCover.arm}픽셀`

@@ -112,6 +112,10 @@
     // 먼저 옆으로 뻗고 그 아래에서 팔이 따로 시작해, 이음매에 계단이 졌다 —
     // 「승모근이 불쑥 튀어나온 것」처럼 보이던 것이 이것이다.
     // 위로 올려 두면 **팔의 둥근 위 끝이 곧 어깨**가 되어 목에서 팔로 한 번에 흘러내린다.
+    // ⚠️ **어깨선(108)까지 올리면 안 된다.** 몸통의 어깨 곡선은 평평해 보여도 x=133 에서
+    // 이미 113 까지 내려와 있어서, 팔 마개의 꼭대기가 108 이면 **어깨 위로 혹이 솟는다**
+    // (실제로 해 보고 되돌렸다). 부드럽게 만드는 것은 높이가 아니라 **마개의 모양**이다 —
+    // `ARM_CAP_H` 참고.
     // 손목 자리는 그대로 둔다 (armY + armH = 214 로 같다)
     armX_L: 59, armX_R: 126, armY: 112, armH: 102, armW: 15,
     armRot: 4, armPivotL: 66, armPivotR: 134, armPivotY: 130,
@@ -268,16 +272,23 @@
   }
   // 마디 하나의 테이퍼 path. **안쪽 변은 곧은 세로선**이고 바깥 변만 곡선이다.
   //   xin 안쪽 변 · sgn 바깥 방향 · d0~d1 armY 에서 잰 거리 · cap 둥근 마개
+  // ⚠️ **어깨 마개는 반원이 아니라 세로로 긴 타원이다.**
+  // 반원이면 폭의 절반(7.5px)만에 가로에서 세로로 돌아서, 평평한 어깨선과 거의 곧은
+  // 팔이 **작은 모서리 하나로** 만난다 — 어깨와 팔이 직각으로 보이던 것이 이것이다.
+  // 세로로 늘이면 같은 폭을 **더 긴 거리에 걸쳐** 돌아 어깨가 둥글게 흘러내린다.
+  // 꼭대기는 그대로 armY 라 어깨 위로 혹이 솟지도 않는다.
+  const ARM_CAP_H = 1.95;                             // 위 마개의 세로/가로 비
   function armSegPath(xin, sgn, d0, d1, k, pad, capTop, capBot) {
     const B = BODY, f = n => +n.toFixed(2);
     const h0 = armHalf(d0, k, pad), h1 = armHalf(d1, k, pad);
     const y0 = B.armY + d0, y1 = B.armY + d1;
     const out = h => f(xin + sgn * h * 2);
     const sw = sgn > 0 ? 1 : 0;                       // 마개를 도는 방향
-    const t0 = capTop ? y0 + h0 : y0, t1 = capBot ? y1 - h1 : y1;
+    const rt = h0 * ARM_CAP_H;                        // 위 마개의 세로 반지름
+    const t0 = capTop ? y0 + rt : y0, t1 = capBot ? y1 - h1 : y1;
     const m = (t1 - t0) * 0.5;                        // 제어점 높이 — 양 끝에서 접선이 세로
     let d = capTop
-      ? `M${f(xin)},${f(t0)} A${f(h0)},${f(h0)} 0 0 ${sw} ${out(h0)},${f(t0)}`
+      ? `M${f(xin)},${f(t0)} A${f(h0)},${f(rt)} 0 0 ${sw} ${out(h0)},${f(t0)}`
       : `M${f(xin)},${f(y0)} L${out(h0)},${f(y0)}`;
     d += ` C${out(h0)},${f(t0 + m)} ${out(h1)},${f(t1 - m)} ${out(h1)},${f(t1)}`;
     d += capBot ? ` A${f(h1)},${f(h1)} 0 0 ${sw} ${f(xin)},${f(t1)}`
@@ -1167,6 +1178,8 @@
   // 소매 길이 — **팔 위 끝(armY)에서 잰다.** armY 를 8 올렸으므로 여기도 8 씩 더해야
   // 소매 밑단의 **절대 높이가 그대로**다 (안 더하면 모든 소매가 8px 씩 짧아진다).
   // long 이 armH 와 같은 값인 것은 「팔 끝까지」라는 뜻이다
+  // 팔 길이(armH)에 맞춘 값이다 — **armH 를 바꾸면 여기도 같이 옮긴다.**
+  // 안 옮기면 긴팔이 손목에 못 닿아 팔뚝이 드러난다
   const SLEEVE_H = { none: 0, cap: 28, short: 50, half: 74, long: 102 };
   function sleeveH(it) {
     const v = SLEEVE_H[it && it.sleeve];
