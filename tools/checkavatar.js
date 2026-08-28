@@ -891,6 +891,65 @@ function launchOpts() {
              ankle: +r0.ankle.toFixed(1), ankleMax: +Math.max.apply(null, ankles).toFixed(1) };
   }, GAP_SPREAD_MAX);
 
+  // ─── 허벅지 윗머리가 엉덩이 밖으로 나오지 않는가 ────────────
+  //
+  // 허벅지의 맨 위(LEG.hipY=186)는 엉덩이의 봉우리(BODY.hipY=198)보다 **12px 위**다.
+  // 반폭을 허벅지와 같게 맞춰 놔도 그 높이의 옆선은 아직 허리에서 내려오는 중이라 좁아서,
+  // **허벅지의 둥근 윗머리가 엉덩이 밖으로 혹처럼 튀어나왔다** (허벅지 200% 에서 4px).
+  //
+  // 재는 법: 엉덩이(+몸통)만 그린 것과 허벅지만 그린 것을 따로 뽑아, **엉덩이가
+  // 실루엣을 맡는 구간**(허벅지 윗머리 ~ 엉덩이 봉우리)에서 오른쪽 옆선을 견준다.
+  // 그 아래(봉우리~붙는 높이)는 **일부러** 엉덩이가 허벅지 안쪽으로 물러나는 자리라 뺀다.
+  const HIP_BULGE_MAX = 0.3;           // px. 래스터 눈금이 0.25 다
+  const hipBulge = await page.evaluate(async (MAX) => {
+    const D = window.GameData, bad = [], S = 4, W = 200 * S;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    function keep(svg, sel) {
+      const wrap = document.createElement('div'); wrap.innerHTML = svg;
+      const root = wrap.firstElementChild;
+      const only = root.cloneNode(false);
+      [...root.querySelectorAll(sel)].forEach(n => only.appendChild(n.cloneNode(true)));
+      return only.outerHTML;
+    }
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      ctx.clearRect(0, 0, W, 348 * S); ctx.drawImage(img, 0, 0, W, 348 * S);
+      return ctx.getImageData(0, 0, W, 348 * S).data;
+    }
+    const edge = (d, y) => {
+      for (let x = 199 * S; x >= 100 * S; x--)
+        if (d[(Math.round(y * S) * W + x) * 4 + 3] > 128) return x / S;
+      return null;
+    };
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
+    let worst = 0, at = '', n = 0;
+    for (const kt of [0.5, 1, 1.5, 2]) for (const kh of [0.5, 1, 1.5, 2]) for (const kw of [0.5, 1, 2]) {
+      const t = { thigh: kt, hip: kh, waist: kw };
+      const svg = window.Avatar.build(outfit, 0, t);
+      const dh = await px(keep(svg, '[data-part="hip"],[data-part="torso"]'));
+      const dt = await px(keep(svg, '[data-part="thigh"]'));
+      let over = 0, oy = 0;
+      for (let y = 184; y <= 198; y += 0.5) {          // LEG.hipY−2 ~ BODY.hipY
+        const a = edge(dt, y), h = edge(dh, y);
+        if (a == null || h == null) continue;
+        if (a - h > over) { over = a - h; oy = y; }
+      }
+      n++;
+      if (over > worst) { worst = over; at = `허벅지${kt * 100} 엉덩이${kh * 100} 허리${kw * 100} (y≈${oy})`; }
+      if (over > MAX) {
+        bad.push(`허벅지 ${kt * 100}% · 엉덩이 ${kh * 100}% · 허리 ${kw * 100}%: `
+          + `허벅지 윗머리가 엉덩이 밖으로 ${over.toFixed(2)}px 나왔다 (y≈${oy})`);
+      }
+    }
+    return { bad: bad, n: n, worst: +worst.toFixed(2), at: at };
+  }, HIP_BULGE_MAX);
+
   // ─── 다리 안쪽 변도 곡선인가 ────────────────────────────────
   //
   // 바깥 변은 마디마다 곡선인데 **안쪽 변만 자로 그은 세로선**이었다 —
@@ -1322,6 +1381,7 @@ function launchOpts() {
     .concat(hipOut.bad.map(m => ({ id: '엉덩이가 하의 밖으로', body: '-', where: m, n: '-' })))
     .concat(legGap.bad.map(m => ({ id: '다리 사이 틈', body: '-', where: m, n: '-' })))
     .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
+    .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
@@ -1348,6 +1408,8 @@ function launchOpts() {
   console.log(`다리 사이 틈: 배율 ${legGap.n}단계 × y ${legGap.ys.join('·')}`
     + ` — 기본 ${legGap.base.join('·')}px · 흔들림 ${legGap.spread.join('·')}px`
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
+  console.log(`허벅지 윗머리: 허벅지×엉덩이×허리 ${hipBulge.n}조합 — 엉덩이 밖으로 가장 나온 곳`
+    + ` ${hipBulge.worst}px${hipBulge.worst ? ' · ' + hipBulge.at : ''} (${HIP_BULGE_MAX}px 까지)`);
   console.log(`다리 안쪽 변: 꺾임 ${legInner.kink}px (${INNER_KINK_MAX}px 까지)`
     + ` · 엉덩이 밑↔발목 틈 차이 ${legInner.curve}px (${INNER_CURVE_MIN}px 이상 — 곧은 선이면 0)`
     + ` · 배율에 따른 흔들림 ${legInner.drift}px`);

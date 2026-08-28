@@ -492,7 +492,7 @@
   //
   // **허리보다도 허벅지보다도 좁을 수 없다.** 좁으면 그 둘이 엉덩이 밖으로 튀어나와
   // 이음매에 계단이 생긴다 (엉덩이만 줄이면 몸통 옆선이 엉덩이 밖으로 나갔다).
-  const hipHalf = tune => Math.max(
+  const hipBaseHalf = tune => Math.max(
     BODY.hipHalf * tuneOf(tune, 'hip'),
     waistHalf(tune) * tuneOf(tune, 'torso'),
     thighOuter(tune));
@@ -507,18 +507,94 @@
   // 몸과 하의가 **같은 값을 본다** — 안 그러면 넓은 엉덩이가 바지 옆으로 삐져나온다.
   // 낙차는 **가장 굵은 곳**으로 잰다 — thighJoin 이 hipBlendY 를 보므로 여기서
   // thighJoin 을 쓰면 서로를 부르며 돈다
-  const hipDrop = tune => Math.max(0, hipHalf(tune) - thighOuter(tune));
-  // 허벅지에 붙는 높이. 아무리 커도 **무릎 10px 위**에서는 붙는다 (그 아래는 종아리다)
-  function hipBlendY(tune) {
-    return +Math.min(KNEE_LINE - 10,
-      Math.max(BODY.hipBottom, BODY.hipY + hipDrop(tune) * 2.2)).toFixed(1);
+  //
+  // ⚠️ **낙차는 「배율이 만든 폭」(hipBaseHalf)으로만 잰다.** 아래 hipNeedHalf 가
+  // 허벅지를 덮으려고 폭을 더 얹는데, 그건 **엉덩이가 허벅지 쪽으로 손을 뻗은 것**이지
+  // 허벅지 밖으로 더 나온 살이 아니다 — 처질 것이 없다. 여기에 얹은 폭까지 넣으면
+  // 넓어질수록 봉우리가 내려가고, 내려가면 위쪽 옆선이 좁아져 또 넓혀야 해서
+  // **서로 물고 발산한다** (허리 50% · 허벅지 200% 에서 엉덩이가 삼각형이 됐다).
+  function hipGeom(tune) {
+    const drop = Math.max(0, hipBaseHalf(tune) - thighOuter(tune));
+    // 붙는 높이. 아무리 커도 **무릎 10px 위**에서는 붙는다 (그 아래는 종아리다)
+    const BY = Math.min(KNEE_LINE - 10, Math.max(BODY.hipBottom, BODY.hipY + drop * 2.2));
+    // 가장 넓은 높이 — 처진 만큼 hipY 보다 아래다. 내려갈 수 있는 거리의 35% 를 넘지는
+    // 않는다 (봉우리가 허벅지에 너무 붙으면 다시 뾰족해진다)
+    const room = BY - BODY.hipY;
+    const HY = BODY.hipY + Math.min(drop * 0.5, room * 0.35);
+    return { drop: drop, BY: +BY.toFixed(1), HY: +HY.toFixed(1) };
   }
-  // 가장 넓은 높이 — 처진 만큼 hipY 보다 아래다.
-  // 내려갈 수 있는 거리의 35% 를 넘지는 않는다 (봉우리가 허벅지에 너무 붙으면 다시 뾰족해진다)
-  function hipApexY(tune) {
-    const room = hipBlendY(tune) - BODY.hipY;
-    return +(BODY.hipY + Math.min(hipDrop(tune) * 0.5, room * 0.35)).toFixed(1);
+
+  // ─── 엉덩이는 **허벅지 윗머리까지 감싸야 한다** ──────────────
+  //
+  // 허벅지의 맨 위(LEG.hipY=186)는 엉덩이의 봉우리(BODY.hipY=198)보다 **12px 위**다.
+  // 그래서 반폭을 허벅지와 같게 맞춰 놔도, 그 높이에서 옆선은 아직 허리에서 내려오는
+  // 중이라 좁다 — **허벅지의 둥근 윗머리가 엉덩이 밖으로 혹처럼 튀어나온다**
+  // (허벅지 200% 에서 4px · 둥근 마개라 눈에 잘 띈다).
+  //
+  // ⚠️ **덮어야 할 것은 「그려진」 허벅지다.** 위 끝은 둥근 마개(limbPath 의 r0)라
+  // 맨 윗줄에서는 마개 반지름만큼 좁고, **가장 굵어지는 자리는 186+r0 쯤**이다.
+  // 186 에서 제 폭을 다 덮으려 들면 있지도 않은 살을 덮느라 엉덩이가 크게 부푼다.
+  function thighDrawnAt(tune, y) {
+    const top = thighOuterAt(tune, LEG.hipY);
+    const r = Math.max(1, Math.min(5, (top - innerX(LEG.hipY)) / 2));
+    const taper = thighOuterAt(tune, y);
+    if (y >= LEG.hipY + r) return taper;
+    const dy = LEG.hipY + r - y;                  // 마개 원의 중심에서 위로
+    return Math.min(taper, top - r + Math.sqrt(Math.max(0, r * r - dy * dy)));
   }
+
+  // 옆선을 따라가며 **「이 높이의 허벅지를 덮으려면 봉우리가 얼마나 넓어야 하는가」**
+  // 를 되풀어 가장 큰 값을 쓴다. x 는 봉우리 폭 h 에 대해 **1차**라 바로 풀린다:
+  //   윗마디(허리→봉우리)   x = w + (h−w)·B   → h ≥ w + (T−w)/B
+  //   아랫마디(봉우리→허벅지) x = h + (tJ−h)·B → h ≥ (T − tJ·B)/(1−B)
+  //
+  // ⚠️ **양 끝 언저리는 빼야 한다.** 끝점에서는 B 가 0 이나 1 로 가서 나눗셈이 터진다 —
+  // 게다가 아랫마디의 끝은 엉덩이가 **일부러** 허벅지보다 1px 안쪽인 자리다
+  // (thighJoin 참고 — 딱 맞추면 이음매에 가느다란 선이 생긴다). 그래서 **B 로 자른다** —
+  // 높이로 자르면 마디 길이가 배율마다 달라져 어떤 조합에서는 끝까지 재게 된다
+  // (그 바람에 엉덩이가 반폭 70px 짜리 삼각형이 됐다).
+  //
+  // ⚠️ 그리고 **얹는 폭에 상한을 둔다.** 이 식은 못 덮을 자리를 만나면 얼마든지
+  // 커지는데, 커진 엉덩이는 봉우리에서 허벅지까지를 짧은 거리에 깎아 내리느라
+  // 옆구리에 **선반(날개)** 을 만든다 — 사람이 보기에는 그쪽이 더 나쁘다.
+  const HIP_B_LO = 0.35, HIP_B_HI = 0.5;   // 마디의 어느 구간까지 재는가
+  const HIP_COVER_PAD = 0.6;               // 딱 맞추면 반올림·계단 탓에 반 픽셀이 남는다
+  const HIP_SPREAD_MAX = 6;                // 얹을 수 있는 폭의 한계 (px)
+  function hipNeedHalf(tune, half, HY, BY) {
+    const w = waistHalf(tune) * tuneOf(tune, 'torso');
+    const WY = BODY.waistY;
+    const ha = (HY - WY) * 0.45, hb = (BY - HY) * 0.45;
+    const tJ = thighOuterAt(tune, BY) - 1;
+    let need = half;
+    for (let i = 1; i <= 160; i++) {
+      const t = i / 160, u = 1 - t;
+      const B = 3 * u * t * t + t * t * t;                 // x 가 끝점 쪽으로 간 비율
+      const y1 = u*u*u*WY + 3*u*u*t*(WY + ha) + 3*u*t*t*(HY - ha) + t*t*t*HY;
+      if (y1 >= LEG.hipY && B > HIP_B_LO) {
+        need = Math.max(need, w + (thighDrawnAt(tune, y1) + HIP_COVER_PAD - w) / B);
+      }
+      const y2 = u*u*u*HY + 3*u*u*t*(HY + hb) + 3*u*t*t*(BY - hb) + t*t*t*BY;
+      if (y2 >= LEG.hipY && B < HIP_B_HI) {
+        need = Math.max(need, (thighDrawnAt(tune, y2) + HIP_COVER_PAD - tJ * B) / (1 - B));
+      }
+    }
+    return Math.min(need, half + HIP_SPREAD_MAX);
+  }
+  // 세 값(반폭 · 봉우리 · 붙는 높이)이 한 묶음으로 나온다. 한 렌더에서 여러 번 불리므로
+  // 마지막 결과만 기억해 둔다 — 배율이 그대로면 다시 풀지 않는다
+  let hipMemo = null;
+  function hipSolve(tune) {
+    const key = ['hip', 'waist', 'torso', 'thigh', 'calf'].map(k => tuneOf(tune, k)).join(',');
+    if (hipMemo && hipMemo.key === key) return hipMemo.v;
+    const g = hipGeom(tune);
+    const v = { half: +hipNeedHalf(tune, hipBaseHalf(tune), g.HY, g.BY).toFixed(2),
+                HY: g.HY, BY: g.BY };
+    hipMemo = { key: key, v: v };
+    return v;
+  }
+  const hipHalf   = tune => hipSolve(tune).half;
+  const hipApexY  = tune => hipSolve(tune).HY;
+  const hipBlendY = tune => hipSolve(tune).BY;
   // 엉덩이 옆선 (오른쪽 반) — 봉우리에서 허벅지까지 내려오는 3차 곡선의 제어점.
   //   x0 봉우리 폭 · x3 허벅지에 닿는 폭 (하의는 여기에 제 여유를 얹어 부른다)
   //   cutY 를 주면 그 높이에서 **잘라** 돌려준다 (de Casteljau).
