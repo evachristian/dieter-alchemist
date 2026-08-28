@@ -272,10 +272,18 @@
           tr: `${baseRot} rotate(${bend} ${+cx.toFixed(2)} ${+elbowY.toFixed(2)})` },
       ], '');
     }
-    // 굵기 배율의 축은 **몸 쪽 가장자리**다. 팔 한가운데를 축으로 하면 가늘게 만들 때
-    // 안쪽 변이 바깥으로 밀려 **몸통에서 떨어진다** (팔 배율 0.5 에서 실제로 벌어졌다).
-    // 안쪽 변을 축으로 두면 굵어지든 가늘어지든 어깨에 붙은 채로 바깥쪽만 움직인다.
-    return wrapX(out, tuneOf(tune, 'arm'), left ? x0 + w : x0);
+    // 굵기 배율의 축은 **바깥쪽 가장자리**다 — 가늘어질 때 **안쪽 선만 움직인다.**
+    //
+    // 팔의 바깥 선이 곧 어깨가 끝나는 자리다. 안쪽을 축으로 두면 가늘게 만들 때
+    // 바깥 선이 안으로 끌려 들어와, 어깨의 모서리가 팔보다 튀어나온 **턱**이 생긴다
+    // (팔 50% 에서 어깨 끝 135.75 / 팔 바깥 133.25 — 2.5px 어긋났다).
+    // 바깥을 축으로 두면 팔이 아무리 가늘어져도 바깥 선이 100% 자리에 그대로 남아
+    // 어깨에서 팔로 이어지는 선이 안 끊긴다.
+    //
+    // 축은 **소매 두께(pad)를 뺀 맨팔의 바깥 변**이다. pad 를 넣으면 소매와 팔이
+    // 서로 다른 축으로 줄어들어 배율이 낮을 때 소매가 팔을 못 덮는다.
+    const axis = left ? x0 + w : x0;
+    return wrapX(out, tuneOf(tune, 'arm'), axis);
   }
 
   // 팔 중심선 위의 한 점 — dist 는 팔 위 끝(armY)에서 잰 거리.
@@ -365,6 +373,29 @@
     return (100 - ARM_ANCHOR_X) * (1 - tuneOf(tune, 'torso'));
   }
 
+  // ─── 어깨 끝은 팔의 바깥 변을 넘지 않는다 ────────────────────
+  //
+  // 넘으면 어깨가 팔보다 튀어나와 **부리처럼 뾰족한 턱**이 생긴다. 팔을 가늘게 하면
+  // (팔 배율 50%) 팔의 바깥 변이 안으로 들어오는데 어깨는 제자리라 실제로 났다.
+  //
+  // ⚠️ **팔을 바깥으로 밀어서 맞추면 안 된다.** 굵기 배율의 축을 바깥 변으로 옮겨
+  // 봤더니 어깨는 붙었지만 **팔이 허리에서 몸통과 떨어졌다** — 팔은 허리에서 몸통과
+  // 1.6px 밖에 안 겹쳐 있어서, 가늘어진 만큼 안쪽 변이 밖으로 나가면 곧바로 배경이 비친다
+  // (팔 50% 에서 4.75px 벌어졌다 — 팔이 몸 옆에 떠 있는 막대로 보인다).
+  // 폭이 15px 뿐이라 「허리에 닿으면서 어깨 끝까지 닿는」 팔은 만들 수가 없다.
+  //
+  // 그래서 **어깨 쪽을 팔에 맞춘다.** 어깨 끝이 팔의 바깥 변보다 나가면 그만큼만 좁힌다.
+  // 팔이 어깨보다 바깥이면(기본값 · 팔을 굵게 한 경우) 1 이라 아무것도 안 바뀐다.
+  function shoulderSquash(tune) {
+    const B = BODY;
+    const tip = 100 + (B.torsoR - 100) * tuneOf(tune, 'torso');
+    // 팔의 바깥 변 (굵기 배율의 축이 안쪽 변이라 바깥 변만 배율을 탄다)
+    const armOuter = B.armX_R + B.armW * tuneOf(tune, 'arm') - armShift(tune);
+    return armOuter >= tip ? 1 : (armOuter - 100) / (tip - 100);
+  }
+  // 어깨 쪽 x 를 중심선(100) 기준으로 f 배 좁힌다. 몸통·옷이 같은 함수를 지난다
+  const sqx = (x, f) => f === 1 ? x : +(100 + (x - 100) * f).toFixed(2);
+
   // 무릎 높이 — 허벅지 아래 끝(263)과 종아리 위 끝(256)이 겹치는 자리.
   // 옷이 종아리까지 덮는지 판정하는 기준이다. **다리를 옮기면 여기도 같이 옮긴다**
   const KNEE_LINE = 259;
@@ -427,13 +458,21 @@
   //
   // ⚠️ 윗변을 96 으로 박아 두면 안 된다. 머리는 NECK_LIFT 만큼 위로 올라가는데
   // 목이 그 자리에 남아 **턱과 목 사이가 벌어진다** (실제로 그렇게 배포됐다).
-  function neckShape(uid, top, half) {
+  //   maxR 목이 벌어져도 좋은 가장 바깥 x (= 몸통 어깨 끝). 넘으면 몸통이 못 덮는다
+  function neckShape(uid, top, half, maxR) {
     const B = BODY;
     const L = +(100 - half).toFixed(1), R = +(100 + half).toFixed(1);
     // 벌어지기 시작하는 곳은 **몸통 윗선(108) 바로 위**다. 그보다 위에서 벌리면
     // 안 판 옷(폴라)의 어깨선 위로 살이 1px 삐져나온다. 108 아래는 어차피 몸통도
     // 같은 살색이라 어떤 모양이든 이음매가 안 보인다 — 그래서 아래에서만 크게 벌린다
-    const mid = B.torsoTopY - 1, bot = B.neckBottom, F = 17;
+    //
+    // ⚠️ **벌어지는 폭은 어깨를 넘지 못한다.** 목은 몸통보다 **먼저** 그려져 몸통이 덮어
+    // 주는데, 몸통 배율을 줄이면 어깨가 좁아져 이 자락이 어깨 밖으로 삐져나온다 —
+    // 몸통 50% 에서 어깨 끝 117.5 / 목자락 123.5 로 **6px 짜리 부리**가 생겼다.
+    // 팔이 100% 일 때는 팔이 그 위를 덮어 안 보였고, 팔까지 가늘게 하면 드러났다.
+    // (「몸통50 팔50 에서만 어깨가 튀어나온다」의 정체가 이것이다)
+    const mid = B.torsoTopY - 1, bot = B.neckBottom;
+    const F = maxR == null ? 17 : Math.max(0, Math.min(17, maxR - R - 1));
     return `<path d="M${L},${+top.toFixed(1)} L${R},${+top.toFixed(1)} L${R},${mid}
         C${R + 3},${mid + 1} ${R + F},${mid + 3} ${R + F},${bot} L${L - F},${bot}
         C${L - F},${mid + 3} ${L - 3},${mid + 1} ${L},${mid} Z" fill="url(#neckG_${uid})"/>`;
@@ -469,13 +508,19 @@
     const tL = 100 - B.thighHalf - 1, tR = 100 + B.thighHalf + 1;
     // 몸통 옆선이 허리로 좁아지는 곡선. 제어점을 어깨(133)~허리 사이의 **비율**로 잡아,
     // waistY 를 올리고 내려도 곡선 모양이 그대로 따라오게 한다
-    // 어깨 곡선 — 오른쪽 반은 그대로, 왼쪽 반은 x 를 100 기준으로 뒤집어 쓴다
-    const sc = B.shoulderC;
+    // 어깨 곡선 — 오른쪽 반은 그대로, 왼쪽 반은 x 를 100 기준으로 뒤집어 쓴다.
+    // **팔보다 튀어나오지 않게 좁힌다** (shoulderSquash 참고). f=1 이면 그대로다
+    const f = shoulderSquash(tune);
+    const sc = B.shoulderC.map(pt => [sqx(pt[0], f), pt[1]]);
+    const shR = sqx(B.torsoR, f), shL = sqx(B.torsoL, f);
     const mir = (pt) => [200 - pt[0], pt[1]];
     const cy1 = +(133 + (B.waistY - 133) * 0.46).toFixed(1);
     const cy2 = +(133 + (B.waistY - 133) * 0.68).toFixed(1);
+    // 목이 벌어져도 좋은 한계 = 몸통의 어깨 끝(절대 좌표).
+    // 몸통은 kb 로 늘어나지만 목은 그 그룹 밖이라 여기서 직접 환산해 넘긴다
+    const tipAbs = 100 + (shR - 100) * kb;
     return `
-      ${neckShape(uid, neck.top, neck.half)}
+      ${neckShape(uid, neck.top, neck.half, tipAbs)}
       <g data-part="hip">
         <g${sx(kh, 100)}><path d="M${wL},${B.waistY}
           C${hL},${B.waistY + 10} ${hL},${B.hipY + 2} ${tL},${B.hipBottom}
@@ -485,9 +530,9 @@
       <g data-part="torso">
         <g${sx(kb, 100)}><path d="M100,${B.torsoTopY}
           C${sc[0][0]},${sc[0][1]} ${sc[1][0]},${sc[1][1]} ${sc[2][0]},${sc[2][1]}
-          C${B.torsoR},${cy1} ${wR + 3},${cy2} ${wR},${B.waistY}
+          C${shR},${cy1} ${wR + 3},${cy2} ${wR},${B.waistY}
           L${wL},${B.waistY}
-          C${wL - 3},${cy2} ${B.torsoL},${cy1} ${B.torsoL},133
+          C${wL - 3},${cy2} ${shL},${cy1} ${shL},133
           C${mir(sc[1])[0]},${sc[1][1]} ${mir(sc[0])[0]},${sc[0][1]} 100,${B.torsoTopY} Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="arm">
@@ -725,31 +770,29 @@
   //
   // 몸보다 바깥으로 SH_PAD, 위로 1px 물러나 있어야 몸이 옷 밖으로 안 나온다.
   const SH_PAD = 4;
-  const shC = i => [BODY.shoulderC[i][0] + SH_PAD, BODY.shoulderC[i][1] - 1];
-  // 오른쪽 어깨 (안 → 밖) · 왼쪽 어깨 (밖 → 안). 왼쪽은 x 를 100 기준으로 뒤집는다
-  const shR = () => shC(0).concat(shC(1), shC(2));
-  const shoulderEndR = () => shC(2);
-  function clothShoulderR(fromK) {
-    const [a, b, c] = [shC(0), shC(1), shC(2)];
+  const shC = (i, f) => [sqx(BODY.shoulderC[i][0] + SH_PAD, f), BODY.shoulderC[i][1] - 1];
+  const shoulderEndR = f => shC(2, f);
+  function clothShoulderR(fromK, f) {
+    const [a, b, c] = [shC(0, f), shC(1, f), shC(2, f)];
     // 넥라인을 판 옷은 파낸 모서리(y=fromK)에서 출발하므로 첫 제어점의 높이를 거기 맞춘다
     const y0 = fromK == null ? a[1] : fromK;
     return `C${a[0]},${y0} ${b[0]},${b[1]} ${c[0]},${c[1]}`;
   }
-  function clothShoulderL(toK) {
-    const [a, b, c] = [shC(0), shC(1), shC(2)];
+  function clothShoulderL(toK, f) {
+    const [a, b] = [shC(0, f), shC(1, f)];
     const y0 = toK == null ? a[1] : toK;
     return `C${200 - b[0]},${b[1]} ${200 - a[0]},${y0} `;
   }
-  function clothTopEdge(kind) {
-    const T = CLOTH_TOP_Y, cut = neckCut(kind);
-    const e = shoulderEndR();
+  function clothTopEdge(kind, tune) {
+    const T = CLOTH_TOP_Y, cut = neckCut(kind), f = shoulderSquash(tune);
+    const e = shoulderEndR(f);
     const startL = `M${200 - e[0]},${e[1]}`;
     // 안 파는 옷 — 가운데가 가장 높은 돔
     if (!cut.w || !cut.d) {
-      return `${startL} ${clothShoulderL()}100,${T} ${clothShoulderR()}`;
+      return `${startL} ${clothShoulderL(null, f)}100,${T} ${clothShoulderR(null, f)}`;
     }
     const m = neckMid(kind);
-    return `${startL} ${clothShoulderL(m.K)}${m.EL},${m.K} ${m.d} ${clothShoulderR(m.K)}`;
+    return `${startL} ${clothShoulderL(m.K, f)}${m.EL},${m.K} ${m.d} ${clothShoulderR(m.K, f)}`;
   }
 
   // 넥라인 위에 얹는 것 — 지금은 폴라(터틀넥)의 목 통 하나뿐이다.
@@ -783,15 +826,17 @@
     // 밑단은 **골반 바로 위**까지 내려온다. 허리(WY)에 맞추면 배가 드러나 전부 크롭탑이 되고,
     // 하의 허리춤(WY 에서 시작)을 덮지 못해 그 사이로 살이 띠처럼 보인다.
     const WY = B.waistY, hem = B.hipY - 2;
+    // 옷의 어깨 끝 — 몸과 **같은 자리**여야 한다 (손으로 140/60 을 박아 두면 안 된다)
+    const [eR, eY] = shoulderEndR(shoulderSquash(tune)), eL = 200 - eR;
     return `
       ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck)}
-        C140,${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY}
+      ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
+        C${eR},${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY}
         C${wR},${WY + 10} ${wR - 1},${hem - 8} ${wR - 4},${hem}
         C${wR - 14},${hem + 5} ${wL + 14},${hem + 5} ${wL + 4},${hem}
         C${wL + 1},${hem - 8} ${wL},${WY + 10} ${wL},${WY}
-        C${wL - 4},${WY - 18} 60,${WY - 34} 60,132 Z" fill="${c}"/>
+        C${wL - 4},${WY - 18} ${eL},${WY - 34} ${eL},${eY} Z" fill="${c}"/>
       ${neckLine(it.neck, c, c2, 110)}
       ${it.button ? buttons(c2, 132, hem - 14) : ''}`, kb, 100)}`;
   }
@@ -863,7 +908,10 @@
   // 어깨만 자기 것을 붙인다 — neckMid 참고
   function sleevedDress(c, c2, hemY, longSleeve, tune, neck) {
     const B = BODY, pad = CLOTH_PAD;
-    const L = B.torsoL - pad, R = B.torsoR + pad;         // 어깨는 몸통보다 넓게
+    // 어깨는 몸통보다 넓게. **몸통과 같이 좁아진다** — 안 그러면 팔을 가늘게 했을 때
+    // 드레스의 어깨만 팔 밖으로 튀어나온다 (shoulderSquash 참고)
+    const sf = shoulderSquash(tune);
+    const L = sqx(B.torsoL - pad, sf), R = sqx(B.torsoR + pad, sf);
     const flare = 21;                                     // 밑단이 퍼지는 정도
     const hemL = L - flare, hemR = R + flare;
     // 몸통부터 다리까지 덮으므로 그중 가장 큰 배율을 따른다
@@ -916,17 +964,18 @@
     const WY = B.waistY;
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     const hL = +(100 - hhw).toFixed(2), hR = +(100 + hhw).toFixed(2);
+    const [eR, eY] = shoulderEndR(shoulderSquash(tune)), eL = 200 - eR;
     return `
       ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck)}
-        C140,${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY + 2}
+      ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
+        C${eR},${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY + 2}
         C${hR},${WY + 8} ${hR},${B.hipY - 6} ${hR},${B.hipY}
         C${hR},${B.hipY + 24} ${100 + flare},${hemY - 40} ${100 + flare + 8},${hemY}
         C${wR},${hemY + 14} ${wL},${hemY + 14} ${100 - flare - 8},${hemY}
         C${100 - flare},${hemY - 40} ${hL},${B.hipY + 24} ${hL},${B.hipY}
         C${hL},${B.hipY - 6} ${hL},${WY + 8} ${wL},${WY + 2}
-        C${wL - 4},${WY - 18} 60,${WY - 34} 60,132 Z" fill="${c}"/>
+        C${wL - 4},${WY - 18} ${eL},${WY - 34} ${eL},${eY} Z" fill="${c}"/>
       <path d="M${wL},${WY} L${wR},${WY}" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>
       ${neckLine(it.neck, c, c2, 110)}`, kd, 100)}`;
   }

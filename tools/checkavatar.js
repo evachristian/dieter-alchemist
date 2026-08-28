@@ -587,7 +587,7 @@ function launchOpts() {
   // 안쪽(x=100)에서 바깥으로 훑으며 「여태 가장 낮았던 y」보다 다시 올라오면 그게 홈이다.
   const SHOULDER_DIP = 1;        // px. 래스터 반올림 탓에 0 은 못 잡는다
   const shoulder = await page.evaluate(async (MAXDIP) => {
-    const D = window.GameData, bad = [], S = 4;
+    const D = window.GameData, bad = [], beakBad = [], S = 4;
     const cv = document.createElement('canvas');
     cv.width = 200 * S; cv.height = 348 * S;
     const ctx = cv.getContext('2d');
@@ -602,9 +602,7 @@ function launchOpts() {
     }
     const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
                    shoes: 'shoes_none', hair: 'hair_none' };
-    const worst = [];
-    for (const w of [0, 0.25, 0.5, 0.75, 1]) {
-      const svg = bodyOnly(window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), w, null));
+    async function pixels(svg) {
       const img = new Image();
       await new Promise((ok, no) => {
         img.onload = ok; img.onerror = no;
@@ -612,7 +610,12 @@ function launchOpts() {
       });
       ctx.clearRect(0, 0, 200 * S, 348 * S);
       ctx.drawImage(img, 0, 0, 200 * S, 348 * S);
-      const d = ctx.getImageData(0, 0, 200 * S, 348 * S).data;
+      return ctx.getImageData(0, 0, 200 * S, 348 * S).data;
+    }
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
+    const worst = [];
+    for (const w of [0, 0.25, 0.5, 0.75, 1]) {
+      const d = await pixels(bodyOnly(window.Avatar.build(outfit, w, null)));
       let peak = -Infinity, dip = 0, at = 0;
       for (let x = 100; x <= 180; x += 0.5) {
         const xx = Math.round(x * S);
@@ -630,7 +633,35 @@ function launchOpts() {
           + ` — 어깨 곡선(BODY.shoulderC)이 팔 윗머리보다 먼저 내려온다`);
       }
     }
-    return { bad, worst };
+
+    // ─── 어깨가 팔보다 튀어나오지 않는가 (부리) ────────────────
+    //
+    // 목~팔 구간(y 108~145)에서 **옆선은 안쪽으로 되돌아오지 않는다.** 되돌아오면
+    // 그 위에 있던 것이 팔보다 튀어나와 부리처럼 뾰족한 턱이 된다.
+    // 몸통·팔 배율을 따로 움직여야 드러난다 — 기본값(둘 다 100%)에서는 팔이 늘
+    // 어깨보다 바깥이라 어떤 부리든 팔 밑에 숨는다.
+    // 여태 두 가지가 여기 걸렸다: **목의 벌어진 자락**(몸통 50% 에서 6px)과
+    // **어깨 끝**(팔 50% 에서 2.5px). 둘 다 몸통·팔을 같이 줄여야 보였다.
+    const beaks = [];
+    for (const kt of [0.5, 0.75, 1, 1.5, 2]) for (const ka of [0.5, 0.75, 1, 1.5, 2]) {
+      const d = await pixels(bodyOnly(window.Avatar.build(outfit, 0, { torso: kt, arm: ka })));
+      let out = -Infinity, back = 0, at = 0;
+      for (let y = 108; y <= 145; y += 0.5) {
+        let mx = null;
+        for (let x = 199 * S; x >= 100 * S; x--) {
+          if (d[(Math.round(y * S) * 200 * S + x) * 4 + 3] > 128) { mx = x / S; break; }
+        }
+        if (mx == null) continue;
+        if (mx > out) out = mx;
+        else if (out - mx > back) { back = out - mx; at = y; }
+      }
+      beaks.push(+back.toFixed(2));
+      if (back > MAXDIP) {
+        beakBad.push(`몸통 ${kt * 100}% · 팔 ${ka * 100}%: 어깨가 팔보다 ${back.toFixed(1)}px 튀어나왔다`
+          + ` (y≈${at}) — 목 자락이나 어깨 끝이 팔 밖으로 나온다`);
+      }
+    }
+    return { bad, beakBad, worst, beak: Math.max.apply(null, beaks), beakN: beaks.length };
   }, SHOULDER_DIP);
 
   // ─── 염색이 실제로 아바타에 입혀지는가 ───────────────────────
@@ -709,7 +740,8 @@ function launchOpts() {
     .concat(bowl.bad.map(m => ({ id: '어항', body: '-', where: m, n: '-' })))
     .concat(neck.bad.map(m => ({ id: '목', body: '-', where: m, n: '-' })))
     .concat(seam.bad.map(m => ({ id: '몸통↔팔', body: '-', where: m, n: '-' })))
-    .concat(shoulder.bad.map(m => ({ id: '어깨 홈', body: '-', where: m, n: '-' })));
+    .concat(shoulder.bad.map(m => ({ id: '어깨 홈', body: '-', where: m, n: '-' })))
+    .concat(shoulder.beakBad.map(m => ({ id: '어깨 부리', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
@@ -722,6 +754,8 @@ function launchOpts() {
   console.log(`몸통↔팔: 체형 ${seam.steps}단계 — 옆구리에 배경이 실처럼 비치지 않는가`);
   console.log(`어깨 홈: 체형별 파임 ${shoulder.worst.map(v => v + 'px').join(' · ')}`
     + ` (목→팔 실루엣이 다시 솟지 않아야 한다 · ${SHOULDER_DIP}px 까지)`);
+  console.log(`어깨 부리: 몸통×팔 배율 ${shoulder.beakN}조합 — 가장 튀어나온 곳 ${shoulder.beak}px`
+    + ` (어깨·목이 팔 밖으로 나오면 안 된다)`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
     + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
