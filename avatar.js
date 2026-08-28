@@ -195,7 +195,7 @@
   //
   // ⚠️ **100% 는 어느 부위도 안 건드린다.** 기본 체형이 한 톨도 안 움직여야 한다.
   // 그래서 100% 를 **넘는 만큼(k−1)에만** 곱한다: k' = 1 + (k−1)·gain.
-  //   허벅지 200% : 1 + 1.6 = 2.6 → 살 20 → 52   (예전 40 의 1.3배)
+  //   허벅지 200% : 1 + 0.444 = 1.444 → 살 36 → 52 (자리를 옮긴 뒤에도 같은 두께)
   //   엉덩이 200% : 1 + 0.27 = 1.27 → 34 → 43.2  (예전 68 의 0.64배 — 두 번 깎았다)
   //   종아리 200% : 1 + 0.6 = 1.6 → 살 18 → 28.8 (예전 36 의 0.8배)
   //
@@ -203,7 +203,7 @@
   // ⚠️ **`tuneOf` 를 그냥 바꾸면 안 된다.** 슬라이더 값 자체를 쓰는 곳(옷이 어느 파츠를
   // 따라갈지 고르는 `tuneMax` · 세이브·화면의 % 표시)은 사람이 고른 값 그대로여야 한다.
   // **살의 양을 셈하는 자리에서만** `fatOf` 를 쓴다.
-  const TUNE_GAIN = { thigh: 1.6, hip: 0.27, calf: 0.6 };
+  const TUNE_GAIN = { thigh: 0.444, hip: 0.27, calf: 0.6 };
   function fatOf(tune, k) {
     const v = tuneOf(tune, k), g = TUNE_GAIN[k];
     return (g == null || v <= 1) ? v : 1 + (v - 1) * g;
@@ -533,15 +533,35 @@
   // 허벅지 밖으로 더 나온 살이 아니다 — 처질 것이 없다. 여기에 얹은 폭까지 넣으면
   // 넓어질수록 봉우리가 내려가고, 내려가면 위쪽 옆선이 좁아져 또 넓혀야 해서
   // **서로 물고 발산한다** (허리 50% · 허벅지 200% 에서 엉덩이가 삼각형이 됐다).
+  //
+  // ─── 가장 넓은 곳은 **점이 아니라 짧은 곧은 구간**이다 ──────
+  //
+  // 위아래 두 마디가 봉우리에서 세로 접선으로 만나므로 수학적으로는 매끄러운데,
+  // 그 자리의 **곡률 반지름이 1.5·ha²/(h−w)** 라 허리가 가늘고 엉덩이가 넓을수록
+  // 급격히 작아진다 — 12px 쯤 되면 사람 눈에는 그냥 **뾰족한 모서리**로 읽힌다.
+  // 제어점 비율(0.45)로는 못 키운다. 0.5 가 상한이라 반지름이 1.2배밖에 안 는다
+  // (비율을 **낮추는** 것은 더 나쁘다 — 마디 가운데는 펴지지만 봉우리가 연처럼 뾰족해진다).
+  //
+  // 그래서 봉우리를 **짧은 세로 직선**으로 벌린다. 그 구간의 곡률은 0 이라 어떤 배율에서도
+  // 뾰족해질 수가 없고, 실제 몸도 가장 넓은 곳은 한 점이 아니라 한 뼘이다.
+  // 길이는 **허리·허벅지보다 얼마나 나왔는지**에 비례한다 — 안 나온 몸은 0 이다.
+  const HIP_APEX_RUN = 0.5, HIP_APEX_RUN_MAX = 14;
   function hipGeom(tune) {
-    const drop = Math.max(0, hipBaseHalf(tune) - thighOuter(tune));
+    const base = hipBaseHalf(tune);
+    const drop = Math.max(0, base - thighOuter(tune));
     // 붙는 높이. 아무리 커도 **무릎 10px 위**에서는 붙는다 (그 아래는 종아리다)
     const BY = Math.min(KNEE_LINE - 10, Math.max(BODY.hipBottom, BODY.hipY + drop * 2.2));
     // 가장 넓은 높이 — 처진 만큼 hipY 보다 아래다. 내려갈 수 있는 거리의 35% 를 넘지는
     // 않는다 (봉우리가 허벅지에 너무 붙으면 다시 뾰족해진다)
     const room = BY - BODY.hipY;
     const HY = BODY.hipY + Math.min(drop * 0.5, room * 0.35);
-    return { drop: drop, BY: +BY.toFixed(1), HY: +HY.toFixed(1) };
+    const w = waistHalf(tune) * tuneOf(tune, 'torso');
+    const stand = base - Math.max(w, thighOuterAt(tune, BY) - 1);   // 허리·허벅지보다 나온 만큼
+    // 위아래 마디를 반 넘게 잡아먹지 않는다 — 이을 곡선이 남아 있어야 한다
+    const run = Math.max(0, Math.min(HIP_APEX_RUN_MAX, stand * HIP_APEX_RUN,
+      (HY - BODY.waistY) * 0.5, (BY - HY) * 0.5));
+    return { drop: drop, BY: +BY.toFixed(1), HY: +HY.toFixed(1),
+             HY1: +(HY - run / 2).toFixed(1), HY2: +(HY + run / 2).toFixed(1) };
   }
 
   // ─── 엉덩이는 **허벅지 윗머리까지 감싸야 한다** ──────────────
@@ -580,10 +600,10 @@
   const HIP_B_LO = 0.35, HIP_B_HI = 0.5;   // 마디의 어느 구간까지 재는가
   const HIP_COVER_PAD = 0.6;               // 딱 맞추면 반올림·계단 탓에 반 픽셀이 남는다
   const HIP_SPREAD_MAX = 10;               // 얹을 수 있는 폭의 한계 (px)
-  function hipNeedHalf(tune, half, HY, BY) {
+  function hipNeedHalf(tune, half, HY1, HY2, BY) {
     const w = waistHalf(tune) * tuneOf(tune, 'torso');
-    const WY = BODY.waistY;
-    const ha = (HY - WY) * 0.45, hb = (BY - HY) * 0.45;
+    const WY = BODY.waistY, HY = HY1;
+    const ha = (HY1 - WY) * 0.45, hb = (BY - HY2) * 0.45;
     const tJ = thighOuterAt(tune, BY) - 1;
     let need = half;
     for (let i = 1; i <= 160; i++) {
@@ -593,10 +613,13 @@
       if (y1 >= LEG.hipY && B > HIP_B_LO) {
         need = Math.max(need, w + (thighDrawnAt(tune, y1) + HIP_COVER_PAD - w) / B);
       }
-      const y2 = u*u*u*HY + 3*u*u*t*(HY + hb) + 3*u*t*t*(BY - hb) + t*t*t*BY;
+      const y2 = u*u*u*HY2 + 3*u*u*t*(HY2 + hb) + 3*u*t*t*(BY - hb) + t*t*t*BY;
       if (y2 >= LEG.hipY && B < HIP_B_HI) {
         need = Math.max(need, (thighDrawnAt(tune, y2) + HIP_COVER_PAD - tJ * B) / (1 - B));
       }
+    }
+    for (let y = HY1; y <= HY2; y += 1) {          // 봉우리의 곧은 구간
+      if (y >= LEG.hipY) need = Math.max(need, thighDrawnAt(tune, y) + HIP_COVER_PAD);
     }
     return Math.min(need, half + HIP_SPREAD_MAX);
   }
@@ -607,13 +630,15 @@
     const key = ['hip', 'waist', 'torso', 'thigh', 'calf'].map(k => tuneOf(tune, k)).join(',');
     if (hipMemo && hipMemo.key === key) return hipMemo.v;
     const g = hipGeom(tune);
-    const v = { half: +hipNeedHalf(tune, hipBaseHalf(tune), g.HY, g.BY).toFixed(2),
-                HY: g.HY, BY: g.BY };
+    const v = { half: +hipNeedHalf(tune, hipBaseHalf(tune), g.HY1, g.HY2, g.BY).toFixed(2),
+                HY: g.HY, HY1: g.HY1, HY2: g.HY2, BY: g.BY };
     hipMemo = { key: key, v: v };
     return v;
   }
   const hipHalf   = tune => hipSolve(tune).half;
   const hipApexY  = tune => hipSolve(tune).HY;
+  const hipApexTop = tune => hipSolve(tune).HY1;   // 곧은 구간의 위 끝
+  const hipApexBot = tune => hipSolve(tune).HY2;   // 아래 끝
   const hipBlendY = tune => hipSolve(tune).BY;
   // 엉덩이 옆선 (오른쪽 반) — 봉우리에서 허벅지까지 내려오는 3차 곡선의 제어점.
   //   x0 봉우리 폭 · x3 허벅지에 닿는 폭 (하의는 여기에 제 여유를 얹어 부른다)
@@ -624,7 +649,7 @@
   // 그러면 하의가 몸보다 가팔라져 **그 사이로 엉덩이가 비쳤다** (반바지에서 y 224~236).
   // 몸과 **같은 곡선**을 쓰고 밑단에서 자르면 어디서 잘라도 몸 바깥에 남는다.
   function hipSideCurve(tune, x0, x3, cutY) {
-    const HY = hipApexY(tune), BY = hipBlendY(tune), hb = (BY - HY) * 0.45;
+    const HY = hipApexBot(tune), BY = hipBlendY(tune), hb = (BY - HY) * 0.45;
     let P = [[x0, HY], [x0, HY + hb], [x3, BY - hb], [x3, BY]];
     if (cutY != null && cutY < BY) {
       const yAt = t => {
@@ -673,7 +698,9 @@
   const LEG = {
     hipY: 186, kneeY: 263, calfY: 256, ankleY: 331,
     bellyT: 0.28,                         // 장딴지가 가장 굵은 곳 (종아리 구간의 비율)
-    hipW: 20, bellyW: 18,                 // 배율을 타는 살 (안쪽 변에서 잰 폭)
+    // ⚠️ 허벅지의 기본 폭은 **한 번 올렸다** (20 → 36). 「예전 150% 가 지금 100%」다.
+    // 200% 의 두께는 그대로 두려고 `TUNE_GAIN.thigh` 를 1.6 → 0.444 로 같이 낮췄다
+    hipW: 36, bellyW: 18,                 // 배율을 타는 살 (안쪽 변에서 잰 폭)
     kneeX: 17, ankleX: 14,                // 배율을 **안 타는** 관절 (중심선에서 잰 거리)
   };
   // ─── 관절도 살을 타긴 탄다 — 다만 훨씬 덜 탄다 ───────────────
@@ -890,11 +917,11 @@
     //                   (딱 맞추면 1px 턱이 져서 **가느다란 선**으로 보인다)
     // 제어점의 높이는 구간 길이의 45% 다 — 비율이라 구간이 길어지면 봉우리도 같이 둥글어진다.
     const WY = B.waistY, HB = B.hipBottom;
-    const HY = hipApexY(tune), BY = hipBlendY(tune);
+    const HY1 = hipApexTop(tune), HY2 = hipApexBot(tune), BY = hipBlendY(tune);
     const wRa = +(100 + wh * kb).toFixed(2), wLa = +(200 - wRa).toFixed(2);
     const tRa = +(100 + thighJoin(tune)).toFixed(2), tLa = +(200 - tRa).toFixed(2);
     const hRa = +(100 + hipHalf(tune)).toFixed(2), hLa = +(200 - hRa).toFixed(2);
-    const ha = +((HY - WY) * 0.45).toFixed(1), hb = +((BY - HY) * 0.45).toFixed(1);
+    const ha = +((HY1 - WY) * 0.45).toFixed(1), hb = +((BY - HY2) * 0.45).toFixed(1);
     // 몸통 옆선이 허리로 좁아지는 곡선. 제어점을 어깨(133)~허리 사이의 **비율**로 잡아,
     // waistY 를 올리고 내려도 곡선 모양이 그대로 따라오게 한다.
     // 마지막 제어점의 x 는 **허리와 같다** — 그래야 허리에서 접선이 세로가 되어
@@ -915,13 +942,15 @@
       ${neckShape(uid, neck.top, neck.half, tipAbs)}
       <g data-part="hip">
         <path d="M${wLa},${WY}
-          C${wLa},${WY + ha} ${hLa},${HY - ha} ${hLa},${HY}
-          C${hLa},${HY + hb} ${tLa},${BY - hb} ${tLa},${BY}
+          C${wLa},${WY + ha} ${hLa},${HY1 - ha} ${hLa},${HY1}
+          L${hLa},${HY2}
+          C${hLa},${HY2 + hb} ${tLa},${BY - hb} ${tLa},${BY}
           L${tLa},${HB}
           L${tRa},${HB}
           L${tRa},${BY}
-          C${tRa},${BY - hb} ${hRa},${HY + hb} ${hRa},${HY}
-          C${hRa},${HY - ha} ${wRa},${WY + ha} ${wRa},${WY} Z" fill="${SKIN}"/>
+          C${tRa},${BY - hb} ${hRa},${HY2 + hb} ${hRa},${HY2}
+          L${hRa},${HY1}
+          C${hRa},${HY1 - ha} ${wRa},${WY + ha} ${wRa},${WY} Z" fill="${SKIN}"/>
       </g>
       <g data-part="torso">
         <g${sx(kb, 100)}><path d="M100,${B.torsoTopY}

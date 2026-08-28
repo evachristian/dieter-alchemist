@@ -897,7 +897,7 @@ function launchOpts() {
   // 눈으로 맞춘 값이라(`TUNE_GAIN`) 코드 어딘가를 손보다가 조용히 어긋나기 쉽다 —
   // 100% 대비 몇 배가 되는지를 여기서 박아 둔다.
   // ⚠️ **100% 는 어느 부위도 안 움직인다** — 그것도 같이 본다.
-  const FAT_200 = { 허벅지: 2.54, 엉덩이: 1.27, 종아리: 1.59 };   // 100% 대비
+  const FAT_200 = { 허벅지: 1.44, 엉덩이: 1.11, 종아리: 1.59 };   // 100% 대비
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
