@@ -474,8 +474,12 @@ function launchOpts() {
           setRoomPet(f.result.id);
           const el = document.querySelector('.stage-creature.cr-water');
           if (!el) return '어항이 안 그려졌다';
-          // 방 그림(.char-aura) 밖으로 나가면 안 된다
-          const r = el.getBoundingClientRect(), a = document.querySelector('.char-aura').getBoundingClientRect();
+          // 방 그림(.room-scene) 밖으로 나가면 안 된다.
+          // ⚠️ **`.char-aura` 로 재면 안 된다.** 그것은 아바타를 담는 240px 상자이고,
+          // 그 안에서 아바타가 179px 을 쓴다 — 96px 어항을 아우라 안에 가두면
+          // **반드시 치마와 겹친다** (실제로 롱스커트와 47px 겹쳤다).
+          // 어항이 설 자리는 아바타 옆의 **방 바닥**이고, 그 넓이를 아는 것은 방 그림이다.
+          const r = el.getBoundingClientRect(), a = document.querySelector('.room-scene').getBoundingClientRect();
           if (r.left < a.left - 0.5 || r.right > a.right + 0.5 || r.bottom > a.bottom + 0.5) {
             return `어항이 방 밖으로 나갔다 (${Math.round(r.left)}..${Math.round(r.right)} / ${Math.round(a.left)}..${Math.round(a.right)})`;
           }

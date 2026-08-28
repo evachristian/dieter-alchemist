@@ -1027,8 +1027,29 @@ body {
 
 /* ─── 물고기는 어항에 들어간다 (move: 'water') ───
    어항이 크리처보다 커야 안에 든 것으로 보인다. 통 자체는 안 움직인다 —
-   어항이 같이 흔들리면 물고기가 아니라 **어항을 든 사람**이 움직이는 것으로 읽힌다. */
-.stage-creature.cr-water { bottom: 4%; width: 96px; height: 96px; animation: none; }
+   어항이 같이 흔들리면 물고기가 아니라 **어항을 든 사람**이 움직이는 것으로 읽힌다.
+
+   ⚠️ **치마와 겹치면 안 된다.** 다른 크리처는 치마 앞에 조금 걸쳐도 「앞에 선 것」으로
+   읽히는데, 어항은 **속이 비치는 유리통**이라 치마가 통 안으로 들여다보여 그림이 깨진다.
+   `left: 6%` 로 두었더니 롱스커트와 47px 겹쳤다.
+
+   그래서 왼쪽 끝이 아니라 **오른쪽 끝을 아바타의 치마 옆선에 맞춘다.**
+   ⚠️ 기준은 아우라의 **왼쪽 끝이 아니라 가운데 선**이다. 아바타는 높이가 고정(312px)이라
+   폭도 179.3px 로 고정인데, 아우라는 좁은 화면에서 240px 밑으로 줄어든다(flex) —
+   왼쪽 끝에서 재면 그만큼 어긋난다. 가운데에서 재면 화면 폭과 무관하다:
+   아바타 반폭 89.65 − 가장 넓은 치마(롱스커트)의 밑단 33.2 = **가운데에서 56.45px**.
+   거기서 5px 더 앞에 세운다.
+
+   ⚠️ **좁은 화면에서는 통이 같이 줄어야 한다.** 오른쪽 끝을 붙박아 두면 통이 클수록
+   왼쪽으로 밀려 **화면 밖으로 나간다** (265px 에서 어항 절반이 잘렸다).
+   `.app` 이 max-width:480px · 좌우 여백 16px 이라 치마 옆선 왼쪽의 바닥은
+   `50vw - 56.5px` 다 — 거기에 여유를 두고 통 너비의 상한으로 삼는다. */
+.stage-creature.cr-water {
+  --bowl: min(96px, calc(50vw - 62px));
+  bottom: 4%; animation: none;
+  left: auto; right: calc(50% + 61.5px);
+  width: var(--bowl); height: var(--bowl);
+}
 .stage-creature.cr-water .cr-bowl,
 .stage-creature.cr-water .cr-swim { position: absolute; inset: 0; }
 .stage-creature.cr-water .cr-bowl { width: 100%; height: 100%; display: block; }
