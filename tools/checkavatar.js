@@ -682,6 +682,79 @@ function launchOpts() {
     return { bad, beakBad, worst, beak: Math.max.apply(null, beaks), beakN: beaks.length };
   }, SHOULDER_DIP);
 
+  // ─── 팔꿈치 바깥에 턱이 생기지 않는가 ────────────────────────
+  //
+  // 팔은 윗팔·아랫팔 두 마디이고 아랫팔만 팔꿈치에서 굽는다(elbowRot).
+  // 예전에는 두 마디의 이음매를 **윗팔을 고정된 반폭(w/2)만큼 아래로 늘려서**
+  // 덮었는데, **그 늘린 조각은 굽힘을 안 탄다.** 그래서 팔꿈치 아래에 굽힌 만큼
+  // (길이 × sin 9°) 네모난 턱이 바깥으로 삐져나왔다 — 가는 팔일수록 심했다
+  // (늘린 길이가 굵기와 무관한 고정값이라 그렇다).
+  //
+  // 재는 법: 팔만 남기고 팔꿈치 둘레(y 150~195)의 **바깥 옆선을 0.5px 마다** 찍어
+  // 이웃한 줄 사이의 **단차**를 본다. 매끄러운 팔은 기울기가 tan(9°)+테이퍼라
+  // 0.25px(래스터 눈금)을 못 넘는다. 턱이 있으면 그 자리에서 확 튄다
+  // (고치기 전 1.25px · 고친 뒤 0.25px).
+  const ELBOW_STEP = 0.5;        // px. 0.25 는 래스터 눈금이라 그 위로 잡는다
+  const elbow = await page.evaluate(async (MAX) => {
+    const D = window.GameData, bad = [], S = 4;
+    const cv = document.createElement('canvas');
+    cv.width = 200 * S; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    // 팔만 남긴다 — 몸통이 같은 살색이라 같이 두면 턱이 몸통에 묻힌다
+    function keepArm(svg) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = svg;
+      const root = wrap.firstElementChild;
+      const keep = root.querySelector('[data-part="torso"]').closest('svg > g');
+      [...root.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+      [...keep.children].forEach(g => { if (!g.matches('[data-part="arm"]')) g.remove(); });
+      return root.outerHTML;
+    }
+    async function pixels(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => {
+        img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      });
+      ctx.clearRect(0, 0, 200 * S, 348 * S);
+      ctx.drawImage(img, 0, 0, 200 * S, 348 * S);
+      return ctx.getImageData(0, 0, 200 * S, 348 * S).data;
+    }
+    const edgeR = (d, y) => {
+      for (let x = 199 * S; x >= 100 * S; x--)
+        if (d[(Math.round(y * S) * 200 * S + x) * 4 + 3] > 128) return x / S;
+      return null;
+    };
+    const edgeL = (d, y) => {
+      for (let x = 0; x <= 100 * S; x++)
+        if (d[(Math.round(y * S) * 200 * S + x) * 4 + 3] > 128) return x / S;
+      return null;
+    };
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
+    const steps = [];
+    for (const ka of [0.5, 0.75, 1, 1.5, 2]) {
+      const d = await pixels(keepArm(window.Avatar.build(outfit, 0, { arm: ka })));
+      for (const side of ['R', 'L']) {
+        const ed = side === 'R' ? edgeR : edgeL;
+        let step = 0, at = 0, prev = null;
+        for (let y = 150; y <= 195; y += 0.5) {
+          const e = ed(d, y);
+          if (e == null) { prev = null; continue; }
+          if (prev != null && Math.abs(e - prev) > step) { step = Math.abs(e - prev); at = y; }
+          prev = e;
+        }
+        steps.push(+step.toFixed(2));
+        if (step > MAX) {
+          bad.push(`팔 ${ka * 100}% ${side}: 팔꿈치 바깥 옆선이 ${step.toFixed(2)}px 튄다`
+            + ` (y≈${at}) — 두 마디의 이음매가 굽힘을 안 따라간다`);
+        }
+      }
+    }
+    return { bad, n: steps.length, worst: Math.max.apply(null, steps) };
+  }, ELBOW_STEP);
+
   // ─── 허리 → 엉덩이 → 허벅지 옆선이 꺾이지 않는가 ─────────────
   //
   // 셋은 배율이 서로 다르다(허리·엉덩이·허벅지 슬라이더). 예전에는 엉덩이 path 를
@@ -1082,6 +1155,7 @@ function launchOpts() {
     .concat(seam.bad.map(m => ({ id: '몸통↔팔', body: '-', where: m, n: '-' })))
     .concat(shoulder.bad.map(m => ({ id: '어깨 홈', body: '-', where: m, n: '-' })))
     .concat(shoulder.beakBad.map(m => ({ id: '어깨 부리', body: '-', where: m, n: '-' })))
+    .concat(elbow.bad.map(m => ({ id: '팔꿈치 턱', body: '-', where: m, n: '-' })))
     .concat(armCover.bad.map(m => ({ id: '치마가 팔을 덮음', body: '-', where: m, n: '-' })))
     .concat(kink.bad.map(m => ({ id: '허리↔엉덩이↔허벅지', body: '-', where: m, n: '-' })))
     .concat(hipOut.bad.map(m => ({ id: '엉덩이가 하의 밖으로', body: '-', where: m, n: '-' })))
@@ -1101,6 +1175,8 @@ function launchOpts() {
     + ` (목→팔 실루엣이 다시 솟지 않아야 한다 · ${SHOULDER_DIP}px 까지)`);
   console.log(`어깨 부리: 몸통×팔 배율 ${shoulder.beakN}조합 — 가장 튀어나온 곳 ${shoulder.beak}px`
     + ` (어깨·목이 팔 밖으로 나오면 안 된다)`);
+  console.log(`팔꿈치 턱: 팔 배율 ${elbow.n}가지 × 좌우 — 옆선이 가장 튄 곳 ${elbow.worst}px`
+    + ` (${ELBOW_STEP}px 까지 · 두 마디가 굽힘까지 같이 이어져야 한다)`);
   console.log(`치마가 팔을 덮음: 옷 ${armCover.cases}조합 × 허리 아래 팔 ${armCover.arm}픽셀`
     + ` — 가장 많이 덮인 곳 ${armCover.worst}% (${ARM_COVER_MAX * 100}% 까지)`);
   console.log(`허리↔엉덩이↔허벅지: 배율 ${kink.n}조합 — 옆선이 가장 꺾인 곳 ${kink.worst}`

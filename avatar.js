@@ -269,7 +269,6 @@
     const B = BODY, left = side === 'L', o = opts || {};
     const d = armShift(tune) * (left ? 1 : -1);       // 어깨선을 따라 팔을 옮긴다
     const x0 = (left ? B.armX_L : B.armX_R) + d;
-    const w = B.armW + pad * 2;
     const ka = tuneOf(tune, 'arm');
     // **안쪽 변은 고정이다** — 굵기가 어떻든 팔이 몸통에서 안 떨어진다.
     // sgn 은 안쪽에서 바깥쪽으로 가는 방향
@@ -284,25 +283,41 @@
     // 그릴 구간을 팔 위 끝(armY)에서 잰 거리로 바꾼다
     const from = (o.yFrom != null ? o.yFrom : B.armY - pad) - B.armY;
     const to = from + h;
-    // 팔꿈치를 지나는 조각은 **반폭만큼 겹쳐 늘린다** — 캡슐 두 개를 맞대기만 하면
-    // 둥근 끝 사이에 초승달 모양 틈이 생긴다. 늘리면 두 캡의 원 중심이 팔꿈치에서
-    // 정확히 겹쳐 이음매가 사라진다 (굽혀도 회전축이 그 점이라 그대로 겹친다)
-    const OV = w / 2;
     const baseRot = `rotate(${rot} ${+pivot.toFixed(2)} ${B.armPivotY})`;
     // 그릴 조각들을 먼저 모은다 — 테두리가 있으면 두 번 그려야 해서(아래 참조) 목록이 필요하다
     const segs = [];
-    // 윗팔 조각
+    // 윗팔 조각 — 팔꿈치에서 **딱 끊는다** (아래 joint 가 이음매를 메운다)
     const upFrom = from, upTo = Math.min(to, upLen);
-    if (upTo > upFrom) {
-      segs.push({ y: B.armY + upFrom, h: (upTo - upFrom) + (to > upLen ? OV : 0), tr: baseRot });
-    }
+    if (upTo > upFrom) segs.push({ y: B.armY + upFrom, h: upTo - upFrom, tr: baseRot });
     // 아랫팔 조각 — 팔꿈치 기준 회전이 하나 더 붙는다 (기울기 → 굽힘 순으로 적용된다)
     const foFrom = Math.max(from, upLen), foTo = to;
     if (foTo > foFrom) {
-      const ext = (from < upLen ? OV : 0);
-      segs.push({ y: B.armY + foFrom - ext, h: (foTo - foFrom) + ext,
+      segs.push({ y: B.armY + foFrom, h: foTo - foFrom,
         tr: `${baseRot} rotate(${bend} ${+cx.toFixed(2)} ${+elbowY.toFixed(2)})` });
     }
+    // ─── 팔꿈치 이음매는 **관절에 놓은 원 하나**로 메운다 ───────
+    //
+    // 마디 둘을 그냥 맞대면 아랫팔이 굽는 만큼(elbowRot) 윗변이 기울어
+    // 바깥쪽에 얇은 쐐기 틈이 남는다. 예전에는 윗팔을 **고정된 반폭(w/2)만큼
+    // 아래로 늘려** 덮었는데, 그 늘린 조각은 **굽힘을 안 타서** 팔꿈치 바깥에
+    // 네모난 턱으로 삐져나왔다 — 팔이 가늘수록 더 튀어나온다 (늘린 길이가
+    // 굵기와 무관한 고정값이라 그렇다).
+    //
+    // 굽힘의 회전축이 관절 한가운데(cx, elbowY)이므로 **그 점을 중심으로 한 원은
+    // 굽혀도 제자리다.** 반지름을 팔꿈치의 반폭으로 잡으면 두 마디 어느 쪽에서 봐도
+    // 안에 들어가 있어(원은 이차로 좁아지고 팔은 그보다 느리게 좁아진다) 밖으로 안 나온다.
+    const hE = armHalf(upLen, ka, pad);
+    const jy0 = Math.max(elbowY - hE, B.armY + from);
+    const jy1 = Math.min(elbowY + hE, B.armY + to);
+    const joint = (color, extra) => {
+      if (!(from < upLen && to > upLen) || jy1 - jy0 <= 0.01) return '';
+      const f = n => +n.toFixed(2);
+      const wAt = y => Math.sqrt(Math.max(0, hE * hE - (y - elbowY) * (y - elbowY)));
+      const w0 = wAt(jy0), w1 = wAt(jy1);
+      return `<path d="M${f(cx + w0)},${f(jy0)} A${f(hE)},${f(hE)} 0 0 1 ${f(cx + w1)},${f(jy1)}`
+        + ` L${f(cx - w1)},${f(jy1)} A${f(hE)},${f(hE)} 0 0 1 ${f(cx - w0)},${f(jy0)} Z"`
+        + ` fill="${color}"${extra || ''} transform="${baseRot}"/>`;
+    };
     const emit = (list, color, extra) => list.map((g, i) =>
       `<path d="${armSegPath(xin, sgn, g.y - B.armY, g.y - B.armY + g.h, ka, pad,
                              i === 0, i === list.length - 1)}"
@@ -318,8 +333,10 @@
     const sFrom = B.armY + ARM_SHADE_FROM;
     const shadeSegs = segs.map(g => ({ y: Math.max(g.y, sFrom), h: g.h - Math.max(0, sFrom - g.y), tr: g.tr }))
       .filter(g => g.h > 0.5);
+    const sc = shade(fill, 8);
     return `<g transform="translate(${(-sgn * ARM_SHADE).toFixed(2)},0)">`
-      + emit(shadeSegs, shade(fill, 8)) + '</g>' + emit(segs, fill, o.extra);
+      + emit(shadeSegs, sc) + joint(sc) + '</g>'
+      + emit(segs, fill, o.extra) + joint(fill, o.extra);
   }
 
   // 팔 중심선 위의 한 점 — dist 는 팔 위 끝(armY)에서 잰 거리.
