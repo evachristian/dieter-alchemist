@@ -891,6 +891,86 @@ function launchOpts() {
              ankle: +r0.ankle.toFixed(1), ankleMax: +Math.max.apply(null, ankles).toFixed(1) };
   }, GAP_SPREAD_MAX);
 
+  // ─── 팔 끝에 손이 있는가 ────────────────────────────────────
+  //
+  // 예전에는 손이 아예 없었다. 팔이 손목에서 둥근 마개로 뚝 끝나서 **잘린 것처럼**
+  // 보였다 (소매를 그리는 옷 몇 벌만 소매 끝에 살색 동그라미를 하나 얹고 있었다).
+  //
+  // 손은 팔과 **같은 살색**이라 색으로는 못 찾는다 — **실루엣**으로 잡는다:
+  //   ① 팔이 손목(armY+armH)보다 **더 아래까지** 내려온다
+  //   ② 그 끝 언저리가 손목보다 **눈에 띄게 넓다** (손목보다 좁으면 그냥 마개다)
+  // 장갑도 같이 본다 — 팔만 덮고 손을 빼먹으면 장갑 아래로 살색 손이 삐져나온다.
+  const HAND_DROP_MIN = 4, HAND_BULGE_MIN = 0.6;
+  const hand = await page.evaluate(async (o) => {
+    const D = window.GameData, bad = [], S = 4, W = 200 * S;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    function keep(svg, sel) {
+      const wrap = document.createElement('div'); wrap.innerHTML = svg;
+      const root = wrap.firstElementChild; const only = root.cloneNode(false);
+      [...root.querySelectorAll(sel)].forEach(n => only.appendChild(n.cloneNode(true)));
+      return only.outerHTML;
+    }
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      ctx.clearRect(0, 0, W, 348 * S); ctx.drawImage(img, 0, 0, W, 348 * S);
+      return ctx.getImageData(0, 0, W, 348 * S).data;
+    }
+    // 오른팔의 **바깥 변**. 안쪽은 그늘(ARM_SHADE)이 2.5px 더 나와 있어 폭으로 재면
+    // 손(그늘 없음)이 손목보다 좁게 나온다 — 바깥 변만 본다
+    const outer = (d, y) => {
+      const row = Math.round(y * S);
+      for (let x = 185 * S; x >= 100 * S; x--) if (d[(row * W + x) * 4 + 3] > 128) return x / S;
+      return null;
+    };
+    // 손을 뺀 팔의 끝(armY+armH=214)을 몸 배율로 옮긴 자리
+    const ARM_END = 342 - (342 - 214) * (1 + (84 - 84 * 0.979) / 229);
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    const glove = (D.WARDROBE.glove || []).filter(g => g.kind !== 'none')[0];
+    const cases = [['맨팔 100%', {}, null, '[data-part="arm"]'],
+                   ['맨팔 50%', {}, { arm: 0.5 }, '[data-part="arm"]'],
+                   ['맨팔 200%', {}, { arm: 2 }, '[data-part="arm"]'],
+                   ['긴팔', { top: 'top_knit' }, null, '[data-part="arm"]']];
+    if (glove) cases.push(['장갑', { glove: glove.id }, null, '[data-part="glove"]']);
+    const rows = [];
+    for (const [name, wear, t, sel] of cases) {
+      const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare, wear), 0, t);
+      const d = await px(keep(svg, sel));
+      let bottom = null;
+      for (let y = 260; y >= 150; y -= 0.5) if (outer(d, y) != null) { bottom = y; break; }
+      if (bottom == null) { bad.push(`${name}: 팔이 안 그려졌다`); continue; }
+      // ① 손목보다 아래로 내려온다 — 손이 없으면 팔은 armY+armH 에서 끝난다
+      const drop = bottom - ARM_END;
+      // ② 손목에서 잘록해졌다가 **바깥으로 다시 부푼다** (소매·장갑은 통이 넓어 못 잰다)
+      let neck = Infinity, bulge = -Infinity;
+      for (let y = ARM_END - 13; y <= ARM_END - 4; y += 0.5) { const v = outer(d, y); if (v != null && v < neck) neck = v; }
+      for (let y = ARM_END - 3; y <= bottom; y += 0.5) { const v = outer(d, y); if (v != null && v > bulge) bulge = v; }
+      rows.push(`${name} ↓${drop.toFixed(1)}${sel === '[data-part="arm"]' && !wear.top ? ' ↔' + (bulge - neck).toFixed(1) : ''}`);
+      if (drop < o.drop) {
+        bad.push(`${name}: 손이 팔 끝보다 ${drop.toFixed(1)}px 밖에 안 내려온다`
+          + ` (${o.drop}px 이상) — 손 없이 손목에서 잘린 모양이다`);
+      }
+      if (sel === '[data-part="arm"]' && !wear.top && !(bulge - neck >= o.bulge)) {
+        bad.push(`${name}: 손목 아래에서 바깥으로 ${(bulge - neck).toFixed(2)}px 밖에 안 부푼다`
+          + ` (${o.bulge}px 이상) — 손이 팔보다 좁아 마개처럼 보인다`);
+      }
+    }
+    // 손이 팔보다 **아래로** 내려오는가 (맨팔 기준)
+    const svg1 = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, null);
+    const dArm = await px(keep(svg1, '[data-part="arm"]'));
+    let bot = null;
+    for (let y = 260; y >= 150; y -= 0.5) if (outer(dArm, y) != null) { bot = y; break; }
+    if (!(bot - ARM_END >= o.drop)) {
+      bad.push(`손이 팔 끝보다 ${(bot - ARM_END).toFixed(1)}px 밖에 안 내려온다`
+        + ` (${o.drop}px 이상) — 손이 팔 안에 묻혀 안 보인다`);
+    }
+    return { bad: bad, rows: rows, drop: +(bot - ARM_END).toFixed(1) };
+  }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN });
+
   // ─── 200% 의 두께가 부위마다 정해진 값인가 ──────────────────
   //
   // 슬라이더는 부위마다 0.5~2 로 같은데 **같은 200% 라도 자연스러운 두께는 다르다.**
@@ -1519,6 +1599,7 @@ function launchOpts() {
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(fat.bad.map(m => ({ id: '200% 두께', body: '-', where: m, n: '-' })))
+    .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
@@ -1545,6 +1626,8 @@ function launchOpts() {
   console.log(`다리 사이 틈: 배율 ${legGap.n}단계 × y ${legGap.ys.join('·')}`
     + ` — 기본 ${legGap.base.join('·')}px · 흔들림 ${legGap.spread.join('·')}px`
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
+  console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
+    + ` (${HAND_DROP_MIN}px · ${HAND_BULGE_MIN}px 이상)`);
   console.log(`200% 두께: 100% 대비 ${fat.rows.join(' · ')}`
     + ` (부위마다 정해 둔 값 ±${FAT_TOL} · 100% 는 아무것도 안 바꾼다)`);
   console.log(`다리 옆선: 허벅지×종아리 ${legLine.n}조합 — 가장 선 곳 ${legLine.worst}`

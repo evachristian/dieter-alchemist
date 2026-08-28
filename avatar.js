@@ -381,6 +381,43 @@
     return rotAbout(p, rot, { x: pivot, y: B.armPivotY });           // 그다음 팔 기울기
   }
 
+  // ─── 손 — **벙어리장갑 한 덩어리** ──────────────────────────
+  //
+  // 예전에는 손이 아예 없었다. 팔이 손목에서 둥근 마개로 뚝 끝나서 **잘린 것처럼**
+  // 보였다 (소매를 그리는 옷 몇 벌만 소매 끝에 살색 동그라미를 하나 얹고 있었다).
+  //
+  // 듀오링고풍이라 손가락은 그리지 않는다(`ART_POLICY`) — **손목보다 조금 넓은 덩어리에
+  // 엄지 혹 하나**면 손으로 읽힌다. 팔과 같은 살색이라 **실루엣으로만** 구분되므로
+  // 손목보다 넓은 것이 핵심이다. 그리고 **손목에 선을 긋지 않는다** — 잘린 것처럼
+  // 보이던 바로 그 모양이 된다.
+  //
+  // ⚠️ **팔의 기울기를 그대로 받는다.** 팔은 어깨에서 armRot, 팔꿈치에서 elbowRot 만큼
+  // 도므로 아랫팔의 최종 기울기는 **그 둘의 합**이다. 안 맞추면 손만 삐딱하게 붙는다.
+  // ⚠️ 자리는 `armPoint` 로 잡는다. 굵기를 바꾸면 팔의 중심선이 움직이는데(안쪽 변이
+  // 고정이라 그렇다), 고정값에 두면 가는 팔에서 **손만 바깥에 남는다.**
+  // ⚠️ 엄지는 **몸 쪽**에 붙인다. 팔을 내리고 서면 엄지가 안쪽을 향한다
+  const HAND_W = 1.28;      // 손목 반폭의 몇 배
+  const HAND_H = 1.12;      // 손 반폭 대비 높이
+  const HAND_THUMB = 0.4;   // 엄지 반지름 (손 반폭 대비)
+  const HAND_MIN = 0.85;    // 기본 손목 대비 손의 하한
+  function handShape(side, tune, color, dist) {
+    const B = BODY, left = side === 'L', sgn = left ? -1 : 1;   // sgn 은 바깥 방향
+    const ka = tuneOf(tune, 'arm');
+    const p = armPoint(side, dist == null ? B.armH : dist, tune);
+    // ⚠️ **손은 아주 작아지지는 않는다.** 팔을 가늘게 하면 손목을 따라 같이 줄어드는데,
+    // 그러면 손이 손목보다 0.25px 밖에 안 넓어져 **다시 마개처럼** 보인다.
+    // 기본 손목의 HAND_MIN 만큼은 지킨다 — 통통한 손은 이 그림체에서 오히려 귀엽다
+    const wristHalf = Math.max(armHalf(B.armH, ka, 0), armHalf(B.armH, 1, 0) * HAND_MIN);
+    const hw = wristHalf * HAND_W, hh = hw * HAND_H;
+    const th = left ? (B.armRot - B.elbowRot) : (B.elbowRot - B.armRot);
+    const f = n => +n.toFixed(2);
+    return `<g transform="rotate(${th} ${f(p.x)} ${f(p.y)})">`
+      + `<circle cx="${f(p.x - sgn * hw * 0.95)}" cy="${f(p.y + hh * 0.2)}" r="${f(hw * HAND_THUMB)}" fill="${color}"/>`
+      + `<ellipse cx="${f(p.x)}" cy="${f(p.y + hh * 0.58)}" rx="${f(hw)}" ry="${f(hh)}" fill="${color}"/></g>`;
+  }
+  const hands = (tune, color, dist) =>
+    handShape('L', tune, color, dist) + handShape('R', tune, color, dist);
+
   // 장갑 — 팔 아래쪽(손목 쪽)부터 len 비율만큼 덮는다
   function renderGlove(it, tune) {
     if (isNone(it)) return '';
@@ -402,10 +439,12 @@
     else if (finish === 'frill') trim = bandAt(c2, 3, yFrom) + bandAt(c2, 2, yFrom + 5);  // 두 겹 프릴
     else if (finish === 'ribbon') trim = bandAt(c2, 4, yFrom + 2);                  // 굵은 띠(리본 자리)
     else if (finish === 'strap') trim = bandAt(c2, 2.4, yFrom + 3) + bandAt(c2, 2.4, yFrom + h - 8); // 위아래 스트랩
+    // **손도 장갑 색이다.** 팔만 덮으면 장갑 아래로 살색 손이 삐져나온다
     return `<g data-part="glove">
       ${armShape('L', c, pad, h, tune, { yFrom })}
       ${armShape('R', c, pad, h, tune, { yFrom })}
       ${trim}
+      ${hands(tune, c)}
     </g>`;
   }
 
@@ -963,6 +1002,7 @@
       <g data-part="arm">
         ${armShape('L', SKIN, 0, BODY.armH, tune)}
         ${armShape('R', SKIN, 0, BODY.armH, tune)}
+        ${hands(tune, SKIN)}
       </g>`;
   }
 
@@ -1328,15 +1368,11 @@
     const from = yFrom == null ? B.armY - pad : yFrom;
     if (end <= from) return '';
     const opt = yFrom == null ? undefined : { yFrom };
-    // 손 위치 = 소매 끝. armPoint 가 팔꿈치 굽힘까지 따라간다
-    const hL = armPoint('L', B.armH * len, tune), hR = armPoint('R', B.armH * len, tune);
-    // 소매만 팔 배율을 따른다. 손은 팔 중심선 위에 있고 그 선은 움직이지 않으므로
-    // (좌우 각각 자기 중심을 축으로 늘린다) 그대로 둔다 — 같이 늘리면 손이 타원이 된다.
+    // 손은 **소매 끝**에 온다 (팔 끝이 아니다) — handShape 가 armPoint 로 자리를 잡는다
     return `
       ${armShape('L', c, pad, end - from, tune, opt)}
       ${armShape('R', c, pad, end - from, tune, opt)}
-      <circle cx="${hL.x.toFixed(1)}" cy="${hL.y.toFixed(1)}" r="8.5" fill="${SKIN}"/>
-      <circle cx="${hR.x.toFixed(1)}" cy="${hR.y.toFixed(1)}" r="8.5" fill="${SKIN}"/>`;
+      ${hands(tune, SKIN, B.armH * len)}`;
   }
 
   // 옷의 소매 — **한 곳에서만 만든다.** 하의 위에 다시 찍을 때도 같은 함수를 지나므로
@@ -1380,7 +1416,7 @@
     // data-part 를 붙여 둔다 — 검사기가 「팔」을 골라낼 때 이 조각도 같이 잡혀야 한다
     return `<g data-part="arm">${armShape('L', SKIN, 0, h, tune, { yFrom: WY })}`
          + `${armShape('R', SKIN, 0, h, tune, { yFrom: WY })}`
-         + `${garmentSleeves(wear, tune, WY)}</g>`;
+         + `${garmentSleeves(wear, tune, WY)}${hands(tune, SKIN)}</g>`;
   }
 
   // 몸통을 덮고 hemY 까지 퍼지는 드레스 (+ 팔 소매)
