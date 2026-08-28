@@ -404,12 +404,13 @@
   // 허리 반폭 — 몸과 옷이 **같은 값**을 본다. 옷은 CLOTH_PAD 만큼 넉넉하게.
   const waistHalf = tune => BODY.waistHalf * tuneOf(tune, 'waist');
   const clothWaistHalf = tune => waistHalf(tune) + CLOTH_PAD;
-  // 허벅지 바깥 변 (중심선에서 잰 거리). 허벅지는 **안쪽 변(102)**을 축으로 늘어나므로
-  // 바깥 변은 102 + 20·배율 이다 — 기본값이면 122.
-  const thighOuter = tune => 2 + 20 * tuneOf(tune, 'thigh');
-  // 발(과 구두)의 중심 x. 종아리가 안쪽 변을 축으로 늘어나므로 발도 따라간다 —
-  // 안 따라가면 종아리를 가늘게 했을 때 발만 바깥에 남는다
-  const footX = tune => +(100 - (5.5 + 8.5 * tuneOf(tune, 'calf'))).toFixed(2);
+  // 허벅지의 가장 굵은 곳 (엉덩이 바로 밑 · 중심선에서 잰 거리) — 기본값이면 122.
+  // 엉덩이가 여기에 내려꽂힌다
+  const thighOuter = tune => THIGH_GAP + LEG.hipW * tuneOf(tune, 'thigh');
+  // 발(과 구두)의 중심 x — **발목을 따라간다.**
+  // 발목은 배율을 안 타므로 종아리를 굵게 해도 발은 제자리다. 가늘게 하면 같이 들어온다.
+  // (발목 한가운데에서 바깥으로 5.5px — 기본값에서 86 / 114 가 되는 자리다)
+  const footX = tune => +(100 - ((CALF_GAP + ankleX(tune)) / 2 + 5.5)).toFixed(2);
   // 엉덩이가 허벅지에 내려꽂는 자리는 **바깥 변보다 1px 안쪽**이다.
   //
   // ⚠️ 딱 맞추거나(122) 밖으로 물리면(123) 그 높이에서 실루엣이 1px 턱을 져
@@ -483,20 +484,70 @@
   // (허벅지 60% 에서 틈이 4px → 12px). 체지방이 빠져도 다리 사이는 그대로 붙어 있고
   // 살은 **바깥쪽에서** 빠진다 — 체지방 15~45% 사진을 견줘 보면 그렇다.
   // 안쪽 변을 축으로 두면 굵어지든 가늘어지든 **틈이 일정**하다.
-  const THIGH_IN = 98, CALF_IN = 97;      // 왼쪽 다리의 안쪽 변 (오른쪽은 100 기준 대칭)
+  // ─── 다리는 원통이 아니다 ──────────────────────────────────
+  //
+  // 예전에는 허벅지·종아리가 **네모(rect)를 가로로 늘린 것**이었다. 그래서 굵게 하면
+  // 무릎도 발목도 같이 굵어져 **통나무**가 됐다. 실제 여자 다리는 그렇게 안 생겼다 —
+  // **관절(무릎·발목)은 거의 그대로**고, 허벅지 위쪽과 장딴지만 곡선으로 부푼다.
+  //
+  // 그래서 마디마다 「살이 붙는 곳」과 「안 붙는 곳」을 나눠 둔다:
+  //   허벅지  위(엉덩이 밑)가 가장 굵다 → 무릎으로 가늘어진다
+  //   종아리  무릎에서 장딴지로 부풀었다가 → 발목으로 가늘어진다
+  //
+  // ⚠️ **관절은 「중심선에서 잰 거리」로 잡는다.** 허벅지와 종아리는 안쪽 변이 서로 달라서
+  // (2 / 3), 폭을 맞추면 무릎에서 바깥 변이 어긋나 1px 턱이 진다.
+  //
+  // ⚠️ **안쪽 변은 배율을 안 탄다** — 가늘게 만들어도 다리 사이가 안 벌어진다.
+  // 체지방이 빠져도 살은 **바깥쪽에서** 빠진다 (체지방 15~45% 사진).
+  const THIGH_GAP = 2, CALF_GAP = 3;      // 중심선 → 안쪽 변
+  const LEG = {
+    hipY: 186, kneeY: 263, calfY: 256, ankleY: 331,
+    bellyT: 0.28,                         // 장딴지가 가장 굵은 곳 (종아리 구간의 비율)
+    hipW: 20, bellyW: 17,                 // 배율을 타는 살 (안쪽 변에서 잰 폭)
+    kneeX: 17, ankleX: 14,                // 배율을 **안 타는** 관절 (중심선에서 잰 거리)
+  };
+  // 관절은 그대로지만 **마디보다 굵어질 수는 없다** — 가늘게 만들면 같이 가늘어진다
+  const kneeX = tune => Math.min(LEG.kneeX,
+    THIGH_GAP + LEG.hipW * tuneOf(tune, 'thigh') * 0.85,
+    CALF_GAP + LEG.bellyW * tuneOf(tune, 'calf') * 0.85);
+  const ankleX = tune => Math.min(LEG.ankleX, CALF_GAP + LEG.bellyW * tuneOf(tune, 'calf') * 0.8);
+
+  // 다리 마디 하나. 마디마다 **세로 접선**으로 이어져 어느 배율에서도 안 꺾인다.
+  //   gap 안쪽 변 · s 오른쪽이면 +1 · pts [[y, 중심선에서 잰 바깥 거리], ...] 위→아래
+  function limbPath(gap, s, pts) {
+    const X = n => +(100 + s * n).toFixed(2);
+    const a = pts[0], z = pts[pts.length - 1];
+    const cap = w => Math.max(1, Math.min(5, (w - gap) / 2));   // 마개는 폭의 절반을 못 넘는다
+    const r0 = cap(a[1]), r1 = cap(z[1]);
+    let d = `M${X(gap)},${a[0]} L${X(a[1] - r0)},${a[0]} Q${X(a[1])},${a[0]} ${X(a[1])},${(a[0] + r0).toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i - 1], q = pts[i];
+      const y0 = i === 1 ? p[0] + r0 : p[0];
+      const y1 = i === pts.length - 1 ? q[0] - r1 : q[0];
+      const h = (y1 - y0) * 0.45;
+      d += ` C${X(p[1])},${(y0 + h).toFixed(1)} ${X(q[1])},${(y1 - h).toFixed(1)} ${X(q[1])},${y1.toFixed(1)}`;
+    }
+    d += ` Q${X(z[1])},${z[0]} ${X(z[1] - r1)},${z[0]} L${X(gap)},${z[0]} Z`;
+    return `<path d="${d}" fill="${SKIN}"/>`;
+  }
+
   function legs(tune) {
-    const kt = tuneOf(tune, 'thigh'), kc = tuneOf(tune, 'calf');
+    const L = LEG, kt = tuneOf(tune, 'thigh'), kc = tuneOf(tune, 'calf');
+    const kx = kneeX(tune), ax = ankleX(tune);
+    const bellyY = +(L.calfY + (L.ankleY - L.calfY) * L.bellyT).toFixed(1);
+    const thigh = [[L.hipY, THIGH_GAP + L.hipW * kt], [L.kneeY, kx]];
+    const calf = [[L.calfY, kx], [bellyY, CALF_GAP + L.bellyW * kc], [L.ankleY, ax]];
     const fy = BODY.footY, fx = footX(tune);
     return `
       <g data-part="calf">
-        <g${sx(kc, CALF_IN)}><rect x="80" y="256" width="17" height="75" rx="8" fill="${SKIN}"/></g>
-        <g${sx(kc, 200 - CALF_IN)}><rect x="103" y="256" width="17" height="75" rx="8" fill="${SKIN}"/></g>
+        ${limbPath(CALF_GAP, -1, calf)}
+        ${limbPath(CALF_GAP, 1, calf)}
       </g>
       <ellipse cx="${fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
       <ellipse cx="${200 - fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
       <g data-part="thigh">
-        <g${sx(kt, THIGH_IN)}><rect x="78" y="186" width="20" height="77" rx="10" fill="${SKIN}"/></g>
-        <g${sx(kt, 200 - THIGH_IN)}><rect x="102" y="186" width="20" height="77" rx="10" fill="${SKIN}"/></g>
+        ${limbPath(THIGH_GAP, -1, thigh)}
+        ${limbPath(THIGH_GAP, 1, thigh)}
       </g>`;
   }
 

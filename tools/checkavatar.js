@@ -754,33 +754,45 @@ function launchOpts() {
       const d = ctx.getImageData(0, 0, W, 348 * S).data;
       // **가운데(x=100)에서 양옆으로** 첫 살까지가 다리 사이 틈이다.
       // 창을 통째로 세면 다리 **바깥**의 배경까지 들어가 가늘게 만들수록 커진다
-      return ys.map(y => {
+      const gaps = ys.map(y => {
         const row = Math.round(y * S);
         let l = 100 * S, r = 100 * S;
         while (l > 60 * S && d[(row * W + l) * 4 + 3] <= 128) l--;
         while (r < 140 * S && d[(row * W + r) * 4 + 3] <= 128) r++;
         return (r - l) / S;
       });
+      // 발목(y=320 · 발등 위) 오른쪽 다리의 바깥 변 — 종아리를 굵게 해도 안 움직여야 한다
+      const row = Math.round(320 * S);
+      let ax = 103 * S;
+      while (ax < 160 * S && d[(row * W + ax) * 4 + 3] > 128) ax++;
+      return { gaps, ankle: ax / S };
     }
     const YS = [240, 250, 300];            // 허벅지 · 무릎 · 종아리
-    const base = await gapAt({}, YS);
-    const out = [];
+    const r0 = await gapAt({}, YS);
+    const base = r0.gaps, out = [];
     for (const k of [0.4, 0.6, 0.8, 1.2, 1.6, 2]) {
-      const g = await gapAt({ thigh: k, calf: k }, YS);
-      out.push({ k, g });
+      const r = await gapAt({ thigh: k, calf: k }, YS);
+      out.push({ k, g: r.gaps, ankle: r.ankle });
       for (let i = 0; i < YS.length; i++) {
-        const diff = Math.abs(g[i] - base[i]);
+        const diff = Math.abs(r.gaps[i] - base[i]);
         if (diff > MAX) {
           bad.push(`허벅지·종아리 ${k * 100}%: y=${YS[i]} 의 다리 사이 틈이 `
-            + `${base[i].toFixed(1)} → ${g[i].toFixed(1)}px 로 ${diff.toFixed(1)} 만큼 달라졌다`);
+            + `${base[i].toFixed(1)} → ${r.gaps[i].toFixed(1)}px 로 ${diff.toFixed(1)} 만큼 달라졌다`);
         }
+      }
+      // 종아리를 **굵게** 해도 발목은 그대로여야 한다 (가늘게 하면 같이 가늘어져도 된다)
+      if (k > 1 && r.ankle - r0.ankle > MAX) {
+        bad.push(`종아리 ${k * 100}%: 발목이 ${r0.ankle.toFixed(1)} → ${r.ankle.toFixed(1)}px 로 굵어졌다`
+          + ` — 종아리를 굵게 해도 발목은 그대로여야 한다`);
       }
     }
     const spread = YS.map((y, i) => {
-      const vals = out.map(o => o[i === 0 ? 'g' : 'g'][i]).concat([base[i]]);
+      const vals = out.map(o => o.g[i]).concat([base[i]]);
       return +(Math.max.apply(null, vals) - Math.min.apply(null, vals)).toFixed(2);
     });
-    return { bad, base: base.map(v => +v.toFixed(1)), spread, ys: YS, n: out.length };
+    const ankles = out.filter(o => o.k > 1).map(o => o.ankle);
+    return { bad, base: base.map(v => +v.toFixed(1)), spread, ys: YS, n: out.length,
+             ankle: +r0.ankle.toFixed(1), ankleMax: +Math.max.apply(null, ankles).toFixed(1) };
   }, GAP_SPREAD_MAX);
 
   // ─── 엉덩이가 하의 밖으로 나오지 않는가 ─────────────────────
@@ -1026,6 +1038,8 @@ function launchOpts() {
   console.log(`다리 사이 틈: 배율 ${legGap.n}단계 × y ${legGap.ys.join('·')}`
     + ` — 기본 ${legGap.base.join('·')}px · 흔들림 ${legGap.spread.join('·')}px`
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
+  console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
+    + ` (굵어지면 안 된다 — 굵은 종아리에 가는 발목)`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
     + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
