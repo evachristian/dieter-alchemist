@@ -188,6 +188,26 @@
     const v = tune && Number(tune[k]);
     return Number.isFinite(v) && v > 0 ? v : 1;
   }
+  // ─── 배율이 살에 얹히는 정도는 부위마다 다르다 ────────────────
+  //
+  // 슬라이더는 부위마다 0.5~2 로 같은데, **같은 200% 라도 자연스러운 두께는 다르다.**
+  // 눈으로 맞춘 값이다 — 200% 에서 허벅지는 예전의 1.3배, 엉덩이·종아리는 0.8배.
+  //
+  // ⚠️ **100% 는 어느 부위도 안 건드린다.** 기본 체형이 한 톨도 안 움직여야 한다.
+  // 그래서 100% 를 **넘는 만큼(k−1)에만** 곱한다: k' = 1 + (k−1)·gain.
+  //   허벅지 200% : 1 + 1.6 = 2.6 → 살 20 → 52   (예전 40 의 1.3배)
+  //   엉덩이 200% : 1 + 0.6 = 1.6 → 34 → 54.4    (예전 68 의 0.8배)
+  //   종아리 200% : 1 + 0.6 = 1.6 → 살 18 → 28.8 (예전 36 의 0.8배)
+  //
+  // ⚠️ **100% 아래는 그대로 둔다.** 얇은 쪽은 이미 맞춰 놓은 그림이라 건드릴 이유가 없다.
+  // ⚠️ **`tuneOf` 를 그냥 바꾸면 안 된다.** 슬라이더 값 자체를 쓰는 곳(옷이 어느 파츠를
+  // 따라갈지 고르는 `tuneMax` · 세이브·화면의 % 표시)은 사람이 고른 값 그대로여야 한다.
+  // **살의 양을 셈하는 자리에서만** `fatOf` 를 쓴다.
+  const TUNE_GAIN = { thigh: 1.6, hip: 0.6, calf: 0.6 };
+  function fatOf(tune, k) {
+    const v = tuneOf(tune, k), g = TUNE_GAIN[k];
+    return (g == null || v <= 1) ? v : 1 + (v - 1) * g;
+  }
   // 가로(굵기)만 늘리는 변환 — ax 를 축으로
   function sx(k, ax) {
     return k === 1 ? '' : ` transform="translate(${ax},0) scale(${k.toFixed(3)},1) translate(${-ax},0)"`;
@@ -466,7 +486,7 @@
   // 허벅지 바깥 변 — **높이에 따라 다르다.** 위(엉덩이 밑)가 가장 굵고 무릎으로 가늘어진다.
   // 엉덩이가 붙을 자리를 잡으려면 「그 높이의」 허벅지 폭을 알아야 한다
   function thighOuterAt(tune, y) {
-    const L = LEG, top = THIGH_GAP + L.hipW * tuneOf(tune, 'thigh'), kx = kneeX(tune);
+    const L = LEG, top = THIGH_GAP + L.hipW * fatOf(tune, 'thigh'), kx = kneeX(tune);
     const u = Math.max(0, Math.min(1, (y - L.hipY) / (L.kneeY - L.hipY)));
     return top + (kx - top) * u * u * (3 - 2 * u);
   }
@@ -493,7 +513,7 @@
   // **허리보다도 허벅지보다도 좁을 수 없다.** 좁으면 그 둘이 엉덩이 밖으로 튀어나와
   // 이음매에 계단이 생긴다 (엉덩이만 줄이면 몸통 옆선이 엉덩이 밖으로 나갔다).
   const hipBaseHalf = tune => Math.max(
-    BODY.hipHalf * tuneOf(tune, 'hip'),
+    BODY.hipHalf * fatOf(tune, 'hip'),
     waistHalf(tune) * tuneOf(tune, 'torso'),
     thighOuter(tune));
   const clothHipHalf = tune => hipHalf(tune) + CLOTH_PAD;
@@ -559,7 +579,7 @@
   // 옆구리에 **선반(날개)** 을 만든다 — 사람이 보기에는 그쪽이 더 나쁘다.
   const HIP_B_LO = 0.35, HIP_B_HI = 0.5;   // 마디의 어느 구간까지 재는가
   const HIP_COVER_PAD = 0.6;               // 딱 맞추면 반올림·계단 탓에 반 픽셀이 남는다
-  const HIP_SPREAD_MAX = 6;                // 얹을 수 있는 폭의 한계 (px)
+  const HIP_SPREAD_MAX = 10;               // 얹을 수 있는 폭의 한계 (px)
   function hipNeedHalf(tune, half, HY, BY) {
     const w = waistHalf(tune) * tuneOf(tune, 'torso');
     const WY = BODY.waistY;
@@ -672,10 +692,10 @@
   const KNEE_K = 0.4;                       // 관절이 배율을 타는 몫
   // 관절은 **마디보다 굵어질 수는 없다** — 가늘게 만들면 같이 가늘어진다
   const kneeX = tune => Math.min(
-    LEG.kneeX * (1 - KNEE_K + KNEE_K * Math.max(tuneOf(tune, 'thigh'), tuneOf(tune, 'calf'))),
-    THIGH_GAP + LEG.hipW * tuneOf(tune, 'thigh') * 0.85,
-    CALF_GAP + LEG.bellyW * tuneOf(tune, 'calf') * 0.85);
-  const ankleX = tune => Math.min(LEG.ankleX, CALF_GAP + LEG.bellyW * tuneOf(tune, 'calf') * 0.8);
+    LEG.kneeX * (1 - KNEE_K + KNEE_K * Math.max(fatOf(tune, 'thigh'), fatOf(tune, 'calf'))),
+    THIGH_GAP + LEG.hipW * fatOf(tune, 'thigh') * 0.85,
+    CALF_GAP + LEG.bellyW * fatOf(tune, 'calf') * 0.85);
+  const ankleX = tune => Math.min(LEG.ankleX, CALF_GAP + LEG.bellyW * fatOf(tune, 'calf') * 0.8);
   // 장딴지가 가장 굵은 자리 — **불어나는 양이 클수록 아래로 내려간다.**
   // 자리를 붙박아 두면 무릎(263)에서 장딴지(277)까지 **14px 안에** 살을 다 붙여야 해서,
   // 종아리 200% 에서는 그 사이에 19px 이 불어나 **바깥으로 뾰족한 마름모**가 됐다.
@@ -683,7 +703,7 @@
   // 기본값(불어나는 양 3px)에서는 한 톨도 안 움직인다
   const BELLY_SLIDE = 0.008, BELLY_SLIDE_MAX = 0.18;
   function bellyYOf(tune) {
-    const rise = (CALF_GAP + LEG.bellyW * tuneOf(tune, 'calf')) - kneeX(tune);
+    const rise = (CALF_GAP + LEG.bellyW * fatOf(tune, 'calf')) - kneeX(tune);
     const base = LEG.bellyW - LEG.kneeX + CALF_GAP;      // 기본값의 불어나는 양 (3)
     const t = LEG.bellyT + Math.min(BELLY_SLIDE_MAX, Math.max(0, rise - base) * BELLY_SLIDE);
     return +(LEG.calfY + (LEG.ankleY - LEG.calfY) * t).toFixed(1);
@@ -759,7 +779,7 @@
   }
 
   function legs(tune) {
-    const L = LEG, kt = tuneOf(tune, 'thigh'), kc = tuneOf(tune, 'calf');
+    const L = LEG, kt = fatOf(tune, 'thigh'), kc = fatOf(tune, 'calf');
     const kx = kneeX(tune), ax = ankleX(tune);
     const bellyY = bellyYOf(tune);
     const thigh = [[L.hipY, THIGH_GAP + L.hipW * kt], [L.kneeY, kx]];

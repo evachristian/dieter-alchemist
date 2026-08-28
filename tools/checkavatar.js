@@ -891,6 +891,74 @@ function launchOpts() {
              ankle: +r0.ankle.toFixed(1), ankleMax: +Math.max.apply(null, ankles).toFixed(1) };
   }, GAP_SPREAD_MAX);
 
+  // ─── 200% 의 두께가 부위마다 정해진 값인가 ──────────────────
+  //
+  // 슬라이더는 부위마다 0.5~2 로 같은데 **같은 200% 라도 자연스러운 두께는 다르다.**
+  // 눈으로 맞춘 값이라(`TUNE_GAIN`) 코드 어딘가를 손보다가 조용히 어긋나기 쉽다 —
+  // 100% 대비 몇 배가 되는지를 여기서 박아 둔다.
+  // ⚠️ **100% 는 어느 부위도 안 움직인다** — 그것도 같이 본다.
+  const FAT_200 = { 허벅지: 2.54, 엉덩이: 1.60, 종아리: 1.59 };   // 100% 대비
+  const FAT_TOL = 0.06;
+  const fat = await page.evaluate(async (o) => {
+    const D = window.GameData, bad = [], S = 4, W = 200 * S;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    function keep(svg, sel) {
+      const wrap = document.createElement('div'); wrap.innerHTML = svg;
+      const root = wrap.firstElementChild; const only = root.cloneNode(false);
+      [...root.querySelectorAll(sel)].forEach(n => only.appendChild(n.cloneNode(true)));
+      return only.outerHTML;
+    }
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      ctx.clearRect(0, 0, W, 348 * S); ctx.drawImage(img, 0, 0, W, 348 * S);
+      return ctx.getImageData(0, 0, W, 348 * S).data;
+    }
+    // 오른쪽 반의 **살 두께** = 바깥 변 − 안쪽 변 (가장 두꺼운 자리)
+    async function thickest(sel, t) {
+      const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                     shoes: 'shoes_none', hair: 'hair_none' };
+      const d = await px(keep(window.Avatar.build(
+        Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, t), sel));
+      let best = 0;
+      for (let y = 186; y <= 330; y += 0.5) {
+        const row = Math.round(y * S);
+        let i = null, out = null;
+        for (let x = 100 * S; x <= 175 * S; x++) if (d[(row * W + x) * 4 + 3] > 128) { i = x / S; break; }
+        if (i == null) continue;
+        for (let x = 175 * S; x >= 100 * S; x--) if (d[(row * W + x) * 4 + 3] > 128) { out = x / S; break; }
+        if (out - i > best) best = out - i;
+      }
+      return best;
+    }
+    const parts = [['허벅지', 'thigh', '[data-part="thigh"]'],
+                   ['엉덩이', 'hip', '[data-part="hip"]'],
+                   ['종아리', 'calf', '[data-part="calf"]']];
+    const rows = [];
+    for (const [name, key, sel] of parts) {
+      const a = await thickest(sel, { [key]: 1 });
+      const b = await thickest(sel, { [key]: 2 });
+      const r = b / a;
+      rows.push(`${name} ${r.toFixed(2)}배`);
+      if (Math.abs(r - o.want[name]) > o.tol) {
+        bad.push(`${name} 200% 의 두께가 100% 의 ${r.toFixed(2)}배다`
+          + ` — ${o.want[name]}배여야 한다 (${a.toFixed(1)}px → ${b.toFixed(1)}px)`);
+      }
+    }
+    // 100% 는 어느 부위도 안 움직인다 — 기본 그림과 바이트까지 같아야 한다.
+    // ⚠️ 그라디언트 id 는 부를 때마다 번호가 오르므로(neckG_a1 · a2 …) 지우고 견준다
+    const norm = t => t.replace(/_a\d+/g, '_a');
+    const one = norm(window.Avatar.build(D.DEFAULT_OUTFIT, 0,
+      { thigh: 1, hip: 1, calf: 1, waist: 1, torso: 1, arm: 1 }));
+    if (one !== norm(window.Avatar.build(D.DEFAULT_OUTFIT, 0, null))) {
+      bad.push('배율을 전부 100% 로 준 그림이 기본 그림과 다르다 — 100% 는 아무것도 안 바꿔야 한다');
+    }
+    return { bad: bad, rows: rows };
+  }, { want: FAT_200, tol: FAT_TOL });
+
   // ─── 다리 옆선이 어디서도 너무 가파르지 않은가 · 무릎은 살을 따라가는가 ──
   //
   // 무릎을 **아예 고정**해 두었더니 허벅지 200% 에서 42 → 17 로 좁아져 깔때기가 됐고,
@@ -1450,6 +1518,7 @@ function launchOpts() {
     .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
+    .concat(fat.bad.map(m => ({ id: '200% 두께', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
@@ -1476,6 +1545,8 @@ function launchOpts() {
   console.log(`다리 사이 틈: 배율 ${legGap.n}단계 × y ${legGap.ys.join('·')}`
     + ` — 기본 ${legGap.base.join('·')}px · 흔들림 ${legGap.spread.join('·')}px`
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
+  console.log(`200% 두께: 100% 대비 ${fat.rows.join(' · ')}`
+    + ` (부위마다 정해 둔 값 ±${FAT_TOL} · 100% 는 아무것도 안 바꾼다)`);
   console.log(`다리 옆선: 허벅지×종아리 ${legLine.n}조합 — 가장 선 곳 ${legLine.worst}`
     + ` (${legLine.at} · ${LEG_SLOPE_MAX} 까지)`
     + ` · 둘 다 200% 일 때 무릎이 ${legLine.grow}px 굵어진다 (${KNEE_GROW_MIN}px 이상)`);
