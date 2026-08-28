@@ -727,6 +727,62 @@ function launchOpts() {
     return { bad, n: combos.length, worst: +worst.toFixed(2) };
   }, KINK_MAX);
 
+  // ─── 다리 사이 틈이 배율과 상관없이 일정한가 ────────────────
+  //
+  // 허벅지·종아리를 가늘게 해도 **다리는 붙어 있어야 한다.** 예전에는 굵기 배율의 축이
+  // 파츠의 가운데라 가늘게 만들면 안쪽 변까지 밖으로 밀려 **다리 사이가 벌어졌다**
+  // (허벅지 60% 에서 틈 4px → 12px). 체지방이 빠져도 살은 바깥에서 빠지고 안쪽 틈은
+  // 그대로다 — 그래서 축을 **안쪽 변**으로 옮겼다.
+  const GAP_SPREAD_MAX = 1.5;
+  const legGap = await page.evaluate(async (MAX) => {
+    const D = window.GameData, bad = [], S = 4, W = 200 * S;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    const bare = { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    // y 에서 두 다리 사이의 빈 구간 폭
+    async function gapAt(t, ys) {
+      const img = new Image();
+      await new Promise((ok, no) => {
+        img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,'
+          + encodeURIComponent(window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, t));
+      });
+      ctx.clearRect(0, 0, W, 348 * S);
+      ctx.drawImage(img, 0, 0, W, 348 * S);
+      const d = ctx.getImageData(0, 0, W, 348 * S).data;
+      // **가운데(x=100)에서 양옆으로** 첫 살까지가 다리 사이 틈이다.
+      // 창을 통째로 세면 다리 **바깥**의 배경까지 들어가 가늘게 만들수록 커진다
+      return ys.map(y => {
+        const row = Math.round(y * S);
+        let l = 100 * S, r = 100 * S;
+        while (l > 60 * S && d[(row * W + l) * 4 + 3] <= 128) l--;
+        while (r < 140 * S && d[(row * W + r) * 4 + 3] <= 128) r++;
+        return (r - l) / S;
+      });
+    }
+    const YS = [240, 250, 300];            // 허벅지 · 무릎 · 종아리
+    const base = await gapAt({}, YS);
+    const out = [];
+    for (const k of [0.4, 0.6, 0.8, 1.2, 1.6, 2]) {
+      const g = await gapAt({ thigh: k, calf: k }, YS);
+      out.push({ k, g });
+      for (let i = 0; i < YS.length; i++) {
+        const diff = Math.abs(g[i] - base[i]);
+        if (diff > MAX) {
+          bad.push(`허벅지·종아리 ${k * 100}%: y=${YS[i]} 의 다리 사이 틈이 `
+            + `${base[i].toFixed(1)} → ${g[i].toFixed(1)}px 로 ${diff.toFixed(1)} 만큼 달라졌다`);
+        }
+      }
+    }
+    const spread = YS.map((y, i) => {
+      const vals = out.map(o => o[i === 0 ? 'g' : 'g'][i]).concat([base[i]]);
+      return +(Math.max.apply(null, vals) - Math.min.apply(null, vals)).toFixed(2);
+    });
+    return { bad, base: base.map(v => +v.toFixed(1)), spread, ys: YS, n: out.length };
+  }, GAP_SPREAD_MAX);
+
   // ─── 엉덩이가 하의 밖으로 나오지 않는가 ─────────────────────
   //
   // 커버리지 검사(맨 위)는 **허리까지만** 본다. 허리 아래는 하의가 맡는데 거기를
@@ -945,7 +1001,8 @@ function launchOpts() {
     .concat(shoulder.beakBad.map(m => ({ id: '어깨 부리', body: '-', where: m, n: '-' })))
     .concat(armCover.bad.map(m => ({ id: '치마가 팔을 덮음', body: '-', where: m, n: '-' })))
     .concat(kink.bad.map(m => ({ id: '허리↔엉덩이↔허벅지', body: '-', where: m, n: '-' })))
-    .concat(hipOut.bad.map(m => ({ id: '엉덩이가 하의 밖으로', body: '-', where: m, n: '-' })));
+    .concat(hipOut.bad.map(m => ({ id: '엉덩이가 하의 밖으로', body: '-', where: m, n: '-' })))
+    .concat(legGap.bad.map(m => ({ id: '다리 사이 틈', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
@@ -966,6 +1023,9 @@ function launchOpts() {
     + ` (${KINK_MAX} 까지 · 접선이 이어져야 한다)`);
   console.log(`엉덩이가 하의 밖으로: 배율×하의 ${hipOut.n}조합 × 엉덩이 ${hipOut.maskN}픽셀`
     + ` — 가장 많이 나온 곳 ${hipOut.worst}% (${HIP_OUT_MAX * 100}% 까지)`);
+  console.log(`다리 사이 틈: 배율 ${legGap.n}단계 × y ${legGap.ys.join('·')}`
+    + ` — 기본 ${legGap.base.join('·')}px · 흔들림 ${legGap.spread.join('·')}px`
+    + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
     + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }

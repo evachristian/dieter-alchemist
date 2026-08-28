@@ -357,7 +357,8 @@
       if (rise > 0) s += `<path d="M${cx - 9},${FY - rise + 5} L${cx + 9},${FY - rise + 5}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
       return s;
     };
-    return `<g data-part="shoes">${foot(86)}${foot(114)}</g>`;
+    const fx = footX(tune);
+    return `<g data-part="shoes">${foot(fx)}${foot(200 - fx)}</g>`;
   }
 
   // 몸통 배율이 바뀌면 몸통 옆선이 안팎으로 움직인다. 팔이 제자리면 몸통에서 떨어지므로
@@ -403,9 +404,19 @@
   // 허리 반폭 — 몸과 옷이 **같은 값**을 본다. 옷은 CLOTH_PAD 만큼 넉넉하게.
   const waistHalf = tune => BODY.waistHalf * tuneOf(tune, 'waist');
   const clothWaistHalf = tune => waistHalf(tune) + CLOTH_PAD;
-  // 허벅지 바깥 변 (중심선에서 잰 거리). 허벅지는 제 중심(88 / 112)을 축으로 늘어나므로
-  // 바깥 변은 112 + 10·배율 이다. +1 은 엉덩이와 겹치라고 주는 여유.
-  const thighOuter = tune => 13 + 10 * tuneOf(tune, 'thigh');
+  // 허벅지 바깥 변 (중심선에서 잰 거리). 허벅지는 **안쪽 변(102)**을 축으로 늘어나므로
+  // 바깥 변은 102 + 20·배율 이다 — 기본값이면 122.
+  const thighOuter = tune => 2 + 20 * tuneOf(tune, 'thigh');
+  // 발(과 구두)의 중심 x. 종아리가 안쪽 변을 축으로 늘어나므로 발도 따라간다 —
+  // 안 따라가면 종아리를 가늘게 했을 때 발만 바깥에 남는다
+  const footX = tune => +(100 - (5.5 + 8.5 * tuneOf(tune, 'calf'))).toFixed(2);
+  // 엉덩이가 허벅지에 내려꽂는 자리는 **바깥 변보다 1px 안쪽**이다.
+  //
+  // ⚠️ 딱 맞추거나(122) 밖으로 물리면(123) 그 높이에서 실루엣이 1px 턱을 져
+  // **허벅지와 엉덩이가 만나는 곳에 가느다란 선**이 보인다. 예전 값이 123 이었다.
+  // 안쪽에 두면 그 아래부터는 **허벅지의 제 옆선이 그대로 이어받아** 선이 안 생긴다
+  // (엉덩이는 허벅지 위에 그려지므로, 안쪽으로 물러나면 허벅지가 드러난다).
+  const thighJoin = tune => thighOuter(tune) - 1;
   // 엉덩이 반폭 — 옷은 여기도 덮어야 한다 (치마·바지·드레스가 이 값을 본다).
   //
   // **허리보다도 허벅지보다도 좁을 수 없다.** 좁으면 그 둘이 엉덩이 밖으로 튀어나와
@@ -415,31 +426,77 @@
     waistHalf(tune) * tuneOf(tune, 'torso'),
     thighOuter(tune));
   const clothHipHalf = tune => hipHalf(tune) + CLOTH_PAD;
-  // 엉덩이 바깥 옆선이 **허벅지에 붙는 높이.**
-  // 엉덩이가 넓을수록 내려올 거리가 길어야 뾰족해지지 않는다 (torsoArms 의 주석 참고).
+
+  // ─── 엉덩이는 아래로 처진다 ─────────────────────────────────
+  //
+  // 튀어나온 만큼(=낙차) **내려올 거리도 길어지고 봉우리도 아래로 내려온다.**
+  // 짧은 거리에 억지로 밀어 넣으면 옆으로 뾰족한 날개가 된다 — 실제 몸은 커질수록
+  // 뾰족해지는 게 아니라 **중력으로 처지면서 더 둥글어진다.**
+  //
   // 몸과 하의가 **같은 값을 본다** — 안 그러면 넓은 엉덩이가 바지 옆으로 삐져나온다.
+  const hipDrop = tune => Math.max(0, hipHalf(tune) - thighJoin(tune));
+  // 허벅지에 붙는 높이. 아무리 커도 **무릎 10px 위**에서는 붙는다 (그 아래는 종아리다)
   function hipBlendY(tune) {
-    const drop = Math.max(0, hipHalf(tune) - thighOuter(tune));
-    return +Math.min(KNEE_LINE - 10, Math.max(BODY.hipBottom, BODY.hipY + drop * 1.45)).toFixed(1);
+    return +Math.min(KNEE_LINE - 10,
+      Math.max(BODY.hipBottom, BODY.hipY + hipDrop(tune) * 2.2)).toFixed(1);
+  }
+  // 가장 넓은 높이 — 처진 만큼 hipY 보다 아래다.
+  // 내려갈 수 있는 거리의 35% 를 넘지는 않는다 (봉우리가 허벅지에 너무 붙으면 다시 뾰족해진다)
+  function hipApexY(tune) {
+    const room = hipBlendY(tune) - BODY.hipY;
+    return +(BODY.hipY + Math.min(hipDrop(tune) * 0.5, room * 0.35)).toFixed(1);
+  }
+  // 엉덩이 옆선 (오른쪽 반) — 봉우리에서 허벅지까지 내려오는 3차 곡선의 제어점.
+  //   x0 봉우리 폭 · x3 허벅지에 닿는 폭 (하의는 여기에 제 여유를 얹어 부른다)
+  //   cutY 를 주면 그 높이에서 **잘라** 돌려준다 (de Casteljau).
+  //
+  // ⚠️ **밑단이 짧다고 곡선을 눌러 담으면 안 된다.** 예전에는 하의가
+  // `min(엉덩이 끝, 밑단-6)` 에서 다리 폭이 되도록 곡선을 억지로 세웠는데,
+  // 그러면 하의가 몸보다 가팔라져 **그 사이로 엉덩이가 비쳤다** (반바지에서 y 224~236).
+  // 몸과 **같은 곡선**을 쓰고 밑단에서 자르면 어디서 잘라도 몸 바깥에 남는다.
+  function hipSideCurve(tune, x0, x3, cutY) {
+    const HY = hipApexY(tune), BY = hipBlendY(tune), hb = (BY - HY) * 0.45;
+    let P = [[x0, HY], [x0, HY + hb], [x3, BY - hb], [x3, BY]];
+    if (cutY != null && cutY < BY) {
+      const yAt = t => {
+        const u = 1 - t;
+        return u * u * u * P[0][1] + 3 * u * u * t * P[1][1] + 3 * u * t * t * P[2][1] + t * t * t * P[3][1];
+      };
+      let lo = 0, hi = 1;                     // y 는 t 에 대해 단조증가한다
+      for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (yAt(m) < cutY) lo = m; else hi = m; }
+      const t = (lo + hi) / 2;
+      const mid = (a, b) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+      const a1 = mid(P[0], P[1]), b1 = mid(P[1], P[2]), c1 = mid(P[2], P[3]);
+      const a2 = mid(a1, b1), b2 = mid(b1, c1);
+      P = [P[0], a1, a2, mid(a2, b2)];
+    }
+    return P.map(pt => [+pt[0].toFixed(2), +pt[1].toFixed(2)]);
   }
 
   // 다리 — 허리(waistY)를 올린 만큼 통째로 올라오고 그만큼 길어진다.
   // 바닥은 고정이므로 위 끝만 올라가고 길이가 늘어난다: 허벅지 186~263 · 종아리 256~331.
   // (예전 값 204~272 / 266~332 를 k=1.1266 으로 늘린 자리다 — BODY.waistY 주석 참고)
   // 허벅지 아래 끝과 종아리 위 끝은 7px 겹쳐 둔다. 안 겹치면 무릎에서 배경이 비친다
+  //
+  // ⚠️ **굵기 배율의 축은 안쪽 변이다** — 가운데가 아니다.
+  // 가운데를 축으로 하면 가늘게 만들 때 안쪽 변도 같이 밖으로 밀려 **다리 사이가 벌어진다**
+  // (허벅지 60% 에서 틈이 4px → 12px). 체지방이 빠져도 다리 사이는 그대로 붙어 있고
+  // 살은 **바깥쪽에서** 빠진다 — 체지방 15~45% 사진을 견줘 보면 그렇다.
+  // 안쪽 변을 축으로 두면 굵어지든 가늘어지든 **틈이 일정**하다.
+  const THIGH_IN = 98, CALF_IN = 97;      // 왼쪽 다리의 안쪽 변 (오른쪽은 100 기준 대칭)
   function legs(tune) {
     const kt = tuneOf(tune, 'thigh'), kc = tuneOf(tune, 'calf');
-    const fy = BODY.footY;
+    const fy = BODY.footY, fx = footX(tune);
     return `
       <g data-part="calf">
-        <g${sx(kc, 88.5)}><rect x="80" y="256" width="17" height="75" rx="8" fill="${SKIN}"/></g>
-        <g${sx(kc, 111.5)}><rect x="103" y="256" width="17" height="75" rx="8" fill="${SKIN}"/></g>
+        <g${sx(kc, CALF_IN)}><rect x="80" y="256" width="17" height="75" rx="8" fill="${SKIN}"/></g>
+        <g${sx(kc, 200 - CALF_IN)}><rect x="103" y="256" width="17" height="75" rx="8" fill="${SKIN}"/></g>
       </g>
-      <ellipse cx="86" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
-      <ellipse cx="114" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
+      <ellipse cx="${fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
+      <ellipse cx="${200 - fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
       <g data-part="thigh">
-        <g${sx(kt, 88)}><rect x="78" y="186" width="20" height="77" rx="10" fill="${SKIN}"/></g>
-        <g${sx(kt, 112)}><rect x="102" y="186" width="20" height="77" rx="10" fill="${SKIN}"/></g>
+        <g${sx(kt, THIGH_IN)}><rect x="78" y="186" width="20" height="77" rx="10" fill="${SKIN}"/></g>
+        <g${sx(kt, 200 - THIGH_IN)}><rect x="102" y="186" width="20" height="77" rx="10" fill="${SKIN}"/></g>
       </g>`;
   }
 
@@ -529,25 +586,16 @@
     // 그래서 세 점을 **각자 제 배율로 절대 좌표에 놓고** 그 사이를 곡선으로 잇는다.
     // 세 점 모두 **세로 접선**이라 어느 배율을 움직여도 이음매가 꺾이지 않는다:
     //   · 허리(WY)      실루엣의 가장 좁은 곳 — 몸통 옆선도 여기서 세로로 들어온다
-    //   · 엉덩이(HY)    가장 넓은 곳
-    //   · 허벅지(BY)    허벅지 바깥 변에 세로로 내려꽂아 그대로 다리로 이어진다
-    // 제어점의 높이는 구간 길이의 45% 다 — 비율이라 waistY·hipY 를 옮겨도 모양이 따라온다.
-    const WY = B.waistY, HY = B.hipY, HB = B.hipBottom;
+    //   · 엉덩이(HY)    가장 넓은 곳. **중력으로 처져서** hipY 보다 아래에 온다
+    //   · 허벅지(BY)    허벅지 바깥 변에 세로로 내려꽂아 그대로 다리로 이어진다.
+    //                   **바깥 변보다 1px 안쪽**이라 그 아래는 허벅지 제 옆선이 이어받는다
+    //                   (딱 맞추면 1px 턱이 져서 **가느다란 선**으로 보인다)
+    // 제어점의 높이는 구간 길이의 45% 다 — 비율이라 구간이 길어지면 봉우리도 같이 둥글어진다.
+    const WY = B.waistY, HB = B.hipBottom;
+    const HY = hipApexY(tune), BY = hipBlendY(tune);
     const wRa = +(100 + wh * kb).toFixed(2), wLa = +(200 - wRa).toFixed(2);
-    const tRa = +(100 + thighOuter(tune)).toFixed(2), tLa = +(200 - tRa).toFixed(2);
+    const tRa = +(100 + thighJoin(tune)).toFixed(2), tLa = +(200 - tRa).toFixed(2);
     const hRa = +(100 + hipHalf(tune)).toFixed(2), hLa = +(200 - hRa).toFixed(2);
-    // ⚠️ **엉덩이가 넓어지면 내려올 거리도 같이 늘어나야 한다.**
-    // 엉덩이(198)에서 허벅지(214)까지는 16px 뿐인데, 허리 50% · 엉덩이 150% 이면
-    // 가로로 28px 를 떨어뜨려야 한다 — 기울기가 3.1 까지 서서 **옆으로 뾰족한 날개**가 됐다.
-    // (사람 몸도 엉덩이가 커지면 뾰족해지는 게 아니라 더 **둥글어진다**)
-    // 그래서 바깥 옆선만 **낙차의 1.45배**만큼 아래까지 내려가서 허벅지에 붙는다.
-    // 가랑이 선(HB)은 그대로다 — 그것까지 내리면 다리 사이가 막힌다.
-    //
-    // 1.45 는 **기본 낙차(134−123 = 11px)에서 딱 hipBottom 안쪽(213.95)에 떨어지도록**
-    // 고른 값이다. 그래서 기본 그림은 픽셀 하나 안 바뀌고, 엉덩이를 키울 때만 늘어난다.
-    // (BODY.hipHalf 나 허벅지 폭을 바꾸면 이 값도 다시 골라야 한다 —
-    //  기본 그림이 바뀌었는지는 렌더를 떠서 md5 로 견주면 바로 안다)
-    const BY = hipBlendY(tune);
     const ha = +((HY - WY) * 0.45).toFixed(1), hb = +((BY - HY) * 0.45).toFixed(1);
     // 몸통 옆선이 허리로 좁아지는 곡선. 제어점을 어깨(133)~허리 사이의 **비율**로 잡아,
     // waistY 를 올리고 내려도 곡선 모양이 그대로 따라오게 한다.
@@ -901,7 +949,7 @@
     const ww = clothWaistHalf(tune), hh = clothHipHalf(tune);
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     const hL = +(100 - hh).toFixed(2), hR = +(100 + hh).toFixed(2);
-    const HY = B.hipY, WY = B.waistY;
+    const HY = hipApexY(tune), WY = B.waistY;   // 몸의 엉덩이 봉우리를 그대로 따라간다
     const belt = it.belt
       ? `<path d="M${wL},${WY} L${wR},${WY} L${wR + 1},${WY + 14} L${wL - 1},${WY + 14} Z" fill="${c2}"/>` : '';
 
@@ -927,19 +975,20 @@
     // 바지 계열 — 반바지도 같은 실루엣이고 기장만 다르다.
     // 가랑이 홈은 엉덩이 아래(hipBottom)에서 시작한다 — 위로 파면 엉덩이 살이 홈으로 드러난다
     const hemY = Math.max(B.hipBottom + 12, Number(it.hemY) || B.ankleY);
-    // 옆선은 **몸의 엉덩이 곡선을 그대로 따라간다** (hipBlendY). 예전에는 좁아지는 높이가
-    // `HY + (hemY-HY)*0.3` 이고 다리 폭이 127 로 박혀 있어서, 엉덩이를 키우면 몸이 아래로
-    // 더 길게 내려오는데 바지는 그대로라 **엉덩이 옆이 바지 밖으로 삐져나왔다.**
+    // 옆선은 **몸의 엉덩이 곡선을 그대로 따라간다** — 다리 통 폭만 제 것으로 바꿔 끼운다.
+    // 밑단이 곡선보다 위에서 끊기는 옷(반바지)은 **거기서 자른다.** 억지로 밑단까지
+    // 다리 폭이 되게 눌러 담으면 하의가 몸보다 가팔라져 그 사이로 엉덩이가 비친다.
     // 다리 폭도 허벅지 배율을 따라간다 — 박아 두면 허벅지를 키웠을 때 그대로 드러난다.
-    const legR = +(100 + thighOuter(tune) + CLOTH_PAD + 1).toFixed(2), legL = +(200 - legR).toFixed(2);
-    const by = Math.min(hipBlendY(tune) + 4, hemY - 6);
-    const kb2 = +((by - HY) * 0.45).toFixed(1);
+    const legR = +(100 + thighOuter(tune) + CLOTH_PAD + 2).toFixed(2);
+    const P = hipSideCurve(tune, hR, legR, hemY - 2);
+    const by = P[3][1], bx = P[3][0], bxL = +(200 - bx).toFixed(2);
+    const mirC = i => `${(200 - P[i][0]).toFixed(2)},${P[i][1]}`;
     const k = tuneMax(tune, hemY > KNEE_LINE ? ['torso', 'thigh', 'calf'] : ['torso', 'thigh']);
     return wrapX(`<path d="M${wL},${WY} L${wR},${WY}
         C${hR},${WY + 6} ${hR},${HY - 6} ${hR},${HY}
-        C${hR},${HY + kb2} ${legR},${(by - kb2).toFixed(1)} ${legR},${by.toFixed(1)}
-        L${legR},${hemY} L107,${hemY} L100,${B.hipBottom + 2} L93,${hemY} L${legL},${hemY} L${legL},${by.toFixed(1)}
-        C${legL},${(by - kb2).toFixed(1)} ${hL},${HY + kb2} ${hL},${HY}
+        C${P[1][0]},${P[1][1]} ${P[2][0]},${P[2][1]} ${bx},${by}
+        L${bx},${hemY} L107,${hemY} L100,${B.hipBottom + 2} L93,${hemY} L${bxL},${hemY} L${bxL},${by}
+        C${mirC(2)} ${mirC(1)} ${hL},${HY}
         C${hL},${HY - 6} ${hL},${WY + 6} ${wL},${WY} Z" fill="${c}"/>${belt}`, k, 100);
   }
 
@@ -1068,7 +1117,7 @@
     const flare = Number(it.flare) || (it.kind === 'gown' ? 40 : 46);
     // 허리는 몸의 허리를 따라간다 (예전에는 78~122 로 박혀 있어 허리 살이 밖으로 나왔다)
     const ww = clothWaistHalf(tune), hhw = clothHipHalf(tune);
-    const WY = B.waistY;
+    const WY = B.waistY, HYd = hipApexY(tune);   // 몸의 엉덩이 봉우리를 그대로 따라간다
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     const hL = +(100 - hhw).toFixed(2), hR = +(100 + hhw).toFixed(2);
     const [eR, eY] = shoulderEndR(shoulderSquash(tune)), eL = 200 - eR;
@@ -1077,11 +1126,11 @@
       ${it.puff ? puffShoulder(c, tune) : ''}
       ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
         C${eR},${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY + 2}
-        C${hR},${WY + 8} ${hR},${B.hipY - 6} ${hR},${B.hipY}
-        C${hR},${B.hipY + 24} ${100 + flare},${hemY - 40} ${100 + flare + 8},${hemY}
+        C${hR},${WY + 8} ${hR},${HYd - 6} ${hR},${HYd}
+        C${hR},${HYd + 24} ${100 + flare},${hemY - 40} ${100 + flare + 8},${hemY}
         C${wR},${hemY + 14} ${wL},${hemY + 14} ${100 - flare - 8},${hemY}
-        C${100 - flare},${hemY - 40} ${hL},${B.hipY + 24} ${hL},${B.hipY}
-        C${hL},${B.hipY - 6} ${hL},${WY + 8} ${wL},${WY + 2}
+        C${100 - flare},${hemY - 40} ${hL},${HYd + 24} ${hL},${HYd}
+        C${hL},${HYd - 6} ${hL},${WY + 8} ${wL},${WY + 2}
         C${wL - 4},${WY - 18} ${eL},${WY - 34} ${eL},${eY} Z" fill="${c}"/>
       <path d="M${wL},${WY} L${wR},${WY}" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>
       ${neckLine(it.neck, c, c2, 110)}`, kd, 100)}`;
