@@ -439,20 +439,30 @@
   // 허리 반폭 — 몸과 옷이 **같은 값**을 본다. 옷은 CLOTH_PAD 만큼 넉넉하게.
   const waistHalf = tune => BODY.waistHalf * tuneOf(tune, 'waist');
   const clothWaistHalf = tune => waistHalf(tune) + CLOTH_PAD;
-  // 허벅지의 가장 굵은 곳 (엉덩이 바로 밑 · 중심선에서 잰 거리) — 기본값이면 122.
-  // 엉덩이가 여기에 내려꽂힌다
-  const thighOuter = tune => THIGH_GAP + LEG.hipW * tuneOf(tune, 'thigh');
+  // 허벅지 바깥 변 — **높이에 따라 다르다.** 위(엉덩이 밑)가 가장 굵고 무릎으로 가늘어진다.
+  // 엉덩이가 붙을 자리를 잡으려면 「그 높이의」 허벅지 폭을 알아야 한다
+  function thighOuterAt(tune, y) {
+    const L = LEG, top = THIGH_GAP + L.hipW * tuneOf(tune, 'thigh'), kx = kneeX(tune);
+    const u = Math.max(0, Math.min(1, (y - L.hipY) / (L.kneeY - L.hipY)));
+    return top + (kx - top) * u * u * (3 - 2 * u);
+  }
+  // 가장 굵은 곳 (엉덩이 바로 밑) — 기본값이면 122
+  const thighOuter = tune => thighOuterAt(tune, LEG.hipY);
   // 발(과 구두)의 중심 x — **발목을 따라간다.**
   // 발목은 배율을 안 타므로 종아리를 굵게 해도 발은 제자리다. 가늘게 하면 같이 들어온다.
-  // (발목 한가운데에서 바깥으로 5.5px — 기본값에서 86 / 114 가 되는 자리다)
-  const footX = tune => +(100 - ((CALF_GAP + ankleX(tune)) / 2 + 5.5)).toFixed(2);
+  // (발목 한가운데에서 바깥으로 6px — 기본값에서 86 / 114 가 되는 자리다)
+  const footX = tune => +(100 - ((CALF_GAP + ankleX(tune)) / 2 + 6)).toFixed(2);
   // 엉덩이가 허벅지에 내려꽂는 자리는 **바깥 변보다 1px 안쪽**이다.
   //
   // ⚠️ 딱 맞추거나(122) 밖으로 물리면(123) 그 높이에서 실루엣이 1px 턱을 져
   // **허벅지와 엉덩이가 만나는 곳에 가느다란 선**이 보인다. 예전 값이 123 이었다.
   // 안쪽에 두면 그 아래부터는 **허벅지의 제 옆선이 그대로 이어받아** 선이 안 생긴다
   // (엉덩이는 허벅지 위에 그려지므로, 안쪽으로 물러나면 허벅지가 드러난다).
-  const thighJoin = tune => thighOuter(tune) - 1;
+  // ⚠️ **허벅지가 아래로 가늘어진다는 것을 빼먹으면 안 된다.** 가장 굵은 곳(122)을
+  // 기준으로 잡아 두었더니, 붙는 높이(224)에서 허벅지는 이미 119.5 라 그 사이로
+  // **세로 틈**이 벌어졌다 (기본 1.6px · 엉덩이 150% 에서 3.8px).
+  // 붙는 높이에서 재면 그 위 구간에서도 허벅지가 늘 더 굵어 틈이 안 생긴다.
+  const thighJoin = tune => thighOuterAt(tune, hipBlendY(tune)) - 1;
   // 엉덩이 반폭 — 옷은 여기도 덮어야 한다 (치마·바지·드레스가 이 값을 본다).
   //
   // **허리보다도 허벅지보다도 좁을 수 없다.** 좁으면 그 둘이 엉덩이 밖으로 튀어나와
@@ -470,7 +480,9 @@
   // 뾰족해지는 게 아니라 **중력으로 처지면서 더 둥글어진다.**
   //
   // 몸과 하의가 **같은 값을 본다** — 안 그러면 넓은 엉덩이가 바지 옆으로 삐져나온다.
-  const hipDrop = tune => Math.max(0, hipHalf(tune) - thighJoin(tune));
+  // 낙차는 **가장 굵은 곳**으로 잰다 — thighJoin 이 hipBlendY 를 보므로 여기서
+  // thighJoin 을 쓰면 서로를 부르며 돈다
+  const hipDrop = tune => Math.max(0, hipHalf(tune) - thighOuter(tune));
   // 허벅지에 붙는 높이. 아무리 커도 **무릎 10px 위**에서는 붙는다 (그 아래는 종아리다)
   function hipBlendY(tune) {
     return +Math.min(KNEE_LINE - 10,
@@ -534,11 +546,11 @@
   //
   // ⚠️ **안쪽 변은 배율을 안 탄다** — 가늘게 만들어도 다리 사이가 안 벌어진다.
   // 체지방이 빠져도 살은 **바깥쪽에서** 빠진다 (체지방 15~45% 사진).
-  const THIGH_GAP = 2, CALF_GAP = 3;      // 중심선 → 안쪽 변
+  const THIGH_GAP = 2, CALF_GAP = 2;      // 중심선 → 안쪽 변 (**둘이 같아야** 무릎 안쪽이 안 어긋난다)
   const LEG = {
     hipY: 186, kneeY: 263, calfY: 256, ankleY: 331,
     bellyT: 0.28,                         // 장딴지가 가장 굵은 곳 (종아리 구간의 비율)
-    hipW: 20, bellyW: 17,                 // 배율을 타는 살 (안쪽 변에서 잰 폭)
+    hipW: 20, bellyW: 18,                 // 배율을 타는 살 (안쪽 변에서 잰 폭)
     kneeX: 17, ankleX: 14,                // 배율을 **안 타는** 관절 (중심선에서 잰 거리)
   };
   // 관절은 그대로지만 **마디보다 굵어질 수는 없다** — 가늘게 만들면 같이 가늘어진다
