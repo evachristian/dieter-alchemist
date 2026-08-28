@@ -3725,14 +3725,20 @@ const TUNE_KEY = 'dieter_alchemist_bodytune_v1';
 const TUNE_PARTS = [
   { k: 'torso', max: 150 },
   { k: 'waist', max: 150 },
-  { k: 'hip',   max: 150 },
+  { k: 'hip',   max: 150, min: 20 },
   { k: 'arm',   max: 150 },
   { k: 'thigh', max: 200 },
   { k: 'calf',  max: 200 },
   { k: 'face',  max: 114 },
 ];
-const TUNE_MIN = 50, TUNE_STEP = 2;   // % 단위 (100 = 기본)
-const tuneMaxOf = k => (TUNE_PARTS.find(p => p.k === k) || { max: 200 }).max;
+// % 단위 (100 = 기본). **하한도 부위마다 다를 수 있다** — `TUNE_PARTS` 의 `min` 이 있으면 그것.
+// 엉덩이만 20 인 이유: 다른 부위는 50% 밑으로 가면 뼈만 남은 것처럼 보이는데,
+// 엉덩이는 **허리·허벅지가 하한 노릇을 하므로**(avatar.js 의 `hipBaseHalf`) 더 내려도
+// 그 둘보다 좁아지지 않는다. 슬라이더만 열어 두고 실제 모양은 몸이 지킨다
+const TUNE_MIN = 50, TUNE_STEP = 2;
+const tunePart = k => TUNE_PARTS.find(p => p.k === k) || {};
+const tuneMaxOf = k => { const v = tunePart(k).max; return v == null ? 200 : v; };
+const tuneMinOf = k => { const v = tunePart(k).min; return v == null ? TUNE_MIN : v; };
 
 function defaultTune() {
   const o = {};
@@ -3746,7 +3752,7 @@ let bodyTune = (() => {
     // 예전에 저장된 값이 새 상한을 넘을 수 있다 (상한을 낮춘 뒤 처음 켤 때) — 범위 안으로 당긴다
     TUNE_PARTS.forEach(p => {
       const v = Number(o[p.k]);
-      o[p.k] = Number.isFinite(v) ? Math.max(TUNE_MIN, Math.min(p.max, v)) : 100;
+      o[p.k] = Number.isFinite(v) ? Math.max(tuneMinOf(p.k), Math.min(p.max, v)) : 100;
     });
     return o;
   } catch (e) { return defaultTune(); }
@@ -3761,7 +3767,7 @@ function tuneScales() {
 
 function bumpTune(k, dir) {
   const cur = bodyTune[k] || 100;
-  const next = Math.max(TUNE_MIN, Math.min(tuneMaxOf(k), cur + dir * TUNE_STEP));
+  const next = Math.max(tuneMinOf(k), Math.min(tuneMaxOf(k), cur + dir * TUNE_STEP));
   if (next === cur) return false;                 // 끝까지 갔으면 반복을 멈춘다
   bodyTune[k] = next;
   try { localStorage.setItem(TUNE_KEY, JSON.stringify(bodyTune)); } catch (e) {}
