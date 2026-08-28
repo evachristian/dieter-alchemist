@@ -610,7 +610,8 @@ W=265 node tools/checkui.js showcase atelier gather
    |---|---|
    | `torsoL` / `torsoR` | 몸통 최대 폭(어깨) |
    | `torsoTopY` | 몸통 맨 윗점(목 바로 아래). 옷의 어깨선은 `CLOTH_TOP_Y` 로 **이보다 위** |
-   | `shoulderY` `waistY` `hipY` `ankleY` | 세로 기준선 |
+   | `shoulderC` | 어깨 곡선의 제어점. **옷의 어깨선도 이 값에서 나온다**(`clothTopEdge`) |
+   | `shoulderY` `waistY` `hipY` `ankleY` `footY` | 세로 기준선 |
    | `armX_L` `armX_R` `armY` `armH` `armW` | 팔 막대의 위치·크기 |
    | `armRot` `armPivotL` `armPivotR` `armPivotY` | 팔 회전 각도와 중심 |
 
@@ -622,6 +623,16 @@ W=265 node tools/checkui.js showcase atelier gather
 3. **소매는 팔과 같은 `rotate()` 를 쓴다.** 팔은 어깨를 중심으로 기울어져 있어서,
    기울기를 무시하고 세로로 그리면 어깨 위쪽이 삐져나온다.
    `sleeves(color, 길이비율)` 이 팔 좌표에서 소매와 손 위치를 계산해 준다.
+
+4. **옷의 어깨선은 몸의 어깨 곡선(`BODY.shoulderC`)에서 뽑는다.** 손으로 박아 두면
+   몸의 어깨를 고친 순간 조용히 어긋난다 — 실제로 어깨를 넓히자 옷은 옛 곡선 그대로라
+   x=127 에서 **4px 짜리 살색 띠**가 어깨 위에 떴다 (터틀넥 30px · 블라우스 2px).
+   `clothTopEdge()` 가 `shoulderC` 를 바깥으로 `SH_PAD`, 위로 1px 물려 그대로 따라간다.
+
+5. **목에서 팔까지 실루엣 윗선은 다시 솟지 않는다.** 어깨 봉우리와 팔의 둥근 윗머리가
+   따로 놀면 그 사이가 파여 **꼭두각시 인형의 관절**처럼 보인다 (`ART_POLICY.md` 2장).
+   어깨 곡선이 팔 윗머리보다 **먼저 내려오면** 안 된다 —
+   `checkavatar` 의 「어깨 홈」이 1px 을 넘기면 실패시킨다.
 
 4. 몸통을 덮는 드레스는 `sleevedDress(색, 어두운색, 밑단Y, 긴소매여부)` 를 쓰면
    위 규칙이 자동 적용된다.

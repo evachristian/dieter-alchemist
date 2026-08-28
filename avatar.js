@@ -61,11 +61,35 @@
     //
     // 그래서 **어깨를 기울이려면 넥라인 표(NECK_CUT)도 같이 좁혀야 한다.** 지금은 안 한다 —
     // 「목이 없어 보이는」 문제는 목 길이(NECK_LIFT)로 풀린다.
-    shoulderC: [[116, 108], [136, 117], [136, 133]],
+    //
+    // ⚠️ **어깨는 팔 윗머리보다 높은 채로 팔까지 가야 한다.** 예전 값
+    // `[[116,108],[136,117],[136,133]]` 은 x=126 에서 이미 y=114 까지 내려와 있었는데,
+    // 팔의 둥근 윗머리는 y=110.25 로 그보다 **위**였다. 그래서 실루엣이
+    // 「어깨 → 아래로 파임 → 팔이 다시 솟음」 이 되어 **3.75px 짜리 홈**이 생겼다.
+    // 어깨 봉우리와 팔 봉우리가 따로 놀아 「관절이 분리된 인형」처럼 보이던 자리다.
+    //
+    // 지금 값은 어깨를 x 135 까지 y 108 로 끌고 가다가 거기서 떨어뜨린다.
+    // 그러면 팔이 이어받는 지점(x≈130)에서 어깨가 아직 y 110.5 라 팔 봉우리(110.25)와
+    // 거의 같은 높이가 되어 **홈이 0.3px 로 사라진다.**
+    // (checkavatar 의 「어깨 홈」 검사가 이 값을 지킨다 — 1px 을 넘기면 실패한다)
+    shoulderC: [[135, 108], [136, 108], [136, 133]],
     // 허리 높이. 예전에는 196 이라 잘록한 지점이 골반 바로 위까지 내려와,
-    // 상체가 길고 허리가 없어 보였다. 턱(105)~가랑이(228) 사이의 66% 지점으로 올려 잡는다.
+    // 상체가 길고 허리가 없어 보였다. 그 뒤 184 로 올렸고, 지금은 **황금비**로 다시 잡았다.
     // **옷의 허리선도 전부 이 값을 본다** — 여기만 고치면 상의·치마·드레스가 같이 따라온다.
-    waistY: 184, hipY: 214,
+    //
+    // 황금비: 정수리(24)~바닥(342) 을 상체 1 : 하체 1.618 로 나누면
+    // 24 + 318/2.618 ≈ **145** 가 허리다. 그런데 145 는 갈비뼈 한가운데라,
+    // 거기서 잘록해지면 몸통이 위아래로 반 접힌 것처럼 보여 쓸 수 없었다.
+    // (턱 105 부터 재면 105 + 237/2.618 ≈ 195 로 지금보다 **내려간다** — 머리를 빼면
+    //  기준이 뒤집히므로, 이 그림에서 「상체」는 정수리부터다)
+    // 그래서 **절충으로 20px 만 올렸다**(184 → 164). 그림이 견디는 한계선이다.
+    //
+    // ⚠️ **허리를 옮기면 그 아래가 전부 따라 올라간다.** 허리만 올리면 엉덩이가
+    // 제자리에 남아 「허리와 골반 사이가 늘어난」 몸이 된다. 바닥(342)은 고정이므로
+    // 허리 아래 구간이 158 → 178 로 늘어난 배율 k = 178/158 ≈ 1.1266 을
+    // **엉덩이·허벅지·종아리·발·무릎 기준선에 전부 같이 먹인다** (y' = 342 - (342-y)·k).
+    // 결과적으로 다리가 그만큼 길어진다 — 황금비로 옮기는 목적 자체가 이것이다.
+    waistY: 164, hipY: 198,
     // 허리 반폭 (waistY 에서 중심선 100 으로부터의 거리). '허리' 배율이 이 값을 늘이고 줄인다.
     // **옷의 허리도 이 값을 따라간다** — 예전에는 드레스 허리가 78~122 로 박혀 있어
     // 몸통 허리(70~130)보다 좁았고, 그래서 허리 살이 드레스 밖으로 나왔다.
@@ -74,7 +98,7 @@
     // 예전에는 몸통이 hipY 에서 한 점(100,214)으로 모여, 허벅지(78~122)와 만나는 곳이
     // 뚝 끊겨 보였다. 둥근 엉덩이가 그 사이를 잇는다.
     hipHalf: 34,
-    hipBottom: 228,                 // 엉덩이 아래 끝 (허벅지와 겹쳐 이어진다)
+    hipBottom: 214,                 // 엉덩이 아래 끝 (허벅지와 겹쳐 이어진다)
     thighHalf: 22,                  // 허벅지 바깥 (78 / 122)
     // 팔: (x, y=120) 에서 시작하는 폭 armW 의 막대를 어깨 기준으로 회전.
     // **팔을 옮기면 소매도 같이 따라온다** — armShape() 이 이 값만 본다.
@@ -100,7 +124,11 @@
     // 팔 위 끝을 8px 올리면서 비율도 다시 잡았다 — 팔꿈치의 **절대 높이는 그대로**다
     // (112 + 102×0.594 ≈ 120 + 94×0.56)
     elbowT: 0.594, elbowRot: 9,
-    ankleY: 332,
+    ankleY: 331,
+    // 발(그리고 그것을 덮는 구두)의 중심 높이. 허리를 올리면서 다리가 길어져 1px 내려왔다.
+    // **한 곳에만 적는다** — 예전에는 legs() 와 renderShoes() 에 335 가 따로 박혀 있어,
+    // 한쪽만 옮기면 구두가 발을 1px 비껴 덮어 살색 실선이 남는다
+    footY: 334,
   };
   // 옷이 몸을 확실히 덮도록 주는 여유 (한쪽당 px)
   const CLOTH_PAD = 3;
@@ -296,27 +324,29 @@
     </g>`;
   }
 
-  // 구두 — 발(ellipse cx 86/114, cy 335)을 덮는다. rise 만큼 발목 위로 올라온다
+  // 구두 — 발(ellipse cx 86/114, cy BODY.footY)을 덮는다. rise 만큼 발목 위로 올라온다.
+  // 높이는 전부 footY 에서 상대로 잡는다 — 다리가 움직이면 구두도 같이 따라와야 한다
   function renderShoes(it, tune) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c, 22), rise = Number(it.rise) || 0;
+    const FY = BODY.footY;
     const fin = it.finish || ({ maryjane: 'strap', ballet: 'ribbon', sneaker: 'sole',
       glass: 'gloss', boots: 'plain' }[it.kind] || 'plain');
     const foot = (cx) => {
       let s = '';
       if (rise > 0) {   // 부츠·스니커즈: 발목을 감싸는 통
-        s += `<rect x="${cx - 9}" y="${335 - rise}" width="18" height="${rise + 4}" rx="5" fill="${c}"/>`;
+        s += `<rect x="${cx - 9}" y="${FY - rise}" width="18" height="${rise + 4}" rx="5" fill="${c}"/>`;
       }
-      s += `<ellipse cx="${cx}" cy="335" rx="13" ry="7.6" fill="${c}"/>`;
+      s += `<ellipse cx="${cx}" cy="${FY}" rx="13" ry="7.6" fill="${c}"/>`;
       // 마감(finish) — 목 높이(rise)와 함께 두 축이다.
       // 옛 세이브는 kind 로만 갈렸다 — finish 가 없으면 그때 규칙으로 떨어진다
-      if (fin === 'strap')      s += `<path d="M${cx - 9},331 L${cx + 9},331" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
-      else if (fin === 'ribbon') s += `<path d="M${cx - 7},330 Q${cx},334 ${cx + 7},330" stroke="${c2}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`
-        + `<circle cx="${cx}" cy="330" r="2" fill="${c2}"/>`;
-      else if (fin === 'sole')  s += `<ellipse cx="${cx}" cy="338" rx="13" ry="3.4" fill="${c2}"/>`;
-      else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="333" rx="5" ry="2.4" fill="#fff" opacity="0.75"/>`;
+      if (fin === 'strap')      s += `<path d="M${cx - 9},${FY - 4} L${cx + 9},${FY - 4}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
+      else if (fin === 'ribbon') s += `<path d="M${cx - 7},${FY - 5} Q${cx},${FY - 1} ${cx + 7},${FY - 5}" stroke="${c2}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`
+        + `<circle cx="${cx}" cy="${FY - 5}" r="2" fill="${c2}"/>`;
+      else if (fin === 'sole')  s += `<ellipse cx="${cx}" cy="${FY + 3}" rx="13" ry="3.4" fill="${c2}"/>`;
+      else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="${FY - 2}" rx="5" ry="2.4" fill="#fff" opacity="0.75"/>`;
       // 목이 있는 구두는 입구에 띠를 하나 둘러 발목과 경계가 보이게 한다
-      if (rise > 0) s += `<path d="M${cx - 9},${335 - rise + 5} L${cx + 9},${335 - rise + 5}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
+      if (rise > 0) s += `<path d="M${cx - 9},${FY - rise + 5} L${cx + 9},${FY - rise + 5}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
       return s;
     };
     return `<g data-part="shoes">${foot(86)}${foot(114)}</g>`;
@@ -335,6 +365,10 @@
     return (100 - ARM_ANCHOR_X) * (1 - tuneOf(tune, 'torso'));
   }
 
+  // 무릎 높이 — 허벅지 아래 끝(263)과 종아리 위 끝(256)이 겹치는 자리.
+  // 옷이 종아리까지 덮는지 판정하는 기준이다. **다리를 옮기면 여기도 같이 옮긴다**
+  const KNEE_LINE = 259;
+
   // 허리 반폭 — 몸과 옷이 **같은 값**을 본다. 옷은 CLOTH_PAD 만큼 넉넉하게.
   const waistHalf = tune => BODY.waistHalf * tuneOf(tune, 'waist');
   const clothWaistHalf = tune => waistHalf(tune) + CLOTH_PAD;
@@ -342,18 +376,23 @@
   const hipHalf = tune => BODY.hipHalf * tuneOf(tune, 'hip');
   const clothHipHalf = tune => hipHalf(tune) + CLOTH_PAD;
 
+  // 다리 — 허리(waistY)를 올린 만큼 통째로 올라오고 그만큼 길어진다.
+  // 바닥은 고정이므로 위 끝만 올라가고 길이가 늘어난다: 허벅지 186~263 · 종아리 256~331.
+  // (예전 값 204~272 / 266~332 를 k=1.1266 으로 늘린 자리다 — BODY.waistY 주석 참고)
+  // 허벅지 아래 끝과 종아리 위 끝은 7px 겹쳐 둔다. 안 겹치면 무릎에서 배경이 비친다
   function legs(tune) {
     const kt = tuneOf(tune, 'thigh'), kc = tuneOf(tune, 'calf');
+    const fy = BODY.footY;
     return `
       <g data-part="calf">
-        <g${sx(kc, 88.5)}><rect x="80" y="266" width="17" height="66" rx="8" fill="${SKIN}"/></g>
-        <g${sx(kc, 111.5)}><rect x="103" y="266" width="17" height="66" rx="8" fill="${SKIN}"/></g>
+        <g${sx(kc, 88.5)}><rect x="80" y="256" width="17" height="75" rx="8" fill="${SKIN}"/></g>
+        <g${sx(kc, 111.5)}><rect x="103" y="256" width="17" height="75" rx="8" fill="${SKIN}"/></g>
       </g>
-      <ellipse cx="86" cy="335" rx="12" ry="7" fill="${SKIN_SH}"/>
-      <ellipse cx="114" cy="335" rx="12" ry="7" fill="${SKIN_SH}"/>
+      <ellipse cx="86" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
+      <ellipse cx="114" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
       <g data-part="thigh">
-        <g${sx(kt, 88)}><rect x="78" y="204" width="20" height="68" rx="10" fill="${SKIN}"/></g>
-        <g${sx(kt, 112)}><rect x="102" y="204" width="20" height="68" rx="10" fill="${SKIN}"/></g>
+        <g${sx(kt, 88)}><rect x="78" y="186" width="20" height="77" rx="10" fill="${SKIN}"/></g>
+        <g${sx(kt, 112)}><rect x="102" y="186" width="20" height="77" rx="10" fill="${SKIN}"/></g>
       </g>`;
   }
 
@@ -679,13 +718,38 @@
     return { K, EL, ER, d: `C${EL + 3},${cy} ${ER - 3},${cy} ${ER},${K}` };
   }
 
+  // 옷의 어깨선 — **몸의 어깨 곡선(BODY.shoulderC)을 그대로 따라간다.**
+  // 예전에는 `C120,107 140,116 140,132` 이 손으로 박혀 있었다. 몸의 어깨를 넓히자
+  // x=127 에서 옷은 y=113.5 인데 몸은 y=109.4 라 **4px 짜리 살색 띠**가 어깨 위에 떴다
+  // (터틀넥 30px · 블라우스 2px). 몸을 고치면 옷이 조용히 어긋나던 자리다.
+  //
+  // 몸보다 바깥으로 SH_PAD, 위로 1px 물러나 있어야 몸이 옷 밖으로 안 나온다.
+  const SH_PAD = 4;
+  const shC = i => [BODY.shoulderC[i][0] + SH_PAD, BODY.shoulderC[i][1] - 1];
+  // 오른쪽 어깨 (안 → 밖) · 왼쪽 어깨 (밖 → 안). 왼쪽은 x 를 100 기준으로 뒤집는다
+  const shR = () => shC(0).concat(shC(1), shC(2));
+  const shoulderEndR = () => shC(2);
+  function clothShoulderR(fromK) {
+    const [a, b, c] = [shC(0), shC(1), shC(2)];
+    // 넥라인을 판 옷은 파낸 모서리(y=fromK)에서 출발하므로 첫 제어점의 높이를 거기 맞춘다
+    const y0 = fromK == null ? a[1] : fromK;
+    return `C${a[0]},${y0} ${b[0]},${b[1]} ${c[0]},${c[1]}`;
+  }
+  function clothShoulderL(toK) {
+    const [a, b, c] = [shC(0), shC(1), shC(2)];
+    const y0 = toK == null ? a[1] : toK;
+    return `C${200 - b[0]},${b[1]} ${200 - a[0]},${y0} `;
+  }
   function clothTopEdge(kind) {
     const T = CLOTH_TOP_Y, cut = neckCut(kind);
-    // 안 파는 옷 — 가운데가 가장 높은 예전의 돔 그대로
-    if (!cut.w || !cut.d) return `M60,132 C60,116 80,${T} 100,${T} C120,${T} 140,116 140,132`;
-
+    const e = shoulderEndR();
+    const startL = `M${200 - e[0]},${e[1]}`;
+    // 안 파는 옷 — 가운데가 가장 높은 돔
+    if (!cut.w || !cut.d) {
+      return `${startL} ${clothShoulderL()}100,${T} ${clothShoulderR()}`;
+    }
     const m = neckMid(kind);
-    return `M60,132 C60,116 ${m.EL - 14},${m.K} ${m.EL},${m.K} ${m.d} C${m.ER + 14},${m.K} 140,116 140,132`;
+    return `${startL} ${clothShoulderL(m.K)}${m.EL},${m.K} ${m.d} ${clothShoulderR(m.K)}`;
   }
 
   // 넥라인 위에 얹는 것 — 지금은 폴라(터틀넥)의 목 통 하나뿐이다.
@@ -754,8 +818,9 @@
       const midHalf = hh + (it.balloon ? flare + 12 : flare * 0.5) + 2;
       const my = HY + (hemY - HY) * 0.45;      // 옆선이 가장 부푸는 높이
       const bulge = hemHalf * 0.55;            // 밑단 곡선이 아래로 처지는 폭
-      // 무릎(268) 아래까지 오는 치마는 종아리까지 덮으므로 종아리 배율도 따라야 한다
-      const k = tuneMax(tune, hemY > 268 ? ['torso', 'thigh', 'calf'] : ['torso', 'thigh']);
+      // 무릎(259 = 허벅지 끝과 종아리 시작이 겹치는 자리) 아래까지 오는 치마는
+      // 종아리까지 덮으므로 종아리 배율도 따라야 한다
+      const k = tuneMax(tune, hemY > KNEE_LINE ? ['torso', 'thigh', 'calf'] : ['torso', 'thigh']);
       return wrapX(`<path d="M${wL},${WY} L${wR},${WY}
           C${hR},${WY + 6} ${hR},${HY - 6} ${hR},${HY}
           C${(100 + midHalf).toFixed(1)},${my.toFixed(1)} ${(100 + hemHalf).toFixed(1)},${hemY - 18} ${(100 + hemHalf).toFixed(1)},${hemY}
@@ -766,9 +831,9 @@
 
     // 바지 계열 — 반바지도 같은 실루엣이고 기장만 다르다.
     // 가랑이 홈은 엉덩이 아래(hipBottom)에서 시작한다 — 위로 파면 엉덩이 살이 홈으로 드러난다
-    const hemY = Math.max(B.hipBottom + 12, Number(it.hemY) || 332);
+    const hemY = Math.max(B.hipBottom + 12, Number(it.hemY) || B.ankleY);
     const ky = HY + (hemY - HY) * 0.3;         // 옆선이 다리 폭으로 좁아지는 지점
-    const k = tuneMax(tune, hemY > 268 ? ['torso', 'thigh', 'calf'] : ['torso', 'thigh']);
+    const k = tuneMax(tune, hemY > KNEE_LINE ? ['torso', 'thigh', 'calf'] : ['torso', 'thigh']);
     return wrapX(`<path d="M${wL},${WY} L${wR},${WY}
         C${hR},${WY + 6} ${hR},${HY - 6} ${hR},${HY}
         C${hR},${HY + 12} 129,${ky.toFixed(1)} 127,${(ky + 12).toFixed(1)} L127,${hemY} L107,${hemY} L100,${B.hipBottom + 2} L93,${hemY} L73,${hemY} L73,${(ky + 12).toFixed(1)}
@@ -1042,10 +1107,11 @@
     const backKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
     // 무릎 색 — **다리를 덮는 옷이면 옷 색이다.** 예전에는 늘 살색이라, 발목까지 오는
     // 공주 드레스를 입고도 무릎만 맨살 덩어리로 옆에 삐져나와 있었다.
-    // 서 있을 때 무릎은 y≈285 근처다 (엉덩이 아래 228 ~ 발목 332 의 가운데).
+    // 서 있을 때 무릎은 y≈278 근처다 (엉덩이 아래 214 ~ 발목 331 의 가운데).
     // 그보다 아래로 내려오는 밑단이면 무릎을 덮는다. `hemY` 가 없는 것(공주 드레스)은
     // 바닥까지 오는 옷이라 덮는 쪽으로 친다.
-    const KNEE_Y = 285;
+    // (허리를 올리면서 다리가 올라온 만큼 285 → 278 로 같이 옮겼다)
+    const KNEE_Y = 278;
     const legSlot = !isNone(dress) ? 'dress' : 'bottom';
     const legWear = legSlot === 'dress' ? dress : it('bottom');
     const legHem = isNone(legWear) ? null : (Number(legWear.hemY) || 999);

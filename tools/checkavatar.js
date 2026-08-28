@@ -17,9 +17,9 @@
 //          짧게 설계한 소매를 '살이 나왔다' 고 잡으면 검사가 디자인을 막는다)
 //
 // 상의·하의를 같이 입었을 때도 본다:
-//   허리  x 72~128 · y 168~202  — 상의 밑단과 하의 허리춤 사이로 살이 보이면 안 된다
+//   허리  x 72~128 · y 148~184  — 상의 밑단과 하의 허리춤 사이로 살이 보이면 안 된다
 //   (둘 중 하나라도 몸통보다 뒤로 가면 그 사이에 살색 띠가 생긴다)
-//   겹침 x 88~112 · y 190~206 — 상의 밑단(hipY-2)과 하의 허리(waistY)가 겹치는 구간.
+//   겹침 x 88~112 · y 171~189 — 상의 밑단(hipY-2 = 196)과 하의 허리(waistY = 164)가 겹치는 구간.
 //   여기 보이는 것은 **하의 색**이어야 한다. 상의 색이 보이면 레이어 순서가 뒤집힌 것이고,
 //   옷을 넣어 입은 것이 아니라 빼 입은 모양이 된다.
 //   (살색 검사만으로는 이걸 못 잡는다 — 어느 쪽이 위에 있든 살은 안 보이기 때문이다)
@@ -47,7 +47,7 @@ function launchOpts() {
     const D = window.GameData, SKIN = [255, 220, 196];
     const STEPS = [0, 0.25, 0.5, 0.75, 1];      // 체형 5단계
     const TORSO_TOP = 108;                       // BODY.torsoTopY (몸통 구간의 위 끝)
-    const WAIST = 184;                           // BODY.waistY (몸통 구간의 아래 끝 기준)
+    const WAIST = 164;                           // BODY.waistY (몸통 구간의 아래 끝 기준)
     // **build() 가 몸을 통째로 늘린다** — 재는 창도 같은 변환을 지나야 한다.
     // (예전에 이걸 빼먹고 고정 좌표로 쟀더니, 통통한 체형에서 창이 턱·목에 걸려
     //  멀쩡한 옷까지 전부 '살이 나왔다' 고 잡혔다)
@@ -195,10 +195,10 @@ function launchOpts() {
     for (const t of tops) for (const bo of bots) for (const w of STEPS) {
       const outfit = Object.assign({}, D.DEFAULT_OUTFIT,
         { top: t.id, bottom: bo.id, dress: 'dress_none', shoes: 'shoes_none' });
-      const n = await skinIn(window.Avatar.build(outfit, w, null), ...bodyBox(w, 72, 128, 168, 202));
+      const n = await skinIn(window.Avatar.build(outfit, w, null), ...bodyBox(w, 72, 128, 148, 184));
       if (n > 0) pairBad.push({ id: t.id + ' + ' + bo.id, body: w, where: '허리 살색', n });
       const marked = window.Avatar.build(Object.assign({}, outfit, { colors: { top: MARK } }), w, null);
-      const m = await countMark(marked, bodyBox(w, 88, 112, 190, 206));
+      const m = await countMark(marked, bodyBox(w, 88, 112, 171, 189));
       if (m > 0) pairBad.push({ id: t.id + ' + ' + bo.id, body: w, where: '겹침에 상의가 앞', n: m });
     }
     // ── 과시 카드 — PNG 가 실제로 나오는가, 방·아바타가 그려졌는가
@@ -575,6 +575,64 @@ function launchOpts() {
     return { bad, n: fish.length, dry: dry.length };
   });
 
+  // ─── 어깨에서 팔로 파인 홈이 없는가 ──────────────────────────
+  //
+  // 목에서 팔 끝까지 실루엣의 **윗선은 한 번도 다시 솟지 않아야 한다.**
+  // 어깨 봉우리와 팔의 둥근 윗머리가 따로 놀면 그 사이가 파여, 「관절이 분리된 인형」처럼
+  // 보인다 — 실제로 어깨 곡선이 x=126 에서 y=114 까지 내려온 반면 팔 윗머리는 110.25 라
+  // **3.75px 짜리 홈**이 있었다. 눈으로는 「살짝 파였네」 정도로만 보여 오래 남아 있었다.
+  //
+  // 재는 법: **머리·머리카락·옷을 다 빼고 몸통+팔만** 남겨 열마다 맨 위 픽셀을 찍는다.
+  // (머리를 남기면 어깨 위를 머리가 덮어 프로필이 머리 윤곽이 된다)
+  // 안쪽(x=100)에서 바깥으로 훑으며 「여태 가장 낮았던 y」보다 다시 올라오면 그게 홈이다.
+  const SHOULDER_DIP = 1;        // px. 래스터 반올림 탓에 0 은 못 잡는다
+  const shoulder = await page.evaluate(async (MAXDIP) => {
+    const D = window.GameData, bad = [], S = 4;
+    const cv = document.createElement('canvas');
+    cv.width = 200 * S; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    // 몸통이 든 그룹 하나만 남긴다 (머리·머리카락·그림자·다리는 뺀다)
+    function bodyOnly(svg) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = svg;
+      const root = wrap.firstElementChild;
+      const keep = root.querySelector('[data-part="torso"]').closest('svg > g');
+      [...root.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+      return root.outerHTML;
+    }
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    const worst = [];
+    for (const w of [0, 0.25, 0.5, 0.75, 1]) {
+      const svg = bodyOnly(window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), w, null));
+      const img = new Image();
+      await new Promise((ok, no) => {
+        img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      });
+      ctx.clearRect(0, 0, 200 * S, 348 * S);
+      ctx.drawImage(img, 0, 0, 200 * S, 348 * S);
+      const d = ctx.getImageData(0, 0, 200 * S, 348 * S).data;
+      let peak = -Infinity, dip = 0, at = 0;
+      for (let x = 100; x <= 180; x += 0.5) {
+        const xx = Math.round(x * S);
+        let ty = null;
+        for (let y = 100 * S; y <= 220 * S; y++) {
+          if (d[(y * 200 * S + xx) * 4 + 3] > 128) { ty = y / S; break; }
+        }
+        if (ty == null) continue;
+        if (ty > peak) peak = ty;
+        else if (peak - ty > dip) { dip = peak - ty; at = x; }
+      }
+      worst.push(+dip.toFixed(2));
+      if (dip > MAXDIP) {
+        bad.push(`체형 ${w}: 어깨에서 팔로 ${dip.toFixed(1)}px 파였다 (x≈${at})`
+          + ` — 어깨 곡선(BODY.shoulderC)이 팔 윗머리보다 먼저 내려온다`);
+      }
+    }
+    return { bad, worst };
+  }, SHOULDER_DIP);
+
   // ─── 염색이 실제로 아바타에 입혀지는가 ───────────────────────
   // **조용히 깨지는 자리다.** 칠했다는 토스트는 뜨는데 아바타는 원래 색 그대로였던 적이 있다
   // (영원 염색약이 만료 시각을 지우는데 slotColor 가 그것만 봐서, 모든 칸에서 안 먹었다).
@@ -650,7 +708,8 @@ function launchOpts() {
     .concat(crouch.bad.map(m => ({ id: '웅크린 뒷모습', body: '-', where: m, n: '-' })))
     .concat(bowl.bad.map(m => ({ id: '어항', body: '-', where: m, n: '-' })))
     .concat(neck.bad.map(m => ({ id: '목', body: '-', where: m, n: '-' })))
-    .concat(seam.bad.map(m => ({ id: '몸통↔팔', body: '-', where: m, n: '-' })));
+    .concat(seam.bad.map(m => ({ id: '몸통↔팔', body: '-', where: m, n: '-' })))
+    .concat(shoulder.bad.map(m => ({ id: '어깨 홈', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
@@ -661,6 +720,8 @@ function launchOpts() {
   console.log(`목: 체형별 턱~어깨 ${neck.gaps.map(g => g.gap + 'px').join(' → ')}`
     + ` (날씬할수록 길어야 한다 · 가장 짧은 곳도 5px 이상)`);
   console.log(`몸통↔팔: 체형 ${seam.steps}단계 — 옆구리에 배경이 실처럼 비치지 않는가`);
+  console.log(`어깨 홈: 체형별 파임 ${shoulder.worst.map(v => v + 'px').join(' · ')}`
+    + ` (목→팔 실루엣이 다시 솟지 않아야 한다 · ${SHOULDER_DIP}px 까지)`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
     + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }

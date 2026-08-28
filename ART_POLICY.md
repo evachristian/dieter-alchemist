@@ -1,0 +1,79 @@
+# 그림 정책 — SVG 그래픽 리소스
+
+이 게임의 그림은 **듀오링고풍 플랫 2D 벡터**다. 아바타·크리처·소품·아이콘 모두 같은 결이어야 한다.
+
+지금 코드로 그리는 것(`avatar.js` · `creature.js` · `portrait.js` · `village.js`)도 이 기준을 따르고,
+바깥에서 새 리소스를 만들 때도(생성 모델이든 사람이든) 아래 프롬프트를 그대로 쓴다.
+
+관련 문서 — 글자는 `TEXT_POLICY.md`, 컴포넌트는 `UI_POLICY.md`.
+
+---
+
+## 1. 프롬프트
+
+```
+A cute human character in Duolingo illustration style, flat 2D vector,
+clean smooth line art, constructed with simple rounded shapes,
+vibrant solid flat colors, white background, no 3D depth,
+no marionette joints, seamless limbs, minimal details
+--no realistic, 3d render, marionette lines, textures
+```
+
+사람이 아닌 것(크리처·소품·배경)은 `A cute human character` 자리만 바꾸고 나머지는 그대로 둔다.
+
+### 반드시 들어가는 말
+
+`flat 2d vector illustration` · `duolingo style` · `simple rounded shapes` ·
+`bold outlines` · `vibrant solid color palette` · `white background`
+
+### 빼야 하는 것 (negative)
+
+`3d` · `realistic anatomy` · `wooden doll joints` · `complex textures` · `detailed fingers`
+
+---
+
+## 2. 형태 규칙
+
+| 축 | 규칙 |
+|---|---|
+| 얼굴·비율 | 큰 머리, **둥근 모서리의 직사각형과 원**으로 이루어진 몸체 (chibi proportions, oversized head) |
+| 관절·사지 | 손가락은 생략하거나 **4개 이하**. 관절의 구분이 드러나지 않는 **단순한 덩어리** (fused seamless joints, mitten hands) |
+
+**「관절이 드러나지 않는다」가 이 문서에서 가장 자주 깨지는 규칙이다.**
+지금 아바타는 몸통·팔·허벅지·종아리를 **따로 그린 도형으로 겹쳐서** 만든다 —
+그래서 겹침이 어긋나는 순간 그 자리가 곧바로 **꼭두각시 인형의 관절**로 보인다.
+실제로 세 번 겪었다:
+
+- 팔 위 끝이 어깨보다 아래에서 시작해 이음매에 계단이 졌다 (「승모근이 튀어나온 것 같다」)
+- 어깨 곡선이 팔 윗머리보다 먼저 내려와 그 사이가 **3.75px 파였다** (「어깨에 살짝 홈이 생겨」)
+- 몸통 옆선과 팔이 반대로 기울어 옆구리에 **1px 짜리 실틈**이 났다
+
+셋 다 **눈으로는 「살짝 이상한데」 정도로만 보여서** 오래 남아 있었다.
+그래서 검사기로 못을 박아 두었다 — `node tools/checkavatar.js` 의
+「어깨 홈」 · 「몸통↔팔」 · 「목」 항목이 그것이다.
+**몸의 기준값(`avatar.js` 의 `BODY`)을 건드렸으면 반드시 돌린다.**
+
+---
+
+## 3. 그림자·그라데이션은 **쓴다**
+
+프롬프트에서 `shading` · `shadows` · `gradient` 를 일부러 빼 두었다.
+듀오링고 원본은 완전 평면이지만, **이 게임의 그림에는 이미 옅은 음영이 들어가 있다** —
+빼면 오히려 어색해진다.
+
+지금 쓰고 있는 것:
+
+- `SKIN_SH` — 살색보다 한 단 어두운 색. 발등·뒤꿈치·턱 밑에 쓴다
+- `neckG_*` 그라데이션 — 턱 밑 그늘이 **아래로 갈수록 사라지게** 한다.
+  통짜 네모로 두면 턱과 몸통 사이에 어두운 띠가 딱 잘려 보였다
+- `shade(color, n)` — 옷의 접힌 자리·단추·밑단 선
+
+**규칙: 음영은 형태를 읽히게 하는 만큼만.** 입체를 만들려고 쓰지 않는다.
+같은 살색 덩어리 둘이 겹쳤을 때 경계를 알려 주는 용도다.
+
+---
+
+## 4. 이 문서를 고쳤으면
+
+정책과 검사기는 짝이다. 형태 규칙을 바꿨으면 `tools/checkavatar.js` 의 상수도 같이 본다
+(`SHOULDER_DIP` · 목 길이 상·하한 · 커버리지 창).

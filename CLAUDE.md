@@ -29,6 +29,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── HANDOFF.md             새 세션 인수인계 (배포 주소·시작 전 확인·남은 작업)
 ├── TEXT_POLICY.md         글자 색·폰트 정책
 ├── UI_POLICY.md           컴포넌트 정책 (탭·가변폭·잠금 표현 등)
+├── ART_POLICY.md          그림 정책 (듀오링고풍 플랫 2D 벡터 · 생성 프롬프트)
 ├── STORY.md               세계관·인물·3막·키워드 시스템 (**아직 안 만든 것**)
 ├── EXERCISE.md            운동·포만감·스태미나 시스템 (수치를 바꾸기 전에 읽을 것)
 ├── CREATURE.md            크리처 — 1~6단계는 만들었고 나머지는 기획 (재료로 녹이기·생산·전투)
@@ -207,6 +208,7 @@ FULL=1 node tools/checkui.js showcase atelier gather
 
 - 글자 색·크기 규칙 → `TEXT_POLICY.md`
 - 탭·가변 폭·잠금 표현 → `UI_POLICY.md`
+- 그림의 결·생성 프롬프트 → `ART_POLICY.md`
 - **정책을 바꾸면 `a11y.js` 의 상수도 같이 고친다.** 문서와 검증기는 짝이다.
 
 예외를 늘리기 전에 색을 고칠 수 있는지 먼저 보라. 지금까지 예외는 근거를 적고 최소한만 추가했다.
