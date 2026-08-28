@@ -474,8 +474,9 @@
   const thighOuter = tune => thighOuterAt(tune, LEG.hipY);
   // 발(과 구두)의 중심 x — **발목을 따라간다.**
   // 발목은 배율을 안 타므로 종아리를 굵게 해도 발은 제자리다. 가늘게 하면 같이 들어온다.
-  // (발목 한가운데에서 바깥으로 6px — 기본값에서 86 / 114 가 되는 자리다)
-  const footX = tune => +(100 - ((CALF_GAP + ankleX(tune)) / 2 + 6)).toFixed(2);
+  // (발목 한가운데에서 바깥으로 6px — 기본값에서 85.4 / 114.6 이 되는 자리다)
+  // 안쪽 변은 발목에서 조금 벌어져 있다(innerX) — 그 자리를 그대로 읽어야 발이 발목 밑에 온다
+  const footX = tune => +(100 - ((innerX(LEG.ankleY) + ankleX(tune)) / 2 + 6)).toFixed(2);
   // 엉덩이가 허벅지에 내려꽂는 자리는 **바깥 변보다 1px 안쪽**이다.
   //
   // ⚠️ 딱 맞추거나(122) 밖으로 물리면(123) 그 높이에서 실루엣이 1px 턱을 져
@@ -570,7 +571,9 @@
   //
   // ⚠️ **안쪽 변은 배율을 안 탄다** — 가늘게 만들어도 다리 사이가 안 벌어진다.
   // 체지방이 빠져도 살은 **바깥쪽에서** 빠진다 (체지방 15~45% 사진).
-  const THIGH_GAP = 2, CALF_GAP = 2;      // 중심선 → 안쪽 변 (**둘이 같아야** 무릎 안쪽이 안 어긋난다)
+  // 살을 재는 기준선 (중심선에서 잰 거리). **둘이 같아야** 무릎 안쪽이 안 어긋난다.
+  // 실제로 그려지는 안쪽 변은 아래의 `innerX` 다 — 이 값은 「살이 여기서부터 붙는다」는 기준일 뿐
+  const THIGH_GAP = 2, CALF_GAP = 2;
   const LEG = {
     hipY: 186, kneeY: 263, calfY: 256, ankleY: 331,
     bellyT: 0.28,                         // 장딴지가 가장 굵은 곳 (종아리 구간의 비율)
@@ -583,14 +586,57 @@
     CALF_GAP + LEG.bellyW * tuneOf(tune, 'calf') * 0.85);
   const ankleX = tune => Math.min(LEG.ankleX, CALF_GAP + LEG.bellyW * tuneOf(tune, 'calf') * 0.8);
 
+  // ─── 안쪽 변도 곧은 선이 아니다 ────────────────────────────
+  //
+  // 바깥 변은 마디마다 곡선인데 **안쪽 변만 자로 그은 세로선**이라, 허리 아래부터
+  // 발목까지 145px 이 폭 하나 없이 내려왔다 — 다리 사이가 칼로 벤 틈처럼 보였다.
+  // 살이 붙은 자리는 안쪽에도 붙는다:
+  //   허벅지 위(내전근)가 가장 두꺼워 **거의 붙고** → 무릎 위에서 벌어졌다가
+  //   무릎에서 다시 모이고 → 장딴지 안쪽이 볼록했다가 → 발목에서 발만큼 벌어진다
+  //
+  // ⚠️ **배율을 안 탄다.** 허벅지·종아리를 가늘게 해도 다리 사이는 그대로여야 한다
+  // (「다리는 일정 간격을 두고 모여 있어야 한다」 — 위의 축 주석과 같은 규칙).
+  // 여기에 배율을 태우면 살을 뺄 때 다리가 벌어진다.
+  //
+  // ⚠️ **허벅지와 종아리가 같은 함수를 지난다.** 둘은 7px 겹쳐 있어서, 안쪽 변을
+  // 따로 잡으면 겹치는 구간에서 둘 중 안쪽에 있는 것이 이겨 이음매에 턱이 진다.
+  const INNER = [
+    [186, 0.9],    // 허벅지 맨 위 — 엉덩이에 가려 안 보이는 자리
+    [216, 1.1],    // 엉덩이 밑(hipBottom+2) — 내전근이 가장 두꺼워 거의 붙는다 (틈 2.2)
+    [238, 2.6],    // 허벅지 가운데 — 가장 벌어진다 (틈 5.2)
+    [263, 2.1],    // 무릎 — 다시 모인다 (틈 4.2)
+    [286, 1.4],    // 장딴지 — 안쪽으로 볼록 (틈 2.8)
+    [331, 3.4],    // 발목 — 발이 벌어진 만큼 (틈 6.8)
+  ];
+  function innerX(y) {
+    if (y <= INNER[0][0]) return INNER[0][1];
+    for (let i = 1; i < INNER.length; i++) {
+      const p = INNER[i - 1], q = INNER[i];
+      if (y > q[0]) continue;
+      const u = (y - p[0]) / (q[0] - p[0]);
+      return p[1] + (q[1] - p[1]) * u * u * (3 - 2 * u);   // 매듭에서 접선이 세로
+    }
+    return INNER[INNER.length - 1][1];
+  }
+  // 구간 [y0,y1] 안의 안쪽 변 매듭 (양 끝 포함) — 위→아래
+  function innerPts(y0, y1) {
+    const pts = [[y0, innerX(y0)]];
+    INNER.forEach(k => { if (k[0] > y0 + 0.5 && k[0] < y1 - 0.5) pts.push(k); });
+    pts.push([y1, innerX(y1)]);
+    return pts;
+  }
+
   // 다리 마디 하나. 마디마다 **세로 접선**으로 이어져 어느 배율에서도 안 꺾인다.
-  //   gap 안쪽 변 · s 오른쪽이면 +1 · pts [[y, 중심선에서 잰 바깥 거리], ...] 위→아래
-  function limbPath(gap, s, pts) {
+  //   s 오른쪽이면 +1 · pts [[y, 중심선에서 잰 바깥 거리], ...] 위→아래
+  //   (안쪽 변은 innerX 가 정한다)
+  function limbPath(s, pts) {
     const X = n => +(100 + s * n).toFixed(2);
     const a = pts[0], z = pts[pts.length - 1];
-    const cap = w => Math.max(1, Math.min(5, (w - gap) / 2));   // 마개는 폭의 절반을 못 넘는다
-    const r0 = cap(a[1]), r1 = cap(z[1]);
-    let d = `M${X(gap)},${a[0]} L${X(a[1] - r0)},${a[0]} Q${X(a[1])},${a[0]} ${X(a[1])},${(a[0] + r0).toFixed(1)}`;
+    // 마개는 폭의 절반을 못 넘는다 (안쪽 변이 y 마다 다르므로 그 자리의 폭으로 잰다)
+    const cap = p => Math.max(1, Math.min(5, (p[1] - innerX(p[0])) / 2));
+    const r0 = cap(a), r1 = cap(z);
+    const iTop = X(innerX(a[0])), iBot = X(innerX(z[0]));
+    let d = `M${iTop},${a[0]} L${X(a[1] - r0)},${a[0]} Q${X(a[1])},${a[0]} ${X(a[1])},${(a[0] + r0).toFixed(1)}`;
     for (let i = 1; i < pts.length; i++) {
       const p = pts[i - 1], q = pts[i];
       const y0 = i === 1 ? p[0] + r0 : p[0];
@@ -598,8 +644,15 @@
       const h = (y1 - y0) * 0.45;
       d += ` C${X(p[1])},${(y0 + h).toFixed(1)} ${X(q[1])},${(y1 - h).toFixed(1)} ${X(q[1])},${y1.toFixed(1)}`;
     }
-    d += ` Q${X(z[1])},${z[0]} ${X(z[1] - r1)},${z[0]} L${X(gap)},${z[0]} Z`;
-    return `<path d="${d}" fill="${SKIN}"/>`;
+    d += ` Q${X(z[1])},${z[0]} ${X(z[1] - r1)},${z[0]} L${iBot},${z[0]}`;
+    // 안쪽 변을 **아래에서 위로** 되짚어 올라간다 (바깥과 같은 세로 접선)
+    const ip = innerPts(a[0], z[0]).reverse();
+    for (let i = 1; i < ip.length; i++) {
+      const p = ip[i - 1], q = ip[i];
+      const h = (q[0] - p[0]) * 0.45;                       // 위로 가므로 음수다
+      d += ` C${X(p[1])},${(p[0] + h).toFixed(1)} ${X(q[1])},${(q[0] - h).toFixed(1)} ${X(q[1])},${q[0].toFixed(1)}`;
+    }
+    return `<path d="${d} Z" fill="${SKIN}"/>`;
   }
 
   function legs(tune) {
@@ -611,14 +664,14 @@
     const fy = BODY.footY, fx = footX(tune);
     return `
       <g data-part="calf">
-        ${limbPath(CALF_GAP, -1, calf)}
-        ${limbPath(CALF_GAP, 1, calf)}
+        ${limbPath(-1, calf)}
+        ${limbPath(1, calf)}
       </g>
       <ellipse cx="${fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
       <ellipse cx="${200 - fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
       <g data-part="thigh">
-        ${limbPath(THIGH_GAP, -1, thigh)}
-        ${limbPath(THIGH_GAP, 1, thigh)}
+        ${limbPath(-1, thigh)}
+        ${limbPath(1, thigh)}
       </g>`;
   }
 

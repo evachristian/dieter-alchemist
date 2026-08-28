@@ -852,10 +852,15 @@ function launchOpts() {
         while (r < 140 * S && d[(row * W + r) * 4 + 3] <= 128) r++;
         return (r - l) / S;
       });
-      // 발목(y=320 · 발등 위) 오른쪽 다리의 바깥 변 — 종아리를 굵게 해도 안 움직여야 한다
+      // 발목(y=320 · 발등 위) 오른쪽 다리의 바깥 변 — 종아리를 굵게 해도 안 움직여야 한다.
+      // ⚠️ **고정 x 에서 출발하지 않는다.** 예전에는 x=103 부터 「살인 동안」 밖으로 갔는데,
+      // 안쪽 변이 곡선이 되면서 그 자리가 다리 사이 틈이 되어 **첫걸음에 멈췄다** —
+      // 모든 배율에서 103 을 돌려주어 검사가 조용히 통과했다.
+      // 가운데에서 나가며 **살에 들어갔다가 다시 나오는 자리**를 잡는다
       const row = Math.round(320 * S);
-      let ax = 103 * S;
-      while (ax < 160 * S && d[(row * W + ax) * 4 + 3] > 128) ax++;
+      let ax = 100 * S;
+      while (ax < 160 * S && d[(row * W + ax) * 4 + 3] <= 128) ax++;   // 안쪽 변
+      while (ax < 160 * S && d[(row * W + ax) * 4 + 3] > 128) ax++;    // 바깥 변
       return { gaps, ankle: ax / S };
     }
     const YS = [240, 250, 300];            // 허벅지 · 무릎 · 종아리
@@ -885,6 +890,88 @@ function launchOpts() {
     return { bad, base: base.map(v => +v.toFixed(1)), spread, ys: YS, n: out.length,
              ankle: +r0.ankle.toFixed(1), ankleMax: +Math.max.apply(null, ankles).toFixed(1) };
   }, GAP_SPREAD_MAX);
+
+  // ─── 다리 안쪽 변도 곡선인가 ────────────────────────────────
+  //
+  // 바깥 변은 마디마다 곡선인데 **안쪽 변만 자로 그은 세로선**이었다 —
+  // 허리 아래부터 발목까지 145px 이 폭 하나 없이 내려와 칼로 벤 틈처럼 보였다.
+  // 지금은 `avatar.js` 의 `INNER` 를 지난다: 엉덩이 밑에서 거의 붙었다가 허벅지
+  // 가운데에서 벌어지고, 무릎에서 모였다가 장딴지에서 다시 좁아지고 발목에서 벌어진다.
+  //
+  // 세 가지를 같이 본다 — **곧은 선으로 돌아가는 것**과 **꺾이는 것**이 서로 반대라
+  // 하나만 재면 다른 하나를 못 잡는다:
+  //   ① 꺾이지 않는다      이차 차분 ≤ 0.5px (래스터 눈금이 0.25px)
+  //   ② 곧은 선이 아니다   맨 위와 맨 아래의 틈 차이 ≥ 2px (예전에는 0 이었다)
+  //   ③ 배율을 안 탄다     허벅지·종아리를 움직여도 안쪽 변이 그대로다
+  const INNER_KINK_MAX = 0.5, INNER_CURVE_MIN = 2;
+  const legInner = await page.evaluate(async (o) => {
+    const D = window.GameData, bad = [], S = 4, W = 200 * S;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    // 다리만 남긴다 — 엉덩이가 위쪽을 덮어 안쪽 변의 시작을 가린다
+    function legsOnly(svg) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = svg;
+      const root = wrap.firstElementChild;
+      const legs = [...root.querySelectorAll('[data-part="thigh"],[data-part="calf"]')];
+      const only = root.cloneNode(false);
+      legs.forEach(g => only.appendChild(g.cloneNode(true)));
+      return only.outerHTML;
+    }
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
+    // 오른다리 안쪽 변을 y 마다 (가운데에서 바깥으로 나가며 첫 살)
+    async function edges(t) {
+      const img = new Image();
+      await new Promise((ok, no) => {
+        img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,'
+          + encodeURIComponent(legsOnly(window.Avatar.build(outfit, 0, t)));
+      });
+      ctx.clearRect(0, 0, W, 348 * S);
+      ctx.drawImage(img, 0, 0, W, 348 * S);
+      const d = ctx.getImageData(0, 0, W, 348 * S).data;
+      const out = [];
+      for (let y = 216; y <= 330; y++) {
+        const row = Math.round(y * S);
+        let x = 100 * S;
+        while (x < 140 * S && d[(row * W + x) * 4 + 3] <= 128) x++;
+        out.push(x / S - 100);
+      }
+      return out;
+    }
+    const base = await edges(null);
+    // ① 꺾이지 않는가
+    let kink = 0, at = 0;
+    for (let i = 1; i < base.length - 1; i++) {
+      const c = Math.abs(base[i - 1] - 2 * base[i] + base[i + 1]);
+      if (c > kink) { kink = c; at = 216 + i; }
+    }
+    if (kink > o.kink) bad.push(`다리 안쪽 변이 y=${at} 에서 ${kink.toFixed(2)}px 꺾인다`);
+    // ② 곧은 선이 아닌가 (엉덩이 밑 ↔ 발목의 틈 차이)
+    const curve = (base[base.length - 1] - base[0]) * 2;
+    if (curve < o.curve) {
+      bad.push(`다리 안쪽 변이 거의 곧은 선이다 — 엉덩이 밑과 발목의 틈 차이가`
+        + ` ${curve.toFixed(2)}px 뿐이다 (${o.curve}px 이상이어야 한다)`);
+    }
+    // ③ 배율을 타지 않는가
+    let drift = 0, dat = 0, dk = 1;
+    for (const k of [0.5, 0.75, 1.5, 2]) {
+      for (const key of ['thigh', 'calf']) {
+        const e = await edges({ [key]: k });
+        for (let i = 0; i < base.length; i++) {
+          if (Math.abs(e[i] - base[i]) > drift) { drift = Math.abs(e[i] - base[i]); dat = 216 + i; dk = k; }
+        }
+      }
+    }
+    if (drift > 0.26) {
+      bad.push(`배율 ${dk * 100}% 에서 다리 안쪽 변이 y=${dat} 에서 ${drift.toFixed(2)}px 움직였다`
+        + ` — 살을 빼도 다리 사이는 그대로여야 한다`);
+    }
+    return { bad, kink: +kink.toFixed(2), curve: +curve.toFixed(2), drift: +drift.toFixed(2) };
+  }, { kink: INNER_KINK_MAX, curve: INNER_CURVE_MIN });
 
   // ─── 엉덩이가 하의 밖으로 나오지 않는가 ─────────────────────
   //
@@ -1160,6 +1247,7 @@ function launchOpts() {
     .concat(kink.bad.map(m => ({ id: '허리↔엉덩이↔허벅지', body: '-', where: m, n: '-' })))
     .concat(hipOut.bad.map(m => ({ id: '엉덩이가 하의 밖으로', body: '-', where: m, n: '-' })))
     .concat(legGap.bad.map(m => ({ id: '다리 사이 틈', body: '-', where: m, n: '-' })))
+    .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
@@ -1186,6 +1274,9 @@ function launchOpts() {
   console.log(`다리 사이 틈: 배율 ${legGap.n}단계 × y ${legGap.ys.join('·')}`
     + ` — 기본 ${legGap.base.join('·')}px · 흔들림 ${legGap.spread.join('·')}px`
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
+  console.log(`다리 안쪽 변: 꺾임 ${legInner.kink}px (${INNER_KINK_MAX}px 까지)`
+    + ` · 엉덩이 밑↔발목 틈 차이 ${legInner.curve}px (${INNER_CURVE_MIN}px 이상 — 곧은 선이면 0)`
+    + ` · 배율에 따른 흔들림 ${legInner.drift}px`);
   console.log(`엉덩이↔허벅지 틈: 배율 ${hipSeam.n}조합 — 가장 벌어진 곳 ${hipSeam.worst}px`
     + ` (${SEAM_GAP_MAX}px 까지 · 자락과 허벅지 사이로 배경이 비치면 안 된다)`);
   console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
