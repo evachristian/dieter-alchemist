@@ -1218,69 +1218,75 @@ function launchOpts() {
     return { bad, slots: D.COLORABLE_SLOTS.length, others };
   });
 
-  // ─── 어항이 치마와 겹치지 않는가 ────────────────────────────
+  // ─── 방에 둔 크리처가 치마와 겹치지 않는가 ──────────────────
   //
-  // 다른 크리처는 치마 앞에 조금 걸쳐도 「앞에 선 것」으로 읽히는데, 어항은
-  // **속이 비치는 유리통**이라 치마가 통 안으로 들여다보여 그림이 깨진다.
-  // `left: 6%` 로 두었을 때 롱스커트와 **47px** 겹쳤다.
+  // 크리처는 아바타보다 앞 층(z-index 3)이라 치마 위에 올라앉는다. 그러면
+  // 「방에 있는 짐승」이 아니라 「치마에 붙은 무늬」로 읽힌다.
+  // **어항은 더 나쁘다** — 속이 비치는 유리통이라 치마가 통 안으로 들여다보인다.
+  // `left: 6%` 로 두었을 때 롱스커트와 땅·공중 27px · 어항 47px 겹쳤다.
   //
-  // ⚠️ **화면 폭마다 재야 한다.** 어항은 좁은 화면에서 줄고(`--bowl`), 아우라도
+  // ⚠️ **화면 폭마다 재야 한다.** 크리처는 좁은 화면에서 줄고(`--pet`), 아우라도
   // 240px 밑으로 줄어든다(flex). 한 폭에서만 재면 다른 폭에서 벌어지는 것을 못 잡는다.
   // 나가는 쪽도 같이 본다 — 오른끝을 붙박아 두면 **왼쪽이 화면 밖으로 나간다.**
   //
   // ⚠️ 이 검사는 **맨 마지막**이다. 진짜 방 화면을 띄우느라 S(세이브)와 창 크기를
   // 건드리므로, 앞선 검사가 그 영향을 받지 않게 뒤로 뺐다.
-  const BOWL_GAP_MIN = 1;              // px. 치마 옆선과 이만큼은 떨어져 있어야 한다
-  const bowlPlace = { bad: [], rows: [] };
+  const PET_GAP_MIN = 1;               // px. 치마 옆선과 이만큼은 떨어져 있어야 한다
+  const petPlace = { bad: [], rows: [] };
   for (const vw of [265, 320, 375, 390, 480, 700]) {
     await page.setViewportSize({ width: vw, height: 820 });
     const r = await page.evaluate(() => {
       const D = window.GameData;
-      const fish = D.RECIPES.filter(x => x.result.kind === 'creature' && x.result.move === 'water')[0];
-      if (!fish) return { err: '물 크리처가 없다' };
+      // 땅·공중·물 한 마리씩 — 셋은 크기와 높이가 달라 같이 봐야 한다
+      const pick = m => (D.RECIPES.find(x => x.result.kind === 'creature' && x.result.move === m) || {}).result;
+      const pets = ['ground', 'air', 'water'].map(pick).filter(Boolean);
+      if (pets.length < 3) return { err: '땅·공중·물 크리처가 다 있지 않다' };
       S.tutorialDone = true; S.introDone = true;
       if (!Array.isArray(S.creatures)) S.creatures = [];
-      if (!S.creatures.includes(fish.result.id)) S.creatures.push(fish.result.id);
-      S.petRoom = fish.result.id;
+      pets.forEach(p => { if (!S.creatures.includes(p.id)) S.creatures.push(p.id); });
       const sp = document.getElementById('splash'); if (sp) sp.classList.add('done');
       const iv = document.getElementById('intro'); if (iv) iv.style.display = 'none';
       switchTab('showcase');
-      const worst = { over: -Infinity };
+      const app = document.querySelector('.app');
       const wear = (D.WARDROBE.bottom || []).filter(i => i.kind !== 'none').map(i => ['bottom', i])
         .concat((D.WARDROBE.dress || []).filter(i => i.kind !== 'none').map(i => ['dress', i]));
-      for (const [slot, it] of wear) {
-        S.outfit.bottom = 'bottom_none'; S.outfit.dress = 'dress_none';
-        S.outfit[slot] = it.id;
-        renderShowcase();
-        const cre = document.querySelector('.stage-creature.cr-water');
-        const svg = document.querySelector('.char-body svg');
-        const app = document.querySelector('.app');
-        if (!cre || !svg || !app) return { err: '어항이나 아바타가 안 그려졌다' };
-        const cr = cre.getBoundingClientRect(), sr = svg.getBoundingClientRect();
-        const vb = svg.viewBox.baseVal, k = sr.width / vb.width;
-        // 어항 높이와 겹치는 그림 조각들의 **가장 왼쪽** (넉넉하게 — bbox 로 잡는다)
-        let left = Infinity;
-        svg.querySelectorAll('path,ellipse,circle,rect').forEach(n => {
-          let bb; try { bb = n.getBBox(); } catch (e) { return; }
-          if (!bb.width) return;
-          if (sr.top + (bb.y + bb.height) * k < cr.top || sr.top + bb.y * k > cr.bottom) return;
-          left = Math.min(left, sr.left + bb.x * k);
-        });
-        const over = cr.right - left;                       // + 면 겹쳤다
-        const outL = app.getBoundingClientRect().left - cr.left;   // + 면 화면 밖으로 나갔다
-        if (over > worst.over) Object.assign(worst, { over, outL, name: it.name, w: cr.width });
+      const worst = { over: -Infinity, outL: -Infinity };
+      for (const pet of pets) {
+        S.petRoom = pet.id;
+        for (const [slot, it] of wear) {
+          S.outfit.bottom = 'bottom_none'; S.outfit.dress = 'dress_none';
+          S.outfit[slot] = it.id;
+          renderShowcase();
+          const cre = document.querySelector('.stage-creature');
+          const svg = document.querySelector('.char-body svg');
+          if (!cre || !svg || !app) return { err: '크리처나 아바타가 안 그려졌다' };
+          const cr = cre.getBoundingClientRect(), sr = svg.getBoundingClientRect();
+          const vb = svg.viewBox.baseVal, k = sr.width / vb.width;
+          // 크리처 높이와 겹치는 그림 조각들의 **가장 왼쪽** (넉넉하게 — bbox 로 잡는다)
+          let left = Infinity;
+          svg.querySelectorAll('path,ellipse,circle,rect').forEach(n => {
+            let bb; try { bb = n.getBBox(); } catch (e) { return; }
+            if (!bb.width) return;
+            if (sr.top + (bb.y + bb.height) * k < cr.top || sr.top + bb.y * k > cr.bottom) return;
+            left = Math.min(left, sr.left + bb.x * k);
+          });
+          const over = cr.right - left;                             // + 면 겹쳤다
+          const outL = app.getBoundingClientRect().left - cr.left;  // + 면 화면 밖으로 나갔다
+          if (over > worst.over) Object.assign(worst, { over, name: it.name, move: pet.move });
+          if (outL > worst.outL) Object.assign(worst, { outL, outMove: pet.move });
+        }
       }
       return worst;
     });
-    if (r.err) { bowlPlace.bad.push(`폭 ${vw}px: ${r.err}`); continue; }
-    bowlPlace.rows.push(`${vw}:${(-r.over).toFixed(1)}px`);
-    if (r.over > -BOWL_GAP_MIN) {
-      bowlPlace.bad.push(`폭 ${vw}px · ${r.name}: 어항이 치마와 ${r.over.toFixed(1)}px 겹친다`
-        + ` — 유리통이 비쳐 치마가 물속에 들어간 것처럼 보인다`);
+    if (r.err) { petPlace.bad.push(`폭 ${vw}px: ${r.err}`); continue; }
+    petPlace.rows.push(`${vw}:${(-r.over).toFixed(1)}px`);
+    if (r.over > -PET_GAP_MIN) {
+      petPlace.bad.push(`폭 ${vw}px · ${r.move} · ${r.name}: 크리처가 치마와 ${r.over.toFixed(1)}px 겹친다`
+        + ` — 방에 있는 것이 아니라 치마에 붙은 무늬로 보인다`);
     }
     if (r.outL > 0.5) {
-      bowlPlace.bad.push(`폭 ${vw}px: 어항이 화면 왼쪽으로 ${r.outL.toFixed(1)}px 나갔다`
-        + ` — 좁은 화면에서는 통도 같이 줄어야 한다 (--bowl)`);
+      petPlace.bad.push(`폭 ${vw}px · ${r.outMove}: 크리처가 화면 왼쪽으로 ${r.outL.toFixed(1)}px 나갔다`
+        + ` — 좁은 화면에서는 크기도 같이 줄어야 한다 (--pet)`);
     }
   }
   await page.setViewportSize({ width: 1200, height: 900 });
@@ -1305,7 +1311,7 @@ function launchOpts() {
     .concat(face.bad.map(m => ({ id: '초상화', body: '-', where: m, n: '-' })))
     .concat(crouch.bad.map(m => ({ id: '웅크린 뒷모습', body: '-', where: m, n: '-' })))
     .concat(bowl.bad.map(m => ({ id: '어항', body: '-', where: m, n: '-' })))
-    .concat(bowlPlace.bad.map(m => ({ id: '어항 자리', body: '-', where: m, n: '-' })))
+    .concat(petPlace.bad.map(m => ({ id: '크리처 자리', body: '-', where: m, n: '-' })))
     .concat(neck.bad.map(m => ({ id: '목', body: '-', where: m, n: '-' })))
     .concat(seam.bad.map(m => ({ id: '몸통↔팔', body: '-', where: m, n: '-' })))
     .concat(shoulder.bad.map(m => ({ id: '어깨 홈', body: '-', where: m, n: '-' })))
@@ -1349,8 +1355,8 @@ function launchOpts() {
     + ` (${SEAM_GAP_MAX}px 까지 · 자락과 허벅지 사이로 배경이 비치면 안 된다)`);
   console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
     + ` (굵어지면 안 된다 — 굵은 종아리에 가는 발목)`);
-  console.log(`어항 자리: 화면 폭별 치마와의 틈 ${bowlPlace.rows.join(' · ')}`
-    + ` (${BOWL_GAP_MIN}px 이상 · 유리통이라 겹치면 치마가 물속에 비친다)`);
+  console.log(`크리처 자리: 땅·공중·물 × 하의·원피스 전부 — 화면 폭별 치마와의 틈`
+    + ` ${petPlace.rows.join(' · ')} (${PET_GAP_MIN}px 이상 · 치마 위에 올라앉으면 안 된다)`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
     + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
