@@ -656,11 +656,38 @@
     hipW: 20, bellyW: 18,                 // 배율을 타는 살 (안쪽 변에서 잰 폭)
     kneeX: 17, ankleX: 14,                // 배율을 **안 타는** 관절 (중심선에서 잰 거리)
   };
-  // 관절은 그대로지만 **마디보다 굵어질 수는 없다** — 가늘게 만들면 같이 가늘어진다
-  const kneeX = tune => Math.min(LEG.kneeX,
+  // ─── 관절도 살을 타긴 탄다 — 다만 훨씬 덜 탄다 ───────────────
+  //
+  // 무릎을 **아예 고정**해 두었더니 허벅지 200% 에서 42 → 17 로 좁아져 **깔때기**가 됐다.
+  // 종아리까지 200% 면 그 아래가 다시 38 로 부풀어, 무릎만 잘록한 모래시계가 된다.
+  // 살이 찐 사람은 무릎도 굵다 — 다만 허벅지·장딴지만큼은 아니다.
+  // **팔의 팔꿈치와 같은 몫(40%)** 을 태운다 (`ARM_W` · `armWidths` 참고).
+  //
+  // ⚠️ **발목은 그대로 둔다.** 「굵은 종아리에 가는 발목」은 일부러 그렇게 잡은 그림이고
+  // (`checkavatar` 의 「발목」이 지킨다), 발목까지 굵어지면 다시 통나무가 된다.
+  //
+  // ⚠️ 무릎은 **허벅지·종아리 중 굵은 쪽**을 따른다. 둘을 평균 내면 한쪽만 굵게 했을 때
+  // 무릎이 어중간하게 굵어져 가는 쪽 마디에 턱이 진다. 그리고 아래의 상한이 있어서
+  // **가는 쪽보다 굵어지지는 않는다** — 허벅지만 200% 면 무릎은 종아리에 막혀 그대로다.
+  const KNEE_K = 0.4;                       // 관절이 배율을 타는 몫
+  // 관절은 **마디보다 굵어질 수는 없다** — 가늘게 만들면 같이 가늘어진다
+  const kneeX = tune => Math.min(
+    LEG.kneeX * (1 - KNEE_K + KNEE_K * Math.max(tuneOf(tune, 'thigh'), tuneOf(tune, 'calf'))),
     THIGH_GAP + LEG.hipW * tuneOf(tune, 'thigh') * 0.85,
     CALF_GAP + LEG.bellyW * tuneOf(tune, 'calf') * 0.85);
   const ankleX = tune => Math.min(LEG.ankleX, CALF_GAP + LEG.bellyW * tuneOf(tune, 'calf') * 0.8);
+  // 장딴지가 가장 굵은 자리 — **불어나는 양이 클수록 아래로 내려간다.**
+  // 자리를 붙박아 두면 무릎(263)에서 장딴지(277)까지 **14px 안에** 살을 다 붙여야 해서,
+  // 종아리 200% 에서는 그 사이에 19px 이 불어나 **바깥으로 뾰족한 마름모**가 됐다.
+  // 엉덩이가 처지는 것(`hipGeom`)과 같은 규칙이다 — 많이 나온 것은 내려갈 거리도 길다.
+  // 기본값(불어나는 양 3px)에서는 한 톨도 안 움직인다
+  const BELLY_SLIDE = 0.008, BELLY_SLIDE_MAX = 0.18;
+  function bellyYOf(tune) {
+    const rise = (CALF_GAP + LEG.bellyW * tuneOf(tune, 'calf')) - kneeX(tune);
+    const base = LEG.bellyW - LEG.kneeX + CALF_GAP;      // 기본값의 불어나는 양 (3)
+    const t = LEG.bellyT + Math.min(BELLY_SLIDE_MAX, Math.max(0, rise - base) * BELLY_SLIDE);
+    return +(LEG.calfY + (LEG.ankleY - LEG.calfY) * t).toFixed(1);
+  }
 
   // ─── 안쪽 변도 곧은 선이 아니다 ────────────────────────────
   //
@@ -734,7 +761,7 @@
   function legs(tune) {
     const L = LEG, kt = tuneOf(tune, 'thigh'), kc = tuneOf(tune, 'calf');
     const kx = kneeX(tune), ax = ankleX(tune);
-    const bellyY = +(L.calfY + (L.ankleY - L.calfY) * L.bellyT).toFixed(1);
+    const bellyY = bellyYOf(tune);
     const thigh = [[L.hipY, THIGH_GAP + L.hipW * kt], [L.kneeY, kx]];
     const calf = [[L.calfY, kx], [bellyY, CALF_GAP + L.bellyW * kc], [L.ankleY, ax]];
     const fy = BODY.footY, fx = footX(tune);

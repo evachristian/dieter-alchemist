@@ -891,6 +891,73 @@ function launchOpts() {
              ankle: +r0.ankle.toFixed(1), ankleMax: +Math.max.apply(null, ankles).toFixed(1) };
   }, GAP_SPREAD_MAX);
 
+  // ─── 다리 옆선이 어디서도 너무 가파르지 않은가 · 무릎은 살을 따라가는가 ──
+  //
+  // 무릎을 **아예 고정**해 두었더니 허벅지 200% 에서 42 → 17 로 좁아져 깔때기가 됐고,
+  // 종아리까지 200% 면 그 아래가 다시 38 로 부풀어 **무릎만 잘록한 모래시계**가 됐다.
+  // 게다가 장딴지가 가장 굵은 자리가 붙박이라 무릎에서 14px 안에 19px 이 불어나
+  // **바깥으로 뾰족한 마름모**가 됐다.
+  //
+  // 두 가지를 같이 본다:
+  //   ① 옆선의 기울기(|dx/dy|)가 어디서도 한계를 안 넘는다 — 뾰족한 자리는 기울기가 튄다
+  //   ② 허벅지·종아리를 같이 굵게 하면 **무릎도 굵어진다** (발목은 아니다 — 「발목」이 지킨다)
+  const LEG_SLOPE_MAX = 2, KNEE_GROW_MIN = 3;
+  const legLine = await page.evaluate(async (o) => {
+    const D = window.GameData, bad = [], S = 4, W = 200 * S;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    function legsOnly(svg) {
+      const wrap = document.createElement('div'); wrap.innerHTML = svg;
+      const root = wrap.firstElementChild; const only = root.cloneNode(false);
+      [...root.querySelectorAll('[data-part="thigh"],[data-part="calf"]')]
+        .forEach(n => only.appendChild(n.cloneNode(true)));
+      return only.outerHTML;
+    }
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      ctx.clearRect(0, 0, W, 348 * S); ctx.drawImage(img, 0, 0, W, 348 * S);
+      return ctx.getImageData(0, 0, W, 348 * S).data;
+    }
+    const edge = (d, y) => {
+      for (let x = 199 * S; x >= 100 * S; x--)
+        if (d[(Math.round(y * S) * W + x) * 4 + 3] > 128) return x / S;
+      return null;
+    };
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
+    const knees = {};
+    let worst = 0, at = '', n = 0;
+    for (const kt of [0.5, 1, 1.5, 2]) for (const kc of [0.5, 1, 1.5, 2]) {
+      const d = await px(legsOnly(window.Avatar.build(outfit, 0, { thigh: kt, calf: kc })));
+      knees[kt + 'x' + kc] = edge(d, 263);            // LEG.kneeY
+      const ys = [], e = [];
+      for (let y = 200; y <= 326; y++) { ys.push(y); e.push(edge(d, y)); }
+      let sl = 0, sy = 0;
+      for (let i = 3; i < ys.length - 3; i++) {
+        if (e[i - 3] == null || e[i + 3] == null) continue;
+        const v = Math.abs(e[i + 3] - e[i - 3]) / 6;   // 6px 창의 기울기
+        if (v > sl) { sl = v; sy = ys[i]; }
+      }
+      n++;
+      if (sl > worst) { worst = sl; at = `허벅지${kt * 100} 종아리${kc * 100} (y≈${sy})`; }
+      if (sl > o.slope) {
+        bad.push(`허벅지 ${kt * 100}% · 종아리 ${kc * 100}%: 다리 옆선이 y≈${sy} 에서 `
+          + `${sl.toFixed(2)} 로 선다 — 그 자리가 뾰족해 보인다 (${o.slope} 까지)`);
+      }
+    }
+    // ② 살이 붙으면 무릎도 굵어진다
+    const grow = knees['2x2'] - knees['1x1'];
+    if (!(grow >= o.knee)) {
+      bad.push(`허벅지·종아리를 200% 로 해도 무릎이 ${grow.toFixed(2)}px 밖에 안 굵어졌다`
+        + ` (${o.knee}px 이상) — 무릎만 잘록한 모래시계가 된다`);
+    }
+    return { bad: bad, n: n, worst: +worst.toFixed(2), at: at, grow: +grow.toFixed(2) };
+  }, { slope: LEG_SLOPE_MAX, knee: KNEE_GROW_MIN });
+
   // ─── 허벅지 윗머리가 엉덩이 밖으로 나오지 않는가 ────────────
   //
   // 허벅지의 맨 위(LEG.hipY=186)는 엉덩이의 봉우리(BODY.hipY=198)보다 **12px 위**다.
@@ -1382,6 +1449,7 @@ function launchOpts() {
     .concat(legGap.bad.map(m => ({ id: '다리 사이 틈', body: '-', where: m, n: '-' })))
     .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
+    .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
@@ -1408,6 +1476,9 @@ function launchOpts() {
   console.log(`다리 사이 틈: 배율 ${legGap.n}단계 × y ${legGap.ys.join('·')}`
     + ` — 기본 ${legGap.base.join('·')}px · 흔들림 ${legGap.spread.join('·')}px`
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
+  console.log(`다리 옆선: 허벅지×종아리 ${legLine.n}조합 — 가장 선 곳 ${legLine.worst}`
+    + ` (${legLine.at} · ${LEG_SLOPE_MAX} 까지)`
+    + ` · 둘 다 200% 일 때 무릎이 ${legLine.grow}px 굵어진다 (${KNEE_GROW_MIN}px 이상)`);
   console.log(`허벅지 윗머리: 허벅지×엉덩이×허리 ${hipBulge.n}조합 — 엉덩이 밖으로 가장 나온 곳`
     + ` ${hipBulge.worst}px${hipBulge.worst ? ' · ' + hipBulge.at : ''} (${HIP_BULGE_MAX}px 까지)`);
   console.log(`다리 안쪽 변: 꺾임 ${legInner.kink}px (${INNER_KINK_MAX}px 까지)`
