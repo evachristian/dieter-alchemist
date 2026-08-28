@@ -415,6 +415,13 @@
     waistHalf(tune) * tuneOf(tune, 'torso'),
     thighOuter(tune));
   const clothHipHalf = tune => hipHalf(tune) + CLOTH_PAD;
+  // 엉덩이 바깥 옆선이 **허벅지에 붙는 높이.**
+  // 엉덩이가 넓을수록 내려올 거리가 길어야 뾰족해지지 않는다 (torsoArms 의 주석 참고).
+  // 몸과 하의가 **같은 값을 본다** — 안 그러면 넓은 엉덩이가 바지 옆으로 삐져나온다.
+  function hipBlendY(tune) {
+    const drop = Math.max(0, hipHalf(tune) - thighOuter(tune));
+    return +Math.min(KNEE_LINE - 10, Math.max(BODY.hipBottom, BODY.hipY + drop * 1.45)).toFixed(1);
+  }
 
   // 다리 — 허리(waistY)를 올린 만큼 통째로 올라오고 그만큼 길어진다.
   // 바닥은 고정이므로 위 끝만 올라가고 길이가 늘어난다: 허벅지 186~263 · 종아리 256~331.
@@ -523,13 +530,25 @@
     // 세 점 모두 **세로 접선**이라 어느 배율을 움직여도 이음매가 꺾이지 않는다:
     //   · 허리(WY)      실루엣의 가장 좁은 곳 — 몸통 옆선도 여기서 세로로 들어온다
     //   · 엉덩이(HY)    가장 넓은 곳
-    //   · 허벅지(HB)    허벅지 바깥 변에 세로로 내려꽂아 그대로 다리로 이어진다
+    //   · 허벅지(BY)    허벅지 바깥 변에 세로로 내려꽂아 그대로 다리로 이어진다
     // 제어점의 높이는 구간 길이의 45% 다 — 비율이라 waistY·hipY 를 옮겨도 모양이 따라온다.
     const WY = B.waistY, HY = B.hipY, HB = B.hipBottom;
     const wRa = +(100 + wh * kb).toFixed(2), wLa = +(200 - wRa).toFixed(2);
     const tRa = +(100 + thighOuter(tune)).toFixed(2), tLa = +(200 - tRa).toFixed(2);
     const hRa = +(100 + hipHalf(tune)).toFixed(2), hLa = +(200 - hRa).toFixed(2);
-    const ha = +((HY - WY) * 0.45).toFixed(1), hb = +((HB - HY) * 0.45).toFixed(1);
+    // ⚠️ **엉덩이가 넓어지면 내려올 거리도 같이 늘어나야 한다.**
+    // 엉덩이(198)에서 허벅지(214)까지는 16px 뿐인데, 허리 50% · 엉덩이 150% 이면
+    // 가로로 28px 를 떨어뜨려야 한다 — 기울기가 3.1 까지 서서 **옆으로 뾰족한 날개**가 됐다.
+    // (사람 몸도 엉덩이가 커지면 뾰족해지는 게 아니라 더 **둥글어진다**)
+    // 그래서 바깥 옆선만 **낙차의 1.45배**만큼 아래까지 내려가서 허벅지에 붙는다.
+    // 가랑이 선(HB)은 그대로다 — 그것까지 내리면 다리 사이가 막힌다.
+    //
+    // 1.45 는 **기본 낙차(134−123 = 11px)에서 딱 hipBottom 안쪽(213.95)에 떨어지도록**
+    // 고른 값이다. 그래서 기본 그림은 픽셀 하나 안 바뀌고, 엉덩이를 키울 때만 늘어난다.
+    // (BODY.hipHalf 나 허벅지 폭을 바꾸면 이 값도 다시 골라야 한다 —
+    //  기본 그림이 바뀌었는지는 렌더를 떠서 md5 로 견주면 바로 안다)
+    const BY = hipBlendY(tune);
+    const ha = +((HY - WY) * 0.45).toFixed(1), hb = +((BY - HY) * 0.45).toFixed(1);
     // 몸통 옆선이 허리로 좁아지는 곡선. 제어점을 어깨(133)~허리 사이의 **비율**로 잡아,
     // waistY 를 올리고 내려도 곡선 모양이 그대로 따라오게 한다.
     // 마지막 제어점의 x 는 **허리와 같다** — 그래야 허리에서 접선이 세로가 되어
@@ -551,9 +570,11 @@
       <g data-part="hip">
         <path d="M${wLa},${WY}
           C${wLa},${WY + ha} ${hLa},${HY - ha} ${hLa},${HY}
-          C${hLa},${HY + hb} ${tLa},${HB - hb} ${tLa},${HB}
+          C${hLa},${HY + hb} ${tLa},${BY - hb} ${tLa},${BY}
+          L${tLa},${HB}
           L${tRa},${HB}
-          C${tRa},${HB - hb} ${hRa},${HY + hb} ${hRa},${HY}
+          L${tRa},${BY}
+          C${tRa},${BY - hb} ${hRa},${HY + hb} ${hRa},${HY}
           C${hRa},${HY - ha} ${wRa},${WY + ha} ${wRa},${WY} Z" fill="${SKIN}"/>
       </g>
       <g data-part="torso">
@@ -906,12 +927,19 @@
     // 바지 계열 — 반바지도 같은 실루엣이고 기장만 다르다.
     // 가랑이 홈은 엉덩이 아래(hipBottom)에서 시작한다 — 위로 파면 엉덩이 살이 홈으로 드러난다
     const hemY = Math.max(B.hipBottom + 12, Number(it.hemY) || B.ankleY);
-    const ky = HY + (hemY - HY) * 0.3;         // 옆선이 다리 폭으로 좁아지는 지점
+    // 옆선은 **몸의 엉덩이 곡선을 그대로 따라간다** (hipBlendY). 예전에는 좁아지는 높이가
+    // `HY + (hemY-HY)*0.3` 이고 다리 폭이 127 로 박혀 있어서, 엉덩이를 키우면 몸이 아래로
+    // 더 길게 내려오는데 바지는 그대로라 **엉덩이 옆이 바지 밖으로 삐져나왔다.**
+    // 다리 폭도 허벅지 배율을 따라간다 — 박아 두면 허벅지를 키웠을 때 그대로 드러난다.
+    const legR = +(100 + thighOuter(tune) + CLOTH_PAD + 1).toFixed(2), legL = +(200 - legR).toFixed(2);
+    const by = Math.min(hipBlendY(tune) + 4, hemY - 6);
+    const kb2 = +((by - HY) * 0.45).toFixed(1);
     const k = tuneMax(tune, hemY > KNEE_LINE ? ['torso', 'thigh', 'calf'] : ['torso', 'thigh']);
     return wrapX(`<path d="M${wL},${WY} L${wR},${WY}
         C${hR},${WY + 6} ${hR},${HY - 6} ${hR},${HY}
-        C${hR},${HY + 12} 129,${ky.toFixed(1)} 127,${(ky + 12).toFixed(1)} L127,${hemY} L107,${hemY} L100,${B.hipBottom + 2} L93,${hemY} L73,${hemY} L73,${(ky + 12).toFixed(1)}
-        C71,${ky.toFixed(1)} ${hL},${HY + 12} ${hL},${HY}
+        C${hR},${HY + kb2} ${legR},${(by - kb2).toFixed(1)} ${legR},${by.toFixed(1)}
+        L${legR},${hemY} L107,${hemY} L100,${B.hipBottom + 2} L93,${hemY} L${legL},${hemY} L${legL},${by.toFixed(1)}
+        C${legL},${(by - kb2).toFixed(1)} ${hL},${HY + kb2} ${hL},${HY}
         C${hL},${HY - 6} ${hL},${WY + 6} ${wL},${WY} Z" fill="${c}"/>${belt}`, k, 100);
   }
 

@@ -727,6 +727,73 @@ function launchOpts() {
     return { bad, n: combos.length, worst: +worst.toFixed(2) };
   }, KINK_MAX);
 
+  // ─── 엉덩이가 하의 밖으로 나오지 않는가 ─────────────────────
+  //
+  // 커버리지 검사(맨 위)는 **허리까지만** 본다. 허리 아래는 하의가 맡는데 거기를
+  // 아무도 안 보고 있었다 — 엉덩이 배율을 키우면 반바지 옆으로 엉덩이가 삐져나오는데
+  // 모든 검사가 통과였다.
+  //
+  // 재는 법: **엉덩이만 남긴 그림**에서 그 픽셀을 찍어 두고, 하의를 입힌 그림에서
+  // 그 자리가 아직 살색인지 본다. 팔은 하의 위에 다시 찍히므로 빼고 잰다.
+  const HIP_OUT_MAX = 0.02;
+  const hipOut = await page.evaluate(async (MAX) => {
+    const D = window.GameData, SKIN = [255, 220, 196], bad = [], S = 2, W = 200 * S;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => {
+        img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      });
+      ctx.clearRect(0, 0, W, 348 * S);
+      ctx.drawImage(img, 0, 0, W, 348 * S);
+      return ctx.getImageData(0, 0, W, 348 * S).data;
+    }
+    const isSkin = (d, i) => d[i + 3] > 250 && Math.abs(d[i] - SKIN[0]) <= 2
+      && Math.abs(d[i + 1] - SKIN[1]) <= 2 && Math.abs(d[i + 2] - SKIN[2]) <= 2;
+    const bare = { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    function build(t, o, only) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare, o || {}), 0, t);
+      const root = wrap.firstElementChild;
+      root.querySelectorAll('[data-part="arm"]').forEach(e => e.remove());
+      if (only) {
+        const keep = root.querySelector(only).closest('svg > g');
+        [...root.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+        [...keep.children].forEach(g => { if (!g.matches(only)) g.remove(); });
+      }
+      return root.outerHTML;
+    }
+    const tunes = [['기본', {}], ['엉덩이 150', { hip: 1.5 }], ['허리 50 엉덩이 150', { waist: 0.5, hip: 1.5 }],
+      ['엉덩이 180', { hip: 1.8 }], ['허벅지 180', { thigh: 1.8 }], ['엉덩이 180 허벅지 60', { hip: 1.8, thigh: 0.6 }]];
+    const bots = (D.WARDROBE.bottom || []).filter(x => x.kind !== 'none');
+    let worst = 0, maskN = 0;
+    for (const [tn, t] of tunes) {
+      const hip = await px(build(t, null, '[data-part="hip"]'));
+      const mask = [];
+      for (let y = 168 * S; y <= 248 * S; y++) for (let x = 1; x < W - 1; x++) {
+        const i = (y * W + x) * 4;
+        if (!isSkin(hip, i)) continue;
+        // 경계의 반투명 픽셀은 뺀다
+        if (!isSkin(hip, i - 4) || !isSkin(hip, i + 4) || !isSkin(hip, i - W * 4) || !isSkin(hip, i + W * 4)) continue;
+        mask.push(i);
+      }
+      maskN = mask.length;
+      for (const bo of bots) {
+        const d = await px(build(t, { bottom: bo.id }));
+        let n = 0;
+        for (const i of mask) if (isSkin(d, i)) n++;
+        const r = n / mask.length;
+        if (r > worst) worst = r;
+        if (r > MAX) bad.push(`${tn} · ${bo.id}: 엉덩이의 ${Math.round(r * 100)}% 가 하의 밖으로 나왔다`);
+      }
+    }
+    return { bad, worst: +(worst * 100).toFixed(1), maskN, n: tunes.length * bots.length };
+  }, HIP_OUT_MAX);
+
   // ─── 치마가 팔을 덮지 않는가 ────────────────────────────────
   //
   // 팔은 몸통과 같은 층에 있어 **하의보다 뒤**였다. 치마는 허리에서 아래로 퍼지므로
@@ -877,7 +944,8 @@ function launchOpts() {
     .concat(shoulder.bad.map(m => ({ id: '어깨 홈', body: '-', where: m, n: '-' })))
     .concat(shoulder.beakBad.map(m => ({ id: '어깨 부리', body: '-', where: m, n: '-' })))
     .concat(armCover.bad.map(m => ({ id: '치마가 팔을 덮음', body: '-', where: m, n: '-' })))
-    .concat(kink.bad.map(m => ({ id: '허리↔엉덩이↔허벅지', body: '-', where: m, n: '-' })));
+    .concat(kink.bad.map(m => ({ id: '허리↔엉덩이↔허벅지', body: '-', where: m, n: '-' })))
+    .concat(hipOut.bad.map(m => ({ id: '엉덩이가 하의 밖으로', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
@@ -896,6 +964,8 @@ function launchOpts() {
     + ` — 가장 많이 덮인 곳 ${armCover.worst}% (${ARM_COVER_MAX * 100}% 까지)`);
   console.log(`허리↔엉덩이↔허벅지: 배율 ${kink.n}조합 — 옆선이 가장 꺾인 곳 ${kink.worst}`
     + ` (${KINK_MAX} 까지 · 접선이 이어져야 한다)`);
+  console.log(`엉덩이가 하의 밖으로: 배율×하의 ${hipOut.n}조합 × 엉덩이 ${hipOut.maskN}픽셀`
+    + ` — 가장 많이 나온 곳 ${hipOut.worst}% (${HIP_OUT_MAX * 100}% 까지)`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
     + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
