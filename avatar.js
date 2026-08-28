@@ -228,6 +228,7 @@
   // **살(어깨·팔뚝)은 배율을 타고 관절(팔꿈치·손목)은 덜 탄다.**
   const ARM_W = { shoulder: 15, elbow: 12, wrist: 9.5 };
   const ARM_SHADE = 2.5;                 // 몸 쪽으로 깔아 두는 그늘의 폭
+  const ARM_SHADE_FROM = 10;             // 팔 위 끝에서 이만큼 내려와서 시작한다
   function armWidths(k) {
     const S = ARM_W.shoulder * k;
     // 관절도 살이 붙긴 하지만 **덜 붙는다.** 그리고 마디보다 굵어질 수는 없다
@@ -310,9 +311,15 @@
     // 이어지는 선을 막아서 없앴는데(4f58adb), 그러자 이번엔 구별이 안 됐다.
     // 그래서 **같은 모양을 몸 쪽으로 조금 밀어 한 단 어둡게** 깔아 둔다 —
     // 팔에 가려 **안쪽 겨드랑이 선만 그늘로 남는다.** 테두리처럼 실루엣을 끊지 않는다.
-    let out = `<g transform="translate(${(-sgn * ARM_SHADE).toFixed(2)},0)">`
-      + emit(segs, shade(fill, 8)) + '</g>' + emit(segs, fill, o.extra);
-    return out;
+    //
+    // ⚠️ **그늘은 팔이 시작하는 선에서 바로 긋지 않는다.** 어깨에서 팔로 넘어가는
+    // 자리에 선이 생겨 애써 이은 실루엣을 도로 끊는다. ARM_SHADE_FROM 만큼 내려와
+    // **겨드랑이 아래에서** 시작한다 (위 끝은 둥근 마개라 스르르 시작한다).
+    const sFrom = B.armY + ARM_SHADE_FROM;
+    const shadeSegs = segs.map(g => ({ y: Math.max(g.y, sFrom), h: g.h - Math.max(0, sFrom - g.y), tr: g.tr }))
+      .filter(g => g.h > 0.5);
+    return `<g transform="translate(${(-sgn * ARM_SHADE).toFixed(2)},0)">`
+      + emit(shadeSegs, shade(fill, 8)) + '</g>' + emit(segs, fill, o.extra);
   }
 
   // 팔 중심선 위의 한 점 — dist 는 팔 위 끝(armY)에서 잰 거리.
