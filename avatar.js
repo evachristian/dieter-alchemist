@@ -221,16 +221,64 @@
   //
   //   side  'L'|'R' · pad 팔보다 얼마나 넓게(소매) · h 길이 · extra 덧붙일 속성
   //   opts.extra 덧붙일 속성 · opts.yFrom 위쪽을 잘라 아래 구간만 그림 (장갑)
+  // ─── 팔도 원통이 아니다 ────────────────────────────────────
+  //
+  // 예전에는 윗팔·아랫팔이 **둥근 네모(rect)를 가로로 늘린 것**이라, 굵게 하면
+  // 팔꿈치도 손목도 같이 굵어져 원통 두 개가 됐다. 다리와 같은 규칙으로 고친다:
+  // **살(어깨·팔뚝)은 배율을 타고 관절(팔꿈치·손목)은 덜 탄다.**
+  const ARM_W = { shoulder: 15, elbow: 12, wrist: 9.5 };
+  const ARM_SHADE = 2.5;                 // 몸 쪽으로 깔아 두는 그늘의 폭
+  function armWidths(k) {
+    const S = ARM_W.shoulder * k;
+    // 관절도 살이 붙긴 하지만 **덜 붙는다.** 그리고 마디보다 굵어질 수는 없다
+    const E = Math.min(ARM_W.elbow * (0.6 + 0.4 * k), S * 0.9);
+    const W = Math.min(ARM_W.wrist * (0.7 + 0.3 * k), E * 0.9);
+    return { S: S, E: E, W: W };
+  }
+  // 팔 위 끝(armY)에서 dist 만큼 내려간 곳의 **반폭** (pad = 소매가 팔보다 넓은 만큼)
+  function armHalf(dist, k, pad) {
+    const B = BODY, up = B.armH * B.elbowT, wd = armWidths(k);
+    const inUp = dist <= up;
+    const a = inUp ? wd.S : wd.E, b = inUp ? wd.E : wd.W;
+    const t = inUp ? dist / up : (dist - up) / (B.armH - up);
+    const u = Math.max(0, Math.min(1, t));
+    // 매끄럽게(에르미트) — 어깨·팔꿈치·손목에서 접선이 세로라 관절이 안 꺾인다
+    return (a + (b - a) * u * u * (3 - 2 * u)) / 2 + pad;
+  }
+  // 마디 하나의 테이퍼 path. **안쪽 변은 곧은 세로선**이고 바깥 변만 곡선이다.
+  //   xin 안쪽 변 · sgn 바깥 방향 · d0~d1 armY 에서 잰 거리 · cap 둥근 마개
+  function armSegPath(xin, sgn, d0, d1, k, pad, capTop, capBot) {
+    const B = BODY, f = n => +n.toFixed(2);
+    const h0 = armHalf(d0, k, pad), h1 = armHalf(d1, k, pad);
+    const y0 = B.armY + d0, y1 = B.armY + d1;
+    const out = h => f(xin + sgn * h * 2);
+    const sw = sgn > 0 ? 1 : 0;                       // 마개를 도는 방향
+    const t0 = capTop ? y0 + h0 : y0, t1 = capBot ? y1 - h1 : y1;
+    const m = (t1 - t0) * 0.5;                        // 제어점 높이 — 양 끝에서 접선이 세로
+    let d = capTop
+      ? `M${f(xin)},${f(t0)} A${f(h0)},${f(h0)} 0 0 ${sw} ${out(h0)},${f(t0)}`
+      : `M${f(xin)},${f(y0)} L${out(h0)},${f(y0)}`;
+    d += ` C${out(h0)},${f(t0 + m)} ${out(h1)},${f(t1 - m)} ${out(h1)},${f(t1)}`;
+    d += capBot ? ` A${f(h1)},${f(h1)} 0 0 ${sw} ${f(xin)},${f(t1)}`
+                : ` L${f(xin)},${f(y1)}`;
+    return d + ' Z';
+  }
+
   function armShape(side, fill, pad, h, tune, opts) {
     const B = BODY, left = side === 'L', o = opts || {};
     const d = armShift(tune) * (left ? 1 : -1);       // 어깨선을 따라 팔을 옮긴다
     const x0 = (left ? B.armX_L : B.armX_R) + d;
     const w = B.armW + pad * 2;
+    const ka = tuneOf(tune, 'arm');
+    // **안쪽 변은 고정이다** — 굵기가 어떻든 팔이 몸통에서 안 떨어진다.
+    // sgn 은 안쪽에서 바깥쪽으로 가는 방향
+    const sgn = left ? -1 : 1;
+    const xin = +((left ? x0 + B.armW + pad : x0 - pad)).toFixed(2);
     const rot = left ? B.armRot : -B.armRot;
     const bend = left ? -B.elbowRot : B.elbowRot;     // 안쪽(몸 쪽)으로
     const pivot = (left ? B.armPivotL : B.armPivotR) + d;
-    const cx = x0 + B.armW / 2;
     const upLen = B.armH * B.elbowT;                  // 팔꿈치까지의 길이
+    const cx = +(xin + sgn * armHalf(upLen, ka, pad)).toFixed(2);   // 팔꿈치 회전축
     const elbowY = B.armY + upLen;
     // 그릴 구간을 팔 위 끝(armY)에서 잰 거리로 바꾼다
     const from = (o.yFrom != null ? o.yFrom : B.armY - pad) - B.armY;
@@ -254,52 +302,37 @@
       segs.push({ y: B.armY + foFrom - ext, h: (foTo - foFrom) + ext,
         tr: `${baseRot} rotate(${bend} ${+cx.toFixed(2)} ${+elbowY.toFixed(2)})` });
     }
-    const emit = (list, extra) => list.map(g =>
-      `<rect x="${+(x0 - pad).toFixed(2)}" y="${+g.y.toFixed(2)}" width="${w}" height="${g.h.toFixed(2)}"
-        rx="${(w / 2).toFixed(1)}" fill="${fill}"${extra} transform="${g.tr}"/>`).join('');
-    let out = emit(segs, o.extra || '');
-    // 테두리(맨팔의 ARM_EDGE)가 있으면 두 마디의 테두리가 팔꿈치에서 교차해
-    // 이음매 선이 보인다. **관절 주변(±12px)만 채움 전용 덮개를 얹어** 그 선을 덮는다.
-    // 팔 전체를 두 번 칠하면 안 되는 이유: 가장자리의 반투명 픽셀이 겹쳐 진해지는데,
-    // 캡 소매의 둥근 모서리가 잘라낸 자리에서 그 픽셀이 살색 판정으로 굳어
-    // 커버리지 검사에 걸렸다 (dress_maxi 에서 실제로 났다). 관절 근처는 어떤 검사
-    // 창(x 72~128 · y ≤145)에도 안 들어가므로 덮개만은 안전하다.
-    if (o.extra && from < upLen && to > upLen) {
-      const pf = Math.max(from, upLen - 12), pt = Math.min(to, upLen + 12);
-      out += emit([
-        { y: B.armY + pf, h: (upLen - pf) + OV, tr: baseRot },
-        { y: B.armY + upLen - OV, h: (pt - upLen) + OV,
-          tr: `${baseRot} rotate(${bend} ${+cx.toFixed(2)} ${+elbowY.toFixed(2)})` },
-      ], '');
-    }
-    // 굵기 배율의 축은 **바깥쪽 가장자리**다 — 가늘어질 때 **안쪽 선만 움직인다.**
-    //
-    // 팔의 바깥 선이 곧 어깨가 끝나는 자리다. 안쪽을 축으로 두면 가늘게 만들 때
-    // 바깥 선이 안으로 끌려 들어와, 어깨의 모서리가 팔보다 튀어나온 **턱**이 생긴다
-    // (팔 50% 에서 어깨 끝 135.75 / 팔 바깥 133.25 — 2.5px 어긋났다).
-    // 바깥을 축으로 두면 팔이 아무리 가늘어져도 바깥 선이 100% 자리에 그대로 남아
-    // 어깨에서 팔로 이어지는 선이 안 끊긴다.
-    //
-    // 축은 **소매 두께(pad)를 뺀 맨팔의 바깥 변**이다. pad 를 넣으면 소매와 팔이
-    // 서로 다른 축으로 줄어들어 배율이 낮을 때 소매가 팔을 못 덮는다.
-    const axis = left ? x0 + w : x0;
-    return wrapX(out, tuneOf(tune, 'arm'), axis);
+    const emit = (list, color, extra) => list.map((g, i) =>
+      `<path d="${armSegPath(xin, sgn, g.y - B.armY, g.y - B.armY + g.h, ka, pad,
+                             i === 0, i === list.length - 1)}"
+        fill="${color}"${extra || ''} transform="${g.tr}"/>`).join('');
+    // 몸통과 팔이 같은 색이라 **겹치면 팔이 사라진다.** 테두리를 두르면 어깨에서 팔로
+    // 이어지는 선을 막아서 없앴는데(4f58adb), 그러자 이번엔 구별이 안 됐다.
+    // 그래서 **같은 모양을 몸 쪽으로 조금 밀어 한 단 어둡게** 깔아 둔다 —
+    // 팔에 가려 **안쪽 겨드랑이 선만 그늘로 남는다.** 테두리처럼 실루엣을 끊지 않는다.
+    let out = `<g transform="translate(${(-sgn * ARM_SHADE).toFixed(2)},0)">`
+      + emit(segs, shade(fill, 8)) + '</g>' + emit(segs, fill, o.extra);
+    return out;
   }
 
   // 팔 중심선 위의 한 점 — dist 는 팔 위 끝(armY)에서 잰 거리.
   // 손 위치 계산용이라 armShift(체형 이동)는 넣지 않는다 (기존 손 계산과 같은 기준).
-  function armPoint(side, dist) {
-    const B = BODY, left = side === 'L';
+  function armPoint(side, dist, tune) {
+    const B = BODY, left = side === 'L', k = tuneOf(tune, 'arm'), sgn = left ? -1 : 1;
     const rot = (left ? B.armRot : -B.armRot) * Math.PI / 180;
     const bend = (left ? -B.elbowRot : B.elbowRot) * Math.PI / 180;
-    const cx = (left ? B.armX_L : B.armX_R) + B.armW / 2;
+    // 팔이 가늘어지면 중심선도 안쪽으로 온다 — 안쪽 변이 고정이기 때문이다.
+    // 손을 옛 고정값에 두면 가는 팔에서 손만 바깥에 남는다
+    const xin = left ? B.armX_L + B.armW : B.armX_R;
+    const at = d => xin + sgn * armHalf(d, k, 0);
     const pivot = left ? B.armPivotL : B.armPivotR;
     const upLen = B.armH * B.elbowT, elbowY = B.armY + upLen;
+    const cx = at(upLen);
     const rotAbout = (p, a, o) => ({
       x: o.x + (p.x - o.x) * Math.cos(a) - (p.y - o.y) * Math.sin(a),
       y: o.y + (p.x - o.x) * Math.sin(a) + (p.y - o.y) * Math.cos(a),
     });
-    let p = { x: cx, y: B.armY + dist };
+    let p = { x: at(dist), y: B.armY + dist };
     if (dist > upLen) p = rotAbout(p, bend, { x: cx, y: elbowY });   // 굽힘 먼저
     return rotAbout(p, rot, { x: pivot, y: B.armPivotY });           // 그다음 팔 기울기
   }
@@ -390,8 +423,10 @@
   function shoulderSquash(tune) {
     const B = BODY;
     const tip = 100 + (B.torsoR - 100) * tuneOf(tune, 'torso');
-    // 팔의 바깥 변 (굵기 배율의 축이 안쪽 변이라 바깥 변만 배율을 탄다)
-    const armOuter = B.armX_R + B.armW * tuneOf(tune, 'arm') - armShift(tune);
+    // 팔의 바깥 변. **둥근 어깨 마개(cap) 몫으로 2px 물린다** — 팔 위 끝은 둥글어서
+    // 맨 위에서는 아직 제 폭이 아니다. 그만큼 어깨가 마개 밖으로 삐져나온다
+    // (팔 50% 에서 y≈111 에 2px 짜리 혹). 기본값은 팔이 어깨보다 5px 바깥이라 안 바뀐다
+    const armOuter = B.armX_R + B.armW * tuneOf(tune, 'arm') - armShift(tune) - 2;
     return armOuter >= tip ? 1 : (armOuter - 100) / (tip - 100);
   }
   // 어깨 쪽 x 를 중심선(100) 기준으로 f 배 좁힌다. 몸통·옷이 같은 함수를 지난다
@@ -1053,7 +1088,7 @@
     if (end <= from) return '';
     const opt = yFrom == null ? undefined : { yFrom };
     // 손 위치 = 소매 끝. armPoint 가 팔꿈치 굽힘까지 따라간다
-    const hL = armPoint('L', B.armH * len), hR = armPoint('R', B.armH * len);
+    const hL = armPoint('L', B.armH * len, tune), hR = armPoint('R', B.armH * len, tune);
     // 소매만 팔 배율을 따른다. 손은 팔 중심선 위에 있고 그 선은 움직이지 않으므로
     // (좌우 각각 자기 중심을 축으로 늘린다) 그대로 둔다 — 같이 늘리면 손이 타원이 된다.
     return `

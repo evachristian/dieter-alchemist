@@ -636,28 +636,46 @@ function launchOpts() {
 
     // ─── 어깨가 팔보다 튀어나오지 않는가 (부리) ────────────────
     //
-    // 목~팔 구간(y 108~145)에서 **옆선은 안쪽으로 되돌아오지 않는다.** 되돌아오면
-    // 그 위에 있던 것이 팔보다 튀어나와 부리처럼 뾰족한 턱이 된다.
+    // 어깨 쪽(목 자락 · 몸통의 어깨 끝)이 팔보다 바깥으로 나오면 부리처럼 뾰족한 턱이 된다.
     // 몸통·팔 배율을 따로 움직여야 드러난다 — 기본값(둘 다 100%)에서는 팔이 늘
     // 어깨보다 바깥이라 어떤 부리든 팔 밑에 숨는다.
     // 여태 두 가지가 여기 걸렸다: **목의 벌어진 자락**(몸통 50% 에서 6px)과
     // **어깨 끝**(팔 50% 에서 2.5px). 둘 다 몸통·팔을 같이 줄여야 보였다.
+    //
+    // ⚠️ **옆선이 되돌아오는지로 재면 안 된다.** 팔이 어깨에서 팔꿈치로 가늘어지는
+    // 것까지 「부리」로 잡는다 (팔 200% 에서 3px 씩 헛나왔다).
+    // **몸통·목과 팔을 따로 그려 같은 높이에서 견준다** — 이것이 진짜 규칙이다.
+    function keepOnly(svg, sel) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = svg;
+      const root = wrap.firstElementChild;
+      const keep = root.querySelector('[data-part="torso"]').closest('svg > g');
+      [...root.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+      [...keep.children].forEach(g => { if (sel === 'arm' ? !g.matches('[data-part="arm"]')
+                                                          : g.matches('[data-part="arm"]')) g.remove(); });
+      return root.outerHTML;
+    }
+    const rightEdge = (d, y) => {
+      for (let x = 199 * S; x >= 100 * S; x--) {
+        if (d[(Math.round(y * S) * 200 * S + x) * 4 + 3] > 128) return x / S;
+      }
+      return null;
+    };
     const beaks = [];
     for (const kt of [0.5, 0.75, 1, 1.5, 2]) for (const ka of [0.5, 0.75, 1, 1.5, 2]) {
-      const d = await pixels(bodyOnly(window.Avatar.build(outfit, 0, { torso: kt, arm: ka })));
-      let out = -Infinity, back = 0, at = 0;
+      const svg = window.Avatar.build(outfit, 0, { torso: kt, arm: ka });
+      const dBody = await pixels(keepOnly(svg, 'body'));    // 몸통 + 목 + 엉덩이
+      const dArm = await pixels(keepOnly(svg, 'arm'));
+      let over = 0, at = 0;
       for (let y = 108; y <= 145; y += 0.5) {
-        let mx = null;
-        for (let x = 199 * S; x >= 100 * S; x--) {
-          if (d[(Math.round(y * S) * 200 * S + x) * 4 + 3] > 128) { mx = x / S; break; }
-        }
-        if (mx == null) continue;
-        if (mx > out) out = mx;
-        else if (out - mx > back) { back = out - mx; at = y; }
+        const a = rightEdge(dArm, y);
+        if (a == null) continue;                            // 팔이 아직 없는 높이
+        const b = rightEdge(dBody, y);
+        if (b != null && b - a > over) { over = b - a; at = y; }
       }
-      beaks.push(+back.toFixed(2));
-      if (back > MAXDIP) {
-        beakBad.push(`몸통 ${kt * 100}% · 팔 ${ka * 100}%: 어깨가 팔보다 ${back.toFixed(1)}px 튀어나왔다`
+      beaks.push(+over.toFixed(2));
+      if (over > MAXDIP) {
+        beakBad.push(`몸통 ${kt * 100}% · 팔 ${ka * 100}%: 어깨가 팔보다 ${over.toFixed(1)}px 튀어나왔다`
           + ` (y≈${at}) — 목 자락이나 어깨 끝이 팔 밖으로 나온다`);
       }
     }
