@@ -819,8 +819,8 @@
   // 소매는 팔을, 몸판은 몸통을 따라간다
   function renderTop(it, tune) {
     if (isNone(it)) return '';
-    const B = BODY, c = it.color, c2 = shade(c), sh = sleeveH(it);
-    const kb = tuneOf(tune, 'torso');   // 소매는 armShape 이 알아서 팔 배율을 따른다
+    const B = BODY, c = it.color, c2 = shade(c);
+    const kb = tuneOf(tune, 'torso');   // 소매는 garmentSleeves 가 알아서 팔 배율을 따른다
     const ww = clothWaistHalf(tune);
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     // 밑단은 **골반 바로 위**까지 내려온다. 허리(WY)에 맞추면 배가 드러나 전부 크롭탑이 되고,
@@ -829,7 +829,7 @@
     // 옷의 어깨 끝 — 몸과 **같은 자리**여야 한다 (손으로 140/60 을 박아 두면 안 된다)
     const [eR, eY] = shoulderEndR(shoulderSquash(tune)), eL = 200 - eR;
     return `
-      ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
+      ${garmentSleeves(it, tune)}
       ${it.puff ? puffShoulder(c, tune) : ''}
       ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
         C${eR},${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY}
@@ -888,19 +888,65 @@
 
   // 소매(팔을 덮는 부분)를 몸의 팔 좌표 그대로 만들어 준다.
   // len: 팔 길이의 몇 %까지 덮을지 (나머지는 손으로 드러남)
-  function sleeves(c, len, tune) {
+  //   yFrom 을 주면 그 높이부터 아래만 그린다 (치마 위에 다시 찍을 때 — armsOverSkirt)
+  function sleeves(c, len, tune, yFrom) {
     const B = BODY, pad = CLOTH_PAD;
-    const w = B.armW + pad * 2;                 // 팔보다 좌우로 pad 만큼 넓게
-    const h = B.armH * len + pad;
+    const end = B.armY - pad + B.armH * len + pad;   // 소매 끝의 절대 높이
+    const from = yFrom == null ? B.armY - pad : yFrom;
+    if (end <= from) return '';
+    const opt = yFrom == null ? undefined : { yFrom };
     // 손 위치 = 소매 끝. armPoint 가 팔꿈치 굽힘까지 따라간다
     const hL = armPoint('L', B.armH * len), hR = armPoint('R', B.armH * len);
     // 소매만 팔 배율을 따른다. 손은 팔 중심선 위에 있고 그 선은 움직이지 않으므로
     // (좌우 각각 자기 중심을 축으로 늘린다) 그대로 둔다 — 같이 늘리면 손이 타원이 된다.
     return `
-      ${armShape('L', c, pad, h, tune)}
-      ${armShape('R', c, pad, h, tune)}
+      ${armShape('L', c, pad, end - from, tune, opt)}
+      ${armShape('R', c, pad, end - from, tune, opt)}
       <circle cx="${hL.x.toFixed(1)}" cy="${hL.y.toFixed(1)}" r="8.5" fill="${SKIN}"/>
       <circle cx="${hR.x.toFixed(1)}" cy="${hR.y.toFixed(1)}" r="8.5" fill="${SKIN}"/>`;
+  }
+
+  // 옷의 소매 — **한 곳에서만 만든다.** 하의 위에 다시 찍을 때도 같은 함수를 지나므로
+  // 소매 길이·여유를 고치면 두 자리가 같이 따라온다.
+  //   yFrom 을 주면 그 높이부터 아래만 그린다
+  const SLEEVE_PAD = 2;
+  const PRINCESS_LEN = 0.92;                       // 공주 드레스의 긴 소매
+  function garmentSleeves(it, tune, yFrom) {
+    if (isNone(it)) return '';
+    const B = BODY;
+    if (it.kind === 'princess') return sleeves(it.color, PRINCESS_LEN, tune, yFrom);
+    const sh = sleeveH(it);
+    if (!sh) return '';
+    const end = B.armY - SLEEVE_PAD + sh;
+    const from = yFrom == null ? B.armY - SLEEVE_PAD : yFrom;
+    if (end <= from) return '';
+    const opt = yFrom == null ? undefined : { yFrom };
+    return armShape('L', it.color, SLEEVE_PAD, end - from, tune, opt)
+         + armShape('R', it.color, SLEEVE_PAD, end - from, tune, opt);
+  }
+
+  // ─── 치마·바지보다 앞에 오는 팔 ──────────────────────────────
+  //
+  // 팔은 몸통과 같은 층(torsoArms)에 있어 **하의보다 뒤**다. 그런데 치마는 허리에서
+  // 아래로 넓게 퍼지므로, 거기 있던 팔뚝과 손이 통째로 치마에 덮인다. 긴 치마에서는
+  // 팔이 소매 끝 언저리에서 뚝 끊겨 **겨드랑이에 살색 조각만** 남는다 —
+  // 「치마가 팔을 덮는다」와 「겨드랑이에 살색이 튀어나온다」가 같은 원인이다.
+  //
+  // ⚠️ **팔 전체를 옷 위로 올리면 안 된다.** 어깨에서 맨팔이 민소매 옷의 어깨끈을
+  // 덮어 버리고(옷이 아니라 살이 보인다), 커버리지 검사의 몸통 창(x 72~128)에도 걸린다.
+  // **허리 아래만 다시 찍는다** — 그 아래에 이미 같은 것이 그려져 있어 이음매가 없다.
+  //
+  // 공주 드레스만 예외다. 그것은 허리에서 시작하는 치마가 아니라 **어깨에서 바닥까지
+  // 내려오는 종**이고, 팔은 그 안에 들어가 있다 (인트로 그림이 그렇다). 앞으로 꺼내면
+  // 소매가 드레스와 같은 색이라 **손만 종 위에 동동 뜬 살색 덩어리**로 보인다.
+  function armsOverSkirt(tune, wear) {
+    const B = BODY, WY = B.waistY;
+    if (!isNone(wear) && wear.kind === 'princess') return '';
+    const h = B.armY + B.armH - WY;
+    if (h <= 0) return '';
+    return armShape('L', SKIN, 0, h, tune, { yFrom: WY })
+         + armShape('R', SKIN, 0, h, tune, { yFrom: WY })
+         + garmentSleeves(wear, tune, WY);
   }
 
   // 몸통을 덮고 hemY 까지 퍼지는 드레스 (+ 팔 소매)
@@ -923,7 +969,12 @@
          C${cut.ER + 14},${cut.K} ${R},${B.shoulderY} ${R},${B.shoulderY + 11}`
       : `C${L},${B.shoulderY} ${L + 16},${CLOTH_TOP_Y} 100,${CLOTH_TOP_Y}
          C${R - 16},${CLOTH_TOP_Y} ${R},${B.shoulderY} ${R},${B.shoulderY + 11}`;
+    // 소매는 **종보다 먼저** 그린다. 뒤에 두면 소매 끝의 손(살색 동그라미)이 종 위에
+    // 얹혀, 초록 종 한가운데에 **살색 덩어리 두 개가 동동 뜬 것**처럼 보였다
+    // (소매가 드레스와 같은 색이라 팔은 안 보이고 손만 보인다). 공주 드레스는
+    // 어깨에서 바닥까지 내려오는 종이고 팔은 그 안에 들어가 있다 — 인트로 그림이 그렇다.
     return `<g data-part="dress">
+      ${sleeves(c, longSleeve ? PRINCESS_LEN : 0.42, tune)}
       ${wrapX(`
       <!-- 몸통 → 밑단까지 퍼지는 치마 (어깨 폭은 몸통 기준 + 여유) -->
       <path data-part="cloth" d="M${L},${B.shoulderY + 11}
@@ -939,7 +990,6 @@
       ${cut ? '' : `<!-- 목선 — 안 파는 경우에만. 파냈으면 그 모서리가 곧 넥라인이다 -->
       <path d="M88,${B.shoulderY} Q100,${B.shoulderY + 9} 112,${B.shoulderY}"
             stroke="${c2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`}`, kd, 100)}
-      ${sleeves(c, longSleeve ? 0.92 : 0.42, tune)}
     </g>`;
   }
 
@@ -958,7 +1008,6 @@
     const B = BODY;
     const hemY = Number(it.hemY) || (it.kind === 'gown' ? 320 : 270);
     const flare = Number(it.flare) || (it.kind === 'gown' ? 40 : 46);
-    const sh = sleeveH(it);
     // 허리는 몸의 허리를 따라간다 (예전에는 78~122 로 박혀 있어 허리 살이 밖으로 나왔다)
     const ww = clothWaistHalf(tune), hhw = clothHipHalf(tune);
     const WY = B.waistY;
@@ -966,7 +1015,7 @@
     const hL = +(100 - hhw).toFixed(2), hR = +(100 + hhw).toFixed(2);
     const [eR, eY] = shoulderEndR(shoulderSquash(tune)), eL = 200 - eR;
     return `
-      ${sh ? armShape('L', c, 2, sh, tune) + armShape('R', c, 2, sh, tune) : ''}
+      ${garmentSleeves(it, tune)}
       ${it.puff ? puffShoulder(c, tune) : ''}
       ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
         C${eR},${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY + 2}
@@ -1402,6 +1451,9 @@
       // 하의(바지)보다는 위라서 부츠가 바짓단을 덮는다.
       B(renderShoes(pick('shoes', outfit.shoes), tune)),
       B(hasDress ? renderDress(dress, tune) : ''),
+      // 허리 아래의 팔은 **치마보다 앞**이다 — 안 그러면 퍼진 치마가 팔뚝과 손을
+      // 통째로 덮어, 소매 끝 언저리에 살색 조각만 남는다 (armsOverSkirt 참고)
+      B(armsOverSkirt(tune, hasDress ? dress : top)),
       H(faceAndExpression(expItem)),
       H(hairFront(hairBangKind, hairColor)),
       B(renderGlove(pick('glove', outfit.glove), tune)),

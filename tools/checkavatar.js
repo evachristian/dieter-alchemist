@@ -664,6 +664,77 @@ function launchOpts() {
     return { bad, beakBad, worst, beak: Math.max.apply(null, beaks), beakN: beaks.length };
   }, SHOULDER_DIP);
 
+  // ─── 치마가 팔을 덮지 않는가 ────────────────────────────────
+  //
+  // 팔은 몸통과 같은 층에 있어 **하의보다 뒤**였다. 치마는 허리에서 아래로 퍼지므로
+  // 그 자리에 있던 팔뚝과 손이 통째로 치마에 덮였다 — 긴 치마에서는 팔이 소매 끝
+  // 언저리에서 뚝 끊겨 겨드랑이에 살색 조각만 남았다.
+  // (「치마가 팔을 덮는다」와 「겨드랑이에 살색이 튀어나온다」가 같은 원인이었다)
+  //
+  // 재는 법: **팔만 남긴 그림**에서 허리 아래 팔 픽셀을 찍어 두고(맨몸 전체를 쓰면
+  // 몸통·다리까지 들어가는데 그것은 옷이 덮는 게 맞다), 옷을 입힌 그림에서 그 자리가
+  // 그대로 살색인지 본다. 소매가 허리 위에서 끝나는 옷(민소매·캡·반팔)만 본다 —
+  // 긴 소매는 그 자리가 옷 색이라 살색으로 판정할 수 없다.
+  const ARM_COVER_MAX = 0.05;        // 팔 픽셀의 5% 까지 (경계의 반투명 픽셀 몫)
+  const armCover = await page.evaluate(async (MAX) => {
+    const D = window.GameData, SKIN = [255, 220, 196], bad = [], S = 2;
+    const cv = document.createElement('canvas');
+    cv.width = 200 * S; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    const W = 200 * S;
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => {
+        img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      });
+      ctx.clearRect(0, 0, W, 348 * S);
+      ctx.drawImage(img, 0, 0, W, 348 * S);
+      return ctx.getImageData(0, 0, W, 348 * S).data;
+    }
+    const isSkin = (d, i) => d[i + 3] > 250 && Math.abs(d[i] - SKIN[0]) <= 2
+      && Math.abs(d[i + 1] - SKIN[1]) <= 2 && Math.abs(d[i + 2] - SKIN[2]) <= 2;
+    function armOnly(svg) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = svg;
+      const root = wrap.firstElementChild;
+      const keep = root.querySelector('[data-part="arm"]').closest('svg > g');
+      [...root.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+      [...keep.children].forEach(g => { if (!g.matches('[data-part="arm"]')) g.remove(); });
+      return root.outerHTML;
+    }
+    const bare = { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', shoes: 'shoes_none' };
+    const w = 0.3;
+    const Y0 = 170 * S, Y1 = 208 * S;      // 허리(164) 아래 ~ 손목(214) 위
+    const A = await px(armOnly(window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), w, null)));
+    // 가장자리의 반투명 픽셀은 뺀다 — 뒤에 오는 색이 달라지면 값이 흔들린다
+    const mask = [];
+    for (let y = Y0; y < Y1; y++) for (let x = 1; x < W - 1; x++) {
+      const i = (y * W + x) * 4;
+      if (!isSkin(A, i)) continue;
+      if (!isSkin(A, i - 4) || !isSkin(A, i + 4) || !isSkin(A, i - W * 4) || !isSkin(A, i + W * 4)) continue;
+      mask.push(i);
+    }
+    const shortSleeve = it => ['none', 'cap', 'short'].indexOf(it.sleeve) >= 0;
+    const cases = [];
+    (D.WARDROBE.top || []).filter(shortSleeve).forEach(t =>
+      (D.WARDROBE.bottom || []).filter(x => x.kind !== 'none').forEach(bo =>
+        cases.push({ n: t.id + ' + ' + bo.id, o: { top: t.id, bottom: bo.id, dress: 'dress_none' } })));
+    // 공주 드레스는 어깨에서 바닥까지 내려오는 종이고 팔은 그 안에 있다 — 일부러 뺀다
+    (D.WARDROBE.dress || []).filter(x => x.kind !== 'none' && x.kind !== 'princess' && shortSleeve(x))
+      .forEach(dr => cases.push({ n: dr.id, o: { top: 'top_none', bottom: 'bottom_none', dress: dr.id } }));
+    let worst = 0;
+    for (const c of cases) {
+      const d = await px(window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare, c.o), w, null));
+      let n = 0;
+      for (const i of mask) if (!isSkin(d, i)) n++;
+      const r = n / mask.length;
+      if (r > worst) worst = r;
+      if (r > MAX) bad.push(`${c.n}: 허리 아래 팔의 ${Math.round(r * 100)}% 가 옷에 덮였다`);
+    }
+    return { bad, cases: cases.length, arm: mask.length, worst: +(worst * 100).toFixed(1) };
+  }, ARM_COVER_MAX);
+
   // ─── 염색이 실제로 아바타에 입혀지는가 ───────────────────────
   // **조용히 깨지는 자리다.** 칠했다는 토스트는 뜨는데 아바타는 원래 색 그대로였던 적이 있다
   // (영원 염색약이 만료 시각을 지우는데 slotColor 가 그것만 봐서, 모든 칸에서 안 먹었다).
@@ -741,7 +812,8 @@ function launchOpts() {
     .concat(neck.bad.map(m => ({ id: '목', body: '-', where: m, n: '-' })))
     .concat(seam.bad.map(m => ({ id: '몸통↔팔', body: '-', where: m, n: '-' })))
     .concat(shoulder.bad.map(m => ({ id: '어깨 홈', body: '-', where: m, n: '-' })))
-    .concat(shoulder.beakBad.map(m => ({ id: '어깨 부리', body: '-', where: m, n: '-' })));
+    .concat(shoulder.beakBad.map(m => ({ id: '어깨 부리', body: '-', where: m, n: '-' })))
+    .concat(armCover.bad.map(m => ({ id: '치마가 팔을 덮음', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
@@ -756,6 +828,8 @@ function launchOpts() {
     + ` (목→팔 실루엣이 다시 솟지 않아야 한다 · ${SHOULDER_DIP}px 까지)`);
   console.log(`어깨 부리: 몸통×팔 배율 ${shoulder.beakN}조합 — 가장 튀어나온 곳 ${shoulder.beak}px`
     + ` (어깨·목이 팔 밖으로 나오면 안 된다)`);
+  console.log(`치마가 팔을 덮음: 옷 ${armCover.cases}조합 × 허리 아래 팔 ${armCover.arm}픽셀`
+    + ` — 가장 많이 덮인 곳 ${armCover.worst}% (${ARM_COVER_MAX * 100}% 까지)`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
     + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
