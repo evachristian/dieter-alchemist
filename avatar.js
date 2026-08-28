@@ -403,8 +403,17 @@
   // 허리 반폭 — 몸과 옷이 **같은 값**을 본다. 옷은 CLOTH_PAD 만큼 넉넉하게.
   const waistHalf = tune => BODY.waistHalf * tuneOf(tune, 'waist');
   const clothWaistHalf = tune => waistHalf(tune) + CLOTH_PAD;
-  // 엉덩이 — 옷은 여기도 덮어야 한다 (치마·바지·드레스가 이 값을 본다)
-  const hipHalf = tune => BODY.hipHalf * tuneOf(tune, 'hip');
+  // 허벅지 바깥 변 (중심선에서 잰 거리). 허벅지는 제 중심(88 / 112)을 축으로 늘어나므로
+  // 바깥 변은 112 + 10·배율 이다. +1 은 엉덩이와 겹치라고 주는 여유.
+  const thighOuter = tune => 13 + 10 * tuneOf(tune, 'thigh');
+  // 엉덩이 반폭 — 옷은 여기도 덮어야 한다 (치마·바지·드레스가 이 값을 본다).
+  //
+  // **허리보다도 허벅지보다도 좁을 수 없다.** 좁으면 그 둘이 엉덩이 밖으로 튀어나와
+  // 이음매에 계단이 생긴다 (엉덩이만 줄이면 몸통 옆선이 엉덩이 밖으로 나갔다).
+  const hipHalf = tune => Math.max(
+    BODY.hipHalf * tuneOf(tune, 'hip'),
+    waistHalf(tune) * tuneOf(tune, 'torso'),
+    thighOuter(tune));
   const clothHipHalf = tune => hipHalf(tune) + CLOTH_PAD;
 
   // 다리 — 허리(waistY)를 올린 만큼 통째로 올라오고 그만큼 길어진다.
@@ -501,13 +510,31 @@
 
   function torsoArms(tune, uid, neck) {
     const kb = tuneOf(tune, 'torso');   // 팔 배율은 armShape 이 알아서 따른다
-    const kh = tuneOf(tune, 'hip');
-    const B = BODY, wh = waistHalf(tune), hh = B.hipHalf;
+    const B = BODY, wh = waistHalf(tune);
     const wL = +(100 - wh).toFixed(2), wR = +(100 + wh).toFixed(2);
-    const hL = +(100 - hh).toFixed(2), hR = +(100 + hh).toFixed(2);
-    const tL = 100 - B.thighHalf - 1, tR = 100 + B.thighHalf + 1;
+    // ─── 엉덩이 — 허리와 허벅지를 **접선이 이어지게** 잇는다 ───
+    //
+    // 허리·엉덩이·허벅지는 배율이 서로 다르다. 예전에는 엉덩이 path 를 통째로
+    // `sx(kh, 100)` 으로 늘려서 **허리에 닿는 점과 허벅지에 닿는 점까지 같이 늘어났다** —
+    // 엉덩이만 키우면 위 이음매가 몸통 옆선 밖으로 튀어나오고, 아랫변이 허벅지보다
+    // 넓어져 두 자리에 계단이 생겼다 (허리를 줄이면 위쪽이, 엉덩이를 키우면 아래쪽이).
+    //
+    // 그래서 세 점을 **각자 제 배율로 절대 좌표에 놓고** 그 사이를 곡선으로 잇는다.
+    // 세 점 모두 **세로 접선**이라 어느 배율을 움직여도 이음매가 꺾이지 않는다:
+    //   · 허리(WY)      실루엣의 가장 좁은 곳 — 몸통 옆선도 여기서 세로로 들어온다
+    //   · 엉덩이(HY)    가장 넓은 곳
+    //   · 허벅지(HB)    허벅지 바깥 변에 세로로 내려꽂아 그대로 다리로 이어진다
+    // 제어점의 높이는 구간 길이의 45% 다 — 비율이라 waistY·hipY 를 옮겨도 모양이 따라온다.
+    const WY = B.waistY, HY = B.hipY, HB = B.hipBottom;
+    const wRa = +(100 + wh * kb).toFixed(2), wLa = +(200 - wRa).toFixed(2);
+    const tRa = +(100 + thighOuter(tune)).toFixed(2), tLa = +(200 - tRa).toFixed(2);
+    const hRa = +(100 + hipHalf(tune)).toFixed(2), hLa = +(200 - hRa).toFixed(2);
+    const ha = +((HY - WY) * 0.45).toFixed(1), hb = +((HB - HY) * 0.45).toFixed(1);
     // 몸통 옆선이 허리로 좁아지는 곡선. 제어점을 어깨(133)~허리 사이의 **비율**로 잡아,
-    // waistY 를 올리고 내려도 곡선 모양이 그대로 따라오게 한다
+    // waistY 를 올리고 내려도 곡선 모양이 그대로 따라오게 한다.
+    // 마지막 제어점의 x 는 **허리와 같다** — 그래야 허리에서 접선이 세로가 되어
+    // 엉덩이 곡선과 꺾이지 않고 이어진다. 예전에는 `wR + 3` 이라 몸통이 안쪽으로
+    // 기울어 들어오는데 엉덩이는 바깥으로 나가, 허리에 40°짜리 꺾임이 있었다
     // 어깨 곡선 — 오른쪽 반은 그대로, 왼쪽 반은 x 를 100 기준으로 뒤집어 쓴다.
     // **팔보다 튀어나오지 않게 좁힌다** (shoulderSquash 참고). f=1 이면 그대로다
     const f = shoulderSquash(tune);
@@ -522,17 +549,19 @@
     return `
       ${neckShape(uid, neck.top, neck.half, tipAbs)}
       <g data-part="hip">
-        <g${sx(kh, 100)}><path d="M${wL},${B.waistY}
-          C${hL},${B.waistY + 10} ${hL},${B.hipY + 2} ${tL},${B.hipBottom}
-          L${tR},${B.hipBottom}
-          C${hR},${B.hipY + 2} ${hR},${B.waistY + 10} ${wR},${B.waistY} Z" fill="${SKIN}"/></g>
+        <path d="M${wLa},${WY}
+          C${wLa},${WY + ha} ${hLa},${HY - ha} ${hLa},${HY}
+          C${hLa},${HY + hb} ${tLa},${HB - hb} ${tLa},${HB}
+          L${tRa},${HB}
+          C${tRa},${HB - hb} ${hRa},${HY + hb} ${hRa},${HY}
+          C${hRa},${HY - ha} ${wRa},${WY + ha} ${wRa},${WY} Z" fill="${SKIN}"/>
       </g>
       <g data-part="torso">
         <g${sx(kb, 100)}><path d="M100,${B.torsoTopY}
           C${sc[0][0]},${sc[0][1]} ${sc[1][0]},${sc[1][1]} ${sc[2][0]},${sc[2][1]}
-          C${shR},${cy1} ${wR + 3},${cy2} ${wR},${B.waistY}
+          C${shR},${cy1} ${wR},${cy2} ${wR},${B.waistY}
           L${wL},${B.waistY}
-          C${wL - 3},${cy2} ${shL},${cy1} ${shL},133
+          C${wL},${cy2} ${shL},${cy1} ${shL},133
           C${mir(sc[1])[0]},${sc[1][1]} ${mir(sc[0])[0]},${sc[0][1]} 100,${B.torsoTopY} Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="arm">
@@ -944,9 +973,10 @@
     if (!isNone(wear) && wear.kind === 'princess') return '';
     const h = B.armY + B.armH - WY;
     if (h <= 0) return '';
-    return armShape('L', SKIN, 0, h, tune, { yFrom: WY })
-         + armShape('R', SKIN, 0, h, tune, { yFrom: WY })
-         + garmentSleeves(wear, tune, WY);
+    // data-part 를 붙여 둔다 — 검사기가 「팔」을 골라낼 때 이 조각도 같이 잡혀야 한다
+    return `<g data-part="arm">${armShape('L', SKIN, 0, h, tune, { yFrom: WY })}`
+         + `${armShape('R', SKIN, 0, h, tune, { yFrom: WY })}`
+         + `${garmentSleeves(wear, tune, WY)}</g>`;
   }
 
   // 몸통을 덮고 hemY 까지 퍼지는 드레스 (+ 팔 소매)

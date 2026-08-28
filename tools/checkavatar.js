@@ -664,6 +664,69 @@ function launchOpts() {
     return { bad, beakBad, worst, beak: Math.max.apply(null, beaks), beakN: beaks.length };
   }, SHOULDER_DIP);
 
+  // ─── 허리 → 엉덩이 → 허벅지 옆선이 꺾이지 않는가 ─────────────
+  //
+  // 셋은 배율이 서로 다르다(허리·엉덩이·허벅지 슬라이더). 예전에는 엉덩이 path 를
+  // 통째로 늘려서 **허리에 닿는 점과 허벅지에 닿는 점까지 같이 늘어났고**, 그래서
+  // 허리를 줄이거나 엉덩이를 키우면 두 이음매에 계단이 생겼다.
+  //
+  // 재는 법: 몸통+엉덩이+허벅지만 남기고 오른쪽 옆선 x(y) 를 1px 마다 찍은 뒤,
+  // 3px 창의 기울기가 이웃과 얼마나 튀는지 본다. 매끄러운 곡선이면 0 에 가깝고,
+  // 꺾이면 그 자리에서 확 튄다 (고치기 전 허리에서 8.2, 허벅지 이음매에서 4.8).
+  const KINK_MAX = 1.5;
+  const kink = await page.evaluate(async (MAX) => {
+    const D = window.GameData, bad = [], S = 4;
+    const cv = document.createElement('canvas');
+    cv.width = 200 * S; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    function sil(t) {
+      const O = Object.assign({}, D.DEFAULT_OUTFIT, { top: 'top_none', bottom: 'bottom_none',
+        dress: 'dress_none', shoes: 'shoes_none', hair: 'hair_none' });
+      const wrap = document.createElement('div');
+      wrap.innerHTML = window.Avatar.build(O, 0, t);
+      const root = wrap.firstElementChild;
+      // 팔·종아리·머리는 옆선을 가리므로 뺀다 (허리~허벅지만 본다)
+      root.querySelectorAll('[data-part="arm"],[data-part="calf"],[data-part="head"]').forEach(e => e.remove());
+      return root.outerHTML;
+    }
+    const combos = [['기본', {}], ['허리 60', { waist: 0.6 }], ['허리 60 엉덩이 160', { waist: 0.6, hip: 1.6 }],
+      ['엉덩이 180', { hip: 1.8 }], ['엉덩이 180 허벅지 60', { hip: 1.8, thigh: 0.6 }],
+      ['엉덩이 50', { hip: 0.5 }], ['허리 150 엉덩이 60', { waist: 1.5, hip: 0.6 }],
+      ['몸통 150 엉덩이 60', { torso: 1.5, hip: 0.6 }]];
+    let worst = 0;
+    for (const [n, t] of combos) {
+      const img = new Image();
+      await new Promise((ok, no) => {
+        img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sil(t));
+      });
+      ctx.clearRect(0, 0, 200 * S, 348 * S);
+      ctx.drawImage(img, 0, 0, 200 * S, 348 * S);
+      const d = ctx.getImageData(0, 0, 200 * S, 348 * S).data;
+      const e = [];
+      for (let y = 150; y <= 222; y++) {
+        let mx = null;
+        for (let x = 199 * S; x >= 100 * S; x--) {
+          if (d[(Math.round(y * S) * 200 * S + x) * 4 + 3] > 128) { mx = x / S; break; }
+        }
+        e.push([y, mx]);
+      }
+      const sl = [];
+      for (let i = 0; i + 3 < e.length; i++) {
+        sl.push(e[i][1] == null || e[i + 3][1] == null ? null : (e[i + 3][1] - e[i][1]) / 3);
+      }
+      let mk = 0, at = 0;
+      for (let i = 1; i < sl.length; i++) {
+        if (sl[i] == null || sl[i - 1] == null) continue;
+        const j = Math.abs(sl[i] - sl[i - 1]);
+        if (j > mk) { mk = j; at = e[i][0]; }
+      }
+      if (mk > worst) worst = mk;
+      if (mk > MAX) bad.push(`${n}: 옆선이 y≈${at} 에서 ${mk.toFixed(1)} 만큼 꺾인다`);
+    }
+    return { bad, n: combos.length, worst: +worst.toFixed(2) };
+  }, KINK_MAX);
+
   // ─── 치마가 팔을 덮지 않는가 ────────────────────────────────
   //
   // 팔은 몸통과 같은 층에 있어 **하의보다 뒤**였다. 치마는 허리에서 아래로 퍼지므로
@@ -813,7 +876,8 @@ function launchOpts() {
     .concat(seam.bad.map(m => ({ id: '몸통↔팔', body: '-', where: m, n: '-' })))
     .concat(shoulder.bad.map(m => ({ id: '어깨 홈', body: '-', where: m, n: '-' })))
     .concat(shoulder.beakBad.map(m => ({ id: '어깨 부리', body: '-', where: m, n: '-' })))
-    .concat(armCover.bad.map(m => ({ id: '치마가 팔을 덮음', body: '-', where: m, n: '-' })));
+    .concat(armCover.bad.map(m => ({ id: '치마가 팔을 덮음', body: '-', where: m, n: '-' })))
+    .concat(kink.bad.map(m => ({ id: '허리↔엉덩이↔허벅지', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
@@ -830,6 +894,8 @@ function launchOpts() {
     + ` (어깨·목이 팔 밖으로 나오면 안 된다)`);
   console.log(`치마가 팔을 덮음: 옷 ${armCover.cases}조합 × 허리 아래 팔 ${armCover.arm}픽셀`
     + ` — 가장 많이 덮인 곳 ${armCover.worst}% (${ARM_COVER_MAX * 100}% 까지)`);
+  console.log(`허리↔엉덩이↔허벅지: 배율 ${kink.n}조합 — 옆선이 가장 꺾인 곳 ${kink.worst}`
+    + ` (${KINK_MAX} 까지 · 접선이 이어져야 한다)`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
     + ` (물이 아닌 ${bowl.dry}마리에는 어항이 안 붙는지도)`);
   if (!all.length) { console.log('✅ 살이 옷 밖으로 나온 곳 없음'); process.exit(0); }
