@@ -930,6 +930,7 @@ function launchOpts() {
   //   ② 그 끝 언저리가 손목보다 **눈에 띄게 넓다** (손목보다 좁으면 그냥 마개다)
   // 장갑도 같이 본다 — 팔만 덮고 손을 빼먹으면 장갑 아래로 살색 손이 삐져나온다.
   const HAND_DROP_MIN = 4, HAND_BULGE_MIN = 0.6;
+  const HAND_KEEP = 0.6;          // 옷을 입었을 때 손 자리의 이만큼은 살색으로 남아야 한다
   const hand = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
     const cv = document.createElement('canvas');
@@ -965,7 +966,7 @@ function launchOpts() {
                    ['맨팔 200%', {}, { arm: 2 }, '[data-part="arm"]'],
                    ['긴팔', { top: 'top_knit' }, null, '[data-part="arm"]']];
     if (glove) cases.push(['장갑', { glove: glove.id }, null, '[data-part="glove"]']);
-    const rows = [];
+    const rows = [], handRows = [];
     for (const [name, wear, t, sel] of cases) {
       const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare, wear), 0, t);
       const d = await px(keep(svg, sel));
@@ -997,8 +998,50 @@ function launchOpts() {
       bad.push(`손이 팔 끝보다 ${(bot - ARM_END).toFixed(1)}px 밖에 안 내려온다`
         + ` (${o.drop}px 이상) — 손이 팔 안에 묻혀 안 보인다`);
     }
-    return { bad: bad, rows: rows, drop: +(bot - ARM_END).toFixed(1) };
-  }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN });
+    // ─── 옷을 입어도 손이 남아 있는가 ─────────────────────────
+    //
+    // 위의 검사는 전부 **손이 그려졌는지**만 본다 — 그려 놓고 옷이 그 위를 덮으면
+    // 그대로 통과한다. 실제로 공주 드레스는 어깨에서 바닥까지 내려오는 종이 팔보다
+    // 3~14px 밖으로 퍼져 있어서, 그 뒤에 그린 소매와 손이 **어느 높이에서도 안 비쳤다**
+    // (「공주 드레스 입으면 손 사라짐」). 그림에는 손이 있는데 화면에는 없었다.
+    //
+    // 그래서 **손만 그린 그림으로 자리를 잡고**(`data-part="hand"`), 완성된 그림의
+    // 같은 자리가 아직 살색인지 센다. 옷이 덮었으면 그 자리는 옷 색이다.
+    //
+    // ⚠️ **견주는 값은 「맨손 한 켤레의 넓이」다** — 손 자리 전체가 아니다.
+    // 옷에 따라 손이 **두 켤레분 자리**에 그려진다: 몸이 그리는 손(팔 끝 214)과
+    // 소매 끝에 오는 손(공주 드레스는 206)이 서로 8px 어긋나 있다. 자리 전체를
+    // 분모로 잡으면 **제대로 보이는 손도 53% 로 나온다** — 안 보이는 켤레까지 세서다.
+    const near = (p, q) => Math.abs(p[0] - q[0]) < 26 && Math.abs(p[1] - q[1]) < 26
+      && Math.abs(p[2] - q[2]) < 26;
+    const SKIN_RGB = [255, 220, 196];
+    const dBareHand = await px(keep(
+      window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, null), '[data-part="hand"]'));
+    let handArea = 0;
+    for (let i = 3; i < dBareHand.length; i += 4) if (dBareHand[i] >= 200) handArea++;
+    const dressCases = (D.WARDROBE.dress || []).filter(x => x.kind !== 'none')
+      .map(x => [x.name, { dress: x.id, top: 'top_none', bottom: 'bottom_none' }]);
+    for (const [name, wear] of dressCases) {
+      const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare, wear), 0, null);
+      const dHand = await px(keep(svg, '[data-part="hand"]'));
+      const dAll = await px(svg);
+      let want = 0, got = 0;
+      for (let i = 3; i < dHand.length; i += 4) {
+        if (dHand[i] < 200) continue;             // 손이 아닌 자리
+        want++;
+        const p = [dAll[i - 3], dAll[i - 2], dAll[i - 1]];
+        if (near(p, SKIN_RGB)) got++;
+      }
+      if (!want) { bad.push(`${name}: 손이 아예 안 그려졌다`); continue; }
+      const keepR = got / handArea;
+      handRows.push(`${name} ${(keepR * 100).toFixed(0)}%`);
+      if (keepR < o.keep) {
+        bad.push(`${name}: 손 한 켤레 넓이의 ${(keepR * 100).toFixed(0)}% 만 살색으로 남았다`
+          + ` (${o.keep * 100}% 이상) — 옷이 손을 덮어 화면에서는 손이 없다`);
+      }
+    }
+    return { bad: bad, rows: rows, drop: +(bot - ARM_END).toFixed(1), keep: handRows };
+  }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, keep: HAND_KEEP });
 
   // ─── 슬라이더를 끝까지 밀었을 때의 두께가 정해진 값인가 ──────
   //
@@ -1747,6 +1790,8 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px · ${HAND_BULGE_MIN}px 이상)`);
+  console.log(`손이 옷에 안 덮이는가: 원피스마다 **맨손 한 켤레 넓이** 대비 살색으로 남은 몫`
+    + ` — ${hand.keep.join(' · ')} (${HAND_KEEP * 100}% 이상)`);
   console.log(`상한 두께: 100% 대비 ${fat.rows.join(' · ')}`
     + ` (부위마다 정해 둔 값 ±${FAT_TOL} · 100% 는 아무것도 안 바꾼다)`);
   console.log(`슬라이더: 하한→상한의 반폭 ${slider.rows.join(' · ')}`

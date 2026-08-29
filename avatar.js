@@ -434,8 +434,12 @@
       + `<circle cx="${f(p.x - sgn * hw * 0.95)}" cy="${f(p.y + hh * 0.2)}" r="${f(hw * HAND_THUMB)}" fill="${color}"/>`
       + `<ellipse cx="${f(p.x)}" cy="${f(p.y + hh * 0.58)}" rx="${f(hw)}" ry="${f(hh)}" fill="${color}"/></g>`;
   }
+  // `data-part="hand"` 를 붙여 둔다 — 검사기가 **손이 있어야 할 자리**를 이걸로 잡고,
+  // 완성된 그림에서 그 자리가 아직 손인지(옷에 덮이지 않았는지) 본다.
+  // 공주 드레스가 손을 통째로 덮고 있던 것을 아무도 못 잡던 이유가 이 표시가 없어서였다
   const hands = (tune, color, dist) =>
-    handShape('L', tune, color, dist) + handShape('R', tune, color, dist);
+    `<g data-part="hand">${handShape('L', tune, color, dist)}`
+    + `${handShape('R', tune, color, dist)}</g>`;
 
   // 장갑 — 팔 아래쪽(손목 쪽)부터 len 비율만큼 덮는다
   function renderGlove(it, tune) {
@@ -1486,12 +1490,23 @@
          C${cut.ER + 14},${cut.K} ${R},${B.shoulderY} ${R},${B.shoulderY + 11}`
       : `C${L},${B.shoulderY} ${L + 16},${CLOTH_TOP_Y} 100,${CLOTH_TOP_Y}
          C${R - 16},${CLOTH_TOP_Y} ${R},${B.shoulderY} ${R},${B.shoulderY + 11}`;
-    // 소매는 **종보다 먼저** 그린다. 뒤에 두면 소매 끝의 손(살색 동그라미)이 종 위에
-    // 얹혀, 초록 종 한가운데에 **살색 덩어리 두 개가 동동 뜬 것**처럼 보였다
-    // (소매가 드레스와 같은 색이라 팔은 안 보이고 손만 보인다). 공주 드레스는
-    // 어깨에서 바닥까지 내려오는 종이고 팔은 그 안에 들어가 있다 — 인트로 그림이 그렇다.
+    // ─── 소매는 **종 위에** 온다. 다만 한 톤 어둡게 ───────────
+    //
+    // 종보다 뒤에 두면 팔이 통째로 사라진다. 이 종은 어깨에서 바닥까지 내려오면서
+    // 팔보다 3~14px 밖으로 퍼져 있어서, 뒤에 있는 팔은 **어느 높이에서도 안 비친다** —
+    // 소매도 손도 없이 **삼각뿔 하나**가 됐다 (「공주 드레스 입으면 손 사라짐」).
+    //
+    // 그렇다고 드레스와 **같은 색으로** 앞에 얹으면 팔은 여전히 안 보이고 손만 보여,
+    // 초록 종 한가운데에 **살색 덩어리 두 개가 동동 뜬 것**처럼 된다.
+    // 그래서 앞에 얹되 **소매를 그림자 색으로** 칠한다 — 팔이 실루엣으로 읽히고
+    // 그 끝에 손이 달린다. 허리선·밑단이 이미 쓰는 색이라 결이 어긋나지 않는다.
+    // 인트로의 공주도 팔을 종 앞에 두고 손을 내놓는다(`princessArms`) — 거기서는
+    // 팔이 종 **밖으로** 나가 있어 같은 색으로도 읽혔다.
+    // ⚠️ 소매를 짧게 만든 변종을 붙인다면 **그 아래의 맨팔도 종 앞으로 꺼내야 한다** —
+    // 지금은 팔이 종 뒤에 있어서, 소매만 앞에 두면 소매 끝에서 팔이 사라진다
+    // (지금 이 함수를 부르는 곳은 공주 드레스 하나뿐이고 소매는 늘 길다)
+    const sleeveC = c2;
     return `<g data-part="dress">
-      ${sleeves(c, longSleeve ? PRINCESS_LEN : 0.42, tune)}
       ${wrapX(`
       <!-- 몸통 → 밑단까지 퍼지는 치마 (어깨 폭은 몸통 기준 + 여유) -->
       <path data-part="cloth" d="M${L},${B.shoulderY + 11}
@@ -1507,6 +1522,7 @@
       ${cut ? '' : `<!-- 목선 — 안 파는 경우에만. 파냈으면 그 모서리가 곧 넥라인이다 -->
       <path d="M88,${B.shoulderY} Q100,${B.shoulderY + 9} 112,${B.shoulderY}"
             stroke="${c2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`}`, kd, 100)}
+      ${sleeves(sleeveC, longSleeve ? PRINCESS_LEN : 0.42, tune)}
     </g>`;
   }
 
