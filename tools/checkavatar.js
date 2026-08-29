@@ -429,45 +429,65 @@ function launchOpts() {
     document.body.appendChild(host);
     const outfit = Object.assign({}, D.DEFAULT_OUTFIT,
       { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none' });
-    const gaps = [];
-    for (const w of [0, 0.25, 0.5, 0.75, 1]) {
-      host.innerHTML = window.Avatar.build(outfit, w, null);
+    const gaps = [], tgaps = [];
+    // 한 조건을 재는 함수 — 체형(w)과 몸통 배율(kt) 두 축을 같은 코드로 돈다
+    const measure = (w, kt, label, into) => {
+      host.innerHTML = window.Avatar.build(outfit, w, kt == null ? null : { torso: kt });
       const svg = host.querySelector('svg');
       const sr = svg.getBoundingClientRect();
-      if (!sr.width) { bad.push('아바타 상자가 0폭이다'); break; }
+      if (!sr.width) { bad.push('아바타 상자가 0폭이다'); return false; }
       const k = 200 / sr.width;                       // 화면 px → viewBox 단위
       const box = e => { const r = e.getBoundingClientRect();
         return { t: (r.top - sr.top) * k, b: (r.bottom - sr.top) * k }; };
       const head = host.querySelector('[data-part="head"]');
       const torso = host.querySelector('[data-part="torso"]');
-      if (!head || !torso) { bad.push('머리/몸통 조각을 못 찾았다'); break; }
+      if (!head || !torso) { bad.push('머리/몸통 조각을 못 찾았다'); return false; }
       // **턱과 목이 붙어 있는가.** 목은 몸통 그룹, 머리는 머리 그룹이라 변환이 다르다 —
       // 목 윗변을 96 으로 박아 두면 머리를 올리는 순간 얼굴과 목이 벌어진다 (실제로 배포됐다)
       const neckEl = [...host.querySelectorAll('path')]
         .find(e => (e.getAttribute('fill') || '').startsWith('url(#neckG'));
-      if (!neckEl) bad.push(`체형 ${w}: 목 path 를 못 찾았다`);
+      if (!neckEl) bad.push(`${label}: 목 path 를 못 찾았다`);
       else {
         const d = box(neckEl).t - box(head).b;
-        if (d > -0.5) bad.push(`체형 ${w}: 턱과 목이 ${d.toFixed(1)}px 떨어져 있다 (겹쳐야 한다)`);
+        if (d > -0.5) bad.push(`${label}: 턱과 목이 ${d.toFixed(1)}px 떨어져 있다 (겹쳐야 한다)`);
       }
       const gap = box(torso).t - box(head).b;         // 턱끝 ~ 몸통 윗선
-      gaps.push({ w, gap: Math.round(gap * 10) / 10 });
-      if (gap < MIN) bad.push(`체형 ${w}: 목이 ${gap.toFixed(1)}px 뿐이다 (${MIN}px 이상)`);
-      if (gap > MAX) bad.push(`체형 ${w}: 목이 ${gap.toFixed(1)}px 로 너무 길다 (${MAX}px 이하)`);
+      into.push({ k: kt == null ? w : kt, gap: Math.round(gap * 10) / 10 });
+      if (gap < MIN) bad.push(`${label}: 목이 ${gap.toFixed(1)}px 뿐이다 (${MIN}px 이상)`);
+      if (gap > MAX) bad.push(`${label}: 목이 ${gap.toFixed(1)}px 로 너무 길다 (${MAX}px 이하)`);
       // 머리가 화면 위로 잘리면 안 된다 (목을 빼면 머리가 같이 올라간다)
       let top = 1e9;
       host.querySelectorAll('[data-part="hair"],[data-part="head"]')
         .forEach(e => { top = Math.min(top, box(e).t); });
-      if (top < 0) bad.push(`체형 ${w}: 머리가 화면 위로 ${Math.round(-top)}px 잘렸다`);
-    }
+      if (top < 0) bad.push(`${label}: 머리가 화면 위로 ${Math.round(-top)}px 잘렸다`);
+      return true;
+    };
+    for (const w of [0, 0.25, 0.5, 0.75, 1]) if (!measure(w, null, `체형 ${w}`, gaps)) break;
+    // ─── 몸통 배율로 가늘게 해도 목이 길어지는가 ────────────────
+    //
+    // **체형(몸무게)만 보고 있었다.** 몸통 슬라이더로 살을 빼면 어깨 곡선이 가로로
+    // 눌려 승모근이 목 바로 옆에서 솟는데, 머리는 제자리라 **목이 어깨에 파묻혔다**
+    // (「몸통 % 가 낮아졌을 때 목이 너무 짧다」는 신고가 이것이다).
+    // 체형 축과 **같은 방향**이어야 한다 — 가늘수록 목이 길다.
+    for (const kt of [0.5, 0.75, 1, 1.5]) if (!measure(0.5, kt, `몸통 ${kt * 100}%`, tgaps)) break;
     // **날씬할수록 길어야 한다.** 뒤집히면 규칙이 반대로 걸린 것이다
-    for (let i = 1; i < gaps.length; i++) {
-      if (gaps[i].gap > gaps[i - 1].gap + 0.2) {
-        bad.push(`체형 ${gaps[i - 1].w}(${gaps[i - 1].gap}px) 보다 ${gaps[i].w}(${gaps[i].gap}px) 의 목이 길다`);
+    const mono = (list, what) => {
+      for (let i = 1; i < list.length; i++) {
+        if (list[i].gap > list[i - 1].gap + 0.2) {
+          bad.push(`${what} ${list[i - 1].k}(${list[i - 1].gap}px) 보다`
+            + ` ${list[i].k}(${list[i].gap}px) 의 목이 길다`);
+        }
       }
+    };
+    mono(gaps, '체형');
+    mono(tgaps, '몸통');
+    // 가는 몸통에서 **실제로 길어졌는지**도 본다 — 순서만 보면 전부 같은 값이어도 통과다
+    if (tgaps.length > 1 && !(tgaps[0].gap >= tgaps[tgaps.length - 1].gap + 2)) {
+      bad.push(`몸통 50% 의 목(${tgaps[0].gap}px)이 150%(${tgaps[tgaps.length - 1].gap}px)보다`
+        + ` 2px 이상 길지 않다 — 몸통을 가늘게 해도 목이 안 길어진다`);
     }
     host.remove();
-    return { bad, gaps };
+    return { bad, gaps, tgaps };
   });
 
   // ─── 몸통과 팔 사이로 배경이 비치지 않는가 ───────────────────
@@ -929,7 +949,11 @@ function launchOpts() {
   //   ① 팔이 손목(armY+armH)보다 **더 아래까지** 내려온다
   //   ② 그 끝 언저리가 손목보다 **눈에 띄게 넓다** (손목보다 좁으면 그냥 마개다)
   // 장갑도 같이 본다 — 팔만 덮고 손을 빼먹으면 장갑 아래로 살색 손이 삐져나온다.
-  const HAND_DROP_MIN = 4, HAND_BULGE_MIN = 0.6;
+  // 손은 손목보다 **넓되 지나치게 넓지는 않아야** 한다. 위쪽 한계가 없어서
+  // 「팔 50% 에서 손만 공이 된다」(기본 손목의 0.85 를 바닥으로 깔던 시절 1.8px)를
+  // 아무도 못 잡았다 — 가는 팔은 몸 안으로 물러나는데 손만 밖으로 나와 **몸에 붙은
+  // 구슬**로 보였다. 아래위를 다 막아야 「마개」와 「공」을 같이 잡는다
+  const HAND_DROP_MIN = 4, HAND_BULGE_MIN = 0.6, HAND_BULGE_MAX = 1.3;
   const HAND_KEEP = 0.6;          // 옷을 입었을 때 손 자리의 이만큼은 살색으로 남아야 한다
   const hand = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
@@ -988,6 +1012,10 @@ function launchOpts() {
         bad.push(`${name}: 손목 아래에서 바깥으로 ${(bulge - neck).toFixed(2)}px 밖에 안 부푼다`
           + ` (${o.bulge}px 이상) — 손이 팔보다 좁아 마개처럼 보인다`);
       }
+      if (sel === '[data-part="arm"]' && !wear.top && bulge - neck > o.bulgeMax) {
+        bad.push(`${name}: 손이 손목보다 ${(bulge - neck).toFixed(2)}px 나 넓다`
+          + ` (${o.bulgeMax}px 까지) — 팔에 안 달린 공처럼 보인다`);
+      }
     }
     // 손이 팔보다 **아래로** 내려오는가 (맨팔 기준)
     const svg1 = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, null);
@@ -1041,7 +1069,7 @@ function launchOpts() {
       }
     }
     return { bad: bad, rows: rows, drop: +(bot - ARM_END).toFixed(1), keep: handRows };
-  }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, keep: HAND_KEEP });
+  }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, bulgeMax: HAND_BULGE_MAX, keep: HAND_KEEP });
 
   // ─── 슬라이더를 끝까지 밀었을 때의 두께가 정해진 값인가 ──────
   //
@@ -1767,6 +1795,8 @@ function launchOpts() {
   console.log(`넥라인: 파낸 자리를 몸통 윗선과 견줌 (그린 path 를 isPointInFill 로 직접 잰다)`);
   console.log(`초상화: 인물 ${face.n}명 — 머리와 얼굴 사이의 틈 · 헤어라인 높이(이마 6~18px)`);
   console.log(`웅크린 뒷모습: 옷 ${crouch.n}가지 — 무릎이 입은 옷을 따라가는가`);
+  console.log(`목(몸통 배율): 50→150% 턱~어깨 ${neck.tgaps.map(g => g.gap + 'px').join(' → ')}`
+    + ` (가늘수록 길어야 한다 · 50% 가 150% 보다 2px 이상)`);
   console.log(`목: 체형별 턱~어깨 ${neck.gaps.map(g => g.gap + 'px').join(' → ')}`
     + ` (날씬할수록 길어야 한다 · 가장 짧은 곳도 5px 이상)`);
   console.log(`몸통↔팔: 체형 ${seam.steps}단계 — 옆구리에 배경이 실처럼 비치지 않는가`);
@@ -1789,7 +1819,7 @@ function launchOpts() {
     + ` — 기본 ${legGap.base.join('·')}px · 흔들림 ${legGap.spread.join('·')}px`
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
-    + ` (${HAND_DROP_MIN}px · ${HAND_BULGE_MIN}px 이상)`);
+    + ` (${HAND_DROP_MIN}px 이상 · 부푼 폭은 ${HAND_BULGE_MIN}~${HAND_BULGE_MAX}px)`);
   console.log(`손이 옷에 안 덮이는가: 원피스마다 **맨손 한 켤레 넓이** 대비 살색으로 남은 몫`
     + ` — ${hand.keep.join(' · ')} (${HAND_KEEP * 100}% 이상)`);
   console.log(`상한 두께: 100% 대비 ${fat.rows.join(' · ')}`

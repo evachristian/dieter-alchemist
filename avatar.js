@@ -183,6 +183,8 @@
   // 통통은 0 (지금 모습 그대로 · 3등신은 목이 짧아야 귀엽다), 날씬은 NECK_LIFT.
   // 결과: 날씬 8.8px · 중간 7.3px · 통통 5.8px — 날씬할수록 목이 길다 (4등신)
   const NECK_LIFT = 10;
+  // 몸통 배율로 가늘게 했을 때 더 빼 주는 몫 (100% 이상은 0 — 기본 체형은 그대로다)
+  const NECK_LIFT_TORSO = 8;
   // 머리 크기 배율 — 통통 3등신 / 날씬 4등신 (귀여운 체형)
   // 등신 = 전체높이 / (HEAD_H × k) 이고 전체높이도 k 를 따라 조금 움직이므로
   // 두 측정점에서 관계식(전체높이 ≈ 322 + 7k)을 세워 역산한 값이다.
@@ -418,21 +420,36 @@
   const HAND_W = 1.36;      // 손목 반폭의 몇 배
   const HAND_H = 1.12;      // 손 반폭 대비 높이
   const HAND_THUMB = 0.4;   // 엄지 반지름 (손 반폭 대비)
-  const HAND_MIN = 0.85;    // 기본 손목 대비 손의 하한
+  // ─── 손은 팔을 따라 가늘어지되 **조금 덜 따라간다** ──────────
+  //
+  // 예전에는 **기본 손목의 0.85** 를 바닥으로 깔았다. 그 바닥은 하필 **팔 50%
+  // 에서만** 걸려서, 팔이 가장 가는 자리에서 손만 33% 부풀었다(3.04 → 4.04) —
+  // **손이 팔보다 2.45px 넓은 공**이 된다. 가는 팔은 안쪽 변이 고정이라 몸 실루엣
+  // **안으로 물러나 안 보이는데** 그 공만 골반 밖으로 튀어나와, 팔에 안 달린
+  // **구슬 하나가 몸에 붙은 것**처럼 보였다 (「몸통·팔 50% 일 때 손이 떨어짐」).
+  //
+  // ⚠️ **그렇다고 팔을 그대로 따라가게 하면 안 된다.** 손이 손목보다 0.5px 밖에
+  // 안 넓어져 **다시 마개**가 된다 (`checkavatar` 의 「손」이 0.6px 에서 잡는다).
+  // 그래서 **무릎·팔꿈치와 같은 규칙**을 쓴다 — 따라가되 덜 따라간다.
+  const HAND_FOLLOW = 0.7;  // 손이 팔 굵기를 따라가는 몫 (1 이면 그대로 따라간다)
   function handShape(side, tune, color, dist) {
     const B = BODY, left = side === 'L', sgn = left ? -1 : 1;   // sgn 은 바깥 방향
     const ka = tuneOf(tune, 'arm');
     const p = armPoint(side, dist == null ? B.armH : dist, tune);
-    // ⚠️ **손은 아주 작아지지는 않는다.** 팔을 가늘게 하면 손목을 따라 같이 줄어드는데,
-    // 그러면 손이 손목보다 0.25px 밖에 안 넓어져 **다시 마개처럼** 보인다.
-    // 기본 손목의 HAND_MIN 만큼은 지킨다 — 통통한 손은 이 그림체에서 오히려 귀엽다
-    const wristHalf = Math.max(armHalf(B.armH, ka, 0), armHalf(B.armH, 1, 0) * HAND_MIN);
+    const w0 = armHalf(B.armH, 1, 0);                  // 기본 손목
+    const wristHalf = w0 + (armHalf(B.armH, ka, 0) - w0) * HAND_FOLLOW;
     const hw = wristHalf * HAND_W, hh = hw * HAND_H;
     const th = left ? (B.armRot - B.elbowRot) : (B.elbowRot - B.armRot);
     const f = n => +n.toFixed(2);
+    // 팔과 **같은 그늘**을 몸 쪽으로 깔아 둔다 (armShape 의 ARM_SHADE 와 같은 규칙).
+    // 가는 팔은 몸 실루엣 안에 들어가는데, 같은 살색이라 그늘이 없으면 손이
+    // **어디서 시작하는지 안 보인다** — 그늘 한 줄이면 몸 위에 얹혀도 손으로 읽힌다
+    const body = c => `<circle cx="${f(p.x - sgn * hw * 0.95)}" cy="${f(p.y + hh * 0.2)}"`
+        + ` r="${f(hw * HAND_THUMB)}" fill="${c}"/>`
+      + `<ellipse cx="${f(p.x)}" cy="${f(p.y + hh * 0.58)}" rx="${f(hw)}" ry="${f(hh)}" fill="${c}"/>`;
     return `<g transform="rotate(${th} ${f(p.x)} ${f(p.y)})">`
-      + `<circle cx="${f(p.x - sgn * hw * 0.95)}" cy="${f(p.y + hh * 0.2)}" r="${f(hw * HAND_THUMB)}" fill="${color}"/>`
-      + `<ellipse cx="${f(p.x)}" cy="${f(p.y + hh * 0.58)}" rx="${f(hw)}" ry="${f(hh)}" fill="${color}"/></g>`;
+      + `<g transform="translate(${(-sgn * ARM_SHADE).toFixed(2)},0)">${body(shade(color, 8))}</g>`
+      + body(color) + '</g>';
   }
   // `data-part="hand"` 를 붙여 둔다 — 검사기가 **손이 있어야 할 자리**를 이걸로 잡고,
   // 완성된 그림에서 그 자리가 아직 손인지(옷에 덮이지 않았는지) 본다.
@@ -1916,7 +1933,14 @@
     const bodyT = `translate(100,${FLOOR_Y}) scale(${(1 + 0.36 * w).toFixed(3)},${bodyKy.toFixed(3)}) translate(-100,${-FLOOR_Y})`;
     // 머리: 목을 축으로 크기 조절 (통통하면 가로로 살짝 더 둥글게)
     // 날씬할수록 머리를 위로 올려 목을 뺀다 (NECK_LIFT 참고)
-    const lift = NECK_LIFT * (1 - w);
+    //
+    // ⚠️ **몸통 슬라이더로 가늘게 해도 목이 길어져야 한다.** 예전에는 몸무게(w)만
+    // 봤는데, 몸통을 줄이면 어깨 곡선(`shoulderC`)이 **가로로 눌려** 승모근이 목 바로
+    // 옆에서 솟는다 — 목 길이는 그대로인데 목이 어깨에 파묻힌 것처럼 보였다
+    // (몸통 50% 에서 특히). 살이 빠지면 목이 드러나는 게 맞으므로 같은 방향으로 민다.
+    // 몸무게 쪽보다 몫을 작게 준다 — 몸통은 굵기만 바꾸지 등신을 안 바꾸기 때문이다.
+    const lift = NECK_LIFT * (1 - w)
+      + NECK_LIFT_TORSO * (1 - Math.min(1, tuneOf(tune, 'torso')));
     const headT = `translate(0,${(dy - lift).toFixed(2)}) translate(100,${NECK_Y}) `
       + `scale(${(headK * (1 + 0.06 * w)).toFixed(3)},${headK.toFixed(3)}) translate(-100,${-NECK_Y})`;
     // 체형이 0(날씬)이어도 등신 비율 때문에 변환이 필요하므로 항상 적용한다
