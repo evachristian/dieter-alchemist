@@ -262,6 +262,7 @@
   // **살(어깨·팔뚝)은 배율을 타고 관절(팔꿈치·손목)은 덜 탄다.**
   const ARM_W = { shoulder: 15, elbow: 12, wrist: 9.5 };
   const ARM_SHADE = 2.5;                 // 몸 쪽으로 깔아 두는 그늘의 폭
+  const ARM_OUTLINE = 0.9;               // 옷과 같은 색으로 겹칠 때 두르는 윤곽선의 반두께
   const ARM_SHADE_FROM = 10;             // 팔 위 끝에서 이만큼 내려와서 시작한다
   function armWidths(k) {
     const S = ARM_W.shoulder * k;
@@ -375,8 +376,26 @@
     const shadeSegs = segs.map(g => ({ y: Math.max(g.y, sFrom), h: g.h - Math.max(0, sFrom - g.y), tr: g.tr }))
       .filter(g => g.h > 0.5);
     const sc = shade(fill, 8);
-    return `<g transform="translate(${(-sgn * ARM_SHADE).toFixed(2)},0)">`
-      + emit(shadeSegs, sc) + joint(sc) + '</g>'
+    // ─── 옷과 같은 색으로 겹쳐야 할 때는 **윤곽선**을 두른다 ─────
+    //
+    // 공주 드레스처럼 소매가 몸판과 같은 색이면 팔이 통째로 묻힌다. 그렇다고 소매를
+    // 어둡게 칠하면 **소매만 다른 옷** 처럼 보인다 — 「팔은 원래 드레스 색으로 두고
+    // 윤곽선만 남긴다」가 이 그림체에 맞는다.
+    //
+    // ⚠️ **조각마다 선을 그으면 안 된다.** 팔은 마디 둘 + 관절 원 셋이라, 각각에
+    // 선을 두르면 **팔꿈치 이음매에 가로줄**이 그어진다. 그래서 같은 모양을
+    // **선 두께만큼 부풀려 밑에 깔고**(fill 과 stroke 를 같은 색으로) 그 위에 제 색을
+    // 덮는다 — 밖으로 삐져나온 만큼만 테두리로 남고 내부 이음매는 덮여 안 보인다.
+    const outline = o.outline
+      ? emit(segs, o.outline, ` stroke="${o.outline}" stroke-width="${ARM_OUTLINE * 2}"`
+          + ` stroke-linejoin="round"`)
+        + joint(o.outline, ` stroke="${o.outline}" stroke-width="${ARM_OUTLINE * 2}"`)
+      : '';
+    // 윤곽선을 두르면 그늘은 안 깐다 — 둘 다 두면 안쪽에 선이 두 줄이 된다
+    const shadeLayer = o.outline ? ''
+      : `<g transform="translate(${(-sgn * ARM_SHADE).toFixed(2)},0)">`
+        + emit(shadeSegs, sc) + joint(sc) + '</g>';
+    return shadeLayer + outline
       + emit(segs, fill, o.extra) + joint(fill, o.extra);
   }
 
@@ -1455,12 +1474,13 @@
   // 소매(팔을 덮는 부분)를 몸의 팔 좌표 그대로 만들어 준다.
   // len: 팔 길이의 몇 %까지 덮을지 (나머지는 손으로 드러남)
   //   yFrom 을 주면 그 높이부터 아래만 그린다 (치마 위에 다시 찍을 때 — armsOverSkirt)
-  function sleeves(c, len, tune, yFrom) {
+  function sleeves(c, len, tune, yFrom, outline) {
     const B = BODY, pad = CLOTH_PAD;
     const end = B.armY - pad + B.armH * len + pad;   // 소매 끝의 절대 높이
     const from = yFrom == null ? B.armY - pad : yFrom;
     if (end <= from) return '';
-    const opt = yFrom == null ? undefined : { yFrom };
+    const opt = (yFrom == null && !outline) ? undefined
+      : Object.assign({}, yFrom == null ? {} : { yFrom }, outline ? { outline } : {});
     // 손은 **소매 끝**에 온다 (팔 끝이 아니다) — handShape 가 armPoint 로 자리를 잡는다
     return `
       ${armShape('L', c, pad, end - from, tune, opt)}
@@ -1548,7 +1568,10 @@
     // ⚠️ 소매를 짧게 만든 변종을 붙인다면 **그 아래의 맨팔도 종 앞으로 꺼내야 한다** —
     // 지금은 팔이 종 뒤에 있어서, 소매만 앞에 두면 소매 끝에서 팔이 사라진다
     // (지금 이 함수를 부르는 곳은 공주 드레스 하나뿐이고 소매는 늘 길다)
-    const sleeveC = c2;
+    //
+    // **소매는 드레스와 같은 색이고, 윤곽선으로만 구분한다.** 한 톤 어둡게 칠해 봤더니
+    // 팔이 읽히기는 하는데 **소매만 다른 옷** 처럼 보였다 — 종 위에 팔이 얹힌 그림에는
+    // 선 한 줄이 맞는다 (`armShape` 의 `outline` 참고)
     return `<g data-part="dress">
       <!-- 몸통 → 밑단까지 퍼지는 치마 (어깨 폭은 몸통 기준 + 여유) -->
       <path data-part="cloth" d="M${L},${B.shoulderY + 11}
@@ -1564,7 +1587,7 @@
       ${cut ? '' : `<!-- 목선 — 안 파는 경우에만. 파냈으면 그 모서리가 곧 넥라인이다 -->
       <path d="M88,${B.shoulderY} Q100,${B.shoulderY + 9} 112,${B.shoulderY}"
             stroke="${c2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`}
-      ${sleeves(sleeveC, longSleeve ? PRINCESS_LEN : 0.42, tune)}
+      ${sleeves(c, longSleeve ? PRINCESS_LEN : 0.42, tune, null, c2)}
     </g>`;
   }
 

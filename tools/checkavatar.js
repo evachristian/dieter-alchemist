@@ -987,6 +987,8 @@ function launchOpts() {
   // 손이 팔과 겹치는 몫. 제대로 붙어 있으면 배율과 무관하게 12% 안팎이고,
   // `armPoint` 가 `armShift` 를 빼먹으면 몸통 50% 에서 **0%** 로 떨어진다
   const HAND_TOUCH = 0.06;
+  // 공주 드레스의 아랫팔 높이 두 줄에서 만나야 할 **윤곽선 토막** 수 (정상 4줄)
+  const SLEEVE_OUTLINE_MIN = 4;
   const hand = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
     const cv = document.createElement('canvas');
@@ -1023,6 +1025,7 @@ function launchOpts() {
                    ['긴팔', { top: 'top_knit' }, null, '[data-part="arm"]']];
     if (glove) cases.push(['장갑', { glove: glove.id }, null, '[data-part="glove"]']);
     const rows = [], handRows = [], touchRows = [];
+    let outlineRuns = 0;
     for (const [name, wear, t, sel] of cases) {
       const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare, wear), 0, t);
       const d = await px(keep(svg, sel));
@@ -1100,6 +1103,41 @@ function launchOpts() {
           + ` (${o.keep * 100}% 이상) — 옷이 손을 덮어 화면에서는 손이 없다`);
       }
     }
+    // ─── 소매가 옷과 같은 색일 때 **팔이 선으로 읽히는가** ─────
+    //
+    // 공주 드레스는 소매가 몸판과 **같은 색**이라 팔이 통째로 묻힌다. 그래서 둘레에
+    // 윤곽선을 두르는데(`armShape` 의 `outline`), 그 선이 사라져도 **손은 그대로
+    // 보이므로** 위의 「손이 옷에 안 덮이는가」는 통과한다 — 따로 봐야 한다.
+    // 아랫팔 높이에서 가로로 훑어 **옷보다 어두운 선이 몇 번 지나가는지** 센다
+    // (팔 둘 × 안팎 = 4줄이 정상. 선을 지우면 0줄이다).
+    {
+      const pr = (D.WARDROBE.dress || []).find(x => x.kind === 'princess');
+      if (pr) {
+        const svg2 = window.Avatar.build(
+          Object.assign({}, D.DEFAULT_OUTFIT, bare, { dress: pr.id }), 0, null);
+        const d2 = await px(svg2);
+        const hex = pr.color.replace('#', '');
+        const n = parseInt(hex, 16);
+        const base = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+        let runs = 0;
+        for (const y of [188, 196]) {
+          let inRun = false;
+          for (let x = 60; x <= 140; x += 0.25) {
+            const i = (Math.round(y * S) * W + Math.round(x * S)) * 4;
+            // 옷보다 **눈에 띄게 어두운** 자리 (살색·배경은 뺀다)
+            const dark = d2[i + 3] > 200 && d2[i] < base[0] - 8
+              && d2[i + 1] < base[1] - 8 && d2[i + 2] < base[2] - 8;
+            if (dark && !inRun) { runs++; inRun = true; } else if (!dark) inRun = false;
+          }
+        }
+        if (runs < o.lines) {
+          bad.push(`공주 드레스: 아랫팔 높이에서 옷보다 어두운 선이 ${runs}줄뿐이다`
+            + ` (${o.lines}줄 이상) — 소매가 몸판과 같은 색인데 윤곽선이 없어 팔이 묻힌다`);
+        }
+        outlineRuns = runs;
+      }
+    }
+
     // ─── 손이 팔에 **붙어** 있는가 ────────────────────────────
     //
     // 위의 검사는 전부 **맨팔 기본 배율**에서만 손을 본다. 그런데 손자리를 잡는
@@ -1134,9 +1172,9 @@ function launchOpts() {
       if (ka === 1) touchRows.push(`몸통${kt * 100} ${(ov * 100).toFixed(1)}%`);
     }
     return { bad: bad, rows: rows, drop: +(bot - ARM_END).toFixed(1),
-             keep: handRows, touch: touchRows };
+             keep: handRows, touch: touchRows, outline: outlineRuns };
   }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, bulgeMax: HAND_BULGE_MAX,
-       keep: HAND_KEEP, touch: HAND_TOUCH });
+       keep: HAND_KEEP, touch: HAND_TOUCH, lines: SLEEVE_OUTLINE_MIN });
 
   // ─── 슬라이더를 끝까지 밀었을 때의 두께가 정해진 값인가 ──────
   //
@@ -1887,6 +1925,8 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px 이상 · 부푼 폭은 ${HAND_BULGE_MIN}~${HAND_BULGE_MAX}px)`);
+  console.log(`소매 윤곽선: 공주 드레스 아랫팔 높이에서 옷보다 어두운 선 ${hand.outline}줄`
+    + ` (${SLEEVE_OUTLINE_MIN}줄 이상 · 소매가 몸판과 같은 색이라 선이 유일한 구분이다)`);
   console.log(`손이 팔에 붙어 있는가: 팔 마스크와 겹치는 몫 — ${hand.touch.join(' · ')}`
     + ` (${HAND_TOUCH * 100}% 이상 · 배율을 움직여도 흔들리면 안 된다)`);
   console.log(`손이 옷에 안 덮이는가: 원피스마다 **맨손 한 켤레 넓이** 대비 살색으로 남은 몫`
