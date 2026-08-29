@@ -809,7 +809,10 @@ function launchOpts() {
     const combos = [['기본', {}], ['허리 60', { waist: 0.6 }], ['허리 60 엉덩이 160', { waist: 0.6, hip: 1.6 }],
       ['엉덩이 180', { hip: 1.8 }], ['엉덩이 180 허벅지 60', { hip: 1.8, thigh: 0.6 }],
       ['엉덩이 50', { hip: 0.5 }], ['허리 150 엉덩이 60', { waist: 1.5, hip: 0.6 }],
-      ['몸통 150 엉덩이 60', { torso: 1.5, hip: 0.6 }]];
+      ['몸통 150 엉덩이 60', { torso: 1.5, hip: 0.6 }],
+      // 엉덩이 하한(20%) — 예전에는 허벅지가 하한 노릇을 해서 **여기까지 와도
+      // 그림이 안 바뀌었다.** 아무것도 안 변하는 그림을 재고 있으니 늘 통과였다
+      ['엉덩이 20', { hip: 0.2 }], ['엉덩이 20 허벅지 200', { hip: 0.2, thigh: 2 }]];
     let worst = 0;
     for (const [n, t] of combos) {
       const img = new Image();
@@ -997,13 +1000,18 @@ function launchOpts() {
     return { bad: bad, rows: rows, drop: +(bot - ARM_END).toFixed(1) };
   }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN });
 
-  // ─── 200% 의 두께가 부위마다 정해진 값인가 ──────────────────
+  // ─── 슬라이더를 끝까지 밀었을 때의 두께가 정해진 값인가 ──────
   //
-  // 슬라이더는 부위마다 0.5~2 로 같은데 **같은 200% 라도 자연스러운 두께는 다르다.**
-  // 눈으로 맞춘 값이라(`TUNE_GAIN`) 코드 어딘가를 손보다가 조용히 어긋나기 쉽다 —
-  // 100% 대비 몇 배가 되는지를 여기서 박아 둔다.
+  // 슬라이더의 상한은 **부위마다 다르고**(game.js 의 `TUNE_PARTS`), 같은 배율이라도
+  // 자연스러운 두께는 부위마다 다르다. 눈으로 맞춘 값이라(`TUNE_GAIN`) 코드 어딘가를
+  // 손보다가 조용히 어긋나기 쉬워서 100% 대비 몇 배가 되는지를 여기 박아 둔다.
+  //
+  // ⚠️ **재는 자리는 그 부위의 상한이다.** 엉덩이를 200% 에서 재고 있었는데
+  // 슬라이더는 150% 까지밖에 안 올라간다 — **닿을 수 없는 자리를 지키느라**
+  // 정작 사람이 쓰는 구간이 죽어 있어도 통과였다. 배수는 그대로다(43.0/38.8=1.11) —
+  // 그 두께가 이제 150% 에서 나온다.
   // ⚠️ **100% 는 어느 부위도 안 움직인다** — 그것도 같이 본다.
-  const FAT_200 = { 허벅지: 1.44, 엉덩이: 1.11, 종아리: 1.59 };   // 100% 대비
+  const FAT_MAX = { 허벅지: [2, 1.44], 엉덩이: [1.5, 1.11], 종아리: [2, 1.59] };
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
@@ -1045,13 +1053,14 @@ function launchOpts() {
                    ['종아리', 'calf', '[data-part="calf"]']];
     const rows = [];
     for (const [name, key, sel] of parts) {
+      const [kMax, want] = o.want[name];
       const a = await thickest(sel, { [key]: 1 });
-      const b = await thickest(sel, { [key]: 2 });
+      const b = await thickest(sel, { [key]: kMax });
       const r = b / a;
-      rows.push(`${name} ${r.toFixed(2)}배`);
-      if (Math.abs(r - o.want[name]) > o.tol) {
-        bad.push(`${name} 200% 의 두께가 100% 의 ${r.toFixed(2)}배다`
-          + ` — ${o.want[name]}배여야 한다 (${a.toFixed(1)}px → ${b.toFixed(1)}px)`);
+      rows.push(`${name} ${kMax * 100}% 에서 ${r.toFixed(2)}배`);
+      if (Math.abs(r - want) > o.tol) {
+        bad.push(`${name} ${kMax * 100}% 의 두께가 100% 의 ${r.toFixed(2)}배다`
+          + ` — ${want}배여야 한다 (${a.toFixed(1)}px → ${b.toFixed(1)}px)`);
       }
     }
     // 100% 는 어느 부위도 안 움직인다 — 기본 그림과 바이트까지 같아야 한다.
@@ -1063,7 +1072,79 @@ function launchOpts() {
       bad.push('배율을 전부 100% 로 준 그림이 기본 그림과 다르다 — 100% 는 아무것도 안 바꿔야 한다');
     }
     return { bad: bad, rows: rows };
-  }, { want: FAT_200, tol: FAT_TOL });
+  }, { want: FAT_MAX, tol: FAT_TOL });
+
+  // ─── 슬라이더를 움직이면 실루엣이 정말 움직이는가 ────────────
+  //
+  // **위의 「상한 두께」로는 이걸 못 잡는다.** 그건 양 끝 두 점만 보는데, 부위끼리
+  // 서로 하한 노릇을 하다 보면 **가운데가 통째로 눌러앉는다** — 실제로 `LEG.hipW` 를
+  // 20 → 36 으로 올린 뒤 허벅지 윗머리(38)가 엉덩이(34)보다 굵어져,
+  // **엉덩이 20%~150% 가 전부 38.0~38.6px** 로 나왔다. 슬라이더를 끝에서 끝까지
+  // 밀어도 좌우 폭이 하나도 안 변하는데 검사는 전부 통과였다.
+  //
+  // 그래서 슬라이더를 **실제로 쓰는 상한·하한 안에서 여러 칸** 훑는다:
+  //   ① 뒤로 가지 않는다 (줄였는데 굵어지면 안 된다)
+  //   ② 한 칸 한 칸이 눈에 보인다 (이웃한 칸 사이가 최소 1px)
+  //   ③ 양 끝의 차이가 충분하다 (한쪽 폭으로 8px = 좌우로 16px 이상)
+  // 하한은 `game.js` 의 `TUNE_PARTS` 를 따른다 — 엉덩이만 20%, 나머지는 50% 다.
+  const SLIDER_SPAN_MIN = 8, SLIDER_STEP_MIN = 1;
+  const SLIDER = [['엉덩이', 'hip', [0.2, 0.5, 0.8, 1, 1.25, 1.5], [190, 214], '[data-part="hip"]'],
+                  ['허벅지', 'thigh', [0.5, 0.8, 1, 1.5, 2], [200, 250], '[data-part="thigh"]'],
+                  ['종아리', 'calf', [0.5, 0.8, 1, 1.5, 2], [270, 300], '[data-part="calf"]']];
+  const slider = await page.evaluate(async (o) => {
+    const D = window.GameData, bad = [], rows = [], S = 4, W = 200 * S;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = 348 * S;
+    const ctx = cv.getContext('2d');
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      ctx.clearRect(0, 0, W, 348 * S); ctx.drawImage(img, 0, 0, W, 348 * S);
+      return ctx.getImageData(0, 0, W, 348 * S).data;
+    }
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
+    function keep(svg, sel) {
+      const wrap = document.createElement('div'); wrap.innerHTML = svg;
+      const root = wrap.firstElementChild; const only = root.cloneNode(false);
+      [...root.querySelectorAll(sel)].forEach(n => only.appendChild(n.cloneNode(true)));
+      return only.outerHTML;
+    }
+    // 그 구간에서 그 부위가 **가장 바깥으로 나온 곳**.
+    // ⚠️ **팔을 같이 재면 안 된다** — 팔은 y 214 까지 내려와 골반 옆에 x 140 으로 서 있어서,
+    // 몸 전체를 재면 엉덩이가 무슨 짓을 해도 팔이 이겨 늘 40.0px 이 나온다
+    async function widest(t, y0, y1, sel) {
+      const d = await px(keep(window.Avatar.build(outfit, 0, t), sel));
+      let best = 0;
+      for (let y = y0; y <= y1; y += 0.5) {
+        const row = Math.round(y * S);
+        for (let x = 199 * S; x >= 100 * S; x--) {
+          if (d[(row * W + x) * 4 + 3] > 128) { if (x / S - 100 > best) best = x / S - 100; break; }
+        }
+      }
+      return best;
+    }
+    for (const [name, key, ks, span, sel] of o.parts) {
+      const ws = [];
+      for (const k of ks) ws.push(await widest({ [key]: k }, span[0], span[1], sel));
+      rows.push(`${name} ${ws.map(v => v.toFixed(1)).join('→')}`);
+      for (let i = 1; i < ws.length; i++) {
+        if (ws[i] - ws[i - 1] < o.step) {
+          bad.push(`${name}: ${ks[i - 1] * 100}% → ${ks[i] * 100}% 에서 폭이`
+            + ` ${ws[i - 1].toFixed(1)} → ${ws[i].toFixed(1)}px 밖에 안 변한다`
+            + ` (${o.step}px 이상) — 슬라이더를 움직여도 몸이 안 변한다`);
+        }
+      }
+      const total = ws[ws.length - 1] - ws[0];
+      if (total < o.span) {
+        bad.push(`${name}: ${ks[0] * 100}%~${ks[ks.length - 1] * 100}% 를 다 밀어도`
+          + ` 폭이 ${total.toFixed(1)}px 밖에 안 변한다 (${o.span}px 이상)`);
+      }
+    }
+    return { bad: bad, rows: rows };
+  }, { parts: SLIDER, span: SLIDER_SPAN_MIN, step: SLIDER_STEP_MIN });
 
   // ─── 다리 옆선이 어디서도 너무 가파르지 않은가 · 무릎은 살을 따라가는가 ──
   //
@@ -1314,7 +1395,10 @@ function launchOpts() {
       return root.outerHTML;
     }
     const tunes = [['기본', {}], ['엉덩이 150', { hip: 1.5 }], ['허리 50 엉덩이 150', { waist: 0.5, hip: 1.5 }],
-      ['엉덩이 180', { hip: 1.8 }], ['허벅지 180', { thigh: 1.8 }], ['엉덩이 180 허벅지 60', { hip: 1.8, thigh: 0.6 }]];
+      ['엉덩이 180', { hip: 1.8 }], ['허벅지 180', { thigh: 1.8 }], ['엉덩이 180 허벅지 60', { hip: 1.8, thigh: 0.6 }],
+      // 엉덩이가 좁으면 허벅지 윗머리도 같이 들어온다 — 하의가 그 좁아진 몸을
+      // 그대로 따라오는지 본다 (하의도 `clothHipHalf` 로 같은 값을 읽는다)
+      ['엉덩이 20', { hip: 0.2 }], ['엉덩이 20 허벅지 200', { hip: 0.2, thigh: 2 }]];
     const bots = (D.WARDROBE.bottom || []).filter(x => x.kind !== 'none');
     let worst = 0, maskN = 0;
     for (const [tn, t] of tunes) {
@@ -1359,7 +1443,8 @@ function launchOpts() {
     let worst = 0;
     const combos = [['기본', {}], ['엉덩이 150', { hip: 1.5 }], ['엉덩이 180', { hip: 1.8 }],
       ['허리 50 엉덩이 150', { waist: 0.5, hip: 1.5 }], ['허벅지 60', { thigh: 0.6 }],
-      ['허벅지 180', { thigh: 1.8 }], ['엉덩이 180 허벅지 60', { hip: 1.8, thigh: 0.6 }]];
+      ['허벅지 180', { thigh: 1.8 }], ['엉덩이 180 허벅지 60', { hip: 1.8, thigh: 0.6 }],
+      ['엉덩이 20', { hip: 0.2 }], ['엉덩이 20 허벅지 200', { hip: 0.2, thigh: 2 }]];
     for (const [n, t] of combos) {
       const wrap = document.createElement('div');
       wrap.innerHTML = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, t);
@@ -1628,7 +1713,8 @@ function launchOpts() {
     .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
-    .concat(fat.bad.map(m => ({ id: '200% 두께', body: '-', where: m, n: '-' })))
+    .concat(fat.bad.map(m => ({ id: '상한 두께', body: '-', where: m, n: '-' })))
+    .concat(slider.bad.map(m => ({ id: '슬라이더', body: '-', where: m, n: '-' })))
     .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
@@ -1661,8 +1747,10 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px · ${HAND_BULGE_MIN}px 이상)`);
-  console.log(`200% 두께: 100% 대비 ${fat.rows.join(' · ')}`
+  console.log(`상한 두께: 100% 대비 ${fat.rows.join(' · ')}`
     + ` (부위마다 정해 둔 값 ±${FAT_TOL} · 100% 는 아무것도 안 바꾼다)`);
+  console.log(`슬라이더: 하한→상한의 반폭 ${slider.rows.join(' · ')}`
+    + ` (칸마다 ${SLIDER_STEP_MIN}px · 전체 ${SLIDER_SPAN_MIN}px 이상 — 밀어도 안 변하면 안 된다)`);
   console.log(`다리 옆선: 허벅지×종아리 ${legLine.n}조합 — 가장 선 곳 ${legLine.worst}`
     + ` (${legLine.at} · ${LEG_SLOPE_MAX} 까지)`
     + ` · 둘 다 200% 일 때 무릎이 ${legLine.grow}px 굵어진다 (${KNEE_GROW_MIN}px 이상)`);

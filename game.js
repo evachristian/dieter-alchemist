@@ -3733,8 +3733,12 @@ const TUNE_PARTS = [
 ];
 // % 단위 (100 = 기본). **하한도 부위마다 다를 수 있다** — `TUNE_PARTS` 의 `min` 이 있으면 그것.
 // 엉덩이만 20 인 이유: 다른 부위는 50% 밑으로 가면 뼈만 남은 것처럼 보이는데,
-// 엉덩이는 **허리·허벅지가 하한 노릇을 하므로**(avatar.js 의 `hipBaseHalf`) 더 내려도
-// 그 둘보다 좁아지지 않는다. 슬라이더만 열어 두고 실제 모양은 몸이 지킨다
+// 엉덩이는 20% 라도 골반이 좁은 몸으로 보인다 (허벅지 윗머리가 같이 들어온다).
+//
+// ⚠️ **여기를 열어 두는 것만으로는 아무 일도 안 일어난다.** 한동안 20%~150% 가
+// 전부 같은 폭으로 그려졌다 — `avatar.js` 의 `hipBaseHalf` 에서 허리·허벅지가
+// 하한 노릇을 해 배율을 통째로 삼켰기 때문이다. **상한·하한을 바꿨으면
+// `node tools/checkavatar.js` 의 「슬라이더」가 그 구간을 실제로 재는지 볼 것**
 const TUNE_MIN = 50, TUNE_STEP = 2;
 const tunePart = k => TUNE_PARTS.find(p => p.k === k) || {};
 const tuneMaxOf = k => { const v = tunePart(k).max; return v == null ? 200 : v; };

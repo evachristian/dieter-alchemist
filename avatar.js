@@ -99,7 +99,12 @@
     // 엉덩이 — 허리보다 넓어야 여성 실루엣이 산다. '엉덩이' 배율이 이 값을 늘이고 줄인다.
     // 예전에는 몸통이 hipY 에서 한 점(100,214)으로 모여, 허벅지(78~122)와 만나는 곳이
     // 뚝 끊겨 보였다. 둥근 엉덩이가 그 사이를 잇는다.
-    hipHalf: 34,
+    //
+    // ⚠️ **허벅지 윗머리(`thighTop` 의 기본값 38)와 같은 값이어야 한다.**
+    // 이 값이 그보다 낮으면 `hipBaseHalf` 의 허벅지 하한이 늘 이겨 **슬라이더가
+    // 통째로 죽는다** — 34 였을 때 20%~150% 가 전부 38.0~38.6px 로 나와,
+    // 엉덩이를 아무리 줄여도 좌우 폭이 하나도 안 변했다.
+    hipHalf: 38,
     hipBottom: 214,                 // 엉덩이 아래 끝 (허벅지와 겹쳐 이어진다)
     thighHalf: 22,                  // 허벅지 바깥 (78 / 122)
     // 팔: (x, y=120) 에서 시작하는 폭 armW 의 막대를 어깨 기준으로 회전.
@@ -536,10 +541,27 @@
   // 허리 반폭 — 몸과 옷이 **같은 값**을 본다. 옷은 CLOTH_PAD 만큼 넉넉하게.
   const waistHalf = tune => BODY.waistHalf * tuneOf(tune, 'waist');
   const clothWaistHalf = tune => waistHalf(tune) + CLOTH_PAD;
+  // ─── 허벅지 윗머리는 **골반을 따라 들어온다** ────────────────
+  //
+  // 허벅지가 붙는 자리가 곧 골반이다. 그래서 이 둘은 서로의 하한 노릇을 하는데,
+  // 허벅지 쪽만 일방적으로 하한이면 **엉덩이 슬라이더가 통째로 죽는다** —
+  // 실제로 `LEG.hipW` 를 20 → 36 으로 올린 뒤 엉덩이 20%~150% 가 전부
+  // 38.0~38.6px 로 나왔다 (좌우 폭이 하나도 안 변한다는 신고가 이것이다).
+  //
+  // 골반이 좁은 몸은 허벅지도 위쪽부터 모여서 붙는다 — **무릎이 허벅지·종아리를
+  // 따라가는 것(`KNEE_K`)과 같은 규칙**이다. 다만 관절이니 절반만 따라간다.
+  //   · 엉덩이 100% 이상이면 한 톨도 안 움직인다 (기본 체형은 그대로다)
+  //   · 엉덩이 20% 면 윗머리가 60% 로 들어오고, 그만큼 엉덩이도 같이 좁아진다
+  // **무릎 쪽으로는 저절로 사라진다** — 아래의 `thighOuterAt` 이 무릎(`kneeX`)까지
+  // 보간하므로, 골반이 건드리는 것은 윗머리 하나뿐이다.
+  const HIP_PULL = 0.5;
+  const thighTop = tune => Math.max(innerX(LEG.hipY) + 2,
+    (THIGH_GAP + LEG.hipW * fatOf(tune, 'thigh'))
+      * (1 - HIP_PULL * (1 - Math.min(1, fatOf(tune, 'hip')))));
   // 허벅지 바깥 변 — **높이에 따라 다르다.** 위(엉덩이 밑)가 가장 굵고 무릎으로 가늘어진다.
   // 엉덩이가 붙을 자리를 잡으려면 「그 높이의」 허벅지 폭을 알아야 한다
   function thighOuterAt(tune, y) {
-    const L = LEG, top = THIGH_GAP + L.hipW * fatOf(tune, 'thigh'), kx = kneeX(tune);
+    const L = LEG, top = thighTop(tune), kx = kneeX(tune);
     const u = Math.max(0, Math.min(1, (y - L.hipY) / (L.kneeY - L.hipY)));
     return top + (kx - top) * u * u * (3 - 2 * u);
   }
@@ -563,11 +585,18 @@
   const thighJoin = tune => thighOuterAt(tune, hipBlendY(tune)) - 1;
   // 엉덩이 반폭 — 옷은 여기도 덮어야 한다 (치마·바지·드레스가 이 값을 본다).
   //
-  // **허리보다도 허벅지보다도 좁을 수 없다.** 좁으면 그 둘이 엉덩이 밖으로 튀어나와
-  // 이음매에 계단이 생긴다 (엉덩이만 줄이면 몸통 옆선이 엉덩이 밖으로 나갔다).
+  // **허벅지보다 좁을 수 없다.** 좁으면 허벅지가 엉덩이 밖으로 튀어나와 이음매에
+  // 계단이 생긴다. 그 허벅지 윗머리가 이제 골반을 따라 같이 들어오므로(`thighTop`),
+  // 이 하한은 엉덩이를 붙잡아 두지 않고 **같이 내려온다.**
+  //
+  // ⚠️ **허리 하한은 허리의 3/4 까지만이다.** 예전에는 허리 자체가 하한이라
+  // 기본 허리(30)에서 엉덩이가 30px 밑으로 못 내려갔다 — 슬라이더 아래쪽 절반이
+  // 죽는다. 엉덩이가 허리보다 좁은 몸은 실제로 있다(사과형). 다만 아주 좁으면
+  // 허리에서 골반까지 34px 만에 떨어뜨려야 해서 **쐐기**가 되므로 선은 그어 둔다.
+  const HIP_WAIST_MIN = 0.75;
   const hipBaseHalf = tune => Math.max(
     BODY.hipHalf * fatOf(tune, 'hip'),
-    waistHalf(tune) * tuneOf(tune, 'torso'),
+    waistHalf(tune) * tuneOf(tune, 'torso') * HIP_WAIST_MIN,
     thighOuter(tune));
   const clothHipHalf = tune => hipHalf(tune) + CLOTH_PAD;
 
@@ -773,7 +802,7 @@
   // 관절은 **마디보다 굵어질 수는 없다** — 가늘게 만들면 같이 가늘어진다
   const kneeX = tune => Math.min(
     LEG.kneeX * (1 - KNEE_K + KNEE_K * Math.max(fatOf(tune, 'thigh'), fatOf(tune, 'calf'))),
-    THIGH_GAP + LEG.hipW * fatOf(tune, 'thigh') * 0.85,
+    thighTop(tune) * 0.85,          // 골반이 좁아 윗머리가 들어오면 무릎도 따라 들어온다
     CALF_GAP + LEG.bellyW * fatOf(tune, 'calf') * 0.85);
   const ankleX = tune => Math.min(LEG.ankleX, CALF_GAP + LEG.bellyW * fatOf(tune, 'calf') * 0.8);
   // 장딴지가 가장 굵은 자리 — **불어나는 양이 클수록 아래로 내려간다.**
@@ -862,7 +891,9 @@
     const L = LEG, kt = fatOf(tune, 'thigh'), kc = fatOf(tune, 'calf');
     const kx = kneeX(tune), ax = ankleX(tune);
     const bellyY = bellyYOf(tune);
-    const thigh = [[L.hipY, THIGH_GAP + L.hipW * kt], [L.kneeY, kx]];
+    // 윗머리는 **골반을 따라 들어온다** — 그리는 값도 `thighTop` 한 곳에서 나와야
+    // 엉덩이가 재는 폭(`thighOuterAt`)과 어긋나지 않는다
+    const thigh = [[L.hipY, thighTop(tune)], [L.kneeY, kx]];
     const calf = [[L.calfY, kx], [bellyY, CALF_GAP + L.bellyW * kc], [L.ankleY, ax]];
     const fy = BODY.footY, fx = footX(tune);
     return `
