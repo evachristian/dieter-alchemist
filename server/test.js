@@ -195,6 +195,138 @@ async function run(label, env) {
   r = await J('POST', '/api/name', { playerId: B, secret: SEC_B, name: 'Eva' });
   ok(r.status === 200, `초기화된 이름을 남이 다시 씀 → ${r.status} (200 기대)`);
 
+  // ── 밭 · 약탈 (크리처 9단계) ──
+  // **서버가 판정을 갖는 첫 자리다.** 그래서 여기만은 「돌아간다」로 부족하다 —
+  // 남의 밭이 얼마나 줄었는지 · 약탈권이 몇 개 남았는지까지 세어 본다.
+  {
+    const DAY = 24 * 60 * 60 * 1000;
+    const V = 'p_' + 'v'.repeat(20), SEC_V = 'v'.repeat(32);   // 털리는 쪽
+    const R = 'p_' + 'r'.repeat(20), SEC_R = 'r'.repeat(32);   // 터는 쪽
+    const sum = s => Object.values(s || {}).reduce((a, b) => a + b, 0);
+    const farmOf = async id => (await store.get(id)).farm;
+    const setFarm = async (id, f) => { await store.farmSet(id, f); };
+
+    await J('POST', '/api/name', { playerId: V, secret: SEC_V, name: '밭주인' });
+    await J('POST', '/api/name', { playerId: R, secret: SEC_R, name: '도둑고양이' });
+    // 유니콘(빛·상급, 전투력 64, 반딧불이 3개)이 지키는 밭
+    await J('PUT', `/api/save/${V}`, {
+      secret: SEC_V, rev: 1,
+      state: { name: '밭주인', creatures: ['unicorn'], petRoom: 'unicorn', pets: {} },
+    });
+    // 불씨 도롱뇽(불·기초, 전투력 16)을 데리고 간다
+    await J('PUT', `/api/save/${R}`, {
+      secret: SEC_R, rev: 1,
+      state: { name: '도둑고양이', creatures: ['ember_newt'], petField: 'ember_newt', pets: {} },
+    });
+
+    // 밭은 열어야 생긴다 — **한 번도 안 연 사람은 털리지 않는다**
+    let f = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
+    ok(f.status === 200 && f.body.count === 0, `밭 열기 → ${f.status}, 이삭 ${f.body && f.body.count}`);
+    ok(f.body.daily && f.body.daily.firefly === 3, `하루치 = ${JSON.stringify(f.body.daily)}`);
+    ok(f.body.raids === 3, `약탈권 ${f.body.raids} (3 기대)`);
+    ok(f.body.def && f.body.def.id === 'unicorn' && f.body.def.power === 64,
+      `지키는 크리처 = ${JSON.stringify(f.body.def)}`);
+
+    // 사흘 지나면 사흘치
+    { const g = await farmOf(V); g.grownAt = Date.now() - 3 * DAY; await setFarm(V, g); }
+    f = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
+    ok(f.body.count === 9, `사흘 뒤 이삭 ${f.body.count} (9 기대)`);
+
+    // 한 달을 비워도 5일치까지만 (`FARM_DAYS`)
+    { const g = await farmOf(V); g.stash = {}; g.grownAt = Date.now() - 30 * DAY; await setFarm(V, g); }
+    f = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
+    ok(f.body.count === 15, `한 달 비운 뒤 이삭 ${f.body.count} (5일치 15 기대)`);
+
+    // 수확 — 밭이 비고, **같은 nonce 로 다시 오면 같은 답**
+    let h = await J('POST', `/api/farm/${V}/harvest`, { secret: SEC_V, nonce: 'harv01' });
+    ok(h.status === 200 && h.body.items.firefly === 15, `수확 → ${JSON.stringify(h.body.items)}`);
+    h = await J('POST', `/api/farm/${V}/harvest`, { secret: SEC_V, nonce: 'harv01' });
+    ok(h.status === 200 && h.body.repeat === true && h.body.items.firefly === 15,
+      '같은 nonce 로 재시도 → 같은 답 (멱등)');
+    h = await J('POST', `/api/farm/${V}/harvest`, { secret: SEC_V, nonce: 'harv02' });
+    ok(h.status === 409 && h.body.error === 'farm_empty', `빈 밭 수확 → ${h.status} (409 기대)`);
+
+    // 남의 밭은 못 본다
+    h = await J('GET', `/api/farm/${V}?secret=${OTHER}`);
+    ok(h.status === 403, `남의 밭 조회 → ${h.status} (403 기대)`);
+
+    // **세이브를 저장해도 밭은 그대로다.** 파일·메모리 저장소는 레코드를 통째로
+    // 다시 쓰기 때문에 옮겨 담는 것을 빠뜨리면 저장할 때마다 밭이 사라진다
+    { const g = await farmOf(V); g.stash = { firefly: 9 }; await setFarm(V, g); }
+    await J('PUT', `/api/save/${V}`, {
+      secret: SEC_V, rev: 2,
+      state: { name: '밭주인', creatures: ['unicorn'], petRoom: 'unicorn', pets: {} },
+    });
+    f = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
+    ok(f.body.count === 9, `세이브 저장 뒤에도 이삭 ${f.body.count} (9 기대)`);
+
+    // 목록에 이삭 있는 밭이 뜬다
+    let t = await J('GET', `/api/raid/targets/${R}?secret=${SEC_R}`);
+    ok(t.status === 200 && t.body.targets.some(x => x.name === '밭주인'),
+      `상대 목록 → ${JSON.stringify((t.body.targets || []).map(x => x.name))}`);
+    ok(!t.body.targets.some(x => x.name === '도둑고양이'), '내 밭은 목록에 안 뜬다');
+
+    // 약탈 — 이기든 지든 **약탈권은 하나 준다**
+    const before = sum((await farmOf(V)).stash);
+    let d = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'raid01' });
+    ok(d.status === 200, `약탈 → ${d.status} (win=${d.body && d.body.win}, p=${d.body && d.body.chance})`);
+    ok(d.body.raids === 2, `약탈권 ${d.body.raids} (2 기대)`);
+    ok(d.body.chance >= 0.10 && d.body.chance <= 0.90, `확률 ${d.body.chance} 이 바닥·천장 안`);
+    {
+      const vf = await farmOf(V);
+      const took = sum(d.body.items);
+      if (d.body.win) {
+        ok(took > 0 && sum(vf.stash) === before - took,
+          `이겼다: ${took}개 가져가고 밭은 ${before} → ${sum(vf.stash)}`);
+        ok(vf.shieldUntil > Date.now(), '이긴 뒤에는 그 밭에 잠시 방패가 걸린다');
+      } else {
+        ok(took === 0 && sum(vf.stash) === before, `졌다: 밭은 그대로 ${sum(vf.stash)}`);
+      }
+      ok(vf.log.length === 1 && vf.log[0].by === '도둑고양이' && vf.log[0].win === d.body.win,
+        `털린 기록이 남는다: ${JSON.stringify(vf.log[0])}`);
+    }
+    // 재시도는 같은 답 — **약탈권이 두 번 깎이거나 두 번 털면 안 된다**
+    {
+      const vBefore = sum((await farmOf(V)).stash);
+      const again = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'raid01' });
+      ok(again.body.repeat === true && again.body.win === d.body.win && again.body.raids === 2,
+        '같은 nonce 로 재시도 → 같은 답 (멱등)');
+      ok(sum((await farmOf(V)).stash) === vBefore, '재시도로 밭이 또 줄지 않는다');
+    }
+
+    // 방패가 걸려 있으면 못 턴다
+    { const g = await farmOf(V); g.shieldUntil = Date.now() + 3600e3; g.stash = { firefly: 9 }; await setFarm(V, g); }
+    d = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'raid02' });
+    ok(d.status === 409 && d.body.error === 'target_shielded', `방패 걸린 밭 → ${d.status}`);
+    t = await J('GET', `/api/raid/targets/${R}?secret=${SEC_R}`);
+    ok(!t.body.targets.some(x => x.name === '밭주인'), '방패 걸린 밭은 목록에도 안 뜬다');
+
+    // 약탈권이 없으면 못 턴다
+    { const g = await farmOf(V); g.shieldUntil = 0; await setFarm(V, g); }
+    { const g = await farmOf(R); g.raids = 0; g.raidAt = Date.now(); await setFarm(R, g); }
+    d = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'raid03' });
+    ok(d.status === 409 && d.body.error === 'no_raids', `약탈권 0 → ${d.status}`);
+    // 여덟 시간마다 하나씩 찬다
+    { const g = await farmOf(R); g.raidAt = Date.now() - 9 * 3600e3; await setFarm(R, g); }
+    f = await J('GET', `/api/farm/${R}?secret=${SEC_R}`);
+    ok(f.body.raids === 1, `9시간 뒤 약탈권 ${f.body.raids} (1 기대)`);
+
+    // 동행 크리처가 없으면 못 나간다 · 내 밭은 못 턴다
+    await J('PUT', `/api/save/${R}`, {
+      secret: SEC_R, rev: 2, state: { name: '도둑고양이', creatures: ['ember_newt'], pets: {} },
+    });
+    d = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'raid04' });
+    ok(d.status === 409 && d.body.error === 'no_companion', `동행 없이 약탈 → ${d.status}`);
+    await J('PUT', `/api/save/${R}`, {
+      secret: SEC_R, rev: 3,
+      state: { name: '도둑고양이', creatures: ['ember_newt'], petField: 'ember_newt', pets: {} },
+    });
+    d = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '도둑고양이', nonce: 'raid05' });
+    ok(d.status === 400 && d.body.error === 'self', `내 밭을 털려고 하면 → ${d.status}`);
+    d = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: '!' });
+    ok(d.status === 400 && d.body.error === 'bad_nonce', `nonce 형식 → ${d.status}`);
+  }
+
   // 11) 게임 파일이 같은 서버에서 서빙된다
   const html = await fetch(base + '/');
   const text = await html.text();
@@ -205,7 +337,8 @@ async function run(label, env) {
   ok(sync.status === 200, `sync.js 서빙 → ${sync.status}`);
 
   // 12) 서버 소스·의존성·설정은 밖으로 내보내지 않는다
-  for (const p of ['/server/index.js', '/server/store.js', '/node_modules/express/package.json',
+  for (const p of ['/server/index.js', '/server/store.js', '/server/battle.js',
+                   '/node_modules/express/package.json',
                    '/package.json', '/package-lock.json', '/railway.json', '/.gitignore',
                    // 검사기·생성기도 게임이 안 쓴다. 예전에는 /tools/checkui.js 가 200 이었다
                    '/tools/checkui.js', '/tools/hooks/post-commit',
@@ -259,6 +392,62 @@ function pick(env) {
     const src = fs.readFileSync(path.join(__dirname, 'index.js'), 'utf8');
     ok(/process\.env\.PORT \|\| 8080/.test(src), '기본 포트 8080');
     if (saved !== undefined) process.env.PORT = saved;
+  }
+
+  // ── 전투 규칙 자체 (server/battle.js) ──
+  // API 를 거치지 않고 규칙만 본다. **확률이 걸린 것은 roll 을 넘겨 고정한다** —
+  // 무작위를 그대로 두고 「돌아간다」만 보면 순환이 뒤집혀 있어도 통과한다
+  {
+    for (const k of Object.keys(require.cache)) delete require.cache[k];
+    const Bt = require('./battle.js');
+    const C = Bt.CREATURES;
+    ok(Object.keys(C).length === 30, `크리처 표를 data.js 에서 읽는다 (${Object.keys(C).length}종)`);
+    ok(typeof global.window === 'undefined', 'data.js 를 읽고 나서 전역 window 를 치운다');
+
+    // 속성 순환 — 불 ➔ 땅 ➔ 바람 ➔ 물 ➔ 불 · 빛 ↔ 암흑
+    ok(Bt.attrMul('fire', 'earth') === Bt.ATTR_MUL, '불이 땅을 이긴다');
+    ok(Bt.attrMul('earth', 'fire') === 1 / Bt.ATTR_MUL, '땅은 불에 진다');
+    ok(Bt.attrMul('water', 'fire') === Bt.ATTR_MUL, '물이 불을 이긴다');
+    ok(Bt.attrMul('light', 'dark') === Bt.ATTR_MUL && Bt.attrMul('dark', 'light') === Bt.ATTR_MUL,
+      '빛과 암흑은 서로를 이긴다');
+    ok(Bt.attrMul('fire', 'fire') === 1, '같은 속성끼리는 보정 없음');
+
+    // 로열티는 **양쪽 다** 올린다 (먹이를 준 크리처는 공격이든 방어든 잘 싸운다)
+    const uni = C.unicorn;
+    ok(Bt.combatPower(uni) === 64, `유니콘 전투력 ${Bt.combatPower(uni)}`);
+    ok(Math.abs(Bt.effPower(uni, 100) - 64 * 1.3) < 1e-9, '로열티 가득 → 전투력 +30%');
+    ok(Bt.effPower(uni, 0) === 64, '로열티 0 → 그대로');
+
+    // 판정 — 약한 쪽이 이길 확률에도 바닥이 있다
+    const weak = { c: C.ember_newt, loyalty: 0 };
+    const strong = { c: uni, loyalty: 0 };
+    ok(Bt.resolve(weak, strong, 0).win === true, 'roll 0 이면 이긴다');
+    ok(Bt.resolve(weak, strong, 0.99).win === false, 'roll 0.99 면 진다');
+    ok(Bt.resolve(weak, strong, 0).chance > Bt.WIN_MIN,
+      `기초 대 상급은 아직 바닥이 아니다 (${Bt.resolve(weak, strong, 0).chance.toFixed(2)}) — 붙어 볼 만하다`);
+    // **바닥과 천장은 지어낸 극단으로 잰다.** 서른 마리 안에서는 아직 그만큼
+    // 차이가 안 나서(기초 16 대 상급 64 → 0.20), 실제 크리처로 재면 영영 안 걸린다
+    const tiny = { c: { attr: 'fire', combat: { atk: 1, matk: 0, def: 0, mdef: 0 } }, loyalty: 0 };
+    const huge = { c: { attr: 'fire', combat: { atk: 9999, matk: 0, def: 0, mdef: 0 } }, loyalty: 0 };
+    ok(Math.abs(Bt.resolve(tiny, huge, 0).chance - Bt.WIN_MIN) < 1e-9,
+      `확률에 바닥이 있다 (${Bt.WIN_MIN})`);
+    ok(Math.abs(Bt.resolve(huge, tiny, 0).chance - Bt.WIN_MAX) < 1e-9,
+      `확률에 천장이 있다 (${Bt.WIN_MAX})`);
+    // **밭을 안 지키면 거의 털린다** (그래도 확실하지는 않다)
+    ok(Math.abs(Bt.resolve(weak, null, 0).chance - Bt.WIN_MAX) < 1e-9, '지키는 크리처가 없으면 천장');
+    // 속성이 유리하면 확률이 실제로 오른다 — 계산값이 resolve 까지 닿아 있는가
+    const flat = Bt.resolve({ c: C.charcoal_toad, loyalty: 0 }, { c: C.moss_deer, loyalty: 0 }, 0).chance;
+    const rev = Bt.resolve({ c: C.moss_deer, loyalty: 0 }, { c: C.charcoal_toad, loyalty: 0 }, 0).chance;
+    ok(flat > rev, `불(불>땅)이 땅보다 유리하다: ${flat.toFixed(3)} > ${rev.toFixed(3)}`);
+
+    // 가져가는 양 — 3분의 1씩, 합쳐서 상한까지
+    const take = Bt.loot({ firefly: 9, walnut: 3 });
+    ok(take.firefly === 3 && take.walnut === 1, `이삭 9·3 에서 ${JSON.stringify(take)}`);
+    ok(Bt.countOf(Bt.loot({ firefly: 999 })) === Bt.TAKE_MAX, `한 번에 ${Bt.TAKE_MAX}개까지`);
+
+    // 없는 크리처를 장착 중이어도 안 죽는다 (재료로 녹인 뒤 · 초기화 뒤)
+    ok(Bt.defender({ petRoom: 'no_such', creatures: [] }) === null, '없는 크리처를 지키개로 두면 null');
+    ok(Bt.defender({ petRoom: 'unicorn', creatures: [] }) === null, '안 가진 크리처는 안 쳐 준다');
   }
 
   await run('메모리 저장소', {});

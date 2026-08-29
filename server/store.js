@@ -9,6 +9,12 @@
 //  따로 컬럼으로 빼 둔다 — 랭킹과 통계를 state 를 전부 파싱하지 않고 뽑기 위해서다.
 //  이름은 유일하다. 유일성은 반드시 저장소가 보장해야 한다(아래 claimName 참고).
 //
+//  ⚠ **밭(farm)은 state 의 사본이 아니다.** 다른 컬럼은 전부 state 에서 뽑은 것이라
+//     저장할 때 같이 갈아 끼우면 되는데, 밭은 **서버가 정본을 갖는 유일한 값**이다
+//     (남이 털어 간 결과가 여기에 적힌다 — 9단계). 그래서 `put()` 은 밭을 건드리지
+//     않고, `farmSet()` 만 쓴다. 파일·메모리 저장소는 레코드를 통째로 다시 쓰므로
+//     **밭을 반드시 옮겨 담아야 한다** — 안 그러면 저장할 때마다 밭이 사라진다.
+//
 //  ⚠ Railway 의 기본 파일시스템은 재배포할 때마다 초기화된다.
 //     그래서 아무것도 설정하지 않으면 '메모리' 로 동작하고,
 //     서버가 다시 뜰 때 세이브가 사라진다. 실서비스에서는 1) 이나 2) 를 쓸 것.
@@ -22,6 +28,16 @@ const path = require('path');
 // 영문 닉네임에서만 의미가 있지만, 'Eva' 와 'eva' 가 둘 다 존재하면
 // 서로를 사칭하기 쉬워서 막는다. 비교용 키만 접고 표시용 원본은 그대로 둔다.
 const nameKey = s => String(s == null ? '' : s).trim().toLowerCase();
+
+// 무작위로 몇 개 — 파일·메모리 저장소용 (Postgres 는 `ORDER BY random()`)
+function sample(list, limit) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, Math.min(Math.max(1, limit | 0), 50));
+}
 
 // state 에서 컬럼으로 뺄 값을 뽑는다.
 //  · 이름·플레이 시간은 state 안에 그대로 있다
@@ -87,6 +103,7 @@ function pgStore(url) {
         ALTER TABLE saves ADD COLUMN IF NOT EXISTS name_key  TEXT;
         ALTER TABLE saves ADD COLUMN IF NOT EXISTS charm     INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE saves ADD COLUMN IF NOT EXISTS play_sec  INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE saves ADD COLUMN IF NOT EXISTS farm      JSONB;
         CREATE UNIQUE INDEX IF NOT EXISTS saves_name_key_uniq ON saves (name_key);
         CREATE INDEX IF NOT EXISTS saves_charm_idx ON saves (charm DESC);
       `).catch(e => { ready = null; throw e; });
@@ -101,8 +118,9 @@ function pgStore(url) {
     playerId: row.player_id, secret: row.secret, rev: Number(row.rev),
     savedAt: row.saved_at, state: row.state,
     name: row.name || null, charm: Number(row.charm) || 0, playSec: Number(row.play_sec) || 0,
+    farm: row.farm || null,
   });
-  const COLS = 'player_id, secret, rev, saved_at, state, name, charm, play_sec';
+  const COLS = 'player_id, secret, rev, saved_at, state, name, charm, play_sec, farm';
 
   return {
     kind: 'postgres',
@@ -186,6 +204,23 @@ function pgStore(url) {
         playSec: Number(x.play_sec) || 0, savedAt: x.saved_at,
       }));
     },
+    // 밭만 갈아 끼운다 — state · rev 는 건드리지 않는다
+    async farmSet(playerId, farm) {
+      await ensure();
+      await pool.query('UPDATE saves SET farm = $2 WHERE player_id = $1', [playerId, farm]);
+    },
+    // 털러 갈 만한 남의 밭 — 이름이 있고 · 밭을 열어 둔 사람만.
+    // **밭을 한 번도 안 연 사람은 목록에 안 나온다** — 기능이 있는 줄도 모르는 채로
+    // 털리는 일이 없어야 한다 (9단계)
+    async peers(playerId, limit) {
+      await ensure();
+      const r = await pool.query(
+        `SELECT ${COLS} FROM saves
+         WHERE name IS NOT NULL AND farm IS NOT NULL AND player_id <> $1
+         ORDER BY random() LIMIT $2`,
+        [playerId, Math.min(Math.max(1, limit | 0), 50)]);
+      return r.rows.map(rowOf);
+    },
   };
 }
 
@@ -229,7 +264,7 @@ function fileStore(dir) {
       const cur = readOne(playerId);
       writeOne(cur
         ? { ...cur, name }
-        : { playerId, secret, rev: 0, savedAt: new Date().toISOString(), state: {}, name, charm: 0, playSec: 0 });
+        : { playerId, secret, rev: 0, savedAt: new Date().toISOString(), state: {}, name, charm: 0, playSec: 0, farm: null });
       return { ok: true };
     },
     async put(playerId, secret, rev, state, meta) {
@@ -241,7 +276,16 @@ function fileStore(dir) {
       writeOne({
         playerId, secret, rev, savedAt: new Date().toISOString(), state,
         name, charm: c.charm, playSec: c.playSec,
+        farm: (cur && cur.farm) || null,      // 밭은 서버가 정본이다 — 옮겨 담는다
       });
+    },
+    async farmSet(playerId, farm) {
+      const cur = readOne(playerId);
+      if (!cur) return;
+      writeOne({ ...cur, farm });
+    },
+    async peers(playerId, limit) {
+      return sample(readAll().filter(r => r.name && r.farm && r.playerId !== playerId), limit);
     },
     async del(playerId) {
       try { fs.unlinkSync(fileOf(playerId)); } catch (e) {}
@@ -281,7 +325,7 @@ function memStore() {
       const cur = m.get(playerId);
       m.set(playerId, cur
         ? { ...cur, name }
-        : { playerId, secret, rev: 0, savedAt: new Date().toISOString(), state: {}, name, charm: 0, playSec: 0 });
+        : { playerId, secret, rev: 0, savedAt: new Date().toISOString(), state: {}, name, charm: 0, playSec: 0, farm: null });
       return { ok: true };
     },
     async put(playerId, secret, rev, state, meta) {
@@ -292,7 +336,15 @@ function memStore() {
       m.set(playerId, {
         playerId, secret, rev, savedAt: new Date().toISOString(), state,
         name, charm: c.charm, playSec: c.playSec,
+        farm: (cur && cur.farm) || null,      // 밭은 서버가 정본이다 — 옮겨 담는다
       });
+    },
+    async farmSet(playerId, farm) {
+      const cur = m.get(playerId);
+      if (cur) m.set(playerId, { ...cur, farm });
+    },
+    async peers(playerId, limit) {
+      return sample([...m.values()].filter(r => r.name && r.farm && r.playerId !== playerId), limit);
     },
     async del(playerId) { m.delete(playerId); },
     async count() { return m.size; },
