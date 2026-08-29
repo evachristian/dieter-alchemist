@@ -615,6 +615,46 @@ body {
 .pd-items { display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .pd-item { white-space: nowrap; }
 .pd-item svg { width: 18px; height: 18px; vertical-align: -3px; }
+
+/* ── 밭 · 약탈 (CREATURE.md 10장) ──
+   한 줄이 「이름 : 값」 두 덩어리다. **가로로 넘치게 두지 않는다** —
+   영어는 라벨이 길고(`Guarded by`), 크리처 이름·속성 딱지·전투력이 한 줄에 같이 온다.
+   265px 에서 라벨을 두 배로 늘려도 줄이 밀리지 않게 전부 줄바꿈을 허용한다 */
+.farm-card { max-width: 360px; }
+.farm-lead { font-size: 0.8rem; color: var(--text-lav); margin: 6px 0 10px; text-align: left; }
+.farm-row {
+  display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center;
+  text-align: left; margin: 6px 0; font-size: 0.86rem; font-weight: 700;
+}
+.farm-k { flex: 0 0 auto; color: var(--text-lav); font-weight: 800; }
+.farm-pal { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.farm-pal svg { width: 26px; height: 26px; }
+.farm-pow { color: var(--text-lav); font-weight: 800; }
+.farm-none { color: var(--text-lav); font-weight: 700; }
+.farm-hint { font-size: 0.76rem; color: var(--text-lav); text-align: left; margin: 2px 0 8px; }
+.farm-shield { color: var(--text-pink); font-weight: 800; }
+.farm-logk { color: var(--text-lav); font-weight: 800; margin-top: 12px; }
+.farm-log { display: flex; flex-direction: column; gap: 4px; max-height: 26vh; overflow-y: auto; }
+.farm-logrow {
+  text-align: left; font-size: 0.8rem; font-weight: 700;
+  background: var(--cream); border-radius: 12px; padding: 6px 10px;
+}
+.farm-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
+.farm-btns .btn { flex: 1 1 130px; }
+
+/* 이웃 밭 한 칸 — 이름 · 지키개 · 이삭 · 상성을 **세로로** 쌓는다.
+   가로로 두면 이름이 긴 사람에서 상성 딱지가 밀려 나간다 */
+.raid-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+.raid-name { font-weight: 800; }
+.raid-guard, .raid-crop { font-size: 0.8rem; font-weight: 700; }
+/* 상성 딱지 — **글자색은 고정이고 배경만 옅게 깐다** (속성 딱지와 같은 규칙).
+   색 위에 흰 글자를 얹으면 대비를 세 번 다 맞춰야 하고 하나는 반드시 걸린다 */
+.raid-tag {
+  font-size: 0.72rem; font-weight: 800; color: var(--ink);
+  border-radius: 999px; padding: 1px 8px; background: var(--cream);
+}
+.raid-tag.good { background: var(--mint); }
+.raid-tag.bad  { background: var(--pink); }
 /* 고른 레시피가 요구하는데 가방에 없는 재료 — 자리만 회색으로 잡아 둔다.
    **✕ 를 달지 않는다** (뺄 것이 없다). 누르면 무엇이 모자란지 알려 준다. */
 .c-slot.lack {

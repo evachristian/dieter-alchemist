@@ -20,7 +20,8 @@
     "gen:wardrobe": "node tools/genwardrobe.js",
     "gen:creature": "node tools/gencreature.js",
     "gen:mapattr": "node tools/genmapattr.js",
-    "test:time": "node tools/checktime.js"
+    "test:time": "node tools/checktime.js",
+    "test:farm": "node tools/checkfarm.js"
   },
   "dependencies": {
     "express": "^4.19.2",

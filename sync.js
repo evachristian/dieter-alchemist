@@ -242,6 +242,44 @@
     return true;
   }
 
+  // ─── 밭 · 약탈 (크리처 9단계) ───
+  // **세이브와 다른 길이다.** 밭은 서버가 정본을 갖고 있어서 여기서는 모아 두거나
+  // 나중에 다시 보내지 않는다 — 실패하면 실패한 것으로 알리고 화면이 그렇게 말한다.
+  // (세이브는 못 올려도 로컬이 진짜지만, 밭은 서버에 없으면 아예 없다)
+  //
+  // 수확·약탈은 **같은 요청이 두 번 가도 한 번만 일어나야 한다.** 응답을 못 받고
+  // 재시도했을 때 거둔 것이 사라지거나 약탈권이 두 번 깎이면 안 된다. 그래서
+  // 요청마다 nonce 를 붙이고 서버가 같은 nonce 를 기억한다.
+  const nonce = () => rand(8);
+  async function farmGet() {
+    if (!enabled()) return { status: 0, body: null };
+    try {
+      return await api('GET', `/api/farm/${me.playerId}?secret=${encodeURIComponent(me.secret)}`);
+    } catch (e) { return { status: 0, body: null }; }
+  }
+  async function harvest(n) {
+    if (!enabled()) return { status: 0, body: null };
+    try {
+      return await api('POST', `/api/farm/${me.playerId}/harvest`, {
+        body: { secret: me.secret, nonce: n },
+      });
+    } catch (e) { return { status: 0, body: null }; }
+  }
+  async function raidTargets() {
+    if (!enabled()) return { status: 0, body: null };
+    try {
+      return await api('GET', `/api/raid/targets/${me.playerId}?secret=${encodeURIComponent(me.secret)}`);
+    } catch (e) { return { status: 0, body: null }; }
+  }
+  async function raid(target, n) {
+    if (!enabled()) return { status: 0, body: null };
+    try {
+      return await api('POST', `/api/raid/${me.playerId}`, {
+        body: { secret: me.secret, target, nonce: n },
+      });
+    } catch (e) { return { status: 0, body: null }; }
+  }
+
   const T = (k, v) => (window.I18N ? I18N.t(k, v) : k);
 
   window.addEventListener('pagehide', flushNow);
@@ -253,6 +291,7 @@
 
   window.Sync = {
     push, pull, flushNow, wipe, code, useCode, claimName,
+    nonce, farmGet, harvest, raidTargets, raid,
     get status() { return status; },
     get playerId() { return me.playerId; },
     enabled,

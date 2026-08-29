@@ -57,6 +57,10 @@ const defaultState = () => ({
   // 크리처 생산 (8단계) — 없던 칸을 더하는 것이라 마이그레이션이 필요 없다
   produced: [],           // 최근 5일치 기록 [{ day, items:{id:n}, seen }]
   producedDay: 0,         // 마지막으로 정산한 날짜 키
+  // 밭을 마지막으로 연 시각 (9단계). **밭 자체는 서버가 갖는다** — 여기 남기면
+  // 두 벌이 되고 어느 쪽이 맞는지 판단할 근거가 없다. 이 값은 「침입 기록을 어디까지
+  // 봤나」 하나뿐이다. 없던 칸을 더하는 것이라 마이그레이션이 필요 없다
+  farmSeenAt: 0,
   // 마이 룸에 두는 **애착 크리처 한 마리.** 매력에 반영되는 것도 이 한 마리뿐이다.
   // 예전에는 가진 전부가 중복까지 다 더해져 무한 누적이었다 (CREATURE.md 0장)
   petRoom: null,
@@ -189,6 +193,9 @@ function newRecord() {
     exMin:       0,   // 운동한 시간 (분, 누적)
     creatures:   0,   // 만든 크리처 (누적 — 전시 목록과 달리 줄지 않는다)
     produced:    0,   // 크리처가 만들어 준 날 수 (8단계)
+    harvested:   0,   // 밭에서 거둔 이삭 개수 (9단계)
+    raids:       0,   // 이웃 밭에 나간 횟수
+    raidWon:     0,   // 그중 뚫은 횟수
     pots:        ['cd_iron_old'],   // 써 본 마법 솥 (중복 없이)
     playSec:     0,   // 실제로 화면을 보고 있던 시간 (초)
     days:        1,   // 접속한 날 수
@@ -4939,6 +4946,16 @@ function renderActBadges() {
     const pb = document.getElementById('actProduce');
     if (pb) pb.setAttribute('aria-label', k ? T('act_produce_n', { n: k }) : T('act_produce'));
   }
+  // 밭 (9단계) — **안 본 침입 기록 수.** 이삭이 여문 것은 뱃지로 안 알린다:
+  // 매일 여물어서 뱃지가 늘 켜져 있으면 아무것도 안 알리는 것과 같다
+  const fe = document.getElementById('farmBadge');
+  if (fe) {
+    const k = farmUnseen();
+    fe.textContent = k > 9 ? '9+' : String(k);
+    fe.hidden = k === 0;
+    const fb = document.getElementById('actFarm');
+    if (fb) fb.setAttribute('aria-label', k ? T('act_farm_n', { n: k }) : T('act_farm'));
+  }
 }
 
 // ─── 생산 기록 (최근 5일치) ──────────────────────────────────
@@ -4990,6 +5007,272 @@ function fmtDayKey(k) {
 }
 window.openProduceLog = openProduceLog;
 window.closeProduceLog = closeProduceLog;
+
+// ═══════════════════════════════════════════════════════════════
+//  밭 · 약탈 (CREATURE.md 10장 · 9단계)
+//
+//  **서버가 정본을 갖는 유일한 화면이다.** 게임의 다른 모든 것은 로컬이 진짜고
+//  서버는 사본인데(`sync.js`), 밭만 반대다 — 남이 내 밭에서 가져간 결과가 적히는
+//  곳이라 세이브 안에 두면 내가 다음에 저장하는 순간 없던 일이 된다.
+//
+//  그래서 여기서는 **모아 두거나 나중에 다시 보내지 않는다.** 못 닿으면 못 닿았다고
+//  말한다. 빈 밭으로 그려 놓으면 「털렸구나」로 읽힌다 — 그것이 제일 나쁜 오해다.
+//
+//  ⚠️ **가방으로 들어가는 생산(8단계)은 그대로다.** 밭은 그것과 별개로 한 몫이
+//  더 쌓이는 자리이고, 대신 남이 털어 갈 수 있다. **잃는 것은 언제나 「아직 안 받은
+//  덤」**이지 이미 가진 재료가 아니다 — 코지 게임에서 가진 것을 뺏기면 다시 안 켠다.
+// ═══════════════════════════════════════════════════════════════
+//
+// 서버가 준 밭. **세이브에 안 남긴다** — 남기면 두 벌이 되고, 어느 쪽이 맞는지
+// 판단할 근거가 없다 (날씨를 세이브에 안 남기는 것과 같은 이유)
+let FARM = null;
+let farmBusy = false;
+
+// 서버에서 밭을 받아 온다. 못 받으면 FARM 을 null 로 둔다 (= 「모른다」)
+async function refreshFarm() {
+  if (!window.Sync || !Sync.enabled()) { FARM = null; return null; }
+  const r = await Sync.farmGet();
+  FARM = r.status === 200 && r.body ? r.body : null;
+  renderActBadges();
+  return FARM;
+}
+window.refreshFarm = refreshFarm;
+
+// 안 본 침입 기록 수 — `S.farmSeenAt`(밭을 마지막으로 연 시각) 뒤에 온 것만 센다
+function farmUnseen() {
+  if (!FARM || !Array.isArray(FARM.log)) return 0;
+  const seen = S.farmSeenAt || 0;
+  return FARM.log.filter(x => (x.t || 0) > seen).length;
+}
+
+// **남이 지은 이름은 그대로 붙이지 않는다.** 서버의 `NAME_ALLOW` 가 글자·숫자·한글만
+// 통과시키지만, 그건 지금 규칙이고 밭에 적힌 이름은 남이 쓴 값이다 — 화면에 넣기 전에
+// 한 번 접는다 (이 게임에서 **남이 쓴 글자가 내 화면에 나오는 첫 자리**다)
+const escHtml = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// { 재료id: 개수 } → 「🪰 반딧불이 ×9」 줄
+const stashLine = st => Object.keys(st || {})
+  .map(id => `<span class="pd-item">${itemArt(id)} ${itemName(id)} ×${st[id]}</span>`).join('');
+// 토스트용 — 그림 없이 말로만
+const stashText = st => Object.keys(st || {})
+  .map(id => `${itemName(id)} ${st[id]}`).join(' · ');
+
+// 크리처 한 마리를 한 줄로 (서버는 id 만 준다 — 이름은 여기서 제 언어로 부른다)
+function briefLine(b) {
+  if (!b) return `<span class="farm-none">${T('raid_guard_none')}</span>`;
+  const c = creatureOf(b.id);
+  const attr = D.creatureAttr(b.attr);
+  return `<span class="farm-pal">${window.Creature && c ? Creature.icon(c, 26) : ''}
+    <span>${c ? N(c.id, c.name) : b.id}</span>
+    ${attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : ''}
+    <span class="farm-pow">${T('farm_power', { n: b.power })}</span></span>`;
+}
+
+function openFarm() {
+  const el = document.getElementById('farmSheet');
+  if (!el) return;
+  el.classList.add('show');
+  renderFarm();                       // 먼저 그리고(있는 값으로) 받아 온 뒤 다시 그린다
+  refreshFarm().then(() => {
+    // 연 시각을 기록해 뱃지를 끈다. **연 뒤에 적는다** — 먼저 적으면 못 받았을 때도
+    // 「봤다」가 되어 침입 기록을 영영 못 본다
+    if (FARM) { S.farmSeenAt = FARM.now || Date.now(); save(); }
+    renderFarm();
+    renderActBadges();
+  });
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeFarm() {
+  const el = document.getElementById('farmSheet');
+  if (el) el.classList.remove('show');
+}
+
+function renderFarm() {
+  const ti = document.getElementById('farmTitle');
+  const body = document.getElementById('farmBody');
+  const hv = document.getElementById('farmHarvest');
+  const rd = document.getElementById('farmRaid');
+  if (ti) ti.textContent = T('farm_title');
+  if (!body) return;
+
+  // 못 닿았을 때 — **빈 밭으로 그리지 않는다**
+  if (!FARM) {
+    body.innerHTML = `<div class="empty-hint">${T('farm_offline')}</div>`;
+    if (hv) hv.hidden = true;
+    if (rd) rd.hidden = true;
+    return;
+  }
+  if (hv) { hv.hidden = false; hv.disabled = !FARM.count; }
+  if (rd) rd.hidden = false;
+
+  const now = FARM.now || Date.now();
+  const rows = [];
+  rows.push(`<div class="farm-lead">${T('farm_lead')}</div>`);
+  rows.push(`<div class="farm-row"><span class="farm-k">${T('farm_def')}</span>
+    ${briefLine(FARM.def)}</div>`);
+  if (!FARM.def) rows.push(`<div class="farm-hint">${T('farm_def_none')}</div>`);
+
+  // 이삭
+  rows.push(`<div class="farm-row"><span class="farm-k">${T('farm_crop')}</span>
+    <span class="pd-items">${FARM.count ? stashLine(FARM.stash)
+      : `<span class="farm-none">${T('farm_empty')}</span>`}</span></div>`);
+  const nextGrow = (FARM.nextGrowAt || 0) - now;
+  if (nextGrow > 0 && FARM.daily && Object.keys(FARM.daily).length) {
+    rows.push(`<div class="farm-hint">${T('farm_next', { t: leftText(nextGrow) })}
+      · ${T('farm_cap', { n: FARM.days })}</div>`);
+  }
+  // 방패 — 걸려 있는 동안은 아무도 못 턴다
+  if ((FARM.shieldUntil || 0) > now) {
+    rows.push(`<div class="farm-row farm-shield">🛡 ${T('farm_shield',
+      { t: leftText(FARM.shieldUntil - now) })}</div>`);
+  }
+  // 약탈권
+  const nextRaid = (FARM.nextRaidAt || 0) - now;
+  rows.push(`<div class="farm-row"><span class="farm-k">${T('farm_raids_k')}</span>
+    <span>${FARM.raids}/${FARM.raidMax}${
+      FARM.raids < FARM.raidMax && nextRaid > 0
+        ? ` <span class="farm-hint">${T('farm_raids_next', { t: leftText(nextRaid) })}</span>` : ''}</span></div>`);
+
+  // 침입 기록
+  const log = Array.isArray(FARM.log) ? FARM.log : [];
+  rows.push(`<div class="farm-row farm-logk">${T('farm_log')}</div>`);
+  rows.push(log.length
+    ? `<div class="farm-log">${log.map(x => {
+        const who = x.by || T('farm_someone');
+        // **조사를 붙인다** — 「도둑고양이가」 / 「루비는」. 「이(가)」로 두면 화면에
+        // 괄호가 그대로 남는다. 가져간 것에도 붙는다: 「반딧불이 3을」 / 「호두 2를」
+        const it = stashText(x.items);
+        return `<div class="farm-logrow">${x.win
+          ? T('farm_log_win', { who, josa: josa(who, '이가'), items: it, ij: josa(it, '을를') })
+          : T('farm_log_lose', { who, josa: josa(who, '을를') })}</div>`;
+      }).join('')}</div>`
+    : `<div class="farm-hint">${T('farm_log_none')}</div>`);
+  body.innerHTML = rows.join('');
+}
+
+// 거두기 — 서버가 밭을 비우고 목록을 돌려주면 그것을 가방에 넣는다.
+// **nonce 로 멱등이다** — 응답을 못 받고 다시 눌러도 두 번 들어오지 않는다
+async function harvestFarm() {
+  if (farmBusy || !FARM || !FARM.count) return;
+  farmBusy = true;
+  const r = await Sync.harvest(Sync.nonce());
+  farmBusy = false;
+  if (r.status !== 200 || !r.body || !r.body.items) {
+    toast(T(r.status === 409 ? 'farm_empty' : 'farm_err'));
+    await refreshFarm(); renderFarm();
+    return;
+  }
+  const items = r.body.items;
+  Object.keys(items).forEach(id => addInv(id, items[id]));
+  rec('harvested', Object.values(items).reduce((a, b) => a + b, 0));
+  save();
+  toast(T('farm_got', { items: stashText(items) }), null, 2600);
+  if (window.Sfx) Sfx.play('pick');
+  await refreshFarm();
+  renderFarm();
+  render();
+}
+
+// ─── 이웃 밭 ─────────────────────────────────────────────────
+let RAIDS = null;
+
+function openRaidPick() {
+  if (!S.petField || !ownsCreature(S.petField)) { toast(T('farm_no_pal')); return; }
+  if (FARM && FARM.raids < 1) {
+    const t = (FARM.nextRaidAt || 0) - (FARM.now || Date.now());
+    toast(T('farm_no_raids', { t: leftText(Math.max(60000, t)) }));
+    return;
+  }
+  const el = document.getElementById('raidPick');
+  if (!el) return;
+  el.classList.add('show');
+  const ti = document.getElementById('raidTitle');
+  if (ti) ti.textContent = T('raid_title');
+  const list = document.getElementById('raidList');
+  if (list) list.innerHTML = `<div class="empty-hint">${T('raid_loading')}</div>`;
+  Sync.raidTargets().then(r => {
+    RAIDS = r.status === 200 && r.body ? r.body.targets || [] : null;
+    renderRaidList();
+  });
+}
+function closeRaidPick() {
+  const el = document.getElementById('raidPick');
+  if (el) el.classList.remove('show');
+}
+
+function renderRaidList() {
+  const list = document.getElementById('raidList');
+  if (!list) return;
+  if (!RAIDS) { list.innerHTML = `<div class="empty-hint">${T('farm_err')}</div>`; return; }
+  if (!RAIDS.length) { list.innerHTML = `<div class="empty-hint">${T('raid_none')}</div>`; return; }
+  const me = creatureOf(S.petField);
+  list.innerHTML = RAIDS.map((t, i) => {
+    // **상성을 미리 보여 준다.** 순환(불➔땅➔바람➔물, 빛↔암흑)을 처음 쓰는 자리라,
+    // 결과만 보고는 무엇이 왜 유리했는지 아무도 못 배운다
+    const tag = matchTag(me, t.def);
+    // **이름을 onclick 안에 넣지 않는다.** 남이 지은 글자라 따옴표 하나로 코드가 되고,
+    // 실제로 이 게임에서 남이 쓴 글자가 내 화면에 나오는 첫 자리다. 자리 번호만 넘긴다
+    return `<button class="pal-item raid-item" onclick="doRaid(${i})">
+      <span class="raid-name">${escHtml(t.name)}</span>
+      <span class="raid-guard">${briefLine(t.def)}</span>
+      <span class="pd-items raid-crop">${stashLine(t.stash)}</span>
+      <span class="raid-tag ${tag.k}">${tag.txt}</span>
+    </button>`;
+  }).join('');
+}
+
+// 내 동행이 그 지키개에게 유리한가 — 서버의 `attrMul` 과 같은 규칙이다.
+// **두 군데에 있다는 것을 알고 둔다** (이름 규칙이 양쪽에 있는 것과 같다):
+// 여기 것은 안내용이고 판정은 서버가 한다. `D.CREATURE_ATTRS` 의 `beats` 한 표에서
+// 둘 다 나오므로, 표를 고치면 양쪽이 같이 바뀐다
+function matchTag(mine, def) {
+  if (!mine || !def) return { k: 'even', txt: T('raid_even') };
+  const a = D.creatureAttr(mine.attr), b = D.creatureAttr(def.attr);
+  if (a && a.beats === def.attr) return { k: 'good', txt: T('raid_good') };
+  if (b && b.beats === mine.attr) return { k: 'bad', txt: T('raid_bad') };
+  return { k: 'even', txt: T('raid_even') };
+}
+
+async function doRaid(i) {
+  const t = RAIDS && RAIDS[i];
+  if (!t || farmBusy) return;
+  const name = t.name;
+  farmBusy = true;
+  const r = await Sync.raid(name, Sync.nonce());
+  farmBusy = false;
+  closeRaidPick();
+  if (r.status !== 200 || !r.body) {
+    const e = (r.body && r.body.error) || '';
+    toast(T(e === 'target_shielded' ? 'raid_shielded'
+      : e === 'target_empty' || e === 'target_gone' ? 'raid_gone'
+      : e === 'no_raids' ? 'raid_no_left'
+      : e === 'no_companion' ? 'farm_no_pal' : 'farm_err'), null, 2600);
+    await refreshFarm(); renderFarm();
+    return;
+  }
+  rec('raids');
+  if (r.body.win) {
+    const items = r.body.items || {};
+    Object.keys(items).forEach(id => addInv(id, items[id]));
+    rec('raidWon');
+    toast(T('raid_win', { who: name, items: stashText(items) }), null, 3000);
+  } else {
+    toast(T('raid_lose', { who: name }), null, 2800);
+  }
+  save();
+  if (window.Sfx) Sfx.play(r.body.win ? 'success' : 'fail');
+  await refreshFarm();
+  renderFarm();
+  render();
+}
+
+window.openFarm = openFarm;
+window.closeFarm = closeFarm;
+window.harvestFarm = harvestFarm;
+window.openRaidPick = openRaidPick;
+window.closeRaidPick = closeRaidPick;
+window.doRaid = doRaid;
 
 function openBingeScene() {
   const n = bingeCount();
@@ -5416,6 +5699,9 @@ document.addEventListener('DOMContentLoaded', () => {
     Sync.pull(S).then(r => {
       if (r && r.action === 'adopt') toast(T('sync_pulled'), null, 2800);
       ensureNameClaimed();
+      // 밭을 한 번 받아 온다 — **자는 사이에 털렸는지**를 알려면 이 한 번이 필요하다.
+      // 세이브를 먼저 맞춘 뒤에 부른다 (adopt 로 `farmSeenAt` 이 바뀔 수 있다)
+      refreshFarm();
     });
   } else {
     renderSyncChip('off');

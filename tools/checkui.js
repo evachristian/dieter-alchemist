@@ -133,6 +133,40 @@ function launchOpts() {
     return null;
   }, !!process.env.FULL);
 
+  // ─── 시트 하나가 화면 안에 다 들어가는가 ──────────────────
+  //
+  // ⚠️ **`checkLayout()` 만으로는 시트 안의 넘침을 못 잡는다.** 그쪽은 정해진
+  // 선택자(버튼·칩·카드…)만 재는데 시트 속의 줄들은 대개 그냥 `div` 라 대상이 아니고,
+  // 목록은 `overflow-y:auto` 라 **가로 overflow 도 auto 로 계산돼** 넘침 검사에서 빠진다.
+  // 실제로 `.farm-row` 를 일부러 `nowrap` 으로 만들어도 전부 통과로 나왔다.
+  //
+  // 그래서 시트는 **자기 상자보다 내용이 넓은 요소**를 직접 찾는다. 진짜로 옆으로
+  // 스크롤되게 만든 곳(`overflow-x: auto/scroll`)만 빼고 본다.
+  await page.evaluate(() => {
+    window.__cardFits = (sel) => {
+      const card = document.querySelector(sel + ' .modal-card');
+      if (!card) return '시트 카드가 없다';
+      const r = card.getBoundingClientRect();
+      const W = document.documentElement.clientWidth, H = window.innerHeight;
+      if (r.left < -0.5 || r.right > W + 0.5) {
+        return `카드가 가로로 넘쳤다 (${Math.round(r.left)}..${Math.round(r.right)} / ${W})`;
+      }
+      if (r.top < -0.5 || r.bottom > H + 0.5) {
+        return `카드가 세로로 넘쳤다 (${Math.round(r.top)}..${Math.round(r.bottom)} / ${H})`;
+      }
+      for (const el of [card, ...card.querySelectorAll('*')]) {
+        const st = getComputedStyle(el);
+        if (st.display === 'none' || st.overflowX === 'auto' || st.overflowX === 'scroll') continue;
+        const over = el.scrollWidth - el.clientWidth;
+        if (over > 1) {
+          const who = el.className || el.tagName.toLowerCase();
+          return `${who} 안의 내용이 ${over}px 넘쳤다 (${el.clientWidth}px 칸에 ${el.scrollWidth}px)`;
+        }
+      }
+      return null;
+    };
+  });
+
   const results = [];
   if (gate) results.push({ 화면: '(탭 잠금)', 오류: gate });
   const run = async (label) => {
@@ -501,6 +535,88 @@ function launchOpts() {
         });
         if (pdBad2) results.push({ 화면: `${t}/생산기록`, 오류: pdBad2 });
         await page.evaluate(() => closeProduceLog());
+        await page.waitForTimeout(150);
+
+        // **밭 · 이웃 밭** (9단계) — 눌러야만 뜨고, 게다가 **서버가 있어야 뜬다.**
+        // 여기서는 서버를 띄우지 않고 값만 심어 **화면만** 잰다 —
+        // 실제로 거두고 털리는지는 `npm run test:farm` 이 진짜 서버로 본다.
+        //
+        // ⚠️ **제일 빡빡한 값을 심는다.** 이삭 한 가지 · 침입 기록 한 줄로 재면
+        // 아무 데서도 안 걸린다: 여러 종류가 든 이삭 줄과 **이름이 제일 긴 사람**이
+        // 가져간 기록 줄이 이 시트에서 제일 긴 줄이다 (영어 이름은 12자까지다)
+        const fmBad = await page.evaluate(() => {
+          const LONG = 'Wwwwwwwwwwww';                 // 이름 최대 폭 (NAME_MAX_W = 12)
+          const t = Date.now();
+          FARM = {
+            now: t, stash: { walnut: 12, wheat: 9, dew: 6, sun_seed: 4 }, count: 31,
+            grownAt: t - 3600e3, nextGrowAt: t + 20 * 3600e3,
+            shieldUntil: t + 5400e3, raids: 1, raidMax: 3, nextRaidAt: t + 3 * 3600e3,
+            daily: { walnut: 3, wheat: 2 }, days: 5,
+            def: { id: 'unicorn', attr: 'light', grade: 'high', power: 64, loyalty: 40 },
+            atk: { id: 'ember_phoenix', attr: 'fire', grade: 'high', power: 64, loyalty: 0 },
+            log: [
+              { t: t - 60e3, by: LONG, win: true, items: { walnut: 4, wheat: 3 } },
+              { t: t - 3600e3, by: '도둑고양이', win: false, items: {} },
+            ],
+          };
+          // ⚠️ **`openFarm()` 을 쓰지 않는다.** 그건 서버에서 밭을 다시 받아 오는데,
+          // 여기는 서버에 밭이 없어서 잠시 뒤 `FARM = null` 로 덮이고 화면이
+          // 「지금은 볼 수 없다」 한 줄로 바뀐다 — 그 상태를 재면 **아무것도 안 잰 것**이
+          // 통과로 나온다 (예전 78건 유령과 같은 종류의 실수다). 시트만 직접 연다
+          document.getElementById('farmSheet').classList.add('show');
+          renderFarm();
+          const n = document.querySelectorAll('#farmBody .farm-logrow').length;
+          return n === 2 ? null : `침입 기록이 ${n}줄이다 (2줄이어야 한다)`;
+        });
+        if (fmBad) results.push({ 화면: `${t}/밭`, 오류: fmBad });
+        else {
+          await page.waitForTimeout(280);
+          // **재기 직전에 다시 확인한다** — 기다리는 사이에 값이 날아갔으면 잰 것이 없다
+          const gone = await page.evaluate(() =>
+            document.querySelectorAll('#farmBody .farm-logrow').length !== 2);
+          if (gone) results.push({ 화면: `${t}/밭`, 오류: '재기 전에 화면이 비었다 (심은 값이 날아갔다)' });
+          await run(`${t}/밭`);
+        }
+        const fmBad2 = await page.evaluate(() => window.__cardFits('#farmSheet'));
+        if (fmBad2) results.push({ 화면: `${t}/밭`, 오류: fmBad2 });
+        await page.evaluate(() => { closeFarm(); FARM = null; });
+        await page.waitForTimeout(150);
+
+        // 이웃 밭 — **상성 딱지 세 가지가 다 나오게** 심는다.
+        // 하나만 재면 나머지 둘의 대비를 한 번도 안 본다 (배경색이 셋 다 다르다)
+        const rdBad = await page.evaluate(() => {
+          const D2 = window.GameData;
+          const b = (id, attr) => ({ id, attr, grade: 'high', power: 64, loyalty: 0 });
+          S.petField = 'ember_phoenix';                                  // 불
+          if (!S.creatures.includes('ember_phoenix')) S.creatures.push('ember_phoenix');
+          RAIDS = [
+            { name: 'Wwwwwwwwwwww', charm: 999, count: 15,
+              stash: { walnut: 9, wheat: 6 }, def: b('boulder_bear', 'earth') },   // 불 > 땅 = 유리
+            { name: '물의수호자', charm: 300, count: 4,
+              stash: { dew: 4 }, def: b('deepsea_whale', 'water') },               // 물 > 불 = 불리
+            { name: '밭주인', charm: 220, count: 9,
+              stash: { firefly: 9 }, def: b('unicorn', 'light') },                 // 보통
+            { name: '빈터', charm: 10, count: 2, stash: { sun_seed: 2 }, def: null }, // 지키개 없음
+          ];
+          const el = document.getElementById('raidPick');
+          el.classList.add('show');
+          document.getElementById('raidTitle').textContent = I18N.t('raid_title');
+          renderRaidList();
+          const tags = [...document.querySelectorAll('#raidList .raid-tag')].map(x => x.className);
+          const kinds = new Set(tags.map(c => c.replace('raid-tag ', '')));
+          return kinds.size === 3 ? null : `상성 딱지가 ${[...kinds].join('/')} 뿐이다 (셋 다 나와야 한다)`;
+        });
+        if (rdBad) results.push({ 화면: `${t}/이웃밭`, 오류: rdBad });
+        else {
+          await page.waitForTimeout(280);
+          const gone = await page.evaluate(() =>
+            document.querySelectorAll('#raidList .raid-item').length !== 4);
+          if (gone) results.push({ 화면: `${t}/이웃밭`, 오류: '재기 전에 목록이 비었다' });
+          await run(`${t}/이웃밭`);
+        }
+        const rdBad2 = await page.evaluate(() => window.__cardFits('#raidPick'));
+        if (rdBad2) results.push({ 화면: `${t}/이웃밭`, 오류: rdBad2 });
+        await page.evaluate(() => { closeRaidPick(); FARM = null; RAIDS = null; });
         await page.waitForTimeout(150);
 
         // 방에 **어항이 선 모습**도 잰다. FULL 이 심는 두 마리는 땅·공중이라

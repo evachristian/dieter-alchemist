@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260830h">
+<link rel="stylesheet" href="style.css?v=20260831a">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260830h" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260831a" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -473,6 +473,13 @@
           <span aria-hidden="true">🧺</span><span data-i18n="act_produce">수확</span>
           <span id="produceBadge" class="act-badge" hidden>0</span>
         </button>
+        <!-- 밭 (CREATURE.md 10장) — 생산과 **별개로** 밖에 내놓은 몫이 쌓이는 자리다.
+             안 털리고 거두면 그날 생산이 두 배가 되고, 털리면 그 덤만 잃는다.
+             뱃지에는 **안 본 침입 기록 수**를 적는다 (흡입·수확과 같은 규칙) -->
+        <button id="actFarm" class="room-act" onclick="openFarm()">
+          <span aria-hidden="true">🌾</span><span data-i18n="act_farm">밭</span>
+          <span id="farmBadge" class="act-badge" hidden>0</span>
+        </button>
       </div>
     </div>
 
@@ -736,6 +743,30 @@
   </div>
 </div>
 
+<!-- ── 밭 (CREATURE.md 10장) ──
+     **서버가 정본을 갖는 유일한 화면이다.** 그래서 오프라인이면 빈 밭이 아니라
+     「지금은 볼 수 없다」로 말해야 한다 — 빈 밭으로 보이면 털린 줄 안다 -->
+<div id="farmSheet" class="modal" onclick="if(event.target===this) closeFarm()">
+  <div class="modal-card farm-card">
+    <div id="farmTitle" class="confirm-text"></div>
+    <div id="farmBody"></div>
+    <div class="farm-btns">
+      <button id="farmHarvest" class="btn btn-primary" onclick="harvestFarm()" data-i18n="farm_harvest">거두기</button>
+      <button id="farmRaid" class="btn btn-ghost" onclick="openRaidPick()" data-i18n="farm_go_raid">이웃 밭 보기</button>
+    </div>
+    <button class="btn btn-ghost" onclick="closeFarm()" data-i18n="pal_close">닫기</button>
+  </div>
+</div>
+
+<!-- 이웃 밭 고르기. **남의 playerId 는 절대 안 받는다** — 이름으로만 가리킨다 -->
+<div id="raidPick" class="modal" onclick="if(event.target===this) closeRaidPick()">
+  <div class="modal-card farm-card">
+    <div id="raidTitle" class="confirm-text"></div>
+    <div id="raidList" class="pal-list"></div>
+    <button class="btn btn-ghost" onclick="closeRaidPick()" data-i18n="pal_close">닫기</button>
+  </div>
+</div>
+
 <div id="palPick" class="modal" onclick="if(event.target===this) closePalPick()">
   <div class="modal-card pal-card">
     <div id="palPickTitle" class="confirm-text"></div>
@@ -779,19 +810,19 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260830h"></script>
-<script src="intro.js?v=20260830h"></script>
-<script src="data.js?v=20260830h"></script>
-<script src="avatar.js?v=20260830h"></script>
-<script src="village.js?v=20260830h"></script>
-<script src="portrait.js?v=20260830h"></script>
-<script src="creature.js?v=20260830h"></script>
-<script src="cauldron.js?v=20260830h"></script>
-<script src="pumpkin.js?v=20260830h"></script>
-<script src="sfx.js?v=20260830h"></script>
-<script src="sync.js?v=20260830h"></script>
-<script src="game.js?v=20260830h"></script>
-<script src="tutorial.js?v=20260830h"></script>
-<script src="a11y.js?v=20260830h"></script>
+<script src="i18n.js?v=20260831a"></script>
+<script src="intro.js?v=20260831a"></script>
+<script src="data.js?v=20260831a"></script>
+<script src="avatar.js?v=20260831a"></script>
+<script src="village.js?v=20260831a"></script>
+<script src="portrait.js?v=20260831a"></script>
+<script src="creature.js?v=20260831a"></script>
+<script src="cauldron.js?v=20260831a"></script>
+<script src="pumpkin.js?v=20260831a"></script>
+<script src="sfx.js?v=20260831a"></script>
+<script src="sync.js?v=20260831a"></script>
+<script src="game.js?v=20260831a"></script>
+<script src="tutorial.js?v=20260831a"></script>
+<script src="a11y.js?v=20260831a"></script>
 </body>
 </html>
