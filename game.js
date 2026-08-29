@@ -54,6 +54,9 @@ const defaultState = () => ({
   inventory: {},          // { ingredientId: count }
   potions:   {},          // { potionId: count } (미사용 물약 보관)
   creatures: [],          // [creatureId, ...] (가진 것. 중복이 들어갈 수 있다)
+  // 크리처 생산 (8단계) — 없던 칸을 더하는 것이라 마이그레이션이 필요 없다
+  produced: [],           // 최근 5일치 기록 [{ day, items:{id:n}, seen }]
+  producedDay: 0,         // 마지막으로 정산한 날짜 키
   // 마이 룸에 두는 **애착 크리처 한 마리.** 매력에 반영되는 것도 이 한 마리뿐이다.
   // 예전에는 가진 전부가 중복까지 다 더해져 무한 누적이었다 (CREATURE.md 0장)
   petRoom: null,
@@ -185,6 +188,7 @@ function newRecord() {
     fed:         0,   // 크리처에게 먹인 횟수
     exMin:       0,   // 운동한 시간 (분, 누적)
     creatures:   0,   // 만든 크리처 (누적 — 전시 목록과 달리 줄지 않는다)
+    produced:    0,   // 크리처가 만들어 준 날 수 (8단계)
     pots:        ['cd_iron_old'],   // 써 본 마법 솥 (중복 없이)
     playSec:     0,   // 실제로 화면을 보고 있던 시간 (초)
     days:        1,   // 접속한 날 수
@@ -905,12 +909,65 @@ function msToNextMidnight() {
 }
 function energyCap() { return D.ENERGY.cap + (S.energyBonusCap || 0); }
 
+// ═══════════════════════════════════════════════════════════════
+//  크리처 생산 (CREATURE.md 8장) — 하루에 한 번, 저절로 쌓인다
+// ═══════════════════════════════════════════════════════════════
+//
+// **장착한 한 마리 + 동행 한 마리만 만든다.** 가진 것이 전부 만들면 0장에서 없앤
+// 「무한 누적」이 생산물 쪽으로 되살아난다 — 같은 크리처를 스무 마리 만들어 두는 것이
+// 가장 좋은 수가 되고, 그러면 고르는 재미가 사라진다.
+// (둘이 같은 마리여도 된다 — 그때는 한 몫만 만든다)
+//
+// ⚠️ **방치 상한을 둔다.** 한 달 만에 들어온 사람에게 30일치를 쏟으면
+// 「돌아왔더니 다 있네」가 되어 매일 들어올 이유가 없어진다.
+// **상한과 기록 길이를 같은 값으로 둔다** — 그래야 「5일치까지만 쌓인다」가
+// 설명 없이 읽힌다 (기록이 5줄인데 상한이 30이면 아무도 눈치 못 챈다).
+const PRODUCE_DAYS = 5;
+// 지금 만드는 크리처들 — **가진 것인지 한 번 거른다** (재료로 녹였을 수 있다)
+function producers() {
+  return [...new Set([S.petRoom, S.petField])]
+    .filter(id => ownsCreature(id))
+    .map(creatureOf)
+    .filter(c => c && c.makes && D.INGREDIENTS[c.makes.id]);
+}
+// 하루치 — { 재료id: 개수 }
+function produceOnce() {
+  const items = {};
+  producers().forEach(c => { items[c.makes.id] = (items[c.makes.id] || 0) + c.makes.n; });
+  return items;
+}
+// 날짜가 넘어간 만큼 정산한다. 새로 들어온 날 수를 돌려준다.
+// **AP 자정 충전과 같은 자리에서** 부른다 — 날짜 판정이 두 벌이 되면 반드시 어긋난다
+function settleProduce() {
+  const today = dayKey();
+  // 처음 들어온 사람은 기준이 없다. 지금부터 센다 (며칠치를 한 번에 주지 않는다)
+  if (!S.producedDay) { S.producedDay = today; return 0; }
+  if (S.producedDay === today) return 0;
+  const days = Math.min(PRODUCE_DAYS, Math.max(1, daysBetween(S.producedDay, today)));
+  S.producedDay = today;
+  const items = produceOnce();
+  if (!Object.keys(items).length) return 0;      // 아무도 안 데리고 있으면 안 쌓인다
+  for (let i = days - 1; i >= 0; i--) {
+    Object.keys(items).forEach(id => addInv(id, items[id]));
+    // 날짜는 **거슬러 올라가며** 적는다 — 「어제 · 그제」가 기록에 남아야 한다.
+    // ⚠️ ms 를 빼지 않고 **날짜를 뺀다** — 서머타임이 있는 지역에서 하루가 23시간인
+    // 날이 있고, 그때 ms 뺄셈은 같은 날짜를 두 번 적는다
+    const d = nowDate(); d.setDate(d.getDate() - i);
+    S.produced.push({ day: dayKey(d), items, seen: false });
+  }
+  if (S.produced.length > PRODUCE_DAYS) S.produced = S.produced.slice(-PRODUCE_DAYS);
+  rec('produced', days);
+  return days;
+}
+const produceUnseen = () => (S.produced || []).filter(p => !p.seen).length;
+
 // 날짜가 넘어갔으면 충전. 충전이 일어났으면 true 반환.
 function refreshEnergy() {
   const today = dayKey();
   if (S.energyDay === today) return false;
   // 날짜가 넘어갔으니 방치 감소·밤 판정도 여기서 한 번 본다 (창을 며칠 열어 둔 경우)
   decayIdle();
+  settleProduce();                       // 크리처 생산도 같은 자리에서 (8단계)
   if (checkBinge()) renderActBadges();   // 뱃지만 켠다 (토스트로 안 알린다)
   // (여러 날 지났어도) 상한까지 충전 — 현재 dailyFill == cap
   S.energy = Math.min(energyCap(), (S.energy || 0) + D.ENERGY.dailyFill);
@@ -4873,7 +4930,66 @@ function renderActBadges() {
   const btn = document.getElementById('actBinge');
   if (btn) btn.setAttribute('aria-label',
     n ? T('act_binge_n', { n }) : T('act_binge'));
+  // 생산 (8단계) — 안 본 날 수를 같은 규칙으로 적는다
+  const pe = document.getElementById('produceBadge');
+  if (pe) {
+    const k = produceUnseen();
+    pe.textContent = k > 9 ? '9+' : String(k);
+    pe.hidden = k === 0;
+    const pb = document.getElementById('actProduce');
+    if (pb) pb.setAttribute('aria-label', k ? T('act_produce_n', { n: k }) : T('act_produce'));
+  }
 }
+
+// ─── 생산 기록 (최근 5일치) ──────────────────────────────────
+//
+// 만든 것은 **저절로 가방에 들어간다** — 이 시트는 「무엇이 들어왔는지」만 보여 준다.
+// 수확 버튼을 따로 누르게 하면, 며칠 안 들어온 사람이 돌아왔을 때 **누르는 일**이
+// 하나 더 생길 뿐이고 안 누르면 쌓이지도 않아 상한이 두 겹이 된다.
+function openProduceLog() {
+  const list = (S.produced || []).slice().reverse();     // 최근 것이 위로
+  const el = document.getElementById('produceList');
+  const ti = document.getElementById('produceTitle');
+  const who = producers();
+  if (ti) {
+    // **조사를 붙인다** — 「불씨 도롱뇽이」 / 「심해 고래가」. 「이(가)」로 두면
+    // 화면에 괄호가 그대로 남는다 (`josa` 는 마지막 이름의 받침을 본다)
+    const names = who.map(c => N(c.id, c.name)).join(' · ');
+    ti.textContent = who.length
+      ? T('pd_title', { who: names, josa: josa(names, '이가') })
+      : T('pd_none_pet');
+  }
+  if (el) {
+    el.innerHTML = list.length
+      ? list.map(p => {
+          const items = Object.keys(p.items).map(id =>
+            `<span class="pd-item">${itemArt(id)} ${itemName(id)} ×${p.items[id]}</span>`).join('');
+          return `<div class="pal-item pd-row"><span class="pd-day">${fmtDayKey(p.day)}</span>
+            <span class="pd-items">${items}</span></div>`;
+        }).join('')
+      : `<div class="empty-hint">${T('pd_empty', { n: PRODUCE_DAYS })}</div>`;
+  }
+  // 열면 다 본 것으로 친다
+  (S.produced || []).forEach(p => { p.seen = true; });
+  save();
+  renderActBadges();
+  const m = document.getElementById('produceLog');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeProduceLog() {
+  const m = document.getElementById('produceLog');
+  if (m) m.classList.remove('show');
+}
+// 날짜 키(YYYYMMDD) → 「8/30」. 오늘·어제는 말로 적는다
+function fmtDayKey(k) {
+  const today = dayKey();
+  if (k === today) return T('pd_today');
+  if (daysBetween(k, today) === 1) return T('pd_yesterday');
+  return `${Math.floor(k / 100) % 100}/${k % 100}`;
+}
+window.openProduceLog = openProduceLog;
+window.closeProduceLog = closeProduceLog;
 
 function openBingeScene() {
   const n = bingeCount();

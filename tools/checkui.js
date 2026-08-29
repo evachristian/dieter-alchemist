@@ -470,6 +470,39 @@ function launchOpts() {
         await page.evaluate(() => closeFeed());
         await page.waitForTimeout(150);
 
+        // **생산 기록 시트** (8단계) — 눌러야만 뜬다.
+        // ⚠️ 기록을 심어 놓고 열어야 한다. 비어 있으면 「아직 없어요」 한 줄만 떠서
+        // **날짜 + 재료 여러 개가 든 줄을 한 번도 못 잰다** — 그 줄이 제일 긴 줄이다
+        // (하루에 두 크리처가 서로 다른 것을 만들면 덩어리가 둘이 된다)
+        const pdBad = await page.evaluate(() => {
+          const a = D.RECIPES.find(r => r.result.kind === 'creature' && r.result.attr === 'fire');
+          const b = D.RECIPES.find(r => r.result.kind === 'creature' && r.result.attr === 'water'
+            && r.result.grade === 'high');
+          if (!a || !b) return '속성 크리처를 못 찾았다';
+          S.creatures = [...new Set([...(S.creatures || []), a.result.id, b.result.id])];
+          S.petRoom = a.result.id; S.petField = b.result.id;
+          S.produced = []; S.producedDay = dayKey() - 5;
+          settleProduce();
+          openProduceLog();
+          if (!document.getElementById('produceLog').classList.contains('show')) return '시트가 안 떴다';
+          const n = document.querySelectorAll('#produceList .pd-row').length;
+          return n === PRODUCE_DAYS ? null : `기록이 ${n}줄이다 (${PRODUCE_DAYS}줄이어야 한다)`;
+        });
+        if (pdBad) results.push({ 화면: `${t}/생산기록`, 오류: pdBad });
+        else { await page.waitForTimeout(280); await run(`${t}/생산기록`); }
+        const pdBad2 = await page.evaluate(() => {
+          const c = document.querySelector('#produceLog .modal-card');
+          if (!c) return '시트 카드가 없다';
+          const r = c.getBoundingClientRect();
+          const W = document.documentElement.clientWidth, H = window.innerHeight;
+          if (r.left < -0.5 || r.right > W + 0.5) return `가로로 넘쳤다 (${Math.round(r.left)}..${Math.round(r.right)} / ${W})`;
+          if (r.top < -0.5 || r.bottom > H + 0.5) return `세로로 넘쳤다 (${Math.round(r.top)}..${Math.round(r.bottom)} / ${H})`;
+          return null;
+        });
+        if (pdBad2) results.push({ 화면: `${t}/생산기록`, 오류: pdBad2 });
+        await page.evaluate(() => closeProduceLog());
+        await page.waitForTimeout(150);
+
         // 방에 **어항이 선 모습**도 잰다. FULL 이 심는 두 마리는 땅·공중이라
         // 물고기를 따로 넣지 않으면 어항이 통째로 검사에서 빠진다 —
         // 방 그림 위에 얹히는 유일한 큰 소품이라 넘치는지 한 번은 봐야 한다

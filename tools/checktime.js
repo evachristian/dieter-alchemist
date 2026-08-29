@@ -202,6 +202,49 @@ function launchOpts() {
       'AP·스태미나는 시간과 무관하다 (근성·포만감·행복만 갈린다)');
     off = 0;
 
+    // ── 크리처 생산 (8단계) ──
+    //
+    // **하루에 한 번 · 방치 상한 5일치.** 한 달 만에 들어온 사람에게 30일치를 쏟으면
+    // 「돌아왔더니 다 있네」가 되어 매일 들어올 이유가 없어진다.
+    // 시계를 옮겨 놓지 않으면 이 셋 중 무엇도 확인할 수 없다.
+    {
+      const cr = D.RECIPES.find(r => r.result.kind === 'creature' && r.result.makes);
+      const c = cr.result, mk = c.makes;
+      const setup = () => {
+        S.creatures = [c.id];
+        S.petRoom = c.id; S.petField = c.id;      // 같은 마리 — **한 몫만** 만들어야 한다
+        S.inventory[mk.id] = 0;
+        S.produced = [];
+        S.producedDay = dayKey();
+        S.energyDay = dayKey();
+      };
+      // ① 하루가 지나면 한 몫이 들어온다 (같은 마리를 둘로 잡아도 두 몫이 아니다)
+      setup();
+      jumpH(25); refreshEnergy();
+      ok(invCount(mk.id) === mk.n,
+        `하루 뒤 ${mk.id} ${invCount(mk.id)}개 (한 몫 ${mk.n}개여야 한다 — 애착·동행이 같은 마리)`);
+      ok(S.produced.length === 1, `기록 ${S.produced.length}줄 (1줄이어야 한다)`);
+      ok(produceUnseen() === 1, `안 본 날 ${produceUnseen()} (1이어야 한다)`);
+
+      // ② 같은 날 다시 봐도 안 쌓인다
+      const was = invCount(mk.id);
+      refreshEnergy();
+      ok(invCount(mk.id) === was, `같은 날 다시 봐도 ${invCount(mk.id)}개 그대로`);
+
+      // ③ 30일을 건너뛰어도 **5일치만** 들어온다
+      setup();
+      jumpH(24 * 30); refreshEnergy();
+      ok(invCount(mk.id) === mk.n * 5,
+        `30일 건너뛰고 ${invCount(mk.id)}개 (5일치 ${mk.n * 5}개여야 한다)`);
+      ok(S.produced.length === 5, `기록 ${S.produced.length}줄 (상한 5줄과 같아야 한다)`);
+
+      // ④ 아무도 안 데리고 있으면 안 쌓인다
+      setup();
+      S.petRoom = null; S.petField = null;
+      jumpH(24 * 3); refreshEnergy();
+      ok(invCount(mk.id) === 0, `크리처가 없으면 ${invCount(mk.id)}개 (0이어야 한다)`);
+    }
+
     // ── 단련이 몸을 움직이는가 ──
     S.stats.beauty = 30; S.fit = 0;
     const w0 = weightKg(), f0 = bodyFatPct();

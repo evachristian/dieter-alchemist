@@ -21,22 +21,35 @@ const CHECK = process.argv.includes('--check');
 // ─── 속성 ─────────────────────────────────────────────────────
 // 불 ➔ 땅 ➔ 바람 ➔ 물 ➔ 불 (화살표 = 강하다) · 빛 ↔ 암흑 (서로 카운터)
 // 순환은 **채집에 안 쓴다** — 나중의 전투·약탈용이다 (CREATURE.md 2장)
+//
+// ─── 무엇을 만드는가 (`makes`) — 8단계 ───────────────────────
+//
+// **속성이 무엇을, 등급이 몇 개를 정한다.** 서른 마리에 하나씩 적으면 반드시
+// 어긋나고, 빠뜨린 쪽은 조용히 「아무것도 안 만드는 크리처」가 된다.
+//
+// ⚠️ **평야·숲 재료만 만든다.** 늦게 열리는 지대(산악·해안·황무지)의 재료를
+// 미리 쥐여 주면 **맵 해금이 의미를 잃는다** — 기초 크리처의 재료를 평야·숲으로
+// 묶어 둔 것과 같은 이유다. 기초 크리처는 초반에 만들 수 있으므로, 그것이
+// 매일 산악 재료를 뱉으면 산악을 열 이유가 사라진다.
+// ⚠️ **히든 재료는 안 만든다** (0.1% 짜리를 매일 주면 히든이 아니다).
 const ATTRS = [
-  { k: 'fire',  ko: '불',   en: 'Fire',  color: '#f0743c', beats: 'earth' },
-  { k: 'earth', ko: '땅',   en: 'Earth', color: '#b0834e', beats: 'wind' },
-  { k: 'wind',  ko: '바람', en: 'Wind',  color: '#7cc6bb', beats: 'water' },
-  { k: 'water', ko: '물',   en: 'Water', color: '#4f9ada', beats: 'fire' },
-  { k: 'light', ko: '빛',   en: 'Light', color: '#e8b545', beats: 'dark' },
-  { k: 'dark',  ko: '암흑', en: 'Dark',  color: '#6f6191', beats: 'light' },
+  { k: 'fire',  ko: '불',   en: 'Fire',  color: '#f0743c', beats: 'earth', makes: 'sun_seed' },
+  { k: 'earth', ko: '땅',   en: 'Earth', color: '#b0834e', beats: 'wind',  makes: 'walnut' },
+  { k: 'wind',  ko: '바람', en: 'Wind',  color: '#7cc6bb', beats: 'water', makes: 'wheat' },
+  { k: 'water', ko: '물',   en: 'Water', color: '#4f9ada', beats: 'fire',  makes: 'dew' },
+  { k: 'light', ko: '빛',   en: 'Light', color: '#e8b545', beats: 'dark',  makes: 'firefly' },
+  { k: 'dark',  ko: '암흑', en: 'Dark',  color: '#6f6191', beats: 'light', makes: 'mushroom' },
 ];
 
 // ─── 등급 ─────────────────────────────────────────────────────
 // 재료 수가 곧 등급이다 — 2개는 초반 솥에도 들어가고, 4개는 4구 솥부터다.
 // 매력은 **장착한 한 마리만** 반영되므로(CREATURE.md 0장) 상급이 확실히 나아야 한다.
+// `makes` 는 **하루에 몇 개**를 만드는가다 (8단계). 임시값이다 —
+// 방치 상한이 5일치라 상급 하나로 하루 3개 × 5일 = 15개가 한 번에 들어온다
 const GRADES = {
-  basic: { ko: '기초', charm: 2, power: 4 },
-  mid:   { ko: '중급', charm: 4, power: 9 },
-  high:  { ko: '상급', charm: 6, power: 16 },
+  basic: { ko: '기초', charm: 2, power: 4,  makes: 1 },
+  mid:   { ko: '중급', charm: 4, power: 9,  makes: 2 },
+  high:  { ko: '상급', charm: 6, power: 16, makes: 3 },
 };
 
 // ─── 그림 부품 ────────────────────────────────────────────────
@@ -259,6 +272,23 @@ for (const c of TABLE) {
 }
 for (const a of ATTRS) {
   if (attrCount[a.k] !== 5) problems.push(`속성 ${a.ko}: ${attrCount[a.k] || 0}마리 (5여야 한다)`);
+  // 생산물(8단계) — 있는 재료인가 · 초반 지대인가 · 히든이 아닌가
+  const mk = D.INGREDIENTS[a.makes];
+  if (!mk) problems.push(`속성 ${a.ko}: 없는 재료를 만든다 — ${a.makes}`);
+  else {
+    if (mk.rare) problems.push(`속성 ${a.ko}: 히든 재료를 만든다 — ${a.makes}`);
+    if (!['plain', 'forest'].includes(mk.zone)) {
+      problems.push(`속성 ${a.ko}: 늦게 열리는 지대 재료를 만든다 — ${a.makes} (${mk.zone})`);
+    }
+  }
+}
+// 속성마다 **다른 것**을 만들어야 한다 — 같으면 속성이 축 노릇을 못 한다
+{
+  const seen = new Map();
+  for (const a of ATTRS) {
+    if (seen.has(a.makes)) problems.push(`생산물이 겹친다: ${seen.get(a.makes)} 와 ${a.ko} — ${a.makes}`);
+    seen.set(a.makes, a.ko);
+  }
 }
 for (const id of LEGACY) if (!seenId.has(id)) problems.push(`옛 id 가 사라졌다: ${id}`);
 
@@ -326,6 +356,7 @@ for (const a of ATTRS) {
       `    result: { id: ${q(c.id)}, kind: 'creature', grade: ${q(c.grade)}, name: ${q(c.ko)},\n` +
       `      attr: ${q(c.attr)}, charmBonus: ${g.charm}, move: ${q(moveOf(c.art))},\n` +
       `      combat: { atk: ${cb.atk}, matk: ${cb.matk}, def: ${cb.def}, mdef: ${cb.mdef} },\n` +
+      `      makes: { id: ${q(ATTRS.find(x => x.k === c.attr).makes)}, n: ${g.makes} },\n` +
       `      art: { ${art} } } },\n`;
   }
 }
