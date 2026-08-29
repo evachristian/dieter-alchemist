@@ -388,9 +388,17 @@
     const bend = (left ? -B.elbowRot : B.elbowRot) * Math.PI / 180;
     // 팔이 가늘어지면 중심선도 안쪽으로 온다 — 안쪽 변이 고정이기 때문이다.
     // 손을 옛 고정값에 두면 가는 팔에서 손만 바깥에 남는다
-    const xin = left ? B.armX_L + B.armW : B.armX_R;
+    //
+    // ⚠️ **`armShift` 를 여기서도 더해야 한다.** `armShape` 는 몸통 배율만큼 팔을
+    // 옆으로 옮기는데(`armShift`) 이 함수만 그걸 빼먹고 있었다 — 몸통이 100% 가
+    // 아니면 **손이 팔에서 최대 16px 떨어져** 옷 위에 동동 떴다
+    // (몸통 50% 에서 +16 · 150% 에서 −16 · 100% 에서만 0 이라 기본 체형에서는 안 보인다).
+    // 「손이 붙어 나오지 않는다」가 이것이다. **기준선 두 개를 반드시 같이 옮긴다** —
+    // 팔의 안쪽 변(xin)과 어깨 회전축(pivot) 둘 다 `armShape` 와 같은 값이어야 한다
+    const shift = armShift(tune) * (left ? 1 : -1);
+    const xin = (left ? B.armX_L + B.armW : B.armX_R) + shift;
     const at = d => xin + sgn * armHalf(d, k, 0);
-    const pivot = left ? B.armPivotL : B.armPivotR;
+    const pivot = (left ? B.armPivotL : B.armPivotR) + shift;
     const upLen = B.armH * B.elbowT, elbowY = B.armY + upLen;
     const cx = at(upLen);
     const rotAbout = (p, a, o) => ({

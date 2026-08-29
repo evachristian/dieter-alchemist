@@ -984,6 +984,9 @@ function launchOpts() {
   // 구슬**로 보였다. 아래위를 다 막아야 「마개」와 「공」을 같이 잡는다
   const HAND_DROP_MIN = 4, HAND_BULGE_MIN = 0.6, HAND_BULGE_MAX = 1.3;
   const HAND_KEEP = 0.6;          // 옷을 입었을 때 손 자리의 이만큼은 살색으로 남아야 한다
+  // 손이 팔과 겹치는 몫. 제대로 붙어 있으면 배율과 무관하게 12% 안팎이고,
+  // `armPoint` 가 `armShift` 를 빼먹으면 몸통 50% 에서 **0%** 로 떨어진다
+  const HAND_TOUCH = 0.06;
   const hand = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
     const cv = document.createElement('canvas');
@@ -1019,7 +1022,7 @@ function launchOpts() {
                    ['맨팔 200%', {}, { arm: 2 }, '[data-part="arm"]'],
                    ['긴팔', { top: 'top_knit' }, null, '[data-part="arm"]']];
     if (glove) cases.push(['장갑', { glove: glove.id }, null, '[data-part="glove"]']);
-    const rows = [], handRows = [];
+    const rows = [], handRows = [], touchRows = [];
     for (const [name, wear, t, sel] of cases) {
       const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare, wear), 0, t);
       const d = await px(keep(svg, sel));
@@ -1097,8 +1100,43 @@ function launchOpts() {
           + ` (${o.keep * 100}% 이상) — 옷이 손을 덮어 화면에서는 손이 없다`);
       }
     }
-    return { bad: bad, rows: rows, drop: +(bot - ARM_END).toFixed(1), keep: handRows };
-  }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, bulgeMax: HAND_BULGE_MAX, keep: HAND_KEEP });
+    // ─── 손이 팔에 **붙어** 있는가 ────────────────────────────
+    //
+    // 위의 검사는 전부 **맨팔 기본 배율**에서만 손을 본다. 그런데 손자리를 잡는
+    // `armPoint` 가 `armShift`(몸통 배율만큼 팔을 옆으로 옮기는 값)를 **빼먹고**
+    // 있었다 — 몸통이 100% 가 아니면 손이 팔에서 **최대 16px 떨어져** 옷 위에
+    // 동동 떴다 (몸통 50% 에서 겹침 0% · 100% 에서만 11.5% 라 기본에서는 안 보인다).
+    // 「손이 붙어 나오지 않는다」가 이것이다.
+    //
+    // 그래서 **손 마스크가 팔 마스크와 실제로 겹치는지** 센다. 자리를 견주는 것보다
+    // 이쪽이 낫다 — 어느 값을 빼먹든(회전축이든 기준선이든) 결과가 어긋나면 잡힌다.
+    // ⚠️ `[data-part="arm"]` 안에 손이 **들어 있다** — 안 지우면 늘 100% 로 나온다
+    for (const kt of [0.5, 0.75, 1, 1.25, 1.5]) for (const ka of [0.5, 1, 2]) {
+      const svg2 = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0,
+        { torso: kt, arm: ka });
+      const wrap = document.createElement('div');
+      wrap.innerHTML = keep(svg2, '[data-part="arm"]');
+      const r = wrap.firstElementChild;
+      [...r.querySelectorAll('[data-part="hand"]')].forEach(n => n.remove());
+      const dArm = await px(r.outerHTML);
+      const dHand = await px(keep(svg2, '[data-part="hand"]'));
+      let hand = 0, both = 0;
+      for (let i = 3; i < dHand.length; i += 4) {
+        if (dHand[i] < 200) continue;
+        hand++;
+        if (dArm[i] > 200) both++;
+      }
+      const ov = hand ? both / hand : 0;
+      if (ov < o.touch) {
+        bad.push(`몸통 ${kt * 100}% · 팔 ${ka * 100}%: 손이 팔과 ${(ov * 100).toFixed(1)}%`
+          + ` 밖에 안 겹친다 (${o.touch * 100}% 이상) — 손이 팔에서 떨어져 있다`);
+      }
+      if (ka === 1) touchRows.push(`몸통${kt * 100} ${(ov * 100).toFixed(1)}%`);
+    }
+    return { bad: bad, rows: rows, drop: +(bot - ARM_END).toFixed(1),
+             keep: handRows, touch: touchRows };
+  }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, bulgeMax: HAND_BULGE_MAX,
+       keep: HAND_KEEP, touch: HAND_TOUCH });
 
   // ─── 슬라이더를 끝까지 밀었을 때의 두께가 정해진 값인가 ──────
   //
@@ -1849,6 +1887,8 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px 이상 · 부푼 폭은 ${HAND_BULGE_MIN}~${HAND_BULGE_MAX}px)`);
+  console.log(`손이 팔에 붙어 있는가: 팔 마스크와 겹치는 몫 — ${hand.touch.join(' · ')}`
+    + ` (${HAND_TOUCH * 100}% 이상 · 배율을 움직여도 흔들리면 안 된다)`);
   console.log(`손이 옷에 안 덮이는가: 원피스마다 **맨손 한 켤레 넓이** 대비 살색으로 남은 몫`
     + ` — ${hand.keep.join(' · ')} (${HAND_KEEP * 100}% 이상)`);
   console.log(`상한 두께: 100% 대비 ${fat.rows.join(' · ')}`
