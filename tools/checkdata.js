@@ -39,12 +39,33 @@ add('같은 결과물을 내는 레시피가 여럿',
   [...byResult].filter(([, ks]) => ks.length > 1)
     .map(([id, ks]) => `${id}  ←  ${ks.join(' / ')}`));
 
-// **없는 재료를 가리키는 레시피** — 조합창에 빈 칸이 뜬다
-const badInput = [];
+// **없는 재료를 가리키는 레시피** — 조합창에 빈 칸이 뜬다.
+//
+// ⚠️ 입력에는 **크리처 id 도 들어갈 수 있다** (7단계 — 상급이 중급을 재료로 먹는다).
+// 그래서 재료 표만 보면 멀쩡한 레시피가 「없는 재료」로 잡힌다.
+// 게임 쪽도 같은 이유로 조회를 `itemOf()` 한 곳에 모았다.
+const creatureIds = new Set(
+  D.RECIPES.filter(r => r.result.kind === 'creature').map(r => r.result.id));
+const badInput = [], meltIn = [];
 for (const r of D.RECIPES) {
-  for (const id of r.inputs) if (!D.INGREDIENTS[id]) badInput.push(`${r.result.id} ← ${id}`);
+  for (const id of r.inputs) {
+    if (D.INGREDIENTS[id]) continue;
+    if (creatureIds.has(id)) { meltIn.push(`${r.result.id} ← ${id}`); continue; }
+    badInput.push(`${r.result.id} ← ${id}`);
+  }
 }
 add('레시피가 없는 재료를 가리킨다', badInput);
+MELT_N = meltIn.length;
+
+// **크리처를 재료로 먹는 레시피** — 자기보다 아래 등급이어야 한다.
+// 상급이 상급을 먹으면 「먼저 만들 수 있는 길」이 없어져 아무도 못 만든다
+const GRADE_ORDER = { basic: 0, mid: 1, high: 2 };
+const resultOf = id => (D.RECIPES.find(x => x.result.id === id) || {}).result;
+add('크리처가 자기와 같거나 높은 등급을 재료로 먹는다',
+  meltIn.map(t => t.split(' ← ')).filter(([out, into]) => {
+    const a = resultOf(out), b = resultOf(into);
+    return a && b && GRADE_ORDER[b.grade] >= GRADE_ORDER[a.grade];
+  }).map(([out, into]) => `${out} ← ${into}`));
 
 // **inputs 가 정렬돼 있어야 한다.** recipeKey 는 정렬해서 비교하므로 동작은 하지만,
 // 데이터를 눈으로 훑을 때 어긋나 보이고 생성기 결과와도 안 맞는다
@@ -95,7 +116,8 @@ add('id 가 겹친다', dupId);
 // ─── 결과 ─────────────────────────────────────────────────────
 if (!problems.length) {
   console.log(`✅ 데이터 이상 없음 (레시피 ${D.RECIPES.length} · 맵 ${D.MAPS.length}`
-    + ` · 재료 ${Object.keys(D.INGREDIENTS).length} · id ${seen.size})`);
+    + ` · 재료 ${Object.keys(D.INGREDIENTS).length} · id ${seen.size}`
+    + ` · 크리처를 재료로 먹는 레시피 ${MELT_N})`);
   process.exit(0);
 }
 console.log('❌ 데이터가 어긋나 있다\n');

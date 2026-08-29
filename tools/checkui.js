@@ -86,7 +86,10 @@ function launchOpts() {
       const pots = D.RECIPES.filter(r => r.result.kind === 'potion').slice(0, 3);
       const crs  = D.RECIPES.filter(r => r.result.kind === 'creature').slice(0, 2);
       pots.forEach((r, i) => { S.potions[r.result.id] = i + 1; });
-      S.creatures = crs.map(r => r.result.id);
+      // ⚠️ **같은 크리처를 하나 더 넣는다.** 초과분(2번째부터)만 「녹일 수 있는 크리처」
+      // 칩으로 공방 가방에 뜬다 — 한 마리씩만 심으면 그 칩을 **한 번도 안 재게 된다**
+      // (재료가 없으면 가방 칸이 아예 안 그려지는 것과 같은 구멍이다)
+      S.creatures = crs.map(r => r.result.id).concat(crs.length ? [crs[0].result.id] : []);
       if (typeof bagOpen !== 'undefined' && !bagOpen) toggleBag();   // 채집 가방 펼치기
       // 마을은 여는 조건이 아직 없다 — 개발용 스위치가 유일한 열쇠라 여기서 켜 준다.
       // 안 켜면 마을 안(지도·명판)이 통째로 검사에서 빠진다
@@ -282,9 +285,13 @@ function launchOpts() {
             openPalPick();
             const m = document.getElementById('palPick');
             if (!m || !m.classList.contains('show')) return '고르기 시트가 안 열렸다';
-            // 「혼자 간다」 + 가진 크리처 수만큼이어야 한다. 하나뿐이면 목록이 안 그려진 것이다
+            // 「혼자 간다」 + 가진 크리처 **종류** 수만큼이어야 한다.
+            // ⚠️ **개체 수가 아니라 종류다** — `S.creatures` 에는 중복이 들어갈 수 있고
+            // (7단계에서 그 초과분이 재료가 된다) 고르기 목록은 중복을 접는다.
+            // 개체 수로 견주고 있었는데, 중복이 하나도 없던 시절이라 우연히 맞았다
+            const kinds = new Set(S.creatures || []).size;
             const n = document.querySelectorAll('#palPickList .pal-item').length;
-            return n === (S.creatures || []).length + 1 ? null : `고를 칸이 ${n}개다`;
+            return n === kinds + 1 ? null : `고를 칸이 ${n}개다 (종류 ${kinds} + 1 이어야 한다)`;
           });
           if (bad2) results.push({ 화면: `${t}/동행고르기`, 오류: bad2 });
           else { await page.waitForTimeout(250); await run(`${t}/동행고르기`); }

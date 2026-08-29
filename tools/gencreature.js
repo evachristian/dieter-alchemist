@@ -74,6 +74,19 @@ function moveOf(art) {
 // 속성마다 다섯: 기초 2 · 중급 2 · 상급 1.
 // **기초는 평야·숲 재료만 쓴다** — 그 둘이 제일 먼저 열리는 지대라(0 · 38),
 // 산악(112) 재료를 쓰면 「기초인데 못 만든다」가 된다.
+//
+// ─── 상급은 **같은 속성의 첫 중급 크리처**를 재료로 먹는다 (7단계) ──
+//
+// 「크리처는 가마솥에서 태어난다. 그러니 가마솥으로 돌아갈 수도 있다」 —
+// 중복으로 나온 개체가 처음으로 쓸모를 갖는 자리다 (`CREATURE.md` 9장).
+//
+// ⚠️ **손으로 적지 않는다.** 서른 마리 중 다섯 줄에만 적으면 반드시 어긋난다 —
+// 아래 `meltOf()` 가 속성에서 뽑는다. 상급의 `inputs` 를 **재료 셋**으로 적어 두면
+// 남는 한 칸을 그 크리처가 채워 **여전히 넷**이 된다 (4구 솥 그대로).
+//
+// ⚠️ **옛 크리처(LEGACY)는 건드리지 않는다.** 유니콘은 재료 셋짜리 상급 그대로다 —
+// 「빛 상급이 유독 싸다」고 원래 적혀 있던 그 자리이고, 조합을 바꾸면 그것을 가진
+// 사람의 레시피 북이 어제와 달라진다.
 const TABLE = [
   // ── 불 ──
   { id: 'ember_newt',       attr: 'fire',  grade: 'basic', ko: '불씨 도롱뇽',   en: 'Ember Newt',
@@ -85,7 +98,7 @@ const TABLE = [
   { id: 'charcoal_toad',    attr: 'fire',  grade: 'mid',   ko: '숯불 두꺼비',   en: 'Charcoal Toad',
     inputs: ['flint', 'mushroom', 'walnut'],                art: C('blob', 'none', 'none', 'none', 'none', 'sleepy', 'spot') },
   { id: 'ember_phoenix',    attr: 'fire',  grade: 'high',  ko: '불꽃 봉황',     en: 'Ember Phoenix',
-    inputs: ['eagle_feather', 'flint', 'lizard_scale', 'sun_seed'], art: C('bird', 'none', 'none', 'bird', 'long', 'sharp', 'glow') },
+    inputs: ['eagle_feather', 'flint', 'sun_seed'], art: C('bird', 'none', 'none', 'bird', 'long', 'sharp', 'glow') },
 
   // ── 땅 ──
   { id: 'pebble_turtle',    attr: 'earth', grade: 'basic', ko: '조약돌 거북',   en: 'Pebble Turtle',
@@ -97,7 +110,7 @@ const TABLE = [
   { id: 'crystal_pangolin', attr: 'earth', grade: 'mid',   ko: '수정 천산갑',   en: 'Crystal Pangolin',
     inputs: ['crystal', 'echo_stone', 'wild_ivy'],          art: C('bear', 'none', 'crystal', 'none', 'long', 'dot', 'stripe') },
   { id: 'boulder_bear',     attr: 'earth', grade: 'high',  ko: '바위 곰',       en: 'Boulder Bear',
-    inputs: ['chestnut_pumpkin', 'echo_stone', 'iron_ore', 'pine_cone'], art: C('bear', 'round', 'none', 'none', 'puff', 'sharp', 'spot') },
+    inputs: ['echo_stone', 'iron_ore', 'pine_cone'], art: C('bear', 'round', 'none', 'none', 'puff', 'sharp', 'spot') },
 
   // ── 바람 ──
   { id: 'dandelion_hare',   attr: 'wind',  grade: 'basic', ko: '민들레 토끼',   en: 'Dandelion Hare',
@@ -109,7 +122,7 @@ const TABLE = [
   { id: 'cloud_goat',       attr: 'wind',  grade: 'mid',   ko: '구름 염소',     en: 'Cloud Goat',
     inputs: ['cloud_moss', 'clover', 'snow_bud'],           art: C('deer', 'long', 'pair', 'none', 'puff', 'sleepy', 'none') },
   { id: 'sky_falcon',       attr: 'wind',  grade: 'high',  ko: '하늘 매',       en: 'Sky Falcon',
-    inputs: ['cloud_moss', 'eagle_feather', 'mist_drop', 'sun_seed'], art: C('bird', 'none', 'none', 'bird', 'long', 'sharp', 'stripe') },
+    inputs: ['cloud_moss', 'eagle_feather', 'sun_seed'], art: C('bird', 'none', 'none', 'bird', 'long', 'sharp', 'stripe') },
 
   // ── 물 ──
   // frog 은 **옛 id** 다. 조합(mushroom + petal)도 그대로 둔다
@@ -122,7 +135,7 @@ const TABLE = [
   { id: 'dew_snail',        attr: 'water', grade: 'mid',   ko: '이슬 달팽이',   en: 'Dewdrop Snail',
     inputs: ['moss_branch', 'night_dew', 'shell'],          art: C('blob', 'long', 'none', 'none', 'none', 'sleepy', 'glow') },
   { id: 'deepsea_whale',    attr: 'water', grade: 'high',  ko: '심해 고래',     en: 'Deepsea Whale',
-    inputs: ['driftwood', 'pearl_bit', 'sea_dew', 'seaweed'], art: C('fish', 'fin', 'none', 'fin', 'fish', 'sleepy', 'glow') },
+    inputs: ['pearl_bit', 'sea_dew', 'seaweed'], art: C('fish', 'fin', 'none', 'fin', 'fish', 'sleepy', 'glow') },
 
   // ── 빛 ──
   // butterfly · unicorn 도 **옛 id** 다
@@ -147,7 +160,7 @@ const TABLE = [
   { id: 'obsidian_lizard',  attr: 'dark',  grade: 'mid',   ko: '흑요석 도마뱀', en: 'Obsidian Lizard',
     inputs: ['bone_frag', 'flint', 'lizard_scale'],         art: C('quad', 'none', 'crystal', 'none', 'long', 'sharp', 'stripe') },
   { id: 'abyss_raven',      attr: 'dark',  grade: 'high',  ko: '심연 까마귀',   en: 'Abyss Raven',
-    inputs: ['black_feather', 'bone_frag', 'echo_stone', 'night_dew'], art: C('bird', 'none', 'none', 'bird', 'long', 'sharp', 'glow') },
+    inputs: ['black_feather', 'bone_frag', 'night_dew'], art: C('bird', 'none', 'none', 'bird', 'long', 'sharp', 'glow') },
 ];
 
 // 세이브에 이미 들어 있는 id — 생성 뒤 셋이 다 살아 있는지 다시 확인한다
@@ -183,6 +196,18 @@ require(path.join(ROOT, 'data.js'));
 const D = global.window.GameData;
 
 const problems = [];
+// 그 크리처가 재료로 먹는 중급 크리처 id (없으면 null)
+function meltOf(c) {
+  if (c.grade !== 'high' || LEGACY.includes(c.id)) return null;
+  const mid = TABLE.find(x => x.attr === c.attr && x.grade === 'mid');
+  return mid ? mid.id : null;
+}
+// 실제로 솥에 넣는 것 — 재료 + (있으면) 크리처. **정렬해서 낸다**
+function fullInputs(c) {
+  const m = meltOf(c);
+  return (m ? [...c.inputs, m] : c.inputs.slice()).sort();
+}
+
 const seenId = new Set();
 const seenCombo = new Map();
 const attrCount = {};
@@ -195,7 +220,7 @@ for (const c of TABLE) {
 
   const sorted = [...c.inputs].sort();
   if (sorted.join() !== c.inputs.join()) problems.push(`${c.id}: inputs 를 정렬해서 적을 것`);
-  const key = sorted.join('+');
+  const key = fullInputs(c).join('+');
   if (seenCombo.has(key)) problems.push(`조합 중복: ${c.id} 와 ${seenCombo.get(key)} — ${key}`);
   seenCombo.set(key, c.id);
 
@@ -217,9 +242,19 @@ for (const c of TABLE) {
   // **옛 크리처는 빼고 본다** — 조합을 바꾸면 그 크리처를 가진 사람의 레시피 북이
   // 어제와 달라진다. 유니콘이 재료 셋짜리 상급인 것은 원래 그랬던 것이고,
   // 「빛 상급이 유독 싸다」는 그 대가다 (바꾸려면 조합을 바꿔야 하는데 그게 더 비싸다)
+  // **크리처 재료까지 세어서** 본다 — 상급은 재료 셋 + 중급 하나 = 넷이다
   const want = { basic: 2, mid: 3, high: 4 }[c.grade];
-  if (c.inputs.length !== want && !LEGACY.includes(c.id)) {
-    problems.push(`${c.id}: ${c.grade} 는 재료 ${want}개여야 한다 (${c.inputs.length})`);
+  const n = fullInputs(c).length;
+  if (n !== want && !LEGACY.includes(c.id)) {
+    problems.push(`${c.id}: ${c.grade} 는 넣는 것이 ${want}개여야 한다 (${n})`);
+  }
+  // 먹는 크리처가 **실제로 있고 · 자기보다 아래 등급**인가
+  const melt = meltOf(c);
+  if (melt) {
+    const m = TABLE.find(x => x.id === melt);
+    if (!m) problems.push(`${c.id}: 없는 크리처를 먹는다 — ${melt}`);
+    else if (m.grade === 'high') problems.push(`${c.id}: 상급이 상급을 먹는다 — ${melt}`);
+    else if (m.attr !== c.attr) problems.push(`${c.id}: 다른 속성을 먹는다 — ${melt}`);
   }
 }
 for (const a of ATTRS) {
@@ -287,7 +322,7 @@ for (const a of ATTRS) {
     const cb = combatOf(c.attr, c.grade);
     const art = artKeys.map(k => `${k}: ${q(c.art[k])}`).join(', ');
     dataBody +=
-      `  { inputs: [${c.inputs.map(q).join(', ')}],\n` +
+      `  { inputs: [${fullInputs(c).map(q).join(', ')}],\n` +
       `    result: { id: ${q(c.id)}, kind: 'creature', grade: ${q(c.grade)}, name: ${q(c.ko)},\n` +
       `      attr: ${q(c.attr)}, charmBonus: ${g.charm}, move: ${q(moveOf(c.art))},\n` +
       `      combat: { atk: ${cb.atk}, matk: ${cb.matk}, def: ${cb.def}, mdef: ${cb.mdef} },\n` +

@@ -560,6 +560,42 @@ function resultArt(r, size) {
   if (r.kind === 'creature' && window.Creature) return Creature.icon(r, size || 40);
   return r.emoji || '';
 }
+// ─── 솥에 넣는 것 = 재료 + **녹일 수 있는 크리처** (7단계) ───
+//
+// 「크리처는 가마솥에서 태어난다. 그러니 가마솥으로 돌아갈 수도 있다」 —
+// 상급 크리처의 조합에 **같은 속성의 중급 크리처**가 하나 들어간다.
+// 중복으로 나온 개체가 처음으로 쓸모를 갖는 자리다 (`CREATURE.md` 9장).
+//
+// ⚠️ **조회를 여기 한 곳으로 모은다.** 예전에는 가방·솥 구멍·레시피 줄·`weightedPick`
+// 이 저마다 `D.INGREDIENTS[id]` 를 **바로** 읽었다 — 입력에 크리처 id 가 섞이는 순간
+// 그 조회가 전부 `undefined` 가 되어 화면이 통째로 깨진다.
+function itemOf(id) { return D.INGREDIENTS[id] || creatureOf(id) || null; }
+const isMeltItem = id => !D.INGREDIENTS[id] && !!creatureOf(id);
+// ⚠️ **한 마리는 남긴다.** 초과분(2번째부터)만 재료가 된다 —
+// 그래서 장착 중인 크리처가 사라질 일도, 로열티·버프가 날아갈 일도 없다
+// (기획 초안은 「녹이면 로열티도 사라진다」였는데, 마지막 한 마리를 못 녹이게
+//  막는 편이 확인 모달로 겁을 주는 것보다 낫다)
+function meltCount(id) {
+  return Math.max(0, S.creatures.filter(x => x === id).length - 1);
+}
+// 지금 솥에 넣을 수 있는 개수 — 재료면 가방, 크리처면 **초과분**
+function stockOf(id) { return isMeltItem(id) ? meltCount(id) : invCount(id); }
+// 소모 — 재료는 가방에서, 크리처는 **뒤에서부터 한 개체**를 뺀다
+function spendItem(id, n = 1) {
+  if (!isMeltItem(id)) { removeInv(id, n); return; }
+  for (let i = 0; i < n; i++) {
+    const at = S.creatures.lastIndexOf(id);
+    if (at >= 0) S.creatures.splice(at, 1);
+  }
+}
+// 솥·가방·레시피 줄에 쓰는 **그림 한 조각**. 재료는 이모지, 크리처는 SVG 다
+function itemArt(id, size) {
+  const it = itemOf(id);
+  if (!it) return '';
+  return isMeltItem(id) ? resultArt(it, size || 30) : it.emoji;
+}
+const itemName = id => { const it = itemOf(id); return it ? N(id, it.name) : id; };
+
 // 지금 마이 룸에 있는 애착 크리처. **가진 것인지 한 번 거른다**
 function roomPet() { return ownsCreature(S.petRoom) ? creatureOf(S.petRoom) : null; }
 // 탐험에 데리고 나가는 크리처. 여기도 **가진 것인지 한 번 거른다** —
@@ -1710,7 +1746,7 @@ function renderLeague() {
 function refillFromWant() {
   if (!S.want || !S.want.length) return;
   const left = {};
-  S.want.forEach(id => { left[id] = invCount(id); });
+  S.want.forEach(id => { left[id] = stockOf(id); });
   S.cauldron = S.want.filter(id => (left[id]-- > 0));
 }
 
@@ -1740,8 +1776,11 @@ window.lackHint = lackHint;
 
 function addToCauldron(id) {
   if (S.cauldron.length >= cauldronSlots()) { toast(T('cauldron_full', { n: cauldronSlots() })); return; }
-  if (invCount(id) - S.cauldron.filter(x => x === id).length <= 0) {
-    toast(T('not_enough_mat')); return;
+  if (stockOf(id) - S.cauldron.filter(x => x === id).length <= 0) {
+    // 크리처는 **한 마리를 남겨야** 해서 「가진 것이 있는데 못 넣는」 경우가 있다 —
+    // 그때는 이유를 따로 말해 준다. 안 그러면 버그로 읽힌다
+    toast(T(isMeltItem(id) && S.creatures.includes(id) ? 'melt_keep_one' : 'not_enough_mat'));
+    return;
   }
   S.cauldron.push(id);
   S.want = [];              // 손으로 담기 시작하면 레시피 선택은 놓는다
@@ -1822,8 +1861,8 @@ function brew() {
   }
   // 실패 안내에 쓸 조합을 **지우기 전에** 챙겨 둔다
   const tried = S.cauldron.slice();
-  // 재료 소모
-  for (const id of S.cauldron) removeInv(id, 1);
+  // 재료 소모 — 크리처가 섞여 있으면 그 개체도 같이 사라진다 (`spendItem`)
+  for (const id of S.cauldron) spendItem(id, 1);
   const key = D.recipeKey(S.cauldron);
   const result = D.RECIPE_MAP[key];
   S.cauldron = [];
@@ -2328,12 +2367,13 @@ function renderAtelier() {
     if (cell && cell.ghost) {
       // 고른 레시피가 요구하는데 가방에 없는 재료 — 회색으로 자리만 잡아 둔다.
       // **✕ 를 달지 않는다** (뺄 것이 없다). 누르면 무엇이 모자란지 알려 준다.
-      slotsHtml += `<div class="c-slot lack" style="${pos}" data-lack="${cell.id}"
-        onclick="lackHint(this)">${D.INGREDIENTS[cell.id].emoji}</div>`;
+      slotsHtml += `<div class="c-slot lack${isMeltItem(cell.id) ? ' pet' : ''}" style="${pos}"
+        data-lack="${cell.id}" onclick="lackHint(this)">${itemArt(cell.id)}</div>`;
     } else if (cell) {
-      const rare = D.INGREDIENTS[cell.id].rare ? ' rare' : '';
-      slotsHtml += `<div class="c-slot filled${rare}" style="${pos}" onclick="removeFromCauldron(${i})">
-        ${D.INGREDIENTS[cell.id].emoji}<span class="c-slot-x">✕</span></div>`;
+      const it = itemOf(cell.id);
+      const rare = (it && it.rare) ? ' rare' : '';
+      slotsHtml += `<div class="c-slot filled${rare}${isMeltItem(cell.id) ? ' pet' : ''}" style="${pos}"
+        onclick="removeFromCauldron(${i})">${itemArt(cell.id)}<span class="c-slot-x">✕</span></div>`;
     } else {
       slotsHtml += `<div class="c-slot empty" style="${pos}">+</div>`;
     }
@@ -2344,28 +2384,35 @@ function renderAtelier() {
   const bc = document.getElementById('brewCost');
   if (bc) bc.textContent = `⚡${D.ENERGY.cost.brew}`;
 
-  // 인벤토리 (재료)
+  // 인벤토리 (재료 + **녹일 수 있는 크리처**)
+  //
+  // 크리처를 뒤에 이어 붙인다 — 솥에 넣는 것이 같으니 고르는 자리도 같아야 한다.
+  // 따로 칸을 만들면 「상급 조합에 크리처가 들어간다」를 레시피 줄에서 보고도
+  // 어디서 집는지 못 찾는다 (실제로 재료·물약을 다른 칸에 두면 늘 그렇게 된다)
   const invEl = document.getElementById('ingredientBag');
   const ids = Object.keys(S.inventory);
-  if (ids.length === 0) {
+  const melts = [...new Set(S.creatures)].filter(id => meltCount(id) > 0 && creatureOf(id));
+  if (ids.length === 0 && melts.length === 0) {
     invEl.innerHTML = `<div class="empty-hint">채집으로 재료를 모아보세요 🌿</div>`;
   } else {
-    invEl.innerHTML = ids.map(id => {
-      const ing = D.INGREDIENTS[id];
+    const chip = (id, art, cls) => {
       const inCauldron = S.cauldron.filter(x => x === id).length;
-      const avail = invCount(id) - inCauldron;
+      const avail = stockOf(id) - inCauldron;
       return `
-        <div class="ing-chip ${avail <= 0 ? 'disabled' : ''}" onclick="addToCauldron('${id}')">
-          <span class="ing-emoji">${ing.emoji}</span>
-          <span class="ing-name">${N(ing.id, ing.name)}</span>
+        <div class="ing-chip ${cls} ${avail <= 0 ? 'disabled' : ''}" onclick="addToCauldron('${id}')">
+          <span class="ing-emoji">${art}</span>
+          <span class="ing-name">${itemName(id)}</span>
           <span class="ing-count">×${avail}</span>
         </div>`;
-    }).join('');
+    };
+    invEl.innerHTML = ids.map(id => chip(id, D.INGREDIENTS[id].emoji, '')).join('')
+      + melts.map(id => chip(id, itemArt(id, 26), 'pet')).join('');
   }
 
   // 채집 가방 접힘/펼침 상태 반영
   const bagCount = document.getElementById('bagCount');
-  if (bagCount) bagCount.textContent = ids.length ? T('bag_kinds', { n: ids.length }) : T('bag_empty');
+  const kinds = ids.length + melts.length;
+  if (bagCount) bagCount.textContent = kinds ? T('bag_kinds', { n: kinds }) : T('bag_empty');
   applyBagState();
 
   // 레시피 북 — 카테고리 탭 + 해당 카테고리 목록
@@ -2408,8 +2455,9 @@ function renderAtelier() {
     // 재료 이모지 하나하나가 **누를 수 있는 것**이다 — 눌러야 이름을 알 수 있다.
     // 줄 자체도 누르는 것이라(솥에 담기) stopPropagation 으로 갈라 놓는다
     const inputs = r.inputs.map(id =>
-      `<button class="ing-dot" onclick="event.stopPropagation();ingHint('${id}',this)"
-        aria-label="${N(id, D.INGREDIENTS[id].name)}">${D.INGREDIENTS[id].emoji}</button>`
+      `<button class="ing-dot${isMeltItem(id) ? ' pet' : ''}"
+        onclick="event.stopPropagation();ingHint('${id}',this)"
+        aria-label="${itemName(id)}">${itemArt(id, 22)}</button>`
     ).join('<span class="ing-plus">+</span>');
     if (found) {
       // 재료가 다 있어야 담을 수 있다. 모자라면 회색으로 두고, 눌렀을 때 이유를 알려 준다
@@ -4129,7 +4177,7 @@ const AURA_BY_POTION = {
 function hasAllInputs(r) {
   const need = {};
   r.inputs.forEach(id => { need[id] = (need[id] || 0) + 1; });
-  return Object.keys(need).every(id => invCount(id) >= need[id]);
+  return Object.keys(need).every(id => stockOf(id) >= need[id]);
 }
 
 // 재료 n 가지가 들어가는 **가장 작은 솥**. 열려 있는 것 중에서 찾고,
@@ -4175,9 +4223,10 @@ window.unknownRecipeHint = unknownRecipeHint;
 // 레시피 줄의 재료 이모지를 눌렀을 때 — 그 자리에 이름을 띄운다.
 // 이모지만으로는 무엇인지 알 수 없는 재료가 많다 (씨앗·이끼·조각 종류가 특히 그렇다)
 function ingHint(id, el) {
-  const ing = D.INGREDIENTS[id];
-  if (!ing) return;
-  toast(N(id, ing.name), el, null, 'above');
+  const it = itemOf(id);
+  if (!it) return;
+  // 크리처는 「무엇인지」만으로는 모자란다 — **녹여서 넣는 것**이라고 말해 준다
+  toast(isMeltItem(id) ? T('melt_hint', { name: itemName(id) }) : itemName(id), el, null, 'above');
 }
 window.ingHint = ingHint;
 

@@ -16,6 +16,7 @@
     "test:i18n": "node tools/checki18n.js",
     "test:save": "node tools/checksave.js",
     "test:tut": "node tools/checktut.js",
+    "test:melt": "node tools/checkmelt.js",
     "gen:wardrobe": "node tools/genwardrobe.js",
     "gen:creature": "node tools/gencreature.js",
     "gen:mapattr": "node tools/genmapattr.js",
