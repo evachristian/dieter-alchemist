@@ -561,7 +561,17 @@
 
   // 허리 반폭 — 몸과 옷이 **같은 값**을 본다. 옷은 CLOTH_PAD 만큼 넉넉하게.
   const waistHalf = tune => BODY.waistHalf * tuneOf(tune, 'waist');
-  const clothWaistHalf = tune => waistHalf(tune) + CLOTH_PAD;
+  // ⚠️ **몸통 배율까지 태워야 몸의 허리와 같은 자리가 된다.** 몸의 허리는
+  // `waistHalf * torso` 인데(torsoArms 의 `wRa`) 옷은 `torso` 를 빼먹고 있었다.
+  // 그래도 오래 안 들킨 이유: 옷을 통째로 `wrapX(tuneMax(...))` 로 늘리고 있었는데
+  // 그 배율이 **1 밑으로 안 내려가서**(`tuneMax` 가 1 을 바닥으로 깐다) 살을 찌울 때만
+  // 맞고 **뺄 때는 옷만 그대로 남았다** — 「살이 빠졌을 때 옷이 안 맞는다」가 이것이다.
+  const clothWaistHalf = tune => waistHalf(tune) * tuneOf(tune, 'torso') + CLOTH_PAD;
+  // 옷 옆선의 **가운데 제어점**. 기본값에서는 늘 `wR + 4` 라 그림이 그대로인데,
+  // 허리가 어깨에 비해 아주 가늘어지면(허리 50%) 옷이 몸보다 **먼저** 좁아져
+  // 어깨와 허리 사이에 1px 짜리 살 조각이 비쳤다. 어깨에서 잰 값으로 바닥을 깔아 둔다
+  const CLOTH_SIDE_C = 0.55;
+  const clothSideC = (eR, wR) => +Math.max(wR + 4, eR - (eR - wR) * CLOTH_SIDE_C).toFixed(2);
   // ─── 허벅지 윗머리는 **골반을 따라 들어온다** ────────────────
   //
   // 허벅지가 붙는 자리가 곧 골반이다. 그래서 이 둘은 서로의 하한 노릇을 하는데,
@@ -1305,6 +1315,11 @@
   const SH_PAD = 4;
   const shC = (i, f) => [sqx(BODY.shoulderC[i][0] + SH_PAD, f), BODY.shoulderC[i][1] - 1];
   const shoulderEndR = f => shC(2, f);
+  // 옷의 어깨가 따라야 할 배율 — **몸통 배율까지 곱한다.**
+  // 몸의 어깨는 `sqx(pt, squash)` 를 `sx(torso,100)` 그룹 안에서 그리므로 순 배율이
+  // `squash × torso` 다. 옷이 `squash` 만 보면 몸통을 줄였을 때 **어깨만 제자리에
+  // 남아** 옷이 어깨에서 붕 뜬다 (「살이 빠지면 특히 어깨가 안 맞는다」).
+  const clothShoulderK = tune => shoulderSquash(tune) * tuneOf(tune, 'torso');
   function clothShoulderR(fromK, f) {
     const [a, b, c] = [shC(0, f), shC(1, f), shC(2, f)];
     // 넥라인을 판 옷은 파낸 모서리(y=fromK)에서 출발하므로 첫 제어점의 높이를 거기 맞춘다
@@ -1317,7 +1332,7 @@
     return `C${200 - b[0]},${b[1]} ${200 - a[0]},${y0} `;
   }
   function clothTopEdge(kind, tune) {
-    const T = CLOTH_TOP_Y, cut = neckCut(kind), f = shoulderSquash(tune);
+    const T = CLOTH_TOP_Y, cut = neckCut(kind), f = clothShoulderK(tune);
     const e = shoulderEndR(f);
     const startL = `M${200 - e[0]},${e[1]}`;
     // 안 파는 옷 — 가운데가 가장 높은 돔
@@ -1353,25 +1368,27 @@
   function renderTop(it, tune) {
     if (isNone(it)) return '';
     const B = BODY, c = it.color, c2 = shade(c);
-    const kb = tuneOf(tune, 'torso');   // 소매는 garmentSleeves 가 알아서 팔 배율을 따른다
+    // ⚠️ **통째로 늘리지 않는다.** 좌표가 이미 제 몸 부위를 따라간다
+    // (어깨 `clothShoulderK` · 허리 `clothWaistHalf`) — 거기에 또 곱하면 두 번 먹는다
     const ww = clothWaistHalf(tune);
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     // 밑단은 **골반 바로 위**까지 내려온다. 허리(WY)에 맞추면 배가 드러나 전부 크롭탑이 되고,
     // 하의 허리춤(WY 에서 시작)을 덮지 못해 그 사이로 살이 띠처럼 보인다.
     const WY = B.waistY, hem = B.hipY - 2;
     // 옷의 어깨 끝 — 몸과 **같은 자리**여야 한다 (손으로 140/60 을 박아 두면 안 된다)
-    const [eR, eY] = shoulderEndR(shoulderSquash(tune)), eL = 200 - eR;
+    const [eR, eY] = shoulderEndR(clothShoulderK(tune)), eL = 200 - eR;
+    const sc = clothSideC(eR, wR);
     return `
       ${garmentSleeves(it, tune)}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
-        C${eR},${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY}
+      <path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
+        C${eR},${WY - 34} ${sc},${WY - 18} ${wR},${WY}
         C${wR},${WY + 10} ${wR - 1},${hem - 8} ${wR - 4},${hem}
         C${wR - 14},${hem + 5} ${wL + 14},${hem + 5} ${wL + 4},${hem}
         C${wL + 1},${hem - 8} ${wL},${WY + 10} ${wL},${WY}
-        C${wL - 4},${WY - 18} ${eL},${WY - 34} ${eL},${eY} Z" fill="${c}"/>
+        C${200 - sc},${WY - 18} ${eL},${WY - 34} ${eL},${eY} Z" fill="${c}"/>
       ${neckLine(it.neck, c, c2, 110)}
-      ${it.button ? buttons(c2, 132, hem - 14) : ''}`, kb, 100)}`;
+      ${it.button ? buttons(c2, 132, hem - 14) : ''}`;
   }
 
   // 하의는 허리(몸통) + 자기가 덮는 다리 파츠를 따라간다.
@@ -1392,19 +1409,20 @@
       // 밑단은 엉덩이 폭 + flare. 벌룬은 중간이 더 부풀고 밑단이 다시 오므라든다
       const hemY = Number(it.hemY) || 252;
       const flare = Number(it.flare) || 0;
-      const hemHalf = hh + (it.balloon ? flare * 0.25 : flare) + 2;
-      const midHalf = hh + (it.balloon ? flare + 12 : flare * 0.5) + 2;
+      // 퍼짐만 다리 배율을 탄다 — 허리춤·엉덩이는 이미 몸을 따라간 좌표다
+      const kLeg = tuneMax(tune, hemY > KNEE_LINE ? ['thigh', 'calf'] : ['thigh']);
+      const hemHalf = hh + (it.balloon ? flare * 0.25 : flare) * kLeg + 2;
+      const midHalf = hh + (it.balloon ? flare + 12 : flare * 0.5) * kLeg + 2;
       const my = HY + (hemY - HY) * 0.45;      // 옆선이 가장 부푸는 높이
       const bulge = hemHalf * 0.55;            // 밑단 곡선이 아래로 처지는 폭
       // 무릎(259 = 허벅지 끝과 종아리 시작이 겹치는 자리) 아래까지 오는 치마는
       // 종아리까지 덮으므로 종아리 배율도 따라야 한다
-      const k = tuneMax(tune, hemY > KNEE_LINE ? ['torso', 'thigh', 'calf'] : ['torso', 'thigh']);
-      return wrapX(`<path d="M${wL},${WY} L${wR},${WY}
+      return `<path d="M${wL},${WY} L${wR},${WY}
           C${hR},${WY + 6} ${hR},${HY - 6} ${hR},${HY}
           C${(100 + midHalf).toFixed(1)},${my.toFixed(1)} ${(100 + hemHalf).toFixed(1)},${hemY - 18} ${(100 + hemHalf).toFixed(1)},${hemY}
           C${(100 + bulge).toFixed(1)},${hemY + 14} ${(100 - bulge).toFixed(1)},${hemY + 14} ${(100 - hemHalf).toFixed(1)},${hemY}
           C${(100 - hemHalf).toFixed(1)},${hemY - 18} ${(100 - midHalf).toFixed(1)},${my.toFixed(1)} ${hL},${HY}
-          C${hL},${HY - 6} ${hL},${WY + 6} ${wL},${WY} Z" fill="${c}"/>${belt}`, k, 100);
+          C${hL},${HY - 6} ${hL},${WY + 6} ${wL},${WY} Z" fill="${c}"/>${belt}`;
     }
 
     // 바지 계열 — 반바지도 같은 실루엣이고 기장만 다르다.
@@ -1418,13 +1436,12 @@
     const P = hipSideCurve(tune, hR, legR, hemY - 2);
     const by = P[3][1], bx = P[3][0], bxL = +(200 - bx).toFixed(2);
     const mirC = i => `${(200 - P[i][0]).toFixed(2)},${P[i][1]}`;
-    const k = tuneMax(tune, hemY > KNEE_LINE ? ['torso', 'thigh', 'calf'] : ['torso', 'thigh']);
-    return wrapX(`<path d="M${wL},${WY} L${wR},${WY}
+    return `<path d="M${wL},${WY} L${wR},${WY}
         C${hR},${WY + 6} ${hR},${HY - 6} ${hR},${HY}
         C${P[1][0]},${P[1][1]} ${P[2][0]},${P[2][1]} ${bx},${by}
         L${bx},${hemY} L107,${hemY} L100,${B.hipBottom + 2} L93,${hemY} L${bxL},${hemY} L${bxL},${by}
         C${mirC(2)} ${mirC(1)} ${hL},${HY}
-        C${hL},${HY - 6} ${hL},${WY + 6} ${wL},${WY} Z" fill="${c}"/>${belt}`, k, 100);
+        C${hL},${HY - 6} ${hL},${WY + 6} ${wL},${WY} Z" fill="${c}"/>${belt}`;
   }
 
   // 소매(팔을 덮는 부분)를 몸의 팔 좌표 그대로 만들어 준다.
@@ -1494,12 +1511,13 @@
     const B = BODY, pad = CLOTH_PAD;
     // 어깨는 몸통보다 넓게. **몸통과 같이 좁아진다** — 안 그러면 팔을 가늘게 했을 때
     // 드레스의 어깨만 팔 밖으로 튀어나온다 (shoulderSquash 참고)
-    const sf = shoulderSquash(tune);
+    const sf = clothShoulderK(tune);                      // 몸통 배율까지 따라간다
     const L = sqx(B.torsoL - pad, sf), R = sqx(B.torsoR + pad, sf);
-    const flare = 21;                                     // 밑단이 퍼지는 정도
+    // ⚠️ **퍼짐만 다리 배율을 탄다.** 예전에는 종 전체를 `tuneMax(몸통·허벅지·종아리)`
+    // 로 늘려서 허벅지를 키우면 어깨까지 같이 커졌다
+    const kLeg = tuneMax(tune, ['thigh', 'calf']);
+    const flare = 21 * kLeg;                              // 밑단이 퍼지는 정도
     const hemL = L - flare, hemR = R + flare;
-    // 몸통부터 다리까지 덮으므로 그중 가장 큰 배율을 따른다
-    const kd = tuneMax(tune, ['torso', 'thigh', 'calf']);
     const cut = neck && neckCut(neck).w ? neckMid(neck) : null;
     const top = cut
       ? `C${L},${B.shoulderY} ${cut.EL - 14},${cut.K} ${cut.EL},${cut.K}
@@ -1524,7 +1542,6 @@
     // (지금 이 함수를 부르는 곳은 공주 드레스 하나뿐이고 소매는 늘 길다)
     const sleeveC = c2;
     return `<g data-part="dress">
-      ${wrapX(`
       <!-- 몸통 → 밑단까지 퍼지는 치마 (어깨 폭은 몸통 기준 + 여유) -->
       <path data-part="cloth" d="M${L},${B.shoulderY + 11}
         ${top}
@@ -1538,7 +1555,7 @@
             stroke="${c2}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
       ${cut ? '' : `<!-- 목선 — 안 파는 경우에만. 파냈으면 그 모서리가 곧 넥라인이다 -->
       <path d="M88,${B.shoulderY} Q100,${B.shoulderY + 9} 112,${B.shoulderY}"
-            stroke="${c2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`}`, kd, 100)}
+            stroke="${c2}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`}
       ${sleeves(sleeveC, longSleeve ? PRINCESS_LEN : 0.42, tune)}
     </g>`;
   }
@@ -1546,7 +1563,6 @@
   function renderDress(it, tune) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c);
-    const kd = tuneMax(tune, ['torso', 'thigh', 'calf']);   // 몸통~다리를 덮는다
 
     // 튜토리얼 인트로의 공주 드레스 — 어깨에서 발목까지 내려오는 종 모양 + 소매
     // (인트로 princessFront 의 실루엣을 아바타 좌표계로 옮긴 것)
@@ -1557,26 +1573,31 @@
     // 기장·퍼짐·넥라인·소매는 전부 아이템 필드다 (없으면 예전 값 그대로)
     const B = BODY;
     const hemY = Number(it.hemY) || (it.kind === 'gown' ? 320 : 270);
-    const flare = Number(it.flare) || (it.kind === 'gown' ? 40 : 46);
+    // ⚠️ **퍼짐만 다리 배율을 탄다.** 예전에는 옷 전체를 `tuneMax(몸통·허벅지·종아리)`
+    // 로 통째로 늘려서, **허벅지를 키우면 어깨까지 두 배**가 됐다 (실제로 그랬다).
+    // 어깨·허리·엉덩이는 이미 제 몸 부위를 따라간 좌표다 — 늘릴 것은 치마의 퍼짐뿐이다
+    const kLeg = tuneMax(tune, hemY > KNEE_LINE ? ['thigh', 'calf'] : ['thigh']);
+    const flare = (Number(it.flare) || (it.kind === 'gown' ? 40 : 46)) * kLeg;
     // 허리는 몸의 허리를 따라간다 (예전에는 78~122 로 박혀 있어 허리 살이 밖으로 나왔다)
     const ww = clothWaistHalf(tune), hhw = clothHipHalf(tune);
     const WY = B.waistY, HYd = hipApexY(tune);   // 몸의 엉덩이 봉우리를 그대로 따라간다
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     const hL = +(100 - hhw).toFixed(2), hR = +(100 + hhw).toFixed(2);
-    const [eR, eY] = shoulderEndR(shoulderSquash(tune)), eL = 200 - eR;
+    const [eR, eY] = shoulderEndR(clothShoulderK(tune)), eL = 200 - eR;
+    const sc = clothSideC(eR, wR);
     return `
       ${garmentSleeves(it, tune)}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      ${wrapX(`<path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
-        C${eR},${WY - 34} ${wR + 4},${WY - 18} ${wR},${WY + 2}
+      <path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
+        C${eR},${WY - 34} ${sc},${WY - 18} ${wR},${WY + 2}
         C${hR},${WY + 8} ${hR},${HYd - 6} ${hR},${HYd}
         C${hR},${HYd + 24} ${100 + flare},${hemY - 40} ${100 + flare + 8},${hemY}
         C${wR},${hemY + 14} ${wL},${hemY + 14} ${100 - flare - 8},${hemY}
         C${100 - flare},${hemY - 40} ${hL},${HYd + 24} ${hL},${HYd}
         C${hL},${HYd - 6} ${hL},${WY + 8} ${wL},${WY + 2}
-        C${wL - 4},${WY - 18} ${eL},${WY - 34} ${eL},${eY} Z" fill="${c}"/>
+        C${200 - sc},${WY - 18} ${eL},${WY - 34} ${eL},${eY} Z" fill="${c}"/>
       <path d="M${wL},${WY} L${wR},${WY}" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>
-      ${neckLine(it.neck, c, c2, 110)}`, kd, 100)}`;
+      ${neckLine(it.neck, c, c2, 110)}`;
   }
 
   // ═══════════════════════════════════════════════════════════════

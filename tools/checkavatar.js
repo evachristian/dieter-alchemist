@@ -74,6 +74,16 @@ function launchOpts() {
     canvas.width = 200; canvas.height = 348;   // viewBox 와 1:1
     const ctx = canvas.getContext('2d');
 
+    // 조각을 **빼고** 그린다 — 몸통 창을 잴 때 팔을 지운다.
+    // 배율을 움직이면 팔이 몸통 창 안으로 들어오는데(몸통 50% 에서 안쪽으로 16px),
+    // 그 팔은 **옷이 못 덮은 살이 아니라 원래 밖에 있는 맨팔**이다.
+    // 창을 좁히는 것으로는 못 가른다 — 허리만 줄여도 같은 일이 난다
+    function strip(svg, sel) {
+      const wrap = document.createElement('div'); wrap.innerHTML = svg;
+      const root = wrap.firstElementChild;
+      [...root.querySelectorAll(sel)].forEach(n => n.remove());
+      return root.outerHTML;
+    }
     async function skinIn(svg, x0, x1, y0, y1) {
       const img = new Image();
       await new Promise((ok, no) => {
@@ -101,24 +111,43 @@ function launchOpts() {
     const cutOf = it => (it.neck ? window.Avatar.neckCutBox(it.neck) : { w: 0, d: 0, top: 0 });
 
 
+    // ─── 배율(슬라이더)도 같이 돈다 ────────────────────────────
+    //
+    // ⚠️ **체형(몸무게)만 돌고 있었다.** 그래서 「옷이 몸을 따라오는가」를
+    // **슬라이더 쪽으로는 한 번도 안 재고 있었다** — 옷을 통째로 늘리던 배율이
+    // `tuneMax` 라 **1 밑으로 안 내려가서**, 몸통을 줄이면 몸만 가늘어지고 옷은
+    // 그대로 남았다 (「살이 빠졌을 때 옷이 안 맞는다 · 특히 어깨」).
+    // 반대쪽도 같은 자리다 — 허벅지를 키우면 그 배율이 **어깨까지** 먹어 몸판이 두 배가 됐다.
+    const TUNES = [['기본', null],
+                   ['몸통 50', { torso: 0.5 }], ['몸통 150', { torso: 1.5 }],
+                   ['허벅지 200', { thigh: 2 }], ['종아리 200', { calf: 2 }],
+                   ['몸통 50 팔 50', { torso: 0.5, arm: 0.5 }],
+                   ['허리 50', { waist: 0.5 }], ['엉덩이 20', { hip: 0.2 }]];
     const bad = [];
     for (const c of cases) {
       for (const w of STEPS) {
+        // 체형은 5단계를 다 돌고, 배율은 **중간 체형에서만** 돈다 (조합이 곱으로 는다)
+        const tunes = w === 0.5 ? TUNES : [TUNES[0]];
+        for (const [tn, t] of tunes) {
         const outfit = Object.assign({}, D.DEFAULT_OUTFIT, {
           top: 'top_none', bottom: 'bottom_none', dress: 'dress_none',
           [c.slot]: c.it.id,
         });
-        const svg = window.Avatar.build(outfit, w, null);
+        const svg = window.Avatar.build(outfit, w, t);
         const cut = cutOf(c.it);
-        const torso = await skinIn(svg, ...bodyBox(w, 72, 128, TORSO_TOP, WAIST))
-          - (cut.w ? await skinIn(svg, ...bodyBox(w, 100 - cut.w - 2, 100 + cut.w + 2, TORSO_TOP, CLOTH_TOP + cut.d + 2)) : 0);
+        // 몸통 창에서는 **팔·손을 지우고** 잰다 (위의 strip 참고)
+        const noArm = strip(svg, '[data-part="arm"],[data-part="hand"]');
+        const torso = await skinIn(noArm, ...bodyBox(w, 72, 128, TORSO_TOP, WAIST))
+          - (cut.w ? await skinIn(noArm, ...bodyBox(w, 100 - cut.w - 2, 100 + cut.w + 2, TORSO_TOP, CLOTH_TOP + cut.d + 2)) : 0);
         const sleeved = c.it.sleeve !== 'none';
         const arm = sleeved
           ? await skinIn(svg, ...bodyBox(w, 46, 154, 112, armBottom(c.it)))
             - await skinIn(svg, ...bodyBox(w, 72, 128, 112, armBottom(c.it)))
           : 0;
-        if (torso > 0) bad.push({ id: c.it.id, body: w, where: '몸통', n: torso });
-        if (arm > 0) bad.push({ id: c.it.id, body: w, where: '어깨/팔', n: arm });
+        const lbl = t ? `${w} · ${tn}` : w;
+        if (torso > 0) bad.push({ id: c.it.id, body: lbl, where: '몸통', n: torso });
+        if (arm > 0) bad.push({ id: c.it.id, body: lbl, where: '어깨/팔', n: arm });
+        }
       }
     }
     // ── 넥라인이 **몸통이 받쳐 주는 높이 아래**를 파는가 ──
