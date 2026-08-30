@@ -1600,6 +1600,69 @@ function launchOpts() {
     return { bad, worst: +(worst * 100).toFixed(1), maskN, n: tunes.length * bots.length };
   }, HIP_OUT_MAX);
 
+  // ─── 가랑이 홈에 살이 보이는가 (바지·반바지) ────────────────
+  //
+  // **가랑이 V 를 구멍으로 파면 안 된다.** 예전에는 폭 14(x 93~107) 고정 V 였는데
+  // 그 높이의 실제 다리 틈은 5 밖에 안 된다 — 그래서 홈 안으로 **허벅지 안쪽 살이
+  // 그대로 드러났다.** 반바지 색(#ffc2a8)이 살색과 가까워 사람 눈에는
+  // 「바지가 갈라진 것」이 아니라 **「맨살이 보이는 것」**으로 읽혔다 (신고받았다).
+  //
+  // 지금은 홈이 `innerX`(다리 사이 틈)를 따라가고, 갈라진 느낌은 어두운 천으로 그린다.
+  // 재는 법: **밑단 위쪽 가운데 창**에 살색이 있으면 안 된다.
+  // 그 창 안은 위에서 아래까지 전부 옷이거나(다리를 덮었으므로) 홈 뒤의 배경이다
+  //
+  // ⚠️ **이 검사를 사보타주할 때는 홈과 그늘을 같이 되돌려야 한다.**
+  // 홈만 예전의 고정 V 로 돌리면 그늘 삼각형이 그 위에 덮여 **반바지는 0건으로 나온다** —
+  // 정작 신고받은 옷이 통과로 보인다. 둘 다 되돌리면 반바지 198 · 청바지 1179 ·
+  // 카프리 1036 픽셀로 잡힌다 (실제로 이 순서로 두 번 재 봤다)
+  const CROTCH_SKIN_MAX = 8;      // 2배 확대라 경계 한두 줄은 남는다
+  const crotch = await page.evaluate(async (MAX) => {
+    const D = window.GameData, SKIN = [255, 220, 196], bad = [], S = 2, W = 200 * S, H = 348 * S;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const isSkin = (d, i) => d[i + 3] > 250 && Math.abs(d[i] - SKIN[0]) <= 2
+      && Math.abs(d[i + 1] - SKIN[1]) <= 2 && Math.abs(d[i + 2] - SKIN[2]) <= 2;
+    const bare = { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    async function px(t, o) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare, o), 0, t);
+      const root = wrap.firstElementChild;
+      root.querySelectorAll('[data-part="arm"]').forEach(e => e.remove());
+      const img = new Image();
+      await new Promise((ok, no) => {
+        img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(root.outerHTML);
+      });
+      ctx.clearRect(0, 0, W, H);
+      ctx.drawImage(img, 0, 0, W, H);
+      return ctx.getImageData(0, 0, W, H).data;
+    }
+    // **바지 계열만** 본다 — 치마는 홈이 없다 (있으면 그게 버그다)
+    const bots = (D.WARDROBE.bottom || []).filter(x => x.kind === 'shorts' || x.kind === 'pants');
+    // 허벅지를 키우면 홈이 더 벌어지는지도 같이 본다 (배율은 틈에 안 태우기로 했지만,
+    // 그 약속이 깨지면 여기서 먼저 드러난다)
+    const tunes = [['기본', {}], ['허벅지 200', { thigh: 2 }], ['허벅지 20', { thigh: 0.2 }],
+      ['엉덩이 180', { hip: 1.8 }], ['엉덩이 20 허벅지 200', { hip: 0.2, thigh: 2 }]];
+    let worst = 0, worstAt = '';
+    for (const [tn, t] of tunes) {
+      for (const bo of bots) {
+        const d = await px(t, { bottom: bo.id });
+        const hem = Number(bo.hemY) || 332;
+        let n = 0;
+        for (let y = 218 * S; y <= (hem - 4) * S; y++) {
+          for (let x = (100 - 9) * S; x <= (100 + 9) * S; x++) {
+            if (isSkin(d, (y * W + x) * 4)) n++;
+          }
+        }
+        if (n > worst) { worst = n; worstAt = `${tn} · ${bo.id}`; }
+        if (n > MAX) bad.push(`${tn} · ${bo.id}: 가랑이 홈에 살색 ${n}픽셀 (${MAX}까지)`);
+      }
+    }
+    return { bad, worst, worstAt, n: tunes.length * bots.length };
+  }, CROTCH_SKIN_MAX);
+
   // ─── 엉덩이와 허벅지 사이에 세로 틈이 없는가 ────────────────
   //
   // 엉덩이의 아래 자락은 허벅지 옆에 세로로 붙는다. 그런데 **허벅지는 아래로
@@ -1885,6 +1948,7 @@ function launchOpts() {
     .concat(armCover.bad.map(m => ({ id: '치마가 팔을 덮음', body: '-', where: m, n: '-' })))
     .concat(kink.bad.map(m => ({ id: '허리↔엉덩이↔허벅지', body: '-', where: m, n: '-' })))
     .concat(hipOut.bad.map(m => ({ id: '엉덩이가 하의 밖으로', body: '-', where: m, n: '-' })))
+    .concat(crotch.bad.map(m => ({ id: '가랑이 홈에 살', body: '-', where: m, n: '-' })))
     .concat(legGap.bad.map(m => ({ id: '다리 사이 틈', body: '-', where: m, n: '-' })))
     .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
@@ -1920,6 +1984,9 @@ function launchOpts() {
     + ` (${KINK_MAX} 까지 · 접선이 이어져야 한다)`);
   console.log(`엉덩이가 하의 밖으로: 배율×하의 ${hipOut.n}조합 × 엉덩이 ${hipOut.maskN}픽셀`
     + ` — 가장 많이 나온 곳 ${hipOut.worst}% (${HIP_OUT_MAX * 100}% 까지)`);
+  console.log(`가랑이 홈에 살: 배율×바지 ${crotch.n}조합`
+    + ` — 가장 많은 곳 ${crotch.worst}픽셀${crotch.worstAt ? ` (${crotch.worstAt})` : ''}`
+    + ` (${CROTCH_SKIN_MAX}까지)`);
   console.log(`다리 사이 틈: 배율 ${legGap.n}단계 × y ${legGap.ys.join('·')}`
     + ` — 기본 ${legGap.base.join('·')}px · 흔들림 ${legGap.spread.join('·')}px`
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);

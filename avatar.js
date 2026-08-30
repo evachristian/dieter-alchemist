@@ -916,6 +916,42 @@
     return pts;
   }
 
+  // ─── 가랑이 홈 (바지·반바지) ─────────────────────────────────
+  //
+  // ⚠️ **홈은 다리 사이 틈을 그대로 따라간다.** 예전에는 폭 14(x 93~107)짜리 고정 V
+  // 였는데, 그 높이의 실제 틈은 5 밖에 안 된다 — 그래서 **홈 안으로 허벅지 안쪽
+  // 살이 그대로 드러났다** (반바지에서 제일 크게 보였다).
+  //
+  // 틈보다 `INSEAM_OVER` 만큼 **좁게** 판다. 그래야 천이 다리 안쪽을 조금 덮어
+  // 어느 배율에서도 사이로 살이 안 비친다. 좁아지다 0 이 되는 높이에서 홈이 닫힌다.
+  const INSEAM_OVER = 1.0;
+  const inseamHalf = y => innerX(y) - INSEAM_OVER;
+  // 홈이 닫히는 높이. **엉덩이 아래(hipBottom+2)보다 위로는 안 판다** —
+  // 거기부터는 엉덩이라, 파면 엉덩이 살이 홈으로 드러난다
+  function inseamTop(hemY) {
+    const lo = BODY.hipBottom + 2;
+    for (let y = hemY; y > lo; y -= 0.5) if (inseamHalf(y) <= 0) return +y.toFixed(1);
+    return lo;
+  }
+  // 밑단에서 시작해 꼭짓점을 돌아 다시 밑단으로 내려오는 홈.
+  // 다리 안쪽 변과 **같은 방식**(매듭마다 세로 접선)으로 그려 이음매가 안 진다
+  function inseam(hemY) {
+    const half = inseamHalf(hemY);
+    if (half <= 0) return { x0: 100, x1: 100, d: '' };   // 틈이 없으면 안 판다
+    const top = inseamTop(hemY);
+    const up = innerPts(top, hemY).map(k => [k[0], Math.max(0, k[1] - INSEAM_OVER)]).reverse();
+    const seg = (p, q, s) => {
+      const h = (q[0] - p[0]) * 0.45;
+      return ` C${(100 + s * p[1]).toFixed(2)},${(p[0] + h).toFixed(1)}`
+        + ` ${(100 + s * q[1]).toFixed(2)},${(q[0] - h).toFixed(1)}`
+        + ` ${(100 + s * q[1]).toFixed(2)},${q[0].toFixed(1)}`;
+    };
+    let d = '';
+    for (let i = 1; i < up.length; i++) d += seg(up[i - 1], up[i], 1);    // 오른쪽 변을 타고 올라간다
+    for (let i = up.length - 1; i >= 1; i--) d += seg(up[i], up[i - 1], -1); // 왼쪽 변으로 내려온다
+    return { x0: +(100 + half).toFixed(2), x1: +(100 - half).toFixed(2), d };
+  }
+
   // 다리 마디 하나. 마디마다 **세로 접선**으로 이어져 어느 배율에서도 안 꺾인다.
   //   s 오른쪽이면 +1 · pts [[y, 중심선에서 잰 바깥 거리], ...] 위→아래
   //   (안쪽 변은 innerX 가 정한다)
@@ -1463,12 +1499,22 @@
     const P = hipSideCurve(tune, hR, legR, hemY - 2);
     const by = P[3][1], bx = P[3][0], bxL = +(200 - bx).toFixed(2);
     const mirC = i => `${(200 - P[i][0]).toFixed(2)},${P[i][1]}`;
+    // 가랑이 홈 — **다리 사이 틈을 그대로 따라간다** (위의 `inseam` 참고).
+    // 폭을 박아 두면 그 자리의 실제 틈보다 넓어져 홈 안으로 살이 드러난다
+    const cr = inseam(hemY);
+    // 「바지처럼 보이게 하는 V」는 **구멍이 아니라 그늘**이다.
+    // 뚫으면 그 자리의 실제 틈(반바지 밑단에서 5px)보다 넓어져 살이 드러난다 —
+    // 뚫는 것은 틈만큼만 하고, 갈라진 느낌은 어두운 천으로 그린다 (ART_POLICY 플랫 2D).
+    // **밑단이 가랑이 가까이 오는 옷(반바지)에만** 넣는다. 긴 바지는 홈 자체가
+    // 발목까지 이어져 굳이 그늘로 알려 줄 필요가 없다
+    const crease = hemY <= B.hipBottom + 44
+      ? `<path d="M107,${hemY} L100,${B.hipBottom + 6} L93,${hemY} Z" fill="${shade(c, 34)}"/>` : '';
     return `<path d="M${wL},${WY} L${wR},${WY}
         C${hR},${WY + 6} ${hR},${HY - 6} ${hR},${HY}
         C${P[1][0]},${P[1][1]} ${P[2][0]},${P[2][1]} ${bx},${by}
-        L${bx},${hemY} L107,${hemY} L100,${B.hipBottom + 2} L93,${hemY} L${bxL},${hemY} L${bxL},${by}
+        L${bx},${hemY} L${cr.x0},${hemY}${cr.d} L${bxL},${hemY} L${bxL},${by}
         C${mirC(2)} ${mirC(1)} ${hL},${HY}
-        C${hL},${HY - 6} ${hL},${WY + 6} ${wL},${WY} Z" fill="${c}"/>${belt}`;
+        C${hL},${HY - 6} ${hL},${WY + 6} ${wL},${WY} Z" fill="${c}"/>${crease}${belt}`;
   }
 
   // 소매(팔을 덮는 부분)를 몸의 팔 좌표 그대로 만들어 준다.
