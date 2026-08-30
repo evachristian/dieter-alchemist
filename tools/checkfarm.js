@@ -272,11 +272,65 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
     ok(out.c0 - out.c === out.cost, `현자의 결정 ${out.cost} 를 냈다 (${out.c0} → ${out.c})`);
   }
 
-  // ⑧ 여신 전에는 밭 탭이 **그려진 크기가 0** 이어야 한다.
+  // ⑧ 밭 물약 (4단계) — **밭이 없으면 못 만드는 여섯.**
+  // ⚠️ 데이터만 보면 안 된다: 레시피에 작물 id 가 들어가 있어도 가방에 안 뜨거나
+  // 솥이 안 받으면 아무 소용이 없다 (7단계 `checkmelt` 에서 겪은 자리다)
+  out = await page.evaluate(async () => {
+    const r = D.RECIPES.find(x => x.result.id === 'hf_fire');
+    if (!r) return { bad: '밭 물약이 없다' };
+    const crop = r.inputs.find(id => (D.INGREDIENTS[id] || {}).farm);
+    // **작물이 안 들어 있으면 여기서 멈춘다.** 그 상태로 밀고 나가면 검사기가
+    // undefined 로 죽어서 「무엇이 잘못됐는지」가 스택 추적에 묻힌다
+    if (!crop) return { bad: `${r.result.id}: 밭 물약에 특수 작물이 안 들어 있다` };
+    // 6구 솥을 열어 둔다 (은빛 솥 · 해금 110)
+    const pot = D.CAULDRONS.filter(c => c.slots >= r.inputs.length).sort((a, b) => a.slots - b.slots)[0];
+    S.stats.beauty = 9999;                 // isCauldronOpen 은 totalCharm() 을 본다
+    S.cauldronId = pot.id;
+    S.record.pots = S.record.pots || [];
+    if (!S.record.pots.includes(pot.id)) S.record.pots.push(pot.id);
+    S.energy = 999;
+    switchTab('atelier');
+    // **작물만 빼고** 재료를 채운다 — 그러면 아직 못 만들어야 한다
+    r.inputs.forEach(id => { if (id !== crop) S.inventory[id] = 5; });
+    S.inventory[crop] = 0; delete S.inventory[crop];
+    S.cauldron = []; S.want = [];
+    render();
+    const without = hasAllInputs(r);
+    // 작물을 넣으면 만들 수 있다
+    S.inventory[crop] = 1;
+    render();
+    const withIt = hasAllInputs(r);
+    const inBag = [...document.querySelectorAll('#ingredientBag .ing-chip')]
+      .some(e => (e.getAttribute('onclick') || '').includes(crop));
+    S.discovered = S.discovered || [];
+    if (!S.discovered.includes(r.result.id)) S.discovered.push(r.result.id);
+    fillFromRecipe(r.result.id, null);
+    const filled = D.recipeKey(S.cauldron) === D.recipeKey(r.inputs);
+    const before = S.potions[r.result.id] || 0;
+    brew();
+    return {
+      pot: pot.id, slots: pot.slots, crop, without, withIt, inBag, filled,
+      made: (S.potions[r.result.id] || 0) - before,
+      left: S.inventory[crop] || 0,
+    };
+  });
+  ok(!out.bad, out.bad || '밭 물약이 데이터에 있다');
+  if (out.bad) out = { without: false, withIt: true, inBag: true, filled: true, made: 1, left: 0, slots: 6, pot: '-' };
+  ok(out.without === false, '작물이 없으면 못 만든다 — **그것이 밭을 파는 이유다**');
+  ok(out.withIt === true, '작물이 있으면 만들 수 있다');
+  ok(out.inBag, `작물이 공방 가방에 뜬다 (${out.crop})`);
+  ok(out.filled, '레시피를 누르면 솥에 작물까지 담긴다');
+  ok(out.made === 1, `조합하면 물약이 나온다 (${out.made}병)`);
+  ok(out.left === 0, `작물이 하나 줄었다 (남은 ${out.left})`);
+  ok(out.slots === 6, `6구 솥이 쓰인다 (${out.pot} · ${out.slots}구)`);
+
+  // ⑨ 여신 전에는 밭 탭이 **그려진 크기가 0** 이어야 한다.
   // ⚠️ `hidden` 속성만으로는 안 숨는다 — `.room-tab{display:flex}` 에 진다.
   // 속성이 아니라 **재 본 크기**로 봐야 한다 (랭킹 탭에서 실제로 겪었다)
   out = await page.evaluate(() => {
-    S.stats.charm = 0; S.charmPeak = 0;
+    // 매력 총합은 **비주얼 + 아우라**다 — 하나만 0 으로 두면 여전히 여신이다
+    // (바로 위 밭 물약 검사가 솥을 열려고 `beauty` 를 올려 놓는다)
+    S.stats.beauty = 0; S.stats.charm = 0; S.charmPeak = 0;
     switchTab('gather'); render();
     const b = document.getElementById('gtabFarm');
     return { open: farmOpen(), w: b.getBoundingClientRect().width,
@@ -284,7 +338,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   });
   ok(!out.open && out.w === 0, `여신 전에는 밭 탭이 안 보인다 (폭 ${out.w}px · ${out.disp})`);
 
-  // ⑨ 여신이 되면 탭이 열리고, 마이 룸의 🌾 는 **그 탭으로 보낸다**
+  // ⑩ 여신이 되면 탭이 열리고, 마이 룸의 🌾 는 **그 탭으로 보낸다**
   out = await page.evaluate(async () => {
     S.stats.charm = 500; charmPeak();          // 최고 기록을 올린다
     switchTab('showcase'); render();

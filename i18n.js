@@ -1327,7 +1327,7 @@
       sp_rainbowfoam: 'Rainbow Foam',
       sp_duskshell: 'Dusk Shell',
       sp_mermaidscale: 'Mermaid Scale',
-      // 특수 작물 (밭) — 손으로 고치지 않는다: `npm run gen:farm`
+      // 특수 작물 · 밭 물약 (밭) — 손으로 고치지 않는다: `npm run gen:farm`
       // <<<GEN:farm-en
       ember_chili: 'Ember Chili',
       stone_potato: 'Stone Potato',
@@ -1335,6 +1335,12 @@
       tear_lotus: 'Tear Lotus',
       dawn_tomato: 'Dawn Tomato',
       shadow_eggplant: 'Shadow Eggplant',
+      hf_fire: 'Breath of Lava',
+      hf_earth: 'Oath of Earth',
+      hf_wind: 'Song of Wind',
+      hf_water: 'Tear of the Deep',
+      hf_light: 'Crown of Dawn',
+      hf_dark: 'Veil of the New Moon',
 // GEN:farm-en>>>
       meadow_desc: 'A sunny meadow where common herbs and flowers grow.',
       forest_desc: 'A damp, dark forest with mushrooms and morning dew.',

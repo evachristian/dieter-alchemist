@@ -93,6 +93,60 @@ const zoneIds = new Set(D.ZONES.map(z => z.id));
 add('맵의 지대가 ZONES 에 없다',
   D.MAPS.filter(m => !zoneIds.has(m.zone)).map(m => `${m.id} → ${m.zone}`));
 
+// ─── 2-2. 특수 작물 (밭 · FARM.md) ────────────────────────────
+// **채집으로는 절대 안 나오고, 밭 물약에는 반드시 들어간다.** 이 둘이 밭의 존재
+// 이유 전체다 — 하나라도 깨지면 「밭이 없으면 못 만든다」가 거짓말이 된다.
+// 생성기(`genfarm.js`)도 보지만, **여기서는 파일에 실제로 써진 것을 본다** —
+// 생성기를 안 돌리고 손으로 고친 경우가 그쪽 검사에 안 걸린다
+{
+  const farmIngs = Object.values(D.INGREDIENTS).filter(x => x.farm);
+  add('특수 작물이 하나도 없다', farmIngs.length ? [] : ['INGREDIENTS 에 farm:true 가 없다']);
+
+  // 채집 풀·특별 재료 어디에도 없어야 한다
+  const inPool = [];
+  for (const m of D.MAPS) {
+    for (const id of (m.pool || [])) {
+      if ((D.INGREDIENTS[id] || {}).farm) inPool.push(`${m.id} pool ← ${id}`);
+    }
+    if ((D.INGREDIENTS[m.special] || {}).farm) inPool.push(`${m.id} special ← ${m.special}`);
+  }
+  add('특수 작물이 채집으로 나온다', inPool);
+
+  // 히든(rare)으로 잘못 표시하면 채집 확률표(specialTier)가 흔들린다
+  add('특수 작물이 히든으로도 표시돼 있다', farmIngs.filter(x => x.rare).map(x => x.id));
+
+  // 작물마다 **그것을 쓰는 레시피가 적어도 하나** 있어야 한다 (죽은 재료 금지)
+  const usedIn = new Map();
+  for (const r of D.RECIPES) {
+    for (const id of r.inputs) {
+      if ((D.INGREDIENTS[id] || {}).farm) {
+        if (!usedIn.has(id)) usedIn.set(id, []);
+        usedIn.get(id).push(r.result.id);
+      }
+    }
+  }
+  add('아무 레시피도 안 쓰는 특수 작물',
+    farmIngs.filter(x => !usedIn.has(x.id)).map(x => `${x.id} (${x.name})`));
+
+  // 작물이 든 레시피에는 **작물이 정확히 하나** 들어간다.
+  // 둘이 들어가면 밭 두 번을 기다려야 하고, 그건 기획에 없는 값이다
+  const many = [];
+  for (const r of D.RECIPES) {
+    const n = r.inputs.filter(id => (D.INGREDIENTS[id] || {}).farm).length;
+    if (n > 1) many.push(`${r.result.id}: 작물 ${n}개`);
+  }
+  add('한 레시피에 특수 작물이 둘 이상', many);
+
+  // 그 레시피는 **지금 있는 솥에 들어가야 한다** — 없는 솥을 요구하면 영영 못 만든다
+  const maxSlots = Math.max(...D.CAULDRONS.map(c => c.slots));
+  const tooBig = [];
+  for (const r of D.RECIPES) {
+    if (!r.inputs.some(id => (D.INGREDIENTS[id] || {}).farm)) continue;
+    if (r.inputs.length > maxSlots) tooBig.push(`${r.result.id}: ${r.inputs.length}구 (제일 큰 솥 ${maxSlots}구)`);
+  }
+  add('밭 물약이 들어갈 솥이 없다', tooBig);
+}
+
 // ─── 3. id 중복 ───────────────────────────────────────────────
 // **id 가 겹치면 세이브가 엉킨다.** 옷은 생성기가 보지만, 그 밖은 아무도 안 봤다
 const seen = new Map();

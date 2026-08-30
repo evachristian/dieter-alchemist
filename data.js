@@ -657,6 +657,31 @@ const RECIPES = [
   { inputs: ['cactus', 'coral', 'driftwood', 'dry_root', 'fern', 'moss_branch', 'pine_cone', 'sea_dew', 'sp_mermaidscale', 'starfish', 'tree_resin', 'wild_ivy'],
     result: { id: 'h_99', kind: 'potion', grade: 'high', emoji: '🏆', name: '완성',
       desc: '전설로만 전해지는 완성. 특별한 재료가 필요하다.', beauty: 15, charm: 15 } },
+  // ── 밭 물약 6종 (FARM.md 4장) ──
+  // **밭이 없으면 못 만든다** — 특수 작물이 하나씩 들어간다. 그것이 밭을 파는 이유다.
+  // 여섯의 값(비주얼·아우라)은 **일부러 같다**: 하나가 더 좋으면 모두 그것만 심고
+  // 나머지 다섯 작물이 죽은 콘텐츠가 된다. 무엇을 심을지는 **가진 재료**가 정해야 한다.
+  // 손으로 고치지 않는다: `npm run gen:farm` (tools/genfarm.js)
+  // <<<GEN:farm-recipe
+  { inputs: ['dry_root', 'ember_chili', 'flint', 'lizard_scale', 'salt_crust', 'sand_grain'],
+    result: { id: 'hf_fire', kind: 'potion', grade: 'high', emoji: '🌋', name: '용암의 숨',
+      desc: '밭에서 기른 불꽃 고추 없이는 빚을 수 없다.', beauty: 16, charm: 16 } },
+  { inputs: ['bone_frag', 'cave_moss', 'echo_stone', 'iron_ore', 'pine_cone', 'stone_potato'],
+    result: { id: 'hf_earth', kind: 'potion', grade: 'high', emoji: '🗿', name: '대지의 맹세',
+      desc: '밭에서 기른 바위 감자 없이는 빚을 수 없다.', beauty: 16, charm: 16 } },
+  { inputs: ['cloud_moss', 'eagle_feather', 'mist_drop', 'owl_feather', 'spider_silk', 'whisper_corn'],
+    result: { id: 'hf_wind', kind: 'potion', grade: 'high', emoji: '🌬️', name: '바람의 노래',
+      desc: '밭에서 기른 속삭임 옥수수 없이는 빚을 수 없다.', beauty: 16, charm: 16 } },
+  { inputs: ['coral', 'foam', 'pearl_bit', 'sea_dew', 'seaweed', 'tear_lotus'],
+    result: { id: 'hf_water', kind: 'potion', grade: 'high', emoji: '🌊', name: '심연의 눈물',
+      desc: '밭에서 기른 눈물 연꽃 없이는 빚을 수 없다.', beauty: 16, charm: 16 } },
+  { inputs: ['crystal', 'dawn_tomato', 'honey', 'sea_glass', 'snow_bud', 'starfish'],
+    result: { id: 'hf_light', kind: 'potion', grade: 'high', emoji: '☀️', name: '새벽의 관',
+      desc: '밭에서 기른 새벽 토마토 없이는 빚을 수 없다.', beauty: 16, charm: 16 } },
+  { inputs: ['black_feather', 'frog_egg', 'mushroom', 'night_dew', 'rust_nail', 'shadow_eggplant'],
+    result: { id: 'hf_dark', kind: 'potion', grade: 'high', emoji: '🌑', name: '그믐의 장막',
+      desc: '밭에서 기른 그림자 가지 없이는 빚을 수 없다.', beauty: 16, charm: 16 } },
+// GEN:farm-recipe>>>
   // ── 크리처 30종 ──
   // **손으로 고치지 않는다.** 축 표(tools/gencreature.js)에서 뽑아 넣는다 —
   // 손으로 쓰면 조합 중복이 반드시 섞이고(RECIPE_MAP 이 조용히 덮어쓴다) 영어 이름이 빠진다.
