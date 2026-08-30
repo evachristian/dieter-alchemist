@@ -702,21 +702,27 @@ body {
    붙는 상대의 번호라, 번호가 없으면 몇 번이 몇 번과 붙는지 눈으로 셀 수가 없다.
    ⚠️ 줄바꿈을 허용한다 — 265px 에서 다섯 칸이 한 줄에 안 들어갈 수 있다 */
 .tm-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
-.tm-edit-row { cursor: pointer; }
 .tm-slot {
   position: relative; display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; border-radius: 12px;
+  width: 40px; height: 40px; border-radius: 12px; padding: 0;
   background: var(--cream); border: 2px solid var(--at, transparent);
+  font-family: inherit; color: inherit;
 }
-.tm-row.big { gap: 8px; }
+/* 내 줄은 자리마다 버튼이다 — 3번을 바꾸려고 1번부터 짚어 갈 이유가 없다 */
+button.tm-slot { cursor: pointer; }
+button.tm-slot:active { transform: scale(0.94); }
+/* 부대 시트의 다섯 자리는 **한 줄에 들어가야 한다** — 4+1 로 접히면 다섯이라는
+   숫자가 눈에 안 들어오고, 밭의 칸 다섯과 나란히 읽히지도 않는다.
+   좁은 화면(265px)에서도 들어가게 **폭을 나눠 갖는다** */
+.tm-row.big { gap: 6px; flex-wrap: nowrap; }
 .tm-slot.big {
-  width: 52px; height: 52px; border-radius: 14px;
-  font-family: inherit; color: inherit; cursor: pointer; padding: 0;
+  flex: 1 1 0; min-width: 0; width: auto; aspect-ratio: 1;
+  max-width: 56px; border-radius: 14px;
 }
+.tm-slot.big svg { width: 76%; height: 76%; }
 .tm-slot.big.on { border-color: var(--text-pink); background: var(--pink); }
 .tm-slot.off { border-style: dashed; border-color: var(--lav-2); }
 .tm-slot svg { width: 100%; height: 100%; }
-.tm-slot.big svg { width: 40px; height: 40px; }
 /* 상성 — **테두리로만** 알린다. 배경까지 물들이면 크리처 그림이 안 보인다 */
 .tm-slot.good { border-color: var(--text-mint); }
 .tm-slot.bad  { border-color: var(--text-pink); }

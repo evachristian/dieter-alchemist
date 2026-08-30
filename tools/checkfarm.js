@@ -335,22 +335,65 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   {
     // 다섯 마리를 갖게 하고 부대를 짠다
     const five = ['flame_fox', 'boulder_bear', 'sky_falcon', 'deepsea_whale', 'unicorn'];
+    // **처음 열면 센 다섯이 저절로 선다** — 빈 밭은 그냥 털리는 밭이다
     out = await page.evaluate(async (five) => {
       S.creatures = five.slice();
       S.farmDef = [null, null, null, null, null];
       S.farmAtk = [null, null, null, null, null];
       save();
+      // ⚠️ **`autoTeam()` 을 직접 부르지 않는다.** 그러면 함수가 도는 것만 보게 되고
+      // **아무도 그것을 안 부르는 상태**를 통과시킨다 (실제로 그렇게 만들었다가 잡았다).
+      // 밭을 여는 길로 들어가서, 그 길이 세워 주는지를 본다
+      await pullFarm();
+      const filled = S.farmDef.some(Boolean);
+      const auto = S.farmDef.slice();
+      // **한 자리라도 사람이 채워 뒀으면 안 건드린다**
+      S.farmDef = ['unicorn', null, null, null, null];
+      await pullFarm();
+      const again = S.farmDef.slice(1).some(Boolean);
+      return { filled, auto, again, kept: S.farmDef.slice() };
+    }, five);
+    ok(out.filled === true, '밭을 열면 방어대가 저절로 채워진다');
+    {
+      const byPower = out.auto.every((id, i) => !!id) && out.auto.length === 5;
+      ok(byPower, `센 다섯이 섰다 (${out.auto.join(' ')})`);
+    }
+    ok(out.again === false && out.kept[1] === null,
+      '한 자리라도 사람이 채워 뒀으면 안 건드린다');
+
+    out = await page.evaluate(async (five) => {
+      S.farmDef = [null, null, null, null, null];
+      S.farmAtk = [null, null, null, null, null];
       openTeam('def');
       five.forEach(id => setSlot(id));            // 자리가 저절로 다음으로 넘어간다
       const slots = [...document.querySelectorAll('#teamSlots .tm-slot')].length;
-      // **같은 아이를 두 자리에 못 넣는다**
-      pickSlot(0); setSlot('unicorn');
-      const off = document.querySelectorAll('#teamList .pal-item.off').length;
-      return { slots, def: S.farmDef.slice(), off };
+      const before = S.farmDef.slice();
+      // **이미 다른 자리에 선 아이를 고르면 두 자리를 맞바꾼다** (막지 않는다)
+      pickSlot(0); setSlot(five[2]);
+      const swapped = S.farmDef.slice();
+      // 되돌린다
+      pickSlot(0); setSlot(five[0]);
+      return { slots, def: S.farmDef.slice(), before, swapped };
     }, five);
     ok(out.slots === 5, `부대 시트에 다섯 자리 (${out.slots})`);
-    ok(out.def.join() === five.join(), `다섯을 순서대로 세웠다 (${out.def.join(' ')})`);
-    ok(out.off === 4, `이미 선 아이는 회색으로 남는다 (${out.off}마리 / 4 기대 · 지금 자리 것은 뺀다)`);
+    ok(out.before.join() === five.join(), `다섯을 순서대로 세웠다 (${out.before.join(' ')})`);
+    ok(out.swapped[0] === five[2] && out.swapped[2] === five[0],
+      `1번과 3번이 맞바뀐다 (${out.swapped.join(' ')})`);
+    ok(new Set(out.swapped.filter(Boolean)).size === 5, '맞바꿔도 같은 아이가 두 자리에 안 선다');
+    ok(out.def.join() === five.join(), `되돌리면 원래대로 (${out.def.join(' ')})`);
+
+    // **자리마다 눌러서 그 자리로 연다** — 3번을 바꾸려고 1번부터 짚지 않는다
+    out = await page.evaluate(() => {
+      closeTeam();
+      const btns = document.querySelectorAll('#farmPanelBody .tm-row button.tm-slot, #farmBody .tm-row button.tm-slot');
+      if (btns.length < 5) return { n: btns.length };
+      btns[2].click();
+      const on = [...document.querySelectorAll('#teamSlots .tm-slot')].findIndex(x => x.classList.contains('on'));
+      closeTeam();
+      return { n: btns.length, on };
+    });
+    ok(out.n >= 5, `방어대 줄의 다섯 자리가 다 버튼이다 (${out.n})`);
+    ok(out.on === 2, `3번 자리를 누르면 3번이 골라진 채로 열린다 (${out.on + 1}번)`);
 
     // 다섯 판 — **서버의 주사위를 고정한다.** 상대(밭주인)는 1번 자리만 채워져 있어
     // 2~5번은 빈자리다 (확률 천장 0.9). roll 0 이면 다섯 판 다 이긴다
@@ -374,6 +417,9 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
       // 판정은 서버가 **서버에 있는 세이브**로 하므로, `doRaid` 가 부대를 먼저
       // 올리지 않으면 여기서 옛 부대(동행 한 마리)로 싸우게 된다 —
       // 3초 디바운스가 아직 안 끝났기 때문이다. 그 순서를 그대로 재현한다
+      // **비우고 채운다** — 이미 차 있으면 `setSlot` 은 채우는 대신 **맞바꾼다**
+      // (그것이 5단계의 순서 바꾸기다). 여기서는 순서를 못 박고 싶으므로 먼저 비운다
+      S.farmAtk = [null, null, null, null, null];
       openTeam('atk');
       five.forEach(id => setSlot(id));
       closeTeam();

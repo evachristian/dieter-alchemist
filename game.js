@@ -5104,6 +5104,9 @@ const countOfObj = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
 // **번호를 붙인다.** 자리 번호가 곧 칸 번호이자 붙는 상대의 번호라, 번호가 없으면
 // 「몇 번이 몇 번과 붙는지」를 눈으로 셀 수가 없다
 function teamRow(team, kind, vs) {
+  // 내 줄이면 **자리마다 누를 수 있다** — 3번을 바꾸려고 1번부터 짚어 갈 이유가 없다.
+  // 상대 줄('foe')은 누를 것이 아니므로 그냥 칸이다
+  const own = kind === 'def' || kind === 'atk';
   const cells = [];
   for (let i = 0; i < 5; i++) {
     const b = team && team[i];
@@ -5111,14 +5114,30 @@ function teamRow(team, kind, vs) {
     const attr = b ? D.creatureAttr(b.attr) : null;
     // 상대 줄이면 **내 같은 자리와의 상성**으로 테두리를 물들인다
     const tag = vs ? matchTag(vs[i] ? creatureOf(vs[i].id) : null, b) : null;
-    cells.push(`<span class="tm-slot${tag ? ' ' + tag.k : ''}${b ? '' : ' off'}"
-      ${attr ? `style="--at:${attr.color}"` : ''}>
-      <span class="tm-no">${i + 1}</span>
-      ${c && window.Creature ? Creature.icon(c, 26) : ''}
-    </span>`);
+    const inner = `<span class="tm-no">${i + 1}</span>
+      ${c && window.Creature ? Creature.icon(c, 26) : ''}`;
+    const cls = `tm-slot${tag ? ' ' + tag.k : ''}${b ? '' : ' off'}`;
+    const st = attr ? `style="--at:${attr.color}"` : '';
+    cells.push(own
+      ? `<button class="${cls}" ${st} onclick="openTeam('${kind}', ${i})"
+          aria-label="${T('team_slot_n', { n: i + 1 })}">${inner}</button>`
+      : `<span class="${cls}" ${st}>${inner}</span>`);
   }
-  return `<div class="tm-row${kind === 'def' ? ' tm-edit-row' : ''}"
-    ${kind === 'def' ? 'onclick="openTeam(\'def\')"' : ''}>${cells.join('')}</div>`;
+  return `<div class="tm-row">${cells.join('')}</div>`;
+}
+
+// **처음 열면 센 다섯을 세워 준다.** 빈 밭은 그냥 털리는 밭이라,
+// 「아무것도 안 한 상태」가 곧 손해가 되면 안 된다 — 바꾸는 것은 언제든 된다.
+// **한 자리라도 사람이 채워 뒀으면 안 건드린다.**
+function autoTeam(key) {
+  const arr = teamArr(key);
+  if (arr.some(Boolean)) return false;
+  const ids = [...new Set(S.creatures)].filter(id => creatureOf(id));
+  if (!ids.length) return false;
+  ids.sort((a, b) => combatPower(creatureOf(b)) - combatPower(creatureOf(a)));
+  ids.slice(0, 5).forEach((id, i) => { arr[i] = id; });
+  save();
+  return true;
 }
 
 // **밭은 랭킹과 같은 자리에서 열린다** (매력 100 = 여신 · `FARM.md` 1장).
@@ -5153,6 +5172,9 @@ function openFarm() {
 // 서버에서 받아 와 다시 그리고, 「어디까지 봤나」를 적는다.
 // **연 뒤에 적는다** — 먼저 적으면 못 받았을 때도 「봤다」가 되어 침입 기록을 영영 못 본다
 function pullFarm() {
+  // **밭을 볼 때 방어대를 세워 준다.** 빈 밭은 그냥 털리는 밭이라, 「아무것도 안 한
+  // 상태」가 곧 손해가 되면 안 된다 (autoTeam 은 한 자리라도 채워 뒀으면 안 건드린다)
+  if (autoTeam('def')) toast(T('team_auto'), null, 3200);
   return refreshFarm().then(() => {
     if (FARM) { S.farmSeenAt = FARM.now || Date.now(); save(); }
     renderFarm();
@@ -5374,9 +5396,9 @@ const teamArr = key => {
   return S[k];
 };
 
-function openTeam(key) {
+function openTeam(key, at) {
   teamKey = key === 'atk' ? 'atk' : 'def';
-  teamAt = 0;
+  teamAt = Number.isInteger(at) && at >= 0 && at < 5 ? at : 0;
   const el = document.getElementById('teamPick');
   if (!el) return;
   el.classList.add('show');
@@ -5421,7 +5443,7 @@ function renderTeam() {
         <span class="pal-name">${N(c.id, c.name)}</span>
         ${attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : ''}
         <span class="farm-pow">${T('farm_power', { n: combatPower(c) })}</span>
-        ${busy ? `<span class="raid-tag">${T('team_busy', { n: at + 1 })}</span>` : ''}
+        ${busy ? `<span class="raid-tag">${T('team_swap', { n: at + 1 })}</span>` : ''}
       </button>`;
     }).join('');
   }
@@ -5436,23 +5458,31 @@ const combatPower = c => {
 function pickSlot(i) { teamAt = i; renderTeam(); }
 function setSlot(id) {
   const arr = teamArr(teamKey);
-  // **같은 아이를 두 자리에 못 넣는다** — 유니콘 하나로 다섯 칸을 채우면
-  // 고르는 일이 사라진다. 서버도 같은 규칙으로 한 번 더 거른다
-  if (id) {
-    const at = arr.indexOf(id);
-    if (at >= 0 && at !== teamAt) { toast(T('team_busy', { n: at + 1 })); return; }
-    if (!ownsCreature(id)) return;
+  if (id && !ownsCreature(id)) return;
+  const at = id ? arr.indexOf(id) : -1;
+  // **이미 다른 자리에 선 아이를 고르면 두 자리를 맞바꾼다.**
+  // 자리 대 자리로 붙으므로 **순서가 곧 전략**인데, 「이미 3번에 있어요」로 막으면
+  // 순서를 바꾸려고 비우고 다시 넣기를 반복하게 된다.
+  // (같은 아이가 두 자리에 서는 일은 맞바꾸기로도 안 생긴다)
+  if (at >= 0 && at !== teamAt) {
+    arr[at] = arr[teamAt];
+    arr[teamAt] = id;
+  } else {
+    arr[teamAt] = id || null;
+    // 채운 경우에만 다음 빈 자리로 옮겨 준다 — 다섯 번 다 손으로 짚게 하지 않는다.
+    // **비운 경우는 그 자리에 머문다** (비우자마자 딴 데로 가면 다시 짚어야 한다)
+    if (id) { const nx = arr.indexOf(null); teamAt = nx >= 0 ? nx : teamAt; }
   }
-  arr[teamAt] = id || null;
   save();
-  // 다음 빈 자리로 옮겨 준다 — 다섯 번 다 손으로 짚게 하지 않는다
-  if (id) { const nx = arr.indexOf(null); teamAt = nx >= 0 ? nx : teamAt; }
   renderTeam();
   renderFarm();
+  // 이웃 밭이 열려 있으면 상성 딱지가 바뀐다 — 같이 다시 그린다
+  if (document.getElementById('raidPick').classList.contains('show')) renderRaidList();
   if (window.Sfx) Sfx.play('pick');
 }
 
 window.openTeam = openTeam;
+window.autoTeam = autoTeam;
 window.closeTeam = closeTeam;
 window.pickSlot = pickSlot;
 window.setSlot = setSlot;
@@ -5461,7 +5491,14 @@ window.setSlot = setSlot;
 let RAIDS = null;
 
 function openRaidPick() {
-  if (!S.petField || !ownsCreature(S.petField)) { toast(T('farm_no_pal')); return; }
+  // 나갈 때도 세워 준다 — 한 마리만 나가면 다섯 판 중 넷을 그냥 진다
+  // (autoTeam 은 한 자리라도 사람이 채워 뒀으면 안 건드린다)
+  autoTeam('atk');
+  // **출정대를 봐야 한다.** 예전에는 동행(`petField`) 하나만 봤는데, 5단계부터는
+  // 출정대가 따로 있어서 동행이 없어도 나갈 수 있다 (그 반대도 마찬가지다)
+  const has = teamArr('atk').some(id => id && ownsCreature(id))
+    || (S.petField && ownsCreature(S.petField));
+  if (!has) { toast(T('farm_no_pal')); return; }
   if (FARM && FARM.raids < 1) {
     const t = (FARM.nextRaidAt || 0) - (FARM.now || Date.now());
     toast(T('farm_no_raids', { t: leftText(Math.max(60000, t)) }));
