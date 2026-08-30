@@ -61,6 +61,12 @@ const defaultState = () => ({
   // 두 벌이 되고 어느 쪽이 맞는지 판단할 근거가 없다. 이 값은 「침입 기록을 어디까지
   // 봤나」 하나뿐이다. 없던 칸을 더하는 것이라 마이그레이션이 필요 없다
   farmSeenAt: 0,
+  // 밭 부대 — **자리 번호 = 칸 번호다** (FARM.md 5장). 1번이 1번 칸을 지키고
+  // 쳐들어간 1번과 붙는다. **서버가 이 칸을 읽어 판정한다** (`server/battle.js`).
+  // 한 번도 안 짰으면 서버가 애착/동행 한 마리를 1번 자리에 세워 준다 —
+  // 어제까지 지키던 아이가 오늘 사라지면 그건 기능이 는 것이 아니라 뺏긴 것이다
+  farmDef: [null, null, null, null, null],   // 내 밭을 지키는 다섯
+  farmAtk: [null, null, null, null, null],   // 남의 밭으로 가는 다섯
   // 마이 룸에 두는 **애착 크리처 한 마리.** 매력에 반영되는 것도 이 한 마리뿐이다.
   // 예전에는 가진 전부가 중복까지 다 더해져 무한 누적이었다 (CREATURE.md 0장)
   petRoom: null,
@@ -5094,15 +5100,25 @@ function plotRow(p, i, now) {
 }
 const countOfObj = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
 
-// 크리처 한 마리를 한 줄로 (서버는 id 만 준다 — 이름은 여기서 제 언어로 부른다)
-function briefLine(b) {
-  if (!b) return `<span class="farm-none">${T('raid_guard_none')}</span>`;
-  const c = creatureOf(b.id);
-  const attr = D.creatureAttr(b.attr);
-  return `<span class="farm-pal">${window.Creature && c ? Creature.icon(c, 26) : ''}
-    <span>${c ? N(c.id, c.name) : b.id}</span>
-    ${attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : ''}
-    <span class="farm-pow">${T('farm_power', { n: b.power })}</span></span>`;
+// 부대 한 줄 — 다섯 자리를 작게 늘어놓는다.
+// **번호를 붙인다.** 자리 번호가 곧 칸 번호이자 붙는 상대의 번호라, 번호가 없으면
+// 「몇 번이 몇 번과 붙는지」를 눈으로 셀 수가 없다
+function teamRow(team, kind, vs) {
+  const cells = [];
+  for (let i = 0; i < 5; i++) {
+    const b = team && team[i];
+    const c = b ? creatureOf(b.id) : null;
+    const attr = b ? D.creatureAttr(b.attr) : null;
+    // 상대 줄이면 **내 같은 자리와의 상성**으로 테두리를 물들인다
+    const tag = vs ? matchTag(vs[i] ? creatureOf(vs[i].id) : null, b) : null;
+    cells.push(`<span class="tm-slot${tag ? ' ' + tag.k : ''}${b ? '' : ' off'}"
+      ${attr ? `style="--at:${attr.color}"` : ''}>
+      <span class="tm-no">${i + 1}</span>
+      ${c && window.Creature ? Creature.icon(c, 26) : ''}
+    </span>`);
+  }
+  return `<div class="tm-row${kind === 'def' ? ' tm-edit-row' : ''}"
+    ${kind === 'def' ? 'onclick="openTeam(\'def\')"' : ''}>${cells.join('')}</div>`;
 }
 
 // **밭은 랭킹과 같은 자리에서 열린다** (매력 100 = 여신 · `FARM.md` 1장).
@@ -5169,9 +5185,12 @@ function farmHtml() {
   const now = FARM.now || Date.now();
   const rows = [];
   rows.push(`<div class="farm-lead">${T('farm_lead')}</div>`);
-  rows.push(`<div class="farm-row"><span class="farm-k">${T('farm_def')}</span>
-    ${briefLine(FARM.def)}</div>`);
-  if (!FARM.def) rows.push(`<div class="farm-hint">${T('farm_def_none')}</div>`);
+  // **방어대 다섯 자리** — 자리 번호 = 칸 번호다 (5단계)
+  const def = Array.isArray(FARM.def) ? FARM.def : [];
+  rows.push(`<div class="farm-row farm-logk">${T('farm_def')}
+    <button class="tm-edit" onclick="openTeam('def')">${T('team_edit')}</button></div>`);
+  rows.push(teamRow(def, 'def'));
+  if (def.every(x => !x)) rows.push(`<div class="farm-hint">${T('farm_def_none')}</div>`);
 
   // ─── 칸 (FARM.md 3장) ───
   // **칸 하나 = 심으면 특수 작물, 비워 두면 크리처의 이삭.**
@@ -5342,6 +5361,102 @@ async function buyPlot() {
   render();
 }
 
+// ─── 부대 짜기 (FARM.md 5장) ─────────────────────────────────
+//
+// **자리를 먼저 고르고 크리처를 고른다.** 한 화면에 둘 다 두면 「몇 번 자리에
+// 넣는 것인지」가 늘 보인다 — 단계를 나누면 「뒤로」가 필요해지고 다섯 번 왕복한다.
+let teamKey = 'def';        // 'def' 내 밭을 지키는 다섯 / 'atk' 남의 밭으로 가는 다섯
+let teamAt = 0;             // 지금 고르고 있는 자리
+
+const teamArr = key => {
+  const k = key === 'atk' ? 'farmAtk' : 'farmDef';
+  if (!Array.isArray(S[k]) || S[k].length !== 5) S[k] = [null, null, null, null, null];
+  return S[k];
+};
+
+function openTeam(key) {
+  teamKey = key === 'atk' ? 'atk' : 'def';
+  teamAt = 0;
+  const el = document.getElementById('teamPick');
+  if (!el) return;
+  el.classList.add('show');
+  renderTeam();
+}
+function closeTeam() {
+  const el = document.getElementById('teamPick');
+  if (el) el.classList.remove('show');
+}
+
+function renderTeam() {
+  const ti = document.getElementById('teamTitle');
+  if (ti) ti.textContent = T(teamKey === 'atk' ? 'team_title_atk' : 'team_title_def');
+  const arr = teamArr(teamKey);
+  const slots = document.getElementById('teamSlots');
+  if (slots) {
+    slots.innerHTML = arr.map((id, i) => {
+      const c = id ? creatureOf(id) : null;
+      const attr = c ? D.creatureAttr(c.attr) : null;
+      return `<button class="tm-slot big${i === teamAt ? ' on' : ''}${c ? '' : ' off'}"
+        ${attr ? `style="--at:${attr.color}"` : ''} onclick="pickSlot(${i})">
+        <span class="tm-no">${i + 1}</span>
+        ${c && window.Creature ? Creature.icon(c, 34) : ''}
+      </button>`;
+    }).join('');
+  }
+  const list = document.getElementById('teamList');
+  if (list) {
+    // 가진 것만. **이미 다른 자리에 선 아이는 회색**이다 — 목록에서 빼면
+    // 「내 유니콘이 어디 갔지」가 되고, 그대로 두면 같은 아이를 두 자리에 넣게 된다
+    const ids = [...new Set(S.creatures)].filter(id => creatureOf(id));
+    const none = `<button class="pal-item" onclick="setSlot(null)">
+      <span class="pal-art">➖</span><span class="pal-name">${T('team_clear')}</span></button>`;
+    list.innerHTML = none + ids.map(id => {
+      const c = creatureOf(id);
+      const attr = D.creatureAttr(c.attr);
+      const at = arr.indexOf(id);
+      const busy = at >= 0 && at !== teamAt;
+      return `<button class="pal-item${arr[teamAt] === id ? ' on' : ''}${busy ? ' off' : ''}"
+        onclick="setSlot('${id}')">
+        <span class="pal-art">${window.Creature ? Creature.icon(c, 34) : ''}</span>
+        <span class="pal-name">${N(c.id, c.name)}</span>
+        ${attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : ''}
+        <span class="farm-pow">${T('farm_power', { n: combatPower(c) })}</span>
+        ${busy ? `<span class="raid-tag">${T('team_busy', { n: at + 1 })}</span>` : ''}
+      </button>`;
+    }).join('');
+  }
+}
+// 전투력 — **서버와 같은 규칙이다.** 여기 것은 안내용이고 판정은 서버가 한다
+// (`server/battle.js`). 둘 다 `data.js` 의 `combat` 한 표를 읽으므로 같이 바뀐다
+const combatPower = c => {
+  const b = (c && c.combat) || {};
+  return (b.atk || 0) + (b.matk || 0) + (b.def || 0) + (b.mdef || 0);
+};
+
+function pickSlot(i) { teamAt = i; renderTeam(); }
+function setSlot(id) {
+  const arr = teamArr(teamKey);
+  // **같은 아이를 두 자리에 못 넣는다** — 유니콘 하나로 다섯 칸을 채우면
+  // 고르는 일이 사라진다. 서버도 같은 규칙으로 한 번 더 거른다
+  if (id) {
+    const at = arr.indexOf(id);
+    if (at >= 0 && at !== teamAt) { toast(T('team_busy', { n: at + 1 })); return; }
+    if (!ownsCreature(id)) return;
+  }
+  arr[teamAt] = id || null;
+  save();
+  // 다음 빈 자리로 옮겨 준다 — 다섯 번 다 손으로 짚게 하지 않는다
+  if (id) { const nx = arr.indexOf(null); teamAt = nx >= 0 ? nx : teamAt; }
+  renderTeam();
+  renderFarm();
+  if (window.Sfx) Sfx.play('pick');
+}
+
+window.openTeam = openTeam;
+window.closeTeam = closeTeam;
+window.pickSlot = pickSlot;
+window.setSlot = setSlot;
+
 // ─── 이웃 밭 ─────────────────────────────────────────────────
 let RAIDS = null;
 
@@ -5374,20 +5489,45 @@ function renderRaidList() {
   if (!list) return;
   if (!RAIDS) { list.innerHTML = `<div class="empty-hint">${T('farm_err')}</div>`; return; }
   if (!RAIDS.length) { list.innerHTML = `<div class="empty-hint">${T('raid_none')}</div>`; return; }
-  const me = creatureOf(S.petField);
+  // 내 출정대 (안 짰으면 동행 한 마리가 1번 자리 — 서버와 같은 규칙)
+  const mine = myAtkTeam();
+  const head = document.getElementById('raidMine');
+  if (head) {
+    head.innerHTML = `<div class="farm-row farm-logk">${T('raid_mine')}
+      <button class="tm-edit" onclick="openTeam('atk')">${T('team_edit')}</button></div>`
+      + teamRow(mine.map(x => (x ? { id: x.id, attr: (creatureOf(x.id) || {}).attr } : null)), 'atk');
+  }
   list.innerHTML = RAIDS.map((t, i) => {
-    // **상성을 미리 보여 준다.** 순환(불➔땅➔바람➔물, 빛↔암흑)을 처음 쓰는 자리라,
-    // 결과만 보고는 무엇이 왜 유리했는지 아무도 못 배운다
-    const tag = matchTag(me, t.def);
+    // **상성을 자리마다 미리 보여 준다.** 순환(불➔땅➔바람➔물, 빛↔암흑)을 쓰는
+    // 자리라, 결과만 보고는 무엇이 왜 유리했는지 아무도 못 배운다.
+    // 줄 머리의 딱지는 **다섯 자리를 통틀어** 유리한 자리가 많은지 적은지다
+    const def = Array.isArray(t.def) ? t.def : [];
+    const mineC = k => (mine[k] ? creatureOf(mine[k].id) : null);
+    let good = 0, bad = 0;
+    def.forEach((b, k) => {
+      if (!b) return;
+      const g = matchTag(mineC(k), b).k;
+      if (g === 'good') good++; else if (g === 'bad') bad++;
+    });
+    const tag = good > bad ? { k: 'good', txt: T('raid_good') }
+      : bad > good ? { k: 'bad', txt: T('raid_bad') } : { k: 'even', txt: T('raid_even') };
     // **이름을 onclick 안에 넣지 않는다.** 남이 지은 글자라 따옴표 하나로 코드가 되고,
     // 실제로 이 게임에서 남이 쓴 글자가 내 화면에 나오는 첫 자리다. 자리 번호만 넘긴다
     return `<button class="pal-item raid-item" onclick="doRaid(${i})">
-      <span class="raid-name">${escHtml(t.name)}</span>
-      <span class="raid-guard">${briefLine(t.def)}</span>
+      <span class="raid-name">${escHtml(t.name)}
+        <span class="raid-tag ${tag.k}">${tag.txt}</span></span>
+      ${teamRow(def, 'foe', mine)}
       <span class="pd-items raid-crop">${stashLine(t.stash)}</span>
-      <span class="raid-tag ${tag.k}">${tag.txt}</span>
     </button>`;
   }).join('');
+}
+
+// 내 출정대 — 서버의 `atkTeam()` 과 **같은 규칙**이다 (안 짰으면 동행이 1번 자리).
+// 두 군데에 있다는 것을 알고 둔다: 여기 것은 안내용이고 판정은 서버가 한다
+function myAtkTeam() {
+  const out = teamArr('atk').map(id => (id && ownsCreature(id) ? { id } : null));
+  if (out.every(x => !x) && S.petField && ownsCreature(S.petField)) out[0] = { id: S.petField };
+  return out;
 }
 
 // 내 동행이 그 지키개에게 유리한가 — 서버의 `attrMul` 과 같은 규칙이다.
@@ -5407,6 +5547,9 @@ async function doRaid(i) {
   if (!t || farmBusy) return;
   const name = t.name;
   farmBusy = true;
+  // ⚠️ **부대를 먼저 올린다.** 판정은 서버가 **서버에 있는 세이브**로 한다 —
+  // 방금 바꾼 출정대가 아직 3초 디바운스에 걸려 있으면 옛 부대로 싸운다
+  await Sync.pushNow(S);
   const r = await Sync.raid(name, Sync.nonce());
   farmBusy = false;
   closeRaidPick();
@@ -5420,20 +5563,60 @@ async function doRaid(i) {
     return;
   }
   rec('raids');
+  const items = r.body.items || {};
   if (r.body.win) {
-    const items = r.body.items || {};
     Object.keys(items).forEach(id => addInv(id, items[id]));
     rec('raidWon');
-    toast(T('raid_win', { who: name, items: stashText(items) }), null, 3000);
-  } else {
-    toast(T('raid_lose', { who: name }), null, 2800);
   }
   save();
   if (window.Sfx) Sfx.play(r.body.win ? 'success' : 'fail');
+  showRaidResult(name, r.body);
   await refreshFarm();
   renderFarm();
   render();
 }
+
+// 다섯 판을 **한 줄씩** 보여 준다. 토스트 한 줄로는 「어느 자리에서 졌는지」를
+// 못 알려 주고, 그걸 모르면 다음에 순서를 바꿔 볼 수가 없다 — 이 시스템의 목적이
+// 「무엇이 왜 유리했는지 배우는 것」이라 결과가 곧 다음 판의 설명이어야 한다
+function showRaidResult(name, b) {
+  const el = document.getElementById('raidResult');
+  if (!el) return;
+  const ti = document.getElementById('raidResTitle');
+  if (ti) {
+    ti.textContent = T(b.win ? 'rr_win' : 'rr_lose',
+      { who: name, w: b.wins, l: (b.rounds || []).length - b.wins });
+  }
+  const body = document.getElementById('raidResBody');
+  if (body) {
+    const mine = b.mine || [], def = b.def || [];
+    const cell = x => {
+      const c = x ? creatureOf(x.id) : null;
+      return c
+        ? `${window.Creature ? Creature.icon(c, 24) : ''} ${N(c.id, c.name)}`
+        : `<span class="farm-none">${T('rr_none')}</span>`;
+    };
+    const rows = (b.rounds || []).map(r => `<div class="rr-row${r.win ? ' won' : ''}">
+      <span class="tm-no">${r.i + 1}</span>
+      <span class="rr-side">${cell(mine[r.i])}</span>
+      <span class="rr-vs">vs</span>
+      <span class="rr-side">${cell(def[r.i])}</span>
+      <span class="rr-mark">${T(r.win ? 'rr_won' : 'rr_lost')}</span>
+    </div>`).join('');
+    const got = Object.keys(b.items || {}).length
+      ? `<div class="farm-row"><span class="farm-k">${T('rr_got')}</span>
+         <span class="pd-items">${stashLine(b.items)}</span></div>`
+      // **세 판을 못 이기면 빈손이다** — 두 판을 이겼어도 그렇다. 그 말을 적어 준다
+      : `<div class="farm-hint">${T('rr_empty', { n: b.winNeed || 3 })}</div>`;
+    body.innerHTML = `<div class="rr-list">${rows}</div>` + got;
+  }
+  el.classList.add('show');
+}
+function closeRaidResult() {
+  const el = document.getElementById('raidResult');
+  if (el) el.classList.remove('show');
+}
+window.closeRaidResult = closeRaidResult;
 
 window.openFarm = openFarm;
 window.closeFarm = closeFarm;

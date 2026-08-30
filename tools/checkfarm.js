@@ -96,16 +96,20 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
       shown: document.getElementById('farmSheet').classList.contains('show'),
       text: body.textContent.replace(/\s+/g, ' ').trim(),
       count: FARM && FARM.count, raids: FARM && FARM.raids,
-      def: FARM && FARM.def && FARM.def.id,
+      def: FARM && FARM.def,
+      defSlots: document.querySelectorAll('#farmBody .tm-row .tm-slot').length,
       harvestOff: document.querySelector('.farm-do-harvest').disabled,
       bag: JSON.parse(JSON.stringify(S.inventory)),
     };
   });
   ok(out.shown, '밭 시트가 열린다');
   ok(out.count === 6, `이삭 ${out.count} (6 기대)`);
-  ok(out.def === 'sky_falcon', `지키개 = ${out.def} (마이 룸의 애착 크리처)`);
+  // **방어대는 다섯 자리다.** 한 번도 안 짰으면 애착 한 마리가 1번 자리에 선다
+  ok(Array.isArray(out.def) && out.def.length === 5, `방어대가 다섯 자리 (${out.def && out.def.length})`);
+  ok(out.def[0] && out.def[0].id === 'sky_falcon', `1번 자리 = ${out.def[0] && out.def[0].id}`);
+  ok(out.defSlots === 5, `화면에도 다섯 칸이 그려진다 (${out.defSlots})`);
   ok(!out.harvestOff, '이삭이 있으면 「거두기」가 살아 있다');
-  ok(/하늘 매/.test(out.text), `지키개 이름이 화면에 있다 — "${out.text.slice(0, 60)}…"`);
+  ok(/방어대/.test(out.text), `방어대 줄이 화면에 있다 — "${out.text.slice(0, 40)}…"`);
   ok(/호두/.test(out.text) && /밀/.test(out.text), '여문 이삭이 이름으로 적힌다');
 
   // ② 거두기 — **가방에 들어와야 한다**
@@ -130,16 +134,19 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
     const rows = [...document.querySelectorAll('#raidList .raid-item')];
     return {
       n: rows.length,
-      names: rows.map(r => r.querySelector('.raid-name').textContent),
+      names: rows.map(r => r.querySelector('.raid-name').firstChild.textContent.trim()),
       tags: rows.map(r => r.querySelector('.raid-tag').textContent.trim()),
+      foeSlots: rows.map(r => r.querySelectorAll('.tm-row .tm-slot').length),
+      mineSlots: document.querySelectorAll('#raidMine .tm-slot').length,
       text: rows.map(r => r.textContent.replace(/\s+/g, ' ').trim()),
     };
   });
   ok(out.n === 1 && out.names[0] === '밭주인', `상대 목록 = ${JSON.stringify(out.names)}`);
   // 불꽃 봉황(불) 대 유니콘(빛) — 순환에 없는 짝이라 「보통」이어야 한다
   ok(out.tags[0] === '보통', `상성 딱지 = ${out.tags[0]} (보통 기대)`);
-  ok(/유니콘/.test(out.text[0]) && /반딧불이/.test(out.text[0]),
-    `상대 줄에 지키개와 이삭이 같이 있다 — "${out.text[0]}"`);
+  ok(out.foeSlots[0] === 5, `상대 줄에 다섯 자리가 있다 (${out.foeSlots[0]})`);
+  ok(out.mineSlots === 5, `내 출정대도 다섯 자리 (${out.mineSlots})`);
+  ok(/반딧불이/.test(out.text[0]), `상대 줄에 이삭이 적힌다 — "${out.text[0]}"`);
 
   // ④ 이기면 — **서버의 주사위를 고정한다**
   const vBefore = ears((await store.get(VID)).farm);
@@ -324,7 +331,112 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   ok(out.left === 0, `작물이 하나 줄었다 (남은 ${out.left})`);
   ok(out.slots === 6, `6구 솥이 쓰인다 (${out.pot} · ${out.slots}구)`);
 
-  // ⑨ 여신 전에는 밭 탭이 **그려진 크기가 0** 이어야 한다.
+  // ⑨ 부대 짜기 · 다섯 판 (5단계)
+  {
+    // 다섯 마리를 갖게 하고 부대를 짠다
+    const five = ['flame_fox', 'boulder_bear', 'sky_falcon', 'deepsea_whale', 'unicorn'];
+    out = await page.evaluate(async (five) => {
+      S.creatures = five.slice();
+      S.farmDef = [null, null, null, null, null];
+      S.farmAtk = [null, null, null, null, null];
+      save();
+      openTeam('def');
+      five.forEach(id => setSlot(id));            // 자리가 저절로 다음으로 넘어간다
+      const slots = [...document.querySelectorAll('#teamSlots .tm-slot')].length;
+      // **같은 아이를 두 자리에 못 넣는다**
+      pickSlot(0); setSlot('unicorn');
+      const off = document.querySelectorAll('#teamList .pal-item.off').length;
+      return { slots, def: S.farmDef.slice(), off };
+    }, five);
+    ok(out.slots === 5, `부대 시트에 다섯 자리 (${out.slots})`);
+    ok(out.def.join() === five.join(), `다섯을 순서대로 세웠다 (${out.def.join(' ')})`);
+    ok(out.off === 4, `이미 선 아이는 회색으로 남는다 (${out.off}마리 / 4 기대 · 지금 자리 것은 뺀다)`);
+
+    // 다섯 판 — **서버의 주사위를 고정한다.** 상대(밭주인)는 1번 자리만 채워져 있어
+    // 2~5번은 빈자리다 (확률 천장 0.9). roll 0 이면 다섯 판 다 이긴다
+    {
+      const g = (await store.get(VID)).farm;
+      g.shieldUntil = 0;
+      g.plots.forEach(p => { p.stash = {}; });
+      g.plots[0].stash = { firefly: 9 };
+      g.plots[1].stash = { walnut: 6 };
+      g.raids = 3;
+      await store.farmSet(VID, g);
+      const f = (await store.get(RID)).farm; f.raids = 3; await store.farmSet(RID, f);
+    }
+    await page.evaluate(() => openRaidPick());
+    await page.waitForFunction(
+      () => document.querySelectorAll('#raidList .raid-item').length > 0, null, { timeout: 8000 })
+      .catch(() => bad.push('세 번째 목록이 안 그려진다'));
+    Math.random = () => 0;
+    out = await page.evaluate(async (five) => {
+      // ⚠️ **목록을 받아 온 뒤에 부대를 바꾸고 곧바로 쳐들어간다.**
+      // 판정은 서버가 **서버에 있는 세이브**로 하므로, `doRaid` 가 부대를 먼저
+      // 올리지 않으면 여기서 옛 부대(동행 한 마리)로 싸우게 된다 —
+      // 3초 디바운스가 아직 안 끝났기 때문이다. 그 순서를 그대로 재현한다
+      openTeam('atk');
+      five.forEach(id => setSlot(id));
+      closeTeam();
+      const b0 = JSON.parse(JSON.stringify(S.inventory));
+      await doRaid(0);
+      const rows = [...document.querySelectorAll('#raidResult .rr-row')];
+      return {
+        b0, bag: JSON.parse(JSON.stringify(S.inventory)),
+        shown: document.getElementById('raidResult').classList.contains('show'),
+        rows: rows.length, won: rows.filter(r => r.classList.contains('won')).length,
+        text: document.getElementById('raidResBody').textContent.replace(/\s+/g, ' ').trim(),
+        atk: S.farmAtk.slice(),
+        // **내 쪽 칸만** 본다 — 상대의 2~5번은 원래 빈자리다 (한 마리만 세웠다)
+        mineSide: rows.map(r => r.querySelectorAll('.rr-side')[0].textContent.trim()),
+      };
+    }, five);
+    Math.random = realRandom;
+    ok(out.atk.join() === five.join(), `출정대도 다섯 (${out.atk.join(' ')})`);
+    ok(out.shown, '다섯 판 결과 시트가 뜬다');
+    // **서버가 방금 바꾼 부대로 싸웠는가** — 안 올렸으면 내 2~5번이 빈자리로 나온다
+    ok(out.mineSide.every(x => x && !/빈자리|Empty/.test(x)),
+      `서버가 방금 바꾼 출정대로 싸웠다 — ${out.mineSide.join(' / ')}`);
+    ok(out.rows === 5, `한 줄이 한 판 — 다섯 줄 (${out.rows})`);
+    ok(out.won === 5, `roll 0 이면 다섯 판 다 이긴다 (${out.won}승)`);
+    // 1번 자리를 이겼으니 **1번 칸의 이삭**을, 2번 자리를 이겼으니 2번 칸의 것을 가져온다
+    const gotF = (out.bag.firefly || 0) - (out.b0.firefly || 0);
+    const gotW = (out.bag.walnut || 0) - (out.b0.walnut || 0);
+    ok(gotF === 3, `1번 칸에서 반딧불이 ${gotF} (9의 1/3 = 3 기대)`);
+    ok(gotW === 2, `2번 칸에서 호두 ${gotW} (6의 1/3 = 2 기대)`);
+    const vf = (await store.get(VID)).farm;
+    ok(vf.plots[0].stash.firefly === 6 && vf.plots[1].stash.walnut === 4,
+      `남의 칸이 각각 준다 (${vf.plots[0].stash.firefly} · ${vf.plots[1].stash.walnut})`);
+    await page.evaluate(() => closeRaidResult());
+
+    // **두 판만 이기면 빈손이다** — roll 을 자리마다 갈라 준다
+    {
+      const g = (await store.get(VID)).farm;
+      g.shieldUntil = 0; g.raids = 3;
+      await store.farmSet(VID, g);
+      const f = (await store.get(RID)).farm; f.raids = 3; await store.farmSet(RID, f);
+    }
+    await page.evaluate(() => openRaidPick());
+    await page.waitForFunction(
+      () => document.querySelectorAll('#raidList .raid-item').length > 0, null, { timeout: 8000 })
+      .catch(() => bad.push('네 번째 목록이 안 그려진다'));
+    let k = 0;
+    Math.random = () => (k++ < 2 ? 0 : 0.999);        // 앞의 두 판만 이긴다
+    out = await page.evaluate(async () => {
+      const b0 = JSON.parse(JSON.stringify(S.inventory));
+      await doRaid(0);
+      const rows = [...document.querySelectorAll('#raidResult .rr-row')];
+      return { b0, bag: JSON.parse(JSON.stringify(S.inventory)),
+               won: rows.filter(r => r.classList.contains('won')).length,
+               text: document.getElementById('raidResBody').textContent.replace(/\s+/g, ' ').trim() };
+    });
+    Math.random = realRandom;
+    ok(out.won === 2, `두 판만 이겼다 (${out.won}승)`);
+    ok((out.bag.firefly || 0) === (out.b0.firefly || 0), '두 판을 이겨도 **빈손이다**');
+    ok(/이겨야/.test(out.text) || /wins/.test(out.text), `왜 빈손인지 적어 준다 — "${out.text.slice(-40)}"`);
+    await page.evaluate(() => closeRaidResult());
+  }
+
+  // ⑩ 여신 전에는 밭 탭이 **그려진 크기가 0** 이어야 한다.
   // ⚠️ `hidden` 속성만으로는 안 숨는다 — `.room-tab{display:flex}` 에 진다.
   // 속성이 아니라 **재 본 크기**로 봐야 한다 (랭킹 탭에서 실제로 겪었다)
   out = await page.evaluate(() => {
@@ -338,7 +450,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   });
   ok(!out.open && out.w === 0, `여신 전에는 밭 탭이 안 보인다 (폭 ${out.w}px · ${out.disp})`);
 
-  // ⑩ 여신이 되면 탭이 열리고, 마이 룸의 🌾 는 **그 탭으로 보낸다**
+  // ⑪ 여신이 되면 탭이 열리고, 마이 룸의 🌾 는 **그 탭으로 보낸다**
   out = await page.evaluate(async () => {
     S.stats.charm = 500; charmPeak();          // 최고 기록을 올린다
     switchTab('showcase'); render();
@@ -357,7 +469,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   ok(out.tab === 'gather' && out.gtab === 'farm', `🌾 를 누르면 탐험의 밭 탭으로 간다 (${out.tab}/${out.gtab})`);
   ok(!out.sheet, '여신부터는 마이 룸 시트를 안 띄운다 (같은 것을 두 자리에서 보여 주지 않는다)');
   ok(out.btns === 2, `탭에도 버튼 둘이 있다 (${out.btns})`);
-  ok(/지키는 아이/.test(out.text) && /다녀간 이웃/.test(out.text),
+  ok(/방어대/.test(out.text) && /다녀간 이웃/.test(out.text),
     `탭이 시트와 같은 내용을 그린다 — "${out.text.slice(0, 50)}…"`);
 
   // **한 번 연 것은 안 닫힌다** — 애착을 약한 것으로 바꿔 총합이 내려가도

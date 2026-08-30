@@ -237,8 +237,12 @@ async function run(label, env) {
     ok(Array.isArray(f.body.plots) && f.body.plots.length === 2,
       `밭이 ${f.body.plots && f.body.plots.length}칸 (2 기대)`);
     ok((f.body.plots || []).every(p => p.crop === null), '처음에는 아무것도 안 심겨 있다');
-    ok(f.body.def && f.body.def.id === 'unicorn' && f.body.def.power === 64,
-      `지키는 크리처 = ${JSON.stringify(f.body.def)}`);
+    // **부대는 다섯 자리다.** 한 번도 안 짠 사람은 애착 한 마리가 1번 자리에 선다
+    ok(Array.isArray(f.body.def) && f.body.def.length === 5,
+      `방어대가 다섯 자리 (${f.body.def && f.body.def.length})`);
+    ok(f.body.def[0] && f.body.def[0].id === 'unicorn' && f.body.def[0].power === 64,
+      `1번 자리 = ${JSON.stringify(f.body.def[0])}`);
+    ok(f.body.def.slice(1).every(x => x === null), '나머지 넷은 비어 있다');
 
     // 사흘 지나면 사흘치
     { const g = await farmOf(V); g.grownAt = Date.now() - 3 * DAY; await setFarm(V, g); }
@@ -320,10 +324,16 @@ async function run(label, env) {
         state: { name: '밭주인', creatures: ['unicorn'], petRoom: 'unicorn',
                  pets: { unicorn: { loyalty: 100 } } },
       });
-      z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant06', index: 1, crop: 'ember_chili' });
-      const p2 = (await farmOf(V)).plots[1];
+      // ⚠️ **그 칸을 지키는 크리처**의 로열티를 본다 (5단계). 부대를 안 짠 사람은
+      // 애착 한 마리가 1번 자리에 서므로, 로열티가 통하는 것은 **0번 칸**이다
+      z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant06', index: 0, crop: 'ember_chili' });
+      const p2 = (await farmOf(V)).plots[0];
       const hrs2 = Math.round((p2.ready - p2.at) / 3600e3);
-      ok(hrs2 === 9, `로열티가 가득이면 ${hrs2}시간 (9 기대 · 12시간 −25%)`);
+      ok(hrs2 === 9, `1번 칸(지키개 있음)은 ${hrs2}시간 (9 기대 · 12시간 −25%)`);
+      z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant07', index: 1, crop: 'stone_potato' });
+      const p3 = (await farmOf(V)).plots[1];
+      ok(Math.round((p3.ready - p3.at) / 3600e3) === 12,
+        `지키개가 없는 칸은 12시간 그대로 (${Math.round((p3.ready - p3.at) / 3600e3)})`);
 
       // 칸 늘리기 — 다섯까지
       let n = (await farmOf(V)).plots.length;
@@ -380,16 +390,22 @@ async function run(label, env) {
     let d = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'raid01' });
     ok(d.status === 200, `약탈 → ${d.status} (win=${d.body && d.body.win}, p=${d.body && d.body.chance})`);
     ok(d.body.raids === 2, `약탈권 ${d.body.raids} (2 기대)`);
-    ok(d.body.chance >= 0.10 && d.body.chance <= 0.90, `확률 ${d.body.chance} 이 바닥·천장 안`);
+    ok(Array.isArray(d.body.rounds) && d.body.rounds.length === 5,
+      `다섯 판을 붙는다 (${d.body.rounds && d.body.rounds.length})`);
+    ok(d.body.rounds.every(x => x.chance >= 0.10 && x.chance <= 0.90),
+      `확률이 전부 바닥·천장 안 (${d.body.rounds.map(x => x.chance).join(' ')})`);
+    // **세 판 이상 이겨야 가져간다** — 두 판을 이겨도 빈손이다
+    ok(d.body.win === (d.body.wins >= 3), `${d.body.wins}승 → ${d.body.win ? '가져감' : '빈손'}`);
     {
       const vf = await farmOf(V);
       const took = sum(d.body.items);
       if (d.body.win) {
-        ok(took > 0 && ears(vf) === before - took,
-          `이겼다: ${took}개 가져가고 밭은 ${before} → ${ears(vf)}`);
+        ok(ears(vf) === before - took, `이겼다: ${took}개 가져가고 밭은 ${before} → ${ears(vf)}`);
         ok(vf.shieldUntil > Date.now(), '이긴 뒤에는 그 밭에 잠시 방패가 걸린다');
       } else {
         ok(took === 0 && ears(vf) === before, `졌다: 밭은 그대로 ${ears(vf)}`);
+        // **막아 낸 밭에는 방패를 안 건다** — 「지켰는데 왜 벌을 받나」가 된다
+        ok(!(vf.shieldUntil > Date.now()), '막아 냈으면 방패가 안 걸린다');
       }
       ok(vf.log.length === 1 && vf.log[0].by === '도둑고양이' && vf.log[0].win === d.body.win,
         `털린 기록이 남는다: ${JSON.stringify(vf.log[0])}`);
@@ -593,6 +609,62 @@ function pick(env) {
       Bt.takeFrom(f, { dew: 4 });
       ok(Bt.farmCount(f) === 3 && f.plots[0].stash.dew === undefined && f.plots[1].stash.dew === 3,
         `앞 칸부터 덜어 낸다 (${JSON.stringify(f.plots.map(p => p.stash))})`);
+    }
+
+    // ── 자리 대 자리 다섯 판 (5단계) ──
+    // ⚠️ **roll 을 고정한다.** 무작위를 그대로 두면 「돌아간다」만 보게 되고,
+    // 어느 자리가 어느 칸에서 가져가는지를 못 잰다
+    {
+      const five = ['flame_fox', 'boulder_bear', 'sky_falcon', 'deepsea_whale', 'unicorn'];
+      const st = { creatures: five, farmDef: five, farmAtk: five, pets: {} };
+      const team = Bt.defTeam(st);
+      ok(team.length === 5 && team.every(x => x), `다섯 자리가 다 찬다 (${team.map(x => x.id).join(' ')})`);
+      // **같은 id 를 두 번 못 넣는다** — 유니콘 하나로 다섯 칸을 채우면 고르는 일이 사라진다
+      const dup = Bt.teamOf({ creatures: ['unicorn'], farmDef: Array(5).fill('unicorn'), pets: {} },
+        'farmDef');
+      ok(dup.filter(x => x).length === 1, `같은 id 는 한 번만 (${dup.filter(x => x).length}자리)`);
+      // 안 가진 크리처는 안 선다
+      const ghost = Bt.teamOf({ creatures: [], farmDef: five, pets: {} }, 'farmDef');
+      ok(ghost.every(x => !x), '안 가진 크리처는 자리에 안 선다');
+
+      // 세 판 이상 이겨야 가져간다
+      const win3 = Bt.resolveFive(team, team, [0, 0, 0, 0.99, 0.99]);
+      ok(win3.wins === 3 && win3.win === true, `3승 → 가져감 (${win3.wins}승)`);
+      const win2 = Bt.resolveFive(team, team, [0, 0, 0.99, 0.99, 0.99]);
+      ok(win2.wins === 2 && win2.win === false, `2승 → 빈손 (${win2.wins}승)`);
+
+      // **이긴 자리의 그 칸에서만** 가져온다
+      const t = Date.now();
+      const farm = { plots: [
+        { crop: 'ember_chili', at: t - 1, ready: t - 1, n: 3, stash: {} },   // 0 다 자람
+        { crop: 'stone_potato', at: t, ready: t + 9e6, n: 3, stash: {} },    // 1 자라는 중
+        { crop: null, stash: { walnut: 9 } },                                // 2 이삭
+        { crop: null, stash: { dew: 6 } },                                   // 3 이삭
+        { crop: null, stash: {} },                                           // 4 빈 칸
+      ] };
+      // 0·1·2 를 이긴다 — 0 은 작물, 1 은 자라는 중(못 가져감), 2 는 이삭
+      const got = Bt.lootPlots(farm, Bt.resolveFive(team, team, [0, 0, 0, 0.99, 0.99]).rounds, t);
+      ok(got.ember_chili === 1, `다 자란 작물은 1/3 (${got.ember_chili})`);
+      ok(!got.stone_potato, '자라는 중인 칸은 **밟지도 않는다**');
+      ok(farm.plots[1].n === 3 && farm.plots[1].ready === t + 9e6, '자라는 칸은 시각도 개수도 그대로');
+      ok(got.walnut === 3, `이삭도 1/3 (${got.walnut})`);
+      ok(!got.dew, '안 이긴 자리(3번)에서는 안 가져간다');
+      ok(farm.plots[0].n === 2, `털린 작물은 그만큼 준다 (남은 ${farm.plots[0].n})`);
+      ok(farm.plots[2].stash.walnut === 6, `털린 이삭도 준다 (남은 ${farm.plots[2].stash.walnut})`);
+
+      // 작물을 다 털면 그 칸은 빈 칸이 된다
+      const one = { plots: [{ crop: 'ember_chili', at: t - 1, ready: t - 1, n: 1, stash: {} }] };
+      Bt.lootPlots(one, [{ i: 0, win: true }], t);
+      ok(one.plots[0].crop === null, '마지막 하나까지 털리면 빈 칸이 된다');
+
+      // **자리 번호 = 칸 번호**인가 — 3번만 이기면 3번 칸에서만 나온다
+      const f2 = { plots: [
+        { crop: null, stash: { walnut: 9 } }, { crop: null, stash: { dew: 9 } },
+        { crop: null, stash: { herb: 9 } }, { crop: null, stash: { berry: 9 } },
+        { crop: null, stash: { honey: 9 } },
+      ] };
+      const only3 = Bt.lootPlots(f2, [0, 1, 2, 3, 4].map(i => ({ i, win: i === 3 })), t);
+      ok(Object.keys(only3).join() === 'berry', `3번을 이기면 3번 칸에서만 (${JSON.stringify(only3)})`);
     }
 
     // 없는 크리처를 장착 중이어도 안 죽는다 (재료로 녹인 뒤 · 초기화 뒤)

@@ -698,6 +698,63 @@ body {
   padding: 14px 16px; box-shadow: var(--shadow);
 }
 
+/* 부대 — 다섯 자리를 한 줄로. **번호를 붙인다**: 자리 번호가 곧 칸 번호이자
+   붙는 상대의 번호라, 번호가 없으면 몇 번이 몇 번과 붙는지 눈으로 셀 수가 없다.
+   ⚠️ 줄바꿈을 허용한다 — 265px 에서 다섯 칸이 한 줄에 안 들어갈 수 있다 */
+.tm-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.tm-edit-row { cursor: pointer; }
+.tm-slot {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--cream); border: 2px solid var(--at, transparent);
+}
+.tm-row.big { gap: 8px; }
+.tm-slot.big {
+  width: 52px; height: 52px; border-radius: 14px;
+  font-family: inherit; color: inherit; cursor: pointer; padding: 0;
+}
+.tm-slot.big.on { border-color: var(--text-pink); background: var(--pink); }
+.tm-slot.off { border-style: dashed; border-color: var(--lav-2); }
+.tm-slot svg { width: 100%; height: 100%; }
+.tm-slot.big svg { width: 40px; height: 40px; }
+/* 상성 — **테두리로만** 알린다. 배경까지 물들이면 크리처 그림이 안 보인다 */
+.tm-slot.good { border-color: var(--text-mint); }
+.tm-slot.bad  { border-color: var(--text-pink); }
+/* ⚠️ **11px 밑으로 내려가지 않는다** (TEXT_POLICY). 0.62rem 은 9.9px 이라 걸렸다 —
+   번호는 작아 보여야 하지만 읽어야 하는 글자다 */
+.tm-no {
+  position: absolute; left: -3px; top: -7px; z-index: 1;
+  min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px;
+  background: var(--lav); color: var(--text-lav);
+  font-size: 0.7rem; font-weight: 800; line-height: 17px; text-align: center;
+}
+.tm-edit {
+  margin-left: auto; padding: 2px 10px; border-radius: 999px; border: 0;
+  background: var(--lav); color: var(--text-lav);
+  font-family: inherit; font-size: 0.74rem; font-weight: 800; cursor: pointer;
+}
+.pal-item.off { filter: saturate(0.15); }
+/* 부대 목록의 한 줄은 **그림 · 이름 · 속성 · 전투력 · (있으면) 자리 딱지** 다섯이다 —
+   `.pal-item` 은 원래 줄바꿈이 없어서 265px 에서 이름 칸이 0px 로 눌렸다.
+   여기서만 풀어 준다 (동행 고르기·먹이는 항목이 셋이라 지금 그대로가 낫다) */
+#teamList .pal-item { flex-wrap: wrap; }
+#teamList .pal-name { min-width: 0; }
+
+/* 다섯 판 결과 — 한 줄이 한 판이다 */
+.rr-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 10px; }
+.rr-row {
+  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  padding: 6px 10px 6px 20px; border-radius: 12px; background: var(--cream);
+  text-align: left; font-size: 0.8rem; font-weight: 700;
+}
+.rr-row.won { background: var(--mint); }
+.rr-row .tm-no { left: 4px; top: 50%; transform: translateY(-50%); }
+.rr-side { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.rr-side svg { width: 24px; height: 24px; }
+.rr-vs { color: var(--text-lav); font-weight: 800; }
+.rr-mark { margin-left: auto; font-weight: 800; color: var(--text-lav); }
+.rr-row.won .rr-mark { color: var(--text-mint); }
+
 /* 이웃 밭 한 칸 — 이름 · 지키개 · 이삭 · 상성을 **세로로** 쌓는다.
    가로로 두면 이름이 긴 사람에서 상성 딱지가 밀려 나간다 */
 .raid-item { flex-direction: column; align-items: flex-start; gap: 4px; }

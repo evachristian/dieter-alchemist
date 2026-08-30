@@ -170,6 +170,19 @@
     timer = setTimeout(flush, PUSH_DELAY);
   }
 
+  // **지금 당장 올린다** (기다리지 않고).
+  // 밭 5단계에서 필요해졌다 — 출정대를 바꾸고 바로 쳐들어가면, 서버는 아직 3초
+  // 디바운스에 걸려 있는 **옛 부대**로 판정한다. 판정을 서버가 갖는 대가다.
+  async function pushNow(state) {
+    if (!enabled() || wiped) return;
+    // 날아가고 있는 요청이 있으면 끝난 뒤에 보낸다 (`flush` 는 sending 이면 그냥 돌아온다)
+    for (let i = 0; i < 60 && sending; i++) await new Promise(r => setTimeout(r, 50));
+    pending = JSON.parse(JSON.stringify(state));
+    setStatus('pending');
+    clearTimeout(timer);
+    await flush();
+  }
+
   // 탭을 닫거나 숨길 때 — 모아 둔 것을 지금 올린다
   function flushNow() {
     if (!enabled() || !pending || wiped) return;
@@ -306,7 +319,7 @@
   window.addEventListener('online', () => { backoff = 1000; flush(); });
 
   window.Sync = {
-    push, pull, flushNow, wipe, code, useCode, claimName,
+    push, pushNow, pull, flushNow, wipe, code, useCode, claimName,
     nonce, farmGet, harvest, plant, addPlot, raidTargets, raid,
     get status() { return status; },
     get playerId() { return me.playerId; },

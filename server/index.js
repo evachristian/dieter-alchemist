@@ -301,7 +301,9 @@ app.get('/api/farm/:playerId', async (req, res) => {
       nextRaidAt: farm.raids >= B.RAID_MAX ? 0 : farm.raidAt + B.RAID_REGEN_MS,
       log: farm.log,
       daily: B.dailyYield(st), days: B.FARM_DAYS,
-      def: brief(B.defender(st)), atk: brief(B.attacker(st)),
+      // **부대는 다섯 자리다** (5단계). 자리 번호 = 칸 번호
+      def: B.defTeam(st).map(brief), atk: B.atkTeam(st).map(brief),
+      teamN: B.TEAM_N, winNeed: B.WIN_NEED,
     });
   } catch (e) {
     console.error('[GET /api/farm]', e);
@@ -409,9 +411,15 @@ app.get('/api/raid/targets/:playerId', async (req, res) => {
       const n = B.countOf(stash);
       if (!n) continue;
       if ((farm.shieldUntil || 0) > now) continue;      // 막 털린 밭은 건너뛴다
+      // **순서까지 보여 준다.** 감추면 순서를 짤 수 없어 그냥 도박이 되는데,
+      // 이 시스템의 목적은 무엇이 왜 유리한지를 배우게 하는 것이다 (FARM.md 5장)
       list.push({
         name: p.name, charm: p.charm, count: n, stash,
-        def: brief(B.defender(p.state || {})),
+        plots: (farm.plots || []).map(x => ({
+          crop: x.crop || null, ready: x.ready || 0, n: x.n || 0,
+          ears: B.countOf(x.stash),
+        })),
+        def: B.defTeam(p.state || {}).map(brief),
       });
       if (list.length >= 5) break;
     }
@@ -439,8 +447,8 @@ app.post('/api/raid/:playerId', async (req, res) => {
       return res.json({ ok: true, ...farm.lastRaid.res, repeat: true });
     }
 
-    const me = B.attacker(row.state || {});
-    if (!me) return res.status(409).json({ error: 'no_companion' });
+    const me = B.atkTeam(row.state || {});
+    if (me.every(x => !x)) return res.status(409).json({ error: 'no_companion' });
     if ((farm.raids || 0) < 1) {
       return res.status(409).json({ error: 'no_raids', nextRaidAt: farm.raidAt + B.RAID_REGEN_MS });
     }
@@ -454,29 +462,30 @@ app.post('/api/raid/:playerId', async (req, res) => {
     if (!B.farmCount(theirFarm)) return res.status(409).json({ error: 'target_empty' });
     if ((theirFarm.shieldUntil || 0) > now) return res.status(409).json({ error: 'target_shielded' });
 
-    const def = B.defender(other.state || {});
-    const r = B.resolve(me, def);
-    const items = r.win ? B.loot(B.mergedStash(theirFarm)) : {};
+    const def = B.defTeam(other.state || {});
+    // **자리 대 자리 다섯 판.** 세 판 이상 이겨야 가져간다 — 두 판을 이겨도 빈손이다.
+    // 그래야 다섯을 짜는 일이 「이기는가」 하나로 모인다
+    const r = B.resolveFive(me, def);
+    const items = r.win ? B.lootPlots(theirFarm, r.rounds, now) : {};
 
     // 약탈권을 쓴다. **가득이었으면 지금부터 회복 시계를 돌린다** —
     // 안 그러면 오래 안 쓴 사람은 쓰자마자 도로 찬다
     if ((farm.raids || 0) >= B.RAID_MAX) farm.raidAt = now;
     farm.raids = (farm.raids || 0) - 1;
 
-    if (r.win) {
-      B.takeFrom(theirFarm, items);
-      // **털린 뒤에는 잠시 아무도 못 턴다.** 자는 사이에 밭이 열 번 털리면 안 된다
-      theirFarm.shieldUntil = now + B.SHIELD_MS;
-    }
+    // **털린 뒤에는 잠시 아무도 못 턴다.** 자는 사이에 밭이 열 번 털리면 안 된다.
+    // 이겼을 때만 건다 — 막아 낸 밭까지 잠기면 「지켰는데 왜 벌을 받나」가 된다
+    // (`lootPlots` 가 이미 그 칸들에서 덜어 냈다)
+    if (r.win) theirFarm.shieldUntil = now + B.SHIELD_MS;
     // 진 쪽도 기록에 남는다 — 「누가 왔다 갔는데 못 털었다」도 알아야 재미가 있다
     if (!Array.isArray(theirFarm.log)) theirFarm.log = [];
-    theirFarm.log.unshift({ t: now, by: row.name || null, win: r.win, items });
+    theirFarm.log.unshift({ t: now, by: row.name || null, win: r.win, wins: r.wins, items });
     theirFarm.log = theirFarm.log.slice(0, 10);
     await store.farmSet(other.playerId, theirFarm);
 
     const out = {
-      win: r.win, chance: Math.round(r.chance * 100) / 100, items,
-      target: other.name, def: brief(def), mine: brief(me),
+      win: r.win, wins: r.wins, winNeed: B.WIN_NEED, rounds: r.rounds, items,
+      target: other.name, def: def.map(brief), mine: me.map(brief),
       raids: farm.raids, nextRaidAt: farm.raidAt + B.RAID_REGEN_MS, now,
     };
     farm.lastRaid = { nonce, res: out, t: now };

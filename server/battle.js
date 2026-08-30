@@ -116,8 +116,41 @@ function petOf(state, slot) {
   if (!c) return null;
   return { id, c, loyalty: loyaltyOf(state, id) };
 }
-const defender = state => petOf(state, 'petRoom');    // 밭은 애착 크리처가 지킨다
-const attacker = state => petOf(state, 'petField');   // 나서는 것은 동행 크리처다
+const defender = state => petOf(state, 'petRoom');    // 애착 크리처 (매력)
+const attacker = state => petOf(state, 'petField');   // 동행 크리처 (채집 덤)
+
+// ─── 부대 — 다섯 자리 (FARM.md 5장) ──────────────────────────
+//
+// **자리 번호 = 밭 칸 번호다.** 1번 크리처가 1번 칸을 지키고, 쳐들어간 1번과 붙는다.
+// 다섯이라는 숫자가 칸·방어·공격 세 군데에서 같은 뜻이라 외울 규칙이 하나다.
+const TEAM_N = 5;
+const WIN_NEED = 3;      // 다섯 판 중 몇 판을 이겨야 가져가나
+
+// 한 부대를 읽는다. **가진 것인지 · 같은 id 가 두 번 들어갔는지 여기서 거른다** —
+// 세이브는 클라이언트가 만드는 것이라 뭐든 들어올 수 있다 (7단계에서 녹인 크리처가
+// 그대로 남아 있는 경우도 있다).
+//
+// **부대를 한 번도 안 짠 사람**은 빈손으로 두지 않는다. 9단계까지 쓰던 한 마리
+// (애착/동행)를 1번 자리에 세워 준다 — 어제까지 지키던 아이가 오늘 갑자기
+// 사라지면 그건 기능이 는 것이 아니라 뺏긴 것이다.
+function teamOf(state, key, fallbackSlot) {
+  const raw = Array.isArray(state && state[key]) ? state[key] : [];
+  const out = [];
+  const used = new Set();
+  for (let i = 0; i < TEAM_N; i++) {
+    const id = raw[i];
+    if (!id || used.has(id) || !owns(state, id) || !CREATURES[id]) { out.push(null); continue; }
+    used.add(id);
+    out.push({ id, c: CREATURES[id], loyalty: loyaltyOf(state, id) });
+  }
+  if (out.every(x => !x) && fallbackSlot) {
+    const one = petOf(state, fallbackSlot);
+    if (one) out[0] = one;
+  }
+  return out;
+}
+const defTeam = state => teamOf(state, 'farmDef', 'petRoom');   // 밭을 지키는 다섯
+const atkTeam = state => teamOf(state, 'farmAtk', 'petField');  // 남의 밭으로 가는 다섯
 
 // 지금 무엇을 만드는가 — game.js 의 `producers()` 와 같은 규칙이다
 function producers(state) {
@@ -238,10 +271,11 @@ for (const c of D.FARM_CROPS) CROPS[c.id] = c;
 const ripe = (p, now) => !!(p && p.crop && (p.ready || 0) <= now);
 
 // 이 밭에서 무언가를 심을 때 걸리는 시간 (ms)
-function growMs(crop, state) {
+function growMs(crop, state, index) {
   const c = CROPS[crop];
   if (!c) return 0;
-  const d = defender(state);
+  // **그 칸을 지키는 크리처**의 로열티가 시간을 줄인다 — 물주기 대신 이미 있는 축이다
+  const d = defTeam(state)[index | 0];
   const k = d ? Math.min(1, Math.max(0, d.loyalty / D.LOYALTY_MAX)) : 0;
   return Math.round(c.hours * 3600e3 * (1 - GROW_LOYALTY * k));
 }
@@ -263,7 +297,7 @@ function plant(farm, state, index, crop, now) {
   if (countOf(p.stash)) return 'plot_ears';
   p.crop = crop;
   p.at = now;
-  p.ready = now + growMs(crop, state);
+  p.ready = now + growMs(crop, state, index);
   p.n = CROPS[crop].n;
   return null;
 }
@@ -335,6 +369,54 @@ function loot(stash) {
   return take;
 }
 
+// ─── 다섯 판 (자리 대 자리) ──────────────────────────────────
+//
+// **총 전투력 합끼리 붙이지 않는다.** 합으로 하면 다섯을 고르는 일이 「합계를
+// 최대로」 한 가지로 끝나고, 속성 순환이 평균으로 뭉개져 사라진다.
+// 자리별로 붙이면 **순서가 곧 전략**이 되고 순환이 한 번에 다섯 번 쓰인다.
+function resolveFive(atk, def, rolls) {
+  const rounds = [];
+  for (let i = 0; i < TEAM_N; i++) {
+    const r = resolve(atk[i], def[i], rolls ? rolls[i] : undefined);
+    rounds.push({ i, win: r.win, chance: Math.round(r.chance * 100) / 100 });
+  }
+  const wins = rounds.filter(r => r.win).length;
+  return { rounds, wins, win: wins >= WIN_NEED };
+}
+
+// 이긴 자리의 **그 칸에서만** 가져온다. 자리 번호 = 칸 번호다.
+//
+// - 다 자란 작물이면 개수의 1/3(올림)
+// - **자라는 중이면 아무것도 없다.** 밟지도 않는다 — 남의 시간을 없애는 것은
+//   뺏는 것보다 나쁘다. 「내 12시간이 사라졌다」는 되돌릴 길이 없다
+// - 비어 있으면(이삭) 그 칸 이삭의 1/3
+function lootPlots(farm, rounds, now) {
+  const take = {};
+  for (const r of rounds) {
+    if (!r.win) continue;
+    const p = farm.plots[r.i];
+    if (!p) continue;
+    if (p.crop) {
+      if (!ripe(p, now)) continue;                 // 자라는 중인 칸은 안 건드린다
+      const n = Math.min(p.n || 0, Math.ceil((p.n || 0) * TAKE_RATE));
+      if (n > 0) {
+        take[p.crop] = (take[p.crop] || 0) + n;
+        p.n -= n;
+        if (p.n <= 0) { p.crop = null; delete p.at; delete p.ready; delete p.n; }
+      }
+      continue;
+    }
+    for (const id of Object.keys(p.stash || {})) {
+      const n = Math.min(p.stash[id], Math.ceil(p.stash[id] * TAKE_RATE));
+      if (n <= 0) continue;
+      take[id] = (take[id] || 0) + n;
+      p.stash[id] -= n;
+      if (!p.stash[id]) delete p.stash[id];
+    }
+  }
+  return take;
+}
+
 // 판정. `roll` 을 넘기면 그것을 쓴다 (검사에서 확률을 고정하려고)
 function resolve(att, def, roll) {
   const mine = att ? effPower(att.c, att.loyalty) * attrMul(att.c.attr, def ? def.c.attr : null) : 0;
@@ -352,6 +434,7 @@ module.exports = {
   TAKE_RATE, TAKE_MAX, WIN_MIN, WIN_MAX, ATTR_MUL, LOYALTY_GAIN,
   combatPower, effPower, attrMul,
   owns, loyaltyOf, petOf, defender, attacker,
+  TEAM_N, WIN_NEED, teamOf, defTeam, atkTeam, resolveFive, lootPlots,
   producers, dailyYield,
   PLOT_MAX, PLOT_START, emptyPlot, emptyFarm, migrateFarm,
   countOf, mergedStash, farmCount, dealToPlots, harvestable, harvestEars, takeFrom,

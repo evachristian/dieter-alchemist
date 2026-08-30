@@ -357,8 +357,13 @@ function launchOpts() {
               { crop: null, stash: { walnut: 12, wheat: 9, dew: 6, sun_seed: 4 } },
               { crop: null, stash: {} },
             ],
-              def: { id: 'unicorn', attr: 'light', grade: 'high', power: 64, loyalty: 40 },
-              atk: null,
+              // 방어대는 **다섯 자리**다. 찬 자리와 빈자리를 섞어 둔다 —
+              // 다 채운 상태로만 재면 빈자리(점선 테두리)를 한 번도 안 본다
+              def: [
+              { id: 'unicorn', attr: 'light', grade: 'high', power: 64, loyalty: 40 },
+              { id: 'boulder_bear', attr: 'earth', grade: 'mid', power: 36, loyalty: 0 },
+              null, null, null,
+            ], atk: [null, null, null, null, null], teamN: 5, winNeed: 3,
               log: [
                 { t: t - 60e3, by: 'Wwwwwwwwwwww', win: true, items: { walnut: 4, wheat: 3 } },
                 { t: t - 3600e3, by: '도둑고양이', win: false, items: {} },
@@ -415,6 +420,53 @@ function launchOpts() {
           const ptBad2 = await page.evaluate(() => window.__cardFits('#plantPick'));
           if (ptBad2) results.push({ 화면: `${t}/심기`, 오류: ptBad2 });
           await page.evaluate(() => { closePlant(); FARM = null; setGatherTab('field'); devFillItems(); });
+          await page.waitForTimeout(150);
+        }
+
+        // **부대 짜기 · 다섯 판 결과** (5단계) — 눌러야만 뜬다.
+        // ⚠️ 부대 시트는 **찬 자리와 빈자리를 섞어** 재고, 목록에는 **이미 선 아이**가
+        // 회색으로 남아야 한다 (다 채운 상태로만 재면 그 표현을 한 번도 안 본다)
+        {
+          const tmBad = await page.evaluate(() => {
+            const five = ['flame_fox', 'boulder_bear', 'sky_falcon', 'deepsea_whale', 'unicorn'];
+            S.creatures = [...new Set([...(S.creatures || []), ...five])];
+            S.farmDef = ['flame_fox', 'boulder_bear', null, null, null];   // 둘만 세운다
+            openTeam('def');
+            if (!document.getElementById('teamPick').classList.contains('show')) return '시트가 안 떴다';
+            const slots = document.querySelectorAll('#teamSlots .tm-slot').length;
+            const off = document.querySelectorAll('#teamList .pal-item.off').length;
+            if (slots !== 5) return `자리가 ${slots}칸이다 (5 기대)`;
+            return off >= 1 ? null : '이미 선 아이가 회색으로 안 남는다';
+          });
+          if (tmBad) results.push({ 화면: `${t}/부대짜기`, 오류: tmBad });
+          else { await page.waitForTimeout(280); await run(`${t}/부대짜기`); }
+          const tmBad2 = await page.evaluate(() => window.__cardFits('#teamPick'));
+          if (tmBad2) results.push({ 화면: `${t}/부대짜기`, 오류: tmBad2 });
+          await page.evaluate(() => closeTeam());
+          await page.waitForTimeout(150);
+
+          // 다섯 판 결과 — **이긴 줄과 진 줄이 다 나오게** 심는다 (배경색이 다르다)
+          const rrBad = await page.evaluate(() => {
+            const b = (id, attr) => ({ id, attr, grade: 'high', power: 64, loyalty: 0 });
+            showRaidResult('Wwwwwwwwwwww', {
+              win: false, wins: 2, winNeed: 3, items: {},
+              mine: [b('flame_fox', 'fire'), b('boulder_bear', 'earth'), b('sky_falcon', 'wind'),
+                     null, null],
+              def: [b('unicorn', 'light'), b('deepsea_whale', 'water'), null,
+                    b('moss_deer', 'earth'), null],
+              rounds: [0, 1, 2, 3, 4].map(i => ({ i, win: i < 2, chance: 0.5 })),
+            });
+            if (!document.getElementById('raidResult').classList.contains('show')) return '시트가 안 떴다';
+            const rows = document.querySelectorAll('#raidResult .rr-row').length;
+            const won = document.querySelectorAll('#raidResult .rr-row.won').length;
+            if (rows !== 5) return `줄이 ${rows}개다 (5 기대)`;
+            return won === 2 ? null : `이긴 줄이 ${won}개다 (2 기대)`;
+          });
+          if (rrBad) results.push({ 화면: `${t}/다섯판`, 오류: rrBad });
+          else { await page.waitForTimeout(280); await run(`${t}/다섯판`); }
+          const rrBad2 = await page.evaluate(() => window.__cardFits('#raidResult'));
+          if (rrBad2) results.push({ 화면: `${t}/다섯판`, 오류: rrBad2 });
+          await page.evaluate(() => closeRaidResult());
           await page.waitForTimeout(150);
         }
 
@@ -646,8 +698,11 @@ function launchOpts() {
               { crop: null, stash: { walnut: 12, wheat: 9, dew: 6, sun_seed: 4 } },
               { crop: null, stash: {} },
             ],
-            def: { id: 'unicorn', attr: 'light', grade: 'high', power: 64, loyalty: 40 },
-            atk: { id: 'ember_phoenix', attr: 'fire', grade: 'high', power: 64, loyalty: 0 },
+            def: [
+              { id: 'unicorn', attr: 'light', grade: 'high', power: 64, loyalty: 40 },
+              { id: 'boulder_bear', attr: 'earth', grade: 'mid', power: 36, loyalty: 0 },
+              null, null, null,
+            ], atk: [null, null, null, null, null], teamN: 5, winNeed: 3,
             log: [
               { t: t - 60e3, by: LONG, win: true, items: { walnut: 4, wheat: 3 } },
               { t: t - 3600e3, by: '도둑고양이', win: false, items: {} },
@@ -679,18 +734,24 @@ function launchOpts() {
         // 이웃 밭 — **상성 딱지 세 가지가 다 나오게** 심는다.
         // 하나만 재면 나머지 둘의 대비를 한 번도 안 본다 (배경색이 셋 다 다르다)
         const rdBad = await page.evaluate(() => {
-          const D2 = window.GameData;
           const b = (id, attr) => ({ id, attr, grade: 'high', power: 64, loyalty: 0 });
-          S.petField = 'ember_phoenix';                                  // 불
-          if (!S.creatures.includes('ember_phoenix')) S.creatures.push('ember_phoenix');
+          // 내 출정대 — **불 둘만 세우고 나머지는 빈자리**로 둔다 (빈자리도 그려야 한다)
+          S.creatures = [...new Set([...(S.creatures || []), 'ember_phoenix', 'flame_fox'])];
+          S.farmAtk = ['ember_phoenix', 'flame_fox', null, null, null];
+          S.petField = 'ember_phoenix';
           RAIDS = [
-            { name: 'Wwwwwwwwwwww', charm: 999, count: 15,
-              stash: { walnut: 9, wheat: 6 }, def: b('boulder_bear', 'earth') },   // 불 > 땅 = 유리
-            { name: '물의수호자', charm: 300, count: 4,
-              stash: { dew: 4 }, def: b('deepsea_whale', 'water') },               // 물 > 불 = 불리
-            { name: '밭주인', charm: 220, count: 9,
-              stash: { firefly: 9 }, def: b('unicorn', 'light') },                 // 보통
-            { name: '빈터', charm: 10, count: 2, stash: { sun_seed: 2 }, def: null }, // 지키개 없음
+            // 불 > 땅 = 유리한 자리가 많다
+            { name: 'Wwwwwwwwwwww', charm: 999, count: 15, stash: { walnut: 9, wheat: 6 },
+              def: [b('boulder_bear', 'earth'), b('moss_deer', 'earth'), null, null, null] },
+            // 물 > 불 = 불리
+            { name: '물의수호자', charm: 300, count: 4, stash: { dew: 4 },
+              def: [b('deepsea_whale', 'water'), b('coral_seahorse', 'water'), null, null, null] },
+            // 보통 (순환에 없는 짝)
+            { name: '밭주인', charm: 220, count: 9, stash: { firefly: 9 },
+              def: [b('unicorn', 'light'), null, null, null, null] },
+            // 지키개가 하나도 없는 밭
+            { name: '빈터', charm: 10, count: 2, stash: { sun_seed: 2 },
+              def: [null, null, null, null, null] },
           ];
           const el = document.getElementById('raidPick');
           el.classList.add('show');
