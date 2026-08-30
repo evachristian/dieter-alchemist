@@ -641,6 +641,12 @@ body {
 }
 .farm-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
 .farm-btns .btn { flex: 1 1 130px; }
+/* 탐험의 밭 탭 — 시트와 **같은 HTML** 이 들어오므로, 카드 껍데기만 여기서 씌운다
+   (모달 안에서는 `.modal-card` 가 이미 그 노릇을 한다) */
+#gatherPanel-farm .farm-body {
+  background: var(--card); border-radius: var(--radius);
+  padding: 14px 16px; box-shadow: var(--shadow);
+}
 
 /* 이웃 밭 한 칸 — 이름 · 지키개 · 이삭 · 상성을 **세로로** 쌓는다.
    가로로 두면 이름이 긴 사람에서 상성 딱지가 밀려 나간다 */

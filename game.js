@@ -2114,13 +2114,20 @@ function renderGather() {
   const cost = D.ENERGY.cost.gather;
   const canGather = (S.energy || 0) >= cost;
 
-  // 필드 / 마을 — 윗단 두 칸
+  // 필드 / 마을 / 밭 — 윗단 세 칸. 밭은 여신 단계부터 보인다
+  const fOpen = farmOpen();
+  const fBtn = document.getElementById('gtabFarm');
+  if (fBtn) fBtn.hidden = !fOpen;
+  // 잠겼는데 밭에 서 있으면(개발용으로 열었다 닫은 경우 등) 필드로 되돌린다 —
+  // 안 그러면 탭 줄에 없는 화면이 그대로 남는다
+  if (gatherTab === 'farm' && !fOpen) gatherTab = 'field';
   document.querySelectorAll('.gt-tabs .room-tab').forEach(b =>
     b.classList.toggle('active', b.dataset.gtab === gatherTab));
-  ['field', 'village'].forEach(t => {
+  ['field', 'village', 'farm'].forEach(t => {
     const p = document.getElementById('gatherPanel-' + t);
     if (p) p.classList.toggle('active', t === gatherTab);
   });
+  if (gatherTab === 'farm') renderFarm();
   // 안내 문구는 **지금 상태를 말해야 한다.** 마을이 열렸는데도 "아직 열리지 않았어요"
   // 라고 적혀 있으면 그 자체가 거짓말이다 (개발용 스위치로 열어 두고 한참 못 봤다)
   const subEl = document.getElementById('gatherSub');
@@ -2216,6 +2223,7 @@ function isVillageOpen(v) {
 
 // 탐험 화면 위쪽 한 줄. 갈래 · 마을 해금 여부 · 마을 안인지에 따라 달라진다.
 function gatherSubText() {
+  if (gatherTab === 'farm') return T('screen_farm_sub');
   if (gatherTab !== 'village') return T('screen_gather_sub');
   const list = D.villagesShown();
   return list.some(isVillageOpen) ? T('screen_village_sub_open') : T('screen_village_sub');
@@ -3191,7 +3199,13 @@ function chooseCauldron(id, el) {
 // **세이브에 넣지 않는다.** 지대·옷장 탭과 같이 화면을 열 때마다 처음 자리에서
 // 시작하는 값이라, 저장하면 마이그레이션만 늘고 얻는 것이 없다
 let gatherTab = 'field';
-function setGatherTab(t) { gatherTab = t; render(); }
+function setGatherTab(t) {
+  gatherTab = t;
+  render();
+  // **밭에 들어설 때만 서버에 물어본다.** `render()` 마다 부르면 화면을 그릴 때마다
+  // 요청이 나간다 (밭은 서버가 정본이라 조회가 곧 정산이기도 하다)
+  if (t === 'farm') pullFarm();
+}
 window.setGatherTab = setGatherTab;
 
 // 지금 보고 있는 마을 (아랫단 탭).
@@ -5069,42 +5083,66 @@ function briefLine(b) {
     <span class="farm-pow">${T('farm_power', { n: b.power })}</span></span>`;
 }
 
+// **밭은 랭킹과 같은 자리에서 열린다** (매력 100 = 여신 · `FARM.md` 1장).
+// 남과 부딪히는 기능이 이 둘뿐이라, 한 문 뒤에 두면 「여신이 되면 사람들 사이로
+// 나간다」는 한 문장이 된다. 따로 열면 설명이 두 벌이 된다.
+//
+// ⚠️ **`charmPeak()`(여태 닿은 최고 매력)으로 판정한다.** 총합을 그대로 보면 애착
+// 크리처를 약한 것으로 바꾼 순간 밭 탭이 통째로 사라진다 — 맵에서 겪은 사고와 같다.
+// **한 번 연 것은 무슨 이유로도 닫히지 않는다.**
+function farmOpen() { return charmPeak() >= D.LEAGUE.openAt; }
+window.farmOpen = farmOpen;
+
+// 밭을 연다. **여신부터는 탐험의 밭 탭으로 보낸다** — 같은 것을 두 자리에서
+// 다르게 보여 주지 않는다. 그 전에는 지금까지처럼 마이 룸 시트로 연다
+// (작은 밭이 그대로 큰 밭의 튜토리얼 노릇을 한다)
 function openFarm() {
+  if (farmOpen()) {
+    closeFarm();                 // 여신이 되기 전에 열어 둔 시트가 남아 있을 수 있다
+    switchTab('gather');
+    setGatherTab('farm');
+    if (window.Sfx) Sfx.play('pick');
+    return;
+  }
   const el = document.getElementById('farmSheet');
   if (!el) return;
   el.classList.add('show');
   renderFarm();                       // 먼저 그리고(있는 값으로) 받아 온 뒤 다시 그린다
-  refreshFarm().then(() => {
-    // 연 시각을 기록해 뱃지를 끈다. **연 뒤에 적는다** — 먼저 적으면 못 받았을 때도
-    // 「봤다」가 되어 침입 기록을 영영 못 본다
+  pullFarm();
+  if (window.Sfx) Sfx.play('pick');
+}
+
+// 서버에서 받아 와 다시 그리고, 「어디까지 봤나」를 적는다.
+// **연 뒤에 적는다** — 먼저 적으면 못 받았을 때도 「봤다」가 되어 침입 기록을 영영 못 본다
+function pullFarm() {
+  return refreshFarm().then(() => {
     if (FARM) { S.farmSeenAt = FARM.now || Date.now(); save(); }
     renderFarm();
     renderActBadges();
   });
-  if (window.Sfx) Sfx.play('pick');
 }
+window.pullFarm = pullFarm;
 function closeFarm() {
   const el = document.getElementById('farmSheet');
   if (el) el.classList.remove('show');
 }
 
+// 마이 룸 시트와 탐험의 밭 탭에 **같은 것을 같은 함수가 그린다.**
+// 두 벌로 두면 한쪽만 고치는 일이 반드시 생긴다
 function renderFarm() {
   const ti = document.getElementById('farmTitle');
-  const body = document.getElementById('farmBody');
-  const hv = document.getElementById('farmHarvest');
-  const rd = document.getElementById('farmRaid');
   if (ti) ti.textContent = T('farm_title');
-  if (!body) return;
+  const html = farmHtml();
+  ['farmBody', 'farmPanelBody'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  });
+}
 
-  // 못 닿았을 때 — **빈 밭으로 그리지 않는다**
-  if (!FARM) {
-    body.innerHTML = `<div class="empty-hint">${T('farm_offline')}</div>`;
-    if (hv) hv.hidden = true;
-    if (rd) rd.hidden = true;
-    return;
-  }
-  if (hv) { hv.hidden = false; hv.disabled = !FARM.count; }
-  if (rd) rd.hidden = false;
+function farmHtml() {
+  // 못 닿았을 때 — **빈 밭으로 그리지 않는다.** 버튼도 안 내놓는다
+  // (눌러도 아무 일 없는 버튼을 두지 않는다)
+  if (!FARM) return `<div class="empty-hint">${T('farm_offline')}</div>`;
 
   const now = FARM.now || Date.now();
   const rows = [];
@@ -5148,7 +5186,16 @@ function renderFarm() {
           : T('farm_log_lose', { who, josa: josa(who, '을를') })}</div>`;
       }).join('')}</div>`
     : `<div class="farm-hint">${T('farm_log_none')}</div>`);
-  body.innerHTML = rows.join('');
+
+  // 버튼도 여기서 같이 낸다 — 본문과 버튼이 따로 있으면 못 닿았을 때 한쪽만 숨는다
+  // ⚠️ **id 를 안 붙인다.** 같은 HTML 이 시트와 탭 두 곳에 들어가므로 id 를 쓰면
+  // 문서에 같은 id 가 둘이 된다 (`getElementById` 가 어느 쪽을 줄지 정해져 있지 않다)
+  rows.push(`<div class="farm-btns">
+    <button class="btn btn-primary farm-do-harvest" onclick="harvestFarm()"${FARM.count ? '' : ' disabled'}>
+      ${FARM.count ? T('farm_harvest_n', { n: FARM.count }) : T('farm_harvest')}</button>
+    <button class="btn btn-ghost farm-do-raid" onclick="openRaidPick()">${T('farm_go_raid')}</button>
+  </div>`);
+  return rows.join('');
 }
 
 // 거두기 — 서버가 밭을 비우고 목록을 돌려주면 그것을 가방에 넣는다.

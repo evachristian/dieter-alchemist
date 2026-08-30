@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260831b">
+<link rel="stylesheet" href="style.css?v=20260831c">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260831b" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260831c" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -315,11 +315,16 @@
   <section id="screen-gather" class="screen">
     <h2 class="screen-title" data-i18n="screen_gather">🧭 탐험</h2>
     <p id="gatherSub" class="screen-sub" data-i18n="screen_gather_sub">장소를 골라 채집하세요.</p>
-    <!-- 탐험은 두 갈래다 — 필드(재료를 캐는 곳) / 마을(사람을 만나는 곳).
-         고정 두 칸이라 줄바꿈 칩이 아니라 균등 분할 행을 쓴다 (UI_POLICY 1-1) -->
+    <!-- 탐험은 세 갈래다 — 필드(재료를 캐는 곳) / 마을(사람을 만나는 곳) /
+         밭(심고 거두고 지키는 곳. 여신 단계부터 · FARM.md).
+         고정 칸이라 줄바꿈 칩이 아니라 균등 분할 행을 쓴다 (UI_POLICY 1-1).
+         ⚠️ 칸이 셋이 되면서 265px 영어가 훨씬 빡빡해졌다 — 폭을 바꿀 때 반드시 다시 잰다 -->
     <div class="room-tabs gt-tabs">
       <button class="room-tab active" data-gtab="field" onclick="setGatherTab('field')" data-i18n="gather_field">🌿 필드</button>
       <button class="room-tab" data-gtab="village" onclick="setGatherTab('village')" data-i18n="gather_village">🏘️ 마을</button>
+      <!-- 여신 단계 전에는 **그려진 크기가 0 이어야 한다.** `hidden` 속성만으로는
+           `.room-tab{display:flex}` 에 져서 안 숨는다 (랭킹 탭에서 실제로 겪었다) -->
+      <button id="gtabFarm" class="room-tab" data-gtab="farm" onclick="setGatherTab('farm')" data-i18n="gather_farm" hidden>🌾 밭</button>
     </div>
 
     <div id="gatherPanel-field" class="room-panel active">
@@ -340,6 +345,12 @@
       <!-- 마을 이름 탭. 지금은 셋 다 잠겨 있다 — 여는 조건이 정해지면 채운다 -->
       <div id="villageTabs" class="cat-tabs vl-tabs"></div>
       <div id="villageBody" class="spot-list"></div>
+    </div>
+
+    <!-- 밭 (FARM.md) — 마이 룸 시트와 **같은 내용을 같은 함수가 그린다**.
+         두 벌로 두면 한쪽만 고치는 일이 반드시 생긴다 -->
+    <div id="gatherPanel-farm" class="room-panel">
+      <div id="farmPanelBody" class="farm-body"></div>
     </div>
 
     <!-- 임시(출시 버전에서 제거): 개발용 도구 — 삼각형을 눌러 열고 닫는다. 기본은 닫힘 -->
@@ -749,11 +760,7 @@
 <div id="farmSheet" class="modal" onclick="if(event.target===this) closeFarm()">
   <div class="modal-card farm-card">
     <div id="farmTitle" class="confirm-text"></div>
-    <div id="farmBody"></div>
-    <div class="farm-btns">
-      <button id="farmHarvest" class="btn btn-primary" onclick="harvestFarm()" data-i18n="farm_harvest">거두기</button>
-      <button id="farmRaid" class="btn btn-ghost" onclick="openRaidPick()" data-i18n="farm_go_raid">이웃 밭 보기</button>
-    </div>
+    <div id="farmBody" class="farm-body"></div>
     <button class="btn btn-ghost" onclick="closeFarm()" data-i18n="pal_close">닫기</button>
   </div>
 </div>
@@ -810,19 +817,19 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260831b"></script>
-<script src="intro.js?v=20260831b"></script>
-<script src="data.js?v=20260831b"></script>
-<script src="avatar.js?v=20260831b"></script>
-<script src="village.js?v=20260831b"></script>
-<script src="portrait.js?v=20260831b"></script>
-<script src="creature.js?v=20260831b"></script>
-<script src="cauldron.js?v=20260831b"></script>
-<script src="pumpkin.js?v=20260831b"></script>
-<script src="sfx.js?v=20260831b"></script>
-<script src="sync.js?v=20260831b"></script>
-<script src="game.js?v=20260831b"></script>
-<script src="tutorial.js?v=20260831b"></script>
-<script src="a11y.js?v=20260831b"></script>
+<script src="i18n.js?v=20260831c"></script>
+<script src="intro.js?v=20260831c"></script>
+<script src="data.js?v=20260831c"></script>
+<script src="avatar.js?v=20260831c"></script>
+<script src="village.js?v=20260831c"></script>
+<script src="portrait.js?v=20260831c"></script>
+<script src="creature.js?v=20260831c"></script>
+<script src="cauldron.js?v=20260831c"></script>
+<script src="pumpkin.js?v=20260831c"></script>
+<script src="sfx.js?v=20260831c"></script>
+<script src="sync.js?v=20260831c"></script>
+<script src="game.js?v=20260831c"></script>
+<script src="tutorial.js?v=20260831c"></script>
+<script src="a11y.js?v=20260831c"></script>
 </body>
 </html>

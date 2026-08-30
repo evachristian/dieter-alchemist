@@ -332,6 +332,64 @@ function launchOpts() {
           await page.evaluate(() => { closePalPick(); setFieldPet(null); });
           await page.waitForTimeout(150);
         }
+        // **밭 탭** (FARM.md 2단계) — 여신 단계부터 보인다. FULL 이 매력을 채워 두므로
+        // 여기서는 열려 있다. ⚠️ 서버에 밭이 없으면 「지금은 볼 수 없다」 한 줄만
+        // 남으므로 **값을 심어 놓고** 잰다 (그 상태의 0건은 아무것도 안 잰 것이다)
+        {
+          const bad = await page.evaluate(async () => {
+            if (!farmOpen()) return '매력을 채웠는데 밭이 안 열렸다';
+            setGatherTab('farm');
+            // ⚠️ **서버에 다녀오는 것을 먼저 끝낸다.** 탭에 들어서면 `pullFarm()` 이
+            // 돌고, 이 검사 서버에는 이 플레이어의 밭이 없어서 잠시 뒤 `FARM = null`
+            // 로 덮인다 — 먼저 심으면 심은 값이 그 뒤에 지워진다
+            await pullFarm();
+            const t = Date.now();
+            FARM = {
+              now: t, stash: { walnut: 12, wheat: 9, dew: 6, sun_seed: 4 }, count: 31,
+              grownAt: t - 3600e3, nextGrowAt: t + 20 * 3600e3,
+              shieldUntil: t + 5400e3, raids: 1, raidMax: 3, nextRaidAt: t + 3 * 3600e3,
+              daily: { walnut: 3, wheat: 2 }, days: 5,
+              def: { id: 'unicorn', attr: 'light', grade: 'high', power: 64, loyalty: 40 },
+              atk: null,
+              log: [
+                { t: t - 60e3, by: 'Wwwwwwwwwwww', win: true, items: { walnut: 4, wheat: 3 } },
+                { t: t - 3600e3, by: '도둑고양이', win: false, items: {} },
+              ],
+            };
+            renderFarm();
+            const n = document.querySelectorAll('#farmPanelBody .farm-logrow').length;
+            return n === 2 ? null : `밭 탭에 침입 기록이 ${n}줄이다 (2줄이어야 한다)`;
+          });
+          if (bad) results.push({ 화면: `${t}/밭탭`, 오류: bad });
+          else {
+            await page.waitForTimeout(280);
+            // **재기 직전에 아직 그대로인지 본다** — `pullFarm()` 이 끝나면서 심은 값을
+            // 지우고 「지금은 볼 수 없다」로 바뀌어 있을 수 있다
+            const gone = await page.evaluate(() =>
+              document.querySelectorAll('#farmPanelBody .farm-logrow').length !== 2);
+            if (gone) results.push({ 화면: `${t}/밭탭`, 오류: '재기 전에 화면이 비었다 (심은 값이 날아갔다)' });
+            await run(`${t}/밭탭`);
+          }
+          // 탭 줄이 셋이 됐다 — **한 줄 안에 다 들어가는가** (265px 영어가 제일 빡빡하다)
+          const bad2 = await page.evaluate(() => {
+            const row = document.querySelector('.gt-tabs');
+            const over = row.scrollWidth - row.clientWidth;
+            if (over > 1) return `탭 줄이 ${over}px 넘쳤다 (${row.clientWidth}px 칸에 ${row.scrollWidth}px)`;
+            const btns = [...row.querySelectorAll('.room-tab')].filter(b => !b.hidden);
+            if (btns.length !== 3) return `보이는 탭이 ${btns.length}칸이다 (3칸이어야 한다)`;
+            // 라벨이 칸 밖으로 나가지 않는가
+            for (const b of btns) {
+              if (b.scrollWidth - b.clientWidth > 1) {
+                return `탭 라벨이 넘쳤다: "${b.textContent.trim()}" (${b.clientWidth}px 칸에 ${b.scrollWidth}px)`;
+              }
+            }
+            return null;
+          });
+          if (bad2) results.push({ 화면: `${t}/밭탭`, 오류: bad2 });
+          await page.evaluate(() => { FARM = null; setGatherTab('field'); });
+          await page.waitForTimeout(150);
+        }
+
         // 마을은 셋이고 **건물 수가 다르다.** 여덟인 마을과 넷인 마을을 다 본다 —
         // 그림 높이가 건물 수를 따라가므로 명판이 겹치는지는 여덟짜리로만 잡힌다
         for (const vid of ['vl_chimney', 'vl_mirror']) {

@@ -97,7 +97,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
       text: body.textContent.replace(/\s+/g, ' ').trim(),
       count: FARM && FARM.count, raids: FARM && FARM.raids,
       def: FARM && FARM.def && FARM.def.id,
-      harvestOff: document.getElementById('farmHarvest').disabled,
+      harvestOff: document.querySelector('.farm-do-harvest').disabled,
       bag: JSON.parse(JSON.stringify(S.inventory)),
     };
   });
@@ -195,12 +195,54 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   out = await page.evaluate(async () => {
     await refreshFarm(); renderFarm();
     return { farm: FARM, text: document.getElementById('farmBody').textContent.trim(),
-             harvestHidden: document.getElementById('farmHarvest').hidden };
+             harvestHidden: !document.querySelector('.farm-do-harvest') };
   });
   ok(out.farm === null, '못 닿으면 밭을 「모른다」로 둔다');
   ok(/서버/.test(out.text), `못 닿으면 그렇게 말한다 — "${out.text}"`);
-  ok(out.harvestHidden, '못 닿으면 「거두기」를 숨긴다 (눌러도 아무 일 없는 버튼을 두지 않는다)');
+  ok(out.harvestHidden, '못 닿으면 「거두기」를 안 내놓는다 (눌러도 아무 일 없는 버튼을 두지 않는다)');
   await page.unroute('**/api/farm/**');
+
+  // ⑦ 여신 전에는 밭 탭이 **그려진 크기가 0** 이어야 한다.
+  // ⚠️ `hidden` 속성만으로는 안 숨는다 — `.room-tab{display:flex}` 에 진다.
+  // 속성이 아니라 **재 본 크기**로 봐야 한다 (랭킹 탭에서 실제로 겪었다)
+  out = await page.evaluate(() => {
+    S.stats.charm = 0; S.charmPeak = 0;
+    switchTab('gather'); render();
+    const b = document.getElementById('gtabFarm');
+    return { open: farmOpen(), w: b.getBoundingClientRect().width,
+             disp: getComputedStyle(b).display };
+  });
+  ok(!out.open && out.w === 0, `여신 전에는 밭 탭이 안 보인다 (폭 ${out.w}px · ${out.disp})`);
+
+  // ⑧ 여신이 되면 탭이 열리고, 마이 룸의 🌾 는 **그 탭으로 보낸다**
+  out = await page.evaluate(async () => {
+    S.stats.charm = 500; charmPeak();          // 최고 기록을 올린다
+    switchTab('showcase'); render();
+    openFarm();                                 // 마이 룸의 🌾 버튼과 같은 길
+    await pullFarm();
+    const panel = document.getElementById('farmPanelBody');
+    return {
+      open: farmOpen(), tab: currentTab, gtab: gatherTab,
+      sheet: document.getElementById('farmSheet').classList.contains('show'),
+      w: document.getElementById('gtabFarm').getBoundingClientRect().width,
+      text: panel.textContent.replace(/\s+/g, ' ').trim(),
+      btns: panel.querySelectorAll('.farm-btns .btn').length,
+    };
+  });
+  ok(out.open && out.w > 0, `여신이 되면 밭 탭이 보인다 (폭 ${Math.round(out.w)}px)`);
+  ok(out.tab === 'gather' && out.gtab === 'farm', `🌾 를 누르면 탐험의 밭 탭으로 간다 (${out.tab}/${out.gtab})`);
+  ok(!out.sheet, '여신부터는 마이 룸 시트를 안 띄운다 (같은 것을 두 자리에서 보여 주지 않는다)');
+  ok(out.btns === 2, `탭에도 버튼 둘이 있다 (${out.btns})`);
+  ok(/지키는 아이/.test(out.text) && /다녀간 이웃/.test(out.text),
+    `탭이 시트와 같은 내용을 그린다 — "${out.text.slice(0, 50)}…"`);
+
+  // **한 번 연 것은 안 닫힌다** — 애착을 약한 것으로 바꿔 총합이 내려가도
+  out = await page.evaluate(() => {
+    S.stats.charm = 0;                          // 총합은 떨어지지만 최고 기록은 남는다
+    render();
+    return { open: farmOpen(), w: document.getElementById('gtabFarm').getBoundingClientRect().width };
+  });
+  ok(out.open && out.w > 0, '매력이 떨어져도 한 번 연 밭은 안 닫힌다 (charmPeak)');
 
   await browser.close();
   await new Promise(r => server.close(r));
