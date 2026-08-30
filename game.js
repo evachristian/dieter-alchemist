@@ -5111,7 +5111,9 @@ function teamRow(team, kind, vs) {
   for (let i = 0; i < 5; i++) {
     const b = team && team[i];
     const c = b ? creatureOf(b.id) : null;
-    const attr = b ? D.creatureAttr(b.attr) : null;
+    // 색은 **찾아 온 크리처**에서 뽑는다. 서버가 준 `b.attr` 에만 기대면 로컬에서
+    // 만든 `{id}` 짜리 줄(출정대·방어대)은 색이 통째로 빠진다
+    const attr = c ? D.creatureAttr(c.attr) : null;
     // 상대 줄이면 **내 같은 자리와의 상성**으로 테두리를 물들인다
     const tag = vs ? matchTag(vs[i] ? creatureOf(vs[i].id) : null, b) : null;
     const inner = `<span class="tm-no">${i + 1}</span>
@@ -5207,8 +5209,14 @@ function farmHtml() {
   const now = FARM.now || Date.now();
   const rows = [];
   rows.push(`<div class="farm-lead">${T('farm_lead')}</div>`);
-  // **방어대 다섯 자리** — 자리 번호 = 칸 번호다 (5단계)
-  const def = Array.isArray(FARM.def) ? FARM.def : [];
+  // **방어대 다섯 자리** — 자리 번호 = 칸 번호다 (5단계).
+  //
+  // ⚠️ **`FARM.def`(서버가 준 값)로 그리지 않는다.** 부대는 세이브 안에 있고
+  // 세이브는 클라이언트가 정본이다 — 서버 값으로 그리면 자리를 바꿔도 화면이
+  // 그대로다(저장이 올라가고 밭을 다시 받아 와야 바뀐다). 실제로 그 버그가 났다.
+  // 서버 값은 「서버가 지금 무엇으로 지켜 줄지」이고, 여기서 보여 줄 것은
+  // 「내가 방금 고른 것」이다
+  const def = myDefTeam();
   rows.push(`<div class="farm-row farm-logk">${T('farm_def')}
     <button class="tm-edit" onclick="openTeam('def')">${T('team_edit')}</button></div>`);
   rows.push(teamRow(def, 'def'));
@@ -5559,13 +5567,20 @@ function renderRaidList() {
   }).join('');
 }
 
-// 내 출정대 — 서버의 `atkTeam()` 과 **같은 규칙**이다 (안 짰으면 동행이 1번 자리).
-// 두 군데에 있다는 것을 알고 둔다: 여기 것은 안내용이고 판정은 서버가 한다
-function myAtkTeam() {
-  const out = teamArr('atk').map(id => (id && ownsCreature(id) ? { id } : null));
-  if (out.every(x => !x) && S.petField && ownsCreature(S.petField)) out[0] = { id: S.petField };
+// 내 부대 — 서버의 `teamOf()` 와 **같은 규칙**이다 (안 짰으면 애착·동행이 1번 자리).
+// 두 군데에 있다는 것을 알고 둔다: 여기 것은 **화면에 보여 줄 것**이고 판정은 서버가
+// 한다. 그래도 화면은 **로컬 세이브**로 그려야 한다 — 자리를 바꾼 순간 보여야 하는
+// 것은 「내가 방금 고른 것」이고, 서버는 아직 그것을 모른다
+function myTeam(key, fallback) {
+  const out = teamArr(key).map(id => (id && ownsCreature(id) ? { id } : null));
+  if (out.every(x => !x) && S[fallback] && ownsCreature(S[fallback])) out[0] = { id: S[fallback] };
   return out;
 }
+// **`function` 으로 둔다** (화살표 상수가 아니라). 이 파일은 위에서 아래로 읽히는데
+// `farmHtml()` 은 파일 중간에서 이걸 부른다 — 상수로 두면 읽는 순서에 따라
+// ReferenceError 가 날 수 있다 (세이브가 통째로 날아간 그 사고와 같은 종류다)
+function myDefTeam() { return myTeam('def', 'petRoom'); }
+function myAtkTeam() { return myTeam('atk', 'petField'); }
 
 // 내 동행이 그 지키개에게 유리한가 — 서버의 `attrMul` 과 같은 규칙이다.
 // **두 군데에 있다는 것을 알고 둔다** (이름 규칙이 양쪽에 있는 것과 같다):

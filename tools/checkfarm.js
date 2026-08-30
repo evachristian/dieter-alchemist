@@ -395,6 +395,30 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
     ok(out.n >= 5, `방어대 줄의 다섯 자리가 다 버튼이다 (${out.n})`);
     ok(out.on === 2, `3번 자리를 누르면 3번이 골라진 채로 열린다 (${out.on + 1}번)`);
 
+    // ⚠️ **바꾼 것이 화면에 바로 보이는가.**
+    // 부대는 세이브(클라이언트 정본) 안에 있는데 방어대 줄을 `FARM.def`(서버가 준
+    // 값)로 그리고 있었다 — 그래서 자리를 바꿔도 **화면이 그대로였다.**
+    // 저장이 올라가고 밭을 다시 받아 와야 바뀌니, 사람 눈에는 그냥 안 먹히는 버튼이다.
+    // 여기서는 **다시 받아 오지 않고** 화면만 본다
+    out = await page.evaluate(() => {
+      const svgOf = () => [...document.querySelectorAll('#farmPanelBody .tm-row .tm-slot')]
+        .map(x => (x.querySelector('svg') ? x.querySelector('svg').outerHTML.length : 0));
+      const before = svgOf();
+      openTeam('def', 0);
+      setSlot(null);                       // 1번 자리를 비운다
+      const cleared = svgOf();
+      setSlot('unicorn');                  // 다시 채운다 (다른 자리에 있으면 맞바꾼다)
+      const filled = svgOf();
+      const colored = [...document.querySelectorAll('#farmPanelBody .tm-row .tm-slot')]
+        .filter(x => (x.getAttribute('style') || '').includes('--at')).length;
+      closeTeam();
+      return { before, cleared, filled, colored };
+    });
+    ok(out.cleared[0] === 0, `비우면 화면에서 바로 빠진다 (${out.cleared.join(',')})`);
+    ok(out.filled[0] > 0, `채우면 화면에 바로 나온다 (${out.filled.join(',')})`);
+    // 속성 색도 로컬 줄에서 나와야 한다 — 서버 값에만 기대면 색이 통째로 빠졌다
+    ok(out.colored >= 1, `자리에 속성 색이 붙는다 (${out.colored}자리)`);
+
     // 다섯 판 — **서버의 주사위를 고정한다.** 상대(밭주인)는 1번 자리만 채워져 있어
     // 2~5번은 빈자리다 (확률 천장 0.9). roll 0 이면 다섯 판 다 이긴다
     {
