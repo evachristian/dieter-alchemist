@@ -202,7 +202,77 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   ok(out.harvestHidden, '못 닿으면 「거두기」를 안 내놓는다 (눌러도 아무 일 없는 버튼을 두지 않는다)');
   await page.unroute('**/api/farm/**');
 
-  // ⑦ 여신 전에는 밭 탭이 **그려진 크기가 0** 이어야 한다.
+  // ⑦ 심기 (3단계) — **가방에서 값이 나가고, 시간은 서버가 잰다**
+  {
+    // 심을 수 있게 재료를 채우고 밭을 비운다
+    await store.farmSet(RID, freshFarm({}));
+    out = await page.evaluate(async () => {
+      const c = D.FARM_CROPS[0];
+      Object.keys(c.cost).forEach(id => { S.inventory[id] = c.cost[id] + 1; });
+      save();
+      await pullFarm();
+      openPlant(0);
+      const rows = [...document.querySelectorAll('#plantList .plant-item')];
+      return {
+        shown: document.getElementById('plantPick').classList.contains('show'),
+        n: rows.length,
+        off: rows.filter(r => r.classList.contains('off')).length,
+        crop: c.id, cost: JSON.parse(JSON.stringify(c.cost)),
+        bag: JSON.parse(JSON.stringify(S.inventory)),
+      };
+    });
+    ok(out.shown && out.n === 6, `심기 시트에 작물 여섯 (${out.n})`);
+    // **없는 재료는 목록에서 빼지 않고 회색으로 남긴다** — 빼면 무엇이 모자란지 모른다
+    ok(out.off === 5, `못 심는 것은 회색으로 남는다 (${out.off}개 / 5 기대)`);
+
+    const bagBefore = out.bag, crop = out.crop, cost = out.cost;
+    out = await page.evaluate(async (id) => {
+      await doPlant(id);
+      const p = FARM && FARM.plots && FARM.plots[0];
+      return { bag: JSON.parse(JSON.stringify(S.inventory)), plot: p,
+               rec: S.record.planted, sheet: document.getElementById('plantPick').classList.contains('show') };
+    }, crop);
+    ok(out.plot && out.plot.crop === crop, `심었다 (${out.plot && out.plot.crop})`);
+    ok(!out.sheet, '심으면 시트가 닫힌다');
+    ok(out.rec === 1, `기록에 남는다 (${out.rec})`);
+    const paid = Object.keys(cost).every(id => (bagBefore[id] || 0) - (out.bag[id] || 0) === cost[id]);
+    ok(paid, `가방에서 값이 나갔다 — ${Object.keys(cost).map(id =>
+      `${id} ${bagBefore[id]}→${out.bag[id] || 0}`).join(' · ')}`);
+    // **시간은 서버가 잰다** — 클라이언트가 보낸 값이 아니다
+    const sp = (await store.get(RID)).farm.plots[0];
+    const hrs = Math.round((sp.ready - sp.at) / 3600e3);
+    ok(hrs === 12, `서버가 잰 시간 ${hrs}시간 (12 기대)`);
+    // 자라는 중에는 추수해도 안 나온다
+    out = await page.evaluate(() =>
+      document.querySelector('.plot-row').textContent.replace(/\s+/g, ' ').trim());
+    ok(/시간 뒤/.test(out), `칸 줄에 남은 시간이 적힌다 — "${out}"`);
+
+    // 여물게 해 두고 추수하면 **가방에 들어온다**
+    { const g = (await store.get(RID)).farm; g.plots[0].ready = Date.now() - 1000; await store.farmSet(RID, g); }
+    out = await page.evaluate(async () => {
+      await pullFarm();
+      const ripe = document.querySelector('.plot-row.ripe');
+      const b0 = JSON.parse(JSON.stringify(S.inventory));
+      await harvestFarm();
+      return { ripe: !!ripe, b0, bag: JSON.parse(JSON.stringify(S.inventory)),
+               plot: FARM && FARM.plots && FARM.plots[0] };
+    });
+    ok(out.ripe, '다 자란 칸은 눈에 띄게 그려진다 (.ripe)');
+    ok((out.bag[crop] || 0) - (out.b0[crop] || 0) === 3, `추수하면 가방에 ${crop} +${(out.bag[crop] || 0) - (out.b0[crop] || 0)} (3 기대)`);
+    ok(out.plot && out.plot.crop === null, '거둔 칸은 다시 빈 칸이 된다');
+
+    // 칸 사기 — 현자의 결정으로 낸다
+    out = await page.evaluate(async () => {
+      S.crystal = 9999;
+      const n0 = FARM.plots.length, c0 = S.crystal;
+      await buyPlot();
+      return { n0, c0, n: FARM.plots.length, c: S.crystal, cost: D.PLOT_COST[n0] };
+    });
+    ok(out.n === out.n0 + 1, `칸이 ${out.n0} → ${out.n}`);
+    ok(out.c0 - out.c === out.cost, `현자의 결정 ${out.cost} 를 냈다 (${out.c0} → ${out.c})`);
+  }
+
+  // ⑧ 여신 전에는 밭 탭이 **그려진 크기가 0** 이어야 한다.
   // ⚠️ `hidden` 속성만으로는 안 숨는다 — `.room-tab{display:flex}` 에 진다.
   // 속성이 아니라 **재 본 크기**로 봐야 한다 (랭킹 탭에서 실제로 겪었다)
   out = await page.evaluate(() => {
@@ -214,7 +284,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   });
   ok(!out.open && out.w === 0, `여신 전에는 밭 탭이 안 보인다 (폭 ${out.w}px · ${out.disp})`);
 
-  // ⑧ 여신이 되면 탭이 열리고, 마이 룸의 🌾 는 **그 탭으로 보낸다**
+  // ⑨ 여신이 되면 탭이 열리고, 마이 룸의 🌾 는 **그 탭으로 보낸다**
   out = await page.evaluate(async () => {
     S.stats.charm = 500; charmPeak();          // 최고 기록을 올린다
     switchTab('showcase'); render();

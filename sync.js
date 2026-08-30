@@ -265,6 +265,22 @@
       });
     } catch (e) { return { status: 0, body: null }; }
   }
+  async function plant(index, crop, n) {
+    if (!enabled()) return { status: 0, body: null };
+    try {
+      return await api('POST', `/api/farm/${me.playerId}/plant`, {
+        body: { secret: me.secret, nonce: n, index, crop },
+      });
+    } catch (e) { return { status: 0, body: null }; }
+  }
+  async function addPlot(n) {
+    if (!enabled()) return { status: 0, body: null };
+    try {
+      return await api('POST', `/api/farm/${me.playerId}/plot`, {
+        body: { secret: me.secret, nonce: n },
+      });
+    } catch (e) { return { status: 0, body: null }; }
+  }
   async function raidTargets() {
     if (!enabled()) return { status: 0, body: null };
     try {
@@ -291,7 +307,7 @@
 
   window.Sync = {
     push, pull, flushNow, wipe, code, useCode, claimName,
-    nonce, farmGet, harvest, raidTargets, raid,
+    nonce, farmGet, harvest, plant, addPlot, raidTargets, raid,
     get status() { return status; },
     get playerId() { return me.playerId; },
     enabled,

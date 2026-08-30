@@ -348,7 +348,15 @@ function launchOpts() {
               now: t, stash: { walnut: 12, wheat: 9, dew: 6, sun_seed: 4 }, count: 31,
               grownAt: t - 3600e3, nextGrowAt: t + 20 * 3600e3,
               shieldUntil: t + 5400e3, raids: 1, raidMax: 3, nextRaidAt: t + 3 * 3600e3,
-              daily: { walnut: 3, wheat: 2 }, days: 5,
+              daily: { walnut: 3, wheat: 2 }, days: 5, plotMax: 5,
+            // 칸의 **세 가지 상태를 다 낸다** — 하나만 재면 나머지 둘의 줄을
+            // 한 번도 안 본다 (다 자란 칸은 배경색까지 다르다)
+            plots: [
+              { crop: 'whisper_corn', at: t - 3600e3, ready: t + 8 * 3600e3, n: 3, stash: {} },
+              { crop: 'shadow_eggplant', at: t - 13 * 3600e3, ready: t - 60e3, n: 3, stash: {} },
+              { crop: null, stash: { walnut: 12, wheat: 9, dew: 6, sun_seed: 4 } },
+              { crop: null, stash: {} },
+            ],
               def: { id: 'unicorn', attr: 'light', grade: 'high', power: 64, loyalty: 40 },
               atk: null,
               log: [
@@ -386,7 +394,27 @@ function launchOpts() {
             return null;
           });
           if (bad2) results.push({ 화면: `${t}/밭탭`, 오류: bad2 });
-          await page.evaluate(() => { FARM = null; setGatherTab('field'); });
+          // **심기 시트** — 작물 여섯이 이름·속성 딱지·드는 값·시간까지 한 칸에 든다.
+          // ⚠️ **낼 수 있는 것과 없는 것을 같이 낸다** — 못 내는 칸은 회색으로 남는데,
+          // 다 낼 수 있는 상태로만 재면 그 표현을 한 번도 안 본다
+          const ptBad = await page.evaluate(() => {
+            // 첫 작물만 낼 수 있게 하고 나머지는 모자라게 둔다
+            const first = D.FARM_CROPS[0];
+            D.FARM_CROPS.forEach(c => Object.keys(c.cost).forEach(id => { S.inventory[id] = 0; }));
+            Object.keys(first.cost).forEach(id => { S.inventory[id] = first.cost[id]; });
+            FARM.plots[3].stash = {};
+            openPlant(3);
+            if (!document.getElementById('plantPick').classList.contains('show')) return '시트가 안 떴다';
+            const rows = document.querySelectorAll('#plantList .plant-item');
+            const off = document.querySelectorAll('#plantList .plant-item.off').length;
+            if (rows.length !== D.FARM_CROPS.length) return `작물이 ${rows.length}칸이다 (${D.FARM_CROPS.length} 기대)`;
+            return off === D.FARM_CROPS.length - 1 ? null : `회색이 ${off}칸이다 (${D.FARM_CROPS.length - 1} 기대)`;
+          });
+          if (ptBad) results.push({ 화면: `${t}/심기`, 오류: ptBad });
+          else { await page.waitForTimeout(280); await run(`${t}/심기`); }
+          const ptBad2 = await page.evaluate(() => window.__cardFits('#plantPick'));
+          if (ptBad2) results.push({ 화면: `${t}/심기`, 오류: ptBad2 });
+          await page.evaluate(() => { closePlant(); FARM = null; setGatherTab('field'); devFillItems(); });
           await page.waitForTimeout(150);
         }
 
@@ -609,7 +637,15 @@ function launchOpts() {
             now: t, stash: { walnut: 12, wheat: 9, dew: 6, sun_seed: 4 }, count: 31,
             grownAt: t - 3600e3, nextGrowAt: t + 20 * 3600e3,
             shieldUntil: t + 5400e3, raids: 1, raidMax: 3, nextRaidAt: t + 3 * 3600e3,
-            daily: { walnut: 3, wheat: 2 }, days: 5,
+            daily: { walnut: 3, wheat: 2 }, days: 5, plotMax: 5,
+            // 칸의 **세 가지 상태를 다 낸다** — 하나만 재면 나머지 둘의 줄을
+            // 한 번도 안 본다 (다 자란 칸은 배경색까지 다르다)
+            plots: [
+              { crop: 'whisper_corn', at: t - 3600e3, ready: t + 8 * 3600e3, n: 3, stash: {} },
+              { crop: 'shadow_eggplant', at: t - 13 * 3600e3, ready: t - 60e3, n: 3, stash: {} },
+              { crop: null, stash: { walnut: 12, wheat: 9, dew: 6, sun_seed: 4 } },
+              { crop: null, stash: {} },
+            ],
             def: { id: 'unicorn', attr: 'light', grade: 'high', power: 64, loyalty: 40 },
             atk: { id: 'ember_phoenix', attr: 'fire', grade: 'high', power: 64, loyalty: 0 },
             log: [

@@ -119,6 +119,18 @@ const INGREDIENTS = {
   sp_rainbowfoam:  { id: 'sp_rainbowfoam', emoji: '🌈', name: '무지개 거품', zone: 'shore', weight: 0, rare: true },
   sp_duskshell:    { id: 'sp_duskshell', emoji: '🌇', name: '노을 조개', zone: 'shore', weight: 0, rare: true },
   sp_mermaidscale: { id: 'sp_mermaidscale', emoji: '🧜‍♀️', name: '인어의 비늘', zone: 'shore', weight: 0, rare: true },
+  // ── 특수 작물 (밭에서만 나온다 · FARM.md) ──
+  // **`rare` 가 아니다.** `rare` 는 채집에서 0.1% 로 나오는 히든이고 확률표를 탄다.
+  // 이쪽은 **채집으로는 아예 안 나온다**(어느 맵의 pool 에도 없다) — `farm: true` 로 표시한다.
+  // 손으로 고치지 않는다: `npm run gen:farm` (tools/genfarm.js)
+  // <<<GEN:farm-ing
+  ember_chili: { id: 'ember_chili', emoji: '🌶️', name: '불꽃 고추', zone: 'farm', weight: 0, farm: true },
+  stone_potato: { id: 'stone_potato', emoji: '🥔', name: '바위 감자', zone: 'farm', weight: 0, farm: true },
+  whisper_corn: { id: 'whisper_corn', emoji: '🌽', name: '속삭임 옥수수', zone: 'farm', weight: 0, farm: true },
+  tear_lotus: { id: 'tear_lotus', emoji: '🪷', name: '눈물 연꽃', zone: 'farm', weight: 0, farm: true },
+  dawn_tomato: { id: 'dawn_tomato', emoji: '🍅', name: '새벽 토마토', zone: 'farm', weight: 0, farm: true },
+  shadow_eggplant: { id: 'shadow_eggplant', emoji: '🍆', name: '그림자 가지', zone: 'farm', weight: 0, farm: true },
+// GEN:farm-ing>>>
 };
 
 // 특별한 재료가 나올 확률은 **맵마다 다르다** — SPECIAL_TIERS · specialTier() 를 볼 것.
@@ -977,6 +989,38 @@ function specialTier(unlock) {
   return SPECIAL_TIERS.find(t => (unlock || 0) >= t.need) || SPECIAL_TIERS[SPECIAL_TIERS.length - 1];
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  밭 — 특수 작물과 칸 (FARM.md)
+// ═══════════════════════════════════════════════════════════════
+// 작물 표는 **손으로 고치지 않는다**: `npm run gen:farm` (tools/genfarm.js).
+// 한국어 이름·이모지는 위의 INGREDIENTS 에, 영어 이름은 i18n.js 에 같은 표에서 나온다.
+//
+//   cost   심는 값 { 재료id: 개수 } — 그 속성 크리처의 생산물 + 늦게 열리는 지대 재료
+//   hours  자라는 데 걸리는 시간 (**임시값**)
+//   n      거두는 개수 (**임시값**)
+// <<<GEN:farm-crops
+const FARM_CROPS = [
+  { id: 'ember_chili', attr: 'fire', hours: 12, n: 3,
+    cost: { sun_seed: 3, flint: 2 } },
+  { id: 'stone_potato', attr: 'earth', hours: 12, n: 3,
+    cost: { walnut: 3, echo_stone: 2 } },
+  { id: 'whisper_corn', attr: 'wind', hours: 12, n: 3,
+    cost: { wheat: 3, eagle_feather: 2 } },
+  { id: 'tear_lotus', attr: 'water', hours: 12, n: 3,
+    cost: { dew: 3, sea_dew: 2 } },
+  { id: 'dawn_tomato', attr: 'light', hours: 12, n: 3,
+    cost: { firefly: 3, sea_glass: 2 } },
+  { id: 'shadow_eggplant', attr: 'dark', hours: 12, n: 3,
+    cost: { mushroom: 3, black_feather: 2 } },
+];
+// GEN:farm-crops>>>
+const farmCrop = id => FARM_CROPS.find(c => c.id === id) || null;
+
+// 칸을 여는 값 (현자의 결정). 번호는 0부터 — 앞의 둘은 처음부터 있다.
+// **AP 충전 값과 같이 봐야 한다** (`ENERGY.chargeCost` 1000 · `failReward` 10):
+// 다섯 칸을 다 여는 데 700이면 「AP 한 번 안 채우면 칸 하나」쯤이다. 전부 임시값.
+const PLOT_COST = [0, 0, 100, 200, 400];
+
 // ─── 레시피 북 카테고리 ───
 // 물약은 등급(grade)으로, 크리처는 kind 로 분류한다.
 // 등급 기준: 하급 = 효과 합 3 이하 / 중급 = 4~6 / 상급 = 7 이상
@@ -1761,6 +1805,7 @@ window.GameData = {
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   CREATURE_ATTRS, creatureAttr, MAP_ATTRS, mapAttr,
+  FARM_CROPS, farmCrop, PLOT_COST,
   WEATHERS, WEATHER_HOURS, DAYPARTS, SPECIAL_TIERS, specialTier,
   getTier, recipeKey,
 };

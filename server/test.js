@@ -273,6 +273,76 @@ async function run(label, env) {
     f = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
     ok(f.body.count === 9, `세이브 저장 뒤에도 이삭 ${f.body.count} (9 기대)`);
 
+    // ── 심기 · 자람 · 칸 늘리기 (3단계) ──
+    {
+      const P = async (url, body) => J('POST', url, body);
+      // 이삭이 남아 있는 칸에는 못 심는다 — 심으면 그 이삭이 갈 곳이 없어진다
+      await seedEars(V, { firefly: 4 });
+      let z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant01', index: 0, crop: 'ember_chili' });
+      ok(z.status === 409 && z.body.error === 'plot_ears', `이삭이 있는 칸에 심기 → ${z.status} (409 기대)`);
+      // 둘째 칸은 비어 있으니 심긴다
+      z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant02', index: 1, crop: 'ember_chili' });
+      ok(z.status === 200 && z.body.plots[1].crop === 'ember_chili', `심었다 → ${z.status}`);
+      // **다 자라는 시각은 서버가 잰다.** 유니콘(로열티 0)이라 12시간 그대로
+      const p1 = (await farmOf(V)).plots[1];
+      const hrs = Math.round((p1.ready - p1.at) / 3600e3);
+      ok(hrs === 12, `12시간 뒤에 여문다 (${hrs}시간)`);
+      ok(p1.n === 3, `거둘 개수 ${p1.n} (3 기대)`);
+      // 같은 nonce 로 재시도해도 두 번 안 심는다
+      z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant02', index: 1, crop: 'ember_chili' });
+      ok(z.body.repeat === true, '같은 nonce 로 재시도 → 같은 답 (멱등)');
+      // 심은 칸에 또 심을 수 없다 · 없는 작물 · 없는 칸
+      z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant03', index: 1, crop: 'ember_chili' });
+      ok(z.status === 409 && z.body.error === 'plot_busy', `심은 칸에 또 심기 → ${z.body.error}`);
+      z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant04', index: 9, crop: 'ember_chili' });
+      ok(z.status === 409 && z.body.error === 'bad_plot', `없는 칸 → ${z.body.error}`);
+      z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant05', index: 0, crop: '없는것' });
+      ok(z.status === 409 && z.body.error === 'bad_crop', `없는 작물 → ${z.body.error}`);
+
+      // **아직 자라는 칸은 추수에 안 들어간다** (이삭만 나온다)
+      let h2 = await J('POST', `/api/farm/${V}/harvest`, { secret: SEC_V, nonce: 'harv10' });
+      ok(h2.status === 200 && h2.body.items.firefly === 4 && !h2.body.items.ember_chili,
+        `자라는 중에는 이삭만 거둔다 — ${JSON.stringify(h2.body.items)}`);
+      ok((await farmOf(V)).plots[1].crop === 'ember_chili', '추수해도 심은 것은 그대로 있다');
+
+      // 시계를 앞으로 돌리면 여문다
+      { const g = await farmOf(V); g.plots[1].ready = Date.now() - 1000; await setFarm(V, g); }
+      const gf = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
+      ok(gf.body.count === 3, `여물면 거둘 것이 ${gf.body.count}개 (3 기대)`);
+      h2 = await J('POST', `/api/farm/${V}/harvest`, { secret: SEC_V, nonce: 'harv11' });
+      ok(h2.body.items.ember_chili === 3, `여문 작물을 거뒀다 — ${JSON.stringify(h2.body.items)}`);
+      const after = (await farmOf(V)).plots[1];
+      ok(after.crop === null && after.ready === undefined, '거둔 칸은 다시 빈 칸이 된다');
+
+      // 로열티가 자라는 시간을 줄인다 (물주기 대신 이미 있는 축을 쓴다)
+      await J('PUT', `/api/save/${V}`, {
+        secret: SEC_V, rev: 9,
+        state: { name: '밭주인', creatures: ['unicorn'], petRoom: 'unicorn',
+                 pets: { unicorn: { loyalty: 100 } } },
+      });
+      z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant06', index: 1, crop: 'ember_chili' });
+      const p2 = (await farmOf(V)).plots[1];
+      const hrs2 = Math.round((p2.ready - p2.at) / 3600e3);
+      ok(hrs2 === 9, `로열티가 가득이면 ${hrs2}시간 (9 기대 · 12시간 −25%)`);
+
+      // 칸 늘리기 — 다섯까지
+      let n = (await farmOf(V)).plots.length;
+      for (let i = 0; i < 5; i++) {
+        z = await P(`/api/farm/${V}/plot`, { secret: SEC_V, nonce: 'plot0' + i });
+        if (z.status === 200) n = z.body.plots.length;
+      }
+      ok(n === 5, `칸은 다섯까지 늘어난다 (${n})`);
+      z = await P(`/api/farm/${V}/plot`, { secret: SEC_V, nonce: 'plotXX' });
+      ok(z.status === 409 && z.body.error === 'plot_max', `다섯을 넘기면 → ${z.body.error}`);
+
+      // 뒷정리 — 아래 약탈 검사들은 **이삭 9개가 든 두 칸짜리 밭**을 기대한다
+      // (바로 위의 「세이브 저장 뒤에도 이삭 9」가 만들어 둔 상태로 되돌린다)
+      await setFarm(V, {
+        plots: [{ crop: null, stash: { firefly: 9 } }, { crop: null, stash: {} }],
+        grownAt: Date.now(), shieldUntil: 0, raids: 3, raidAt: Date.now(), log: [],
+      });
+    }
+
     // **옛 모양의 밭(이삭 한 무더기)이 칸으로 옮겨지는가** — 밭은 서버에 있으므로
     // 세이브의 `SAVE_VER` 와 다른 자리에서 옮겨 적는다. **옛 이삭을 버리면 안 된다**
     {

@@ -66,6 +66,12 @@ const RAID_REGEN_MS = 8 * 60 * 60 * 1000;
 // 이것이 없으면 잠든 사이에 밭이 열 번 털려서 아침에 빈 밭을 본다.
 const SHIELD_MS = 2 * 60 * 60 * 1000;
 
+// 자라는 시간은 **로열티가 줄인다** (`FARM.md` 4장). 물주기를 만들지 않는 대신
+// 이미 있는 축을 쓴다 — 「먹이를 준 크리처는 잘 싸우고 자기 칸도 잘 돌본다」 한 문장이다.
+// 지금은 밭을 지키는 것이 애착 크리처 하나뿐이라 그 한 마리의 로열티를 본다
+// (5단계에서 칸마다 지키개가 생기면 그 칸의 크리처를 본다)
+const GROW_LOYALTY = 0.25;      // 로열티가 가득이면 자라는 시간 −25%
+
 const TAKE_RATE = 1 / 3;        // 이겼을 때 가져가는 비율
 const TAKE_MAX = 12;            // 한 번에 가져갈 수 있는 최대 개수
 const WIN_MIN = 0.10, WIN_MAX = 0.90;   // 확률의 바닥과 천장 — 확실한 승부는 없다
@@ -224,6 +230,51 @@ function grow(farm, state, now) {
   return changed;
 }
 
+// ─── 심기 · 자람 ─────────────────────────────────────────────
+const CROPS = {};
+for (const c of D.FARM_CROPS) CROPS[c.id] = c;
+
+// 다 자랐는가
+const ripe = (p, now) => !!(p && p.crop && (p.ready || 0) <= now);
+
+// 이 밭에서 무언가를 심을 때 걸리는 시간 (ms)
+function growMs(crop, state) {
+  const c = CROPS[crop];
+  if (!c) return 0;
+  const d = defender(state);
+  const k = d ? Math.min(1, Math.max(0, d.loyalty / D.LOYALTY_MAX)) : 0;
+  return Math.round(c.hours * 3600e3 * (1 - GROW_LOYALTY * k));
+}
+
+// 심는다. 못 심으면 오류 코드를 돌려준다 (심었으면 null)
+//
+// ⚠️ **재료는 서버가 안 깎는다.** 재료는 세이브 안에 있고 세이브는 클라이언트가
+// 정본이다(`sync.js`) — 서버가 깎아도 다음 저장에 되살아난다.
+// **서버가 판정을 갖는 기준은 「남의 것을 건드리는가」다**(약탈이 그렇다).
+// 심기는 내 것만 건드리므로 값은 클라이언트가 낸다.
+// 다만 **시각만은 서버가 잰다** — 그것이 남이 언제 털 수 있는지를 정하기 때문이다.
+function plant(farm, state, index, crop, now) {
+  if (!Number.isInteger(index) || index < 0 || index >= farm.plots.length) return 'bad_plot';
+  if (!CROPS[crop]) return 'bad_crop';
+  const p = farm.plots[index];
+  if (p.crop) return 'plot_busy';
+  // **이삭이 남아 있는 칸에는 못 심는다.** 심으면 그 이삭이 갈 곳이 없어진다 —
+  // 조용히 버리는 것보다 「먼저 거두세요」가 낫다
+  if (countOf(p.stash)) return 'plot_ears';
+  p.crop = crop;
+  p.at = now;
+  p.ready = now + growMs(crop, state);
+  p.n = CROPS[crop].n;
+  return null;
+}
+
+// 칸 하나를 더 산다. **값은 클라이언트가 낸다**(위와 같은 이유) — 여기서는 상한만 본다
+function addPlot(farm) {
+  if (farm.plots.length >= PLOT_MAX) return 'plot_max';
+  farm.plots.push(emptyPlot());
+  return null;
+}
+
 // 하루치를 **빈 칸들이 돌아가며 하나씩** 나눠 갖는다.
 // 빈 칸이 없으면(다 심었으면) 이삭은 안 쌓인다 — 밭을 다 쓰고 있다는 뜻이다
 function dealToPlots(farm, day) {
@@ -238,10 +289,22 @@ function dealToPlots(farm, day) {
   }
 }
 
-// 이삭을 통째로 거둔다 — 거둔 목록을 돌려주고 칸을 비운다
-function harvestEars(farm) {
+// 거둘 수 있는 것 — 이삭 전부 + **다 자란** 작물. 아직 자라는 칸은 안 건드린다
+function harvestable(farm, now) {
   const items = mergedStash(farm);
-  for (const p of farm.plots) p.stash = {};
+  for (const p of farm.plots) {
+    if (ripe(p, now)) items[p.crop] = (items[p.crop] || 0) + (p.n || 0);
+  }
+  return items;
+}
+
+// 통째로 거둔다 — 거둔 목록을 돌려주고 그 칸들을 비운다
+function harvestEars(farm, now) {
+  const items = harvestable(farm, now);
+  for (const p of farm.plots) {
+    p.stash = {};
+    if (ripe(p, now)) { p.crop = null; delete p.at; delete p.ready; delete p.n; }
+  }
   return items;
 }
 
@@ -291,6 +354,7 @@ module.exports = {
   owns, loyaltyOf, petOf, defender, attacker,
   producers, dailyYield,
   PLOT_MAX, PLOT_START, emptyPlot, emptyFarm, migrateFarm,
-  countOf, mergedStash, farmCount, dealToPlots, harvestEars, takeFrom,
+  countOf, mergedStash, farmCount, dealToPlots, harvestable, harvestEars, takeFrom,
+  CROPS, GROW_LOYALTY, ripe, growMs, plant, addPlot,
   grow, loot, resolve,
 };

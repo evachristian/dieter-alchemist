@@ -293,7 +293,8 @@ app.get('/api/farm/:playerId', async (req, res) => {
       ok: true, now,
       // 화면은 아직 이삭을 **한 무더기로** 본다 (1단계는 그릇만 바꾼다).
       // `plots` 를 같이 보내 두어 3단계에서 화면만 바꾸면 되게 한다
-      stash: B.mergedStash(farm), count: B.farmCount(farm), plots: farm.plots,
+      stash: B.mergedStash(farm), count: B.countOf(B.harvestable(farm, now)),
+      plots: farm.plots, plotMax: B.PLOT_MAX,
       grownAt: farm.grownAt, nextGrowAt: farm.grownAt + B.GROW_MS,
       shieldUntil: farm.shieldUntil || 0,
       raids: farm.raids, raidMax: B.RAID_MAX,
@@ -323,13 +324,65 @@ app.post('/api/farm/:playerId/harvest', async (req, res) => {
     if (farm.lastHarvest && farm.lastHarvest.nonce === nonce) {
       return res.json({ ok: true, items: farm.lastHarvest.items, repeat: true });
     }
-    if (!B.farmCount(farm)) return res.status(409).json({ error: 'farm_empty' });
-    const items = B.harvestEars(farm);
+    if (!B.countOf(B.harvestable(farm, now))) return res.status(409).json({ error: 'farm_empty' });
+    const items = B.harvestEars(farm, now);
     farm.lastHarvest = { nonce, items, t: now };
     await store.farmSet(row.playerId, farm);
     res.json({ ok: true, items });
   } catch (e) {
     console.error('[POST /api/farm/harvest]', e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+//  POST /api/farm/:playerId/plant   { secret, nonce, index, crop }
+//  · 칸 하나에 심는다.
+//  ⚠️ **재료는 서버가 안 깎는다.** 재료는 세이브 안에 있고 세이브는 클라이언트가
+//    정본이다 — 서버가 깎아도 다음 저장에 되살아난다. 서버가 판정을 갖는 기준은
+//    「남의 것을 건드리는가」이고(약탈이 그렇다), 심기는 내 것만 건드린다.
+//    다만 **다 자라는 시각만은 서버가 잰다** — 그것이 남이 언제 털 수 있는지를 정한다
+app.post('/api/farm/:playerId/plant', async (req, res) => {
+  const { secret, nonce, index, crop } = req.body || {};
+  if (!NONCE_RE.test(String(nonce || ''))) return res.status(400).json({ error: 'bad_nonce' });
+  try {
+    const row = await authRow(req, res, req.params.playerId, secret);
+    if (!row) return;
+    const now = Date.now();
+    const farm = await freshFarm(row, now, true);
+    if (farm.lastPlant && farm.lastPlant.nonce === nonce) {
+      return res.json({ ok: true, plots: farm.plots, repeat: true });
+    }
+    const bad = B.plant(farm, row.state || {}, index, String(crop || ''), now);
+    if (bad) return res.status(409).json({ error: bad });
+    farm.lastPlant = { nonce, t: now };
+    await store.farmSet(row.playerId, farm);
+    res.json({ ok: true, now, plots: farm.plots });
+  } catch (e) {
+    console.error('[POST /api/farm/plant]', e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+//  POST /api/farm/:playerId/plot   { secret, nonce }
+//  · 칸을 하나 더 연다. **값(현자의 결정)은 클라이언트가 낸다** — 위와 같은 이유다
+app.post('/api/farm/:playerId/plot', async (req, res) => {
+  const { secret, nonce } = req.body || {};
+  if (!NONCE_RE.test(String(nonce || ''))) return res.status(400).json({ error: 'bad_nonce' });
+  try {
+    const row = await authRow(req, res, req.params.playerId, secret);
+    if (!row) return;
+    const now = Date.now();
+    const farm = await freshFarm(row, now, true);
+    if (farm.lastPlot && farm.lastPlot.nonce === nonce) {
+      return res.json({ ok: true, plots: farm.plots, repeat: true });
+    }
+    const bad = B.addPlot(farm);
+    if (bad) return res.status(409).json({ error: bad });
+    farm.lastPlot = { nonce, t: now };
+    await store.farmSet(row.playerId, farm);
+    res.json({ ok: true, now, plots: farm.plots });
+  } catch (e) {
+    console.error('[POST /api/farm/plot]', e);
     res.status(500).json({ error: 'server_error' });
   }
 });

@@ -194,6 +194,7 @@ function newRecord() {
     creatures:   0,   // 만든 크리처 (누적 — 전시 목록과 달리 줄지 않는다)
     produced:    0,   // 크리처가 만들어 준 날 수 (8단계)
     harvested:   0,   // 밭에서 거둔 이삭 개수 (9단계)
+    planted:     0,   // 밭에 심은 횟수
     raids:       0,   // 이웃 밭에 나간 횟수
     raidWon:     0,   // 그중 뚫은 횟수
     pots:        ['cd_iron_old'],   // 써 본 마법 솥 (중복 없이)
@@ -5072,6 +5073,27 @@ const stashLine = st => Object.keys(st || {})
 const stashText = st => Object.keys(st || {})
   .map(id => `${itemName(id)} ${st[id]}`).join(' · ');
 
+// 칸 한 줄. 상태가 셋이다 — **심었고 자라는 중 · 다 자람 · 비어 있음(이삭)**
+function plotRow(p, i, now) {
+  const no = `<span class="plot-no">${i + 1}</span>`;
+  if (p.crop) {
+    const left = (p.ready || 0) - now;
+    const ready = left <= 0;
+    return `<div class="plot-row${ready ? ' ripe' : ''}">${no}
+      <span class="plot-what">${itemArt(p.crop)} ${itemName(p.crop)} ×${p.n || 0}</span>
+      <span class="plot-when">${ready ? T('plot_ready') : T('plot_left', { t: leftText(left) })}</span>
+    </div>`;
+  }
+  const ears = countOfObj(p.stash);
+  // **빈 칸은 누르면 심는 자리다.** 이삭이 남아 있으면 먼저 거둬야 한다 —
+  // 심으면서 이삭을 조용히 버리는 것보다 「먼저 거두세요」가 낫다
+  return `<button class="plot-row plot-open" onclick="openPlant(${i})">${no}
+    <span class="plot-what">${ears ? stashLine(p.stash) : `<span class="farm-none">${T('plot_empty')}</span>`}</span>
+    <span class="plot-when">${ears ? T('plot_ears') : T('plot_sow')}</span>
+  </button>`;
+}
+const countOfObj = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
+
 // 크리처 한 마리를 한 줄로 (서버는 id 만 준다 — 이름은 여기서 제 언어로 부른다)
 function briefLine(b) {
   if (!b) return `<span class="farm-none">${T('raid_guard_none')}</span>`;
@@ -5151,10 +5173,20 @@ function farmHtml() {
     ${briefLine(FARM.def)}</div>`);
   if (!FARM.def) rows.push(`<div class="farm-hint">${T('farm_def_none')}</div>`);
 
-  // 이삭
-  rows.push(`<div class="farm-row"><span class="farm-k">${T('farm_crop')}</span>
-    <span class="pd-items">${FARM.count ? stashLine(FARM.stash)
-      : `<span class="farm-none">${T('farm_empty')}</span>`}</span></div>`);
+  // ─── 칸 (FARM.md 3장) ───
+  // **칸 하나 = 심으면 특수 작물, 비워 두면 크리처의 이삭.**
+  // 한 줄에 「번호 · 무엇이 · 언제」가 같이 있어야 몇 번을 손봐야 하는지 안 외운다
+  const plots = Array.isArray(FARM.plots) ? FARM.plots : [];
+  rows.push(`<div class="farm-row farm-logk">${T('farm_plots')}</div>`);
+  rows.push('<div class="plot-list">' + plots.map((p, i) => plotRow(p, i, now)).join('') + '</div>');
+  // 다음 칸 — 다 샀으면 아예 안 내놓는다
+  if (plots.length < (FARM.plotMax || D.PLOT_COST.length)) {
+    const cost = D.PLOT_COST[plots.length] || 0;
+    const can = (S.crystal || 0) >= cost;
+    rows.push(`<button class="plot-buy${can ? '' : ' lack'}" onclick="buyPlot()">
+      ➕ ${T('farm_plot_buy', { n: plots.length + 1 })}
+      <span class="plot-cost">💎 ${fmtCount(cost)}</span></button>`);
+  }
   const nextGrow = (FARM.nextGrowAt || 0) - now;
   if (nextGrow > 0 && FARM.daily && Object.keys(FARM.daily).length) {
     rows.push(`<div class="farm-hint">${T('farm_next', { t: leftText(nextGrow) })}
@@ -5216,6 +5248,95 @@ async function harvestFarm() {
   save();
   toast(T('farm_got', { items: stashText(items) }), null, 2600);
   if (window.Sfx) Sfx.play('pick');
+  await refreshFarm();
+  renderFarm();
+  render();
+}
+
+// ─── 심기 ────────────────────────────────────────────────────
+//
+// **씨앗 칸을 만들지 않았다.** 심을 때 작물을 고르고 **이미 있는 재료**를 낸다 —
+// 「씨앗」이라는 새 물건을 만들면 재료·음식·먹이에 이어 네 번째 가방이 생기고,
+// 그것을 얻는 길·보관 화면·번역이 한 벌씩 더 필요하다 (`FARM.md` 4장)
+let plantAt = -1;
+
+const costOk = c => Object.keys(c.cost).every(id => invCount(id) >= c.cost[id]);
+
+function openPlant(i) {
+  const p = (FARM && FARM.plots && FARM.plots[i]) || null;
+  if (!p) return;
+  if (countOfObj(p.stash)) { toast(T('plot_ears_first')); return; }
+  plantAt = i;
+  const el = document.getElementById('plantPick');
+  if (!el) return;
+  const ti = document.getElementById('plantTitle');
+  if (ti) ti.textContent = T('plant_title', { n: i + 1 });
+  const list = document.getElementById('plantList');
+  if (list) {
+    list.innerHTML = D.FARM_CROPS.map(c => {
+      const attr = D.creatureAttr(c.attr);
+      const ok = costOk(c);
+      // **없는 재료를 회색으로 남긴다.** 목록에서 빼 버리면 무엇이 모자란지 모른다
+      const cost = Object.keys(c.cost).map(id =>
+        `<span class="pd-item${invCount(id) >= c.cost[id] ? '' : ' lack'}">${itemArt(id)} ${itemName(id)}
+          ${invCount(id)}/${c.cost[id]}</span>`).join('');
+      return `<button class="pal-item plant-item${ok ? '' : ' off'}" onclick="doPlant('${c.id}')">
+        <span class="plant-head">${itemArt(c.id)} <span class="raid-name">${itemName(c.id)}</span>
+          ${attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : ''}</span>
+        <span class="pd-items">${cost}</span>
+        <span class="farm-hint">${T('plant_time', { t: leftText(c.hours * 3600e3) , n: c.n })}</span>
+      </button>`;
+    }).join('');
+  }
+  el.classList.add('show');
+}
+function closePlant() {
+  const el = document.getElementById('plantPick');
+  if (el) el.classList.remove('show');
+}
+
+async function doPlant(cropId) {
+  const c = D.farmCrop(cropId);
+  if (!c || farmBusy || plantAt < 0) return;
+  if (!costOk(c)) { toast(T('mat_short')); return; }
+  farmBusy = true;
+  const r = await Sync.plant(plantAt, cropId, Sync.nonce());
+  farmBusy = false;
+  if (r.status !== 200 || !r.body) {
+    const e = (r.body && r.body.error) || '';
+    toast(T(e === 'plot_ears' ? 'plot_ears_first' : e === 'plot_busy' ? 'plant_busy' : 'farm_err'));
+    await refreshFarm(); renderFarm();
+    return;
+  }
+  // **값은 심은 것이 확인된 다음에 낸다.** 먼저 깎으면 서버에 못 닿았을 때
+  // 재료만 사라진다 (재료는 세이브 안에 있어 서버가 대신 돌려줄 수 없다)
+  Object.keys(c.cost).forEach(id => removeInv(id, c.cost[id]));
+  rec('planted');
+  save();
+  closePlant();
+  const nm = itemName(cropId);
+  toast(T('plant_done', { name: nm, josa: josa(nm, '을를') }), null, 2600);
+  if (window.Sfx) Sfx.play('pick');
+  await refreshFarm();
+  renderFarm();
+  render();
+}
+
+// 칸 하나를 더 산다 — **현자의 결정**으로 낸다 (AP 충전에 이은 두 번째 출구)
+async function buyPlot() {
+  if (farmBusy || !FARM) return;
+  const n = (FARM.plots || []).length;
+  const cost = D.PLOT_COST[n] || 0;
+  if (n >= (FARM.plotMax || D.PLOT_COST.length)) { toast(T('farm_plot_max')); return; }
+  if ((S.crystal || 0) < cost) { openDiamondShop(); return; }
+  farmBusy = true;
+  const r = await Sync.addPlot(Sync.nonce());
+  farmBusy = false;
+  if (r.status !== 200 || !r.body) { toast(T('farm_err')); return; }
+  S.crystal = Math.max(0, (S.crystal || 0) - cost);
+  save();
+  toast(T('farm_plot_got', { n: n + 1 }), null, 2400);
+  if (window.Sfx) Sfx.play('success');
   await refreshFarm();
   renderFarm();
   render();
@@ -5317,6 +5438,10 @@ async function doRaid(i) {
 window.openFarm = openFarm;
 window.closeFarm = closeFarm;
 window.harvestFarm = harvestFarm;
+window.openPlant = openPlant;
+window.closePlant = closePlant;
+window.doPlant = doPlant;
+window.buyPlot = buyPlot;
 window.openRaidPick = openRaidPick;
 window.closeRaidPick = closeRaidPick;
 window.doRaid = doRaid;
