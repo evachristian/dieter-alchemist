@@ -43,9 +43,12 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   const VID = 'p_' + 'v'.repeat(20), VSEC = 'v'.repeat(32);
   const RID = 'p_' + 'r'.repeat(20), RSEC = 'r'.repeat(32);
   const now = () => Date.now();
+  // 이삭은 **칸(plot)마다** 들어 있다 — 첫 칸에 심어 두고 나머지는 비운다
   const freshFarm = stash => ({
-    stash, grownAt: now(), shieldUntil: 0, raids: 3, raidAt: now(), log: [],
+    plots: [{ crop: null, stash }, { crop: null, stash: {} }],
+    grownAt: now(), shieldUntil: 0, raids: 3, raidAt: now(), log: [],
   });
+  const ears = f => (f.plots || []).reduce((n, p) => n + sum(p.stash), 0);
 
   // 털리는 쪽 — 유니콘이 지키고 반딧불이 9개가 여물어 있다
   await store.claimName(VID, VSEC, '밭주인');
@@ -116,7 +119,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
     `거둔 것이 가방에 들어왔다: 호두 +${(out.bag.walnut || 0) - (bag0.walnut || 0)} · 밀 +${(out.bag.wheat || 0) - (bag0.wheat || 0)}`);
   ok(out.count === 0, `거둔 뒤 밭이 비었다 (${out.count})`);
   ok(out.rec === 6, `기록에 6개가 적혔다 (${out.rec})`);
-  ok(sum((await store.get(RID)).farm.stash) === 0, '서버 쪽 밭도 비었다');
+  ok(ears((await store.get(RID)).farm) === 0, '서버 쪽 밭도 비었다');
 
   // ③ 이웃 밭 목록
   await page.evaluate(() => openRaidPick());
@@ -139,7 +142,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
     `상대 줄에 지키개와 이삭이 같이 있다 — "${out.text[0]}"`);
 
   // ④ 이기면 — **서버의 주사위를 고정한다**
-  const vBefore = sum((await store.get(VID)).farm.stash);
+  const vBefore = ears((await store.get(VID)).farm);
   const realRandom = Math.random;
   Math.random = () => 0;                      // 반드시 이긴다
   const won = await page.evaluate(async () => {
@@ -150,7 +153,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   });
   Math.random = realRandom;
   const got = (won.bag.firefly || 0) - (won.b0.firefly || 0);
-  const vAfter = sum((await store.get(VID)).farm.stash);
+  const vAfter = ears((await store.get(VID)).farm);
   ok(got > 0, `이겼을 때 가방에 반딧불이 +${got}`);
   ok(vBefore - vAfter === got, `남의 밭이 그만큼 줄었다: ${vBefore} → ${vAfter} (가져온 ${got})`);
   ok(won.rec === 1 && won.tries === 1, `기록: 나간 ${won.tries}번 · 뚫은 ${won.rec}번`);
@@ -166,7 +169,9 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   // ⑤ 지면 — 아무것도 안 늘고 남의 밭도 그대로
   {
     const g = (await store.get(VID)).farm;
-    g.shieldUntil = 0; g.stash = { firefly: 9 };
+    g.shieldUntil = 0;
+    g.plots.forEach(p => { p.stash = {}; });
+    g.plots[0].stash = { firefly: 9 };
     await store.farmSet(VID, g);
   }
   await page.evaluate(() => openRaidPick());
@@ -181,7 +186,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   });
   Math.random = realRandom;
   ok((lost.bag.firefly || 0) === (lost.b0.firefly || 0), '졌을 때는 가방이 안 는다');
-  ok(sum((await store.get(VID)).farm.stash) === 9, '졌을 때는 남의 밭도 그대로');
+  ok(ears((await store.get(VID)).farm) === 9, '졌을 때는 남의 밭도 그대로');
   ok(lost.rec === 1, '진 것은 뚫은 횟수에 안 들어간다');
   ok((await store.get(VID)).farm.log[0].win === false, '막아 낸 것도 기록에 남는다');
 

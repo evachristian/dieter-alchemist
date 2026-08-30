@@ -128,18 +128,69 @@ function dailyYield(state) {
   return items;
 }
 
-// ─── 밭 ──────────────────────────────────────────────────────
+// ─── 밭 — 칸(plot) 다섯까지 ──────────────────────────────────
+//
+// **칸 하나 = 심으면 특수 작물, 비워 두면 크리처의 이삭.** (`FARM.md` 3장)
+// 규칙을 하나로 합쳐 두면 「아직 못 심겠는데 밭이 비어서 심심하다」는 자리가 없어진다.
+//
+//   { crop: null, stash: { walnut: 6 } }              비어 있는 칸 — 이삭이 쌓인다
+//   { crop: 'ember_chili', at: …, ready: …, n: 3 }    심은 칸 (3단계에서 쓴다)
+//
+// 지금(1단계)은 **그릇만 바꾼다.** 심는 길은 아직 없어서 모든 칸이 빈 칸이고,
+// 밖에서 보면 예전과 똑같이 이삭 한 무더기로 보인다 (`mergedStash`).
+const PLOT_MAX = 5;
+const PLOT_START = 2;      // 처음부터 있는 칸. 두 칸은 있어야 「무엇을 먼저 심을까」가 생긴다
+
+const emptyPlot = () => ({ crop: null, stash: {} });
 const emptyFarm = now => ({
-  stash: {}, grownAt: now, shieldUntil: 0,
+  plots: Array.from({ length: PLOT_START }, emptyPlot),
+  grownAt: now, shieldUntil: 0,
   raids: RAID_MAX, raidAt: now, log: [],
 });
+
 const countOf = stash => Object.values(stash || {}).reduce((a, b) => a + b, 0);
+// 칸을 통틀어 이삭을 한 무더기로 — 화면과 약탈은 아직 이 눈으로 본다
+function mergedStash(farm) {
+  const out = {};
+  for (const p of (farm && farm.plots) || []) {
+    for (const id of Object.keys(p.stash || {})) out[id] = (out[id] || 0) + p.stash[id];
+  }
+  return out;
+}
+const farmCount = farm => countOf(mergedStash(farm));
+
+// ⚠️ **옛 모양(`stash` 하나)을 칸으로 옮긴다.** 밭은 서버에 있으므로 세이브의
+// `SAVE_VER` 와는 다른 자리에서, 읽을 때마다 한 번 본다.
+// **옛 이삭을 버리지 않는다** — 첫 칸에 그대로 담는다 (세이브 마이그레이션의
+// 「기존 진행은 지우지 말고 없는 것만 채운다」와 같은 규칙이다).
+function migrateFarm(farm) {
+  let changed = false;
+  if (!Array.isArray(farm.plots)) {
+    farm.plots = [{ crop: null, stash: (farm.stash && typeof farm.stash === 'object') ? farm.stash : {} }];
+    delete farm.stash;
+    changed = true;
+  }
+  // 칸이 모자라면 채우고, 넘치면 자른다 (자를 때도 이삭은 앞 칸으로 옮긴다)
+  while (farm.plots.length < PLOT_START) { farm.plots.push(emptyPlot()); changed = true; }
+  while (farm.plots.length > PLOT_MAX) {
+    const gone = farm.plots.pop();
+    for (const id of Object.keys(gone.stash || {})) {
+      farm.plots[0].stash[id] = (farm.plots[0].stash[id] || 0) + gone.stash[id];
+    }
+    changed = true;
+  }
+  for (const p of farm.plots) {
+    if (!p.stash || typeof p.stash !== 'object') { p.stash = {}; changed = true; }
+    if (p.crop === undefined) { p.crop = null; changed = true; }
+  }
+  return changed;
+}
 
 // 흐른 시간만큼 자란다. **밭을 바꿨으면 true 를 돌려준다** (저장할지 판단용)
 function grow(farm, state, now) {
   const day = dailyYield(state);
   const per = countOf(day);
-  let changed = false;
+  let changed = migrateFarm(farm);
 
   const elapsed = now - (farm.grownAt || now);
   let days = Math.floor(elapsed / GROW_MS);
@@ -150,13 +201,13 @@ function grow(farm, state, now) {
     changed = true;
     if (per > 0) {
       days = Math.min(days, FARM_DAYS);
-      // 안 거두면 더 안 자란다 — 상한도 5일치다
+      // 안 거두면 더 안 자란다 — 상한도 5일치다.
+      // **칸 수를 타지 않는다** — 칸이 늘었다고 이삭이 다섯 배가 되면 특수 작물을
+      // 심을 이유가 사라진다. 하루치는 그대로 두고 **빈 칸끼리 나눠 갖는다**
       const cap = FARM_DAYS * per;
       for (let i = 0; i < days; i++) {
-        if (countOf(farm.stash) >= cap) break;
-        for (const id of Object.keys(day)) {
-          farm.stash[id] = (farm.stash[id] || 0) + day[id];
-        }
+        if (farmCount(farm) >= cap) break;
+        dealToPlots(farm, day);
       }
     }
   }
@@ -171,6 +222,41 @@ function grow(farm, state, now) {
     changed = true;
   }
   return changed;
+}
+
+// 하루치를 **빈 칸들이 돌아가며 하나씩** 나눠 갖는다.
+// 빈 칸이 없으면(다 심었으면) 이삭은 안 쌓인다 — 밭을 다 쓰고 있다는 뜻이다
+function dealToPlots(farm, day) {
+  const open = farm.plots.filter(p => !p.crop);
+  if (!open.length) return;
+  let k = 0;
+  for (const id of Object.keys(day)) {
+    for (let n = 0; n < day[id]; n++) {
+      const p = open[k++ % open.length];
+      p.stash[id] = (p.stash[id] || 0) + 1;
+    }
+  }
+}
+
+// 이삭을 통째로 거둔다 — 거둔 목록을 돌려주고 칸을 비운다
+function harvestEars(farm) {
+  const items = mergedStash(farm);
+  for (const p of farm.plots) p.stash = {};
+  return items;
+}
+
+// 이겼을 때 실제로 빼 간다 — `loot()` 이 정한 만큼을 **앞 칸부터** 덜어 낸다
+function takeFrom(farm, take) {
+  for (const id of Object.keys(take)) {
+    let left = take[id];
+    for (const p of farm.plots) {
+      if (left <= 0) break;
+      const have = p.stash[id] || 0;
+      const n = Math.min(have, left);
+      if (n > 0) { p.stash[id] = have - n; left -= n; }
+      if (!p.stash[id]) delete p.stash[id];
+    }
+  }
 }
 
 // 이겼을 때 가져가는 것 — 많은 것부터 `TAKE_RATE` 씩, 합쳐서 `TAKE_MAX` 까지
@@ -204,5 +290,7 @@ module.exports = {
   combatPower, effPower, attrMul,
   owns, loyaltyOf, petOf, defender, attacker,
   producers, dailyYield,
-  emptyFarm, countOf, grow, loot, resolve,
+  PLOT_MAX, PLOT_START, emptyPlot, emptyFarm, migrateFarm,
+  countOf, mergedStash, farmCount, dealToPlots, harvestEars, takeFrom,
+  grow, loot, resolve,
 };

@@ -202,9 +202,18 @@ async function run(label, env) {
     const DAY = 24 * 60 * 60 * 1000;
     const V = 'p_' + 'v'.repeat(20), SEC_V = 'v'.repeat(32);   // 털리는 쪽
     const R = 'p_' + 'r'.repeat(20), SEC_R = 'r'.repeat(32);   // 터는 쪽
+    // 이삭은 이제 **칸(plot)마다** 들어 있다 — 통째로 세는 눈을 하나 둔다
     const sum = s => Object.values(s || {}).reduce((a, b) => a + b, 0);
+    const ears = f => (f.plots || []).reduce((n, p) => n + sum(p.stash), 0);
     const farmOf = async id => (await store.get(id)).farm;
     const setFarm = async (id, f) => { await store.farmSet(id, f); };
+    // 첫 칸에 이삭을 심어 둔다 (검사 준비용)
+    const seedEars = async (id, stash) => {
+      const g = await farmOf(id);
+      g.plots.forEach(p => { p.stash = {}; });
+      g.plots[0].stash = stash;
+      await setFarm(id, g);
+    };
 
     await J('POST', '/api/name', { playerId: V, secret: SEC_V, name: '밭주인' });
     await J('POST', '/api/name', { playerId: R, secret: SEC_R, name: '도둑고양이' });
@@ -224,6 +233,10 @@ async function run(label, env) {
     ok(f.status === 200 && f.body.count === 0, `밭 열기 → ${f.status}, 이삭 ${f.body && f.body.count}`);
     ok(f.body.daily && f.body.daily.firefly === 3, `하루치 = ${JSON.stringify(f.body.daily)}`);
     ok(f.body.raids === 3, `약탈권 ${f.body.raids} (3 기대)`);
+    // 밭은 **칸**으로 되어 있다. 처음에는 두 칸이고 둘 다 비어 있다
+    ok(Array.isArray(f.body.plots) && f.body.plots.length === 2,
+      `밭이 ${f.body.plots && f.body.plots.length}칸 (2 기대)`);
+    ok((f.body.plots || []).every(p => p.crop === null), '처음에는 아무것도 안 심겨 있다');
     ok(f.body.def && f.body.def.id === 'unicorn' && f.body.def.power === 64,
       `지키는 크리처 = ${JSON.stringify(f.body.def)}`);
 
@@ -252,13 +265,39 @@ async function run(label, env) {
 
     // **세이브를 저장해도 밭은 그대로다.** 파일·메모리 저장소는 레코드를 통째로
     // 다시 쓰기 때문에 옮겨 담는 것을 빠뜨리면 저장할 때마다 밭이 사라진다
-    { const g = await farmOf(V); g.stash = { firefly: 9 }; await setFarm(V, g); }
+    await seedEars(V, { firefly: 9 });
     await J('PUT', `/api/save/${V}`, {
       secret: SEC_V, rev: 2,
       state: { name: '밭주인', creatures: ['unicorn'], petRoom: 'unicorn', pets: {} },
     });
     f = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
     ok(f.body.count === 9, `세이브 저장 뒤에도 이삭 ${f.body.count} (9 기대)`);
+
+    // **옛 모양의 밭(이삭 한 무더기)이 칸으로 옮겨지는가** — 밭은 서버에 있으므로
+    // 세이브의 `SAVE_VER` 와 다른 자리에서 옮겨 적는다. **옛 이삭을 버리면 안 된다**
+    {
+      const O = 'p_' + 'o'.repeat(20), SEC_O = 'o'.repeat(32);
+      await J('POST', '/api/name', { playerId: O, secret: SEC_O, name: '옛밭' });
+      await J('PUT', `/api/save/${O}`, {
+        secret: SEC_O, rev: 1,
+        state: { name: '옛밭', creatures: ['unicorn'], petRoom: 'unicorn', pets: {} },
+      });
+      // 칸이 없던 시절의 모양 그대로 심는다
+      await store.farmSet(O, {
+        stash: { firefly: 7 }, grownAt: Date.now(), shieldUntil: 0,
+        raids: 3, raidAt: Date.now(), log: [],
+      });
+      const g = await J('GET', `/api/farm/${O}?secret=${SEC_O}`);
+      ok(g.status === 200 && g.body.count === 7, `옛 이삭이 살아남았다 (${g.body && g.body.count} / 7 기대)`);
+      ok(Array.isArray(g.body.plots) && g.body.plots.length === 2,
+        `칸으로 옮겨졌다 (${g.body.plots && g.body.plots.length}칸)`);
+      ok(g.body.plots && g.body.plots[0].stash.firefly === 7, '옛 이삭은 첫 칸에 담긴다');
+      const row = await store.get(O);
+      ok(row.farm.stash === undefined, '옛 `stash` 칸은 지워진다');
+      // 옛 모양 그대로인 밭도 상대 목록에서 빠지면 안 된다
+      const t0 = await J('GET', `/api/raid/targets/${R}?secret=${SEC_R}`);
+      ok((t0.body.targets || []).some(x => x.name === '옛밭'), '옛 모양 밭도 목록에 뜬다');
+    }
 
     // 목록에 이삭 있는 밭이 뜬다
     let t = await J('GET', `/api/raid/targets/${R}?secret=${SEC_R}`);
@@ -267,7 +306,7 @@ async function run(label, env) {
     ok(!t.body.targets.some(x => x.name === '도둑고양이'), '내 밭은 목록에 안 뜬다');
 
     // 약탈 — 이기든 지든 **약탈권은 하나 준다**
-    const before = sum((await farmOf(V)).stash);
+    const before = ears(await farmOf(V));
     let d = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'raid01' });
     ok(d.status === 200, `약탈 → ${d.status} (win=${d.body && d.body.win}, p=${d.body && d.body.chance})`);
     ok(d.body.raids === 2, `약탈권 ${d.body.raids} (2 기대)`);
@@ -276,26 +315,27 @@ async function run(label, env) {
       const vf = await farmOf(V);
       const took = sum(d.body.items);
       if (d.body.win) {
-        ok(took > 0 && sum(vf.stash) === before - took,
-          `이겼다: ${took}개 가져가고 밭은 ${before} → ${sum(vf.stash)}`);
+        ok(took > 0 && ears(vf) === before - took,
+          `이겼다: ${took}개 가져가고 밭은 ${before} → ${ears(vf)}`);
         ok(vf.shieldUntil > Date.now(), '이긴 뒤에는 그 밭에 잠시 방패가 걸린다');
       } else {
-        ok(took === 0 && sum(vf.stash) === before, `졌다: 밭은 그대로 ${sum(vf.stash)}`);
+        ok(took === 0 && ears(vf) === before, `졌다: 밭은 그대로 ${ears(vf)}`);
       }
       ok(vf.log.length === 1 && vf.log[0].by === '도둑고양이' && vf.log[0].win === d.body.win,
         `털린 기록이 남는다: ${JSON.stringify(vf.log[0])}`);
     }
     // 재시도는 같은 답 — **약탈권이 두 번 깎이거나 두 번 털면 안 된다**
     {
-      const vBefore = sum((await farmOf(V)).stash);
+      const vBefore = ears(await farmOf(V));
       const again = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'raid01' });
       ok(again.body.repeat === true && again.body.win === d.body.win && again.body.raids === 2,
         '같은 nonce 로 재시도 → 같은 답 (멱등)');
-      ok(sum((await farmOf(V)).stash) === vBefore, '재시도로 밭이 또 줄지 않는다');
+      ok(ears(await farmOf(V)) === vBefore, '재시도로 밭이 또 줄지 않는다');
     }
 
     // 방패가 걸려 있으면 못 턴다
-    { const g = await farmOf(V); g.shieldUntil = Date.now() + 3600e3; g.stash = { firefly: 9 }; await setFarm(V, g); }
+    await seedEars(V, { firefly: 9 });
+    { const g = await farmOf(V); g.shieldUntil = Date.now() + 3600e3; await setFarm(V, g); }
     d = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'raid02' });
     ok(d.status === 409 && d.body.error === 'target_shielded', `방패 걸린 밭 → ${d.status}`);
     t = await J('GET', `/api/raid/targets/${R}?secret=${SEC_R}`);
@@ -444,6 +484,46 @@ function pick(env) {
     const take = Bt.loot({ firefly: 9, walnut: 3 });
     ok(take.firefly === 3 && take.walnut === 1, `이삭 9·3 에서 ${JSON.stringify(take)}`);
     ok(Bt.countOf(Bt.loot({ firefly: 999 })) === Bt.TAKE_MAX, `한 번에 ${Bt.TAKE_MAX}개까지`);
+
+    // 칸 — **하루치가 칸 수를 타면 안 된다.** 칸이 늘었다고 이삭이 다섯 배가 되면
+    // 특수 작물을 심을 이유가 사라진다. 하루치는 그대로 두고 빈 칸끼리 나눠 갖는다
+    {
+      const one = { plots: [Bt.emptyPlot()] };
+      const five = { plots: Array.from({ length: 5 }, Bt.emptyPlot) };
+      const day = { walnut: 3, wheat: 2 };
+      Bt.dealToPlots(one, day);
+      Bt.dealToPlots(five, day);
+      ok(Bt.farmCount(one) === 5 && Bt.farmCount(five) === 5,
+        `한 칸이든 다섯 칸이든 하루치는 5개 (${Bt.farmCount(one)} / ${Bt.farmCount(five)})`);
+      ok(five.plots.filter(p => Bt.countOf(p.stash)).length > 1, '다섯 칸이면 나눠서 쌓인다');
+      // 다 심은 밭에는 이삭이 안 쌓인다 — 밭을 다 쓰고 있다는 뜻이다
+      const full = { plots: [{ crop: 'ember_chili', stash: {} }] };
+      Bt.dealToPlots(full, day);
+      ok(Bt.farmCount(full) === 0, '빈 칸이 없으면 이삭은 안 쌓인다');
+    }
+
+    // 옮겨 적기 — **옛 이삭을 버리지 않는다**
+    {
+      const oldFarm = { stash: { firefly: 4 } };
+      ok(Bt.migrateFarm(oldFarm) === true, '옛 모양이면 옮겨 적는다');
+      ok(oldFarm.plots.length === Bt.PLOT_START && oldFarm.plots[0].stash.firefly === 4,
+        `옛 이삭이 첫 칸으로 (${JSON.stringify(oldFarm.plots[0].stash)})`);
+      ok(oldFarm.stash === undefined, '옛 칸은 지운다');
+      ok(Bt.migrateFarm(oldFarm) === false, '두 번째부터는 안 건드린다 (멱등)');
+      // 칸이 넘치면 자르되 이삭은 앞 칸으로 옮긴다
+      const big = { plots: Array.from({ length: 8 }, () => ({ crop: null, stash: { dew: 1 } })) };
+      Bt.migrateFarm(big);
+      ok(big.plots.length === Bt.PLOT_MAX && Bt.farmCount(big) === 8,
+        `칸을 ${Bt.PLOT_MAX}개로 자르되 이삭 8개는 그대로 (${Bt.farmCount(big)})`);
+    }
+
+    // 빼 가기 — 앞 칸부터 덜어 내고, 0이 된 칸은 지운다
+    {
+      const f = { plots: [{ crop: null, stash: { dew: 2 } }, { crop: null, stash: { dew: 5 } }] };
+      Bt.takeFrom(f, { dew: 4 });
+      ok(Bt.farmCount(f) === 3 && f.plots[0].stash.dew === undefined && f.plots[1].stash.dew === 3,
+        `앞 칸부터 덜어 낸다 (${JSON.stringify(f.plots.map(p => p.stash))})`);
+    }
 
     // 없는 크리처를 장착 중이어도 안 죽는다 (재료로 녹인 뒤 · 초기화 뒤)
     ok(Bt.defender({ petRoom: 'no_such', creatures: [] }) === null, '없는 크리처를 지키개로 두면 null');

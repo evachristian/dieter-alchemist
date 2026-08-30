@@ -265,8 +265,8 @@ async function freshFarm(row, now, create) {
   const had = row.farm && typeof row.farm === 'object';
   if (!had && !create) return null;
   const farm = had ? row.farm : B.emptyFarm(now);
-  if (!farm.stash || typeof farm.stash !== 'object') farm.stash = {};
   if (!Array.isArray(farm.log)) farm.log = [];
+  // `grow()` 가 맨 앞에서 옛 모양(`stash` 하나)을 칸으로 옮긴다
   const grew = B.grow(farm, row.state || {}, now);
   if (!had || grew) await store.farmSet(row.playerId, farm);
   return farm;
@@ -291,7 +291,9 @@ app.get('/api/farm/:playerId', async (req, res) => {
     const st = row.state || {};
     res.json({
       ok: true, now,
-      stash: farm.stash, count: B.countOf(farm.stash),
+      // 화면은 아직 이삭을 **한 무더기로** 본다 (1단계는 그릇만 바꾼다).
+      // `plots` 를 같이 보내 두어 3단계에서 화면만 바꾸면 되게 한다
+      stash: B.mergedStash(farm), count: B.farmCount(farm), plots: farm.plots,
       grownAt: farm.grownAt, nextGrowAt: farm.grownAt + B.GROW_MS,
       shieldUntil: farm.shieldUntil || 0,
       raids: farm.raids, raidMax: B.RAID_MAX,
@@ -321,9 +323,8 @@ app.post('/api/farm/:playerId/harvest', async (req, res) => {
     if (farm.lastHarvest && farm.lastHarvest.nonce === nonce) {
       return res.json({ ok: true, items: farm.lastHarvest.items, repeat: true });
     }
-    const items = farm.stash;
-    if (!B.countOf(items)) return res.status(409).json({ error: 'farm_empty' });
-    farm.stash = {};
+    if (!B.farmCount(farm)) return res.status(409).json({ error: 'farm_empty' });
+    const items = B.harvestEars(farm);
     farm.lastHarvest = { nonce, items, t: now };
     await store.farmSet(row.playerId, farm);
     res.json({ ok: true, items });
@@ -347,7 +348,11 @@ app.get('/api/raid/targets/:playerId', async (req, res) => {
       if (!farm || typeof farm !== 'object') continue;
       // **남의 밭은 자라게 하지 않는다.** 남이 내 밭을 보는 것만으로 내 밭이
       // 자라면, 정산 시각이 남의 접속에 좌우된다. 지금 쌓여 있는 것만 보여 준다
-      const stash = farm.stash && typeof farm.stash === 'object' ? farm.stash : {};
+      // **남의 밭은 자라게 하지 않는다** — 남이 내 밭을 보는 것만으로 내 밭이
+      // 자라면 정산 시각이 남의 접속에 좌우된다. 다만 **모양은 맞춰서 읽는다**
+      // (옛 모양 그대로인 밭이 목록에서 통째로 빠지면 안 된다)
+      const stash = Array.isArray(farm.plots) ? B.mergedStash(farm)
+        : (farm.stash && typeof farm.stash === 'object' ? farm.stash : {});
       const n = B.countOf(stash);
       if (!n) continue;
       if ((farm.shieldUntil || 0) > now) continue;      // 막 털린 밭은 건너뛴다
@@ -391,12 +396,14 @@ app.post('/api/raid/:playerId', async (req, res) => {
     if (!other) return res.status(404).json({ error: 'target_gone' });
     if (other.playerId === row.playerId) return res.status(400).json({ error: 'self' });
     const theirFarm = other.farm && typeof other.farm === 'object' ? other.farm : null;
-    if (!theirFarm || !B.countOf(theirFarm.stash)) return res.status(409).json({ error: 'target_empty' });
+    if (!theirFarm) return res.status(409).json({ error: 'target_empty' });
+    B.migrateFarm(theirFarm);          // 옛 모양이면 여기서 칸으로 옮긴다
+    if (!B.farmCount(theirFarm)) return res.status(409).json({ error: 'target_empty' });
     if ((theirFarm.shieldUntil || 0) > now) return res.status(409).json({ error: 'target_shielded' });
 
     const def = B.defender(other.state || {});
     const r = B.resolve(me, def);
-    const items = r.win ? B.loot(theirFarm.stash) : {};
+    const items = r.win ? B.loot(B.mergedStash(theirFarm)) : {};
 
     // 약탈권을 쓴다. **가득이었으면 지금부터 회복 시계를 돌린다** —
     // 안 그러면 오래 안 쓴 사람은 쓰자마자 도로 찬다
@@ -404,10 +411,7 @@ app.post('/api/raid/:playerId', async (req, res) => {
     farm.raids = (farm.raids || 0) - 1;
 
     if (r.win) {
-      for (const id of Object.keys(items)) {
-        theirFarm.stash[id] = Math.max(0, (theirFarm.stash[id] || 0) - items[id]);
-        if (!theirFarm.stash[id]) delete theirFarm.stash[id];
-      }
+      B.takeFrom(theirFarm, items);
       // **털린 뒤에는 잠시 아무도 못 턴다.** 자는 사이에 밭이 열 번 털리면 안 된다
       theirFarm.shieldUntil = now + B.SHIELD_MS;
     }
