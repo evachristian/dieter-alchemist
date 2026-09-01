@@ -3202,7 +3202,7 @@ function chooseCauldron(id, el) {
   toast(T('cauldron_picked', { name: nm, n: c.slots, josa: josa(nm, '으로') }), `[data-pot="${id}"]`);
 }
 
-// 탐험의 두 갈래 (윗단) — 필드 / 마을.
+// 탐험의 세 갈래 (윗단) — 필드 / 마을 / 밭 (밭은 여신 단계부터 · `FARM.md` 2단계).
 // **세이브에 넣지 않는다.** 지대·옷장 탭과 같이 화면을 열 때마다 처음 자리에서
 // 시작하는 값이라, 저장하면 마이그레이션만 늘고 얻는 것이 없다
 let gatherTab = 'field';
