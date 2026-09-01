@@ -348,6 +348,15 @@ function harvestable(farm, now) {
   return items;
 }
 
+// **털 만한 것이 있는가** — 이삭 + 다 자란 작물이다.
+//
+// ⚠️ `farmCount` 로 거르면 안 된다. 그것은 **이삭만** 세는데, `dealToPlots` 는
+// 빈 칸이 없으면 이삭을 안 쌓는다 — 그래서 **칸을 전부 심어 둔 사람은 이삭이
+// 영영 0** 이고, 작물이 다 자라 있어도 목록에서 걸러지고 털 수도 없었다.
+// 「밭이 다 자랐는데 서로 볼 수 있는 밭이 없다」는 신고가 이 자리였다.
+// **약탈의 목적이 특수 작물인데 그 상태가 통째로 안 보이고 있었다**
+const raidCount = (farm, now) => countOf(harvestable(farm, now));
+
 // 통째로 거둔다 — 거둔 목록을 돌려주고 그 칸들을 비운다
 function harvestEars(farm, now) {
   const items = harvestable(farm, now);
@@ -461,7 +470,7 @@ module.exports = {
   TEAM_N, WIN_NEED, teamOf, defTeam, atkTeam, resolveFive, lootPlots,
   producers, dailyYield, earsFloor,
   PLOT_MAX, PLOT_START, emptyPlot, emptyFarm, migrateFarm,
-  countOf, mergedStash, farmCount, dealToPlots, harvestable, harvestEars, takeFrom,
+  countOf, mergedStash, farmCount, raidCount, dealToPlots, harvestable, harvestEars, takeFrom,
   CROPS, GROW_LOYALTY, ripe, growMs, plant, addPlot,
   grow, loot, resolve,
 };

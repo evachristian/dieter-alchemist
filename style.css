@@ -2054,6 +2054,18 @@ button.tm-slot:active { transform: scale(0.94); }
   display: none; align-items: center; justify-content: center;
   background: rgba(90,74,85,0.4); backdrop-filter: blur(3px); padding: 30px;
 }
+
+/* ─── 시트 «위에» 겹쳐 뜨는 모달의 층 ─────────────────────────
+   ⚠️ `.modal` 이 전부 `z-index: 50` 이라, 둘이 같이 떠 있으면
+   **DOM 순서가 이긴다** — «여는 순서» 와는 아무 상관이 없다.
+   `#teamPick` 이 `#raidPick` 보다 index.html 앞쪽에 있어서, 이웃 밭에서
+   「바꾸기」를 누르면 부대 고르기가 **뒤로 떴다** (신고받았다).
+
+   DOM 을 옮겨서 고치면 다음에 시트를 하나 더 넣을 때 또 깨진다.
+   **누구 «위에» 뜨는 것인지를 층으로 적어 둔다** — 그것이 진짜 규칙이다.
+   `checkui` 의 「겹친 시트」가 실제로 눌리는 쪽을 hit-test 해서 지킨다 */
+#plantPick, #teamPick { z-index: 55; }   /* 밭 시트 · 이웃 밭 시트 위 */
+#confirmModal { z-index: 60; }           /* 무엇 위에든 — 마지막 확인이다 */
 .modal.show { display: flex; animation: fade 0.2s ease; }
 .modal-card {
   background: var(--card); border-radius: 24px; padding: 26px 22px;

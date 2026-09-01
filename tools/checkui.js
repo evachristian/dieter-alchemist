@@ -854,6 +854,31 @@ function launchOpts() {
         }
         const rdBad2 = await page.evaluate(() => window.__cardFits('#raidPick'));
         if (rdBad2) results.push({ 화면: `${t}/이웃밭`, 오류: rdBad2 });
+
+        // ── 겹친 시트 — **나중에 연 것이 위에 와야 한다** ──
+        //
+        // ⚠️ `.modal` 이 전부 `z-index: 50` 이라, 둘이 같이 떠 있으면 **DOM 순서가
+        // 이긴다** — 여는 순서와는 아무 상관이 없다. `#teamPick` 이 `#raidPick`
+        // 보다 index.html 앞쪽에 있어서 「바꾸기」를 누르면 부대 고르기가 **뒤로 떴다**
+        // (신고받았다). 눈으로는 「안 열렸다」로 보인다.
+        //
+        // **`classList.contains('show')` 로 검사하면 안 된다** — 뒤에 떠 있어도
+        // 그건 참이다. 실제로 **눌리는 쪽**을 hit-test 해야 잡힌다
+        const stackBad = await page.evaluate(() => {
+          openTeam('atk');
+          const card = document.querySelector('#teamPick .modal-card');
+          if (!card) return '부대 고르기 카드가 없다';
+          const r = card.getBoundingClientRect();
+          if (r.width < 1 || r.height < 1) return '부대 고르기가 안 떴다';
+          const hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+          const top = hit && hit.closest('.modal');
+          return top && top.id === 'teamPick' ? null
+            : `이웃 밭 위에서 「바꾸기」를 눌렀는데 위에 있는 것은 #${top ? top.id : '없음'} 이다`;
+        });
+        if (stackBad) results.push({ 화면: `${t}/겹친시트`, 오류: stackBad });
+        else { await page.waitForTimeout(200); await run(`${t}/겹친시트`); }
+        await page.evaluate(() => closeTeam());
+        await page.waitForTimeout(120);
         await page.evaluate(() => { closeRaidPick(); FARM = null; RAIDS = null; });
         await page.waitForTimeout(150);
 

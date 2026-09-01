@@ -455,9 +455,11 @@ app.get('/api/raid/targets/:playerId', async (req, res) => {
       //     시뮬레이터로 200명을 30일 돌려 약탈이 **한 번도** 일어나지 않았다
       //     (`node tools/simfarm.js`). 안 자라게 둔 것이 약탈을 통째로 죽이고 있었다
       if (B.grow(farm, p.state || {}, now)) await store.farmSet(p.playerId, farm);
+      // `count` 는 **이삭 수** 그대로 둔다 — 화면의 바닥 계산이 이 값을 쓴다.
+      // 다만 «목록에 띄울지» 는 **작물까지 세서** 판단한다 (`raidCount`)
       const n = B.farmCount(farm);
       const stash = B.mergedStash(farm);
-      if (!n) continue;
+      if (!B.raidCount(farm, now)) continue;
       if ((farm.shieldUntil || 0) > now) continue;      // 막 털린 밭은 건너뛴다
       // **순서까지 보여 준다.** 감추면 순서를 짤 수 없어 그냥 도박이 되는데,
       // 이 시스템의 목적은 무엇이 왜 유리한지를 배우게 하는 것이다 (FARM.md 5장)
@@ -514,7 +516,7 @@ app.post('/api/raid/:playerId', async (req, res) => {
     // 목록과 같은 눈으로 봐야 한다 — 목록에는 떴는데 들어가면 빈 밭이면
     // 약탈권만 날리게 된다 (위의 `/api/raid/targets` 주석)
     B.grow(theirFarm, other.state || {}, now);
-    if (!B.farmCount(theirFarm)) return res.status(409).json({ error: 'target_empty' });
+    if (!B.raidCount(theirFarm, now)) return res.status(409).json({ error: 'target_empty' });
     if ((theirFarm.shieldUntil || 0) > now) return res.status(409).json({ error: 'target_shielded' });
 
     const def = B.defTeam(other.state || {});

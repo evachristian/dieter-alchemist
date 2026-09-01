@@ -512,6 +512,41 @@ async function run(label, env) {
       });
     }
 
+    // ③ **칸을 전부 심어 둔 밭도 목록에 떠야 한다** (신고: 「밭이 다 자랐는데
+    //    서로 볼 수 있는 밭이 없다」)
+    //
+    // ⚠️ `farmCount` 는 **이삭만** 센다. 그런데 `dealToPlots` 는 빈 칸이 없으면
+    // 이삭을 안 쌓으므로, 칸을 전부 심어 둔 사람은 이삭이 **영영 0** 이다 —
+    // 작물이 다 자라 있어도 목록에서 걸러지고 털 수도 없었다.
+    // **약탈의 목적이 특수 작물인데 그 상태가 통째로 안 보였다**
+    {
+      const t0 = Date.now();
+      await setFarm(V, {
+        plots: [
+          { crop: 'ember_chili', at: t0 - 13 * 3600e3, ready: t0 - 1000, n: 3, stash: {} },
+          { crop: 'stone_potato', at: t0 - 13 * 3600e3, ready: t0 - 1000, n: 3, stash: {} },
+        ],
+        grownAt: t0, shieldUntil: 0, raids: 3, raidAt: t0, log: [],
+      });
+      ok(B.farmCount((await store.get(V)).farm) === 0, '이삭은 0 이다 (칸을 다 심었으므로)');
+      const t3 = await J('GET', `/api/raid/targets/${R}?secret=${SEC_R}`);
+      const seen = (t3.body.targets || []).find(x => x.name === '밭주인');
+      ok(!!seen, '작물만 다 자란 밭도 목록에 뜬다');
+      ok(seen && (seen.plots || []).filter(p => p.crop).length === 2,
+        `칸 둘이 심어진 채로 보인다 (${seen ? (seen.plots || []).filter(p => p.crop).length : 0})`);
+      // 실제로 털 수도 있어야 한다 (목록에만 뜨고 들어가면 빈 밭이면 약탈권만 날린다)
+      { const g = await farmOf(R); g.raids = 3; g.raidAt = Date.now(); await setFarm(R, g); }
+      const z = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'crop01' });
+      ok(z.status === 200, `작물만 있는 밭 약탈 → ${z.status} (200 기대 · target_empty 가 아니어야 한다)`);
+      // ⚠️ **뒷정리 — 심어 둔 작물을 치운다.** `seedEars` 는 `stash` 만 갈아 끼우고
+      // `crop` 은 그대로 두므로, 안 치우면 아래 바닥 검사가 이삭 대신 **작물**을
+      // 가져가 버린다 (바닥은 작물에 안 걸린다). 실제로 그래서 한 번 깨졌다
+      await setFarm(V, {
+        plots: [{ crop: null, stash: {} }, { crop: null, stash: {} }],
+        grownAt: Date.now(), shieldUntil: 0, raids: 3, raidAt: Date.now(), log: [],
+      });
+    }
+
     // ② **하루치는 못 가져간다** (`RAID_FLOOR_DAYS`). 이삭이 바닥 이하로 남아
     //    있으면 이겨도 이삭은 한 개도 안 나온다 — 이 한 줄이 「아침에 빈 밭」을 없앤다
     {

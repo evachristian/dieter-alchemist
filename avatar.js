@@ -1454,6 +1454,38 @@
       ${it.button ? buttons(c2, 132, hem - 14) : ''}`;
   }
 
+  // 옷의 옆선(허리 → 엉덩이) 위에서 주어진 y 의 x 를 찾는다.
+  //
+  // 치마도 바지도 이 구간은 **같은 큐빅**이다:
+  //   `C hR,(WY+6)  hR,(HY-6)  hR,HY`
+  // ⚠️ **곡선을 두 번 적지 않는다.** 벨트가 옆선을 따라가야 하는데 좌표를 옮겨
+  // 적어 두면 옆선을 고쳤을 때 벨트만 옛 자리에 남는다. 여기 한 곳에서 푼다
+  function sideXAt(x0, x1, y0, y1, y) {
+    const P = [[x0, y0], [x1, y0 + 6], [x1, y1 - 6], [x1, y1]];
+    const at = t => {
+      const u = 1 - t;
+      const w = [u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t];
+      return [P.reduce((a2, q, i) => a2 + w[i] * q[0], 0),
+              P.reduce((a2, q, i) => a2 + w[i] * q[1], 0)];
+    };
+    // y 는 이 구간에서 단조 증가한다 — 이분법이면 충분하다
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 40; i++) {
+      const m = (lo + hi) / 2;
+      if (at(m)[1] < y) lo = m; else hi = m;
+    }
+    return +at((lo + hi) / 2)[0].toFixed(2);
+  }
+  // 같은 옆선을 yA→yB 구간만큼 **점으로 훑는다.**
+  // 위아래 두 점만 잡아 직선으로 이으면 그 사이가 곡선 «안쪽»으로 들어가
+  // 띠 가운데가 2px 쯤 좁아진다 — 잰 값이 그랬다
+  function sideRun(x0, x1, y0, y1, yA, yB, step) {
+    const out = [];
+    for (let y = yA; y < yB; y += (step || 3)) out.push([sideXAt(x0, x1, y0, y1, y), +y.toFixed(1)]);
+    out.push([sideXAt(x0, x1, y0, y1, yB), +yB.toFixed(1)]);
+    return out;
+  }
+
   // 하의는 허리(몸통) + 자기가 덮는 다리 파츠를 따라간다.
   // 실루엣은 치마 계열과 바지 계열 둘뿐이고, **기장(hemY)·퍼짐(flare)·벌룬·벨트**는 필드가 정한다.
   function renderBottom(it, tune) {
@@ -1465,8 +1497,18 @@
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     const hL = +(100 - hh).toFixed(2), hR = +(100 + hh).toFixed(2);
     const HY = hipApexY(tune), WY = B.waistY;   // 몸의 엉덩이 봉우리를 그대로 따라간다
+    // 벨트 — **아래 모서리가 옷의 옆선 «위에» 있어야 한다.**
+    // 옆선은 허리(wR, WY)에서 엉덩이(hR, HY)로 가는 큐빅이라 WY+14 에서는 이미
+    // wR 보다 한참 바깥이다. 예전에는 허리 폭에 +1 만 해서 그렸는데,
+    // 그 자리의 옷은 3.5~5.5px 더 넓어서 **띠 양옆에 옷색이 그대로 남았다**
+    // (신고받았다 — 벨트가 허리를 못 두르고 가운데만 지나간 것처럼 보였다)
+    const beltY = WY + 14;
+    // 옆선을 **훑어서** 따라간다 (직선으로 이으면 가운데가 곡선 안쪽으로 들어간다)
+    const bRun = sideRun(wR, hR, WY, HY, WY, beltY);
+    const beltR = bRun.map(q => `L${q[0]},${q[1]}`).join('');
+    const beltL = bRun.slice().reverse().map(q => `L${(200 - q[0]).toFixed(2)},${q[1]}`).join('');
     const belt = it.belt
-      ? `<path d="M${wL},${WY} L${wR},${WY} L${wR + 1},${WY + 14} L${wL - 1},${WY + 14} Z" fill="${c2}"/>` : '';
+      ? `<path d="M${wL},${WY} L${wR},${WY}${beltR}${beltL} Z" fill="${c2}"/>` : '';
 
     if (it.kind === 'skirt') {
       // 밑단은 엉덩이 폭 + flare. 벌룬은 중간이 더 부풀고 밑단이 다시 오므라든다
