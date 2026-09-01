@@ -3985,6 +3985,20 @@ function devToggleFlag(key) {
   try { localStorage.setItem(key, devFlag(key) ? '0' : '1'); } catch (e) {}
   render();
 }
+// ─── 개발용 컨트롤 만드는 법 (네 화면이 같은 것을 쓴다) ───────
+//
+// **두 가지뿐이다.** 실행(누르면 지금 일어난다)과 스위치(켜고 끄는 상태).
+// 예전에는 둘 다 전체 폭 버튼이라 눌러 보기 전에는 구별이 안 됐고,
+// 하나에 한 줄씩 써서 마이 룸 블록이 화면 두 개 반 높이였다.
+// **여기 넷만 쓰면 네 화면의 개발용 블록이 저절로 같은 모양이 된다.**
+const devGroup = t => `<div class="dev-group">${t}</div>`;
+const devAct = (label, call) => `<button class="btn btn-dev" onclick="${call}">${label}</button>`;
+const devSw = (on, label, call) =>
+  `<button class="dev-sw${on ? ' on' : ''}" onclick="${call}" aria-pressed="${on}">${
+    on ? '☑' : '☐'}<span class="dev-sw-t">${label}</span></button>`;
+const devActs = list => `<div class="dev-acts">${list.filter(Boolean).join('')}</div>`;
+const devSws = list => `<div class="dev-sws">${list.filter(Boolean).join('')}</div>`;
+
 function devAllMaps()     { devToggleFlag(DEV_MAPS_KEY); }
 function devAllSpecials() { devToggleFlag(DEV_SPECIALS_KEY); }
 function devVillages()    { devToggleFlag(DEV_VILLAGE_KEY); }
@@ -3993,6 +4007,24 @@ function devVillages()    { devToggleFlag(DEV_VILLAGE_KEY); }
 function devVillageOne(id) { devToggleFlag(devVillageKey(id)); }
 window.devVillages = devVillages;
 window.devVillageOne = devVillageOne;
+
+// 크리처 서른 종을 전부 얻는다. **이건 진짜 진행이라 세이브에 들어간다**
+// (재료 1000개와 같다 — 맵/솥 스위치처럼 이 기기에만 남는 표시가 아니다).
+//
+// 매력은 **장착한 한 마리만** 반영하므로(1단계) 다 얻어도 총합이 폭발하지 않는다.
+// `S.pets` 는 필요할 때 만들어지므로 여기서 미리 안 만든다 (`petState`)
+function devAllCreatures() {
+  const ids = D.RECIPES.filter(r => r.result && r.result.kind === 'creature').map(r => r.result.id);
+  const before = (S.creatures || []).length;
+  S.creatures = [...new Set([...(S.creatures || []), ...ids])];
+  const added = S.creatures.length - before;
+  save();
+  render();
+  toast(added
+    ? T('dev_creatures_done', { n: ids.length, a: added })
+    : T('dev_creatures_all', { n: ids.length }));
+}
+window.devAllCreatures = devAllCreatures;
 
 // 모든 밭을 상한까지 채운다 (이삭 5일치 + 심어 둔 작물은 전부 다 자란 것으로).
 //
@@ -4032,20 +4064,22 @@ function devFillItems() {
 function renderGatherDev() {
   const el = document.getElementById('gatherDevBody');
   if (!el) return;
-  const sw = (on, label, fn) =>
-    `<button class="btn btn-dev${on ? ' on' : ''}" onclick="${fn}()">${on ? '☑' : '☐'} ${label}</button>`;
   el.innerHTML =
-    `<button class="btn btn-dev" onclick="fillEnergy()">${T('dev_fill_ap')}</button>` +
-    sw(devFlag(DEV_MAPS_KEY), T('dev_all_maps'), 'devAllMaps') +
-    sw(devFlag(DEV_SPECIALS_KEY), T('dev_all_specials'), 'devAllSpecials') +
-    sw(devFlag(DEV_VILLAGE_KEY), T('dev_villages'), 'devVillages') +
-    // 마을 하나씩 — 지금 화면에 나오는 마을만 (안 나오는 마을은 열어도 볼 곳이 없다)
-    D.villagesShown().map(v =>
-      `<button class="btn btn-dev${devFlag(devVillageKey(v.id)) ? ' on' : ''}"
-        onclick="devVillageOne('${v.id}')">${devFlag(devVillageKey(v.id)) ? '☑' : '☐'} ${v.emoji} ${N(v.id, v.name)}</button>`
-    ).join('') +
-    `<button class="btn btn-dev" onclick="devFillItems()">${T('dev_fill_items')}</button>` +
-    `<button class="btn btn-dev" onclick="devFinishFarm()">${T('dev_farm_fill')}</button>`;
+    devGroup(T('dev_g_act')) +
+    devActs([
+      devAct(T('dev_fill_ap'), 'fillEnergy()'),
+      devAct(T('dev_fill_items'), 'devFillItems()'),
+      devAct(T('dev_farm_fill'), 'devFinishFarm()'),
+    ]) +
+    devGroup(T('dev_g_open')) +
+    devSws([
+      devSw(devFlag(DEV_MAPS_KEY), T('dev_all_maps'), 'devAllMaps()'),
+      devSw(devFlag(DEV_SPECIALS_KEY), T('dev_all_specials'), 'devAllSpecials()'),
+      devSw(devFlag(DEV_VILLAGE_KEY), T('dev_villages'), 'devVillages()'),
+      // 마을 하나씩 — 지금 화면에 나오는 마을만 (안 나오는 마을은 열어도 볼 곳이 없다)
+      ...D.villagesShown().map(v =>
+        devSw(devFlag(devVillageKey(v.id)), `${v.emoji} ${N(v.id, v.name)}`, `devVillageOne('${v.id}')`)),
+    ]);
 }
 
 // 튜토리얼 완료 표시. 채집 쪽 스위치들과 달리 이건 **세이브에 들어간다** —
@@ -4075,15 +4109,21 @@ function renderRoomDevTail() {
   const bgBtns = Array.from({ length: roomMax() }, (_, i) => i + 1).map(n =>
     `<button class="btn btn-dev${n === lv ? ' on' : ''}" onclick="devRoomLevel(${n})"
       aria-label="${T('dev_room_lv')} ${n}">${n}</button>`).join('');
-  el.innerHTML = `<button class="btn btn-dev${on ? ' on' : ''}" onclick="devToggleTutorial()">${
-    on ? '☑' : '☐'} ${T('dev_tutorial')}</button>`
-    // 튜토리얼을 처음부터 다시 본다. tutorialDone 스위치와 다르다 —
-    // 이쪽은 진행(S.tut)까지 되감아서 첫 대사부터 나온다
-    + `<button class="btn btn-dev" onclick="devReplayTutorial()">${T('dev_tut_replay')}</button>`
-    + `<div class="dev-row dev-roomlv"><span class="dev-roomlv-t">🏠 ${T('dev_room_lv')}</span>${bgBtns}</div>`
-    // 폭식은 **날이 바뀔 때만** 일어나서 그냥은 볼 수가 없다 (하루를 기다려야 한다).
-    // 그래서 한 밤을 강제로 만든다 — 수치도 실제와 똑같이 깎인다
-    + `<button class="btn btn-dev" onclick="devBinge()">${T('dev_binge')}</button>`;
+  el.innerHTML =
+    devGroup(T('dev_g_act')) +
+    devActs([
+      devAct(T('dev_fill_ap'), 'fillEnergy()'),
+      devAct(T('dev_all_creatures'), 'devAllCreatures()'),
+      // 튜토리얼을 처음부터 다시 본다. tutorialDone 스위치와 다르다 —
+      // 이쪽은 진행(S.tut)까지 되감아서 첫 대사부터 나온다
+      devAct(T('dev_tut_replay'), 'devReplayTutorial()'),
+      // 폭식은 **날이 바뀔 때만** 일어나서 그냥은 볼 수가 없다 (하루를 기다려야 한다).
+      // 그래서 한 밤을 강제로 만든다 — 수치도 실제와 똑같이 깎인다
+      devAct(T('dev_binge'), 'devBinge()'),
+    ]) +
+    devGroup(T('dev_g_open')) +
+    devSws([devSw(on, T('dev_tutorial'), 'devToggleTutorial()')]) +
+    `<div class="dev-row dev-roomlv"><span class="dev-roomlv-t">🏠 ${T('dev_room_lv')}</span>${bgBtns}</div>`;
 }
 // 개발용: 「혼자 먹은 밤」 한 번을 지금 만든다.
 // **실제 경로를 그대로 지난다** — 포만감을 비우고 어제로 돌려 checkBinge() 를 부른다.
@@ -4135,13 +4175,13 @@ window.devLeagueEndWeek = devLeagueEndWeek;
 function renderLeagueDev() {
   const el = document.getElementById('leagueDevBody');
   if (!el) return;
-  el.innerHTML = `<div class="dev-row">
-      <button class="btn btn-dev" onclick="devLeagueMove(-1)">▼ ${T('dev_lg_down')}</button>
-      <button class="btn btn-dev" onclick="devLeagueMove(1)">▲ ${T('dev_lg_up')}</button>
-      <button class="btn btn-dev" onclick="devLeagueScore(50)">+50 ${T('lg_pts_unit')}</button>
-      <button class="btn btn-dev" onclick="devLeagueScore(500)">+500 ${T('lg_pts_unit')}</button>
-      <button class="btn btn-dev" onclick="devLeagueEndWeek()">⏭ ${T('dev_lg_week')}</button>
-    </div>`;
+  el.innerHTML = devGroup(T('dev_g_act')) + devActs([
+    devAct(`▼ ${T('dev_lg_down')}`, 'devLeagueMove(-1)'),
+    devAct(`▲ ${T('dev_lg_up')}`, 'devLeagueMove(1)'),
+    devAct(`+50 ${T('lg_pts_unit')}`, 'devLeagueScore(50)'),
+    devAct(`+500 ${T('lg_pts_unit')}`, 'devLeagueScore(500)'),
+    devAct(`⏭ ${T('dev_lg_week')}`, 'devLeagueEndWeek()'),
+  ]);
 }
 
 // ─── 공방 화면 개발용 스위치 ───
@@ -4186,22 +4226,22 @@ function devOpenRecipes(catId) {
 function renderAtelierDev() {
   const el = document.getElementById('atelierDevBody');
   if (!el) return;
-  const pots = D.CAULDRONS.map(c => {
-    const on = devPotOpen(c.id);
-    return `<button class="btn btn-dev${on ? ' on' : ''}" onclick="devTogglePot('${c.id}')">${
-      on ? '☑' : '☐'} ${N(c.id, c.name)} ${c.slots}${T('slot_unit')}</button>`;
-  }).join('');
   const allOn = D.CAULDRONS.every(c => devPotOpen(c.id));
-  const cats = D.RECIPE_CATS.map(c =>
-    `<button class="btn btn-dev" onclick="devOpenRecipes('${c.id}')">📖 ${N(c.id + '_cat', c.label)}</button>`
-  ).join('');
   el.innerHTML =
-    `<button class="btn btn-dev" onclick="fillEnergy()">${T('dev_fill_ap')}</button>` +
-    `<div class="dev-group">${T('dev_pots')}</div>` +
-    `<button class="btn btn-dev${allOn ? ' on' : ''}" onclick="devAllPots()">${
-      allOn ? '☑' : '☐'} ${T('dev_all_pots')}</button>` + pots +
-    `<div class="dev-group">${T('dev_recipes')}</div>` +
-    `<button class="btn btn-dev" onclick="devOpenRecipes('all')">${T('dev_all_recipes')}</button>` + cats;
+    devGroup(T('dev_g_act')) +
+    devActs([devAct(T('dev_fill_ap'), 'fillEnergy()')]) +
+    devGroup(T('dev_pots')) +
+    devSws([
+      devSw(allOn, T('dev_all_pots'), 'devAllPots()'),
+      ...D.CAULDRONS.map(c =>
+        devSw(devPotOpen(c.id), `${N(c.id, c.name)} ${c.slots}${T('slot_unit')}`, `devTogglePot('${c.id}')`)),
+    ]) +
+    devGroup(T('dev_recipes')) +
+    devActs([
+      devAct(T('dev_all_recipes'), "devOpenRecipes('all')"),
+      ...D.RECIPE_CATS.map(c =>
+        devAct(`📖 ${N(c.id + '_cat', c.label)}`, `devOpenRecipes('${c.id}')`)),
+    ]);
 }
 
 window.devTogglePot = devTogglePot;
