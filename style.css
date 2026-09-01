@@ -18,6 +18,15 @@
   --text-mint: #166b4c;
   --text-lav:  #4f36a0;
   --text-warn: #8a5a2b;
+  /* 승패 전용 — 파랑(이김·성공) · 빨강(짐·실패).
+     민트/라벤더로는 「좋다/나쁘다」가 안 읽혔다. 값은 대비를 재서 골랐다:
+     #17458f 위 #d9e8ff = 7.41:1 · #a81f18 위 #ffdcd6 = 5.73:1 (기준 4.5) */
+  --blue:      #d9e8ff;
+  --blue-2:    #9dc0f2;
+  --text-blue: #17458f;
+  --red:       #ffdcd6;
+  --red-2:     #f0a89f;
+  --text-red:  #a81f18;
   --card:    #ffffff;
   /* 실선 한 겹. 글자가 아니라 **테두리 전용**이라 대비 규칙(4.5:1)을 안 탄다 —
      글자에는 쓰지 말 것 (그 용도는 --ink 계열이다) */
@@ -760,7 +769,9 @@ button.tm-slot:active { transform: scale(0.94); }
   padding: 6px 10px 6px 20px; border-radius: 12px; background: var(--cream);
   text-align: left; font-size: 0.8rem; font-weight: 700;
 }
-.rr-row.won { background: var(--mint); }
+/* 이긴 줄도 파랑이다 — 딱지만 파랗고 줄은 민트면 색이 두 벌이 되어
+   「좋다」가 두 가지 색으로 읽힌다 */
+.rr-row.won { background: var(--blue); }
 .rr-row .tm-no { left: 4px; top: 50%; transform: translateY(-50%); }
 .rr-side { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
 .rr-side svg { width: 24px; height: 24px; }
@@ -769,12 +780,12 @@ button.tm-slot:active { transform: scale(0.94); }
    딱지로 만들어 **한눈에 세어지게** 한다 (색약이어도 테두리와 굵기로 갈린다) */
 .rr-mark { margin-left: auto; font-weight: 800; font-size: 0.78rem;
   padding: 2px 10px; border-radius: 10px; letter-spacing: 0.04em;
-  color: var(--text-lav); background: var(--lav); border: 2px solid var(--lav-2); }
+  color: var(--text-red); background: var(--red); border: 2px solid var(--red-2); }
 /* ⚠️ 배경은 `--mint-2` 가 아니라 `--mint` 다. `--text-mint` 를 `--mint-2` 위에 얹으면
    **4.30:1** 로 기준(4.5)에 못 미친다 — 검사기가 잡았다. 강조는 배경을 진하게 하는 대신
    **테두리를 진하게** 해서 낸다 (대비를 안 깎는 방향) */
-.rr-row.won .rr-mark { color: var(--text-mint); background: var(--mint);
-  border-color: var(--text-mint); }
+.rr-row.won .rr-mark { color: var(--text-blue); background: var(--blue);
+  border-color: var(--blue-2); }
 
 /* ═══ 약탈 연출 (FARM.md 6단계) ═══════════════════════════════
    판이 **한 줄씩** 들어온다. 다섯을 한꺼번에 띄우면 「자리 대 자리」가
@@ -806,7 +817,7 @@ button.tm-slot:active { transform: scale(0.94); }
    따로 띄우면 다섯 줄이 열 줄이 되어 265px 에서 시트가 넘친다 */
 .rr-quip { flex-basis: 100%; font-size: 0.72rem; font-weight: 700;
   color: var(--text-lav); margin-top: 1px; }
-.rr-row.won .rr-quip { color: var(--text-mint); }
+.rr-row.won .rr-quip { color: var(--text-blue); }
 /* 상성으로 이긴 판은 한 마디가 **진해진다** — 여기가 제일 알려 주고 싶은 자리다 */
 .rr-quip.attr { color: var(--ink); }
 
@@ -818,15 +829,72 @@ button.tm-slot:active { transform: scale(0.94); }
 /* ⚠️ **폭을 박아 두지 않는다.** 한국어 「성공」은 두 글자지만 영어 `SUCCESS` 는
    일곱 글자다 — 1.7rem 에 글자 사이도 벌려 두면 265px 카드(안쪽 205px)를
    **71px 넘겼다.** 글자 크기와 좌우 여백을 화면 폭에 맞춰 준다 */
-.rr-stamp { display: block; margin: 16px auto 6px; width: fit-content; max-width: 100%;
-  padding: 8px clamp(12px, 6vw, 30px); border-radius: 14px; border: 4px solid var(--text-lav);
-  box-shadow: 0 0 0 3px var(--cream), 0 0 0 6px var(--lav-2);
-  color: var(--text-lav); background: var(--lav);
+.rr-stamp { position: relative;
+  display: block; margin: 16px auto 6px; width: fit-content; max-width: 100%;
+  padding: 8px clamp(12px, 6vw, 30px); border-radius: 14px; border: 4px solid var(--text-red);
+  box-shadow: 0 0 0 3px var(--cream), 0 0 0 6px var(--red-2);
+  color: var(--text-red); background: var(--red);
   font-size: clamp(1.1rem, 7vw, 1.7rem); font-weight: 800;
   letter-spacing: 0.12em; line-height: 1.25;
-  animation: rr-stamp 0.42s cubic-bezier(.3,1.5,.5,1) both; }
-.rr-stamp.win { border-color: var(--text-mint); color: var(--text-mint); background: var(--mint);
-  box-shadow: 0 0 0 3px var(--cream), 0 0 0 6px var(--mint-2); }
+  animation: rr-stamp 0.46s cubic-bezier(.2,1.6,.4,1) both; }
+.rr-stamp.win { border-color: var(--text-blue); color: var(--text-blue); background: var(--blue);
+  box-shadow: 0 0 0 3px var(--cream), 0 0 0 6px var(--blue-2); }
+
+/* ── 쿵! ── 도장은 «찍히는» 것이라 셋이 같이 있어야 그렇게 읽힌다:
+   ① 위에서 크게 내려와 살짝 지나쳤다가 자리를 잡고(rr-stamp)
+   ② 닿는 순간 테가 한 번 퍼지고(::before)
+   ③ 먼지가 튄다(::after) — DOM 을 안 늘리려고 둘 다 가짜 요소로 만든다.
+   ④ 시트 전체가 한 번 «턱» 내려앉는다(.rr-slamzone) — 이게 제일 크게 먹힌다
+
+   ⚠️ 퍼지는 폭을 1.3배로 묶어 둔다. 더 키우면 265px 카드 밖으로 나간다 */
+/* ⚠️ **퍼지는 것을 `transform: scale` 로 만들지 않는다.**
+   애니메이션이 끝나면 상자가 1.3배로 «남아 있고**, 검증기의 `settle()` 이
+   그 끝 상태로 보내므로 **카드가 22~26px 넘친 것으로 잡힌다** (실제로 잡혔다).
+   테는 `box-shadow` 로, 먼지는 `background-size` 로 퍼뜨린다 —
+   둘 다 자리를 안 차지해서 레이아웃에 아무 영향이 없다 */
+.rr-stamp::before, .rr-stamp::after {
+  /* `inset: -4px` 로 두면 딱 그만큼(4px) 카드를 넘친다 — 상자는 도장에 딱 맞추고,
+     퍼지는 느낌은 `box-shadow` 와 배경이 낸다 */
+  content: ''; position: absolute; inset: 0; border-radius: 14px;
+  pointer-events: none;
+}
+/* ② 닿는 순간 테가 한 번 퍼진다 */
+.rr-stamp::before { animation: rr-ring 0.5s ease-out both; animation-delay: inherit; }
+/* ③ 먼지가 튄다 — 점 여섯을 그라디언트로 찍고 배경만 넓힌다 */
+.rr-stamp::after {
+  background-repeat: no-repeat; background-position: center;
+  background-image:
+    radial-gradient(circle at 8% 14%, currentColor 0 2px, transparent 2.5px),
+    radial-gradient(circle at 92% 18%, currentColor 0 2px, transparent 2.5px),
+    radial-gradient(circle at 4% 86%, currentColor 0 1.6px, transparent 2px),
+    radial-gradient(circle at 96% 82%, currentColor 0 1.6px, transparent 2px),
+    radial-gradient(circle at 44% 4%, currentColor 0 1.6px, transparent 2px),
+    radial-gradient(circle at 56% 96%, currentColor 0 2px, transparent 2.5px);
+  animation: rr-dust 0.55s ease-out both; animation-delay: inherit;
+}
+@keyframes rr-ring {
+  0%   { opacity: 0; box-shadow: 0 0 0 0 currentColor; }
+  40%  { opacity: 0.9; box-shadow: 0 0 0 4px currentColor; }
+  100% { opacity: 0; box-shadow: 0 0 0 15px currentColor; }
+}
+@keyframes rr-dust {
+  0%   { opacity: 0; background-size: 62% 62%; }
+  35%  { opacity: 0.95; background-size: 92% 92%; }
+  100% { opacity: 0; background-size: 132% 132%; }
+}
+/* 시트가 한 번 내려앉는다. **도장이 닿는 순간**에 맞춰야 하므로 같은 지연을
+   `--slam` 하나로 넘긴다 — 두 군데에 숫자를 적어 두면 판 수를 바꿀 때 어긋난다 */
+.rr-slamzone { animation: rr-jolt 0.36s cubic-bezier(.2,.9,.3,1) both;
+  animation-delay: var(--slam, 0s); }
+/* ⚠️ 가로로 커지는 성분(`scale`)을 넣지 않는다 — 265px 에서 그만큼 넘친다.
+   «내려앉기»는 세로 움직임만으로 충분히 읽힌다 */
+@keyframes rr-jolt {
+  0%   { transform: translateY(0); }
+  22%  { transform: translateY(5px); }
+  55%  { transform: translateY(-2px); }
+  78%  { transform: translateY(1px); }
+  100% { transform: translateY(0); }
+}
 .rr-fin { text-align: center; font-size: 0.82rem; font-weight: 700;
   color: var(--ink); margin: 0 0 8px; animation: rr-in 0.3s ease-out both; }
 
@@ -834,7 +902,9 @@ button.tm-slot:active { transform: scale(0.94); }
    이삭은 매일 쌓이는 것이고 작물은 남이 심어 기다린 것이라, 같은 크기로
    내놓으면 약탈의 목적이 화면에서 사라진다 */
 .rr-loot { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 2px 0 4px; }
-.rr-item { display: inline-flex; align-items: center; gap: 5px;
+/* 긴 이름(영어 재료 이름)이 265px 에서 3px 넘쳤다 — 칸을 넘기지 말고 «안에서» 접는다 */
+.rr-item { display: inline-flex; align-items: center; flex-wrap: wrap;
+  justify-content: center; max-width: 100%; gap: 5px;
   padding: 5px 11px; border-radius: 14px; background: var(--cream);
   font-size: 0.8rem; font-weight: 700; color: var(--ink);
   animation: rr-pop 0.34s cubic-bezier(.3,1.5,.5,1) both;
@@ -875,7 +945,8 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 움직임을 줄여 달라고 한 사람에게는 **결과만** 준다.
    평소 상태가 곧 끝 상태라 애니메이션만 끄면 된다 */
 @media (prefers-reduced-motion: reduce) {
-  .rr-row, .rr-stamp, .rr-fin, .rr-item, .rr-crop-tag { animation: none; }
+  .rr-row, .rr-stamp, .rr-fin, .rr-item, .rr-crop-tag, .rr-slamzone { animation: none; }
+  .rr-stamp::before, .rr-stamp::after { display: none; }
 }
 
 /* 이웃 밭 한 칸 — 이름 · 지키개 · 이삭 · 상성을 **세로로** 쌓는다.

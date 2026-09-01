@@ -5832,7 +5832,10 @@ function showRaidResult(name, b) {
     // 이긴 채로 빈손인 이유는 따로 있고 그것은 `rf_nothing` 이 말해 준다
     const why = (!b.win)
       ? `<div class="farm-hint">${T('rr_empty', { n: b.winNeed || 3 })}</div>` : '';
-    body.innerHTML = `<div class="rr-list">${rows}</div>${stamp}${fin}${loot}${why}`;
+    // **`--slam` 하나로 「도장이 닿는 순간」을 넘긴다.** 시트가 내려앉는 연출과
+    // 도장이 같은 시각이어야 「쿵」으로 읽힌다 — 숫자를 두 군데 적으면 어긋난다
+    body.innerHTML = `<div class="rr-slamzone" style="--slam:${after}">`
+      + `<div class="rr-list">${rows}</div>${stamp}${fin}${loot}${why}</div>`;
   }
   el.classList.add('show');
 }
