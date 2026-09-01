@@ -444,6 +444,11 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
       // **비우고 채운다** — 이미 차 있으면 `setSlot` 은 채우는 대신 **맞바꾼다**
       // (그것이 5단계의 순서 바꾸기다). 여기서는 순서를 못 박고 싶으므로 먼저 비운다
       S.farmAtk = [null, null, null, null, null];
+      // ⚠️ **방어대도 비운다.** 한 마리는 방어대·공격대 «둘 중 한쪽에만» 설 수 있어서,
+      // 방어대가 이 다섯을 쥐고 있으면 `setSlot` 이 넣는 대신 「옮길까요?」를 물어본다.
+      // 여기서 보려는 것은 «바꾼 부대로 싸우는가» 하나이므로 길을 비워 준다
+      // (크리처가 다섯뿐이면 두 부대를 다 채울 수 없다 — 그것이 규칙이다)
+      S.farmDef = [null, null, null, null, null];
       openTeam('atk');
       five.forEach(id => setSlot(id));
       closeTeam();

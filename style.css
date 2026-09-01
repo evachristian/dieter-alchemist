@@ -756,6 +756,13 @@ button.tm-slot:active { transform: scale(0.94); }
   font-family: inherit; font-size: 0.74rem; font-weight: 800; cursor: pointer;
 }
 .pal-item.off { filter: saturate(0.15); }
+/* 다녀간 이웃의 **이름**만 색으로 띄운다 — 줄이 여럿이면 「누가 왔나」가
+   제일 먼저 읽혀야 한다. 굵기만으로는 이미 줄 전체가 굵어서 안 갈린다 */
+.farm-who { color: var(--text-pink); }
+/* 다른 부대에 선 아이의 딱지 — **`.bad` 를 쓰지 않는다.** 그건 이미
+   「상성이 불리하다」는 뜻으로 쓰이고 있어서 한 클래스가 두 가지를 말하게 된다.
+   이쪽은 **못 데려온다**는 뜻이고, 누르면 옮길지 물어본다 */
+.raid-tag.locked { color: var(--text-red); background: var(--red); }
 /* 부대 목록의 한 줄은 **그림 · 이름 · 속성 · 전투력 · (있으면) 자리 딱지** 다섯이다 —
    `.pal-item` 은 원래 줄바꿈이 없어서 265px 에서 이름 칸이 0px 로 눌렸다.
    여기서만 풀어 준다 (동행 고르기·먹이는 항목이 셋이라 지금 그대로가 낫다) */
@@ -1070,10 +1077,20 @@ button.tm-slot:active { transform: scale(0.94); }
 .tune-label { flex: 1 1 auto; min-width: 0; font-size: 0.78rem; font-weight: 700; color: var(--ink); }
 /* 값 폭을 고정해 숫자가 바뀌어도 버튼이 움직이지 않게 한다 */
 .tune-val {
-  flex: 0 0 52px; text-align: center; font-size: 0.76rem; font-weight: 800;
+  /* 실제 몸 줄(「▼ 73.529%」)이 들어가면서 52px 로는 좁다 */
+  flex: 0 0 74px; text-align: center; font-size: 0.76rem; font-weight: 800;
   color: var(--ink-soft); font-variant-numeric: tabular-nums;
 }
 .tune-val.on { color: var(--ink); }          /* 기본값에서 벗어나면 진하게 */
+/* 실제 몸 — 슬라이더 값 «아래»에 한 줄로. 폭을 넓히지 않으려고 세로로 쌓는다
+   (`.tune-val` 은 52px 고정이라 옆에 붙이면 버튼이 밀린다) */
+.tune-val { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+/* ⚠️ 0.66rem 은 **10.6px** 이라 글자 크기 기준(11px)에 걸린다 — 검사기가 잡았다.
+   「보조로 보이게」는 크기를 더 줄이는 대신 색으로 낸다 (TEXT_POLICY) */
+.tune-real { font-size: 0.72rem; font-weight: 800; color: var(--ink-soft);
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tune-real.down { color: var(--text-blue); }   /* 처음보다 작아졌다 (물약) */
+.tune-real.up { color: var(--text-red); }      /* 처음보다 커졌다 (폭식) */
 /* 상한에 걸렸을 때 — 파츠마다 캔버스를 안 벗어나는 선까지만 올라간다 */
 .tune-cap {
   font-size: 0.7rem; font-weight: 800; color: var(--ink-soft);

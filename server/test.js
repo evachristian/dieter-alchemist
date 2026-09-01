@@ -505,6 +505,16 @@ async function run(label, env) {
       // 남의 밭은 못 건드린다 — 개발용이어도 secret 은 본다
       const bad = await J('POST', `/api/farm/${V}/dev`, { secret: 'z'.repeat(32) });
       ok(bad.status === 403, `남의 밭을 개발용으로 채우려 하면 → ${bad.status} (403 기대)`);
+
+      // 서리 제한 초기화 — **약탈권과 «모두의» 방패**를 푼다.
+      // 남의 방패를 안 풀면 목록이 비어 「풀었는데 갈 데가 없다」가 된다
+      { const g = await farmOf(R); g.raids = 0; g.shieldUntil = Date.now() + 3600e3; await setFarm(R, g); }
+      { const g = await farmOf(V); g.shieldUntil = Date.now() + 3600e3; await setFarm(V, g); }
+      const fr = await J('POST', `/api/farm/${R}/devraid`, { secret: SEC_R });
+      ok(fr.status === 200 && fr.body.raids === Bd.RAID_MAX,
+        `서리 제한 초기화 → 약탈권 ${fr.body && fr.body.raids} (${Bd.RAID_MAX} 기대)`);
+      ok((await farmOf(R)).shieldUntil === 0, '내 방패가 풀렸다');
+      ok((await farmOf(V)).shieldUntil === 0, `남의 방패도 풀렸다 (푼 개수 ${fr.body.cleared})`);
       // 아래 약탈 검사들이 기대하는 상태로 되돌린다
       await setFarm(V, {
         plots: [{ crop: null, stash: { firefly: 9 } }, { crop: null, stash: {} }],
@@ -876,6 +886,15 @@ function pick(env) {
     const base = 'http://127.0.0.1:' + srv.address().port;
     const V = 'p_' + 'v'.repeat(20), SEC_V = 'v'.repeat(32);
     out.push('── 개발용 스위치 끄기 (DEV_TOOLS=0)');
+    for (const path2 of ['dev', 'devraid']) {
+      const r2 = await fetch(base + `/api/farm/${V}/${path2}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret: SEC_V }),
+      });
+      let j2 = null; try { j2 = await r2.json(); } catch (e) {}
+      ok(r2.status === 404 && j2 && j2.error === 'dev_off',
+        `DEV_TOOLS=0 이면 /${path2} → ${r2.status} ${j2 && j2.error} (404 dev_off 기대)`);
+    }
     const r = await fetch(base + `/api/farm/${V}/dev`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ secret: SEC_V }),

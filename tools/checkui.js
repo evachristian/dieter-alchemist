@@ -780,8 +780,15 @@ function launchOpts() {
         const rdBad = await page.evaluate(() => {
           const b = (id, attr) => ({ id, attr, grade: 'high', power: 64, loyalty: 0 });
           // 내 출정대 — **불 둘만 세우고 나머지는 빈자리**로 둔다 (빈자리도 그려야 한다)
-          S.creatures = [...new Set([...(S.creatures || []), 'ember_phoenix', 'flame_fox'])];
+          // ⚠️ **방어대에 설 아이를 «앞»에 둔다.** 뒤에 두면 정렬을 안 해도
+          // 회색이 이미 맨 아래라 「맨 아래로 내린다」를 한 번도 검사하지 못한다
+          // (정렬을 빼는 사보타주가 그대로 통과했다)
+          S.creatures = [...new Set(['unicorn', 'boulder_bear',
+            'ember_phoenix', 'flame_fox', ...(S.creatures || [])])];
           S.farmAtk = ['ember_phoenix', 'flame_fox', null, null, null];
+          // **방어대에도 세워 둔다** — 안 세우면 공격대 고르기에 회색이 하나도
+          // 없어서 「다른 부대에 선 아이」 표시를 한 번도 못 잰다
+          S.farmDef = ['unicorn', 'boulder_bear', null, null, null];
           S.petField = 'ember_phoenix';
           // ⚠️ **칸(plots)도 같이 심는다.** 안 심으면 미리보기가 전부 「빈 칸」으로
           // 그려져 **작물 · 자라는 중 · 이삭 세 가지를 한 번도 안 잰다** —
@@ -872,8 +879,35 @@ function launchOpts() {
           if (r.width < 1 || r.height < 1) return '부대 고르기가 안 떴다';
           const hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
           const top = hit && hit.closest('.modal');
-          return top && top.id === 'teamPick' ? null
-            : `이웃 밭 위에서 「바꾸기」를 눌렀는데 위에 있는 것은 #${top ? top.id : '없음'} 이다`;
+          if (!top || top.id !== 'teamPick') {
+            return `이웃 밭 위에서 「바꾸기」를 눌렀는데 위에 있는 것은 #${top ? top.id : '없음'} 이다`;
+          }
+          // ── 방어대에 선 아이는 공격대에서 **회색 + 맨 아래** ──
+          //
+          // 한 마리는 한쪽에만 설 수 있다. 그것을 «고르기 전에» 알려 주지 않으면
+          // 눌러 보고 나서야 안다. 회색만으로는 부족해서 맨 아래로 내린다 —
+          // 고를 수 있는 것이 위에 모여야 「누굴 넣지」가 한눈에 끝난다
+          const rows = [...document.querySelectorAll('#teamList .pal-item')];
+          const marked = rows.filter(e => e.dataset.other === '1');
+          if (!marked.length) return '방어대에 선 아이가 회색으로 안 나온다';
+          const first = rows.findIndex(e => e.dataset.other === '1');
+          const after = rows.slice(first).every(e => e.dataset.other === '1');
+          if (!after) return '회색이 맨 아래로 안 내려갔다';
+          if (!marked[0].classList.contains('off')) return '회색 표시(.off)가 안 붙었다';
+          if (!marked[0].querySelector('.raid-tag.locked')) return '「방어대」 딱지가 없다';
+          // 누르면 **바로 안 넣고** 물어본다
+          marked[0].click();
+          const ask = document.getElementById('confirmModal');
+          if (!ask || !ask.classList.contains('show')) return '회색을 눌렀는데 확인 패널이 안 뜬다';
+          // 확인 패널은 부대 고르기 **위에** 떠야 한다 (z-index 60)
+          const ac = ask.querySelector('.modal-card').getBoundingClientRect();
+          const ah = document.elementFromPoint((ac.left + ac.right) / 2, (ac.top + ac.bottom) / 2);
+          const atop = ah && ah.closest('.modal');
+          if (!atop || atop.id !== 'confirmModal') {
+            return `확인 패널 위에 있는 것이 #${atop ? atop.id : '없음'} 이다`;
+          }
+          closeConfirm();
+          return null;
         });
         if (stackBad) results.push({ 화면: `${t}/겹친시트`, 오류: stackBad });
         else { await page.waitForTimeout(200); await run(`${t}/겹친시트`); }

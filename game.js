@@ -4008,6 +4008,25 @@ function devVillageOne(id) { devToggleFlag(devVillageKey(id)); }
 window.devVillages = devVillages;
 window.devVillageOne = devVillageOne;
 
+// 서리(약탈)를 막는 것을 전부 푼다 — **내 약탈권**과 **모두의 방패**다.
+// 이것도 밭과 같은 이유로 서버에 있다 (`FARM.md` 7장 — 밭은 서버가 정본이다)
+async function devFreeRaids() {
+  if (!farmOpen()) { toast(T('dev_farm_locked')); return; }
+  if (farmBusy) return;
+  farmBusy = true;
+  const r = await Sync.freeRaids();
+  farmBusy = false;
+  if (r.status === 404 && r.body && r.body.error === 'dev_off') {
+    toast(T('dev_farm_off'), null, 3600); return;
+  }
+  if (r.status !== 200 || !r.body) { toast(T('farm_err')); return; }
+  await refreshFarm();
+  renderFarm();
+  render();
+  toast(T('dev_raid_done', { n: r.body.raids, s: r.body.cleared }), null, 3200);
+}
+window.devFreeRaids = devFreeRaids;
+
 // 크리처 서른 종을 전부 얻는다. **이건 진짜 진행이라 세이브에 들어간다**
 // (재료 1000개와 같다 — 맵/솥 스위치처럼 이 기기에만 남는 표시가 아니다).
 //
@@ -4070,6 +4089,7 @@ function renderGatherDev() {
       devAct(T('dev_fill_ap'), 'fillEnergy()'),
       devAct(T('dev_fill_items'), 'devFillItems()'),
       devAct(T('dev_farm_fill'), 'devFinishFarm()'),
+      devAct(T('dev_raid_free'), 'devFreeRaids()'),
     ]) +
     devGroup(T('dev_g_open')) +
     devSws([
@@ -4263,10 +4283,21 @@ function renderBodyTune() {
       onpointerup="stopTuneHold()" onpointerleave="stopTuneHold()" onpointercancel="stopTuneHold()"
       oncontextmenu="return false">${sign}</button>`;
     const atMax = v >= p.max;
+    // **슬라이더 값과 «실제 몸» 은 다른 수치다.**
+    // 슬라이더는 개발용 배율이고, 물약·폭식으로 바뀌는 것은 몸무게(`bodyLevel`)다.
+    // 둘을 곱한 것이 지금 그려지는 크기 — 그것을 «처음 몸»(슬라이더 100% ·
+    // 통통 `bodyLevel` 1)에 견줘 보여 준다. 식은 `Avatar.partRatio` 한 곳에 있다
+    // (여기서 다시 쓰면 패널이 그림과 다른 말을 한다)
+    const pct = window.Avatar && Avatar.partRatio
+      ? Avatar.partRatio(p.k, tuneScales(), bodyLevel()) * 100 : null;
+    // 소수 셋째 자리까지 — 물약 한 병이 만드는 차이가 그 자리에서 보인다
+    const real = pct == null ? ''
+      : `<span class="tune-real${pct > 100.0005 ? ' up' : pct < 99.9995 ? ' down' : ''}"
+           title="${T('tune_real_t')}">${pct > 100.0005 ? '▲' : pct < 99.9995 ? '▼' : '='} ${pct.toFixed(3)}%</span>`;
     return `<div class="tune-row">
       <span class="tune-label">${T('part_' + p.k)}${atMax ? ` <span class="tune-cap">${T('tune_max')}</span>` : ''}</span>
       ${btn(-1, '−')}
-      <span class="tune-val${v === 100 ? '' : ' on'}">${v}%</span>
+      <span class="tune-val${v === 100 ? '' : ' on'}">${v}%${real}</span>
       ${btn(1, '+')}
     </div>`;
   }).join('');
@@ -5207,7 +5238,12 @@ function teamRow(team, kind, vs, wide) {
 function autoTeam(key) {
   const arr = teamArr(key);
   if (arr.some(Boolean)) return false;
-  const ids = [...new Set(S.creatures)].filter(id => creatureOf(id));
+  // ⚠️ **다른 부대에 선 아이는 빼고 고른다.** 한 마리는 한쪽에만 설 수 있는데,
+  // 그냥 센 순서로 다섯을 뽑으면 방어대와 공격대가 **같은 다섯**이 되어
+  // 부대 고르기 화면이 통째로 회색이 된다
+  const other = teamArr(key === 'atk' ? 'def' : 'atk');
+  const ids = [...new Set(S.creatures)]
+    .filter(id => creatureOf(id) && other.indexOf(id) < 0);
   if (!ids.length) return false;
   ids.sort((a, b) => combatPower(creatureOf(b)) - combatPower(creatureOf(a)));
   ids.slice(0, 5).forEach((id, i) => { arr[i] = id; });
@@ -5335,9 +5371,14 @@ function farmHtml() {
         // **조사를 붙인다** — 「도둑고양이가」 / 「루비는」. 「이(가)」로 두면 화면에
         // 괄호가 그대로 남는다. 가져간 것에도 붙는다: 「반딧불이 3을」 / 「호두 2를」
         const it = stashText(x.items);
+        // **이름은 색으로 띄운다** — 줄이 여럿이면 누가 왔는지가 제일 먼저 읽혀야 한다.
+        // ⚠️ `escHtml` 을 지난다. 남이 지은 글자가 내 화면의 HTML 로 들어가는
+        // 자리다 (이웃 밭 목록에서 이미 같은 이유로 escHtml 을 쓴다).
+        // **조사는 «날것» 이름으로 고른다** — 태그가 붙은 문자열은 끝 글자가 `>` 다
+        const whoHtml = `<b class="farm-who">${escHtml(who)}</b>`;
         return `<div class="farm-logrow">${x.win
-          ? T('farm_log_win', { who, josa: josa(who, '이가'), items: it, ij: josa(it, '을를') })
-          : T('farm_log_lose', { who, josa: josa(who, '을를') })}</div>`;
+          ? T('farm_log_win', { who: whoHtml, josa: josa(who, '이가'), items: it, ij: josa(it, '을를') })
+          : T('farm_log_lose', { who: whoHtml, josa: josa(who, '을를') })}</div>`;
       }).join('')}</div>`
     : `<div class="farm-hint">${T('farm_log_none')}</div>`);
 
@@ -5511,20 +5552,32 @@ function renderTeam() {
     // 가진 것만. **이미 다른 자리에 선 아이는 회색**이다 — 목록에서 빼면
     // 「내 유니콘이 어디 갔지」가 되고, 그대로 두면 같은 아이를 두 자리에 넣게 된다
     const ids = [...new Set(S.creatures)].filter(id => creatureOf(id));
+    // **한 마리는 방어대·공격대 둘 중 한쪽에만 선다.** 다른 쪽에 서 있는 아이는
+    // 회색으로 두고 **맨 아래로 내린다** — 고를 수 있는 것이 위에 모여야
+    // 「누굴 넣지」가 한눈에 끝난다. 누르면 옮길지 물어본다 (`setSlot`)
+    const otherArr = teamArr(teamKey === 'atk' ? 'def' : 'atk');
+    // ⚠️ **이 부대에 이미 서 있는 아이는 회색이 아니다.** 옛 세이브는 양쪽에
+    // 같은 아이가 겹쳐 있을 수 있는데(예전 `autoTeam` 이 그렇게 채웠다),
+    // 그것까지 회색으로 두면 «지금 서 있는 자리»가 못 서는 것처럼 보인다
+    const taken = id => otherArr.indexOf(id) >= 0 && arr.indexOf(id) < 0;
+    // 회색만 뒤로 민다 — 나머지 순서는 그대로 (정렬이 바뀌면 찾던 자리가 없어진다)
+    const sorted = ids.filter(id => !taken(id)).concat(ids.filter(taken));
     const none = `<button class="pal-item" onclick="setSlot(null)">
       <span class="pal-art">➖</span><span class="pal-name">${T('team_clear')}</span></button>`;
-    list.innerHTML = none + ids.map(id => {
+    list.innerHTML = none + sorted.map(id => {
       const c = creatureOf(id);
       const attr = D.creatureAttr(c.attr);
       const at = arr.indexOf(id);
       const busy = at >= 0 && at !== teamAt;
-      return `<button class="pal-item${arr[teamAt] === id ? ' on' : ''}${busy ? ' off' : ''}"
-        onclick="setSlot('${id}')">
+      const other = taken(id);
+      return `<button class="pal-item${arr[teamAt] === id ? ' on' : ''}${busy || other ? ' off' : ''}"
+        onclick="setSlot('${id}')" ${other ? 'data-other="1"' : ''}>
         <span class="pal-art">${window.Creature ? Creature.icon(c, 34) : ''}</span>
         <span class="pal-name">${N(c.id, c.name)}</span>
         ${attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : ''}
         <span class="farm-pow">${T('farm_power', { n: combatPower(c) })}</span>
-        ${busy ? `<span class="raid-tag">${T('team_swap', { n: at + 1 })}</span>` : ''}
+        ${other ? `<span class="raid-tag locked">${T(teamKey === 'atk' ? 'team_in_def' : 'team_in_atk')}</span>`
+          : busy ? `<span class="raid-tag">${T('team_swap', { n: at + 1 })}</span>` : ''}
       </button>`;
     }).join('');
   }
@@ -5540,6 +5593,31 @@ function pickSlot(i) { teamAt = i; renderTeam(); }
 function setSlot(id) {
   const arr = teamArr(teamKey);
   if (id && !ownsCreature(id)) return;
+  // **다른 부대에 서 있는 아이는 그냥 못 데려온다.** 그냥 막으면 「왜 안 되지」로
+  // 끝나므로 «옮길지» 를 물어본다 — 한 마리가 양쪽에 설 수 없다는 규칙을
+  // 이 한 번의 물음이 알려 준다
+  const otherKey = teamKey === 'atk' ? 'def' : 'atk';
+  if (id && teamArr(otherKey).indexOf(id) >= 0) {
+    const c = creatureOf(id);
+    // ⚠️ 지금 자리(`teamAt`)와 부대(`teamKey`)를 **붙들어 둔다.** 확인 패널이
+    // 떠 있는 동안에도 사람은 뒤의 자리를 누를 수 있고, 그러면 옮긴 아이가
+    // 엉뚱한 자리에 들어간다
+    const at = teamAt, key = teamKey;
+    showConfirm(T(key === 'atk' ? 'team_move_to_atk' : 'team_move_to_def'), () => {
+      const from = teamArr(key === 'atk' ? 'def' : 'atk');
+      const i = from.indexOf(id);
+      if (i >= 0) from[i] = null;
+      teamAt = at; teamKey = key;
+      putSlot(id);
+      toast(T('team_moved', { name: N(c.id, c.name) }));
+    }, null, T('team_move_ok'));
+    return;
+  }
+  putSlot(id);
+}
+// 실제로 자리에 넣는다 (물어볼 것이 없을 때의 몸통)
+function putSlot(id) {
+  const arr = teamArr(teamKey);
   const at = id ? arr.indexOf(id) : -1;
   // **이미 다른 자리에 선 아이를 고르면 두 자리를 맞바꾼다.**
   // 자리 대 자리로 붙으므로 **순서가 곧 전략**인데, 「이미 3번에 있어요」로 막으면

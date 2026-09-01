@@ -431,6 +431,39 @@ app.post('/api/farm/:playerId/dev', async (req, res) => {
   }
 });
 
+//  POST /api/farm/:playerId/devraid   { secret }   ⚠️ 개발용 — 서리 제한을 푼다
+//
+//  「서리하러 나가지 못하게 막는 것」은 둘이다: **내 약탈권**과 **상대의 방패**.
+//  둘 다 서버에 있으므로 여기서 함께 푼다. 잠금은 `/dev` 와 같다 (`DEV_TOOLS`).
+app.post('/api/farm/:playerId/devraid', async (req, res) => {
+  if (!DEV_TOOLS) return res.status(404).json({ error: 'dev_off' });
+  const { secret } = req.body || {};
+  try {
+    const row = await authRow(req, res, req.params.playerId, secret);
+    if (!row) return;
+    const now = Date.now();
+    const farm = await freshFarm(row, now, true);
+    farm.raids = B.RAID_MAX;
+    farm.raidAt = now;
+    farm.shieldUntil = 0;               // 내 밭의 방패도 푼다 (남이 나를 털어 볼 수 있게)
+    await store.farmSet(row.playerId, farm);
+    // **남의 방패도 푼다.** 안 그러면 목록이 비어 있어서 「제한을 풀었는데도
+    // 갈 데가 없다」가 된다 — 막는 것이 둘인데 하나만 푼 셈이다
+    let cleared = 0;
+    for (const p of await store.peers(row.playerId, 50)) {
+      if (p.farm && typeof p.farm === 'object' && (p.farm.shieldUntil || 0) > now) {
+        p.farm.shieldUntil = 0;
+        await store.farmSet(p.playerId, p.farm);
+        cleared++;
+      }
+    }
+    res.json({ ok: true, now, raids: farm.raids, cleared });
+  } catch (e) {
+    console.error('[POST /api/farm/devraid]', e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
 //  GET /api/raid/targets/:playerId?secret=...   털러 갈 만한 남의 밭
 app.get('/api/raid/targets/:playerId', async (req, res) => {
   try {

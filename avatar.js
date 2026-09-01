@@ -222,6 +222,21 @@
     const v = tuneOf(tune, k), g = TUNE_GAIN[k];
     return (g == null || v <= 1) ? v : 1 + (v - 1) * g;
   }
+  // 몸무게(w: 0 날씬 ~ 1 통통)가 만드는 **가로 배율**.
+  // `build()` 의 몸 변환이 이 값을 쓴다 — 식을 두 군데 두면 개발용 패널이
+  // 그리는 것과 다른 숫자를 말하게 된다
+  const BODY_FAT_X = 0.36;
+  const bodyScaleX = w => 1 + BODY_FAT_X * Math.max(0, Math.min(1, Number(w) || 0));
+
+  // 이 부위가 **처음 몸**(슬라이더 100% · 통통 `bodyLevel` 1)에 견줘 몇 배인가.
+  // 개발용 「바디 파츠 조절」이 물약·폭식으로 몸이 얼마나 달라졌는지 보여 주는 데 쓴다.
+  //
+  // ⚠️ 식을 밖에서 다시 쓰지 않는다 — 살의 양은 `fatOf`(부위마다 얹히는 정도가
+  // 다르다), 몸무게는 `bodyScaleX` 다. 옮겨 적으면 패널이 그림과 다른 말을 한다
+  function partRatio(k, tune, w) {
+    return fatOf(tune, k) * bodyScaleX(w) / bodyScaleX(1);
+  }
+
   // 가로(굵기)만 늘리는 변환 — ax 를 축으로
   function sx(k, ax) {
     return k === 1 ? '' : ` transform="translate(${ax},0) scale(${k.toFixed(3)},1) translate(${-ax},0)"`;
@@ -2070,7 +2085,7 @@
     const headK = head / HEAD_H;
 
     // 몸: 가로로 통통하게 + 세로로 늘려 다리를 길게 (바닥을 축으로)
-    const bodyT = `translate(100,${FLOOR_Y}) scale(${(1 + 0.36 * w).toFixed(3)},${bodyKy.toFixed(3)}) translate(-100,${-FLOOR_Y})`;
+    const bodyT = `translate(100,${FLOOR_Y}) scale(${bodyScaleX(w).toFixed(3)},${bodyKy.toFixed(3)}) translate(-100,${-FLOOR_Y})`;
     // 머리: 목을 축으로 크기 조절 (통통하면 가로로 살짝 더 둥글게)
     // 날씬할수록 머리를 위로 올려 목을 뺀다 (NECK_LIFT 참고)
     //
@@ -2503,5 +2518,6 @@
   // NECK_CUT 은 커버리지 검사기(tools/checkavatar.js)도 읽는다 —
   // 파는 자리를 두 곳에 적어 두면 어긋나고, 어긋나는 순간 검사가 헛돈다
   window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y,
+    partRatio, bodyScaleX,
     ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
 })();

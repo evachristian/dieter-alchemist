@@ -302,6 +302,13 @@
       return await api('POST', `/api/farm/${me.playerId}/dev`, { body: { secret: me.secret } });
     } catch (e) { return { status: 0, body: null }; }
   }
+  // ⚠️ 개발용 — 약탈권을 채우고 모두의 방패를 푼다 (`farmDev` 와 같은 잠금)
+  async function freeRaids() {
+    if (!enabled()) return { status: 0, body: null };
+    try {
+      return await api('POST', `/api/farm/${me.playerId}/devraid`, { body: { secret: me.secret } });
+    } catch (e) { return { status: 0, body: null }; }
+  }
   async function raidTargets() {
     if (!enabled()) return { status: 0, body: null };
     try {
@@ -328,7 +335,7 @@
 
   window.Sync = {
     push, pushNow, pull, flushNow, wipe, code, useCode, claimName,
-    nonce, farmGet, harvest, plant, addPlot, raidTargets, raid, farmDev,
+    nonce, farmGet, harvest, plant, addPlot, raidTargets, raid, farmDev, freeRaids,
     get status() { return status; },
     get playerId() { return me.playerId; },
     enabled,
