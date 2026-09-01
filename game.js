@@ -61,6 +61,14 @@ const defaultState = () => ({
   // 두 벌이 되고 어느 쪽이 맞는지 판단할 근거가 없다. 이 값은 「침입 기록을 어디까지
   // 봤나」 하나뿐이다. 없던 칸을 더하는 것이라 마이그레이션이 필요 없다
   farmSeenAt: 0,
+  // 탐험 일지 — 그날 있었던 일 (최근 것부터 `DIARY_MAX` 줄까지).
+  // **없던 칸을 더하는 것**이라 `SAVE_VER` 를 안 올린다 —
+  // 옛 세이브에는 이 칸이 없고 `defaultState()` 의 `[]` 가 그대로 남는다
+  // (`CREATURE.md` 11장의 `petField` 와 같은 경우다)
+  diary: [],
+  // 일지에 **어느 시각의 밭 기록까지 옮겨 적었나.** `farmSeenAt`(배지용)과 따로 둔다 —
+  // 하나로 쓰면 밭 탭을 열어 배지를 지우는 순간 아직 안 적은 침입이 영영 안 적힌다
+  diaryFarmAt: 0,
   // 밭 부대 — **자리 번호 = 칸 번호다** (FARM.md 5장). 1번이 1번 칸을 지키고
   // 쳐들어간 1번과 붙는다. **서버가 이 칸을 읽어 판정한다** (`server/battle.js`).
   // 한 번도 안 짰으면 서버가 애착/동행 한 마리를 1번 자리에 세워 준다 —
@@ -212,6 +220,42 @@ function newRecord() {
   };
 }
 // 기록 갱신 — 필드가 없던 예전 세이브도 안전하게 다룬다
+// ═══════════════════════════════════════════════════════════════
+//  탐험 일지
+//
+//  **그날 있었던 일을 문장으로 남긴다.** 수치(`S.record`)는 「몇 번 했나」를 세지만
+//  일지는 「무슨 일이 있었나」를 적는다 — 며칠 만에 들어왔을 때 그사이에
+//  누가 다녀갔는지, 무엇을 얻었는지가 한 줄씩 남아 있어야 이야기가 이어진다.
+//
+//  글은 **귀엽게** 쓴다 (`STORY.md` 의 결). 공주가 제 일기에 적는 말투다 —
+//  「아아, 속상하다」 · 「히히」 처럼 혼잣말이 섞인다.
+// ═══════════════════════════════════════════════════════════════
+const DIARY_MAX = 120;        // 이 줄 수를 넘으면 오래된 것부터 버린다 (세이브 크기)
+
+// 로엔 제국력 — **현실 연도에서 1800 을 뺀다.**
+// 2026년 → 226년 · 2027년 → 227년 · 2127년 → 327년.
+// `nowDate()` 를 지난다 (시계를 옮겨 놓고 검사할 수 있어야 한다 — `CLAUDE.md`)
+const ERA_OFFSET = 1800;
+function eraYear(d = nowDate()) { return d.getFullYear() - ERA_OFFSET; }
+
+// 일지 한 줄을 남긴다. `k` 는 문구 열쇠(`di_*`), `v` 는 그 문구에 끼울 값.
+//
+// ⚠️ **`v` 에는 이름이 아니라 id 를 담는다.** 적을 때 `N()` 으로 풀어서 넣으면
+// 그때의 언어가 세이브에 그대로 굳는다 — 영어로 바꾼 뒤에 일지를 열면 예전 줄만
+// 한국어로 남는다. 문장은 **읽을 때** 만든다 (`diaryLine`).
+//
+// `at` 은 그 일이 **실제로 일어난 시각**이다. 남이 내 밭에 다녀간 줄은 서버가 적어
+// 둔 시각을 그대로 쓴다 — 「내가 접속한 날」에 몰아 적으면 사흘치가 한 날짜에 쌓인다.
+function diaryAdd(k, v, at) {
+  if (!Array.isArray(S.diary)) S.diary = [];
+  const d = at ? new Date(at) : nowDate();
+  S.diary.push({ t: d.getTime(), y: eraYear(d), m: d.getMonth() + 1, d: d.getDate(), k, v: v || {} });
+  // **오래된 것부터 버린다.** 세이브가 무한히 커지면 동기화가 느려진다.
+  // 시각 순서로 두고 자른다 — 뒤늦게 도착한 옛 줄(밭 기록)이 섞여도 뒤죽박죽이 안 된다
+  S.diary.sort((a, b) => a.t - b.t);
+  if (S.diary.length > DIARY_MAX) S.diary = S.diary.slice(-DIARY_MAX);
+}
+
 function rec(key, n) {
   if (!S.record) S.record = newRecord();
   S.record[key] = (S.record[key] || 0) + (n === undefined ? 1 : n);
@@ -1132,6 +1176,12 @@ function checkBinge() {
   // 배는 부르다 — 여러 밤이어도 마지막 밤의 배부름만 남는다
   S.fullness = Math.max(fullness(), BINGE.fullnessBack);
   rec('aloneNights', nights);
+  // 일지 — **먹은 것 이름을 그대로 적는다.** 「폭식 1회」보다 「구운 고기를 폭식했다」가
+  // 나중에 읽을 때 그날이 떠오른다
+  {
+    const last = S.binges[S.binges.length - 1];
+    diaryAdd('di_binge', { food: (last && last.food) || '', n: nights });
+  }
   return { nights };
 }
 
@@ -1470,6 +1520,9 @@ function gather(mapId) {
     }), at, 3400, 'above');
     if (window.Sfx) Sfx.play('success');
   } else if (isSpecial) {
+    // 일지 — 히든 재료는 맵마다 하나뿐이라 **어쩌다 한 번**이다. 평범한 채집까지
+    // 적으면 일지가 통째로 채집 로그가 되어 진짜 사건이 묻힌다
+    diaryAdd('di_rare', { id: ing.id, map: mapId });
     const clue = gatherClue(mapId, 'rare');
     const nm = N(ing.id, ing.name);
     toast(clue
@@ -1957,6 +2010,9 @@ function brew() {
   if (isNew) {
     rec('discoveries');
     S.discovered.push(result.id);
+    // 일지 — **물약만 적는다.** 크리처는 바로 아래에서 따로 한 줄을 남기므로
+    // 여기서도 적으면 같은 일이 두 줄이 된다
+    if (result.kind === 'potion') diaryAdd('di_find', { id: result.id });
     lastFound = result.id;              // 레시피 북에서 맨 위로 올려 강조
     // 발견한 카테고리로 레시피 북을 자동 전환
     recipeKind = result.kind;
@@ -1968,6 +2024,9 @@ function brew() {
   } else if (result.kind === 'creature') {
     rec('creatures');
     S.creatures.push(result.id);
+    // 일지 — 속성마다 한 마디가 다르다. 서른 마리에 한 줄씩 쓰면 예순 줄이 되고,
+    // 그중 대부분은 한 번도 안 읽힌다. **속성 여섯이면 결은 충분히 산다**
+    diaryAdd('di_creature', { id: result.id, attr: result.attr || 'fire' });
     // 크리처는 행운을 부른다 — 전시 매력 보너스 × 8 만큼 행운 상승
     addAura('luck', (result.charmBonus || 0) * 8);
   }
@@ -2037,7 +2096,10 @@ function drinkPotion(potionId) {
   // (수치 자체는 연속으로 조금씩 움직이지만 연출까지 매번 터뜨리면 시끄럽다)
   const afterStep = bodyStep();
   playSlimFx(afterStep > beforeStep ? (afterStep === BODY_STEPS ? 'done' : 'step') : 'sip');
+  // 일지 — **단계가 내려간 날만 적는다.** 물약은 하루에도 여러 번 마시므로
+  // 한 모금마다 적으면 일지가 물약 영수증이 된다. 몸이 실제로 달라진 날이 사건이다
   if (afterStep > beforeStep) {
+    diaryAdd('di_slim', { step: afterStep, done: afterStep === BODY_STEPS ? 1 : 0 });
     setTimeout(() => {
       toast(T(afterStep === BODY_STEPS ? 'body_done' : 'body_down'), null, 2600);
     }, 1500);
@@ -5128,6 +5190,96 @@ window.openProduceLog = openProduceLog;
 window.closeProduceLog = closeProduceLog;
 
 // ═══════════════════════════════════════════════════════════════
+//  탐험 일지 — 읽는 쪽
+//
+//  세이브에는 **id 와 숫자만** 들어 있다 (`diaryAdd`). 문장은 여기서 만든다 —
+//  그래야 언어를 바꿨을 때 옛 줄까지 같이 따라온다.
+//
+//  ⚠️ **조사도 여기서 붙인다.** 「유니콘를」이 되면 아무리 귀여운 문장도 무너진다.
+//  `josa()` 는 «날것» 이름의 받침을 보므로 이모지·태그를 붙이기 «전»에 고른다.
+// ═══════════════════════════════════════════════════════════════
+
+// 한 줄을 문장으로 푼다. 열쇠를 모르면 빈 문자열 — 예전 세이브에 지금은 없는
+// 열쇠가 남아 있어도 그 줄만 빠지고 일지는 그대로 열린다
+function diaryLine(e) {
+  const v = e.v || {};
+  const p = {};
+  // 재료·크리처·물약 이름 (있으면). **이모지는 문장에 안 넣는다** — 앞에 아이콘 칸이 따로 있다.
+  // `itemOf` 는 재료와 크리처만 안다 — 물약은 레시피 결과에 있으므로 한 번 더 본다
+  if (v.id) {
+    const r = !itemOf(v.id) && D.RECIPES.find(x => x.result.id === v.id);
+    p.name = r ? N(r.result.id, r.result.name) : itemName(v.id);
+    p.nj = josa(p.name, '을를'); p.ni = josa(p.name, '이가');
+  }
+  if (v.food) { const f = foodOf(v.food); p.food = f ? N(f.id, f.name) : ''; p.fj = josa(p.food, '을를'); }
+  if (v.who) { p.who = `<b class="di-who">${escHtml(v.who)}</b>`; p.wj = josa(v.who, '이가'); }
+  if (v.items) { p.items = stashText(v.items) || T('di_nothing'); p.ij = josa(p.items, '을를'); }
+  if (v.attr) p.quip = T('di_cr_' + v.attr);
+  if (v.map) { const m = D.MAPS.find(x => x.id === v.map); p.map = m ? N(m.id, m.name) : ''; }
+  p.n = v.n || 0; p.wins = v.wins || 0; p.step = v.step || 0;
+  // 마지막 단계에 닿은 날은 다른 문장이다 — 매번 같은 줄이면 마지막 날이 안 특별해진다
+  const key = e.k === 'di_slim' && v.done ? 'di_slim_done' : e.k;
+  const s = T(key, p);
+  return s === key ? '' : s;                  // 모르는 열쇠는 그 줄만 뺀다
+}
+
+// 줄 앞의 아이콘. 사건마다 하나씩 — 훑을 때 「그날 뭐가 있었나」가 먼저 읽힌다
+const DIARY_ICON = {
+  di_binge: '🍽️', di_creature: '🥚', di_find: '📖', di_rare: '✨',
+  di_slim: '🎀', di_raid_win: '🌾', di_raid_empty: '🌾', di_raid_lose: '💦',
+  di_robbed: '😿', di_kept: '🛡️',
+};
+// **이 표가 사건의 목록이다.** 검사기가 여기 있는 열쇠를 하나씩 심어 보고
+// 문장이 나오는지 본다 — 새 사건을 만들면 아이콘을 여기 넣는 것만으로 검사에 걸린다
+window.DIARY_ICON = DIARY_ICON;
+
+function openDiary() {
+  renderDiary();
+  const m = document.getElementById('diaryModal');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeDiary() {
+  const m = document.getElementById('diaryModal');
+  if (m) m.classList.remove('show');
+}
+
+function renderDiary() {
+  const ti = document.getElementById('diaryTitle');
+  if (ti) ti.textContent = T('di_title');
+  const era = document.getElementById('diaryEra');
+  if (era) era.textContent = T('di_era', { y: eraYear() });
+  const el = document.getElementById('diaryBody');
+  if (!el) return;
+  const all = Array.isArray(S.diary) ? S.diary : [];
+  if (!all.length) { el.innerHTML = `<div class="empty-hint">${T('di_empty')}</div>`; return; }
+
+  // 날짜별로 묶는다. **날은 새것이 위**, 그 안은 **일어난 순서대로**다 —
+  // 하루치는 아침부터 읽어야 이야기가 되고, 날은 오늘부터 봐야 찾기가 쉽다
+  const days = [];
+  all.slice().sort((a, b) => a.t - b.t).forEach(e => {
+    const k = `${e.y}-${e.m}-${e.d}`;
+    const last = days[days.length - 1];
+    if (last && last.k === k) last.rows.push(e);
+    else days.push({ k, y: e.y, m: e.m, d: e.d, rows: [e] });
+  });
+
+  el.innerHTML = days.reverse().map(g => {
+    const rows = g.rows.map(e => {
+      const s = diaryLine(e);
+      if (!s) return '';
+      return `<div class="di-row"><span class="di-ic" aria-hidden="true">${DIARY_ICON[e.k] || '·'}</span>
+        <span class="di-txt">${s}</span></div>`;
+    }).join('');
+    if (!rows) return '';
+    return `<div class="di-day"><div class="di-date">${T('di_day', { m: g.m, d: g.d })}</div>${rows}</div>`;
+  }).join('') || `<div class="empty-hint">${T('di_empty')}</div>`;
+}
+window.openDiary = openDiary;
+window.closeDiary = closeDiary;
+window.renderDiary = renderDiary;
+
+// ═══════════════════════════════════════════════════════════════
 //  밭 · 약탈 (CREATURE.md 10장 · 9단계)
 //
 //  **서버가 정본을 갖는 유일한 화면이다.** 게임의 다른 모든 것은 로컬이 진짜고
@@ -5152,8 +5304,32 @@ async function refreshFarm() {
   if (!window.Sync || !Sync.enabled()) { FARM = null; return null; }
   const r = await Sync.farmGet();
   FARM = r.status === 200 && r.body ? r.body : null;
+  diaryFromFarm();
   renderActBadges();
   return FARM;
+}
+
+// 서버의 침입 기록을 일지로 옮겨 적는다.
+//
+// **여기가 유일하게 「내가 없는 동안 일어난 일」이 들어오는 자리다.** 나머지 줄은
+// 전부 내가 버튼을 눌러서 생긴 것이고, 이것만 남이 만든다 — 며칠 만에 들어와도
+// 그사이 누가 다녀갔는지가 일지에 그날 날짜로 남아야 한다.
+//
+// ⚠️ **같은 줄을 두 번 적지 않는다.** 서버 기록은 열 줄까지 남아 있어서 밭을
+// 열 때마다 통째로 다시 온다 — 마지막으로 옮겨 적은 시각(`S.diaryFarmAt`)보다
+// 뒤엣것만 적는다
+function diaryFromFarm() {
+  if (!FARM || !Array.isArray(FARM.log) || !FARM.log.length) return;
+  const from = S.diaryFarmAt || 0;
+  const fresh = FARM.log.filter(x => (x.t || 0) > from);
+  if (!fresh.length) return;
+  // 서버는 새것부터 주지만 일지는 시각 순으로 쌓는다
+  fresh.slice().sort((a, b) => (a.t || 0) - (b.t || 0)).forEach(x => {
+    diaryAdd(x.win ? 'di_robbed' : 'di_kept',
+      { who: x.by || '', items: x.items || {} }, x.t || Date.now());
+  });
+  S.diaryFarmAt = Math.max(from, ...fresh.map(x => x.t || 0));
+  save();
 }
 window.refreshFarm = refreshFarm;
 
@@ -5847,6 +6023,10 @@ async function doRaid(i) {
     Object.keys(items).forEach(id => addInv(id, items[id]));
     rec('raidWon');
   }
+  // 일지 — **이겨서 빈손인 경우를 따로 적는다.** 바닥 규칙(`RAID_FLOOR_DAYS`)이
+  // 만든 진짜 상태라, 나중에 읽을 때 「왜 빈손이었지?」가 남으면 안 된다
+  diaryAdd(r.body.win ? (Object.keys(items).length ? 'di_raid_win' : 'di_raid_empty') : 'di_raid_lose',
+    { who: name, items, wins: r.body.wins || 0 });
   save();
   if (window.Sfx) Sfx.play(r.body.win ? 'success' : 'fail');
   showRaidResult(name, r.body);

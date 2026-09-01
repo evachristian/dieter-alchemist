@@ -2698,3 +2698,27 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 마지막 줄. **여기가 이 장면의 전부다** — 그래서 한 박자 늦게, 조용히 */
 .bs-tail { margin: 10px 0 0; font-size: 0.9rem; font-weight: 500; color: #d8ccd6; }
 .bs-next { width: 100%; margin-top: 16px; }
+
+/* ═══ 탐험 일지 ═══════════════════════════════════════════════
+   **읽는 화면이다.** 밭·약탈 화면처럼 숫자를 훑는 곳이 아니라 문장을 읽는 곳이라
+   글자를 조금 크게 잡고 줄 간격을 넉넉히 준다. 굵기도 한 단 낮췄다 —
+   화면 전체가 800 이면 문단이 아니라 표로 읽힌다 */
+.diary-btn { width: auto; align-self: flex-start; margin: 0 0 10px; padding: 8px 14px; font-size: 0.82rem; }
+.di-era { margin: -4px 0 10px; font-size: 0.8rem; font-weight: 800; color: var(--text-lav); }
+.di-body { display: flex; flex-direction: column; gap: 14px; max-height: 58vh; overflow-y: auto; text-align: left; }
+.di-day { display: flex; flex-direction: column; gap: 6px; }
+/* 날짜 — 일기장의 가름선. 왼쪽 세로줄로 그날의 줄들을 묶는다 */
+.di-date {
+  font-size: 0.86rem; font-weight: 800; color: var(--text-pink);
+  border-bottom: 2px dashed var(--pink-2); padding-bottom: 4px;
+}
+/* 한 줄 — 아이콘 칸과 글 칸. **아이콘은 안 줄어든다**(`flex: 0 0`) —
+   글이 길어지면 아이콘부터 찌그러져 무슨 일이었는지가 안 읽힌다 */
+.di-row { display: flex; gap: 8px; align-items: flex-start; }
+.di-ic { flex: 0 0 auto; font-size: 1rem; line-height: 1.5; }
+/* ⚠️ **웨이트 600 은 안 받아 온다.** 폰트 링크가 400·500·700·800·900 만 부르므로
+   600 을 적으면 브라우저가 700 을 깎아 흉내 낸다 (`checkTextStyle` 이 잡는다) */
+.di-txt { font-size: 0.84rem; font-weight: 500; line-height: 1.55; color: var(--ink); word-break: break-word; }
+/* 다녀간 이웃의 이름 — 밭 기록과 **같은 색으로 맞춘다**. 한 사람을 두 화면에서
+   다른 색으로 부르면 같은 사람인지 알아보는 데 한 박자가 더 든다 */
+.di-who { color: var(--text-pink); font-weight: 800; }

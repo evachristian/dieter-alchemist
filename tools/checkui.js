@@ -172,6 +172,17 @@ function launchOpts() {
   const run = async (label) => {
     // checkUI 는 async 다 — 여기서 await 하지 않으면 Promise 가 잡혀 0건으로 보인다
     const r = await page.evaluate(() => window.checkUI());
+    // VERBOSE 면 **무엇이 걸렸는지**까지 낸다. 숫자만 보고 원인을 찾느라
+    // 브라우저를 따로 띄우게 되는 일이 잦았다
+    if (process.env.VERBOSE && r.total) {
+      const rows = await page.evaluate(() => {
+        const t = window.checkTextStyle(), l = window.checkLayout();
+        // `rows` 에는 DOM 요소(`el`)가 들어 있어 그대로는 직렬화가 안 된다
+        return JSON.stringify([...(t.rows || []), ...(l.rows || [])]
+          .slice(0, 12).map(({ el, ...r }) => r), null, 1);
+      });
+      console.log(`\n--- ${label} ---\n${rows}`);
+    }
     results.push({ 화면: label, ...r, report: undefined });
   };
 
@@ -506,6 +517,66 @@ function launchOpts() {
           const rwBad2 = await page.evaluate(() => window.__cardFits('#raidResult'));
           if (rwBad2) results.push({ 화면: `${t}/다섯판승`, 오류: rwBad2 });
           await page.evaluate(() => closeRaidResult());
+          await page.waitForTimeout(150);
+        }
+
+        // **탐험 일지** — 사건마다 문장이 하나씩 붙는다.
+        //
+        // ⚠️ 여기서 재는 것은 대비·넘침만이 아니다. **모든 사건 열쇠를 하나씩 심어 보고
+        // 문장이 실제로 나오는지**를 본다 — 일지는 세이브에 id 만 담고 문장은 읽을 때
+        // 만들므로, 문구를 빠뜨리면 **그 줄이 조용히 사라진다** (`diaryLine` 이 빈
+        // 문자열을 돌려주고 렌더가 그 줄을 건너뛴다). 화면은 멀쩡해 보이는데 사건만 없다.
+        //
+        // 열쇠 목록은 `DIARY_ICON` 에서 가져온다 — 새 사건을 만들면 아이콘을 넣는
+        // 순간 이 검사가 그 열쇠까지 같이 본다 (검사기에 목록을 옮겨 적으면 어긋난다)
+        {
+          const diBad = await page.evaluate(() => {
+            const keys = Object.keys(window.DIARY_ICON || {});
+            if (keys.length < 5) return `사건 열쇠가 ${keys.length}개다`;
+            // 모든 문구가 쓸 수 있는 값을 한꺼번에 담는다. `diaryLine` 은 제가
+            // 필요한 것만 꺼내 쓰므로 남는 값은 그냥 안 쓰인다
+            const bag = {
+              id: 'unicorn', food: (D.FOODS[0] || {}).id, who: 'Wwwwwwwwwwww',
+              items: { firefly: 3, walnut: 2 }, attr: 'fire', map: D.MAPS[0].id,
+              n: 3, wins: 4, step: 2,
+            };
+            // **이틀에 나눠 심는다** — 날짜 묶음이 실제로 갈리는지 봐야 한다
+            const day = 24 * 60 * 60 * 1000;
+            S.diary = [];
+            S.diary = keys.map((k, i) => {
+              const d = new Date(Date.now() - (i < keys.length / 2 ? day : 0));
+              return { t: d.getTime(), y: d.getFullYear() - 1800, m: d.getMonth() + 1, d: d.getDate(), k, v: bag };
+            });
+            // 마지막 단계에 닿은 날은 문장이 따로다 — 그것도 같이 심는다
+            const now = new Date();
+            S.diary.push({ t: now.getTime(), y: now.getFullYear() - 1800, m: now.getMonth() + 1,
+              d: now.getDate(), k: 'di_slim', v: { ...bag, done: 1 } });
+            openDiary();
+            if (!document.getElementById('diaryModal').classList.contains('show')) return '시트가 안 떴다';
+            const rows = [...document.querySelectorAll('#diaryModal .di-row .di-txt')];
+            if (rows.length !== S.diary.length) {
+              return `줄이 ${rows.length}개다 (${S.diary.length} 기대) — 문구가 빠진 사건이 있다`;
+            }
+            // **끼울 값이 남아 있으면 안 된다.** `{who}` 가 그대로 보이는 것은
+            // 「문구는 있는데 값이 안 들어간」 자리다 — 눈으로는 잘 안 걸린다
+            const raw = rows.find(r => /[{}]/.test(r.textContent));
+            if (raw) return `끼우지 못한 값이 보인다: ${raw.textContent.slice(0, 40)}`;
+            // 조사 자리표가 그대로 남았는지 — 「이(가)」 같은 괄호는 문장을 무너뜨린다
+            const par = rows.find(r => /\(가\)|\(을\)|\(를\)|\(이\)/.test(r.textContent));
+            if (par) return `조사 괄호가 남았다: ${par.textContent.slice(0, 40)}`;
+            const days = document.querySelectorAll('#diaryModal .di-date').length;
+            if (days !== 2) return `날짜 묶음이 ${days}개다 (2 기대)`;
+            // 이웃 이름이 색으로 갈리는가 — 밭 기록과 같은 규칙이다
+            if (!document.querySelector('#diaryModal .di-who')) return '이웃 이름이 강조되지 않는다';
+            return null;
+          });
+          if (diBad) results.push({ 화면: `${t}/탐험일지`, 오류: diBad });
+          else { await page.waitForTimeout(280); await run(`${t}/탐험일지`); }
+          const diBad2 = await page.evaluate(() => window.__cardFits('#diaryModal'));
+          if (diBad2) results.push({ 화면: `${t}/탐험일지`, 오류: diBad2 });
+          // ⚠️ **심은 것을 치운다.** 남겨 두면 뒤에 오는 검사가 남의 값을 보게 된다
+          // (작물 검사와 부대 검사에서 실제로 두 번 겪었다)
+          await page.evaluate(() => { closeDiary(); S.diary = []; });
           await page.waitForTimeout(150);
         }
 
