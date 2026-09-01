@@ -691,6 +691,9 @@ body {
    화면보다 길어져 「닫기」가 화면 밖으로 나간다 (900px 창에서 1025px 로 잡혔다).
    탭 쪽은 페이지와 같이 스크롤되므로 안 잡는다 */
 #farmSheet .farm-body { max-height: 58vh; overflow-y: auto; }
+/* 결과 시트도 마찬가지다 — 다섯 줄 + 도장 + 전리품이면 265px 에서 900px 을
+   넘긴다 (세로로 17px 넘친 것을 검사기가 잡았다) */
+#raidResult .farm-body { max-height: 62vh; overflow-y: auto; }
 /* 탐험의 밭 탭 — 시트와 **같은 HTML** 이 들어오므로, 카드 껍데기만 여기서 씌운다
    (모달 안에서는 `.modal-card` 가 이미 그 노릇을 한다) */
 #gatherPanel-farm .farm-body {
@@ -714,7 +717,11 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 부대 시트의 다섯 자리는 **한 줄에 들어가야 한다** — 4+1 로 접히면 다섯이라는
    숫자가 눈에 안 들어오고, 밭의 칸 다섯과 나란히 읽히지도 않는다.
    좁은 화면(265px)에서도 들어가게 **폭을 나눠 갖는다** */
-.tm-row.big { gap: 6px; flex-wrap: nowrap; }
+/* ⚠️ **폭을 100% 로 못 박는다.** 이 줄이 들어가는 `.raid-item` 은
+   `align-items: flex-start` 라, 안 적어 두면 줄이 **부모가 아니라 제 내용 폭**
+   (40px×5+간격 = 224px)으로 서고 `flex: 1 1 0` 이 아무 일도 안 한다 —
+   157px 칸에서 79px 넘치고, 아래 칸 줄(width:100%)과 46px 어긋난다 */
+.tm-row.big { gap: 6px; flex-wrap: nowrap; width: 100%; }
 .tm-slot.big {
   flex: 1 1 0; min-width: 0; width: auto; aspect-ratio: 1;
   max-width: 56px; border-radius: 14px;
@@ -758,8 +765,16 @@ button.tm-slot:active { transform: scale(0.94); }
 .rr-side { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
 .rr-side svg { width: 24px; height: 24px; }
 .rr-vs { color: var(--text-lav); font-weight: 800; }
-.rr-mark { margin-left: auto; font-weight: 800; color: var(--text-lav); }
-.rr-row.won .rr-mark { color: var(--text-mint); }
+/* 「이김 / 짐」 — 글자 색만으로는 다섯 줄이 다 비슷해 보인다.
+   딱지로 만들어 **한눈에 세어지게** 한다 (색약이어도 테두리와 굵기로 갈린다) */
+.rr-mark { margin-left: auto; font-weight: 800; font-size: 0.78rem;
+  padding: 2px 10px; border-radius: 10px; letter-spacing: 0.04em;
+  color: var(--text-lav); background: var(--lav); border: 2px solid var(--lav-2); }
+/* ⚠️ 배경은 `--mint-2` 가 아니라 `--mint` 다. `--text-mint` 를 `--mint-2` 위에 얹으면
+   **4.30:1** 로 기준(4.5)에 못 미친다 — 검사기가 잡았다. 강조는 배경을 진하게 하는 대신
+   **테두리를 진하게** 해서 낸다 (대비를 안 깎는 방향) */
+.rr-row.won .rr-mark { color: var(--text-mint); background: var(--mint);
+  border-color: var(--text-mint); }
 
 /* ═══ 약탈 연출 (FARM.md 6단계) ═══════════════════════════════
    판이 **한 줄씩** 들어온다. 다섯을 한꺼번에 띄우면 「자리 대 자리」가
@@ -797,12 +812,21 @@ button.tm-slot:active { transform: scale(0.94); }
 
 /* 도장 — 다섯 판이 다 끝난 뒤 쿵 찍힌다. 겹쳐 놓지 않고 제 줄을 차지한다
    (겹치면 좁은 화면에서 글자 위에 올라앉는다) */
-.rr-stamp { display: block; margin: 12px auto 4px; width: fit-content;
-  padding: 5px 20px; border-radius: 12px; border: 3px solid var(--text-lav);
-  color: var(--text-lav); background: var(--cream);
-  font-size: 1.05rem; font-weight: 800; letter-spacing: 0.1em;
+/* 도장 — **이 시트에서 제일 큰 글자여야 한다.** 다섯 줄을 다 읽기 전에
+   이겼는지 졌는지가 먼저 들어와야 한다. 테두리를 두 겹으로 둘러 진짜 도장처럼 보이게
+   하고(`box-shadow` 로 바깥 테를 하나 더 그린다), 기울여 찍는다 */
+/* ⚠️ **폭을 박아 두지 않는다.** 한국어 「성공」은 두 글자지만 영어 `SUCCESS` 는
+   일곱 글자다 — 1.7rem 에 글자 사이도 벌려 두면 265px 카드(안쪽 205px)를
+   **71px 넘겼다.** 글자 크기와 좌우 여백을 화면 폭에 맞춰 준다 */
+.rr-stamp { display: block; margin: 16px auto 6px; width: fit-content; max-width: 100%;
+  padding: 8px clamp(12px, 6vw, 30px); border-radius: 14px; border: 4px solid var(--text-lav);
+  box-shadow: 0 0 0 3px var(--cream), 0 0 0 6px var(--lav-2);
+  color: var(--text-lav); background: var(--lav);
+  font-size: clamp(1.1rem, 7vw, 1.7rem); font-weight: 800;
+  letter-spacing: 0.12em; line-height: 1.25;
   animation: rr-stamp 0.42s cubic-bezier(.3,1.5,.5,1) both; }
-.rr-stamp.win { border-color: var(--text-mint); color: var(--text-mint); background: var(--mint); }
+.rr-stamp.win { border-color: var(--text-mint); color: var(--text-mint); background: var(--mint);
+  box-shadow: 0 0 0 3px var(--cream), 0 0 0 6px var(--mint-2); }
 .rr-fin { text-align: center; font-size: 0.82rem; font-weight: 700;
   color: var(--ink); margin: 0 0 8px; animation: rr-in 0.3s ease-out both; }
 
@@ -821,6 +845,32 @@ button.tm-slot:active { transform: scale(0.94); }
 .rr-crop-tag { display: block; text-align: center; font-size: 0.7rem; font-weight: 800;
   color: var(--text-mint); letter-spacing: 0.04em; margin-bottom: 2px;
   animation: rr-in 0.3s ease-out both; }
+
+/* ═══ 가기 전에 보이는 밭 (FARM.md 9-3) ═══════════════════════
+   **지키개 줄과 같은 다섯 칸**이다. 세로로 읽으면 「3번을 이기면 3번 칸」이 보인다 —
+   `grid` 로 다섯 등분해야 자리가 맞는다. flex 로 두면 내용 길이에 따라 밀린다 */
+.plot-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+  width: 100%; margin: 2px 0 4px; }
+.ps-cell { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; min-width: 0; padding: 4px 2px; border-radius: 10px;
+  background: var(--cream); border: 2px solid var(--line);
+  font-size: 0.86rem; line-height: 1.1; }
+.ps-cell b { font-size: 0.72rem; font-weight: 800; color: var(--ink); }
+/* 다 자란 작물 — **여기가 서리하러 가는 이유다.** 제일 눈에 띄어야 한다 */
+.ps-cell.crop { background: var(--mint); border-color: var(--text-mint); }
+.ps-cell.crop b { color: var(--text-mint); }
+/* 자라는 중 — 이겨도 못 가져간다. 흐리게 하지 않고 **다른 색**으로 구분한다
+   (흐리게 하면 「빈 칸」과 헷갈린다 — 뜻이 정반대다) */
+.ps-cell.grow { background: var(--lav); border-color: var(--lav-2); }
+.ps-cell.grow { color: var(--text-lav); }
+.ps-cell.ears { background: var(--pink); border-color: var(--pink-2); }
+.ps-cell.ears b { color: var(--text-pink); }
+.ps-cell.none { color: var(--ink-soft); border-style: dashed; }
+.ps-sum { display: block; font-size: 0.76rem; font-weight: 800; color: var(--ink); }
+.ps-sum.crop { color: var(--text-mint); }
+/* **「없다」는 흐리게 적지 않는다** — 가장 중요한 말이다 */
+.ps-sum.bad { color: var(--text-pink); }
+.ps-floor { display: block; font-size: 0.7rem; font-weight: 700; color: var(--ink-soft); }
 
 /* 움직임을 줄여 달라고 한 사람에게는 **결과만** 준다.
    평소 상태가 곧 끝 상태라 애니메이션만 끄면 된다 */

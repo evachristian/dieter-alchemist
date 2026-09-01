@@ -5103,7 +5103,11 @@ const countOfObj = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
 // 부대 한 줄 — 다섯 자리를 작게 늘어놓는다.
 // **번호를 붙인다.** 자리 번호가 곧 칸 번호이자 붙는 상대의 번호라, 번호가 없으면
 // 「몇 번이 몇 번과 붙는지」를 눈으로 셀 수가 없다
-function teamRow(team, kind, vs) {
+// `wide` 를 주면 **다섯이 폭을 나눠 갖고 한 줄에 선다**(`.tm-row.big`).
+// 이웃 밭 목록에서 꼭 필요하다 — 아래의 칸 다섯과 **세로로 맞춰 읽는** 줄이라
+// 4+1 로 접히는 순간 「3번을 이기면 3번 칸」이라는 연결이 통째로 깨진다
+// (265px 에서 3번끼리 46px 어긋난 것을 검사기가 잡았다)
+function teamRow(team, kind, vs, wide) {
   // 내 줄이면 **자리마다 누를 수 있다** — 3번을 바꾸려고 1번부터 짚어 갈 이유가 없다.
   // 상대 줄('foe')은 누를 것이 아니므로 그냥 칸이다
   const own = kind === 'def' || kind === 'atk';
@@ -5118,14 +5122,16 @@ function teamRow(team, kind, vs) {
     const tag = vs ? matchTag(vs[i] ? creatureOf(vs[i].id) : null, b) : null;
     const inner = `<span class="tm-no">${i + 1}</span>
       ${c && window.Creature ? Creature.icon(c, 26) : ''}`;
-    const cls = `tm-slot${tag ? ' ' + tag.k : ''}${b ? '' : ' off'}`;
+    // ⚠️ `big` 은 **줄과 칸 양쪽에** 붙어야 한다. 줄에만 붙이면 `nowrap` 만 걸리고
+    // 칸은 40px 로 박혀 있어서 다섯이 그대로 밖으로 밀려 나간다 (157px 칸에 236px)
+    const cls = `tm-slot${wide ? ' big' : ''}${tag ? ' ' + tag.k : ''}${b ? '' : ' off'}`;
     const st = attr ? `style="--at:${attr.color}"` : '';
     cells.push(own
       ? `<button class="${cls}" ${st} onclick="openTeam('${kind}', ${i})"
           aria-label="${T('team_slot_n', { n: i + 1 })}">${inner}</button>`
       : `<span class="${cls}" ${st}>${inner}</span>`);
   }
-  return `<div class="tm-row">${cells.join('')}</div>`;
+  return `<div class="tm-row${wide ? ' big' : ''}">${cells.join('')}</div>`;
 }
 
 // **처음 열면 센 다섯을 세워 준다.** 빈 밭은 그냥 털리는 밭이라,
@@ -5540,7 +5546,9 @@ function renderRaidList() {
   if (head) {
     head.innerHTML = `<div class="farm-row farm-logk">${T('raid_mine')}
       <button class="tm-edit" onclick="openTeam('atk')">${T('team_edit')}</button></div>`
-      + teamRow(mine.map(x => (x ? { id: x.id, attr: (creatureOf(x.id) || {}).attr } : null)), 'atk');
+      // 내 출정대도 **한 줄에 다섯**이다. 바로 아래 이웃 밭들이 한 줄로 서는데
+      // 이것만 3+2 로 접히면 같은 다섯인지 눈에 안 들어온다
+      + teamRow(mine.map(x => (x ? { id: x.id, attr: (creatureOf(x.id) || {}).attr } : null)), 'atk', null, true);
   }
   list.innerHTML = RAIDS.map((t, i) => {
     // **상성을 자리마다 미리 보여 준다.** 순환(불➔땅➔바람➔물, 빛↔암흑)을 쓰는
@@ -5561,10 +5569,84 @@ function renderRaidList() {
     return `<button class="pal-item raid-item" onclick="doRaid(${i})">
       <span class="raid-name">${escHtml(t.name)}
         <span class="raid-tag ${tag.k}">${tag.txt}</span></span>
-      ${teamRow(def, 'foe', mine)}
-      <span class="pd-items raid-crop">${stashLine(t.stash)}</span>
+      ${teamRow(def, 'foe', mine, true)}
+      ${plotStrip(t)}
     </button>`;
   }).join('');
+}
+
+// ═══ 가기 전에 보이는 밭 (FARM.md 9-3) ═══════════════════════
+//
+// **「가 보니 아무것도 없었다」를 없앤다.** 예전에는 이삭 개수 한 줄만 보여 줬는데,
+// 그것만으로는 세 가지를 알 수 없었다:
+//   ① 어느 «칸»에 있나 — 자리 번호 = 칸 번호라 **이길 자리가 정해져 있다.**
+//      이삭이 1번 칸에만 있으면 2~5번을 다 이겨도 빈손이다 (실제로 신고가 왔다)
+//   ② 작물이 **다 자랐나** — 자라는 중인 칸은 이겨도 안 건드린다
+//   ③ **바닥**에 걸리나 — 하루치는 못 가져간다
+//
+// 그래서 칸 다섯을 **지키개 줄 바로 아래, 같은 다섯 칸으로** 그린다.
+// 세로로 읽으면 「3번 크리처를 이기면 → 3번 칸의 🌶 를 가져온다」가 한눈에 보인다.
+// 가로로 늘어놓기만 하고 자리를 안 맞추면 이 연결이 통째로 사라진다.
+function plotStrip(t) {
+  const plots = Array.isArray(t.plots) ? t.plots : [];
+  const now = (FARM && FARM.now) || Date.now();
+  const cells = [];
+  let takeable = 0;                 // 다 자란 작물이 있는 칸 (이겨서 바로 나오는 칸)
+  let earsSeen = 0;                 // 칸에 보이는 이삭 합계
+  let soon = null;                  // 제일 먼저 다 자라는 칸
+  for (let i = 0; i < 5; i++) {
+    const p = plots[i];
+    if (!p) { cells.push(`<span class="ps-cell none" aria-hidden="true">·</span>`); continue; }
+    if (p.crop) {
+      const ripe = (p.ready || 0) <= now;
+      // ⚠️ **이모지는 `FARM_CROPS` 에 없다.** 그 표는 축(속성·시간·개수·값)만 갖고,
+      // 이모지와 이름은 재료 표에 있다 — `itemOf()` 를 지나야 한다.
+      // 처음에 `c.emoji` 로 썼다가 칸에 글자 「undefined」가 그대로 찍혔다 (검사기가 잡았다)
+      const it = itemOf(p.crop);
+      const emo = (it && it.emoji) || '🌱';
+      if (ripe) {
+        takeable++;
+        cells.push(`<span class="ps-cell crop" title="${T('ps_ripe')}">${emo}<b>${p.n || 0}</b></span>`);
+      } else {
+        // **자라는 중인 칸은 이겨도 못 가져간다.** 그것을 «가기 전에» 알려 준다 —
+        // 모르면 여기를 노리고 순서를 짜게 된다.
+        // ⚠️ 남은 시간을 «칸 안»에 적지 않는다 — 265px 에서 칸 하나가 30px 인데
+        // 「6시간」은 그보다 넓고, 11px 밑으로 줄이면 글자 크기 기준에 걸린다.
+        // 자리는 칸이 알려 주고, 시간은 아래 요약 줄이 말한다
+        if (!soon || (p.ready || 0) < soon.at) soon = { at: p.ready || 0, i: i + 1 };
+        cells.push(`<span class="ps-cell grow" title="${T('ps_grow')}">⏳</span>`);
+      }
+      continue;
+    }
+    const ears = p.ears || 0;
+    if (ears > 0) { earsSeen += ears; cells.push(`<span class="ps-cell ears">🌾<b>${ears}</b></span>`); }
+    else cells.push(`<span class="ps-cell none" aria-hidden="true">·</span>`);
+  }
+  // 바닥 — 서버가 그 사람의 하루치로 계산해 보내 준다.
+  // **이삭에만 걸린다** (작물은 안 걸린다)
+  const floor = Math.max(0, t.floor || 0);
+  const ears = Math.max(0, t.count || earsSeen);
+  const canTake = Math.max(0, ears - floor);
+  const hasCrop = takeable > 0;
+  // ⚠️ **이삭이 보인다고 가져갈 수 있는 것이 아니다.** 바닥(하루치)에 걸리면
+  // 이삭이 네 개 있어도 한 개도 못 가져간다 — 처음에 「이삭이 있으면 가져갈 수 있다」로
+  // 세었다가 검사기가 잡았다. 여기가 이 미리보기를 만든 이유 그 자체다
+  const anything = hasCrop || canTake > 0;
+  // 한 줄 요약. **「없다」를 분명히 말한다** — 흐리게 적으면 가 보고 나서야 안다
+  const sum = !anything
+    ? `<span class="ps-sum bad">${T('ps_nothing')}</span>`
+    : `<span class="ps-sum${hasCrop ? ' crop' : ''}">${
+        hasCrop ? T('ps_has_crop', { n: takeable }) : T('ps_has', { n: canTake })}</span>`;
+  const notes = [];
+  if (soon) notes.push(T('ps_grow_at', { n: soon.i, t: leftText(Math.max(60000, soon.at - now)) }));
+  if (!hasCrop && floor > 0 && canTake < ears) notes.push(T('ps_floor', { n: floor }));
+  const note = notes.length ? `<span class="ps-floor">${notes.join(' · ')}</span>` : '';
+  // **무엇이 있는지는 여전히 적는다.** 칸 줄은 「어느 칸에 · 가져갈 수 있나」를 말하고
+  // 이 줄은 「무엇이」를 말한다 — 처음에 이 줄을 빼 버렸더니 재료 이름이 통째로
+  // 화면에서 사라졌다 (`checkfarm` 이 잡았다)
+  const what = (t.stash && Object.keys(t.stash).length)
+    ? `<span class="pd-items raid-crop">${stashLine(t.stash)}</span>` : '';
+  return `<span class="plot-strip">${cells.join('')}</span>${sum}${note}${what}`;
 }
 
 // 내 부대 — 서버의 `teamOf()` 와 **같은 규칙**이다 (안 짰으면 애착·동행이 1번 자리).
@@ -5641,6 +5723,17 @@ async function doRaid(i) {
 // 시점은 **「우리 애들」**이다. 플레이어가 아니라 크리처가 다녀온다 —
 // 코지 게임이라 «남을 비웃는 농담»은 안 만든다. 웃음거리는 늘 우리 쪽이다.
 
+// 두 벌 중 하나를 고른다. **크리처 조합으로 고정한다** — `Math.random()` 이면
+// 다시 그릴 때마다 말이 바뀌어 「내가 잘못 읽었나」가 된다 (날씨와 같은 이유다).
+// 문구가 한 벌뿐이면 세 번째 판부터는 아무도 안 읽는다
+function pickQuip(key, a, b) {
+  const seed = String(a || '') + '|' + String(b || '');
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const alt = key + '2';
+  return (h & 1) && I18N && I18N.t(alt) !== alt ? alt : key;
+}
+
 // 한 판의 한 마디. 이긴 쪽/진 쪽과 **속성 상성**을 같이 본다
 function roundQuip(mine, theirs, win) {
   // **내 자리가 빈 것을 먼저 본다.** 상대 자리가 비었다고 말해 주는 것보다
@@ -5651,10 +5744,11 @@ function roundQuip(mine, theirs, win) {
   const b = D.CREATURE_ATTRS.find(x => x.k === theirs.attr);
   const iBeat = !!(a && a.beats === theirs.attr);
   const theyBeat = !!(b && b.beats === mine.attr);
-  if (win && iBeat) return { key: 'rq_beat_' + mine.attr, attr: true };
-  if (win && theyBeat) return { key: 'rq_upset', attr: true };
+  const two = (k, hard) => ({ key: pickQuip(k, mine.id, theirs.id), attr: hard });
+  if (win && iBeat) return two('rq_beat_' + mine.attr, true);
+  if (win && theyBeat) return two('rq_upset', true);
   if (win) return { key: 'rq_win', attr: false };
-  if (theyBeat) return { key: 'rq_counter', attr: true };
+  if (theyBeat) return two('rq_counter', true);
   return { key: 'rq_lose', attr: false };
 }
 

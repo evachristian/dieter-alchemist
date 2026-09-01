@@ -783,17 +783,32 @@ function launchOpts() {
           S.creatures = [...new Set([...(S.creatures || []), 'ember_phoenix', 'flame_fox'])];
           S.farmAtk = ['ember_phoenix', 'flame_fox', null, null, null];
           S.petField = 'ember_phoenix';
+          // ⚠️ **칸(plots)도 같이 심는다.** 안 심으면 미리보기가 전부 「빈 칸」으로
+          // 그려져 **작물 · 자라는 중 · 이삭 세 가지를 한 번도 안 잰다** —
+          // 색도 크기도 다 다른 칸들이라 그 상태가 통과로 나오면 아무 의미가 없다
+          const now = (FARM && FARM.now) || Date.now();
+          const crop = (D.FARM_CROPS || [])[0];
           RAIDS = [
-            // 불 > 땅 = 유리한 자리가 많다
+            // 불 > 땅 = 유리한 자리가 많다. **네 가지 칸이 다 나오는 밭**이다
             { name: 'Wwwwwwwwwwww', charm: 999, count: 15, stash: { walnut: 9, wheat: 6 },
+              floor: 6,
+              plots: [
+                { crop: crop && crop.id, ready: now - 1000, n: 3, ears: 0 },   // 다 자란 작물
+                { crop: crop && crop.id, ready: now + 6 * 3600e3, n: 3, ears: 0 }, // 자라는 중
+                { crop: null, ready: 0, n: 0, ears: 9 },                        // 이삭
+                { crop: null, ready: 0, n: 0, ears: 6 },
+                { crop: null, ready: 0, n: 0, ears: 0 },                        // 빈 칸
+              ],
               def: [b('boulder_bear', 'earth'), b('moss_deer', 'earth'), null, null, null] },
-            // 물 > 불 = 불리
-            { name: '물의수호자', charm: 300, count: 4, stash: { dew: 4 },
+            // 물 > 불 = 불리. **바닥에 걸려 가져갈 게 없는 밭** (이삭 4 · 바닥 6)
+            { name: '물의수호자', charm: 300, count: 4, stash: { dew: 4 }, floor: 6,
+              plots: [{ crop: null, ready: 0, n: 0, ears: 4 }, { crop: null, ready: 0, n: 0, ears: 0 }],
               def: [b('deepsea_whale', 'water'), b('coral_seahorse', 'water'), null, null, null] },
-            // 보통 (순환에 없는 짝)
-            { name: '밭주인', charm: 220, count: 9, stash: { firefly: 9 },
+            // 보통 (순환에 없는 짝) — 이삭만 있고 바닥 위로 남는 밭
+            { name: '밭주인', charm: 220, count: 9, stash: { firefly: 9 }, floor: 6,
+              plots: [{ crop: null, ready: 0, n: 0, ears: 9 }, { crop: null, ready: 0, n: 0, ears: 0 }],
               def: [b('unicorn', 'light'), null, null, null, null] },
-            // 지키개가 하나도 없는 밭
+            // 지키개가 하나도 없는 밭 · 칸도 안 온 밭 (옛 서버라면 plots 가 없다)
             { name: '빈터', charm: 10, count: 2, stash: { sun_seed: 2 },
               def: [null, null, null, null, null] },
           ];
@@ -803,7 +818,31 @@ function launchOpts() {
           renderRaidList();
           const tags = [...document.querySelectorAll('#raidList .raid-tag')].map(x => x.className);
           const kinds = new Set(tags.map(c => c.replace('raid-tag ', '')));
-          return kinds.size === 3 ? null : `상성 딱지가 ${[...kinds].join('/')} 뿐이다 (셋 다 나와야 한다)`;
+          if (kinds.size !== 3) return `상성 딱지가 ${[...kinds].join('/')} 뿐이다 (셋 다 나와야 한다)`;
+          // ── 가기 전에 보이는 밭 ──
+          const rows = document.querySelectorAll('#raidList .raid-item');
+          const strip = rows[0].querySelectorAll('.plot-strip .ps-cell');
+          if (strip.length !== 5) return `칸이 ${strip.length}개다 (자리 다섯과 같아야 한다)`;
+          // **네 가지가 다 그려지는가** — 색도 뜻도 다 다르다
+          for (const k of ['crop', 'grow', 'ears', 'none']) {
+            if (!rows[0].querySelector('.ps-cell.' + k)) return `${k} 칸이 안 그려진다`;
+          }
+          // **자리 번호 = 칸 번호**가 화면에서도 맞는가 — 지키개 줄과 칸 줄의
+          // 같은 번호가 가로로 같은 자리에 있어야 세로로 읽힌다
+          const foe = rows[0].querySelectorAll('.tm-slot, .tm-cell');
+          if (foe.length === 5) {
+            const fx = foe[2].getBoundingClientRect(), px = strip[2].getBoundingClientRect();
+            const off = Math.abs((fx.left + fx.right) / 2 - (px.left + px.right) / 2);
+            if (off > 12) return `3번 지키개와 3번 칸이 ${Math.round(off)}px 어긋났다`;
+          }
+          // 바닥에 걸린 밭은 「없다」고 말해야 한다 (이삭 4 · 바닥 6)
+          if (!rows[1].querySelector('.ps-sum.bad')) return '바닥에 걸린 밭이 「없다」고 안 알린다';
+          // 바닥 위로 남는 밭은 개수를 알려 준다 (이삭 9 · 바닥 6 → 3)
+          const sum3 = rows[2].querySelector('.ps-sum');
+          if (!sum3 || !/3/.test(sum3.textContent)) return `가져갈 수 있는 개수가 틀렸다 (${sum3 && sum3.textContent})`;
+          // 칸이 안 온 밭(옛 서버)에서도 안 죽는가
+          if (!rows[3].querySelector('.plot-strip')) return '칸이 없는 밭에서 미리보기가 통째로 빠졌다';
+          return null;
         });
         if (rdBad) results.push({ 화면: `${t}/이웃밭`, 오류: rdBad });
         else {

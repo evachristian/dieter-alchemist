@@ -421,6 +421,10 @@ app.get('/api/raid/targets/:playerId', async (req, res) => {
       // 이 시스템의 목적은 무엇이 왜 유리한지를 배우게 하는 것이다 (FARM.md 5장)
       list.push({
         name: p.name, charm: p.charm, count: n, stash,
+        // **바닥을 같이 보낸다** — 「이겼는데 왜 빈손이지」를 가기 전에 없앤다.
+        // 남의 비밀이 아니다: 하루 생산량은 지키개 다섯에서 이미 다 보이는 값이고,
+        // 이것을 감추면 플레이어는 규칙을 결과로만 배우게 된다 (그게 신고로 왔다)
+        floor: B.earsFloor(p.state || {}),
         plots: (farm.plots || []).map(x => ({
           crop: x.crop || null, ready: x.ready || 0, n: x.n || 0,
           ears: B.countOf(x.stash),
