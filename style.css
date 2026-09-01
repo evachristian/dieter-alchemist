@@ -761,6 +761,73 @@ button.tm-slot:active { transform: scale(0.94); }
 .rr-mark { margin-left: auto; font-weight: 800; color: var(--text-lav); }
 .rr-row.won .rr-mark { color: var(--text-mint); }
 
+/* ═══ 약탈 연출 (FARM.md 6단계) ═══════════════════════════════
+   판이 **한 줄씩** 들어온다. 다섯을 한꺼번에 띄우면 「자리 대 자리」가
+   표로 보이고 승부가 안 된다 — 순서가 곧 전략인데 그 순서가 안 보인다.
+
+   ⚠️ **setTimeout 으로 줄을 붙이지 않는다.** 그러면 검증기가 재는 순간에는
+   아직 안 붙은 줄이 있어서 **없는 것으로 세어 통과**한다 (a11y.js 의
+   「안보여서건너뜀」). CSS 애니메이션 + animation-delay 로 하면
+   `settle()` 의 `a.finish()` 가 전부 끝 상태로 보내 준다.
+   그래서 **평소 상태(애니메이션 없음)가 곧 다 보이는 상태**여야 한다 —
+   숨기는 것은 키프레임의 from 쪽이고 `both` 가 그것을 시작 전까지 붙든다 */
+@keyframes rr-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes rr-stamp {
+  0%   { opacity: 0; transform: scale(1.6) rotate(-14deg); }
+  60%  { opacity: 1; transform: scale(0.92) rotate(-4deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-6deg); }
+}
+@keyframes rr-pop {
+  0%   { opacity: 0; transform: scale(0.4) translateY(8px); }
+  70%  { opacity: 1; transform: scale(1.12) translateY(-3px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.rr-row { animation: rr-in 0.34s cubic-bezier(.34,1.28,.5,1) both;
+  animation-delay: calc(var(--i, 0) * 0.18s); }
+/* 판마다 한 마디 — **줄을 새로 만들지 않고 아래에 붙인다.**
+   따로 띄우면 다섯 줄이 열 줄이 되어 265px 에서 시트가 넘친다 */
+.rr-quip { flex-basis: 100%; font-size: 0.72rem; font-weight: 700;
+  color: var(--text-lav); margin-top: 1px; }
+.rr-row.won .rr-quip { color: var(--text-mint); }
+/* 상성으로 이긴 판은 한 마디가 **진해진다** — 여기가 제일 알려 주고 싶은 자리다 */
+.rr-quip.attr { color: var(--ink); }
+
+/* 도장 — 다섯 판이 다 끝난 뒤 쿵 찍힌다. 겹쳐 놓지 않고 제 줄을 차지한다
+   (겹치면 좁은 화면에서 글자 위에 올라앉는다) */
+.rr-stamp { display: block; margin: 12px auto 4px; width: fit-content;
+  padding: 5px 20px; border-radius: 12px; border: 3px solid var(--text-lav);
+  color: var(--text-lav); background: var(--cream);
+  font-size: 1.05rem; font-weight: 800; letter-spacing: 0.1em;
+  animation: rr-stamp 0.42s cubic-bezier(.3,1.5,.5,1) both; }
+.rr-stamp.win { border-color: var(--text-mint); color: var(--text-mint); background: var(--mint); }
+.rr-fin { text-align: center; font-size: 0.82rem; font-weight: 700;
+  color: var(--ink); margin: 0 0 8px; animation: rr-in 0.3s ease-out both; }
+
+/* 전리품 — 하나씩 통통 튀어 들어온다. **특수 작물은 크게** 나온다:
+   이삭은 매일 쌓이는 것이고 작물은 남이 심어 기다린 것이라, 같은 크기로
+   내놓으면 약탈의 목적이 화면에서 사라진다 */
+.rr-loot { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 2px 0 4px; }
+.rr-item { display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 14px; background: var(--cream);
+  font-size: 0.8rem; font-weight: 700; color: var(--ink);
+  animation: rr-pop 0.34s cubic-bezier(.3,1.5,.5,1) both;
+  animation-delay: calc(var(--d, 0s) + var(--i, 0) * 0.11s); }
+.rr-item .rr-n { color: var(--text-lav); }
+.rr-item.crop { background: var(--mint); font-size: 0.9rem; padding: 6px 13px; }
+.rr-item.crop .rr-n { color: var(--text-mint); }
+.rr-crop-tag { display: block; text-align: center; font-size: 0.7rem; font-weight: 800;
+  color: var(--text-mint); letter-spacing: 0.04em; margin-bottom: 2px;
+  animation: rr-in 0.3s ease-out both; }
+
+/* 움직임을 줄여 달라고 한 사람에게는 **결과만** 준다.
+   평소 상태가 곧 끝 상태라 애니메이션만 끄면 된다 */
+@media (prefers-reduced-motion: reduce) {
+  .rr-row, .rr-stamp, .rr-fin, .rr-item, .rr-crop-tag { animation: none; }
+}
+
 /* 이웃 밭 한 칸 — 이름 · 지키개 · 이삭 · 상성을 **세로로** 쌓는다.
    가로로 두면 이름이 긴 사람에서 상성 딱지가 밀려 나간다 */
 .raid-item { flex-direction: column; align-items: flex-start; gap: 4px; }

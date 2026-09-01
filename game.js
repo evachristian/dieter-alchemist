@@ -5628,17 +5628,58 @@ async function doRaid(i) {
   render();
 }
 
+// ═══ 약탈 연출 (FARM.md 6단계) ═══════════════════════════════
+//
 // 다섯 판을 **한 줄씩** 보여 준다. 토스트 한 줄로는 「어느 자리에서 졌는지」를
 // 못 알려 주고, 그걸 모르면 다음에 순서를 바꿔 볼 수가 없다 — 이 시스템의 목적이
-// 「무엇이 왜 유리했는지 배우는 것」이라 결과가 곧 다음 판의 설명이어야 한다
+// 「무엇이 왜 유리했는지 배우는 것」이라 결과가 곧 다음 판의 설명이어야 한다.
+//
+// **개그는 지어내지 않는다.** 한 마디가 전부 «실제로 일어난 상태»에서 나온다 —
+// 상성으로 이겼나 · 빈자리였나 · 이겼는데 바닥이라 빈손인가. 그래서 웃긴 줄이
+// 곧 제일 쓸모 있는 줄이다. 지어낸 농담을 얹으면 두 번째 볼 때부터는 방해가 된다.
+//
+// 시점은 **「우리 애들」**이다. 플레이어가 아니라 크리처가 다녀온다 —
+// 코지 게임이라 «남을 비웃는 농담»은 안 만든다. 웃음거리는 늘 우리 쪽이다.
+
+// 한 판의 한 마디. 이긴 쪽/진 쪽과 **속성 상성**을 같이 본다
+function roundQuip(mine, theirs, win) {
+  // **내 자리가 빈 것을 먼저 본다.** 상대 자리가 비었다고 말해 주는 것보다
+  // 「보낼 애가 없었다」가 훨씬 쓸모 있다 — 채우면 바로 나아지는 자리다
+  if (!mine) return { key: 'rq_noone', attr: false };
+  if (!theirs) return { key: 'rq_empty', attr: false };     // 빈자리를 이겼다
+  const a = D.CREATURE_ATTRS.find(x => x.k === mine.attr);
+  const b = D.CREATURE_ATTRS.find(x => x.k === theirs.attr);
+  const iBeat = !!(a && a.beats === theirs.attr);
+  const theyBeat = !!(b && b.beats === mine.attr);
+  if (win && iBeat) return { key: 'rq_beat_' + mine.attr, attr: true };
+  if (win && theyBeat) return { key: 'rq_upset', attr: true };
+  if (win) return { key: 'rq_win', attr: false };
+  if (theyBeat) return { key: 'rq_counter', attr: true };
+  return { key: 'rq_lose', attr: false };
+}
+
+// 마지막 한 마디. **빈손이 우선이다** — 「이겼는데 가져올 게 없다」는
+// 바닥 규칙(RAID_FLOOR_DAYS)이 만든 진짜 상태라, 웃기면서 규칙을 알려 준다.
+// 전승 자랑보다 이쪽을 먼저 보여 줘야 「왜 빈손이지?」가 안 남는다
+function finalQuip(b, gotN) {
+  const wins = b.wins || 0;
+  if (!b.win) return wins === 0 ? 'rf_zero' : 'rf_lose';
+  if (!gotN) return 'rf_nothing';
+  if (wins >= (b.rounds || []).length) return 'rf_perfect';
+  if (wins === (b.winNeed || 3)) return 'rf_close';
+  return 'rf_win';
+}
+
 function showRaidResult(name, b) {
   const el = document.getElementById('raidResult');
   if (!el) return;
   const ti = document.getElementById('raidResTitle');
-  if (ti) {
-    ti.textContent = T(b.win ? 'rr_win' : 'rr_lose',
-      { who: name, w: b.wins, l: (b.rounds || []).length - b.wins });
-  }
+  // **「서리해 왔어요」는 진짜 가져왔을 때만.** 이겼어도 빈손일 수 있다
+  // (이긴 자리의 칸이 비었거나 바닥에 걸렸거나) — 그때까지 자랑하면
+  // 제목과 본문이 서로 다른 말을 한다
+  const gotN = Object.keys(b.items || {}).length;
+  if (ti) ti.textContent = T(b.win && gotN ? 'rr_head_win' : 'rr_head', { who: name });
+
   const body = document.getElementById('raidResBody');
   if (body) {
     const mine = b.mine || [], def = b.def || [];
@@ -5648,19 +5689,56 @@ function showRaidResult(name, b) {
         ? `${window.Creature ? Creature.icon(c, 24) : ''} ${N(c.id, c.name)}`
         : `<span class="farm-none">${T('rr_none')}</span>`;
     };
-    const rows = (b.rounds || []).map(r => `<div class="rr-row${r.win ? ' won' : ''}">
+    const rounds = b.rounds || [];
+    // `--i` 가 곧 들어오는 차례다. **CSS 가 늦추고 JS 는 안 늦춘다** —
+    // setTimeout 으로 붙이면 검증기가 재는 순간 없는 줄이 생긴다 (style.css 주석)
+    const rows = rounds.map((r, k) => {
+      const q = roundQuip(mine[r.i], def[r.i], r.win);
+      return `<div class="rr-row${r.win ? ' won' : ''}" style="--i:${k}">
       <span class="tm-no">${r.i + 1}</span>
       <span class="rr-side">${cell(mine[r.i])}</span>
       <span class="rr-vs">vs</span>
       <span class="rr-side">${cell(def[r.i])}</span>
       <span class="rr-mark">${T(r.win ? 'rr_won' : 'rr_lost')}</span>
-    </div>`).join('');
-    const got = Object.keys(b.items || {}).length
-      ? `<div class="farm-row"><span class="farm-k">${T('rr_got')}</span>
-         <span class="pd-items">${stashLine(b.items)}</span></div>`
-      // **세 판을 못 이기면 빈손이다** — 두 판을 이겼어도 그렇다. 그 말을 적어 준다
-      : `<div class="farm-hint">${T('rr_empty', { n: b.winNeed || 3 })}</div>`;
-    body.innerHTML = `<div class="rr-list">${rows}</div>` + got;
+      <span class="rr-quip${q.attr ? ' attr' : ''}">${T(q.key)}</span>
+    </div>`;
+    }).join('');
+
+    // 도장과 그 뒤는 **판이 다 지나간 뒤에** 온다. 초 단위를 여기서 한 번만 계산해
+    // CSS 변수로 넘긴다 — 값이 두 군데 있으면 판 수를 바꿀 때 한쪽만 고치게 된다
+    const after = (rounds.length * 0.18 + 0.2).toFixed(2) + 's';
+    const stamp = `<span class="rr-stamp${b.win ? ' win' : ''}"
+      style="animation-delay:${after}">${T(b.win ? 'rr_stamp_win' : 'rr_stamp_lose')}</span>`;
+
+    const items = b.items || {};
+    const ids = Object.keys(items);      // gotN 과 같은 값이다 (위에서 제목이 먼저 쓴다)
+    const lootAt = (rounds.length * 0.18 + 0.62).toFixed(2) + 's';
+    const isCrop = id => (D.FARM_CROPS || []).some(c => c.id === id);
+    const anyCrop = ids.some(isCrop);
+    // **특수 작물을 앞에, 크게.** 이삭은 매일 쌓이지만 작물은 남이 심어 기다린 것이라
+    // 같은 크기로 내놓으면 약탈의 목적이 화면에서 사라진다
+    const sorted = ids.slice().sort((x, y) => (isCrop(y) ? 1 : 0) - (isCrop(x) ? 1 : 0));
+    const loot = ids.length
+      ? (anyCrop ? `<span class="rr-crop-tag" style="animation-delay:${lootAt}">${T('rr_crop')}</span>` : '')
+        + `<div class="rr-loot">` + sorted.map((id, k) => {
+          const it = itemOf(id);
+          const crop = isCrop(id);
+          return `<span class="rr-item${crop ? ' crop' : ''}"
+            style="--i:${k};--d:${lootAt}">${it ? it.emoji : ''} ${N(id, it ? it.name : id)}
+            <b class="rr-n">×${items[id]}</b></span>`;
+        }).join('') + `</div>`
+      : '';
+
+    const fin = `<div class="rr-fin" style="animation-delay:${
+      (rounds.length * 0.18 + 0.5).toFixed(2)}s">${T(finalQuip(b, ids.length))}</div>`;
+    // **세 판을 못 이기면 빈손이다** — 두 판을 이겼어도 그렇다. 그 말을 적어 준다
+    // ⚠️ **「{n}판 이상 이겨야」는 못 이겼을 때만 맞는 말이다.**
+    // 예전에는 가져온 것이 없으면 이겼는데도 이 줄이 떴다 — 4승 1패인데
+    // 「3판 이상 이겨야」라고 적혀 있으면 규칙을 거꾸로 배운다 (신고받았다).
+    // 이긴 채로 빈손인 이유는 따로 있고 그것은 `rf_nothing` 이 말해 준다
+    const why = (!b.win)
+      ? `<div class="farm-hint">${T('rr_empty', { n: b.winNeed || 3 })}</div>` : '';
+    body.innerHTML = `<div class="rr-list">${rows}</div>${stamp}${fin}${loot}${why}`;
   }
   el.classList.add('show');
 }

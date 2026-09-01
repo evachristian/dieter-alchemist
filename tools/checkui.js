@@ -468,6 +468,45 @@ function launchOpts() {
           if (rrBad2) results.push({ 화면: `${t}/다섯판`, 오류: rrBad2 });
           await page.evaluate(() => closeRaidResult());
           await page.waitForTimeout(150);
+
+          // 이긴 판 — **여기에만 있는 것들**을 잰다: 도장 · 전리품 · 특수 작물 딱지.
+          // 진 판만 재면 승리 연출은 한 번도 검사받지 못한다 (배경색도 크기도 다르다)
+          const rwBad = await page.evaluate(() => {
+            const b = (id, attr) => ({ id, attr, grade: 'high', power: 64, loyalty: 0 });
+            const crop = (window.GameData.FARM_CROPS || [])[0];
+            showRaidResult('Wwwwwwwwwwww', {
+              win: true, wins: 4, winNeed: 3,
+              // **특수 작물과 이삭을 같이** 심는다 — 크기가 갈리는 자리다
+              items: crop ? { [crop.id]: 1, firefly: 3, walnut: 2 } : { firefly: 3 },
+              mine: [b('deepsea_whale', 'water'), b('sky_falcon', 'wind'),
+                     b('ember_newt', 'fire'), b('unicorn', 'light'), null],
+              def: [b('flame_fox', 'fire'), b('deepsea_whale', 'water'),
+                    b('unicorn', 'light'), null, b('moss_deer', 'earth')],
+              rounds: [0, 1, 2, 3, 4].map(i => ({ i, win: i !== 2, chance: 0.5 })),
+            });
+            const q = document.querySelectorAll('#raidResult .rr-row');
+            if (q.length !== 5) return `줄이 ${q.length}개다`;
+            if (!document.querySelector('#raidResult .rr-stamp.win')) return '승리 도장이 없다';
+            const items = document.querySelectorAll('#raidResult .rr-item');
+            if (items.length !== (crop ? 3 : 1)) return `전리품이 ${items.length}칸이다`;
+            if (crop && !document.querySelector('#raidResult .rr-item.crop')) {
+              return '특수 작물이 이삭과 같은 크기로 나왔다';
+            }
+            // 한 마디가 **상성을 실제로 읽는가** — 물이 불을 이긴 1번은 진한 줄이어야 한다.
+            // 이걸 안 보면 속성 표가 뒤집혀 있어도 「글자가 있으니 통과」가 된다
+            const first = q[0].querySelector('.rr-quip');
+            if (!first || !first.classList.contains('attr')) return '상성으로 이긴 판이 안 표시된다';
+            // 내 자리가 빈 5번은 「보낼 애가 없었어요」여야 한다
+            const last = q[4].querySelector('.rr-quip');
+            if (!last || !last.textContent.trim()) return '빈 자리에 한 마디가 없다';
+            return null;
+          });
+          if (rwBad) results.push({ 화면: `${t}/다섯판승`, 오류: rwBad });
+          else { await page.waitForTimeout(280); await run(`${t}/다섯판승`); }
+          const rwBad2 = await page.evaluate(() => window.__cardFits('#raidResult'));
+          if (rwBad2) results.push({ 화면: `${t}/다섯판승`, 오류: rwBad2 });
+          await page.evaluate(() => closeRaidResult());
+          await page.waitForTimeout(150);
         }
 
         // 마을은 셋이고 **건물 수가 다르다.** 여덟인 마을과 넷인 마을을 다 본다 —
@@ -653,7 +692,12 @@ function launchOpts() {
           if (!a || !b) return '속성 크리처를 못 찾았다';
           S.creatures = [...new Set([...(S.creatures || []), a.result.id, b.result.id])];
           S.petRoom = a.result.id; S.petField = b.result.id;
-          S.produced = []; S.producedDay = dayKey() - 5;
+          // ⚠️ **날짜 키에서 숫자를 빼면 안 된다.** `dayKey()` 는 YYYYMMDD 를 한 덩어리
+          // 정수로 packing 한 값이라, 1일에 5를 빼면 「8월 96일」(20260896)이 된다 —
+          // `daysBetween` 이 −64를 내놓고 기록이 한 줄만 쌓여 **매달 1~5일에만
+          // 실패하는 검사**였다 (9월 1일에 실제로 걸렸다). 게임처럼 날짜를 뺀다
+          const back = nowDate(); back.setDate(back.getDate() - 5);
+          S.produced = []; S.producedDay = dayKey(back);
           settleProduce();
           openProduceLog();
           if (!document.getElementById('produceLog').classList.contains('show')) return '시트가 안 떴다';
