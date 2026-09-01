@@ -477,6 +477,19 @@ async function run(label, env) {
       ok(B.farmCount((await store.get(V)).farm) > 0, '자란 것이 저장된다');
     }
 
+    // ── 개발용 스위치 — **기본은 꺼져 있어야 한다** ──
+    //
+    // 공개 저장소이고 배포된 서버라, 켜져 있으면 누구나 제 밭을 공짜로 채운다.
+    // 그렇게 채운 것은 **남이 털어 갈 수도 있어서** 밭 경제가 통째로 무너진다.
+    // 그래서 「꺼져 있을 때 404」가 이 기능에서 제일 중요한 검사다
+    {
+      const z = await J('POST', `/api/farm/${V}/dev`, { secret: SEC_V });
+      // **몸통까지 본다** — 세이브가 없는 사람의 404(`not_found`)와 구분되어야
+      // 화면이 엉뚱한 사람에게 「DEV_TOOLS 를 켜세요」를 띄우지 않는다
+      ok(z.status === 404 && z.body && z.body.error === 'dev_off',
+        `DEV_TOOLS 없이 개발용 밭 채우기 → ${z.status} ${z.body && z.body.error} (404 dev_off 기대)`);
+    }
+
     // ② **하루치는 못 가져간다** (`RAID_FLOOR_DAYS`). 이삭이 바닥 이하로 남아
     //    있으면 이겨도 이삭은 한 개도 안 나온다 — 이 한 줄이 「아침에 빈 밭」을 없앤다
     {
@@ -791,6 +804,57 @@ function pick(env) {
   const row = await again.store.get(ID);
   ok(row && row.state.fresh === true, '파일 저장소: 서버 재시작 후에도 세이브 유지');
   fs.rmSync(dir, { recursive: true, force: true });
+
+  // ── 개발용 스위치를 **켜고** 한 번 (DEV_TOOLS=1) ──
+  //
+  // 위에서는 「꺼져 있으면 404」만 봤다. 그것만 보면 **아무 일도 안 하는 엔드포인트**도
+  // 통과한다 — 켰을 때 진짜로 채우는지까지 봐야 검사가 두 방향을 다 막는다
+  {
+    for (const k of Object.keys(require.cache)) delete require.cache[k];
+    delete process.env.DATABASE_URL; delete process.env.DATA_DIR;
+    process.env.DEV_TOOLS = '1';
+    const Bt = require('./battle.js');
+    const { app, store } = require('./index.js');
+    const srv = app.listen(0);
+    await new Promise(r => srv.once('listening', r));
+    const base = 'http://127.0.0.1:' + srv.address().port;
+    const P = async (url, body) => {
+      const r = await fetch(base + url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      let j = null; try { j = await r.json(); } catch (e) {}
+      return { status: r.status, body: j };
+    };
+    const V = 'p_' + 'v'.repeat(20), SEC_V = 'v'.repeat(32);
+    out.push('── 개발용 스위치 (DEV_TOOLS=1)');
+    await P('/api/name', { playerId: V, secret: SEC_V, name: '개발자' });
+    await fetch(base + `/api/save/${V}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: SEC_V, rev: 1,
+        state: { name: '개발자', creatures: ['unicorn'], petRoom: 'unicorn', pets: {} } }),
+    });
+    // 밭을 비운 채로 만들어 둔다 (막 거둔 직후와 같은 상태)
+    await fetch(base + `/api/farm/${V}?secret=${SEC_V}`);
+    await store.farmSet(V, {
+      plots: [{ crop: null, stash: {} }, { crop: 'ember_chili', at: Date.now(),
+        ready: Date.now() + 12 * 3600e3, n: 3, stash: {} }],
+      grownAt: Date.now(), shieldUntil: 0, raids: 3, raidAt: Date.now(), log: [],
+    });
+    const z = await P(`/api/farm/${V}/dev`, { secret: SEC_V });
+    ok(z.status === 200, `DEV_TOOLS=1 이면 개발용 밭 채우기 → ${z.status}`);
+    // **상한까지** 채워야 한다 — 하루치 × FARM_DAYS 다. 규칙에서 읽어 견준다
+    const day = Bt.countOf(Bt.dailyYield({ creatures: ['unicorn'], petRoom: 'unicorn', pets: {} }));
+    ok(z.body.count === day * Bt.FARM_DAYS,
+      `상한까지 찼다 (${z.body.count} / 하루치 ${day} × ${Bt.FARM_DAYS}일)`);
+    // 심어 둔 것은 **전부 다 자란 것으로** — 안 그러면 수확 화면을 못 본다
+    const planted = (z.body.plots || []).find(p => p.crop);
+    ok(planted && planted.ready <= z.body.now, `심은 것이 다 자랐다 (ready ${planted && planted.ready} ≤ ${z.body.now})`);
+    // 남의 밭은 못 건드린다 — 개발용이어도 secret 은 본다
+    const bad = await P(`/api/farm/${V}/dev`, { secret: 'z'.repeat(32) });
+    ok(bad.status === 403, `남의 밭을 개발용으로 채우려 하면 → ${bad.status} (403 기대)`);
+    await new Promise(r => srv.close(r));
+    delete process.env.DEV_TOOLS;
+  }
 
   console.log(out.join('\n'));
   console.log(process.exitCode ? '\n실패한 검사가 있습니다.' : '\n서버 검사 전부 통과 ✅');

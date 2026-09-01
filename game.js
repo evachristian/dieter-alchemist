@@ -3994,6 +3994,32 @@ function devVillageOne(id) { devToggleFlag(devVillageKey(id)); }
 window.devVillages = devVillages;
 window.devVillageOne = devVillageOne;
 
+// 모든 밭을 상한까지 채운다 (이삭 5일치 + 심어 둔 작물은 전부 다 자란 것으로).
+//
+// ⚠️ **다른 개발용 스위치와 달리 서버에 부탁한다.** 밭은 서버가 정본이라
+// (`FARM.md` 7장) 여기서 `FARM` 을 채워 놔도 다음 조회에 서버 값으로 덮인다.
+// 서버가 `DEV_TOOLS=1` 로 떠 있지 않으면 404 가 오고, 그때는 그렇다고 말해 준다 —
+// 버튼이 그냥 안 먹히면 고장으로 읽힌다
+async function devFinishFarm() {
+  if (!farmOpen()) { toast(T('dev_farm_locked')); return; }
+  if (farmBusy) return;
+  farmBusy = true;
+  const r = await Sync.farmDev();
+  farmBusy = false;
+  // **`dev_off` 일 때만** 「DEV_TOOLS 를 켜세요」다. 그냥 404 는 세이브가 아직
+  // 서버에 없다는 뜻일 수도 있다 (authRow 도 404 를 낸다)
+  if (r.status === 404 && r.body && r.body.error === 'dev_off') {
+    toast(T('dev_farm_off'), null, 3600); return;
+  }
+  if (r.status !== 200 || !r.body) { toast(T('farm_err')); return; }
+  await refreshFarm();
+  renderFarm();
+  render();
+  // 하루치를 만드는 크리처가 없으면 채울 것도 없다 — 0 이면 그렇다고 말해 준다
+  toast(T(r.body.count ? 'dev_farm_done' : 'dev_farm_none', { n: r.body.count }), null, 3200);
+}
+window.devFinishFarm = devFinishFarm;
+
 // 모든 재료를 1000개씩. 이건 진짜 소지품이라 세이브에 들어간다.
 function devFillItems() {
   const ids = Object.keys(D.INGREDIENTS);
@@ -4018,7 +4044,8 @@ function renderGatherDev() {
       `<button class="btn btn-dev${devFlag(devVillageKey(v.id)) ? ' on' : ''}"
         onclick="devVillageOne('${v.id}')">${devFlag(devVillageKey(v.id)) ? '☑' : '☐'} ${v.emoji} ${N(v.id, v.name)}</button>`
     ).join('') +
-    `<button class="btn btn-dev" onclick="devFillItems()">${T('dev_fill_items')}</button>`;
+    `<button class="btn btn-dev" onclick="devFillItems()">${T('dev_fill_items')}</button>` +
+    `<button class="btn btn-dev" onclick="devFinishFarm()">${T('dev_farm_fill')}</button>`;
 }
 
 // 튜토리얼 완료 표시. 채집 쪽 스위치들과 달리 이건 **세이브에 들어간다** —

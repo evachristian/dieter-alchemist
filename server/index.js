@@ -389,6 +389,41 @@ app.post('/api/farm/:playerId/plot', async (req, res) => {
   }
 });
 
+//  POST /api/farm/:playerId/dev   { secret }   ⚠️ 개발용 — 밭을 상한까지 채운다
+//
+//  **밭은 서버가 정본이라** 화면에서 흉내 낼 수가 없다 — 클라이언트가 채워 놔도
+//  다음 조회에서 서버 값으로 덮인다. 그래서 개발용 스위치도 서버에 있어야 한다.
+//
+//  ⚠️ **기본은 꺼져 있다.** `DEV_TOOLS=1` 일 때만 산다. 공개 저장소이고 배포된
+//  서버라, 켜져 있으면 누구나 제 밭을 공짜로 채울 수 있다 — 그렇게 채운 것은
+//  남이 털어 갈 수도 있어서 밭 경제가 통째로 무너진다.
+//  꺼져 있을 때는 **404** 다 (403 이 아니다 — 있다는 것조차 알릴 이유가 없다).
+const DEV_TOOLS = process.env.DEV_TOOLS === '1';
+app.post('/api/farm/:playerId/dev', async (req, res) => {
+  // ⚠️ 몸통을 `dev_off` 로 구분한다. 그냥 `not_found` 로 두면 **세이브가 아직
+  // 서버에 없는 사람**(authRow 의 404)과 같은 답이 되어, 화면이 「DEV_TOOLS 를 켜세요」를
+  // 엉뚱한 사람에게 보여 준다. 상태 코드는 404 그대로다 — 있다는 것을 알릴 이유는 없다
+  if (!DEV_TOOLS) return res.status(404).json({ error: 'dev_off' });
+  const { secret } = req.body || {};
+  try {
+    const row = await authRow(req, res, req.params.playerId, secret);
+    if (!row) return;
+    const now = Date.now();
+    const farm = await freshFarm(row, now, true);
+    // 시계를 상한만큼 뒤로 당기면 `grow()` 가 상한까지 채운다 —
+    // **규칙을 여기서 다시 쓰지 않는다** (사본을 만들면 상한이 두 벌이 된다)
+    farm.grownAt = now - B.FARM_DAYS * B.GROW_MS;
+    // 심어 둔 것은 전부 다 자란 것으로 (`ready` 는 서버가 재는 값이다)
+    for (const p of farm.plots) if (p.crop) p.ready = now;
+    B.grow(farm, row.state || {}, now);
+    await store.farmSet(row.playerId, farm);
+    res.json({ ok: true, now, count: B.farmCount(farm), plots: farm.plots });
+  } catch (e) {
+    console.error('[POST /api/farm/dev]', e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
 //  GET /api/raid/targets/:playerId?secret=...   털러 갈 만한 남의 밭
 app.get('/api/raid/targets/:playerId', async (req, res) => {
   try {

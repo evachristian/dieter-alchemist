@@ -294,6 +294,14 @@
       });
     } catch (e) { return { status: 0, body: null }; }
   }
+  // ⚠️ 개발용 — 밭을 상한까지 채운다. **서버가 `DEV_TOOLS=1` 일 때만 살아 있고**
+  // 아니면 404 다. 밭은 서버가 정본이라 화면에서 흉내 낼 수가 없어서 여기 있다
+  async function farmDev() {
+    if (!enabled()) return { status: 0, body: null };
+    try {
+      return await api('POST', `/api/farm/${me.playerId}/dev`, { body: { secret: me.secret } });
+    } catch (e) { return { status: 0, body: null }; }
+  }
   async function raidTargets() {
     if (!enabled()) return { status: 0, body: null };
     try {
@@ -320,7 +328,7 @@
 
   window.Sync = {
     push, pushNow, pull, flushNow, wipe, code, useCode, claimName,
-    nonce, farmGet, harvest, plant, addPlot, raidTargets, raid,
+    nonce, farmGet, harvest, plant, addPlot, raidTargets, raid, farmDev,
     get status() { return status; },
     get playerId() { return me.playerId; },
     enabled,
