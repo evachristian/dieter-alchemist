@@ -62,9 +62,14 @@ const GROW_MS = 24 * 60 * 60 * 1000;
 // 시간대를 몰라도 되고, AP 와 읽는 법이 같다.
 const RAID_MAX = 3;
 const RAID_REGEN_MS = 8 * 60 * 60 * 1000;
-// 털린 뒤에는 두 시간 동안 아무도 못 턴다. **코지 게임에서 제일 중요한 수치다** —
+// 털린 뒤에는 잠시 아무도 못 턴다. **코지 게임에서 제일 중요한 수치다** —
 // 이것이 없으면 잠든 사이에 밭이 열 번 털려서 아침에 빈 밭을 본다.
-const SHIELD_MS = 2 * 60 * 60 * 1000;
+//
+// 밸런싱에서 2시간 → 4시간으로 늘렸다 (`FARM.md` 6단계). 2시간이면 하루에
+// **열두 번**까지 털릴 수 있는데, 시뮬레이션에서 사흘에 한 번 들어오는 사람이
+// 하루 1.32번 털려 생산의 69% 를 잃고 **열에 넷은 빈 밭을 봤다.**
+// 4시간이면 상한이 여섯 번이다. 더 늘리면 열심히 하는 사람이 털 데를 잃는다
+const SHIELD_MS = 4 * 60 * 60 * 1000;
 
 // 자라는 시간은 **로열티가 줄인다** (`FARM.md` 4장). 물주기를 만들지 않는 대신
 // 이미 있는 축을 쓴다 — 「먹이를 준 크리처는 잘 싸우고 자기 칸도 잘 돌본다」 한 문장이다.
@@ -74,6 +79,13 @@ const GROW_LOYALTY = 0.25;      // 로열티가 가득이면 자라는 시간 �
 
 const TAKE_RATE = 1 / 3;        // 이겼을 때 가져가는 비율
 const TAKE_MAX = 12;            // 한 번에 가져갈 수 있는 최대 개수
+// **하루치는 못 가져간다** (밸런싱에서 넣었다 — `FARM.md` 6단계).
+// 이삭이 하루 생산량 이하로 남아 있으면 이겨도 이삭은 한 개도 안 나온다.
+// 이 한 줄이 「아침에 빈 밭」을 없앤다 — 방패는 **연달아** 털리는 것만 막고
+// 며칠씩 못 들어오는 사람은 결국 바닥까지 긁혔다 (시뮬레이션에서 42% 가 빈 밭).
+// **다 자란 작물에는 안 걸린다.** 작물은 일부러 심어 기다린 것이고 약탈의 목적이라,
+// 여기까지 막으면 남의 밭에 갈 이유가 사라진다
+const RAID_FLOOR_DAYS = 2;
 const WIN_MIN = 0.10, WIN_MAX = 0.90;   // 확률의 바닥과 천장 — 확실한 승부는 없다
 const ATTR_MUL = 1.5;           // 속성 순환에서 이기는 쪽
 const LOYALTY_GAIN = 0.3;       // 로열티가 가득이면 전투력 +30%
@@ -166,6 +178,10 @@ function dailyYield(state) {
   producers(state).forEach(c => { items[c.makes.id] = (items[c.makes.id] || 0) + c.makes.n; });
   return items;
 }
+// 약탈이 남겨야 할 이삭 개수 — **그 사람의 하루 생산량**이다.
+// 고정 숫자로 두지 않는 이유: 크리처에 따라 하루치가 1~6개로 갈리는데
+// 고정으로 두면 적게 만드는 사람은 아무것도 못 잃고 많이 만드는 사람만 털린다
+const earsFloor = state => RAID_FLOOR_DAYS * countOf(dailyYield(state));
 
 // ─── 밭 — 칸(plot) 다섯까지 ──────────────────────────────────
 //
@@ -389,9 +405,15 @@ function resolveFive(atk, def, rolls) {
 // - 다 자란 작물이면 개수의 1/3(올림)
 // - **자라는 중이면 아무것도 없다.** 밟지도 않는다 — 남의 시간을 없애는 것은
 //   뺏는 것보다 나쁘다. 「내 12시간이 사라졌다」는 되돌릴 길이 없다
-// - 비어 있으면(이삭) 그 칸 이삭의 1/3
-function lootPlots(farm, rounds, now) {
+// - 비어 있으면(이삭) 그 칸 이삭의 1/3, **단 밭 전체에 하루치는 남긴다**
+//
+// `floor` 는 남겨야 할 이삭 개수다 (`earsFloor`). 안 넘기면 0 —
+// 검사에서 옛 동작을 그대로 재는 자리가 있어서 기본값을 0 으로 두었다
+function lootPlots(farm, rounds, now, floor) {
   const take = {};
+  // 이삭을 몇 개까지 가져갈 수 있나. **칸이 아니라 밭 전체로 센다** —
+  // 칸마다 하루치를 남기면 칸이 늘수록 지켜지는 양이 늘어 칸 사기가 벌이 된다
+  let budget = Math.max(0, farmCount(farm) - Math.max(0, floor | 0));
   for (const r of rounds) {
     if (!r.win) continue;
     const p = farm.plots[r.i];
@@ -407,10 +429,12 @@ function lootPlots(farm, rounds, now) {
       continue;
     }
     for (const id of Object.keys(p.stash || {})) {
-      const n = Math.min(p.stash[id], Math.ceil(p.stash[id] * TAKE_RATE));
+      if (budget <= 0) break;
+      const n = Math.min(budget, p.stash[id], Math.ceil(p.stash[id] * TAKE_RATE));
       if (n <= 0) continue;
       take[id] = (take[id] || 0) + n;
       p.stash[id] -= n;
+      budget -= n;
       if (!p.stash[id]) delete p.stash[id];
     }
   }
@@ -431,11 +455,11 @@ function resolve(att, def, roll) {
 module.exports = {
   D, CREATURES,
   FARM_DAYS, GROW_MS, RAID_MAX, RAID_REGEN_MS, SHIELD_MS,
-  TAKE_RATE, TAKE_MAX, WIN_MIN, WIN_MAX, ATTR_MUL, LOYALTY_GAIN,
+  TAKE_RATE, TAKE_MAX, WIN_MIN, WIN_MAX, ATTR_MUL, LOYALTY_GAIN, RAID_FLOOR_DAYS,
   combatPower, effPower, attrMul,
   owns, loyaltyOf, petOf, defender, attacker,
   TEAM_N, WIN_NEED, teamOf, defTeam, atkTeam, resolveFive, lootPlots,
-  producers, dailyYield,
+  producers, dailyYield, earsFloor,
   PLOT_MAX, PLOT_START, emptyPlot, emptyFarm, migrateFarm,
   countOf, mergedStash, farmCount, dealToPlots, harvestable, harvestEars, takeFrom,
   CROPS, GROW_LOYALTY, ripe, growMs, plant, addPlot,

@@ -401,14 +401,20 @@ app.get('/api/raid/targets/:playerId', async (req, res) => {
     for (const p of peers) {
       const farm = p.farm;
       if (!farm || typeof farm !== 'object') continue;
-      // **남의 밭은 자라게 하지 않는다.** 남이 내 밭을 보는 것만으로 내 밭이
-      // 자라면, 정산 시각이 남의 접속에 좌우된다. 지금 쌓여 있는 것만 보여 준다
-      // **남의 밭은 자라게 하지 않는다** — 남이 내 밭을 보는 것만으로 내 밭이
-      // 자라면 정산 시각이 남의 접속에 좌우된다. 다만 **모양은 맞춰서 읽는다**
-      // (옛 모양 그대로인 밭이 목록에서 통째로 빠지면 안 된다)
-      const stash = Array.isArray(farm.plots) ? B.mergedStash(farm)
-        : (farm.stash && typeof farm.stash === 'object' ? farm.stash : {});
-      const n = B.countOf(stash);
+      // ⚠️ **남의 밭도 자라게 해서 본다** (밸런싱에서 바꿨다 — `FARM.md` 6단계).
+      //
+      // 처음에는 「남이 보는 것만으로 내 밭이 자라면 정산 시각이 남의 접속에
+      // 좌우된다」고 안 자라게 두었다. **그 걱정은 틀렸고, 대가는 컸다.**
+      //   · 틀린 이유 — `grow()` 는 `grownAt` 과 `now` 만 보고, 시계를
+      //     `now - (elapsed % GROW_MS)` 로 당긴다. **24시간의 위상이 그대로 보존된다.**
+      //     일찍 불러도 늦게 불러도 총량도 다음 정산 시각도 같다
+      //   · 대가 — 밭은 주인이 들어와야만 자라는데 주인은 들어오면 곧바로 거둔다.
+      //     그래서 **저장된 밭은 늘 비어 있고 목록에 아무도 안 뜬다.**
+      //     시뮬레이터로 200명을 30일 돌려 약탈이 **한 번도** 일어나지 않았다
+      //     (`node tools/simfarm.js`). 안 자라게 둔 것이 약탈을 통째로 죽이고 있었다
+      if (B.grow(farm, p.state || {}, now)) await store.farmSet(p.playerId, farm);
+      const n = B.farmCount(farm);
+      const stash = B.mergedStash(farm);
       if (!n) continue;
       if ((farm.shieldUntil || 0) > now) continue;      // 막 털린 밭은 건너뛴다
       // **순서까지 보여 준다.** 감추면 순서를 짤 수 없어 그냥 도박이 되는데,
@@ -458,7 +464,10 @@ app.post('/api/raid/:playerId', async (req, res) => {
     if (other.playerId === row.playerId) return res.status(400).json({ error: 'self' });
     const theirFarm = other.farm && typeof other.farm === 'object' ? other.farm : null;
     if (!theirFarm) return res.status(409).json({ error: 'target_empty' });
-    B.migrateFarm(theirFarm);          // 옛 모양이면 여기서 칸으로 옮긴다
+    // 옛 모양이면 칸으로 옮기고, **흐른 시간만큼 자라게 한 다음** 센다.
+    // 목록과 같은 눈으로 봐야 한다 — 목록에는 떴는데 들어가면 빈 밭이면
+    // 약탈권만 날리게 된다 (위의 `/api/raid/targets` 주석)
+    B.grow(theirFarm, other.state || {}, now);
     if (!B.farmCount(theirFarm)) return res.status(409).json({ error: 'target_empty' });
     if ((theirFarm.shieldUntil || 0) > now) return res.status(409).json({ error: 'target_shielded' });
 
@@ -466,7 +475,9 @@ app.post('/api/raid/:playerId', async (req, res) => {
     // **자리 대 자리 다섯 판.** 세 판 이상 이겨야 가져간다 — 두 판을 이겨도 빈손이다.
     // 그래야 다섯을 짜는 일이 「이기는가」 하나로 모인다
     const r = B.resolveFive(me, def);
-    const items = r.win ? B.lootPlots(theirFarm, r.rounds, now) : {};
+    // **하루치는 남긴다** — 이삭의 바닥이다 (`battle.js` 의 RAID_FLOOR_DAYS).
+    // 그 사람의 하루 생산량으로 재므로 상대의 세이브에서 뽑는다
+    const items = r.win ? B.lootPlots(theirFarm, r.rounds, now, B.earsFloor(other.state || {})) : {};
 
     // 약탈권을 쓴다. **가득이었으면 지금부터 회복 시계를 돌린다** —
     // 안 그러면 오래 안 쓴 사람은 쓰자마자 도로 찬다

@@ -451,6 +451,62 @@ async function run(label, env) {
     ok(d.status === 400 && d.body.error === 'self', `내 밭을 털려고 하면 → ${d.status}`);
     d = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: '!' });
     ok(d.status === 400 && d.body.error === 'bad_nonce', `nonce 형식 → ${d.status}`);
+
+    // ── 밸런싱에서 들어온 두 규칙 (`FARM.md` 6단계) ──────────────
+    const B = require('./battle.js');
+    //
+    // ① **남의 밭도 제 시계로 자란다.** 예전에는 주인이 들어와야만 자랐는데,
+    //    주인은 들어오면 곧바로 거둔다 — 그래서 **저장된 밭은 늘 비어 있었고**
+    //    목록에 아무도 안 떴다. 시뮬레이터로 200명을 30일 돌려 약탈이 한 번도
+    //    안 일어난 것이 이 자리다 (`node tools/simfarm.js`)
+    {
+      await J('PUT', `/api/save/${R}`, {
+        secret: SEC_R, rev: 4,
+        state: { name: '도둑고양이', creatures: ['ember_newt'], petField: 'ember_newt', pets: {} },
+      });
+      // 밭주인의 밭을 **비운 채로** 사흘 전에 세워 둔다 — 주인은 그 뒤로 안 들어왔다
+      await setFarm(V, {
+        plots: [{ crop: null, stash: {} }, { crop: null, stash: {} }],
+        grownAt: Date.now() - 3 * DAY, shieldUntil: 0, raids: 3, raidAt: Date.now(), log: [],
+      });
+      const t2 = await J('GET', `/api/raid/targets/${R}?secret=${SEC_R}`);
+      const seen = (t2.body.targets || []).find(x => x.name === '밭주인');
+      ok(seen && seen.count > 0,
+        `주인이 안 들어온 밭도 자라서 목록에 뜬다 (이삭 ${seen ? seen.count : 0}개)`);
+      // **저장까지 되어야 한다** — 목록에만 보이고 저장이 안 되면 털러 들어갔을 때 빈 밭이다
+      ok(B.farmCount((await store.get(V)).farm) > 0, '자란 것이 저장된다');
+    }
+
+    // ② **하루치는 못 가져간다** (`RAID_FLOOR_DAYS`). 이삭이 바닥 이하로 남아
+    //    있으면 이겨도 이삭은 한 개도 안 나온다 — 이 한 줄이 「아침에 빈 밭」을 없앤다
+    {
+      const floor = B.earsFloor((await store.get(V)).state || {});
+      ok(floor > 0, `밭주인의 바닥은 ${floor}개 (하루 생산량 × ${B.RAID_FLOOR_DAYS}일)`);
+      // 바닥과 **똑같이** 심어 둔다. 방패·약탈권도 풀어 준다
+      await seedEars(V, { firefly: floor });
+      { const g = await farmOf(V); g.shieldUntil = 0; await setFarm(V, g); }
+      { const g = await farmOf(R); g.raids = 3; g.raidAt = Date.now(); await setFarm(R, g); }
+      const bef = ears(await farmOf(V));
+      const z = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'floor01' });
+      ok(z.status === 200, `바닥만 남은 밭 약탈 → ${z.status}`);
+      ok(sum(z.body.items) === 0 && ears(await farmOf(V)) === bef,
+        `${z.body.win ? '이겨도' : '져서'} 바닥(${bef}개)은 안 줄었다`);
+
+      // 바닥 **위로는** 가져간다 — 안 그러면 약탈이 통째로 죽은 것이다
+      await seedEars(V, { firefly: floor + 9 });
+      { const g = await farmOf(V); g.shieldUntil = 0; await setFarm(V, g); }
+      { const g = await farmOf(R); g.raids = 3; g.raidAt = Date.now(); await setFarm(R, g); }
+      const bef2 = ears(await farmOf(V));
+      const z2 = await J('POST', `/api/raid/${R}`, { secret: SEC_R, target: '밭주인', nonce: 'floor02' });
+      const took = sum(z2.body.items);
+      // ⚠️ **이겼다고 늘 가져오는 것이 아니다.** 자리 번호 = 칸 번호라
+      // 이삭이 든 0번 칸을 이겨야 그 칸에서 가져온다 (세 판을 이겨도 0번을 졌으면 빈손).
+      // 그 조건을 안 붙이면 이 검사가 **가끔 실패하는 검사**가 된다
+      const wonPlot0 = z2.body.win && z2.body.rounds[0].win;
+      ok(!wonPlot0 || took > 0, `바닥 위로는 가져간다 (${bef2}개 중 ${took}개`
+        + `${z2.body.win ? '' : ' · 이번엔 졌다'}${z2.body.win && !z2.body.rounds[0].win ? ' · 0번 칸을 못 이겼다' : ''})`);
+      ok(ears(await farmOf(V)) >= floor, `털린 뒤에도 바닥은 남는다 (${ears(await farmOf(V))} ≥ ${floor})`);
+    }
   }
 
   // 11) 게임 파일이 같은 서버에서 서빙된다
@@ -665,6 +721,57 @@ function pick(env) {
       ] };
       const only3 = Bt.lootPlots(f2, [0, 1, 2, 3, 4].map(i => ({ i, win: i === 3 })), t);
       ok(Object.keys(only3).join() === 'berry', `3번을 이기면 3번 칸에서만 (${JSON.stringify(only3)})`);
+    }
+
+    // ── 하루치는 못 가져간다 (밸런싱 · `FARM.md` 6단계) ──────────
+    //
+    // ⚠️ **여기서 roll 을 고정해서 잰다.** API 검사에도 같은 규칙이 걸려 있지만
+    // 거기서는 이기고 지는 것이 무작위라, 진 판에서는 아무것도 확인하지 못한 채
+    // 통과로 보인다 (실제로 그렇게 나왔다). 바닥은 **경계값**이라 반드시 정확히
+    // 재야 한다 — 하나 차이로 「아무것도 못 가져감」과 「다 가져감」이 갈린다
+    {
+      const t = Date.now();
+      const ears = n => ({ plots: [{ crop: null, stash: { walnut: n } }] });
+      const rounds = [{ i: 0, win: true }];
+
+      // ① 바닥과 같으면 한 개도 못 가져간다
+      const atFloor = ears(6);
+      ok(Bt.countOf(Bt.lootPlots(atFloor, rounds, t, 6)) === 0
+        && Bt.farmCount(atFloor) === 6, '이삭이 바닥과 같으면 한 개도 못 가져간다');
+      // ② 바닥 아래여도 마찬가지 (음수 예산이 되면 안 된다)
+      const below = ears(2);
+      ok(Bt.countOf(Bt.lootPlots(below, rounds, t, 6)) === 0
+        && Bt.farmCount(below) === 2, '바닥 아래면 더더욱 못 가져간다');
+      // ③ 바닥 **하나 위**면 딱 하나 나온다 — 경계가 한 칸씩 밀리지 않았는가
+      const justOver = ears(7);
+      ok(Bt.countOf(Bt.lootPlots(justOver, rounds, t, 6)) === 1
+        && Bt.farmCount(justOver) === 6, '바닥보다 하나 많으면 하나만 (남는 것은 바닥)');
+      // ④ 넉넉하면 평소대로 1/3 — 바닥이 정상 약탈을 막지는 않는다
+      const plenty = ears(30);
+      ok(Bt.countOf(Bt.lootPlots(plenty, rounds, t, 6)) === 10,
+        `넉넉하면 1/3 그대로 (${30 - Bt.farmCount(plenty)}개)`);
+      // ⑤ 바닥을 안 넘기면 옛 동작 그대로 (검사·도구가 그렇게 부른다)
+      const noFloor = ears(9);
+      ok(Bt.countOf(Bt.lootPlots(noFloor, rounds, t)) === 3, '바닥을 안 넘기면 1/3 (기본 0)');
+
+      // ⑥ **바닥은 밭 전체로 센다** — 칸마다 하루치를 남기면 칸을 살수록
+      //    지켜지는 양이 늘어 「칸 사기」가 벌이 된다
+      const spread = { plots: [{ crop: null, stash: { walnut: 5 } }, { crop: null, stash: { dew: 5 } }] };
+      const two = Bt.lootPlots(spread, [{ i: 0, win: true }, { i: 1, win: true }], t, 6);
+      ok(Bt.countOf(two) === 4 && Bt.farmCount(spread) === 6,
+        `두 칸에 걸쳐도 바닥은 밭 하나 몫 (${Bt.countOf(two)}개 가져가고 ${Bt.farmCount(spread)}개 남음)`);
+
+      // ⑦ **작물에는 안 걸린다** — 심고 기다린 것이 약탈의 목적이라,
+      //    여기까지 막으면 남의 밭에 갈 이유가 없어진다
+      const crop = { plots: [{ crop: 'ember_chili', at: t - 1, ready: t - 1, n: 3, stash: {} }] };
+      ok(Bt.lootPlots(crop, rounds, t, 99).ember_chili === 1, '바닥이 아무리 높아도 작물은 가져간다');
+
+      // ⑧ `earsFloor` 가 **그 사람의 하루 생산량**을 보는가 (고정 숫자가 아니다)
+      const st1 = { creatures: ['unicorn'], petRoom: 'unicorn', pets: {} };
+      const day1 = Bt.countOf(Bt.dailyYield(st1));
+      ok(Bt.earsFloor(st1) === day1 * Bt.RAID_FLOOR_DAYS,
+        `바닥 = 하루치 ${day1} × ${Bt.RAID_FLOOR_DAYS}일 = ${Bt.earsFloor(st1)}`);
+      ok(Bt.earsFloor({ creatures: [], pets: {} }) === 0, '안 만드는 사람은 바닥도 0');
     }
 
     // 없는 크리처를 장착 중이어도 안 죽는다 (재료로 녹인 뒤 · 초기화 뒤)
