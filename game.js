@@ -76,6 +76,19 @@ const defaultState = () => ({
   kitchenDay: 0,
   // 본 컷씬 — 스토리 다시보기 목록 (2단계에서 쓴다)
   seenCuts: [],
+  // ─── 키워드 (STORY.md 「키워드 시스템」) ─────────────────────
+  // **셋 다 없던 칸이라 `SAVE_VER` 를 안 올린다.** 옛 세이브에는 이 키가 아예 없어서
+  // `Object.assign(defaultState(), 저장값)` 이 여기 적힌 기본값을 그대로 남긴다.
+  //
+  // ⚠️ `keywords` 의 기본값이 **빈 배열이 아니다.** 「정신적 허기」는 누가 알려 준 것이
+  // 아니라 공주가 처음부터 지고 있는 것이고(인트로가 그 이야기다), 이것이 하나 있어야
+  // 이야기가 시작된다 — 마을이 전부 잠긴 채로 「물어볼 것이 없다」가 되면
+  // 아무 데도 못 간다. 옛 세이브도 이 기본값을 그대로 받으므로 막히지 않는다.
+  keywords: ['kw_hunger'],
+  // 이미 물어본 것 — `'npc|kw'` 꼴. 회색으로 표시하고, 다시 물어도 된다
+  talked: [],
+  // 키워드로 연 마을 (`ASKS` 의 `opens`). **점수로 두 번 잠그지 않는다**
+  villages: [],
   // 일지에 **어느 시각의 밭 기록까지 옮겨 적었나.** `farmSeenAt`(배지용)과 따로 둔다 —
   // 하나로 쓰면 밭 탭을 열어 배지를 지우는 순간 아직 안 적은 침입이 영영 안 적힌다
   diaryFarmAt: 0,
@@ -1165,6 +1178,7 @@ function openKitchen() {
 function closeKitchen() {
   const m = document.getElementById('kitchenSheet');
   if (m) m.classList.remove('show');
+  clearAsk();          // 다음에 열면 오늘의 한 마디부터 (방금 들은 말이 남아 있으면 인사가 아니다)
 }
 window.openKitchen = openKitchen;
 window.closeKitchen = closeKitchen;
@@ -1178,19 +1192,23 @@ function renderKitchen() {
   // 오늘의 한 마디 — **날짜로 고정한다.** 다시 그릴 때마다 말이 바뀌면
   // 「내가 잘못 읽었나」가 된다 (일지 꼬리말·날씨와 같은 규칙)
   const i = diaryHash('kt|' + dayKey()) % KITCHEN_LINES;
+  // 물어본 것이 있으면 **그 대답이 오늘의 한 마디보다 먼저다** (마을 말풍선과 같은 규칙)
+  const ask = shownAsk('sp_clemen');
   el.innerHTML = `
     <div class="q-say">
       <span class="q-face" aria-hidden="true">${
-        window.Portrait ? Portrait.bust(D.speaker('sp_clemen'), done ? 'smile' : 'def', { bare: true }) : ''}</span>
+        window.Portrait ? Portrait.bust(D.speaker('sp_clemen'),
+          ask ? (ask.mood || 'def') : (done ? 'smile' : 'def'), { bare: true }) : ''}</span>
       <span class="q-line">
         <b class="q-who">${speakerName('sp_clemen')}</b>
-        <span class="q-text">${T(done ? 'kt_after' : `kt_say_${i + 1}`)}</span>
+        <span class="q-text">${ask ? T(ask.line) : T(done ? 'kt_after' : `kt_say_${i + 1}`)}</span>
       </span>
     </div>
     <div class="kt-note">${T('kt_free')}</div>
     <button class="btn ${done ? 'btn-ghost' : 'btn-primary'} kt-eat"
       onclick="eatWithClemen()"${done ? ' disabled' : ''}>
-      ${T(done ? 'kt_done' : 'kt_eat')}</button>`;
+      ${T(done ? 'kt_done' : 'kt_eat')}</button>
+    ${askRowHtml('sp_clemen')}`;
 }
 window.renderKitchen = renderKitchen;
 const KITCHEN_LINES = 5;
@@ -1213,6 +1231,97 @@ function eatWithClemen() {
   if (window.Sfx) Sfx.play('success');
 }
 window.eatWithClemen = eatWithClemen;
+
+// ═══════════════════════════════════════════════════════════════
+//  키워드 대화 — 한 사람에게 들은 것을 다른 사람에게 가져간다
+//  (STORY.md 「키워드 시스템」 · 표는 `data.js` 의 `ASKS`)
+// ═══════════════════════════════════════════════════════════════
+//
+// **그 사람이 반응하는 것 중 «내가 가진 것»만 보여 준다.** 전부 늘어놓으면 나중에
+// 백 개가 되고, 반응 없는 걸 골라 헛걸음하는 재미는 코지 게임에 안 맞는다.
+//
+// ⚠️ **다시 물어도 된다.** 이미 물어본 것은 회색이 될 뿐 사라지지 않는다 —
+// 사라지면 「아까 그 사람이 뭐라고 했더라」를 확인할 방법이 없어진다.
+// 대신 주는 것(`gives`·`opens`)은 **처음 한 번만** 들어온다.
+function hasKw(id) { return !!(S.keywords && S.keywords.includes(id)); }
+function askKey(npc, kw) { return npc + '|' + kw; }
+function askedAlready(npc, kw) { return !!(S.talked && S.talked.includes(askKey(npc, kw))); }
+// 이 사람에게 지금 물어볼 수 있는 것 (= 그가 반응하고 + 내가 가진 것)
+function asksAvail(npc) { return D.asksOf(npc).filter(a => hasKw(a.kw)); }
+// 아직 한 번도 안 물어본 것의 수 — 마을 탭·건물의 점(●)이 이 수를 본다
+function asksNew(npc) { return asksAvail(npc).filter(a => !askedAlready(npc, a.kw)).length; }
+
+// 지금 화면에 떠 있는 대답. **저장하지 않는다** — 진행이 아니라 방금 들은 말이고,
+// 화면을 떠났다 오면 인사말부터가 맞다 (대사 `talkIdx` 와 같은 규칙)
+let askNpc = null, askKw = null;
+function clearAsk() { askNpc = null; askKw = null; }
+function shownAsk(npc) {
+  if (askNpc !== npc || !askKw) return null;
+  return D.ASKS.find(a => a.npc === npc && a.kw === askKw) || null;
+}
+
+// 「물어볼 것」 칩 줄. **부엌과 마을이 같은 것을 쓴다** — 두 벌이면 한쪽만 고치게 된다
+// (밭 시트와 밭 탭에서 배운 것과 같다).
+function askRowHtml(npc) {
+  const list = asksAvail(npc);
+  if (!list.length) return `<div class="ask-box"><div class="ask-none">${T('ask_none')}</div></div>`;
+  const chips = list.map(a => {
+    const k = D.keyword(a.kw);
+    const fresh = !askedAlready(npc, a.kw);
+    return `<button class="ask-chip ${fresh ? 'fresh' : ''} ${askNpc === npc && askKw === a.kw ? 'on' : ''}"
+      data-ask="${a.kw}" onclick="doAsk('${npc}','${a.kw}')">${fresh ? '🆕 ' : ''}${N(a.kw, k ? k.name : a.kw)}</button>`;
+  }).join('');
+  return `<div class="ask-box">
+      <div class="ask-title">${T('ask_title')}</div>
+      <div class="ask-chips">${chips}</div>
+    </div>`;
+}
+
+// 물어본다. 대답을 띄우고, 처음이면 주는 것을 넣는다.
+function doAsk(npc, kw) {
+  const a = D.ASKS.find(x => x.npc === npc && x.kw === kw);
+  if (!a || !hasKw(kw)) return;
+  askNpc = npc; askKw = kw;
+  const first = !askedAlready(npc, kw);
+  const got = [], opened = [];
+  if (first) {
+    S.talked.push(askKey(npc, kw));
+    (a.gives || []).forEach(id => { if (!hasKw(id)) { S.keywords.push(id); got.push(id); } });
+    (a.opens || []).forEach(id => {
+      if (!S.villages.includes(id)) { S.villages.push(id); opened.push(id); }
+    });
+    save();
+  }
+  // 부엌이냐 마을이냐에 따라 다시 그릴 화면이 다르다
+  if (document.getElementById('kitchenSheet').classList.contains('show')) renderKitchen();
+  else renderGather();
+  if (window.Sfx) Sfx.play('pick');
+  // **알림은 대답 «뒤에** 온다.** 대답을 읽기도 전에 토스트가 덮으면
+  // 그 사람이 무슨 말을 했는지가 안 남는다
+  got.forEach((id, i) => {
+    const k = D.keyword(id);
+    setTimeout(() => toast(T('ask_new', { name: N(id, k ? k.name : id) }), null, 3000), 900 + i * 700);
+  });
+  opened.forEach((id, i) => {
+    const v = D.VILLAGES.find(x => x.id === id);
+    const nm = N(id, v ? v.name : id);
+    setTimeout(() => {
+      toast(T('ask_opened', { name: nm, nj: josa(nm, '으로') }), null, 3400);
+      if (window.Sfx) Sfx.play('success');
+    }, 900 + (got.length + i) * 700);
+  });
+}
+window.doAsk = doAsk;
+
+// 이 마을에 **새로 물어볼 것이 있는가.** 「길 잃음 방지가 제일 중요하다」(STORY.md) —
+// 무엇을 물을지는 안 알려 주고 **갈 곳만** 알려 준다.
+function villageNews(v) {
+  if (!isVillageOpen(v)) return false;
+  return (v.spots || []).some(s => s.npc && asksNew(s.npc) > 0);
+}
+// 부엌에 새로 물어볼 것이 있는가 (마이 룸의 🍲 에 점을 찍는다)
+function kitchenNews() { return kitchenOpen() && asksNew('sp_clemen') > 0; }
+window.kitchenNews = kitchenNews;
 
 // ─── 컷씬 (QUEST.md 2-2) ─────────────────────────────────────
 //
@@ -2845,12 +2954,15 @@ function renderGather() {
 }
 
 // ─── 마을 ───────────────────────────────────────────────────
-// 여는 조건은 아직 정해지지 않았다. 그때까지는 **개발용 스위치**로만 열린다 —
-// 조건이 생기면 이 함수 한 곳만 고치면 탭·몸통·마을 안이 같이 열린다.
-// 스위치는 둘이다: 전부 열기 / 마을 하나만 열기. 하나만 여는 쪽이 있어야
-// '셋 중 하나만 열린' 줄 모양(열린 칸 옆의 잠긴 칸)을 확인할 수 있다.
+// **마을은 키워드로 연다** (STORY.md 「마을 해금」 · `ASKS` 의 `opens`).
+// 점수는 시간이 해결해 주지만 키워드는 「누굴 만났느냐」라서 열렸을 때
+// 「내가 열었다」가 남는다. ⚠️ **두 번 잠그지 않는다** — 여기에 매력 점수 조건을
+// 또 걸지 않는다. 둘이 겹치면 왜 안 열리는지 플레이어가 알 수 없다.
+//
+// 개발용 스위치는 그대로 둔다 — 검증기가 「셋 중 하나만 열린」 줄 모양을
+// 만들어 보는 데 쓴다 (전부 열기 / 마을 하나만 열기).
 function isVillageOpen(v) {
-  return devFlag(DEV_VILLAGE_KEY) || devFlag(devVillageKey(v.id));
+  return (S.villages || []).includes(v.id) || devFlag(DEV_VILLAGE_KEY) || devFlag(devVillageKey(v.id));
 }
 
 // 탐험 화면 위쪽 한 줄. 갈래 · 마을 해금 여부 · 마을 안인지에 따라 달라진다.
@@ -2870,8 +2982,10 @@ function renderVillages() {
   if (tabEl) {
     tabEl.innerHTML = list.map(v => {
       const open = isVillageOpen(v);
+      // **갈 곳만 알려 준다** — 무엇을 물을지는 안 알려 준다 (STORY.md 「길 잃음 방지」)
+      const dot = villageNews(v) ? '<span class="tab-dot" aria-hidden="true"></span>' : '';
       return `<button class="cat-tab ${villageTab === v.id ? 'active' : ''} ${open ? '' : 'locked'}"
-        data-village="${v.id}" onclick="setVillage('${v.id}')">${open ? v.emoji : '🔒'} ${N(v.id, v.name)}</button>`;
+        data-village="${v.id}" onclick="setVillage('${v.id}')">${open ? v.emoji : '🔒'} ${N(v.id, v.name)}${dot}</button>`;
     }).join('');
   }
 
@@ -2920,6 +3034,7 @@ function renderVillageMap(el, v) {
       data-vspot="${s.id}" onclick="tapVillageSpot('${v.id}','${s.id}')">
       <span class="vil-pin-ic">${open ? s.emoji : '🔒'}</span>
       <span class="vil-pin-nm">${N(s.id, s.name)}</span>
+      ${open && s.npc && asksNew(s.npc) ? '<span class="tab-dot" aria-hidden="true"></span>' : ''}
     </button>`).join('');
   // **마을 설명은 지도 위에 겹쳐 놓지 않는다.** 좁은 화면·영어·2배 확대에서
   // 설명 줄이 길어지면 첫 명판과 겹친다 (검증기가 265px 거울 골짜기에서 잡았다).
@@ -2967,14 +3082,18 @@ function renderVillageSpot(el, v, s) {
   const greetMood = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].greetMood) || 'def';
   const talking = talkIdx !== null && lines.length;
   const talk = (sp && D.TALKS[sp.id]) || null;
+  // 키워드로 물은 대답이 떠 있으면 **그것이 인사말·대사보다 먼저다** —
+  // 방금 누른 것에 답하지 않고 인사말이 그대로 있으면 안 눌린 것처럼 보인다
+  const ask = sp ? shownAsk(sp.id) : null;
   // 들어섰을 때는 **인사말**, 대화를 시작하면 대사. 사람이 없으면 빈 자리 문구.
   // 인사말이 없는 사람은 첫 대사로 떨어진다 (없어도 화면이 비지 않게)
-  const line = talking ? T(lines[talkIdx])
+  const line = ask ? T(ask.line)
+    : (talking ? T(lines[talkIdx])
     : (talk && talk.greet ? T(talk.greet)
-    : (lines.length ? T(lines[0]) : T('npc_line_soon')));
+    : (lines.length ? T(lines[0]) : T('npc_line_soon'))));
   // 마지막 줄에서는 ▾ 를 지운다 — 더 없는데 계속 있으면 눌러도 안 넘어가는 것처럼 보인다
-  const more = talking && talkIdx < lines.length - 1;
-  const dots = talking
+  const more = !ask && talking && talkIdx < lines.length - 1;
+  const dots = (!ask && talking)
     ? `<div class="npc-dots">${lines.map((_, i) =>
         `<span class="npc-dot ${i === talkIdx ? 'on' : ''}"></span>`).join('')}</div>` : '';
 
@@ -2990,11 +3109,12 @@ function renderVillageSpot(el, v, s) {
       ${dots}
       ${more ? '<span class="npc-more">▾</span>' : ''}
     </div>
+    ${sp ? askRowHtml(sp.id) : ''}
     <div class="npc-stage">
       ${(window.Village ? Village.interior(s, v.id) : '')}
       ${sp && window.Portrait
         ? `<div class="npc-figure">${Portrait.bust(Object.assign({}, sp, { name: speakerName(sp.id) }),
-             talking ? (moods[talkIdx] || 'def') : greetMood, { bare: true })}</div>`
+             ask ? (ask.mood || 'def') : (talking ? (moods[talkIdx] || 'def') : greetMood), { bare: true })}</div>`
         : ''}
       <div class="npc-acts">
         ${trade ? `<button class="npc-act" onclick="npcAct('trade','${s.id}')">${T('npc_trade')}</button>` : ''}
@@ -3010,7 +3130,10 @@ function talkNext(sid) {
   const sp = s && s.npc && D.speaker(s.npc);
   const lines = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].lines) || [];
   if (!lines.length) return;
-  talkIdx = (talkIdx === null || talkIdx >= lines.length - 1) ? null : talkIdx + 1;
+  // 대사를 넘기기 시작하면 키워드 대답은 물러난다 — 둘이 같은 말풍선을 쓴다
+  const wasAsk = !!(sp && shownAsk(sp.id));
+  clearAsk();
+  talkIdx = wasAsk ? 0 : ((talkIdx === null || talkIdx >= lines.length - 1) ? null : talkIdx + 1);
   renderGather();
 }
 window.talkNext = talkNext;
@@ -3022,6 +3145,7 @@ function npcAct(kind, sid) {
     const sp = s && s.npc && D.speaker(s.npc);
     const lines = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].lines) || [];
     if (!lines.length) { toast(T('npc_talk_soon'), '.npc-act.main', null, 'above'); return; }
+    clearAsk();
     talkIdx = 0;
     renderGather();
     return;
@@ -3852,9 +3976,9 @@ window.setGatherTab = setGatherTab;
 let villageTab = D.VILLAGES[0].id;
 // 지금 들어가 있는 **건물**. null 이면 마을 지도다 (탭 상태와 같이 저장하지 않는다)
 let villageSpotIn = null;
-function setVillage(id) { villageTab = id; villageSpotIn = null; talkIdx = null; renderGather(); }
+function setVillage(id) { villageTab = id; villageSpotIn = null; talkIdx = null; clearAsk(); renderGather(); }
 window.setVillage = setVillage;
-function leaveSpot() { villageSpotIn = null; talkIdx = null; renderGather(); }
+function leaveSpot() { villageSpotIn = null; talkIdx = null; clearAsk(); renderGather(); }
 window.leaveSpot = leaveSpot;
 // 잠긴 마을 카드를 눌렀을 때 — 조건이 정해지면 여기서 조건을 안내한다
 function villageInfo(id, el) {
@@ -5802,8 +5926,10 @@ function renderActBadges() {
   // 숫자가 아니라 점인 이유: 하루에 한 번이라 셀 것이 없다
   const kb = document.getElementById('actKitchen');
   if (kb) kb.hidden = !kitchenOpen();
+  // **새로 물어볼 것이 있어도 켠다** — 마을이 전부 잠겨 있을 때 이야기가 시작되는
+  // 자리가 여기뿐이라, 「밥은 먹었다」로 점이 꺼지면 갈 곳이 아예 안 보인다
   const kd = document.getElementById('kitchenDot');
-  if (kd) kd.hidden = !kitchenOpen() || ateToday();
+  if (kd) kd.hidden = !kitchenOpen() || (ateToday() && !kitchenNews());
   const el = document.getElementById('bingeBadge');
   if (!el) return;
   const n = bingeCount();

@@ -1370,6 +1370,79 @@ const TALKS = {
                lines: ['tk_yutark_1', 'tk_yutark_2', 'tk_yutark_3'], moods: ['def', 'true', 'def'] },
 };
 
+// ═══════════════════════════════════════════════════════════════
+//  키워드 — 한 사람에게 들은 것을 다른 사람에게 가져간다 (STORY.md 「키워드 시스템」)
+// ═══════════════════════════════════════════════════════════════
+// **이 시스템 자체가 주제다.** 말 그대로 사람과 사람을 «잇는» 것이 조작이 된다.
+// 그래서 개념 키워드(「아름다움」)를 여럿에게 들고 다니는 행위가 곧 답을 찾는 과정이다.
+//
+// ⚠️ **이름이 `TALKS` 가 아니라 `ASKS` 다.** STORY.md 의 예시는 `TALKS` 로 적혀 있는데
+// 그 이름은 위의 인사말·대사 표가 이미 쓰고 있다. 전역이 하나뿐인 프로젝트라
+// (모듈 없음 — CLAUDE.md 「전역 이름」) 같은 이름을 두 번 쓸 수가 없다.
+//
+// `kind` 는 STORY.md 의 세 종류다 — 인물 / 사물·사건 / **개념**.
+// 개념은 여럿이 같은 질문에 **다르게** 답하는 것이라 아껴 쓴다 (지금은 「아름다움」 하나).
+const KEYWORDS = [
+  { id: 'kw_hunger', kind: 'idea',  name: '정신적 허기' },
+  { id: 'kw_beauty', kind: 'idea',  name: '아름다움' },
+  { id: 'kw_gem',    kind: 'thing', name: '광석' },
+  { id: 'kw_song',   kind: 'thing', name: '노래' },
+  { id: 'kw_apple',  kind: 'thing', name: '독사과' },
+  { id: 'kw_curse',  kind: 'thing', name: '저주' },
+  { id: 'kw_queen',  kind: 'who',   name: '여왕' },
+  { id: 'kw_mother', kind: 'who',   name: '엄마' },
+];
+function keyword(id) { return KEYWORDS.find(x => x.id === id) || null; }
+
+// 「누구에게 무엇을 물으면 무슨 말이 돌아오는가」의 표.
+//
+//   npc   — 물어볼 사람 (SPEAKERS 의 id)
+//   kw    — 물어볼 것 (KEYWORDS 의 id). **가진 키워드만 화면에 뜬다**
+//   line  — 돌아오는 말 (i18n 의 `ak_*`)
+//   mood  — 그때의 표정 (SPEAKERS 의 moods 에 있는 것만)
+//   gives — 이 대답이 주는 새 키워드 (선택)
+//   opens — 이 대답이 여는 마을 (선택)
+//
+// **마을은 키워드로 연다** (STORY.md 「마을 해금」). 점수는 시간이 해결해 주지만
+// 키워드는 「누굴 만났느냐」라서 열렸을 때 「내가 열었다」가 남는다.
+// **두 번 잠그지 않는다** — 여기에 점수 조건을 또 걸지 않는다.
+//
+// ⚠️ **이 표는 손으로 쓰면 반드시 막힌다.** `tools/checktalk.js` 가 도달 불가능한
+// 키워드 · 죽은 키워드 · 순환 · **막다른 진행**(가진 것으로 아무 마을도 못 여는 상태)을
+// 본다. 진행이 막히는 버그는 화면에 아무 오류도 안 띄우고, 플레이어는 그냥 그만둔다.
+//
+// 한 사람이 동시에 반응하는 키워드는 **3~5개**로 유지한다 (checktalk 이 센다).
+// 전부 늘어놓으면 나중에 백 개가 되고, 반응 없는 걸 골라 헛걸음하는 재미는
+// 코지 게임에 안 맞는다.
+const ASKS = [
+  // 🍳 클레멘 — **부엌은 늘 닿는다.** 마을이 전부 잠겨 있어도 여기서 이야기가 시작된다
+  { npc: 'sp_clemen', kw: 'kw_hunger', line: 'ak_clemen_hunger', mood: 'def',
+    gives: ['kw_beauty'], opens: ['vl_chimney'] },
+  { npc: 'sp_clemen', kw: 'kw_beauty', line: 'ak_clemen_beauty', mood: 'smile' },
+  { npc: 'sp_clemen', kw: 'kw_queen',  line: 'ak_clemen_queen',  mood: 'def', gives: ['kw_mother'] },
+  { npc: 'sp_clemen', kw: 'kw_mother', line: 'ak_clemen_mother', mood: 'smile' },
+  // ⛏️ 오릭스 — **키워드를 가장 많이 주는 사람** (STORY.md). 말 많은 인물이 하나 필요하다
+  { npc: 'sp_orix', kw: 'kw_beauty', line: 'ak_orix_beauty', mood: 'wink', gives: ['kw_gem'] },
+  { npc: 'sp_orix', kw: 'kw_gem',    line: 'ak_orix_gem',    mood: 'def',  gives: ['kw_queen'] },
+  { npc: 'sp_orix', kw: 'kw_queen',  line: 'ak_orix_queen',  mood: 'def',  gives: ['kw_song'] },
+  // 🎻 카이로스 — 떠돌이라 거처가 없다. 오늘은 일곱 굴뚝의 여관에 있다
+  { npc: 'sp_kairos', kw: 'kw_song',   line: 'ak_kairos_song',   mood: 'sing', gives: ['kw_apple'] },
+  { npc: 'sp_kairos', kw: 'kw_beauty', line: 'ak_kairos_beauty', mood: 'sing' },
+  { npc: 'sp_kairos', kw: 'kw_apple',  line: 'ak_kairos_apple',  mood: 'def',  opens: ['vl_apple'] },
+  // 🌱 실반 — 과수원을 빼앗긴 사람. **개념 키워드에는 답하지 않는다**
+  // (「아름다움」에 답하는 것은 남자 NPC 여섯이고 그는 그 여섯이 아니다 — STORY.md)
+  { npc: 'sp_sylvan', kw: 'kw_apple',  line: 'ak_sylvan_apple',  mood: 'def',  gives: ['kw_curse'] },
+  { npc: 'sp_sylvan', kw: 'kw_curse',  line: 'ak_sylvan_curse',  mood: 'def',  opens: ['vl_mirror'] },
+  { npc: 'sp_sylvan', kw: 'kw_mother', line: 'ak_sylvan_mother', mood: 'warm' },
+  // 🪞 유타르크 — **답을 피한다.** 「아름다움」에 답하는 것은 최후의 순간 딱 한 번이고,
+  // 「저주」에는 정말로 모른다고 한다 — **거짓말이 아니다** (STORY.md 「대표 사례」)
+  { npc: 'sp_yutark', kw: 'kw_beauty', line: 'ak_yutark_beauty', mood: 'def' },
+  { npc: 'sp_yutark', kw: 'kw_curse',  line: 'ak_yutark_curse',  mood: 'true' },
+  { npc: 'sp_yutark', kw: 'kw_queen',  line: 'ak_yutark_queen',  mood: 'def' },
+  { npc: 'sp_yutark', kw: 'kw_mother', line: 'ak_yutark_mother', mood: 'true' },
+];
+function asksOf(npc) { return ASKS.filter(a => a.npc === npc); }
+
 // 지대의 해금 점수 = 그 지대에서 가장 먼저 열리는 맵의 점수
 function zoneUnlock(zoneId) {
   return MAPS.filter(m => m.zone === zoneId).reduce((min, m) => Math.min(min, m.unlock), Infinity);
@@ -1971,6 +2044,7 @@ for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 window.GameData = {
   INGREDIENTS, ZONES, MAPS, zoneUnlock, zoneAp, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS,
+  KEYWORDS, keyword, ASKS, asksOf,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,
   FEEDS, FEED_RATE, LOYALTY_MAX, LOYALTY_STEPS, loyaltyBonus,

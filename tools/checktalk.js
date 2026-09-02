@@ -7,15 +7,18 @@
 //   · TALKS 에만 있고 아무 건물에도 안 앉은 사람 → 그 대사는 영영 안 보인다
 //
 // 사용: node tools/checktalk.js   (종료 코드 0 = 이상 없음)
+const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 global.window = {};
 global.localStorage = { getItem: () => null, setItem: () => {} };
 global.document = { querySelectorAll: () => [], documentElement: { setAttribute() {} } };
 require(path.join(ROOT, 'data.js'));
+require(path.join(ROOT, 'i18n.js'));
 // 인트로 그림을 쓰는 인물이 있어서 같이 읽는다 (그림 함수만 정의하고 DOM 은 안 건드린다)
 require(path.join(ROOT, 'intro.js'));
 const D = global.window.GameData;
+const I = global.window.I18N;
 const Intro = global.window.Intro;
 
 const bad = [];
@@ -71,7 +74,118 @@ D.SPEAKERS.forEach(sp => {
   });
 });
 
+// ═══════════════════════════════════════════════════════════════
+//  키워드 그래프 (STORY.md 「키워드 시스템 › 데이터와 검사」)
+// ═══════════════════════════════════════════════════════════════
+//
+// **이 표는 손으로 쓰면 반드시 막힌다.** 그리고 진행이 막히는 버그는 화면에
+// 아무 오류도 안 띄운다 — 플레이어는 그냥 게임을 그만둔다. 그래서 여기서 «걸어 본다».
+
+// 시작 키워드는 **game.js 의 defaultState 가 정본**이다 (`keywords: [...]`).
+// 여기에 사본을 두면 한쪽만 고쳤을 때 검사기만 옛 규칙으로 돈다.
+const gameSrc = fs.readFileSync(path.join(ROOT, 'game.js'), 'utf8');
+const startM = gameSrc.match(/^\s*keywords:\s*\[([^\]]*)\]/m);
+if (!startM) {
+  console.error('game.js 의 defaultState 에서 `keywords:` 를 못 찾았다 — 이 검사기가 그것을 따라가야 한다');
+  process.exit(2);
+}
+const START = (startM[1].match(/'([^']+)'/g) || []).map(s => s.slice(1, -1));
+
+// 사람이 어느 마을에 앉아 있나. **없으면 늘 닿는다** — 클레멘(부엌)이 그 경우다
+const npcVillage = {};
+D.VILLAGES.forEach(v => (v.spots || []).forEach(s => { if (s.npc) npcVillage[s.npc] = v.id; }));
+
+// ── 표 자체가 성립하는가
+const seenPair = new Set();
+D.ASKS.forEach(a => {
+  const where = `${a.npc}/${a.kw}`;
+  if (!D.speaker(a.npc)) bad.push(`ASKS ${where}: 그런 인물이 없다`);
+  if (!D.keyword(a.kw)) bad.push(`ASKS ${where}: 그런 키워드가 없다`);
+  if (seenPair.has(where)) bad.push(`ASKS ${where}: 같은 사람에게 같은 것을 두 번 적었다 (앞엣것이 조용히 이긴다)`);
+  seenPair.add(where);
+  // 표정 이름이 틀리면 **조용히 기본 표정으로 떨어진다** — 화면은 멀쩡해 보인다
+  const sp = D.speaker(a.npc);
+  if (sp && a.mood && (!sp.moods || !sp.moods[a.mood]))
+    bad.push(`ASKS ${where}: 표정 '${a.mood}' 이 없다 (조용히 기본으로 떨어진다)`);
+  if (!a.line) bad.push(`ASKS ${where}: 대답(line)이 없다`);
+  else if (I.t(a.line) === a.line) bad.push(`ASKS ${where}: 대답 문구가 없다 (${a.line}) — 화면에 키 이름이 그대로 뜬다`);
+  (a.gives || []).forEach(k => { if (!D.keyword(k)) bad.push(`ASKS ${where}: 없는 키워드를 준다 (${k})`); });
+  (a.opens || []).forEach(v => {
+    if (!D.VILLAGES.find(x => x.id === v)) bad.push(`ASKS ${where}: 없는 마을을 연다 (${v})`);
+  });
+  // 아무 건물에도 안 앉았고 부엌에도 없는 사람은 **말을 걸 자리가 없다**
+  if (!npcVillage[a.npc] && a.npc !== 'sp_clemen')
+    bad.push(`ASKS ${where}: ${a.npc} 는 앉은 자리가 없다 — 이 대답은 영영 안 보인다`);
+});
+
+// 한 사람이 동시에 반응하는 키워드는 **3~5개**로 유지한다 (STORY.md 「화면」).
+// 넘으면 칩 줄이 화면을 먹고, 반응 없는 것을 골라 헛걸음하는 재미는 코지 게임에 안 맞는다
+const byNpc = {};
+D.ASKS.forEach(a => { (byNpc[a.npc] = byNpc[a.npc] || []).push(a.kw); });
+Object.entries(byNpc).forEach(([npc, list]) => {
+  if (list.length > 5) bad.push(`ASKS ${npc}: 반응하는 키워드가 ${list.length}개다 (3~5개로 유지한다)`);
+});
+
+// ── 걸어 본다 — 시작 키워드만 들고 어디까지 갈 수 있나
+const have = new Set(START);
+const openV = new Set();
+const reached = new Set();
+for (let pass = 0; pass < D.ASKS.length + 2; pass++) {
+  let moved = false;
+  D.ASKS.forEach((a, i) => {
+    if (reached.has(i)) return;
+    const vi = npcVillage[a.npc];
+    if (vi && !openV.has(vi)) return;          // 그 마을이 아직 안 열렸다
+    if (!have.has(a.kw)) return;               // 그 키워드가 아직 없다
+    reached.add(i); moved = true;
+    (a.gives || []).forEach(k => have.add(k));
+    (a.opens || []).forEach(v => openV.add(v));
+  });
+  if (!moved) break;
+}
+
+// **도달 불가능** — 아무도 주지 않는 키워드를 조건으로 쓰거나, 못 여는 마을 안에 있는 대답
+D.ASKS.forEach((a, i) => {
+  if (reached.has(i)) return;
+  const vi = npcVillage[a.npc];
+  const why = (vi && !openV.has(vi)) ? `${vi} 를 열 수가 없다` : `«${a.kw}» 를 아무도 안 준다`;
+  bad.push(`도달 불가능: ${a.npc} 에게 «${a.kw}» 를 물을 수가 없다 — ${why}`);
+});
+
+// **죽은 키워드** — 가질 수는 있는데 아무도 반응하지 않는 것
+const asked = new Set(D.ASKS.map(a => a.kw));
+D.KEYWORDS.forEach(k => {
+  if (!asked.has(k.id)) bad.push(`죽은 키워드: «${k.id}» 에 아무도 반응하지 않는다 — 들고 다닐 데가 없다`);
+});
+
+// **막다른 진행** — 지금 내보이는 마을 중 끝내 못 여는 곳
+D.villagesShown().forEach(v => {
+  if (!openV.has(v.id)) bad.push(`막다른 진행: ${v.id} 는 키워드로 열 방법이 없다 (탭에 자물쇠만 남는다)`);
+});
+
+// **순환** — 「A 안에서만 들을 수 있는 말이 B 를 열고, B 안의 말이 A 를 연다」
+// 위의 걸어 보기에도 「도달 불가능」으로 잡히지만, 원인이 고리라는 것은 따로 말해 줘야
+// 어디를 고칠지 안다 (전부 안 열린다고만 나오면 시작점을 찾을 수가 없다)
+const edges = {};
+D.ASKS.forEach(a => {
+  const from = npcVillage[a.npc] || '*';       // '*' = 늘 닿는 자리 (부엌)
+  (a.opens || []).forEach(to => { (edges[from] = edges[from] || []).push(to); });
+});
+const state = {};
+const cyc = [];
+function walk(n, trail) {
+  if (state[n] === 1) { cyc.push(trail.slice(trail.indexOf(n)).concat(n).join(' → ')); return; }
+  if (state[n] === 2) return;
+  state[n] = 1;
+  (edges[n] || []).forEach(to => walk(to, trail.concat(n)));
+  state[n] = 2;
+}
+walk('*', []);
+Object.keys(edges).forEach(n => { if (!state[n]) walk(n, []); });
+cyc.forEach(c => bad.push(`순환: 마을이 서로를 연다 (${c}) — 둘 다 영영 안 열린다`));
+
 console.log(`인물 ${D.SPEAKERS.length}명 · 대사 ${Object.keys(D.TALKS).length}묶음 · 앉은 자리 ${placed.size}곳`);
+console.log(`키워드 ${D.KEYWORDS.length}개 · 물어볼 것 ${D.ASKS.length}줄 · 시작 [${START.join(', ')}] → 마을 ${openV.size}곳 개방`);
 if (!bad.length) { console.log('✅ 인물·대사 표에 어긋난 곳 없음'); process.exit(0); }
 console.log(`❌ ${bad.length}건`);
 bad.forEach(m => console.log('   ' + m));

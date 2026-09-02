@@ -12,6 +12,7 @@
     "start": "node server/index.js",
     "test": "node tools/genwardrobe.js --check && node tools/gencreature.js --check && node tools/genfarm.js --check && node tools/genmapattr.js --check && node tools/checkdata.js && node tools/checkglobals.js && node tools/checki18n.js && node tools/checktalk.js && node tools/checkbalance.js && node server/test.js",
     "test:talk": "node tools/checktalk.js",
+    "test:ask": "node tools/checkask.js",
     "test:data": "node tools/checkdata.js",
     "test:i18n": "node tools/checki18n.js",
     "test:save": "node tools/checksave.js",

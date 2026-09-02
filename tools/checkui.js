@@ -91,9 +91,14 @@ function launchOpts() {
       // (재료가 없으면 가방 칸이 아예 안 그려지는 것과 같은 구멍이다)
       S.creatures = crs.map(r => r.result.id).concat(crs.length ? [crs[0].result.id] : []);
       if (typeof bagOpen !== 'undefined' && !bagOpen) toggleBag();   // 채집 가방 펼치기
-      // 마을은 여는 조건이 아직 없다 — 개발용 스위치가 유일한 열쇠라 여기서 켜 준다.
-      // 안 켜면 마을 안(지도·명판)이 통째로 검사에서 빠진다
+      // 마을은 이제 **키워드로 열린다.** 개발용 스위치도 그대로 두는데(잠긴 줄 모양을
+      // 만들어 볼 때 쓴다) 여기서는 **진짜로 연 상태**를 재야 한다
       try { localStorage.setItem('dieter_alchemist_devvillage_v1', '1'); } catch (e) {}
+      S.villages = D.villagesShown().map(v => v.id);
+      // **키워드를 전부 쥐여 준다.** 안 그러면 「물어볼 것」 칩 줄이 한 개나 0개로만
+      // 그려져, 사람이 실제로 보는 세 개·네 개짜리 줄을 **한 번도 안 재게 된다**
+      // (아무것도 없는 세이브가 남기는 구멍과 같은 종류다)
+      S.keywords = D.KEYWORDS.map(k => k.id);
       // 랭킹 탭은 '여신' 단계(매력 100)부터 나타난다 — 매력을 안 주면 그 화면이
       // 통째로 검사에서 빠진다. 지난 주 결과 배너도 같이 띄워 둔다 (그것도 화면이다)
       // 운동 — 근성을 **중간쯤**으로 잡아 잠긴 종목과 열린 종목이 같이 나오게 한다.
@@ -154,7 +159,15 @@ function launchOpts() {
       if (r.top < -0.5 || r.bottom > H + 0.5) {
         return `카드가 세로로 넘쳤다 (${Math.round(r.top)}..${Math.round(r.bottom)} / ${H})`;
       }
-      for (const el of [card, ...card.querySelectorAll('*')]) {
+      return window.__fits(sel + ' .modal-card');
+    };
+    // 시트가 아닌 자리에도 쓴다 — **모달 카드가 없는 화면**(마을 안의 「물어볼 것」 줄
+    // 처럼)에서 내용이 제 칸보다 넓은 요소를 찾는다. 화면 밖으로 나갔는지는
+    // `checkLayout()` 이 이미 보므로 여기서는 넘침만 본다
+    window.__fits = (sel) => {
+      const root = document.querySelector(sel);
+      if (!root) return `${sel} 이 없다`;
+      for (const el of [root, ...root.querySelectorAll('*')]) {
         const st = getComputedStyle(el);
         if (st.display === 'none' || st.overflowX === 'auto' || st.overflowX === 'scroll') continue;
         const over = el.scrollWidth - el.clientWidth;
@@ -358,7 +371,12 @@ function launchOpts() {
             // 로 덮인다 — 먼저 심으면 심은 값이 그 뒤에 지워진다
             await pullFarm();
             const t = Date.now();
-            FARM = {
+            // ⚠️ **심어 놓은 값을 다시 심을 수 있게 남겨 둔다.** 탭에 들어설 때 뜬
+            // `pullFarm()` 이 뒤늦게 끝나면서 `FARM = null` 로 덮는 일이 있다 —
+            // 그러면 다음 칸(심기 시트)이 `FARM.plots` 에서 통째로 넘어진다.
+            // 재는 자리마다 `__seedFarm()` 을 한 번 더 부르는 것으로 조건을 고정한다
+            window.__seedFarm = () => { FARM = window.__farmSeed; renderFarm(); };
+            window.__farmSeed = {
               now: t, stash: { walnut: 12, wheat: 9, dew: 6, sun_seed: 4 }, count: 31,
               grownAt: t - 3600e3, nextGrowAt: t + 20 * 3600e3,
               shieldUntil: t + 5400e3, raids: 1, raidMax: 3, nextRaidAt: t + 3 * 3600e3,
@@ -383,7 +401,7 @@ function launchOpts() {
                 { t: t - 3600e3, by: '도둑고양이', win: false, items: {} },
               ],
             };
-            renderFarm();
+            __seedFarm();
             const n = document.querySelectorAll('#farmPanelBody .farm-logrow').length;
             return n === 2 ? null : `밭 탭에 침입 기록이 ${n}줄이다 (2줄이어야 한다)`;
           });
@@ -418,6 +436,7 @@ function launchOpts() {
           // 다 낼 수 있는 상태로만 재면 그 표현을 한 번도 안 본다
           const ptBad = await page.evaluate(() => {
             // 첫 작물만 낼 수 있게 하고 나머지는 모자라게 둔다
+            __seedFarm();                      // 사이에 덮였을 수 있다 (위의 ⚠️)
             const first = D.FARM_CROPS[0];
             D.FARM_CROPS.forEach(c => Object.keys(c.cost).forEach(id => { S.inventory[id] = 0; }));
             Object.keys(first.cost).forEach(id => { S.inventory[id] = first.cost[id]; });
@@ -1041,6 +1060,31 @@ function launchOpts() {
           await page.evaluate(() => leaveSpot());
           await page.waitForTimeout(120);
         }
+        // **물어볼 것** (STORY.md 「키워드 시스템」) — 칩이 제일 많은 사람으로 잰다.
+        // ⚠️ `checkLayout()` 은 정해진 선택자만 재는데 칩 줄의 상자는 그냥 div 라
+        // 대상이 아니다 — `__cardFits` 로 **내용이 제 칸보다 넓은지**를 직접 본다
+        {
+          const bad = await page.evaluate(() => {
+            setGatherTab('village');
+            setVillage('vl_mirror');
+            tapVillageSpot('vl_mirror', 'vs_mirror_pond');           // 유타르크 — 넷
+            const chips = document.querySelectorAll('#villageBody .ask-chip');
+            const want = D.asksOf('sp_yutark').length;
+            if (chips.length !== want) return `칩이 ${chips.length}개다 (${want} 기대)`;
+            // 눌러서 **대답이 말풍선에 뜨는지** — 안 뜨면 안 눌린 것처럼 보인다
+            doAsk('sp_yutark', 'kw_beauty');
+            const said = document.querySelector('#villageBody .npc-line').textContent;
+            if (said === T('tk_yutark_greet')) return '눌렀는데 인사말 그대로다';
+            if (!document.querySelector('#villageBody .ask-chip.on')) return '누른 칩에 표시가 없다';
+            return null;
+          });
+          if (bad) results.push({ 화면: `${t}/물어볼것`, 오류: bad });
+          else { await page.waitForTimeout(250); await run(`${t}/물어볼것`); }
+          const askBad = await page.evaluate(() => window.__fits('#villageBody'));
+          if (askBad) results.push({ 화면: `${t}/물어볼것`, 오류: askBad });
+          await page.evaluate(() => leaveSpot());
+          await page.waitForTimeout(120);
+        }
         for (const sid of ['vs_chimney_shop', 'vs_chimney_tower']) {
           const bad = await page.evaluate((id) => {
             setGatherTab('village');
@@ -1163,7 +1207,15 @@ function launchOpts() {
         else { await page.waitForTimeout(280); await run(`${t}/비법서`); }
         const pgBad2 = await page.evaluate(() => window.__cardFits('#pageSheet'));
         if (pgBad2) results.push({ 화면: `${t}/비법서`, 오류: pgBad2 });
-        await page.evaluate(() => { closePage(); S.cauldron = []; });
+        // ⚠️ **깎아 놓은 매력을 되돌린다.** 이 검사는 「평야만 열린 상태」를 만들려고
+        // charmPeak 을 0 으로 내리는데, 그대로 두면 **다음 화면들이 그것을 물려받는다** —
+        // 실제로 밭 탭이 「매력을 채웠는데 밭이 안 열렸다」로 넘어졌다.
+        // (이 파일에서 뒷정리를 안 해 옆 검사를 망가뜨린 것이 이번이 다섯 번째다)
+        await page.evaluate(() => {
+          closePage(); S.cauldron = [];
+          S.charmPeak = D.LEAGUE.openAt + 40; S.stats.charm = D.LEAGUE.openAt + 40;
+          render();
+        });
         await page.waitForTimeout(150);
         continue;
       }
@@ -1191,10 +1243,23 @@ function launchOpts() {
           if (inv !== before.inv) return `재료가 ${before.inv - inv} 줄었다 (0 이어야 한다)`;
           if (Math.floor(fullness()) < 70) return `배가 안 부르다 (포만감 ${Math.floor(fullness())})`;
           if (S.kitchenDay !== dayKey()) return '오늘 먹은 것으로 안 적혔다';
-          // 하루에 한 번 — 버튼이 잠기고 점이 꺼진다
+          // 하루에 한 번 — 버튼이 잠긴다
           renderKitchen(); renderActBadges();
           if (!document.querySelector('#kitchenSheet .kt-eat').disabled) return '먹었는데 버튼이 살아 있다';
-          if (!document.getElementById('kitchenDot').hidden) return '먹었는데 점이 안 꺼진다';
+          // 점은 **새로 물어볼 것이 있으면 그대로 켜져 있다** — 마을이 전부 잠겨 있을 때
+          // 이야기가 시작되는 자리가 여기뿐이라, 「밥은 먹었다」로 꺼지면 갈 곳이 안 보인다
+          if (document.getElementById('kitchenDot').hidden) return '물어볼 것이 남았는데 점이 꺼졌다';
+          const keep = S.talked.slice();
+          S.talked = D.asksOf('sp_clemen').map(a => 'sp_clemen|' + a.kw);
+          renderActBadges();
+          const off = document.getElementById('kitchenDot').hidden;
+          S.talked = keep; renderKitchen(); renderActBadges();
+          if (!off) return '먹었고 물어볼 것도 다 물었는데 점이 안 꺼진다';
+          // 「물어볼 것」 줄 — 가진 키워드 중 그가 반응하는 것만 뜬다
+          const chips = document.querySelectorAll('#kitchenSheet .ask-chip');
+          const want = D.asksOf('sp_clemen').length;
+          if (chips.length !== want) return `부엌 칩이 ${chips.length}개다 (${want} 기대)`;
+          if (!document.querySelectorAll('#kitchenSheet .ask-chip.fresh').length) return '🆕 표시가 하나도 없다';
           return null;
         });
         if (ktBad) results.push({ 화면: `${t}/부엌`, 오류: ktBad });

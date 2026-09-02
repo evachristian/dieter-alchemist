@@ -517,6 +517,45 @@ body.has-quest .screen { padding-bottom: 168px; }
 /* 대화가 주된 행동이다 — 색으로도 그렇게 보이게 (오른쪽 끝 = 대화) */
 .npc-act.main { background: var(--pink-2); }
 .npc-act:active { transform: scale(0.97); }
+
+/* ─── 물어볼 것 (키워드) ──────────────────────────────────────
+   부엌 시트와 마을 NPC 화면이 **같은 마크업**을 쓴다 (askRowHtml 하나).
+   칩은 가변 폭이고 줄바꿈으로 접힌다 — 265px·영어·2배 확대에서 「정신적 허기」가
+   한 줄을 통째로 먹어도 가로로 넘치지 않는다 (UI_POLICY.md 「가변 폭」). */
+/* 말풍선 «바로 밑»에 둔다. 무대(그림+버튼) 아래로 내리면 390px 화면에서
+   화면 밖으로 밀려나는데, 지금은 이 줄이 이야기를 미는 «주된» 조작이다
+   (「길 잃음 방지가 제일 중요하다」 — STORY.md) */
+.ask-box {
+  margin: 0 0 12px; padding: 11px 12px 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+}
+.ask-title { font-size: 0.78rem; font-weight: 800; color: var(--ink-soft); margin: 0 0 8px; }
+.ask-none  { font-size: 0.8rem; color: var(--ink-soft); }
+.ask-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+/* 이미 물어본 것 = 기본 모양(크림). **사라지지 않는다** — 사라지면 「아까 뭐라고
+   했더라」를 확인할 방법이 없어진다. 다시 물어도 되고, 주는 것만 한 번이다 */
+.ask-chip {
+  max-width: 100%; min-width: 0;
+  border: 1px solid var(--line); background: var(--cream); color: var(--ink);
+  font-family: inherit; font-size: 0.78rem; font-weight: 700;
+  padding: 8px 12px; border-radius: 999px; cursor: pointer;
+  word-break: keep-all;
+}
+/* 아직 안 물어본 것 — 🆕 와 분홍 테두리. 색만으로 구분하지 않는다 (이모지가 같이 붙는다) */
+.ask-chip.fresh { border-color: var(--pink-2); font-weight: 800; }
+/* 지금 화면에 대답이 떠 있는 칩 */
+.ask-chip.on { background: var(--pink); border-color: var(--pink-2); font-weight: 800; }
+.ask-chip:active { transform: scale(0.97); }
+
+/* 「갈 곳만 알려 주는」 점 (STORY.md 「길 잃음 방지」).
+   마을 탭과 건물 명판에 붙는다 — 무엇을 물을지는 안 알려 준다.
+   글자가 아니라 점이라 폭 검사에 걸릴 것이 없고, 라벨과 6px 만 띄운다 */
+.tab-dot {
+  display: inline-block; width: 8px; height: 8px; margin-left: 6px; flex: 0 0 auto;
+  border-radius: 50%; background: #e2557f;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.85);
+  vertical-align: 1px;
+}
 /* '채집' 버튼 — 톡 누르면 한 번, 꾹 누르면 계속 채집한다 (startGatherHold).
    라벨이 언어에 따라 길어져도 카드를 밀어내지 않게 (UI_POLICY.md '가변 폭').
    touch-action 을 카드와 같게 두는 이유: 버튼 위에서 시작한 손가락으로도
