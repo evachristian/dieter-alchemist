@@ -5,7 +5,7 @@
 //   · 마을 셋이 전부 잠긴 채로 시작하는가 (부엌 말고는 갈 데가 없다)
 //   · 부엌 칩 → 일곱 굴뚝이 열리는가
 //   · 마을 안에서 칩을 눌러 대답이 «말풍선에» 뜨는가
-//   · 사슬 끝까지 걸어 셋이 다 열리는가
+//   · 사슬 끝까지 걸어 다섯이 다 열리는가 (도중에 둘로 갈린다)
 //   · 다시 물어도 되고, **주는 것은 한 번뿐인가**
 //   · 새로 물어볼 것이 있는 마을 탭에 점(●)이 뜨는가 — 「길 잃음 방지」
 //
@@ -130,6 +130,22 @@ function ok(cond, msg, extra) {
   line = await askIn('vl_mirror', 'vs_mirror_pond', '저주');
   ok(line && line.includes('모르겠'), '유타르크는 저주에 「모르겠다」고 한다', (line || '').slice(0, 20));
 
+  // ── 여기서 사슬이 둘로 갈린다 — 사냥꾼 쉼터 · 가시덤불 마을
+  await askIn('vl_mirror', 'vs_mirror_pond', '여왕');
+  ok(await page.evaluate(() => S.keywords.includes('kw_order')), '「암살 의뢰」를 얻는다');
+  await askIn('vl_chimney', 'vs_chimney_inn', '암살 의뢰');
+  ok(await page.evaluate(() => S.villages.includes('vl_hunter')), '사냥꾼 쉼터가 열린다');
+
+  line = await askIn('vl_hunter', 'vs_hunter_lodge', '아름다움');
+  ok(line && line.includes('살아 있는'), '슈타르크는 「살아 있는 것」이라 답한다', (line || '').slice(0, 20));
+  await askIn('vl_hunter', 'vs_hunter_lodge', '여왕');
+  ok(await page.evaluate(() => S.keywords.includes('kw_prince')), '「왕자」를 얻는다');
+  await askIn('vl_chimney', 'vs_chimney_forge', '왕자');
+  ok(await page.evaluate(() => S.villages.includes('vl_thorn')), '가시덤불 마을이 열린다');
+
+  line = await askIn('vl_thorn', 'vs_thorn_barrack', '아름다움');
+  ok(line && line.includes('나 같은'), '발렌은 「나 같은 거지」라고 답한다', (line || '').slice(0, 20));
+
   // ── 탭의 점 — 다 물어보고 나면 꺼진다
   await page.evaluate(() => { leaveSpot(); });
   await page.waitForSelector('#villageTabs .cat-tab', { timeout: 2000 }).catch(() => {});
@@ -150,8 +166,8 @@ function ok(cond, msg, extra) {
   await page.reload({ waitUntil: 'load' });
   await page.waitForTimeout(1200);
   st = await page.evaluate(() => ({ kw: S.keywords.length, vl: S.villages.slice(), tk: S.talked.length }));
-  ok(st.vl.length === 3, '연 마을 셋이 세이브에 남는다', st.vl.join(','));
-  ok(st.kw === 8 && st.tk === 17, '키워드 8 · 물어본 것 17 이 남는다', `kw ${st.kw} · talked ${st.tk}`);
+  ok(st.vl.length === 5, '연 마을 다섯이 세이브에 남는다', st.vl.join(','));
+  ok(st.kw === 10 && st.tk === 27, '키워드 10 · 물어본 것 27 이 남는다', `kw ${st.kw} · talked ${st.tk}`);
 
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));
 

@@ -37,6 +37,14 @@
     vl_mirror:  { sky: ['#d5dcef', '#e7edf3'], far: '#8f97b0', near: '#6f7a95',
                   road: '#b9bccb', roof: '#5f6b86', wall: '#dfe4ee',
                   rock: '#7f8496', tree: '#4d5f74', crop: '#8d93a6' },
+    // 사냥꾼 쉼터 — 깊은 숲의 늦가을. 나무가 짙고 하늘이 낮다
+    vl_hunter:  { sky: ['#dfe3d4', '#eef0e4'], far: '#7d8a6a', near: '#5b6b4d',
+                  road: '#b8a888', roof: '#6f5240', wall: '#ddd3bd',
+                  rock: '#847b6a', tree: '#3f5c3d', crop: '#b4943f' },
+    // 가시덤불 마을 — 붉은 가시와 잿빛 돌. 성을 감싼 울타리의 색이다
+    vl_thorn:   { sky: ['#e8d8dc', '#f1e8e6'], far: '#9a8088', near: '#7a636c',
+                  road: '#c2b1ac', roof: '#8a3f4b', wall: '#e4d9d6',
+                  rock: '#877b80', tree: '#5a4450', crop: '#b26a72' },
   };
   const DEF = SKIN.vl_chimney;
 

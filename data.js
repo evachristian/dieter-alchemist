@@ -1278,17 +1278,36 @@ const VILLAGES = [
       { id: 'vs_mirror_bridge', emoji: '🌫️', name: '안개 다리', shape: 'well',  x: 26, y: 70 },
       { id: 'vs_mirror_cairn',  emoji: '🗿', name: '돌무지',    shape: 'tower', x: 74, y: 70 },
     ] },
-  { id: 'vl_hunter',  emoji: '🏹', name: '사냥꾼 쉼터',   desc: '차마 베지 못한 사냥꾼이 머무는 오두막.' },
+  { id: 'vl_hunter',  emoji: '🏹', name: '사냥꾼 쉼터',   desc: '차마 베지 못한 사냥꾼이 머무는 오두막.',
+    spots: [
+      { id: 'vs_hunter_lodge', emoji: '🛖', name: '오두막',   shape: 'house', x: 26, y: 26, npc: 'sp_stark' },
+      { id: 'vs_hunter_trap',  emoji: '🪤', name: '덫 창고',  shape: 'shop',  x: 74, y: 26 },
+      { id: 'vs_hunter_smoke', emoji: '🔥', name: '훈연막',   shape: 'forge', x: 26, y: 70 },
+      { id: 'vs_hunter_well',  emoji: '💧', name: '옹달샘',   shape: 'well',  x: 74, y: 70, trade: false },
+    ] },
   { id: 'vl_glass',   emoji: '⚰️', name: '유리관 호수',   desc: '물밑에 유리관이 가라앉아 있다는 호숫가.' },
   { id: 'vl_mine',    emoji: '⛏️', name: '은빛 갱도',     desc: '곡괭이 소리가 밤낮으로 울리는 은광촌.' },
-  { id: 'vl_thorn',   emoji: '🌹', name: '가시덤불 마을', desc: '가시울타리가 성을 통째로 감싼 마을.' },
+  { id: 'vl_thorn',   emoji: '🌹', name: '가시덤불 마을', desc: '가시울타리가 성을 통째로 감싼 마을.',
+    spots: [
+      { id: 'vs_thorn_gate',    emoji: '🌹', name: '가시울타리 문', shape: 'tower', x: 26, y: 26, trade: false },
+      // **왕자에게는 거래가 없다.** 그가 주는 것은 호위이지 물건이 아니다
+      { id: 'vs_thorn_barrack', emoji: '⚔️', name: '병영',         shape: 'house', x: 74, y: 26, npc: 'sp_valen', trade: false },
+      { id: 'vs_thorn_armory',  emoji: '🛡️', name: '무기고',       shape: 'forge', x: 26, y: 70 },
+      { id: 'vs_thorn_keep',    emoji: '🏰', name: '무너진 성',     shape: 'ruin',  x: 74, y: 70, trade: false },
+    ] },
   { id: 'vl_spire',   emoji: '🏰', name: '여왕의 첨탑',   desc: '가장 아름다운 이를 묻는 거울이 걸린 탑.' },
 ];
-// 지금 화면에 내보일 마을 수 (임시).
+// 화면에 내보일 마을 — **건물이 있는 곳만.**
+//
 // **여덟 곳을 한꺼번에 잠긴 채로 늘어놓으면 '못 하는 것' 의 목록이 된다.**
-// 셋만 보여 두고, 마을이 열리는 규칙이 정해지면 이 수도 그 규칙을 따라간다.
-const VILLAGE_SHOWN = 3;
-function villagesShown() { return VILLAGES.slice(0, VILLAGE_SHOWN); }
+// 예전에는 앞에서 셋을 잘라 냈는데(`VILLAGE_SHOWN = 3`), 그러면 **목록 순서와
+// 채운 순서가 어긋나는 순간 막힌다** — 가시덤불 마을은 일곱 번째라, 거기까지 늘리면
+// 안이 텅 빈 유리관 호수·은빛 갱도가 자물쇠로 딸려 온다.
+//
+// 건물이 없는 마을은 들어가도 할 것이 없으니 **애초에 안 내보인다.** 그러면
+// 마을을 채울 때마다 이 상수를 같이 고칠 일도 없어진다 (안 고치면 조용히 안 보인다).
+function villagesShown() { return VILLAGES.filter(v => (v.spots || []).length); }
+const VILLAGE_SHOWN = villagesShown().length;   // 지금 몇 곳인지 (검사·문서용)
 
 // ═══════════════════════════════════════════════════════════════
 //  인물 — 초상화 사양과 대사
@@ -1368,6 +1387,10 @@ const TALKS = {
                lines: ['tk_sylvan_1', 'tk_sylvan_2'],          moods: ['def', 'warm'] },
   sp_yutark: { greet: 'tk_yutark_greet', greetMood: 'def',
                lines: ['tk_yutark_1', 'tk_yutark_2', 'tk_yutark_3'], moods: ['def', 'true', 'def'] },
+  sp_stark:  { greet: 'tk_stark_greet',  greetMood: 'def',
+               lines: ['tk_stark_1', 'tk_stark_2'],                  moods: ['def', 'warm'] },
+  sp_valen:  { greet: 'tk_valen_greet',  greetMood: 'def',
+               lines: ['tk_valen_1', 'tk_valen_2'],                  moods: ['def', 'soft'] },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -1389,8 +1412,10 @@ const KEYWORDS = [
   { id: 'kw_song',   kind: 'thing', name: '노래' },
   { id: 'kw_apple',  kind: 'thing', name: '독사과' },
   { id: 'kw_curse',  kind: 'thing', name: '저주' },
+  { id: 'kw_order',  kind: 'thing', name: '암살 의뢰' },
   { id: 'kw_queen',  kind: 'who',   name: '여왕' },
   { id: 'kw_mother', kind: 'who',   name: '엄마' },
+  { id: 'kw_prince', kind: 'who',   name: '왕자' },
 ];
 function keyword(id) { return KEYWORDS.find(x => x.id === id) || null; }
 
@@ -1425,10 +1450,14 @@ const ASKS = [
   { npc: 'sp_orix', kw: 'kw_beauty', line: 'ak_orix_beauty', mood: 'wink', gives: ['kw_gem'] },
   { npc: 'sp_orix', kw: 'kw_gem',    line: 'ak_orix_gem',    mood: 'def',  gives: ['kw_queen'] },
   { npc: 'sp_orix', kw: 'kw_queen',  line: 'ak_orix_queen',  mood: 'def',  gives: ['kw_song'] },
+  // 가시울타리 문을 단 것이 그다 — **여는 법도 아는 사람**이라 이 자리가 자연스럽다
+  { npc: 'sp_orix', kw: 'kw_prince', line: 'ak_orix_prince', mood: 'wink', opens: ['vl_thorn'] },
   // 🎻 카이로스 — 떠돌이라 거처가 없다. 오늘은 일곱 굴뚝의 여관에 있다
   { npc: 'sp_kairos', kw: 'kw_song',   line: 'ak_kairos_song',   mood: 'sing', gives: ['kw_apple'] },
   { npc: 'sp_kairos', kw: 'kw_beauty', line: 'ak_kairos_beauty', mood: 'sing' },
   { npc: 'sp_kairos', kw: 'kw_apple',  line: 'ak_kairos_apple',  mood: 'def',  opens: ['vl_apple'] },
+  // 소문을 나르는 사람이라 「그런 노래는 안 만든다」면서도 갈 곳은 알려 준다
+  { npc: 'sp_kairos', kw: 'kw_order',  line: 'ak_kairos_order',  mood: 'def',  opens: ['vl_hunter'] },
   // 🌱 실반 — 과수원을 빼앗긴 사람. **개념 키워드에는 답하지 않는다**
   // (「아름다움」에 답하는 것은 남자 NPC 여섯이고 그는 그 여섯이 아니다 — STORY.md)
   { npc: 'sp_sylvan', kw: 'kw_apple',  line: 'ak_sylvan_apple',  mood: 'def',  gives: ['kw_curse'] },
@@ -1438,8 +1467,20 @@ const ASKS = [
   // 「저주」에는 정말로 모른다고 한다 — **거짓말이 아니다** (STORY.md 「대표 사례」)
   { npc: 'sp_yutark', kw: 'kw_beauty', line: 'ak_yutark_beauty', mood: 'def' },
   { npc: 'sp_yutark', kw: 'kw_curse',  line: 'ak_yutark_curse',  mood: 'true' },
-  { npc: 'sp_yutark', kw: 'kw_queen',  line: 'ak_yutark_queen',  mood: 'def' },
+  // ⚠️ **그는 거짓말을 못 한다.** 여왕이 무엇을 묻는지 «사실대로» 옮길 뿐인데,
+  // 그 사실이 곧 암살 의뢰의 냄새다 — 「암시만 한다」(STORY.md)가 이 줄이다
+  { npc: 'sp_yutark', kw: 'kw_queen',  line: 'ak_yutark_queen',  mood: 'def', gives: ['kw_order'] },
   { npc: 'sp_yutark', kw: 'kw_mother', line: 'ak_yutark_mother', mood: 'true' },
+  // 🏹 슈타르크 — 「살아 있는 것」. **자기가 주는 것을 자기 몸으로 증명하는 사람**
+  { npc: 'sp_stark', kw: 'kw_beauty', line: 'ak_stark_beauty', mood: 'warm' },
+  { npc: 'sp_stark', kw: 'kw_order',  line: 'ak_stark_order',  mood: 'def' },
+  { npc: 'sp_stark', kw: 'kw_queen',  line: 'ak_stark_queen',  mood: 'def', gives: ['kw_prince'] },
+  { npc: 'sp_stark', kw: 'kw_mother', line: 'ak_stark_mother', mood: 'warm' },
+  // ⚔️ 발렌 — 「나 같은 거지」. 진짜 강한 사람은 말이 없고 지위로 강한 사람은 계속 말한다
+  { npc: 'sp_valen', kw: 'kw_beauty', line: 'ak_valen_beauty', mood: 'def' },
+  { npc: 'sp_valen', kw: 'kw_order',  line: 'ak_valen_order',  mood: 'def' },
+  { npc: 'sp_valen', kw: 'kw_queen',  line: 'ak_valen_queen',  mood: 'def' },
+  { npc: 'sp_valen', kw: 'kw_mother', line: 'ak_valen_mother', mood: 'soft' },
 ];
 function asksOf(npc) { return ASKS.filter(a => a.npc === npc); }
 

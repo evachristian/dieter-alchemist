@@ -1005,9 +1005,11 @@ function launchOpts() {
           await page.waitForTimeout(150);
         }
 
-        // 마을은 셋이고 **건물 수가 다르다.** 여덟인 마을과 넷인 마을을 다 본다 —
-        // 그림 높이가 건물 수를 따라가므로 명판이 겹치는지는 여덟짜리로만 잡힌다
-        for (const vid of ['vl_chimney', 'vl_mirror']) {
+        // 마을은 다섯이고 **건물 수가 다르다.** 일곱인 마을과 넷인 마을을 다 본다 —
+        // 그림 높이가 건물 수를 따라가므로 명판이 겹치는지는 일곱짜리로만 잡힌다.
+        // 색은 마을마다 다른 팔레트라(`village.js` 의 SKIN) 새 마을도 한 곳은 재야 한다 —
+        // 안 재면 그 팔레트에서만 나는 대비 위반을 한 번도 안 본다
+        for (const vid of ['vl_chimney', 'vl_mirror', 'vl_thorn']) {
           const bad = await page.evaluate((id) => {
             setGatherTab('village');
             setVillage(id);
