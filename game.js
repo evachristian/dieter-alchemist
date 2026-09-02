@@ -1660,6 +1660,10 @@ function renderQuestChip() {
   const now = questProgress(q), max = q.goal.n;
   const full = now >= max;
   const fresh = !(S.quest.n || now) && !full;      // 아직 한 걸음도 안 뗀 것
+  // **아직 한 번도 안 열어 본 퀘스트**에 점(●). 인트로 컷씬을 봤는지가 곧 열어 봤는지다 —
+  // 새 칸을 만들 것 없이 `seenCuts` 하나로 판정된다.
+  // 다 찬 것에는 이미 「!」 뱃지가 붙으므로 **점은 안 찍는다** (둘이 겹치면 뭘 뜻하는지 흐려진다)
+  const unseen = !full && !!(q.cut && q.cut.in) && !(S.seenCuts || []).includes(q.cut.in);
   el.classList.toggle('done', full);
   el.classList.toggle('fresh', fresh);
   // 진행도는 **얼굴 둘레의 링**이다 — 숫자를 안 읽어도 얼마나 남았는지 보인다
@@ -1672,7 +1676,8 @@ function renderQuestChip() {
         stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - now / max)}"/>
     </svg>
     <span class="qc-face">${sp && window.Portrait ? Portrait.bust(sp, 'def', { bare: true }) : '🧚'}</span>
-    ${full ? `<span class="qc-badge">!</span>` : ''}`;
+    ${full ? `<span class="qc-badge">!</span>` : ''}
+    ${unseen ? '<span class="tab-dot qc-dot" aria-hidden="true"></span>' : ''}`;
   el.setAttribute('aria-label', T(q.id + '_name'));
 }
 window.renderQuestChip = renderQuestChip;

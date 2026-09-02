@@ -603,6 +603,32 @@ function launchOpts() {
           if (qBad) results.push({ 화면: `${t}/퀘스트칩`, 오류: qBad });
           else { await page.waitForTimeout(200); await run(`${t}/퀘스트칩`); }
 
+          // **아직 안 열어 본 퀘스트에는 점(●)** — 마을 탭·건물과 같은 신호다.
+          // ⚠️ 다 찬 것에는 「!」 뱃지가 붙으므로 **점과 뱃지는 같이 뜨면 안 된다**
+          const qdBad = await page.evaluate(() => {
+            const q = activeQuest();
+            if (!q) return '퀘스트가 없다';
+            const dot = () => !!document.querySelector('#questChip .qc-dot');
+            const bang = () => !!document.querySelector('#questChip .qc-badge');
+            const keep = (S.seenCuts || []).slice();
+            S.seenCuts = keep.filter(c => c !== (q.cut && q.cut.in));
+            S.quest.n = 0; renderQuestChip();
+            if (!dot()) return '안 열어 본 퀘스트인데 점이 없다';
+            // 열어 봤으면(인트로를 봤으면) 꺼진다
+            S.seenCuts = keep.concat(q.cut && q.cut.in ? [q.cut.in] : []);
+            renderQuestChip();
+            if (dot()) return '열어 봤는데 점이 안 꺼진다';
+            // 다 차면 「!」 만 뜨고 점은 안 뜬다
+            S.seenCuts = keep.filter(c => c !== (q.cut && q.cut.in));
+            S.quest.n = q.goal.n; renderQuestChip();
+            if (!bang()) return '다 찼는데 「!」 가 없다';
+            if (dot()) return '다 찼는데 점과 「!」 가 같이 뜬다';
+            S.seenCuts = keep; S.quest.n = 0; renderQuestChip();
+            return null;
+          });
+          if (qdBad) results.push({ 화면: `${t}/퀘스트점`, 오류: qdBad });
+          else { await page.waitForTimeout(200); await run(`${t}/퀘스트점`); }
+
           // 시트 — NPC 한 마디 · 목표 · 진행 막대 · **어디로 가면 되는지** · 보상
           const qsBad = await page.evaluate(() => {
             // 컷씬은 **제 검사가 따로 있다** — 여기서는 본 것으로 쳐서 시트만 본다
