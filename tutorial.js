@@ -111,7 +111,7 @@
       talk: [say('gwiriel', 'tut_i1', 'smile'), say('althea', 'tut_i2'), say('althea', 'tut_i3', 'warm')] },
   ];
 
-  // 졸업 — 잠겨 있던 문을 연다 (3구 무쇠 솥 · 크리처 탭 · 옷장 열두 칸)
+  // 졸업 — 잠겨 있던 문을 연다 (3구 무쇠 솥 · 크리처 탭 · 옷장 열두 칸 · **비법서**)
   function graduate() {
     S.tutorialDone = true;
     if (!Array.isArray(S.unlocked)) S.unlocked = [];
@@ -122,6 +122,10 @@
       S.cauldronId = pot.id;
       if (S.record && !S.record.pots.includes(pot.id)) S.record.pots.push(pot.id);
     }
+    // **연금술 비법서.** 요정 대모가 여기서 건넨다 — 이 한 묶음이 없으면 새 플레이어는
+    // 시작 두 장으로 게임이 끝난다. `grantPages` 가 `tutorialDone` 을 보므로
+    // **반드시 위의 `S.tutorialDone = true` 뒤에 와야 한다**
+    if (typeof grantPages === 'function') grantPages(true);
   }
 
   // ─── 상태 ─────────────────────────────────────────────────

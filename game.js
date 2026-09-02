@@ -597,6 +597,16 @@ function checkUnlocks() {
   if (now <= lastCharmSeen) { lastCharmSeen = now; return; }
   const opened = D.MAPS.filter(m => m.unlock > lastCharmSeen && m.unlock <= now);
   lastCharmSeen = now;
+  // **비법서의 새 장도 여기서 온다.** 단계가 오르는 자리가 곧 장이 오는 자리다 —
+  // 따로 판정을 두면 「매력이 올랐다」를 두 곳에서 세게 된다.
+  // 맵 안내보다 **먼저** 띄운다: 맵이 열려도 만들 것을 모르면 갈 이유가 없다
+  const pages = grantPages(true);
+  if (pages) {
+    setTimeout(() => {
+      toast(T('page_got', { n: pages }), null, 3600);
+      if (window.Sfx) Sfx.play('success');
+    }, 1200);
+  }
   if (!opened.length) return;
   const names = opened.map(m => N(m.id, m.name)).join(', ');
   setTimeout(() => {
@@ -965,7 +975,112 @@ function msToNextMidnight() {
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
   return next - now;
 }
-function energyCap() { return D.ENERGY.cap + (S.energyBonusCap || 0); }
+// ─── AP 상한 ─────────────────────────────────────────────────
+//
+// **매력 단계가 오르면 상한도 오른다.** 새싹 1000 → 여신 1800 (`capPerTier` 200).
+// 뒤로 갈수록 채집이 비싸지므로(`zoneAp`) 상한이 그대로면 후반이 앞보다 좁아진다.
+//
+// ⚠️ **`charmPeak()`(여태 닿은 최고 매력)으로 판정한다.** 총합을 그대로 보면
+// 애착 크리처를 약한 것으로 바꾼 순간 상한이 내려가고, **지금 들고 있던 AP 가
+// 갈 곳을 잃는다.** 맵·밭 해금과 같은 규칙이다 — 한 번 오른 것은 안 내려간다.
+//
+// `S.energyBonusCap` 은 **나중에 붙을 것을 위한 자리**다 (아이템·업적 등).
+// 지금은 아무도 안 올린다 — `defaultState()` 에도 없어서 늘 0 이다.
+function capTier() {
+  const peak = charmPeak();
+  let n = 0;
+  D.TIERS.forEach(t => { if (peak >= t.min) n++; });
+  return Math.max(0, n - 1);            // 새싹(0) ~ 여신(4)
+}
+function energyCap() {
+  return D.ENERGY.cap + capTier() * (D.ENERGY.capPerTier || 0) + (S.energyBonusCap || 0);
+}
+
+// ─── 채집에 드는 AP ──────────────────────────────────────────
+// **지대마다 다르다.** 앞은 싸고 뒤는 비싸다 (`D.ZONES[].ap`).
+// 맵 id 를 넘기면 그 맵의 값을, 아무것도 안 넘기면 기본값을 준다 —
+// 화면 어디서도 `D.ENERGY.cost.gather` 를 **직접 읽지 않는다**: 직접 읽으면
+// 버튼에 적힌 값과 실제로 깎이는 값이 갈린다 (그게 제일 나쁜 종류의 버그다)
+function gatherCost(mapId) {
+  const m = mapId && D.MAPS.find(x => x.id === mapId);
+  return m ? D.zoneAp(m.zone) : D.ENERGY.cost.gather;
+}
+window.gatherCost = gatherCost;
+
+// ═══════════════════════════════════════════════════════════════
+//  연금술 비법서
+//
+//  **레시피는 맞히는 것이 아니라 «장»을 갖는 것이다.**
+//
+//  예전에는 재료를 아무렇게나 넣어 보다가 맞으면 그 레시피를 알게 됐다.
+//  그런데 재료가 111개라 **세 가지 조합만 해도 22만 가지**이고 그중 진짜 레시피는
+//  스물넷 — 눈감고 맞을 확률이 0.01% 였다. 한 번 틀릴 때마다 AP 25 와 넣은 재료가
+//  통째로 날아가니, 플레이테스트에서 「계속 실패하니까 재미가 없다」로 돌아왔다.
+//  **재미가 없던 게 아니라 설계상 맞을 수가 없었다.**
+//
+//  이제 병목은 **맞히기가 아니라 모으기**다. 장이 있으면 무엇을 얼마나 넣는지
+//  다 보이고, 그 재료가 어느 맵에 있는지 · 그 맵이 열렸는지 · 어느 시간대에 어떤
+//  크리처와 가야 잘 나오는지까지 비법서가 알려 준다.
+//
+//  `S.discovered` 를 그대로 **「가진 장」**으로 읽는다. 배열이 안 바뀌므로
+//  **마이그레이션이 필요 없고**, 예전에 알아낸 레시피는 그대로 그 사람의 장이 된다.
+// ═══════════════════════════════════════════════════════════════
+function hasPage(id) { return !!(S.discovered && S.discovered.includes(id)); }
+window.hasPage = hasPage;
+
+// ⚠️ **여기는 임시 배분이다.** 진짜 배분은 퀘스트가 맡는다 (`STORY.md`) —
+// 그때 `pagesForTier()` 한 곳만 갈아 끼우면 되게 해 두었다.
+// 이게 없으면 새 플레이어는 시작 두 장으로 게임이 끝난다.
+//
+// 단계마다 요정 대모가 한 묶음씩 준다. **등급으로 가른다** — 그 등급을 만들 수
+// 있게 되는 시점과 재료가 열리는 시점이 대체로 맞기 때문이다.
+// 중급 물약 쉰 장은 한 번에 주면 목록이 통째로 노이즈가 되므로 두 단계에 나눈다.
+const PAGE_TIERS = [
+  // 새싹 — 튜토리얼을 마치면 요정 대모가 준다
+  ['potion:basic', 'potion:low'],
+  ['creature:basic'],                       // 꽃봉오리 (매력 15)
+  ['potion:mid#0'],                         // 요정 (35) — 중급 앞 절반
+  ['potion:mid#1', 'creature:mid'],         // 뮤즈 (60) — 중급 뒤 절반
+  ['potion:high', 'creature:high'],         // 여신 (100)
+];
+// `kind:grade` 또는 `kind:grade#절반`(0=앞, 1=뒤). 절반은 **id 순으로 가른다** —
+// 정렬이 정해져 있어야 다시 불러도 같은 장이 같은 단계에 온다
+function pagesForSpec(spec) {
+  const half = spec.indexOf('#');
+  const idx = half >= 0 ? Number(spec.slice(half + 1)) : -1;
+  const [kind, grade] = (half >= 0 ? spec.slice(0, half) : spec).split(':');
+  const list = D.RECIPES
+    .filter(r => r.result.kind === kind && r.result.grade === grade)
+    .map(r => r.result.id).sort();
+  if (idx < 0) return list;
+  const cut = Math.ceil(list.length / 2);
+  return idx === 0 ? list.slice(0, cut) : list.slice(cut);
+}
+function pagesForTier(i) {
+  return (PAGE_TIERS[i] || []).reduce((a, spec) => a.concat(pagesForSpec(spec)), []);
+}
+
+// 여태 닿은 단계까지의 장을 **없는 것만** 채운다. 몇 장이 들어왔는지 돌려준다.
+//
+// ⚠️ **튜토리얼 전에는 한 장도 안 준다.** 튜토리얼이 시작 레시피(`vitality`)로
+// 조합을 가르치는데, 그 앞에 서른 장이 쏟아지면 가리켜야 할 줄을 못 찾는다.
+// ⚠️ **이미 가진 것은 안 건드린다** — 예전에 알아낸 레시피가 그대로 남아야 한다.
+function grantPages(silent) {
+  if (!S.tutorialDone) return 0;
+  if (!Array.isArray(S.discovered)) S.discovered = [];
+  const top = capTier();
+  let got = 0;
+  for (let i = 0; i <= top; i++) {
+    pagesForTier(i).forEach(id => { if (!hasPage(id)) { S.discovered.push(id); got++; } });
+  }
+  if (got) {
+    save();
+    if (!silent) toast(T('page_got', { n: got }), null, 3600);
+    if (window.Sfx) Sfx.play('success');
+  }
+  return got;
+}
+window.grantPages = grantPages;
 
 // ═══════════════════════════════════════════════════════════════
 //  크리처 생산 (CREATURE.md 8장) — 하루에 한 번, 저절로 쌓인다
@@ -1027,8 +1142,11 @@ function refreshEnergy() {
   decayIdle();
   settleProduce();                       // 크리처 생산도 같은 자리에서 (8단계)
   if (checkBinge()) renderActBadges();   // 뱃지만 켠다 (토스트로 안 알린다)
-  // (여러 날 지났어도) 상한까지 충전 — 현재 dailyFill == cap
-  S.energy = Math.min(energyCap(), (S.energy || 0) + D.ENERGY.dailyFill);
+  // (여러 날 지났어도) **상한까지** 충전한다.
+  // ⚠️ 예전에는 `energy + dailyFill`(고정 1000)을 상한으로 잘랐다. 상한이 매력
+  // 단계로 늘어나게 되면서 그 식은 **늘어난 몫을 영영 안 채운다** — 여신(1800)이
+  // 되어도 0 에서 시작하면 1000 까지만 찼을 것이다. 상한이 곧 하루 충전량이다
+  S.energy = energyCap();
   S.energyDay = today;
   save();
   return true;
@@ -1467,7 +1585,8 @@ function gather(mapId) {
   const map = D.MAPS.find(m => m.id === mapId);
   if (!map) return false;
   if (!isMapOpen(map)) { toast(unlockText(map.unlock)); return false; }
-  if (!spendEnergy(D.ENERGY.cost.gather)) {
+  // **맵마다 값이 다르다** (`zoneAp`). 카드에 적힌 값과 같은 함수를 지난다
+  if (!spendEnergy(gatherCost(mapId))) {
     toast(T('no_energy'));
     return false;
   }
@@ -1668,8 +1787,14 @@ function rng32(seed) {
   };
 }
 
-// 리그가 높을수록 상대가 세다 — 이 값이 그 주 1위의 대략적인 점수다
-function leaguePace(i) { return 40 + i * 26; }
+// 리그가 높을수록 상대가 세다 — 이 값이 그 주 1위의 대략적인 점수다.
+//
+// 맨 아래 40점 → 맨 위 1590점(32칸). 칸당 **26 → 50** 으로 올렸다:
+// 비법서와 함께 들어온 두 가지가 한 주 상한을 1312 → 2720 점으로 밀어 올렸기
+// 때문이다 — ① AP 상한이 매력 단계로 늘어난다(여신 1800) ② 초반 지대의 채집이
+// 싸졌다. 26 짜리 사다리는 상한의 **31%** 라 맨 위가 32주짜리 산책이 됐었다.
+// ⚠️ **`tools/checkbalance.js` 가 이 관계를 잰다** — 40~70% 밖으로 나가면 실패한다
+function leaguePace(i) { return 40 + i * 50; }
 
 // 같은 조 NPC 11명. rank 는 여기서 정하지 않는다 (내 점수와 섞어서 매긴다)
 function leagueNpcs(lgIndex, wkKey, atProgress) {
@@ -1979,6 +2104,22 @@ function brewNearText(inputs) {
 
 function brew() {
   if (S.cauldron.length < 2) { toast(T('need_two')); return; }
+  // ⚠️ **AP 를 쓰기 «전»에 막는다.** 비법서에 없는 조합은 아예 안 만들어지므로,
+  // 먼저 깎고 나서 「없는 장입니다」라고 하면 예전의 그 좌절이 이름만 바꿔 돌아온다.
+  //
+  // **없는 레시피와 「장이 없는 레시피」를 구분해서 말하지 않는다.** 갈라 말하면
+  // 아무거나 넣어 보며 «조합이 존재하는지»를 알아낼 수 있게 되어, 비법서가
+  // 유일한 길이라는 규칙에 뒷문이 생긴다
+  const ready = D.RECIPE_MAP[D.recipeKey(S.cauldron)];
+  if (!ready || !hasPage(ready.id)) {
+    toast(T('brew_no_page'), null, 3000);
+    if (window.Sfx) Sfx.play('fail');
+    // ⚠️ **튜토리얼에 「해 봤다」고 알려 준다.** `brew_again` 단계가
+    // `['brew:ok','brew:fail']` 을 기다리는데, 여기서 조용히 돌아가면
+    // 막이 영영 안 걷혀 **새 플레이어가 갇힌다** (막다른 길을 만들지 않는다)
+    if (window.Tut) Tut.fire('brew:fail');
+    return;
+  }
   if (!spendEnergy(D.ENERGY.cost.brew)) {
     toast(T('no_energy'));
     return;
@@ -1995,9 +2136,11 @@ function brew() {
   refillFromWant();
 
   rec('brews');
+  // ⚠️ **여기까지 오면 실패하지 않는다.** 위에서 이미 「장이 있는 조합」만
+  // 통과시켰기 때문이다. 이 갈래는 세이브가 깨졌거나 데이터가 어긋났을 때의
+  // 안전망으로만 남겨 둔다 — 재료와 AP 를 먹고 아무것도 안 주는 일이 없게
   if (!result) {
     rec('brewFail');
-    // 실패해도 빈손으로 보내지 않는다 — 현자의 결정과 **정보**가 남는다
     S.crystal = (S.crystal || 0) + D.ENERGY.failReward;
     save(); render();
     if (window.Tut) Tut.fire('brew:fail');
@@ -2006,6 +2149,10 @@ function brew() {
   }
 
   rec('brewOk');
+  // **현자의 결정은 이제 성공에서 나온다.** 실패가 사라지면서 유일한 수급원이
+  // 없어졌고, 그대로 두면 AP 충전도 밭 칸도 영영 못 여는 게임이 된다.
+  // 조합 값(25)보다 반드시 작다 — 같기만 해도 조합을 돌려 AP 를 무한히 번다
+  S.crystal = (S.crystal || 0) + (D.ENERGY.brewReward || 0);
   const isNew = !S.discovered.includes(result.id);
   if (isNew) {
     rec('discoveries');
@@ -2180,8 +2327,8 @@ function renderHeader() {
 }
 
 function renderGather() {
-  const cost = D.ENERGY.cost.gather;
-  const canGather = (S.energy || 0) >= cost;
+  // 채집 값이 **맵마다 갈렸다.** 여기서 한 벌로 잴 수가 없어서 카드마다 다시 잰다 —
+  // 평야는 갈 수 있는데 황무지는 못 가는 상태가 정상이고, 그게 화면에 보여야 한다
 
   // 필드 / 마을 / 밭 — 윗단 세 칸. 밭은 여신 단계부터 보인다
   const fOpen = farmOpen();
@@ -2262,6 +2409,10 @@ function renderGather() {
       + `</div>` : '';
     // 카드 몸통은 **누르는 곳이 아니다.** 채집은 오른쪽 버튼만 한다 —
     // 재료 이름을 보려다, 목록을 밀어 내리려다 AP 가 새던 자리였다
+    // **이 맵의 값**으로 다시 잰다 — 지대마다 달라서 하나로 뭉뚱그릴 수 없다.
+    // 평야는 갈 수 있는데 황무지는 못 가는 상태가 정상이고, 그게 화면에 보여야 한다
+    const cost = gatherCost(spot.id);
+    const canGather = (S.energy || 0) >= cost;
     return `
       <div class="spot-card ${canGather ? '' : 'low-energy'}${spot.mini ? ' special' : ''}"
            data-spot="${spot.id}">
@@ -2604,15 +2755,20 @@ function renderAtelier() {
       // 재료가 다 있어야 담을 수 있다. 모자라면 회색으로 두고, 눌렀을 때 이유를 알려 준다
       const ready = hasAllInputs(r);
       const picked = wantKey && D.recipeKey(r.inputs) === wantKey;
+      // 📖 — 비법서의 그 장을 펼친다 (재료 ×수량 · 어느 맵 · 열렸는지 · 언제 · 누구와).
+      // **줄 자체는 솥에 담는 것**이라 `stopPropagation` 으로 갈라 놓는다
       return `<div class="recipe-row clickable ${ready ? '' : 'short'} ${picked ? 'on' : ''} ${r.result.id === lastFound ? 'just-found' : ''}"
         data-recipe="${r.result.id}" onclick="fillFromRecipe('${r.result.id}', this)">
         <span class="recipe-in">${inputs}</span>
         <span class="recipe-arrow">→</span>
         <span class="recipe-out">${resultArt(r.result, 22)} ${N(r.result.id, r.result.name)}</span>
+        <button class="recipe-page" onclick="event.stopPropagation();openPage('${r.result.id}')"
+          aria-label="${T('pg_open')}">📖</button>
       </div>`;
     }
-    // 아직 모르는 레시피 — **물음표 개수가 곧 재료 개수다.** 몇 가지가 드는지는
-    // 알려 줘도 되는 정보이고, 그래야 어떤 솥이 필요한지 가늠할 수 있다
+    // **아직 장이 없는 레시피.** 물음표 개수가 곧 재료 개수다 — 몇 가지가 드는지는
+    // 알려 줘도 되는 정보이고, 그래야 어떤 솥이 필요한지 가늠할 수 있다.
+    // 이제 이 줄의 뜻은 「알아내라」가 아니라 **「이 장을 구해라」**다
     const marks = r.inputs.map(() => '?').join(' + ');
     return `<div class="recipe-row locked" data-unknown="${r.result.id}"
       onclick="unknownRecipeHint(this)">
@@ -2621,8 +2777,8 @@ function renderAtelier() {
       <span class="recipe-out">❓</span>
     </div>`;
   }).join('');
-  // 진행도는 현재 카테고리 기준
-  const catFound = catRecipes.filter(r => S.discovered.includes(r.result.id)).length;
+  // 진행도 — 이제 「가진 장 / 그 등급의 장 수」다
+  const catFound = catRecipes.filter(r => hasPage(r.result.id)).length;
   document.getElementById('recipeProgress').textContent =
     `${catFound} / ${catRecipes.length}`;
 
@@ -4464,6 +4620,115 @@ function fillFromRecipe(resultId, el) {
 // 아직 모르는 레시피를 눌렀을 때
 function unknownRecipeHint(el) { toast(T('recipe_unknown'), el, null, 'above'); }
 window.unknownRecipeHint = unknownRecipeHint;
+
+// ─── 비법서 한 장 펼쳐 보기 ───────────────────────────────────
+//
+// **장을 가지면 「어디로 가면 되는지」까지 알게 된다.** 이게 이 시스템의 값어치다 —
+// 재료 이름만 알려 주면 맵 51곳의 대응표를 사람이 외워야 한다.
+//
+// 재료 하나가 어디서 나는가. ⚠️ **채집으로 안 나오는 재료가 절반이다** —
+// 히든(맵마다 하나) · 밭 작물 · 크리처가 만드는 것 · 조합해서 얻는 것.
+// 「어느 맵」만 찾으면 그 절반이 통째로 빈칸이 된다
+function ingSource(id) {
+  const pool = D.MAPS.filter(m => (m.pool || []).includes(id));
+  if (pool.length) return { kind: 'gather', maps: pool };
+  const sp = D.MAPS.filter(m => m.special === id);
+  if (sp.length) return { kind: 'rare', maps: sp };
+  if ((D.FARM_CROPS || []).some(c => c.id === id)) return { kind: 'farm', maps: [] };
+  const mk = D.RECIPES.find(r => r.result.makes && r.result.makes.id === id);
+  if (mk) return { kind: 'produce', by: mk.result, maps: [] };
+  if (D.RECIPES.some(r => r.result.id === id)) return { kind: 'brew', maps: [] };
+  return { kind: 'unknown', maps: [] };
+}
+
+// 그 재료를 캐러 갈 **제일 쉬운 맵** — 열린 것 중 제일 싼 곳, 없으면 제일 빨리 열릴 곳.
+// 여러 곳에서 나는 재료가 많아서(최대 10곳) 다 늘어놓으면 줄이 통째로 표가 된다
+function bestMapFor(maps) {
+  if (!maps.length) return null;
+  const open = maps.filter(m => isMapOpen(m));
+  if (open.length) {
+    return open.slice().sort((a, b) => gatherCost(a.id) - gatherCost(b.id))[0];
+  }
+  return maps.slice().sort((a, b) => a.unlock - b.unlock)[0];
+}
+
+let pageRecipe = null;
+function openPage(id) {
+  pageRecipe = id;
+  renderPage();
+  const m = document.getElementById('pageSheet');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+}
+function closePage() {
+  const m = document.getElementById('pageSheet');
+  if (m) m.classList.remove('show');
+}
+window.openPage = openPage;
+window.closePage = closePage;
+
+function renderPage() {
+  const r = D.RECIPES.find(x => x.result.id === pageRecipe);
+  const el = document.getElementById('pageBody');
+  const ti = document.getElementById('pageTitle');
+  if (!r || !el) return;
+  if (ti) ti.textContent = T('pg_title', { name: N(r.result.id, r.result.name) });
+
+  // **같은 재료를 묶어 분량으로 적는다.** 비법서에는 「분량」이 적혀 있다는 설정이고,
+  // 화면으로도 이모지 여섯 개보다 「×3」이 훨씬 빨리 읽힌다.
+  //
+  // ⚠️ **지금 데이터에는 겹치는 재료가 한 곳도 없다** (136 레시피 전부 ×1).
+  // 그래서 `×n` 은 아직 화면에 안 나온다 — 분량을 진짜로 쓰려면 레시피 생성기
+  // (`tools/gen*.js`)에서 같은 재료를 두 번 넣어야 한다. 묶는 쪽을 미리 해 둔 것은
+  // 그때 화면을 다시 손대지 않으려는 것이다
+  const need = {};
+  r.inputs.forEach(id => { need[id] = (need[id] || 0) + 1; });
+
+  el.innerHTML = Object.keys(need).map(id => {
+    const n = need[id], have = stockOf(id);
+    const src = ingSource(id);
+    const map = bestMapFor(src.maps);
+    let where = '', tip = '', locked = false;
+    if (map) {
+      const zone = D.ZONES.find(z => z.id === map.zone);
+      const open = isMapOpen(map);
+      locked = !open;
+      where = `${zone ? zone.emoji : ''} ${zone ? N(zone.id, zone.name) : ''} · ${N(map.id, map.name)}`
+        + (src.maps.length > 1 ? ' ' + T('pg_more', { n: src.maps.length - 1 }) : '');
+      if (open) {
+        // **어떤 크리처와 · 언제 가면 좋은가.** 맵의 속성이 곧 답이고, 그 속성을
+        // 편드는 시간대가 하나씩 있다 (`D.DAYPARTS`). 확률표를 밖에서 외워 오라고
+        // 하지 않으려고 만든 자리다 — 지금까지는 채집 토스트로만 새어 나왔다
+        const at = D.creatureAttr(D.mapAttr(map.id));
+        const dp = D.DAYPARTS.find(p => at && p.attrs.indexOf(at.k) >= 0);
+        tip = `<span class="pg-ap">⚡${gatherCost(map.id)}</span>`
+          + (at ? ` <span class="pg-attr" style="--at:${at.color}">${N(at.id, at.name)}</span>` : '')
+          + (dp ? ` <span class="pg-dp">${dp.emoji} ${N(dp.id, dp.name)}</span>` : '');
+        if (src.kind === 'rare') tip += ` <span class="pg-rare">${T('pg_rare')}</span>`;
+      } else {
+        where = `${where}`;
+        tip = `<span class="pg-lock">🔒 ${T('pg_lock', { n: map.unlock })}</span>`;
+      }
+    } else {
+      // 채집으로 안 나오는 것들 — 밭 · 크리처 생산 · 조합
+      where = T(src.kind === 'farm' ? 'pg_from_farm'
+        : src.kind === 'produce' ? 'pg_from_pet'
+        : src.kind === 'brew' ? 'pg_from_brew' : 'pg_from_unknown',
+        { name: src.by ? N(src.by.id, src.by.name) : '' });
+    }
+    const okAmt = have >= n;
+    return `<div class="pg-row${locked ? ' locked' : ''}">
+      <span class="pg-ic" aria-hidden="true">${itemArt(id, 26)}</span>
+      <span class="pg-main">
+        <span class="pg-name">${itemName(id)}${n > 1 ? ` <b class="pg-n">×${n}</b>` : ''}</span>
+        <span class="pg-where">${where}</span>
+        ${tip ? `<span class="pg-tip">${tip}</span>` : ''}
+      </span>
+      <span class="pg-have ${okAmt ? 'ok' : 'lack'}">${have} / ${n}</span>
+    </div>`;
+  }).join('');
+}
+window.renderPage = renderPage;
 
 // 레시피 줄의 재료 이모지를 눌렀을 때 — 그 자리에 이름을 띄운다.
 // 이모지만으로는 무엇인지 알 수 없는 재료가 많다 (씨앗·이끼·조각 종류가 특히 그렇다)
@@ -6692,6 +6957,10 @@ document.addEventListener('DOMContentLoaded', () => {
       d: lost.days, grit: lost.grit, fit: lost.fit.toFixed(2) }), null, 5200), 900);
   }
   switchTab('showcase');
+  // **비법서를 한 번 맞춰 둔다.** `checkUnlocks()` 는 매력이 «오를 때»만 도는데,
+  // 이미 여신인 사람은 다음에 물약을 마실 때까지 제 단계의 장을 못 받는다.
+  // 조용히(`true`) 채운다 — 켤 때마다 「새 장 30장!」이 뜨면 그건 소식이 아니다
+  grantPages(true);
   // 튜토리얼 — 인트로를 아직 안 봤으면 여기서는 그냥 돌아가고,
   // 인트로가 끝나면서 index.html 이 걸어 둔 콜백이 다시 부른다
   if (window.Tut) Tut.maybeStart();

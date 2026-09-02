@@ -63,7 +63,7 @@
       screen_village_sub_open: '마을을 골라 들어가 보세요.',
       screen_farm_sub: '심고 거두고, 이웃 밭에도 다녀오세요.',
       village_locked: '{name} — 아직 열리지 않은 마을이에요',
-      screen_atelier: '⚗️ 공방', screen_atelier_sub: '재료를 가마솥에 넣고 조합해 새 레시피를 발견하세요.',
+      screen_atelier: '⚗️ 공방', screen_atelier_sub: '비법서의 레시피를 골라 가마솥에 담아 보세요.',
       screen_room: '🏠 마이 룸', screen_room_named: "🏠 '{name}'의 룸",
       // 신체 수치
       v_weight: '체중', v_height: '키', v_fat_pct: '체지방률', v_fat_kg: '체지방량', v_muscle: '근육량',
@@ -361,6 +361,21 @@
       rf_lose: '빈손으로 터덜터덜 돌아왔어요',
       rr_crop: '특수 작물을 서리해 왔어요!',
       rr_skip: '한 번에 보기',
+      // ─── 연금술 비법서 ───
+      // 레시피는 «맞히는 것»이 아니라 «장을 갖는 것»이다.
+      // 「장이 없다」와 「그런 조합은 없다」를 **갈라 말하지 않는다** — 갈라 말하면
+      // 아무거나 넣어 보며 조합이 존재하는지 알아낼 수 있게 되어 뒷문이 생긴다
+      brew_no_page: '비법서에 이 조합의 장이 없어요. 아는 레시피를 눌러 담아 주세요',
+      page_got: '📖 비법서에 새 장이 {n}장 늘었어요!',
+      pg_open: '비법서 펼치기',
+      pg_title: '📖 {name}',
+      pg_more: '외 {n}곳',
+      pg_lock: '매력 {n} 부터',
+      pg_rare: '드물게 나와요',
+      pg_from_farm: '🌾 밭에서 길러요',
+      pg_from_pet: '🥚 {name}이(가) 만들어 줘요',
+      pg_from_brew: '⚗️ 공방에서 만들어요',
+      pg_from_unknown: '아직 얻는 길이 없어요',
       // ─── 탐험 일지 ───
       // **공주가 제 일기에 적는 말투다.** 안내문이 아니라 혼잣말이라
       // 「…했다」로 끝나고 「흑」 「히히」 같은 소리가 섞인다.
@@ -557,7 +572,7 @@
       raid_no_left: '나갈 수 있는 횟수를 다 썼어요',
       mat_short: '채집 재료가 충분하지 않아요.',
       need_pot: '{name}{josa} 필요해요.',
-      recipe_unknown: '아직 알 수 없는 레시피네요.',
+      recipe_unknown: '아직 이 장을 못 구했어요. 비법서에 없는 레시피예요.',
       need_two: '재료를 2개 이상 넣어주세요',
       drank: '{emoji} {name} 사용! 🪞비주얼 +{b} 💖아우라 +{c}',
       locked_item: '아직 잠긴 아이템이에요 🔒 계속 플레이하면 획득해요!',
@@ -788,7 +803,7 @@
       screen_village_sub_open: 'Pick a village and step inside.',
       screen_farm_sub: 'Sow, harvest, and drop by your neighbours.',
       village_locked: '{name} — this village is not open yet',
-      screen_atelier: '⚗️ Atelier', screen_atelier_sub: 'Put ingredients in the cauldron and brew to discover recipes.',
+      screen_atelier: '⚗️ Atelier', screen_atelier_sub: 'Pick a recipe from your grimoire and fill the cauldron.',
       screen_room: '🏠 My Room', screen_room_named: "🏠 {name}'s Room",
       v_weight: 'Weight', v_height: 'Height', v_fat_pct: 'Body Fat', v_fat_kg: 'Fat Mass', v_muscle: 'Muscle',
       v_fit: 'Fitness',
@@ -1054,6 +1069,18 @@
       rf_lose: 'Trudged home empty-handed',
       rr_crop: 'Scrumped a special crop!',
       rr_skip: 'Show it all',
+      // ─── 연금술 비법서 ───
+      brew_no_page: 'No page for this mix in your grimoire. Tap a recipe you know',
+      page_got: '📖 {n} new pages in your grimoire!',
+      pg_open: 'Open grimoire page',
+      pg_title: '📖 {name}',
+      pg_more: '+{n} more',
+      pg_lock: 'From charm {n}',
+      pg_rare: 'rare find',
+      pg_from_farm: '🌾 Grown on the farm',
+      pg_from_pet: '🥚 Made by {name}',
+      pg_from_brew: '⚗️ Brewed in the workshop',
+      pg_from_unknown: 'No way to get this yet',
       // ─── 탐험 일지 ───
       di_open: '📔 Field Journal',
       di_title: '📔 Field Journal',
@@ -1237,7 +1264,7 @@
       raid_no_left: 'You have used up your visits',
       mat_short: "You don't have enough materials.",
       need_pot: 'You need the {name}.',
-      recipe_unknown: 'That recipe is still a mystery.',
+      recipe_unknown: "You don't have this page yet — it's not in your grimoire.",
       need_two: 'Add at least 2 ingredients',
       drank: '{emoji} Used {name}! 🪞Visual +{b} 💖Aura +{c}',
       locked_item: 'This item is still locked 🔒 Keep playing to unlock it!',

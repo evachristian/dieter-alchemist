@@ -1194,9 +1194,13 @@ button.tm-slot:active { transform: scale(0.94); }
    **줄여도 되는 쪽은 왼쪽 재료다** — 이모지 줄은 여러 줄로 접혀도 읽는 데 지장이 없지만,
    이름이 두 줄로 갈라지면 무엇을 만드는지 한눈에 안 들어온다.
    재료에 min-width:0 을 줘야 실제로 줄어든다 (flex 아이템의 자동 최소 폭은 콘텐츠 기준). */
+/* ⚠️ **줄바꿈을 허용한다.** 오른쪽에 📖 버튼이 붙으면서 265px·라벨 2배에서
+   재료 이모지가 제 칸 밖으로 2px 씩 새어 나갔다 — `min-width: 0` 만으로는
+   안쪽 인라인 요소가 안 접힌다 (UI_POLICY 2장 「3단 방어」의 두 번째 단) */
 .recipe-in {
   font-size: 0.95rem;
   flex: 1 1 auto; min-width: 0; line-height: 1.55;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 1px 2px;
 }
 /* 재료 이모지 — 낱개로 누를 수 있다 (누르면 이름). 겉모습은 글자 그대로 두고
    손가락이 닿을 자리만 조금 넓힌다 */
@@ -2742,3 +2746,51 @@ button.tm-slot:active { transform: scale(0.94); }
    (채도만 뺀다: 명도를 보존해 글자 대비가 안 깎인다 — CLAUDE.md 4번) */
 .di-nav-btn:disabled { filter: saturate(0.15); opacity: 0.8; cursor: default; }
 .di-page { flex: 1 1 auto; min-width: 0; font-size: 0.82rem; font-weight: 800; color: var(--text-lav); text-align: center; }
+
+/* ═══ 연금술 비법서 ═══════════════════════════════════════════
+   레시피 줄 오른쪽의 📖 — 그 장을 펼친다. **줄 자체는 솥에 담는 것**이라
+   버튼을 따로 두고 `stopPropagation` 으로 갈라 놓았다 (UI_POLICY 3-2d) */
+.recipe-page {
+  flex: 0 0 auto; width: 27px; height: 27px; margin-left: 1px; padding: 0;
+  border: none; border-radius: 10px; background: var(--cream);
+  font-family: inherit; font-size: 0.95rem; line-height: 1; cursor: pointer;
+}
+.recipe-page:active { transform: scale(0.94); }
+/* 비법서 한 장 — 재료마다 「무엇을 얼마나 · 어디서 · 언제 · 누구와」 */
+.pg-body { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow-y: auto; text-align: left; }
+.pg-row {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 8px 10px; border-radius: 14px; background: var(--cream);
+}
+/* 아직 못 가는 맵의 재료 — 잠긴 콘텐츠 공통 표현을 쓴다 (CLAUDE.md 4번).
+   ⚠️ **잠긴 줄의 글자는 `--ink` 로 진하게 잡는다.** `saturate()` 는 명도를 «거의»
+   보존할 뿐이라, 채도 높은 색(핑크 4.23:1 · 민트 4.02:1)은 이 밑에서 4.5 를 못 넘긴다 */
+.pg-row.locked { filter: saturate(0.15); opacity: 0.8; }
+.pg-row.locked .pg-n,
+.pg-row.locked .pg-lock,
+.pg-row.locked .pg-have { color: var(--ink); }
+.pg-ic { flex: 0 0 auto; display: flex; align-items: center; }
+.pg-ic svg { width: 26px; height: 26px; }
+/* `min-width: 0` 이 있어야 긴 맵 이름이 칸을 밀어내지 않는다 (UI_POLICY 2장) */
+.pg-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pg-name { font-size: 0.86rem; font-weight: 800; color: var(--ink); }
+.pg-n { color: var(--text-pink); }
+.pg-where { font-size: 0.76rem; font-weight: 700; color: var(--text-lav); word-break: break-word; }
+.pg-tip { display: flex; flex-wrap: wrap; gap: 4px 7px; font-size: 0.74rem; font-weight: 800; }
+.pg-ap { color: var(--text-mint); }
+/* 속성은 **글자를 그 색으로 칠하지 않는다.** 크리처 속성색은 배지용 밝은 색이라
+   글자로 쓰면 2.85:1 밖에 안 나온다 — 탐험 카드의 `.spot-attr` 와 같은 방식으로
+   색은 배경에 옅게 깔고 글자는 `--ink` 로 잡는다 (TEXT_POLICY) */
+.pg-attr {
+  color: var(--ink); background: color-mix(in srgb, var(--at) 26%, #fff);
+  border-radius: 999px; padding: 1px 7px;
+}
+.pg-dp, .pg-rare { color: var(--text-lav); }
+.pg-lock { color: var(--text-pink); font-weight: 800; }
+/* 가진 것 / 드는 것 — 오른쪽 끝에 붙여 세로로 훑을 수 있게 한다 */
+.pg-have {
+  flex: 0 0 auto; align-self: center; min-width: 46px; text-align: right;
+  font-size: 0.82rem; font-weight: 800;
+}
+.pg-have.ok { color: var(--text-mint); }
+.pg-have.lack { color: var(--text-pink); }

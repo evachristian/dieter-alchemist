@@ -138,13 +138,24 @@ const INGREDIENTS = {
 // 쓰지 않는 값이 남아 있으면 다음 사람이 그것을 진짜 확률로 읽기 때문이다.
 
 // ─── 채집 지대 (Zones) ─── 채집 화면의 카테고리 탭
+// `ap` = 그 지대에서 한 번 채집하는 데 드는 AP.
+//
+// **앞은 싸고 뒤는 비싸다.** 예전에는 어디서나 10 이었는데, 그러면 초반에 재료를
+// 모으는 값과 후반에 모으는 값이 같아 **초반이 필요 이상으로 팍팍했다** —
+// 플레이테스트에서 「AP 가 금방 닳는다」로 돌아온 자리다.
+//
+// ⚠️ **오름차순이어야 한다.** 뒤 지대가 더 싸면 앞 지대를 지날 이유가 없어진다.
+// `tools/checkbalance.js` 가 순서와 리그 상한을 같이 본다.
 const ZONES = [
-  { id: 'plain',    emoji: '🌾', name: '포근 평야 지대' },
-  { id: 'forest',   emoji: '🌲', name: '울창 숲 지대' },
-  { id: 'mountain', emoji: '⛰️', name: '뾰족 산악 지대' },
-  { id: 'shore',    emoji: '🐚', name: '반짝 해안 지대' },
-  { id: 'waste',    emoji: '🏜️', name: '황량 황무지' },
+  { id: 'plain',    emoji: '🌾', name: '포근 평야 지대', ap: 6 },
+  { id: 'forest',   emoji: '🌲', name: '울창 숲 지대',   ap: 8 },
+  { id: 'mountain', emoji: '⛰️', name: '뾰족 산악 지대', ap: 11 },
+  { id: 'shore',    emoji: '🐚', name: '반짝 해안 지대', ap: 14 },
+  { id: 'waste',    emoji: '🏜️', name: '황량 황무지',   ap: 17 },
 ];
+// 지대의 채집 값. 모르는 지대는 예전 값(10)으로 떨어진다 — 밭 작물처럼
+// **채집으로 얻는 것이 아닌 재료**는 이 표를 아예 안 지난다
+function zoneAp(id) { const z = ZONES.find(x => x.id === id); return z && z.ap ? z.ap : 10; }
 
 // ─── 채집 맵 (Maps) ─── 지대마다 10곳
 // pool: 일반 재료 5종 (weight 로 가중 추첨) / special: 0.1% 확률의 특별 재료
@@ -1707,8 +1718,24 @@ const WARDROBE_SLOTS = [
 // cost: 행동별 소모량. 추후 크리처/공간 돌보기 등 추가 예정.
 const ENERGY = {
   cap: 1000,
+  // **자정에 상한까지 채운다.** 상한이 매력 단계로 늘어나므로(`energyCap`)
+  // 고정 숫자를 더하면 늘어난 만큼은 영영 안 찬다 — game.js 의 `refreshEnergy()` 가
+  // `energyCap()` 을 쓴다. 이 값은 옛 세이브·검사기용 기준값으로 남겨 둔다
   dailyFill: 1000,
+  // 매력 **단계**가 하나 오를 때마다 상한이 이만큼 늘어난다 (`D.TIERS` 다섯 칸).
+  // 새싹 1000 → 여신 1800. 판정은 `charmPeak()` 다 — 애착 크리처를 바꿔 총합이
+  // 내려가도 **상한은 안 줄어든다**: 줄이면 지금 들고 있던 AP 가 갈 곳을 잃는다
+  capPerTier: 200,
+  // 채집은 **지대마다 다르다** (`zoneAp`). 여기 있는 gather 는 그 표에 없는 곳의
+  // 기본값이다. 조합은 어디서나 같다 — 공방은 한 곳뿐이라 나눌 축이 없다
   cost: { gather: 10, brew: 25 },
+  // 조합에 **성공**하면 주는 현자의 결정.
+  //
+  // ⚠️ **이것이 결정의 유일한 수급원이다.** 예전에는 조합 «실패»가 그 자리였는데,
+  // 비법서가 들어오면서 실패가 사라졌다 — 그대로 두었으면 AP 충전도 밭 칸도
+  // 영영 못 여는 게임이 됐을 것이다.
+  // **조합 값(25)보다 반드시 작아야 한다.** 같기만 해도 조합을 돌려 AP 를 무한히 번다
+  brewReward: 5,
   // 현자의 결정으로 AP 를 가득 채우는 값.
   // **무한 AP 가 되지 않게 잡은 수치다** — 결정 하나가 AP 하나 값이므로,
   // 조합 한 번(25 AP)에 결정 10 개를 돌려받으면 매번 15 AP 씩 손해다.
@@ -1822,7 +1849,7 @@ const RECIPE_MAP = {};
 for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 
 window.GameData = {
-  INGREDIENTS, ZONES, MAPS, zoneUnlock, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
+  INGREDIENTS, ZONES, MAPS, zoneUnlock, zoneAp, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,

@@ -175,11 +175,14 @@ function launchOpts() {
     // VERBOSE 면 **무엇이 걸렸는지**까지 낸다. 숫자만 보고 원인을 찾느라
     // 브라우저를 따로 띄우게 되는 일이 잦았다
     if (process.env.VERBOSE && r.total) {
-      const rows = await page.evaluate(() => {
-        const t = window.checkTextStyle(), l = window.checkLayout();
-        // `rows` 에는 DOM 요소(`el`)가 들어 있어 그대로는 직렬화가 안 된다
-        return JSON.stringify([...(t.rows || []), ...(l.rows || [])]
-          .slice(0, 12).map(({ el, ...r }) => r), null, 1);
+      // ⚠️ **`checkUI()` 는 언어 × 라벨 2배까지 돌린다.** 지금 상태만 다시 재면
+      // 「2배 확대에서만 나는 위반」이 통째로 안 보인다 — 실제로 8건을 놓칠 뻔했다.
+      // 그래서 `checkUI` 가 돌면서 모아 둔 것을 그대로 낸다
+      const rows = await page.evaluate(async () => {
+        const res = await window.checkUI();
+        const clean = a => (a || []).slice(0, 10).map(({ el, ...r }) => r);
+        return JSON.stringify({ 요약: (res.report || []).filter(x => x.대비위반 || x.넘침),
+          줄: clean(res.report && res.report.stressRows) }, null, 1);
       });
       console.log(`\n--- ${label} ---\n${rows}`);
     }
@@ -520,6 +523,38 @@ function launchOpts() {
           await page.waitForTimeout(150);
         }
 
+        // **채집 값이 지대마다 다른가.** 카드에 적힌 ⚡ 값과 **실제로 깎이는 값**이
+        // 같아야 한다 — 둘이 갈리면 「10 이라더니 17 이 깎였다」가 되고, 그건
+        // 사람이 게임을 못 믿게 되는 종류의 버그다
+        {
+          const apBad = await page.evaluate(() => {
+            S.charmPeak = 9999;                       // 다섯 지대를 다 열어 놓고 본다
+            setGatherTab('field');
+            const seen = [];
+            for (const z of D.ZONES) {
+              const m = D.MAPS.find(x => x.zone === z.id);
+              gatherZone = z.id; renderGather();
+              const el = document.querySelector(`.spot-card[data-spot="${m.id}"] .cost-tag`);
+              if (!el) return `${z.id} 의 채집 값이 카드에 없다`;
+              const shown = Number(el.textContent.replace(/[^0-9]/g, ''));
+              if (shown !== D.zoneAp(z.id)) return `${z.name} 카드에 ${shown} 이라고 적혔다 (${D.zoneAp(z.id)} 기대)`;
+              // **실제로 깎이는 값**과 같은가 — 화면과 계산이 갈리는지를 본다
+              S.energy = 900;
+              const before = S.energy;
+              gather(m.id);
+              const paid = before - S.energy;
+              if (paid !== shown) return `${z.name}: 적힌 값 ${shown} · 깎인 값 ${paid}`;
+              seen.push(shown);
+            }
+            // 앞이 싸고 뒤가 비싸야 한다 (오름차순)
+            const up = seen.every((v, i) => i === 0 || v >= seen[i - 1]);
+            return up ? null : `지대 값이 오름차순이 아니다: ${seen.join(' · ')}`;
+          });
+          if (apBad) results.push({ 화면: `${t}/지대별AP`, 오류: apBad });
+          await page.evaluate(() => { gatherZone = 'plain'; renderGather(); });
+          await page.waitForTimeout(150);
+        }
+
         // **탐험 일지** — 사건마다 문장이 하나씩 붙는다.
         //
         // ⚠️ 여기서 재는 것은 대비·넘침만이 아니다. **모든 사건 열쇠를 하나씩 심어 보고
@@ -774,23 +809,95 @@ function launchOpts() {
       // 그래서 공방을 잰 뒤 **일부러 실패시켜** 모달까지 한 번 잰다.
       if (process.env.FULL && t === 'atelier') {
         await run(t);
-        const bad = await page.evaluate(() => {
-          // 어느 레시피도 아닌 조합을 만들어 실패시킨다 (성공하면 모달 모양이 달라진다)
-          const two = Object.keys(D.INGREDIENTS).filter(id => !D.INGREDIENTS[id].rare);
-          for (const a of two) for (const b of two) {
+
+        // **장이 없는 조합은 AP 를 한 푼도 안 쓴다.**
+        //
+        // 이 검사가 이 시스템의 전부다. 플레이테스터가 그만둔 이유가 「AP 와 재료를
+        // 내고 나서 실패를 통보받는 것」이었고, 비법서는 그걸 없애려고 만들었다.
+        // ⚠️ **AP 가 안 깎이는 것을 «수치로» 봐야 한다** — 토스트가 떴는지만 보면
+        // 먼저 깎고 나서 안내하는 코드도 통과한다
+        const noPage = await page.evaluate(() => {
+          const ids = Object.keys(D.INGREDIENTS).filter(id => !D.INGREDIENTS[id].rare);
+          for (const a of ids) for (const b of ids) {
             if (a === b || D.RECIPE_MAP[D.recipeKey([a, b])]) continue;
-            S.inventory[a] = (S.inventory[a] || 0) + 1;
-            S.inventory[b] = (S.inventory[b] || 0) + 1;
-            S.energy = 99999; S.cauldron = [a, b]; S.want = [];
+            S.inventory[a] = (S.inventory[a] || 0) + 3;
+            S.inventory[b] = (S.inventory[b] || 0) + 3;
+            S.energy = 900; S.cauldron = [a, b]; S.want = [];
+            const had = { ap: S.energy, a: invCount(a), b: invCount(b) };
             brew();
-            return document.querySelector('#brewModal.show') ? null : '실패 모달이 안 떴다';
+            if (S.energy !== had.ap) return `AP 가 ${had.ap - S.energy} 깎였다 (0 이어야 한다)`;
+            if (invCount(a) !== had.a || invCount(b) !== had.b) return '재료가 사라졌다';
+            if (document.querySelector('#brewModal.show')) return '장도 없는데 결과 모달이 떴다';
+            return null;
           }
-          return '실패할 조합을 못 찾았다';
+          return '장이 없는 조합을 못 찾았다';
         });
-        if (bad) { results.push({ 화면: `${t}/실패모달`, 오류: bad }); continue; }
-        await page.waitForTimeout(250);
-        await run(`${t}/실패모달`);
-        await page.evaluate(() => closeBrewModal());
+        if (noPage) results.push({ 화면: `${t}/장없는조합`, 오류: noPage });
+
+        // **조합에 성공하면 현자의 결정이 들어온다** — 실패가 사라지면서
+        // 이것이 유일한 수급원이 됐다. 0 이면 AP 충전도 밭 칸도 영영 못 연다
+        const rew = await page.evaluate(() => {
+          const r = D.RECIPES.find(x => x.result.kind === 'potion' && hasPage(x.result.id));
+          if (!r) return '가진 장이 하나도 없다';
+          r.inputs.forEach(id => { S.inventory[id] = (S.inventory[id] || 0) + 5; });
+          S.energy = 900; S.cauldron = r.inputs.slice(); S.want = [];
+          const c0 = S.crystal || 0;
+          brew();
+          const got = (S.crystal || 0) - c0;
+          if (typeof closeBrewModal === 'function') closeBrewModal();
+          return got === D.ENERGY.brewReward ? null
+            : `결정이 ${got} 들어왔다 (${D.ENERGY.brewReward} 기대)`;
+        });
+        if (rew) results.push({ 화면: `${t}/조합보상`, 오류: rew });
+        await page.waitForTimeout(150);
+
+        // **비법서 한 장** — 재료마다 「무엇을 얼마나 · 어디서 · 언제 · 누구와」.
+        // ⚠️ **열린 맵과 잠긴 맵을 «같이» 보여 주는 장으로 잰다** — 다 열린 장으로만
+        // 재면 잠금 표현을 한 번도 안 본다 (밭 심기 시트에서 겪은 것과 같은 구멍이다)
+        const pgBad = await page.evaluate(() => {
+          S.charmPeak = 0; S.stats.charm = 0; S.stats.beauty = 0;   // 평야만 열린 상태
+          const zoneOf = id => {
+            const m = D.MAPS.find(x => (x.pool || []).includes(id) || x.special === id);
+            return m ? m.zone : null;
+          };
+          // **가진 장 중에서 고르지 않는다.** 어느 장을 갖고 있느냐는 단계에 따라
+          // 달라져서, 그때그때 「조건에 맞는 장이 없다」로 검사가 통째로 안 돌 수 있다.
+          // 조건에 맞는 레시피를 먼저 찾고 **그 장을 심는다**
+          const r = D.RECIPES.find(x => x.inputs.some(i => zoneOf(i) === 'plain')
+            && x.inputs.some(i => zoneOf(i) && zoneOf(i) !== 'plain'));
+          if (!r) return '열린 맵과 잠긴 맵이 같이 든 레시피가 데이터에 없다';
+          if (!hasPage(r.result.id)) S.discovered.push(r.result.id);
+          openPage(r.result.id);
+          if (!document.getElementById('pageSheet').classList.contains('show')) return '시트가 안 떴다';
+          const rows = document.querySelectorAll('#pageSheet .pg-row');
+          const want = new Set(r.inputs).size;      // **같은 재료는 한 줄로 묶는다**
+          if (rows.length !== want) return `줄이 ${rows.length}개다 (${want} 기대 — 같은 재료를 안 묶었다)`;
+          // **분량** — ⚠️ 지금 데이터에는 겹치는 재료가 한 곳도 없어서(136 전부 ×1)
+          // 진짜 레시피로는 이 자리를 한 번도 못 잰다. 그래서 **일부러 겹치게 만들어**
+          // 재고 되돌린다. 이걸 안 하면 「묶는 코드」가 영영 검사받지 않는다
+          {
+            const keep = r.inputs.slice();
+            r.inputs = keep.concat([keep[0]]);        // 첫 재료를 하나 더
+            renderPage();
+            const n2 = document.querySelectorAll('#pageSheet .pg-row').length;
+            const tag = document.querySelector('#pageSheet .pg-n');
+            r.inputs = keep; renderPage();            // 반드시 되돌린다
+            if (n2 !== want) return `겹친 재료가 ${n2}줄이 됐다 (${want} 기대 — 안 묶었다)`;
+            if (!tag || tag.textContent !== '×2') return `분량이 «${tag && tag.textContent}» 다 (×2 기대)`;
+          }
+          // 어디서 나는지 · 갈 수 있는지
+          if (!document.querySelector('#pageSheet .pg-where')) return '어디서 나는지가 없다';
+          if (!document.querySelector('#pageSheet .pg-row.locked')) return '잠긴 맵의 재료가 표시되지 않는다';
+          if (!document.querySelector('#pageSheet .pg-lock')) return '잠긴 맵에 해금 매력이 안 적힌다';
+          // 열린 맵에는 AP 와 시간대·속성 힌트가 붙는다
+          if (!document.querySelector('#pageSheet .pg-ap')) return '채집 AP 가 안 적힌다';
+          return null;
+        });
+        if (pgBad) results.push({ 화면: `${t}/비법서`, 오류: pgBad });
+        else { await page.waitForTimeout(280); await run(`${t}/비법서`); }
+        const pgBad2 = await page.evaluate(() => window.__cardFits('#pageSheet'));
+        if (pgBad2) results.push({ 화면: `${t}/비법서`, 오류: pgBad2 });
+        await page.evaluate(() => { closePage(); S.cauldron = []; });
         await page.waitForTimeout(150);
         continue;
       }

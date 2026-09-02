@@ -38,6 +38,10 @@ function blockKeys(head) {
   }
   const body = src.slice(src.indexOf('{', at) + 1, end);
   const keys = new Set();
+  // **같은 키를 두 번 적으면 뒤엣것이 조용히 이긴다.** 객체 리터럴이라 오류도 안 난다 —
+  // 새 문구를 넣었는데 아래쪽에 같은 이름이 이미 있으면 **새 문구가 화면에 영영 안 뜬다**
+  // (실제로 `recipe_unknown` 에서 겪었다: 뜻을 바꿔 놓고 옛 문장이 계속 나왔다)
+  const dups = [];
   let d = 0;
   for (let j = 0; j < body.length; j++) {
     const ch = body[j];
@@ -55,9 +59,13 @@ function blockKeys(head) {
     else if (ch === '}' || ch === ']') d--;
     else if (d === 0 && /[A-Za-z_]/.test(ch)) {
       const m = body.slice(j).match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:/);
-      if (m) { keys.add(m[1]); j += m[0].length - 1; }
+      if (m) {
+        if (keys.has(m[1])) dups.push(m[1]);
+        keys.add(m[1]); j += m[0].length - 1;
+      }
     }
   }
+  keys.dups = dups;
   return keys;
 }
 
@@ -70,6 +78,9 @@ if (!koKeys || !enKeys) {
   console.error('i18n.js 의 STRINGS 블록을 못 찾았다 — 이 검사기가 파일 구조를 따라가야 한다');
   process.exit(2);
 }
+// 한쪽 언어 안에서 같은 키를 두 번 적었으면 뒤엣것이 이긴다 — 앞것은 죽은 문구다
+if (koKeys.dups.length) problems.push(['한국어에 두 번 적힌 키 (뒤엣것이 이긴다)', koKeys.dups]);
+if (enKeys.dups.length) problems.push(['영어에 두 번 적힌 키 (뒤엣것이 이긴다)', enKeys.dups]);
 const missingStr = [...koKeys].filter(k => !enKeys.has(k));
 const extraStr = [...enKeys].filter(k => !koKeys.has(k));
 if (missingStr.length) problems.push(['영어에 없는 UI 문자열', missingStr]);

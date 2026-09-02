@@ -34,17 +34,43 @@ const numIn = (re, what) => {
   return Number(m[1]);
 };
 
-// ─── ① AP — 일부러 실패해서 버는 고리가 없는가 ───────────────
+// ─── ① AP — 조합을 돌려서 AP 를 버는 고리가 없는가 ────────────
 //
-// 조합에 실패하면 위로금(`failReward`)을 준다. 그것이 조합 값(`cost.brew`)보다
-// 크거나 같으면 **일부러 실패하는 것이 AP 를 버는 방법**이 된다.
-// 이 한 줄 때문에 게임 전체의 시간 제한이 사라진다.
+// 현자의 결정은 **AP 와 1:1 로 바꿀 수 있다**(`chargeCost / cap`). 그러니 조합
+// 한 번에 돌려받는 결정이 조합 값(`cost.brew`)보다 크거나 같으면 **조합을 돌리는
+// 것 자체가 AP 를 버는 방법**이 되고, 게임 전체의 시간 제한이 사라진다.
+//
+// ⚠️ 예전에는 이 자리가 **실패** 보상이었다. 비법서(장이 없으면 애초에 조합이
+// 안 만들어진다)가 들어오면서 실패가 사라졌고, 결정은 **성공**에서 나온다.
 {
-  const { failReward, cost, chargeCost, cap } = D.ENERGY;
-  ok('AP 무한 고리', failReward < cost.brew,
-    `실패 보상 ${failReward} < 조합 ${cost.brew} 이어야 한다 (같기만 해도 무한이다)`);
+  const { brewReward, failReward, cost, chargeCost, cap } = D.ENERGY;
+  ok('AP 무한 고리', brewReward < cost.brew,
+    `조합 보상 ${brewReward} < 조합 ${cost.brew} 이어야 한다 (같기만 해도 무한이다)`);
+  ok('AP 무한 고리 (실패 쪽)', failReward < cost.brew,
+    `실패 보상 ${failReward} < 조합 ${cost.brew} — 지금은 안 닿는 갈래지만 남겨 둔다`);
   ok('AP 충전 값', chargeCost >= cap,
     `가득 채우는 값 ${chargeCost} 이 AP 상한 ${cap} 보다 작으면 결정 하나로 AP 를 두 개 사는 셈이다`);
+  // **결정이 들어오긴 하는가.** 유일한 수급원이 조합이라, 0 이면 AP 충전도
+  // 밭 칸도 영영 못 연다 — 실패 보상을 없앴을 때 실제로 이 구멍이 생겼다
+  ok('현자의 결정이 들어오는가', brewReward > 0,
+    `조합 보상 ${brewReward} — 0 이면 밭 칸(${D.PLOT_COST.join('·')})을 살 길이 없다`);
+}
+
+// ─── ①-2. 지대별 채집 AP ─────────────────────────────────────
+//
+// 앞은 싸고 뒤는 비싸야 한다. 뒤 지대가 더 싸면 앞 지대를 지날 이유가 없어진다.
+{
+  const aps = D.ZONES.map(z => D.zoneAp(z.id));
+  const up = aps.every((v, i) => i === 0 || v >= aps[i - 1]);
+  ok('지대 AP 가 오름차순인가', up,
+    D.ZONES.map((z, i) => `${z.name} ${aps[i]}`).join(' · '));
+  // 제일 비싼 지대라도 **하루에 한 병은 만들 수 있어야** 한다. 못 만들면
+  // 그 지대는 열려도 못 쓰는 땅이다 (재료가 제일 많이 드는 레시피로 잰다)
+  const maxIn = Math.max(...D.RECIPES.map(r => (r.inputs || []).length));
+  const worst = Math.max(...aps) * maxIn + D.ENERGY.cost.brew;
+  const dayCap = D.ENERGY.cap + (D.TIERS.length - 1) * D.ENERGY.capPerTier;
+  ok('제일 비싼 물약도 하루에 되는가', worst <= dayCap,
+    `재료 ${maxIn}개 × ${Math.max(...aps)} + 조합 ${D.ENERGY.cost.brew} = ${worst} AP · 여신의 하루 ${dayCap} AP`);
 }
 
 // ─── ② 밭 — 상한과 바닥 ──────────────────────────────────────
@@ -88,14 +114,25 @@ const numIn = (re, what) => {
 // **아무리 잘해도 못 올라가는 리그**가 되고, 사다리 끝이 장식이 된다.
 {
   const E = D.ENERGY;
+  // ⚠️ **재료마다 값이 다르다.** 지대별 채집 AP 가 들어오면서 「재료 수 × 10」으로는
+  // 못 잰다. 그리고 **밭 작물은 채집으로 얻는 것이 아니라** 심어서 기르는 것이라
+  // 채집 AP 를 한 푼도 안 낸다 — 옛 식은 여기에 10 씩을 매겨 상한을 낮게 잡고 있었다
+  const cropIds = new Set((D.FARM_CROPS || []).map(c => c.id));
+  const apOf = r => (r.inputs || []).reduce((sum, id) => {
+    if (cropIds.has(id)) return sum;                       // 밭에서 기른다
+    const m = D.MAPS.find(x => (x.pool || []).includes(id) || x.special === id);
+    return sum + (m ? D.zoneAp(m.zone) : E.cost.gather);
+  }, 0) + E.cost.brew;
   const eff = D.RECIPES
     .filter(r => r.result && r.result.kind === 'potion' && (r.result.charm || 0) > 0)
     .map(r => {
-      const ap = (r.inputs || []).length * E.cost.gather + E.cost.brew;
+      const ap = apOf(r);
       return { id: r.result.id, charm: r.result.charm, ap, per: r.result.charm / ap };
     })
     .sort((a, b) => b.per - a.per);
-  const weekAP = 7 * E.dailyFill;
+  // 맨 위 리그에 있는 사람은 **여신**이다 — 그 사람의 상한으로 잰다.
+  // `dailyFill` 고정값으로 재면 상한이 매력 단계로 늘어난 몫을 통째로 빠뜨린다
+  const weekAP = 7 * (E.cap + (D.TIERS.length - 1) * E.capPerTier);
   const ceiling = Math.floor(weekAP / eff[0].ap) * eff[0].charm;
 
   const paceTop = numIn(/function leaguePace\(i\) \{ return (\d+)/, 'leaguePace 의 시작값')
