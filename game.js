@@ -5215,17 +5215,27 @@ function diaryLine(e) {
   if (v.who) { p.who = `<b class="di-who">${escHtml(v.who)}</b>`; p.wj = josa(v.who, '이가'); }
   if (v.items) { p.items = stashText(v.items) || T('di_nothing'); p.ij = josa(p.items, '을를'); }
   if (v.attr) p.quip = T('di_cr_' + v.attr);
-  if (v.map) { const m = D.MAPS.find(x => x.id === v.map); p.map = m ? N(m.id, m.name) : ''; }
+  if (v.map) {
+    const m = D.MAPS.find(x => x.id === v.map);
+    p.map = m ? N(m.id, m.name) : ''; p.mj = josa(p.map, '을를');
+  }
   p.n = v.n || 0; p.wins = v.wins || 0; p.step = v.step || 0;
   // 마지막 단계에 닿은 날은 다른 문장이다 — 매번 같은 줄이면 마지막 날이 안 특별해진다
   const key = e.k === 'di_slim' && v.done ? 'di_slim_done' : e.k;
-  const s = T(key, p);
-  if (s === key) return '';                   // 모르는 열쇠는 그 줄만 뺀다
-  const tail = diaryTail(key, e, p);
-  return tail ? `${s} <span class="di-tail">${tail}</span>` : s;
+  const body = diaryPick(key, '', DIARY_BODIES, e, p);
+  if (!body) return '';                       // 모르는 열쇠는 그 줄만 뺀다
+  const tail = diaryPick(key, 't', DIARY_TAILS, e, p);
+  return tail ? `${body} <span class="di-tail">${tail}</span>` : body;
 }
 
-// 꼬리말 — 사건마다 몇 벌씩. 여기 적힌 수만큼 `<열쇠>_t1` … `_tN` 이 있어야 한다.
+// ═══ 한 사건에 스무 가지 ═══════════════════════════════════════
+//
+// **같은 일이 늘 같은 문장이면 두 번째부터는 아무도 안 읽는다.**
+// 그래서 한 줄을 **본문 다섯 × 꼬리말 넷 = 스무 가지**로 짰다.
+//
+// 스무 줄을 통째로 쓰지 않고 둘로 나눈 이유: 열아홉 번째 「히든 재료를 주웠다」
+// 농담은 반드시 약해지는데, **약한 농담은 없는 농담보다 나쁘다.** 다섯 × 넷이면
+// 쓰는 양은 절반인데 읽는 사람에게는 시작도 끝도 매번 다르게 보인다.
 //
 // **본문이 「무슨 일이 있었나」라면 꼬리말은 「그래서 내 기분이 어땠나」다.**
 // 웃음은 사건이 아니라 반응에서 나온다 — 「우리 애들이 막아 냈다」는 사실이고,
@@ -5234,25 +5244,43 @@ function diaryLine(e) {
 // 농담의 과녁은 늘 **우리 쪽**이다 (약탈 연출과 같은 규칙 — `roundQuip`).
 // 잔소리하는 요정 대모 · 말 안 듣는 크리처 · 변명하는 공주 본인 셋이면 충분하다.
 // **남을 비웃는 농담은 안 만든다** — 코지 게임이고, 이웃은 다음 주에 내가 털릴 사람이다.
-const DIARY_TAILS = {
-  di_binge: 4, di_creature: 3, di_find: 3, di_rare: 3,
-  di_slim: 3, di_slim_done: 3, di_raid_win: 3, di_raid_empty: 3,
-  di_raid_lose: 3, di_robbed: 3, di_kept: 3,
+//
+// ⚠️ **두 표의 곱이 스무 가지다.** 한쪽만 늘리면 곱이 어긋나므로 검사기가
+// `본문 × 꼬리말 === DIARY_VARIANTS` 를 본다.
+const DIARY_VARIANTS = 20;
+const DIARY_BODIES = {
+  di_binge: 5, di_creature: 5, di_find: 5, di_rare: 5,
+  di_slim: 5, di_slim_done: 5, di_raid_win: 5, di_raid_empty: 5,
+  di_raid_lose: 5, di_robbed: 5, di_kept: 5,
 };
+const DIARY_TAILS = {
+  di_binge: 4, di_creature: 4, di_find: 4, di_rare: 4,
+  di_slim: 4, di_slim_done: 4, di_raid_win: 4, di_raid_empty: 4,
+  di_raid_lose: 4, di_robbed: 4, di_kept: 4,
+};
+window.DIARY_BODIES = DIARY_BODIES;
 window.DIARY_TAILS = DIARY_TAILS;
+window.DIARY_VARIANTS = DIARY_VARIANTS;
+
+// FNV-1a. `(h * 31 + c)` 로 돌리면 **끝만 다른 시드가 이웃한 값으로 몰린다** —
+// 본문과 꼬리말이 같은 시드에서 나오면 스무 가지가 아니라 다섯 가지가 된다.
+// 소금(`salt`)을 앞에 붙여 둘을 서로 독립으로 뽑는다
+function diaryHash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
 
 // ⚠️ **`Math.random()` 이면 안 된다.** 일지는 열 때마다 다시 그리므로 볼 때마다
-// 꼬리말이 바뀐다 — 「내가 잘못 읽었나」가 된다 (날씨·약탈 한 마디와 같은 이유).
+// 문장이 바뀐다 — 「내가 잘못 읽었나」가 된다 (날씨·약탈 한 마디와 같은 이유).
 // 줄이 적힌 시각으로 시드를 고정하면 **줄마다 다르되 그 줄은 늘 같다.**
-function diaryTail(key, e, p) {
-  const n = DIARY_TAILS[key] || 0;
+function diaryPick(key, salt, table, e, p) {
+  const n = table[key] || 0;
   if (!n) return '';
-  const seed = key + '|' + (e.t || 0);
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  const k = `${key}_t${(h % n) + 1}`;
+  const i = diaryHash(`${salt}|${key}|${e.t || 0}`) % n;
+  const k = `${key}_${salt}${i + 1}`;
   const s = T(k, p);
-  return s === k ? '' : s;                    // 꼬리말이 없으면 본문만 남는다
+  return s === k ? '' : s;                    // 없는 문구는 그 자리만 빈다
 }
 
 // 줄 앞의 아이콘. 사건마다 하나씩 — 훑을 때 「그날 뭐가 있었나」가 먼저 읽힌다

@@ -574,31 +574,81 @@ function launchOpts() {
           const diBad2 = await page.evaluate(() => window.__cardFits('#diaryModal'));
           if (diBad2) results.push({ 화면: `${t}/탐험일지`, 오류: diBad2 });
 
-          // **꼬리말** — 사건 뒤에 붙는 혼잣말. `DIARY_TAILS` 가 적어 둔 수만큼
-          // `<열쇠>_t1` … `_tN` 이 있어야 한다. 하나만 빠져도 그 줄은 **본문만** 남는데,
-          // 화면은 멀쩡해 보여서 눈으로는 영영 안 걸린다
+          // **한 사건에 스무 가지** — 본문 다섯 × 꼬리말 넷. 표에 적어 둔 수만큼
+          // `<열쇠>_1` … `_5` 와 `<열쇠>_t1` … `_t4` 가 있어야 한다.
+          // 하나만 빠져도 그 자리만 조용히 비는데, 화면은 멀쩡해 보여서 눈으로는 안 걸린다
           const tlBad = await page.evaluate(() => {
-            const tails = window.DIARY_TAILS || {};
-            const keys = Object.keys(tails);
+            const B = window.DIARY_BODIES || {}, TL = window.DIARY_TAILS || {};
+            const keys = Object.keys(TL);
             if (!keys.length) return '꼬리말 표가 비었다';
             const miss = [];
             keys.forEach(k => {
-              for (let i = 1; i <= tails[k]; i++) {
-                const id = `${k}_t${i}`;
-                if (I18N.t(id) === id) miss.push(id);
-              }
+              for (let i = 1; i <= (B[k] || 0); i++) if (I18N.t(`${k}_${i}`) === `${k}_${i}`) miss.push(`${k}_${i}`);
+              for (let i = 1; i <= TL[k]; i++) if (I18N.t(`${k}_t${i}`) === `${k}_t${i}`) miss.push(`${k}_t${i}`);
             });
-            if (miss.length) return `꼬리말 문구가 없다: ${miss.slice(0, 5).join(' · ')}`;
+            if (miss.length) return `문구가 없다: ${miss.slice(0, 5).join(' · ')}`;
+            // **곱이 스무 가지여야 한다.** 한쪽만 늘리면 조용히 어긋난다
+            const off = keys.filter(k => (B[k] || 0) * TL[k] !== window.DIARY_VARIANTS);
+            if (off.length) {
+              const k = off[0];
+              return `${k} 는 ${B[k] || 0}×${TL[k]}=${(B[k] || 0) * TL[k]}가지다 (${window.DIARY_VARIANTS} 기대)`;
+            }
             // 사건마다 아이콘이 있는가 — 아이콘 표가 곧 사건 목록이라 짝이 맞아야 한다
             const noIcon = keys.filter(k => k !== 'di_slim_done' && !window.DIARY_ICON[k]);
             if (noIcon.length) return `아이콘이 없는 사건: ${noIcon.join(' · ')}`;
-            // 화면에 실제로 붙었는가. **다 붙어야 한다** — `DIARY_TAILS` 에 적힌
-            // 사건은 전부 꼬리말을 갖는다
+            // 화면에 실제로 붙었는가. **다 붙어야 한다** — 표에 적힌 사건은 전부 꼬리말을 갖는다
             const shown = document.querySelectorAll('#diaryModal .di-tail').length;
             const rows = document.querySelectorAll('#diaryModal .di-row').length;
             return shown === rows ? null : `꼬리말이 ${shown}/${rows} 줄에만 붙었다`;
           });
           if (tlBad) results.push({ 화면: `${t}/일지꼬리말`, 오류: tlBad });
+
+          // ⚠️ **스무 가지가 실제로 다 나오는가.** 표에 5·4 라고 적어 두는 것과
+          // 뽑기가 스무 자리를 다 짚는 것은 다른 얘기다. 화면만 보면 「매번 다르네」로
+          // 보이므로 눈으로는 절대 못 잡는다 — 200줄을 뽑아 가짓수를 센다.
+          //
+          // 잡아야 할 것은 둘이다:
+          //   ① 시각을 안 보고 뽑으면 **한 사건이 늘 같은 문장**이 된다 (1가지)
+          //   ② 꼬리말만 바뀌고 본문이 하나면 「비슷한 말」이 스무 번 나온다
+          //
+          // 여담 — 다섯과 넷은 **서로소**라, 본문과 꼬리말을 같은 시드로 뽑아도
+          // (h%5, h%4)가 스무 자리를 다 짚는다. 소금을 나눈 것은 그래도 둘이
+          // 함께 움직이지 않게 하려는 것이고, 수를 6×4 처럼 바꾸면 그 성질이 깨진다 —
+          // 그때는 이 검사가 12가지로 줄어든 것을 잡아 준다
+          const vaBad = await page.evaluate((want) => {
+            const bag = { id: 'unicorn', food: (D.FOODS[0] || {}).id, who: '수수',
+              items: { firefly: 3 }, attr: 'fire', map: D.MAPS[0].id, n: 3, wins: 4, step: 2 };
+            const base = Date.now();
+            const worst = [];
+            Object.keys(window.DIARY_TAILS).forEach(k => {
+              const seen = new Set(), heads = new Set();
+              for (let i = 0; i < 200; i++) {
+                const s = diaryLine({ t: base + i * 1000, k: k === 'di_slim_done' ? 'di_slim' : k,
+                  v: k === 'di_slim_done' ? { ...bag, done: 1 } : bag });
+                seen.add(s);
+                // 본문이 실제로 갈리는가 (꼬리말만 바뀌면 하나다).
+                // ⚠️ **앞 몇 글자로 견주면 안 된다** — `{who}` 가 `<b class="di-who">…`
+                // 로 펴져서 스물여섯 자가 전부 같은 태그다. 꼬리말 표시로 정확히 자른다
+                heads.add(s.split('<span class="di-tail">')[0]);
+              }
+              worst.push({ k, n: seen.size, h: heads.size });
+            });
+            window.__diaryVariety = worst.reduce((m, x) => Math.min(m, x.n), 99)
+              + '~' + worst.reduce((m, x) => Math.max(m, x.n), 0) + '가지';
+            // 200번 뽑아 스무 자리를 못 다 짚을 일은 거의 없지만, 살짝 여유를 둔다
+            const thin = worst.find(x => x.n < want - 2);
+            if (thin) return `${thin.k} 가 ${thin.n}가지밖에 안 나온다 (${want} 기대)`;
+            // 본문은 다섯 벌이니 200번 뽑으면 다섯이 다 나와야 한다
+            const flat = worst.find(x => x.h < 5);
+            return flat ? `${flat.k} 의 본문이 ${flat.h}가지뿐이다 (꼬리말만 바뀐다)` : null;
+          }, 20);
+          // 통과해도 **잰 값을 남긴다.** 조용히 지나가면 이 검사가 도는지조차
+          // 알 수 없다 (이웃 밭 검사에서 실제로 겪었다 — 한 번도 안 돌던 검사를
+          // 「전부 통과」로 읽었다)
+          results.push(vaBad
+            ? { 화면: `${t}/일지스무가지`, 오류: vaBad }
+            : { 화면: `${t}/일지스무가지`, pass: true,
+                가짓수: await page.evaluate(() => window.__diaryVariety) });
 
           // **쪽 넘기기** — 한 날이 한 쪽이다. 끝에 닿으면 그쪽 버튼이 잠긴다.
           // ⚠️ 눌러서 **날짜가 실제로 바뀌는지**를 본다. 쪽수 글자만 보면
