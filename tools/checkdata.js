@@ -214,6 +214,38 @@ add('id 가 겹친다', dupId);
   add('퀘스트 표가 어긋난다', bad);
 }
 
+// ─── 컷씬 (QUEST.md 2-2) ─────────────────────────────────────
+//
+// **화면은 멀쩡한데 대사만 빠지는 것을 잡는다.** 문구가 없으면 말풍선에 열쇠
+// (`c_first_in_1`)가 그대로 뜨고, 표정이 없으면 조용히 기본 얼굴이 된다.
+{
+  const bad = [];
+  const cIds = new Set();
+  D.CUTS.forEach(c => {
+    if (cIds.has(c.id)) bad.push(`${c.id} — id 가 겹친다`);
+    cIds.add(c.id);
+    take(c.id, '컷씬');
+    if (!c.lines || !c.lines.length) bad.push(`${c.id} — 줄이 없다`);
+    if (I.t(c.id + '_title') === c.id + '_title') bad.push(`${c.id} — 제목이 없다 (다시보기 목록에 열쇠가 뜬다)`);
+    (c.lines || []).forEach(([spId, mood], i) => {
+      const sp = D.speaker(spId);
+      if (!sp) { bad.push(`${c.id} ${i + 1}줄 — 없는 인물 ${spId}`); return; }
+      // **없는 표정은 조용히 기본 얼굴이 된다** — 오류도 안 나고 화면도 멀쩡하다
+      if (mood && !sp.moods[mood]) bad.push(`${c.id} ${i + 1}줄 — ${spId} 에 «${mood}» 표정이 없다`);
+      const k = `${c.id}_${i + 1}`;
+      if (I.t(k) === k) bad.push(`${c.id} — 대사가 없다 (${k})`);
+    });
+  });
+  // 퀘스트가 가리키는 컷씬이 실제로 있는가
+  D.QUESTS.forEach(q => {
+    ['in', 'out'].forEach(w => {
+      const id = q.cut && q.cut[w];
+      if (id && !D.cutOf(id)) bad.push(`${q.id} — 없는 컷씬 ${id} (${w})`);
+    });
+  });
+  add('컷씬 표가 어긋난다', bad);
+}
+
 // ─── 결과 ─────────────────────────────────────────────────────
 if (!problems.length) {
   console.log(`✅ 데이터 이상 없음 (레시피 ${D.RECIPES.length} · 맵 ${D.MAPS.length}`

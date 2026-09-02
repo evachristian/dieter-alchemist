@@ -1089,9 +1089,19 @@ window.questBump = questBump;
 //
 // ⚠️ **컷씬 재생과 보상 지급을 갈라 놓는다.** 한 함수에 두면 스토리 다시보기가
 // 보상을 또 준다 (`QUEST.md` 8-5). 여기는 **보상만** 한다.
+// 낼 때 — **완료 컷씬이 먼저, 보상이 나중**이다. 보상 토스트가 마지막에 남아야
+// 「받았다」로 끝난다. ⚠️ 컷씬이 도는 동안 또 누를 수 있으므로 한 번만 지나가게 막는다
+let claiming = false;
 function claimQuest() {
   const q = activeQuest();
-  if (!q || !questFull(q)) return;
+  if (!q || !questFull(q) || claiming) return;
+  const out = q.cut && q.cut.out;
+  if (out && !(S.seenCuts || []).includes(out)) {
+    claiming = true;
+    closeQuest();
+    playCut(out, () => { claiming = false; claimQuest(); });
+    return;
+  }
   const st = questState();
   const r = q.reward || {};
   // 「갖다줘」는 **낼 때 소모한다.** 그래야 갖다준 것이 된다
@@ -1106,11 +1116,113 @@ function claimQuest() {
   refreshQuests();                       // 다음 것을 바로 내보낸다
   save();
   closeQuest();
-  toast(T('q_done_toast', { name: T(q.id + '_name') }), null, 3200);
+  // **조사를 붙인다** — 「을(를)」은 이 프로젝트에서 금지다 (일지·밭 기록과 같은 규칙)
+  { const nm = T(q.id + '_name'); toast(T('q_done_toast', { name: nm, nj: josa(nm, '을를') }), null, 3200); }
   if (window.Sfx) Sfx.play('success');
   render();
 }
 window.claimQuest = claimQuest;
+
+// ─── 컷씬 (QUEST.md 2-2) ─────────────────────────────────────
+//
+// **초상화 + 말풍선.** 아무 데나 눌러 넘긴다.
+//
+// ⚠️ **재생과 보상 지급을 갈라 놓는다.** `playCut()` 은 «보여 주기»만 하고,
+// 보상은 `claimQuest()` 가 한다. 한 함수에 두면 스토리 다시보기가 보상을 또 준다
+// (`QUEST.md` 8-5 — 만들기 전에 미리 적어 둔 함정이다).
+let cutNow = null, cutAt = 0, cutThen = null;
+
+// `id` 컷씬을 처음부터 재생한다. 끝나면 `then()` 을 부른다.
+// **본 것으로 적는다** — 스토리 다시보기 목록이 이 표를 쓴다
+function playCut(id, then) {
+  const c = D.cutOf(id);
+  if (!c || !c.lines.length) { if (then) then(); return; }
+  cutNow = c; cutAt = 0; cutThen = then || null;
+  if (!Array.isArray(S.seenCuts)) S.seenCuts = [];
+  if (!S.seenCuts.includes(id)) { S.seenCuts.push(id); save(); }
+  const el = document.getElementById('cutScene');
+  if (el) el.hidden = false;
+  drawCut();
+  if (window.Sfx) Sfx.play('pick');
+}
+window.playCut = playCut;
+
+function drawCut() {
+  if (!cutNow) return;
+  const [spId, mood] = cutNow.lines[cutAt];
+  const sp = D.speaker(spId);
+  const face = document.getElementById('cutFace');
+  const who = document.getElementById('cutWho');
+  const txt = document.getElementById('cutText');
+  const dots = document.getElementById('cutDots');
+  if (face) face.innerHTML = sp && window.Portrait ? Portrait.bust(sp, mood || 'def', { bare: true }) : '';
+  // **「부르는 말」로 뜬다** — 공주는 플레이어가 지은 이름으로, 요정 대모는
+  // 「요정 대모」로 (설정상의 이름 「알테이아」는 본인도 안 쓴다 · STORY.md 「호칭 규칙」)
+  if (who) who.textContent = speakerName(spId);
+  if (txt) txt.textContent = T(`${cutNow.id}_${cutAt + 1}`);
+  if (dots) {
+    dots.innerHTML = cutNow.lines
+      .map((_, i) => `<i class="${i === cutAt ? 'on' : ''}"></i>`).join('');
+  }
+}
+
+function cutNext() {
+  if (!cutNow) return;
+  if (cutAt < cutNow.lines.length - 1) { cutAt++; drawCut(); return; }
+  const then = cutThen;
+  cutNow = null; cutThen = null;
+  const el = document.getElementById('cutScene');
+  if (el) el.hidden = true;
+  if (then) then();
+}
+window.cutNext = cutNext;
+
+// ─── 스토리 다시보기 (설정) ──────────────────────────────────
+//
+// ⚠️ **본 것만 보여 준다.** 안 본 컷씬을 제목까지 늘어놓으면 스포일러다 —
+// 못 본 것은 막마다 **개수만** 알려 준다.
+// ⚠️ **다시 보기는 보상을 다시 주지 않는다** (`playCut` 은 보여 주기만 한다)
+function openStory() {
+  renderStory();
+  const m = document.getElementById('storySheet');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeStory() {
+  const m = document.getElementById('storySheet');
+  if (m) m.classList.remove('show');
+}
+window.openStory = openStory;
+window.closeStory = closeStory;
+
+function renderStory() {
+  const ti = document.getElementById('storyTitle');
+  const el = document.getElementById('storyBody');
+  if (ti) ti.textContent = T('st_title');
+  if (!el) return;
+  const seen = Array.isArray(S.seenCuts) ? S.seenCuts : [];
+  const acts = [...new Set(D.CUTS.map(c => c.act))].sort((a, b) => a - b);
+  const html = acts.map(act => {
+    const list = D.CUTS.filter(c => c.act === act);
+    const got = list.filter(c => seen.includes(c.id));
+    // **아직 아무것도 못 본 막은 통째로 안 내놓는다** — 막 제목만으로도 스포일러다
+    if (!got.length) return '';
+    const rows = got.map(c =>
+      `<button class="st-row" onclick="closeStory();playCut('${c.id}')">
+        <span class="st-ic" aria-hidden="true">${
+          window.Portrait ? Portrait.bust(D.speaker(c.lines[0][0]), 'def', { bare: true }) : ''}</span>
+        <span class="st-name">${T(c.id + '_title')}</span>
+      </button>`).join('');
+    const left = list.length - got.length;
+    return `<div class="st-act">
+      <div class="st-actname">${T('st_act', { n: act })}</div>
+      ${rows}
+      ${left ? `<div class="st-left">🔒 ${T('st_left', { n: left })}</div>` : ''}
+    </div>`;
+  }).join('');
+  el.innerHTML = html || `<div class="empty-hint">${T('st_empty')}</div>`;
+}
+window.renderStory = renderStory;
 
 // ─── 칩 (화면 하단의 NPC 얼굴) ────────────────────────────────
 //
@@ -1148,6 +1260,10 @@ window.renderQuestChip = renderQuestChip;
 function openQuest() {
   const q = activeQuest();
   if (!q) return;
+  // **처음 누르면 인트로 컷씬부터.** 한 번 본 뒤에는 바로 시트가 열린다 —
+  // 진행을 확인하려고 누를 때마다 대사가 다시 나오면 그건 방해다
+  const inCut = q.cut && q.cut.in;
+  if (inCut && !(S.seenCuts || []).includes(inCut)) { playCut(inCut, openQuest); return; }
   renderQuestSheet();
   const m = document.getElementById('questSheet');
   if (m) m.classList.add('show');

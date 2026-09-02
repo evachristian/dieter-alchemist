@@ -1078,24 +1078,50 @@ const PLOT_COST = [0, 0, 100, 200, 400];
 const QUESTS = [
   { id: 'q_first', npc: 'sp_althea', act: 1, at: 0,
     goal: { kind: 'brew', id: 'vitality', n: 2 },
-    reward: { crystal: 40, items: { dew: 5 } } },
+    reward: { crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },
   { id: 'q_walk', npc: 'sp_althea', act: 1, at: 6,
     goal: { kind: 'visit', n: 8 },
-    reward: { crystal: 60 } },
+    reward: { crystal: 60 }, cut: { in: 'c_walk_in', out: 'c_walk_out' } },
   { id: 'q_bring', npc: 'sp_althea', act: 1, at: 14,
     goal: { kind: 'deliver', id: 'herb', n: 10 },
-    reward: { crystal: 80, items: { berry: 6 } } },
+    reward: { crystal: 80, items: { berry: 6 } }, cut: { in: 'c_bring_in', out: 'c_bring_out' } },
   { id: 'q_egg', npc: 'sp_althea', act: 1, at: 22,
     goal: { kind: 'creature', n: 1 },
-    reward: { crystal: 120 } },
+    reward: { crystal: 120 }, cut: { in: 'c_egg_in', out: 'c_egg_out' } },
   { id: 'q_sip', npc: 'sp_althea', act: 1, at: 32,
     goal: { kind: 'drink', n: 5 },
-    reward: { crystal: 150, items: { dew: 8 } } },
+    reward: { crystal: 150, items: { dew: 8 } }, cut: { in: 'c_sip_in', out: 'c_sip_out' } },
   { id: 'q_bloom', npc: 'sp_althea', act: 1, at: 45,
     goal: { kind: 'charm', n: 60 },
-    reward: { crystal: 200 } },
+    reward: { crystal: 200 }, cut: { in: 'c_bloom_in', out: 'c_bloom_out' } },
 ];
 function questOf(id) { return QUESTS.find(q => q.id === id) || null; }
+
+// ─── 컷씬 (QUEST.md 2-2 · 2단계) ─────────────────────────────
+//
+// **초상화 + 말풍선.** 인트로처럼 손으로 그린 SVG 장면을 퀘스트마다 만들지 않는다 —
+// 인트로 한 편에 장면 열넷 × SVG 함수가 들어갔다. 큰 그림은 막이 바뀌는 자리에만 쓴다.
+//
+// · `lines` 한 줄 = `[인물 id, 표정]`. 대사는 `<컷씬 id>_1` `_2` … 로 i18n 에 있다
+// · `act`  — 스토리 다시보기의 묶음 (`STORY.md` 의 3막)
+// · 제목은 `<컷씬 id>_title`
+//
+// ⚠️ **`id` 는 세이브(`S.seenCuts`)에 들어간다.** 한 번 나가면 안 바꾼다.
+const CUTS = [
+  { id: 'c_first_in',  act: 1, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'soft'], ['sp_althea', 'wink']] },
+  { id: 'c_first_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
+  { id: 'c_walk_in',   act: 1, lines: [['sp_althea', 'def'], ['sp_gwiriel', 'shock']] },
+  { id: 'c_walk_out',  act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'wink']] },
+  { id: 'c_bring_in',  act: 1, lines: [['sp_althea', 'def'], ['sp_gwiriel', 'soft']] },
+  { id: 'c_bring_out', act: 1, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'smile']] },
+  { id: 'c_egg_in',    act: 1, lines: [['sp_althea', 'def'], ['sp_gwiriel', 'shock']] },
+  { id: 'c_egg_out',   act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
+  { id: 'c_sip_in',    act: 1, lines: [['sp_althea', 'scold'], ['sp_gwiriel', 'soft']] },
+  { id: 'c_sip_out',   act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
+  { id: 'c_bloom_in',  act: 1, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'soft']] },
+  { id: 'c_bloom_out', act: 1, lines: [['sp_althea', 'cross'], ['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
+];
+function cutOf(id) { return CUTS.find(c => c.id === id) || null; }
 
 // ─── 레시피 북 카테고리 ───
 // 물약은 등급(grade)으로, 크리처는 kind 로 분류한다.
@@ -1897,7 +1923,7 @@ window.GameData = {
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   CREATURE_ATTRS, creatureAttr, MAP_ATTRS, mapAttr,
-  FARM_CROPS, farmCrop, PLOT_COST, QUESTS, questOf,
+  FARM_CROPS, farmCrop, PLOT_COST, QUESTS, questOf, CUTS, cutOf,
   WEATHERS, WEATHER_HOURS, DAYPARTS, SPECIAL_TIERS, specialTier,
   getTier, recipeKey,
 };

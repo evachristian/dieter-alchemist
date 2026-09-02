@@ -583,6 +583,9 @@ function launchOpts() {
 
           // 시트 — NPC 한 마디 · 목표 · 진행 막대 · **어디로 가면 되는지** · 보상
           const qsBad = await page.evaluate(() => {
+            // 컷씬은 **제 검사가 따로 있다** — 여기서는 본 것으로 쳐서 시트만 본다
+            const q0 = D.questOf(S.quest.active);
+            S.seenCuts = D.CUTS.map(c => c.id);
             openQuest();
             if (!document.getElementById('questSheet').classList.contains('show')) return '시트가 안 떴다';
             if (!document.querySelector('#questSheet .q-face svg')) return 'NPC 초상이 없다';
@@ -604,6 +607,8 @@ function launchOpts() {
           const qcBad = await page.evaluate(() => {
             const q = D.questOf(S.quest.active);
             if (!q || q.goal.kind !== 'brew') return `첫 퀘스트가 조합이 아니다 (${q && q.goal.kind})`;
+            S.seenCuts = D.CUTS.map(c => c.id);      // 컷씬은 따로 잰다
+
             S.record.brews = 999;                      // 이미 많이 해 본 사람
             renderQuestChip();
             if (questProgress(q) !== 0) return `이미 ${questProgress(q)} 진행돼 있다 (0 기대 — record 를 보고 있다)`;
@@ -626,6 +631,107 @@ function launchOpts() {
             return null;
           });
           if (qcBad) results.push({ 화면: `${t}/퀘스트완료`, 오류: qcBad });
+
+          // **컷씬** — 초상화 + 말풍선. 눌러서 넘기고, 끝나면 시트가 이어받는다.
+          //
+          // ⚠️ 여기서 제일 중요한 것은 **컷씬이 보상을 주지 않는다**는 것이다.
+          // 재생과 지급이 한 함수에 있으면 스토리 다시보기가 보상을 또 준다 —
+          // 만들기 전에 `QUEST.md` 8-5 에 함정으로 적어 두었던 자리다
+          const cutBad = await page.evaluate(() => {
+            S.quest = { active: null, n: 0, done: [], queue: [] };
+            S.seenCuts = []; S.charmPeak = 0;
+            refreshQuests(); render();
+            const q = D.questOf(S.quest.active);
+            if (!q || !q.cut || !q.cut.in) return '첫 퀘스트에 인트로 컷씬이 없다';
+            openQuest();                       // 처음 누르면 «컷씬»이 먼저다
+            const cut = document.getElementById('cutScene');
+            if (cut.hidden) return '처음 눌렀는데 컷씬이 안 뜬다';
+            if (document.getElementById('questSheet').classList.contains('show')) {
+              return '컷씬보다 시트가 먼저 떴다';
+            }
+            const c = D.cutOf(q.cut.in);
+            if (document.querySelectorAll('#cutDots i').length !== c.lines.length) {
+              return `닷이 ${document.querySelectorAll('#cutDots i').length}개다 (${c.lines.length} 기대)`;
+            }
+            if (!document.querySelector('#cutFace svg')) return '초상화가 없다';
+            // **누가 말하는지가 「부르는 말」로 뜬다** — 설정상의 이름(알테이아)이 아니라
+            if (document.getElementById('cutWho').textContent !== speakerName(c.lines[0][0])) {
+              return `말하는 사람이 «${document.getElementById('cutWho').textContent}» 다`;
+            }
+            // 열쇠가 그대로 보이면 문구가 빠진 것이다
+            const line = document.getElementById('cutText').textContent;
+            if (!line || /^c_\w+_\d+$/.test(line)) return `대사가 «${line}» 다`;
+            for (let i = 0; i < c.lines.length; i++) cutNext();
+            if (!cut.hidden) return '끝까지 넘겼는데 컷씬이 안 닫힌다';
+            if (!document.getElementById('questSheet').classList.contains('show')) {
+              return '컷씬이 끝났는데 시트가 안 열린다';
+            }
+            if (!(S.seenCuts || []).includes(q.cut.in)) return '본 것으로 안 적혔다';
+            // **두 번째부터는 바로 시트다** — 진행을 보려고 누를 때마다 대사가
+            // 다시 나오면 그건 방해다
+            closeQuest(); openQuest();
+            if (!cut.hidden) return '이미 본 컷씬이 또 뜬다';
+            closeQuest();
+            return null;
+          });
+          if (cutBad) results.push({ 화면: `${t}/컷씬`, 오류: cutBad });
+          else {
+            await page.evaluate(() => { S.seenCuts = []; closeQuest(); openQuest(); });
+            await page.waitForTimeout(280); await run(`${t}/컷씬`);
+            await page.evaluate(() => { while (!document.getElementById('cutScene').hidden) cutNext(); closeQuest(); });
+          }
+
+          // **완료 컷씬 → 보상** 의 순서와, **다시보기가 보상을 또 주지 않는가**
+          const rpBad = await page.evaluate(() => {
+            // ⚠️ **앞 검사가 남긴 상태에 기대지 않는다.** 처음부터 다시 세운다 —
+            // 뒤에 오는 검사가 남의 값을 보게 되는 사고를 이 파일에서 세 번 냈다
+            S.quest = { active: null, n: 0, done: [], queue: [] };
+            S.seenCuts = []; S.charmPeak = 0; S.crystal = 1000;
+            refreshQuests(); render();
+            const q = D.questOf(S.quest.active);
+            S.seenCuts = [q.cut.in];                 // 인트로만 본 상태 = 완료 컷씬이 남았다
+            const r = D.RECIPES.find(x => x.result.id === q.goal.id);
+            r.inputs.forEach(id => { S.inventory[id] = 30; });
+            S.quest.n = q.goal.n;
+            const c0 = S.crystal || 0;
+            openQuest(); claimQuest();
+            // 컷씬이 도는 동안에는 **아직 안 준다** — 보상 토스트가 마지막에 남아야 한다
+            if (document.getElementById('cutScene').hidden) return '완료 컷씬이 안 떴다';
+            if ((S.crystal || 0) !== c0) return '컷씬이 도는데 벌써 보상을 줬다';
+            if (S.quest.done.length) return '컷씬이 도는데 벌써 마친 것으로 쳤다';
+            while (!document.getElementById('cutScene').hidden) cutNext();
+            if ((S.crystal || 0) - c0 !== (q.reward.crystal || 0)) {
+              return `보상이 ${(S.crystal || 0) - c0} 다 (${q.reward.crystal} 기대)`;
+            }
+            // ⚠️ **다시보기는 보상을 다시 주지 않는다.** 재생과 지급이 갈라져 있어야 한다
+            const c1 = S.crystal || 0, done1 = S.quest.done.length;
+            playCut(q.cut.out);
+            while (!document.getElementById('cutScene').hidden) cutNext();
+            if ((S.crystal || 0) !== c1) return `다시 보니 결정이 ${(S.crystal || 0) - c1} 더 늘었다`;
+            if (S.quest.done.length !== done1) return '다시 보니 마친 목록이 늘었다';
+            return null;
+          });
+          if (rpBad) results.push({ 화면: `${t}/컷씬보상`, 오류: rpBad });
+
+          // **스토리 다시보기** — 본 것만 나오고, 못 본 것은 개수만
+          const stBad = await page.evaluate(() => {
+            openStory();
+            if (!document.getElementById('storySheet').classList.contains('show')) return '시트가 안 떴다';
+            const rows = document.querySelectorAll('#storySheet .st-row').length;
+            const seen = (S.seenCuts || []).length;
+            if (rows !== seen) return `줄이 ${rows}개다 (본 것 ${seen}개 기대)`;
+            if (!document.querySelector('#storySheet .st-left')) return '못 본 개수가 안 나온다';
+            // **제목이 새어 나가면 안 된다** — 못 본 컷씬의 이름이 화면에 있으면 스포일러다
+            const html = document.getElementById('storyBody').textContent;
+            const leak = D.CUTS.filter(c => !(S.seenCuts || []).includes(c.id))
+              .find(c => html.indexOf(I18N.t(c.id + '_title')) >= 0);
+            return leak ? `못 본 컷씬 제목이 보인다 (${leak.id})` : null;
+          });
+          if (stBad) results.push({ 화면: `${t}/스토리다시보기`, 오류: stBad });
+          else { await page.waitForTimeout(280); await run(`${t}/스토리다시보기`); }
+          const stBad2 = await page.evaluate(() => window.__cardFits('#storySheet'));
+          if (stBad2) results.push({ 화면: `${t}/스토리다시보기`, 오류: stBad2 });
+          await page.evaluate(() => { closeStory(); S.seenCuts = []; });
           await page.evaluate(() => {
             closeQuest();
             S.quest = { active: null, n: 0, done: [], queue: [] };

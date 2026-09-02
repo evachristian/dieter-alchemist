@@ -2857,3 +2857,52 @@ button.tm-slot:active { transform: scale(0.94); }
 .q-reward { font-size: 0.8rem; font-weight: 700; color: var(--text-lav); }
 .q-claim { width: 100%; margin-top: 2px; }
 .q-claim:disabled { filter: saturate(0.15); opacity: 0.8; cursor: default; }
+
+/* ═══ 컷씬 (QUEST.md 2-2) ═══════════════════════════════════
+   초상화 + 말풍선. 아무 데나 눌러 넘긴다.
+   ⚠️ 층이 **모달(50)·확인(60)보다 위**다 — 컷씬이 도는 동안 뒤의 시트를 못 누른다 */
+.cut {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  background: rgba(28,20,30,0.72); backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+.cut[hidden] { display: none; }
+.cut-art { flex: 1 1 auto; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; }
+/* 인물은 크게. **말보다 얼굴이 먼저 읽혀야** 누가 말하는지 안다 */
+.cut-face { width: min(62vw, 260px); animation: cutIn 0.32s ease both; }
+.cut-face svg { width: 100%; height: auto; display: block; }
+@keyframes cutIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* 대사창 — 인트로·혼자 먹은 밤과 같은 자리(화면 아래)·같은 결로 맞춘다 */
+.cut-box {
+  flex: 0 0 auto; width: 100%; max-width: 480px; margin: 0 auto;
+  padding: 18px 20px calc(16px + env(safe-area-inset-bottom));
+  background: rgba(28,20,30,0.92); border-radius: 22px 22px 0 0;
+}
+.cut-who { margin: 0 0 7px; font-size: 0.9rem; font-weight: 800; color: #ffd076; }
+.cut-line { margin: 0; font-size: 0.98rem; font-weight: 500; line-height: 1.55; color: #fff; min-height: 3em; }
+.cut-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+/* 몇 줄 남았는지 — 인트로의 닷과 같은 뜻 */
+.cut-dots { display: flex; gap: 5px; }
+.cut-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.35); }
+.cut-dots i.on { background: #ffd076; }
+.cut-next { font-size: 0.82rem; font-weight: 700; color: #d8ccd6; }
+
+/* ─── 스토리 다시보기 ─── */
+.st-body { display: flex; flex-direction: column; gap: 14px; max-height: 56vh; overflow-y: auto; text-align: left; }
+.st-act { display: flex; flex-direction: column; gap: 6px; }
+.st-actname {
+  font-size: 0.86rem; font-weight: 800; color: var(--text-pink);
+  border-bottom: 2px dashed var(--pink-2); padding-bottom: 4px;
+}
+.st-row {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 7px 10px; border: none; border-radius: 14px; background: var(--cream);
+  font-family: inherit; text-align: left; cursor: pointer;
+}
+.st-row:active { transform: scale(0.985); }
+.st-ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px; overflow: hidden; background: var(--card); }
+.st-ic svg { width: 100%; height: 100%; display: block; }
+.st-name { flex: 1 1 auto; min-width: 0; font-size: 0.84rem; font-weight: 700; color: var(--ink); }
+/* 못 본 것은 **개수만.** 제목이 곧 스포일러다 */
+.st-left { font-size: 0.78rem; font-weight: 700; color: var(--text-lav); padding: 4px 10px; }

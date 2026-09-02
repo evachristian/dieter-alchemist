@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260902b">
+<link rel="stylesheet" href="style.css?v=20260902c">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260902b" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260902c" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -699,6 +699,11 @@
       </button>
     </div>
     <div class="set-row">
+      <button class="btn btn-dev set-full" onclick="openStory()">
+        <span data-i18n="setting_story">📖 스토리 다시보기</span>
+      </button>
+    </div>
+    <div class="set-row">
       <button class="btn btn-dev set-full" onclick="clearCacheHard()">
         <span data-i18n="setting_clear_cache">캐시 지우기 (임시)</span>
       </button>
@@ -755,6 +760,31 @@
     <div id="produceTitle" class="confirm-text"></div>
     <div id="produceList" class="pal-list"></div>
     <button class="btn btn-ghost" onclick="closeProduceLog()" data-i18n="pal_close">닫기</button>
+  </div>
+</div>
+
+<!-- ── 컷씬 (QUEST.md 2-2) ──
+     **초상화 + 말풍선.** 인트로처럼 손으로 그린 SVG 장면을 퀘스트마다 만들지 않는다.
+     ⚠️ 재생과 «보상 지급»은 갈라 놓았다 — 한 함수면 스토리 다시보기가 보상을 또 준다 -->
+<div id="cutScene" class="cut" hidden onclick="cutNext()">
+  <div class="cut-art"><div id="cutFace" class="cut-face"></div></div>
+  <div class="cut-box">
+    <div id="cutWho" class="cut-who"></div>
+    <p id="cutText" class="cut-line"></p>
+    <div class="cut-foot">
+      <span id="cutDots" class="cut-dots" aria-hidden="true"></span>
+      <span class="cut-next" data-i18n="cut_next">눌러서 계속</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── 스토리 다시보기 (설정 → ) ──
+     **본 것만 보여 준다.** 안 본 컷씬을 제목까지 늘어놓으면 스포일러다 -->
+<div id="storySheet" class="modal" onclick="if(event.target===this) closeStory()">
+  <div class="modal-card farm-card">
+    <div id="storyTitle" class="confirm-text"></div>
+    <div id="storyBody" class="st-body"></div>
+    <button class="btn btn-ghost" onclick="closeStory()" data-i18n="pal_close">닫기</button>
   </div>
 </div>
 
@@ -892,19 +922,19 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260902b"></script>
-<script src="intro.js?v=20260902b"></script>
-<script src="data.js?v=20260902b"></script>
-<script src="avatar.js?v=20260902b"></script>
-<script src="village.js?v=20260902b"></script>
-<script src="portrait.js?v=20260902b"></script>
-<script src="creature.js?v=20260902b"></script>
-<script src="cauldron.js?v=20260902b"></script>
-<script src="pumpkin.js?v=20260902b"></script>
-<script src="sfx.js?v=20260902b"></script>
-<script src="sync.js?v=20260902b"></script>
-<script src="game.js?v=20260902b"></script>
-<script src="tutorial.js?v=20260902b"></script>
-<script src="a11y.js?v=20260902b"></script>
+<script src="i18n.js?v=20260902c"></script>
+<script src="intro.js?v=20260902c"></script>
+<script src="data.js?v=20260902c"></script>
+<script src="avatar.js?v=20260902c"></script>
+<script src="village.js?v=20260902c"></script>
+<script src="portrait.js?v=20260902c"></script>
+<script src="creature.js?v=20260902c"></script>
+<script src="cauldron.js?v=20260902c"></script>
+<script src="pumpkin.js?v=20260902c"></script>
+<script src="sfx.js?v=20260902c"></script>
+<script src="sync.js?v=20260902c"></script>
+<script src="game.js?v=20260902c"></script>
+<script src="tutorial.js?v=20260902c"></script>
+<script src="a11y.js?v=20260902c"></script>
 </body>
 </html>
