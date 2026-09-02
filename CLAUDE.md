@@ -33,6 +33,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── STORY.md               세계관·인물·3막·키워드 시스템 (**아직 안 만든 것**)
 ├── EXERCISE.md            운동·포만감·스태미나 시스템 (수치를 바꾸기 전에 읽을 것)
 ├── FARM.md                밭을 탐험의 세 번째 갈래로 키우는 기획 (**아직 안 만든 것**)
+├── QUEST.md               퀘스트·컷씬·스토리 다시보기 기획 (**아직 안 만든 것**)
 ├── CREATURE.md            크리처 — 1~9단계 (녹이기·생산·밭과 약탈까지). 남은 것은 밸런싱
 ├── tools/hooks/           git 훅 — 세션마다 `git config core.hooksPath tools/hooks`
 └── server/
