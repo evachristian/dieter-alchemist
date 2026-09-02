@@ -1034,6 +1034,27 @@ function launchOpts() {
           await page.waitForTimeout(150);
         }
 
+        // **파수꾼의 호박 밭** — 캔버스라 `checkUI()` 가 못 본다. 그래서 여기서만
+        // 「공주 얼굴이 진짜로 구워졌는가」를 따로 묻는다 (`Pumpkin.faceState()`).
+        // ⚠️ 못 구워도 게임은 돌아야 한다 — 그때는 예전 동그라미로 떨어진다
+        {
+          const pkBad = await page.evaluate(async () => {
+            const m = D.MAPS.find(x => x.mini === 'pumpkin');
+            if (!m) return '호박 밭 맵이 없다';
+            Pumpkin.start(m, () => {});
+            for (let i = 0; i < 40 && !Pumpkin.faceState().baked.length; i++)
+              await new Promise(r => setTimeout(r, 50));
+            const st = Pumpkin.faceState();
+            if (!st.baked.includes('smile')) return '공주 얼굴(웃음)이 안 구워졌다';
+            if (!st.baked.includes('shock')) return '놀란 얼굴이 안 구워졌다';
+            if (st.using !== 'smile') return `가까운 호박이 없는데 «${st.using}» 을 쓴다`;
+            return null;
+          });
+          if (pkBad) results.push({ 화면: `${t}/호박밭`, 오류: pkBad });
+          await page.evaluate(() => { const h = document.getElementById('pumpkinGame'); if (h) h.remove(); });
+          await page.waitForTimeout(150);
+        }
+
         // 마을은 다섯이고 **건물 수가 다르다.** 일곱인 마을과 넷인 마을을 다 본다 —
         // 그림 높이가 건물 수를 따라가므로 명판이 겹치는지는 일곱짜리로만 잡힌다.
         // 색은 마을마다 다른 팔레트라(`village.js` 의 SKIN) 새 마을도 한 곳은 재야 한다 —

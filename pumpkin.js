@@ -18,8 +18,56 @@
   const REWARD_EVERY = 8000;    // 이만큼 버틸 때마다 재료 1개
   const HIT_GRACE_MS = 1200;    // 시작 직후에는 맞지 않는다 (화면 파악할 시간)
 
+  const PLAYER_R_DRAW = 19;     // 얼굴은 판정보다 조금 크게 그린다 (아래 ⚠️)
+  const SCARE_R      = 62;      // 이만큼 가까이 오면 놀란 얼굴
+
   let host = null, cv = null, ctx = null, raf = 0;
   let S = null;                 // 진행 중 상태 (없으면 안 돌고 있는 것)
+
+  // ─── 공주 얼굴 ───────────────────────────────────────────────
+  // 살구색 동그라미 하나였던 자리에 **공주를 세운다** — 피하고 있는 것이 누구인지가
+  // 보여야 이 미니게임이 이 게임의 장면이 된다.
+  //
+  // 초상화는 `Portrait.bust()` 가 내주는 **SVG 문자열**인데 캔버스에는 못 그린다.
+  // 그래서 한 번만 `Image` 로 구워 두고 매 프레임 `drawImage` 한다.
+  // ⚠️ **못 구워도 게임은 그대로 돌아야 한다** — 실패하면 예전 동그라미로 떨어진다
+  // (미니게임이 안 뜨는 것보다 얼굴이 없는 편이 훨씬 낫다).
+  // ⚠️ SVG 를 Image 로 구우려면 **width/height 가 박혀 있어야 한다.** viewBox 만
+  // 있으면 브라우저마다 크기를 다르게 잡거나 아예 안 그린다.
+  // 초상화 원본 크기와 **얼굴만 잘라 낼 자리**.
+  // ⚠️ `Portrait.bust()` 는 «흉상»이라 어깨까지 들어 있다 — 통째로 34px 동그라미에
+  // 넣으면 머리가 콩알만 해진다 (처음에 그렇게 나왔다). 머리 언저리만 잘라 쓴다.
+  const PT_W = 120, PT_H = 130;
+  const FACE_BOX = { x: 15, y: 5, w: 90, h: 90 };
+  const FACES = {};             // mood → Image (또는 실패 표시)
+  function faceImg(mood) {
+    if (FACES[mood] !== undefined) return FACES[mood];
+    FACES[mood] = null;         // 굽는 중 — 다시 안 굽는다
+    try {
+      const sp = window.GameData && GameData.speaker('sp_gwiriel');
+      if (!sp || !window.Portrait) return null;
+      let svg = Portrait.bust(sp, mood, { bare: true });
+      if (!svg) return null;
+      // viewBox 는 그대로 두고 크기만 박는다
+      // 초상화의 viewBox 는 120×130 이다 (`portrait.js`). 그 비율 그대로 박아야
+      // 얼굴이 안 눌린다
+      svg = svg.replace('<svg ', `<svg width="${PT_W}" height="${PT_H}" `);
+      const img = new Image();
+      img.onload = () => { FACES[mood] = img; };
+      img.onerror = () => { FACES[mood] = false; };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      return null;
+    } catch (e) { FACES[mood] = false; return null; }
+  }
+  // 시작할 때 미리 구워 둔다 — 첫 프레임부터 얼굴이 나오게
+  function warmFaces() { ['smile', 'shock'].forEach(faceImg); }
+  // 검사용 구멍 — 어떤 표정이 구워졌는지, 지금 어느 것을 쓰는지.
+  // 캔버스 안은 DOM 이 아니라 `checkUI()` 가 못 보므로 이 한 줄이 필요하다
+  function faceState() {
+    const near = !!(S && S.pumpkins.some(p => p.rolling
+      && Math.hypot(p.x - S.px, p.y - S.py) < SCARE_R));
+    return { baked: Object.keys(FACES).filter(k => FACES[k]), using: near ? 'shock' : 'smile' };
+  }
 
   // ─── 상태 만들기 ───
   function newState(pool, specialId) {
@@ -190,19 +238,47 @@
       ctx.restore();
     }
 
-    // 플레이어
+    // 플레이어 — **공주**
     ctx.save();
     ctx.beginPath();
     ctx.arc(S.px, S.py + 3, PLAYER_R * 0.9, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,0.22)';
     ctx.fill();
-    ctx.beginPath();
-    ctx.arc(S.px, S.py, PLAYER_R, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffdcc4';
-    ctx.fill();
-    ctx.lineWidth = 2.4;
-    ctx.strokeStyle = '#f2c6a6';
-    ctx.stroke();
+    // 호박이 가까이 오면 놀란 얼굴. **판정과 같은 거리를 안 쓴다** —
+    // 판정 거리로 하면 놀라는 순간이 곧 맞는 순간이라 표정이 보이지도 않는다
+    const near = S.pumpkins.some(p => p.rolling && Math.hypot(p.x - S.px, p.y - S.py) < SCARE_R);
+    const img = faceImg(near ? 'shock' : 'smile');
+    if (img) {
+      // ⚠️ 얼굴은 **판정보다 조금 크게** 그린다. 초상화는 여백을 두고 그려져서
+      // 판정 크기에 딱 맞추면 얼굴이 실제보다 작아 보이고, 「안 맞았는데 맞았다」로 읽힌다.
+      // 동그랗게 잘라 배경 여백이 사각형으로 드러나지 않게 한다
+      const d = PLAYER_R_DRAW * 2;
+      ctx.beginPath();
+      ctx.arc(S.px, S.py, PLAYER_R_DRAW, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = '#ffe9dc';                 // 초상화가 다 안 채우는 자리
+      ctx.fillRect(S.px - PLAYER_R_DRAW, S.py - PLAYER_R_DRAW, d, d);
+      const F = FACE_BOX;
+      ctx.drawImage(img, F.x, F.y, F.w, F.h,
+                    S.px - PLAYER_R_DRAW, S.py - PLAYER_R_DRAW, d, d);
+      ctx.restore();
+      // ⚠️ **흰 테를 넉넉히 두른다.** 공주의 머리가 짙은 갈색인데 호박 밭 바닥도
+      // 갈색이라, 테가 얇으면 머리가 배경에 녹아 «얼굴만 둥둥» 떠 보인다
+      ctx.lineWidth = 3.2;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+    } else {
+      // 아직 안 구워졌거나 못 구웠다 — 예전 동그라미로 떨어진다
+      ctx.beginPath();
+      ctx.arc(S.px, S.py, PLAYER_R, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffdcc4';
+      ctx.fill();
+      ctx.lineWidth = 2.4;
+      ctx.strokeStyle = '#f2c6a6';
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -267,6 +343,7 @@
   // ─── 시작 ───
   function start(map, onEnd) {
     if (S) return;                                   // 이미 돌고 있으면 무시
+    warmFaces();                                     // 첫 프레임부터 공주가 나오게 미리 굽는다
     onEndCb = onEnd || null;
     const pool = (map && map.pool) || ['old_pumpkin'];
     const specialId = (map && map.special) || null;
@@ -323,7 +400,7 @@
     raf = requestAnimationFrame(step);
   }
 
-  window.Pumpkin = {
+  window.Pumpkin = { faceState,
     start,
     // 검사용 — 진행 중 상태를 들여다보거나 즉시 끝낼 때
     _state: () => S,
