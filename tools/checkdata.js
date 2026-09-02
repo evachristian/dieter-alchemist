@@ -246,6 +246,51 @@ add('id 가 겹친다', dupId);
   add('컷씬 표가 어긋난다', bad);
 }
 
+// ─── 비법서 장이 나오는 두 길 (QUEST.md 6장) ──────────────────
+//
+// 장은 **퀘스트 보상**으로 나오고, 같은 묶음을 **단계 지급(그물)**이 한 단계 늦게
+// 한 번 더 준다. 여기서 보는 것은 둘이다:
+//
+//   ① **136장이 다 나오는가** — 어느 길로도 못 얻는 장이 있으면 그 레시피는
+//      게임 안에 있는데 «영영 못 만드는» 것이 된다. 화면에는 `?` 로만 보인다
+//   ② **퀘스트가 그물보다 «먼저» 오는가** — 그물이 먼저 주면 퀘스트를 깨도
+//      들어오는 장이 0이다. 「받았는데 아무 일도 안 일어난다」가 된다
+{
+  const bad = [];
+  if (D.PAGE_TIERS.length !== D.TIERS.length) {
+    bad.push(`단계 지급이 ${D.PAGE_TIERS.length}칸인데 매력 단계는 ${D.TIERS.length}칸이다`);
+  }
+  const net = new Map();            // 장 → 그물이 주는 매력
+  D.PAGE_TIERS.forEach((specs, i) => {
+    const at = (D.TIERS[i] || {}).min;
+    specs.forEach(sp => {
+      const list = D.pagesForSpec(sp);
+      if (!list.length) bad.push(`단계 지급에 빈 묶음이 있다 (${sp})`);
+      list.forEach(id => { if (!net.has(id)) net.set(id, at); });
+    });
+  });
+  const byQuest = new Set();
+  D.QUESTS.forEach(q => {
+    ((q.reward || {}).pages || []).forEach(sp => {
+      const list = D.pagesForSpec(sp);
+      if (!list.length) { bad.push(`${q.id} — 보상의 묶음이 비었다 (${sp})`); return; }
+      list.forEach(id => byQuest.add(id));
+      // ② 그물이 먼저 오면 퀘스트 보상이 빈손이 된다
+      const netAt = net.get(list[0]);
+      if (netAt !== undefined && netAt <= q.at) {
+        bad.push(`${q.id}(매력 ${q.at}) 보다 그물이 먼저 준다 (${sp} → 매력 ${netAt})`);
+      }
+    });
+  });
+  // ① 어느 길로도 못 얻는 장
+  const orphan = D.RECIPES.map(r => r.result.id)
+    .filter(id => !net.has(id) && !byQuest.has(id));
+  if (orphan.length) {
+    bad.push(`어느 길로도 못 얻는 장 ${orphan.length}개 (${orphan.slice(0, 4).join(' · ')}…)`);
+  }
+  add('비법서 배분이 어긋난다', bad);
+}
+
 // ─── 결과 ─────────────────────────────────────────────────────
 if (!problems.length) {
   console.log(`✅ 데이터 이상 없음 (레시피 ${D.RECIPES.length} · 맵 ${D.MAPS.length}`

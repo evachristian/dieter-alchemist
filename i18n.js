@@ -412,6 +412,7 @@
       // 대사는 **요정 대모의 말투**다 — 수십 년을 곁에서 지킨 사람이라
       // 잔소리도 애정이다 (`STORY.md` 알테이아).
       q_reward: '받을 것',
+      q_pages: '비법서 {n}장',
       q_claim: '가져가기',
       q_not_yet: '아직이에요',
       q_done_toast: '「{name}」{nj} 마쳤어요!',
@@ -1197,6 +1198,7 @@
       c_bloom_out_3: 'I am not. Something got in my eye. Come — on to the next story.',
       // ─── 퀘스트 (QUEST.md) ───
       q_reward: 'Reward',
+      q_pages: '{n} pages',
       q_claim: 'Take it',
       q_not_yet: 'Not yet',
       q_done_toast: 'Finished "{name}"!',

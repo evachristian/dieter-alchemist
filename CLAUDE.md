@@ -33,7 +33,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── STORY.md               세계관·인물·3막·키워드 시스템 (**아직 안 만든 것**)
 ├── EXERCISE.md            운동·포만감·스태미나 시스템 (수치를 바꾸기 전에 읽을 것)
 ├── FARM.md                밭을 탐험의 세 번째 갈래로 키우는 기획 (**아직 안 만든 것**)
-├── QUEST.md               퀘스트·컷씬·스토리 다시보기 기획 (**아직 안 만든 것**)
+├── QUEST.md               퀘스트·컷씬·스토리 다시보기 (1~3단계까지 만듦)
 ├── CREATURE.md            크리처 — 1~9단계 (녹이기·생산·밭과 약탈까지). 남은 것은 밸런싱
 ├── tools/hooks/           git 훅 — 세션마다 `git config core.hooksPath tools/hooks`
 └── server/
@@ -452,6 +452,21 @@ node tools/checkavatar.js   # 체형 5단계 × 모든 옷에서 살이 옷 밖�
 상한이 오르고 초반 채집이 싸지면서 1312 → **2720점**이 됐다. 그래서 `leaguePace` 를
 칸당 26 → **50** 으로 올렸다 (맨 위 1590점 = 상한의 58%). 40~70% 밖으로 나가면
 `checkbalance` 가 실패시킨다.
+
+## ⚠️ 전역 이름은 파일끼리 겹치면 안 된다
+
+모듈 시스템이 없다. `<script>` 로 나란히 읽히므로 **`data.js` 의 최상위 `const X` 와
+`game.js` 의 최상위 `const X` 는 같은 전역 하나**다. 겹치면 브라우저가
+`Identifier 'X' has already been declared` 를 던지고 **그 파일이 통째로 실행되지 않는다.**
+
+화면은 오류를 안 띄운다 — 그냥 빈 껍데기가 되고, 콘솔을 안 열면 원인을 못 찾는다.
+`node --check` 도 못 잡는다: 파일 하나씩 보면 둘 다 멀쩡한 문법이다.
+
+```bash
+npm run test:globals   # npm test 가 이미 돌린다
+```
+
+(`PAGE_TIERS` 를 data.js 로 옮기면서 game.js 에 그대로 남겨 놓아 실제로 겪었다)
 
 ## 공방 — 비법서에 있는 것만 만들 수 있다
 

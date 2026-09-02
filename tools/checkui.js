@@ -713,8 +713,57 @@ function launchOpts() {
           });
           if (rpBad) results.push({ 화면: `${t}/컷씬보상`, 오류: rpBad });
 
+          // **비법서 장이 퀘스트 보상으로 들어오는가** (QUEST.md 6장 · 3단계).
+          //
+          // 장은 이제 퀘스트가 먼저 주고, 단계 지급은 그물이다. 이 검사가 없으면
+          // 「보상 줄에는 📖 24장이라고 적혀 있는데 실제로는 안 들어오는」 상태가
+          // 화면상 멀쩡해 보인다 — 결정이 늘어나서 받은 것처럼 읽힌다
+          const pgQ = await page.evaluate(() => {
+            S.quest = { active: null, n: 0, done: [], queue: [] };
+            S.charmPeak = 0; S.discovered = ['vitality', 'blush'];
+            S.seenCuts = D.CUTS.map(c => c.id);        // 컷씬은 따로 잰다
+            refreshQuests(); render();
+            const q = D.questOf(S.quest.active);
+            const want = (q.reward.pages || []).reduce((a, sp) => a.concat(D.pagesForSpec(sp)), []);
+            if (!want.length) return '첫 퀘스트에 장 보상이 없다';
+            // 보상 줄에 장이 적히는가
+            S.quest.n = q.goal.n;
+            openQuest();
+            const line = document.querySelector('#questSheet .q-reward').textContent;
+            if (line.indexOf('📖') < 0) return `보상 줄에 장이 안 적힌다 (${line.trim()})`;
+            const before = S.discovered.length;
+            claimQuest();
+            const got = want.filter(id => hasPage(id)).length;
+            if (got !== want.length) return `장이 ${got}/${want.length} 만 들어왔다`;
+            if (S.discovered.length !== before + want.length) {
+              return `가진 장이 ${S.discovered.length - before} 늘었다 (${want.length} 기대)`;
+            }
+            // ⚠️ **이미 가진 장은 보상 줄에서 빠져야 한다.** 그물이 먼저 준 뒤에
+            // 「📖 24장」이라고 적혀 있으면 거짓말이다
+            S.quest = { active: null, n: 0, done: [], queue: [] };
+            S.charmPeak = 0; refreshQuests();
+            const q2 = D.questOf(S.quest.active);
+            if (q2 && q2.id === q.id) {
+              openQuest();
+              const line2 = document.querySelector('#questSheet .q-reward').textContent;
+              if (line2.indexOf('📖') >= 0) return '이미 가진 장인데 보상 줄에 그대로 적힌다';
+              closeQuest();
+            }
+            return null;
+          });
+          if (pgQ) results.push({ 화면: `${t}/퀘스트장보상`, 오류: pgQ });
+          await page.evaluate(() => {
+            closeQuest();
+            S.quest = { active: null, n: 0, done: [], queue: [] };
+            S.charmPeak = 0; S.seenCuts = []; grantPages(true); render();
+          });
+
           // **스토리 다시보기** — 본 것만 나오고, 못 본 것은 개수만
           const stBad = await page.evaluate(() => {
+            // ⚠️ **제 상태를 스스로 세운다.** 앞 검사가 `seenCuts` 를 비우고 끝나면
+            // 여기서 「못 본 개수가 안 나온다」로 엉뚱하게 실패한다 —
+            // 이 파일에서 **네 번째** 겪는 사고다 (작물·부대·컷씬보상에 이어)
+            S.seenCuts = [D.CUTS[0].id, D.CUTS[1].id];
             openStory();
             if (!document.getElementById('storySheet').classList.contains('show')) return '시트가 안 떴다';
             const rows = document.querySelectorAll('#storySheet .st-row').length;

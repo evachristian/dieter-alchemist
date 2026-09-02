@@ -1078,24 +1078,62 @@ const PLOT_COST = [0, 0, 100, 200, 400];
 const QUESTS = [
   { id: 'q_first', npc: 'sp_althea', act: 1, at: 0,
     goal: { kind: 'brew', id: 'vitality', n: 2 },
-    reward: { crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },
+    reward: { pages: ['potion:low'], crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },
   { id: 'q_walk', npc: 'sp_althea', act: 1, at: 6,
     goal: { kind: 'visit', n: 8 },
-    reward: { crystal: 60 }, cut: { in: 'c_walk_in', out: 'c_walk_out' } },
+    reward: { pages: ['creature:basic'], crystal: 60 }, cut: { in: 'c_walk_in', out: 'c_walk_out' } },
   { id: 'q_bring', npc: 'sp_althea', act: 1, at: 14,
     goal: { kind: 'deliver', id: 'herb', n: 10 },
-    reward: { crystal: 80, items: { berry: 6 } }, cut: { in: 'c_bring_in', out: 'c_bring_out' } },
+    reward: { pages: ['potion:mid#0'], crystal: 80, items: { berry: 6 } }, cut: { in: 'c_bring_in', out: 'c_bring_out' } },
   { id: 'q_egg', npc: 'sp_althea', act: 1, at: 22,
     goal: { kind: 'creature', n: 1 },
-    reward: { crystal: 120 }, cut: { in: 'c_egg_in', out: 'c_egg_out' } },
+    reward: { pages: ['potion:mid#1'], crystal: 120 }, cut: { in: 'c_egg_in', out: 'c_egg_out' } },
   { id: 'q_sip', npc: 'sp_althea', act: 1, at: 32,
     goal: { kind: 'drink', n: 5 },
-    reward: { crystal: 150, items: { dew: 8 } }, cut: { in: 'c_sip_in', out: 'c_sip_out' } },
+    reward: { pages: ['creature:mid'], crystal: 150, items: { dew: 8 } }, cut: { in: 'c_sip_in', out: 'c_sip_out' } },
   { id: 'q_bloom', npc: 'sp_althea', act: 1, at: 45,
     goal: { kind: 'charm', n: 60 },
-    reward: { crystal: 200 }, cut: { in: 'c_bloom_in', out: 'c_bloom_out' } },
+    reward: { pages: ['potion:high', 'creature:high'], crystal: 200 }, cut: { in: 'c_bloom_in', out: 'c_bloom_out' } },
 ];
 function questOf(id) { return QUESTS.find(q => q.id === id) || null; }
+
+// ─── 장이 나오는 두 길 ────────────────────────────────────────
+//
+// **퀘스트가 먼저, 단계 지급이 그물이다** (`QUEST.md` 6장).
+//
+// 예전에는 단계마다 서른 장이 툭 들어왔다 — 「요정 대모가 줬다」는 문장 없이.
+// 이제 장은 **퀘스트 보상**으로 나오고, 같은 묶음을 단계 지급이 **한 단계 늦게**
+// 한 번 더 준다.
+//
+// ⚠️ **그물을 없애지 않는다.** 퀘스트가 유일한 출구가 되면 하나가 막히는 순간
+// 게임이 통째로 멈춘다. 퀘스트를 하면 빠르고, 안 해도 느릴 뿐 못 하게 되진 않는다.
+//
+// ⚠️ **새싹(0)의 기초 물약 여섯 장은 그대로 자동이다.** 첫 퀘스트가 「생기 물약을
+// 만들어라」인데 그 장이 없으면 시작조차 못 한다.
+//
+// `tools/checkdata.js` 가 둘을 합쳐 **136장이 다 나오는지**와
+// **퀘스트가 그물보다 먼저 오는지**를 본다.
+const PAGE_TIERS = [
+  ['potion:basic'],                             // 새싹 0   — 시작 밑천 (퀘스트 없이 자동)
+  ['potion:low'],                               // 꽃봉오리 15 — q_first 의 그물
+  ['creature:basic'],                           // 요정 35  — q_walk 의 그물
+  ['potion:mid#0', 'potion:mid#1'],             // 뮤즈 60  — q_bring · q_egg 의 그물
+  ['creature:mid', 'potion:high', 'creature:high'],   // 여신 100 — q_sip · q_bloom 의 그물
+];
+// `kind:grade` 또는 `kind:grade#절반`(0=앞, 1=뒤). 절반은 **id 순으로 가른다** —
+// 정렬이 정해져 있어야 다시 불러도 같은 장이 같은 단계에 온다
+function pagesForSpec(spec) {
+  const half = spec.indexOf('#');
+  const idx = half >= 0 ? Number(spec.slice(half + 1)) : -1;
+  const [kind, grade] = (half >= 0 ? spec.slice(0, half) : spec).split(':');
+  const list = RECIPES
+    .filter(r => r.result.kind === kind && r.result.grade === grade)
+    .map(r => r.result.id).sort();
+  if (idx < 0) return list;
+  const cut = Math.ceil(list.length / 2);
+  return idx === 0 ? list.slice(0, cut) : list.slice(cut);
+}
+
 
 // ─── 컷씬 (QUEST.md 2-2 · 2단계) ─────────────────────────────
 //
@@ -1923,7 +1961,7 @@ window.GameData = {
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   CREATURE_ATTRS, creatureAttr, MAP_ATTRS, mapAttr,
-  FARM_CROPS, farmCrop, PLOT_COST, QUESTS, questOf, CUTS, cutOf,
+  FARM_CROPS, farmCrop, PLOT_COST, QUESTS, questOf, CUTS, cutOf, PAGE_TIERS, pagesForSpec,
   WEATHERS, WEATHER_HOURS, DAYPARTS, SPECIAL_TIERS, specialTier,
   getTier, recipeKey,
 };

@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "node server/index.js",
-    "test": "node tools/genwardrobe.js --check && node tools/gencreature.js --check && node tools/genfarm.js --check && node tools/genmapattr.js --check && node tools/checkdata.js && node tools/checki18n.js && node tools/checktalk.js && node tools/checkbalance.js && node server/test.js",
+    "test": "node tools/genwardrobe.js --check && node tools/gencreature.js --check && node tools/genfarm.js --check && node tools/genmapattr.js --check && node tools/checkdata.js && node tools/checkglobals.js && node tools/checki18n.js && node tools/checktalk.js && node tools/checkbalance.js && node server/test.js",
     "test:talk": "node tools/checktalk.js",
     "test:data": "node tools/checkdata.js",
     "test:i18n": "node tools/checki18n.js",
@@ -24,7 +24,8 @@
     "test:time": "node tools/checktime.js",
     "test:farm": "node tools/checkfarm.js",
     "test:balance": "node tools/checkbalance.js",
-    "sim:farm": "node tools/simfarm.js"
+    "sim:farm": "node tools/simfarm.js",
+    "test:globals": "node tools/checkglobals.js"
   },
   "dependencies": {
     "express": "^4.19.2",

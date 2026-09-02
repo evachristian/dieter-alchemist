@@ -1106,6 +1106,13 @@ function claimQuest() {
   const r = q.reward || {};
   // 「갖다줘」는 **낼 때 소모한다.** 그래야 갖다준 것이 된다
   if (q.goal.kind === 'deliver') spendItem(q.goal.id, q.goal.n);
+  // **비법서 장** — 이제 여기가 장이 나오는 첫 자리다 (단계 지급은 그물이다).
+  // 이미 가진 것은 안 센다: 그물이 먼저 준 뒤라면 「받았는데 아무 일도 안 일어난다」가
+  // 되는데, `checkdata` 가 퀘스트를 그물보다 먼저 오게 붙들고 있다
+  let gotPages = 0;
+  (r.pages || []).forEach(spec => {
+    D.pagesForSpec(spec).forEach(id => { if (!hasPage(id)) { S.discovered.push(id); gotPages++; } });
+  });
   if (r.crystal) S.crystal = (S.crystal || 0) + r.crystal;
   if (r.energy) S.energy = Math.min(energyCap(), (S.energy || 0) + r.energy);
   if (r.items) Object.keys(r.items).forEach(id => addInv(id, r.items[id]));
@@ -1118,6 +1125,9 @@ function claimQuest() {
   closeQuest();
   // **조사를 붙인다** — 「을(를)」은 이 프로젝트에서 금지다 (일지·밭 기록과 같은 규칙)
   { const nm = T(q.id + '_name'); toast(T('q_done_toast', { name: nm, nj: josa(nm, '을를') }), null, 3200); }
+  // 장이 들어왔으면 **따로 한 번 더 알린다** — 결정·재료와 한 줄에 섞으면
+  // 「비법서가 늘었다」가 안 읽힌다. 이게 이 퀘스트의 진짜 보상이다
+  if (gotPages) setTimeout(() => toast(T('page_got', { n: gotPages }), null, 3600), 1400);
   if (window.Sfx) Sfx.play('success');
   render();
 }
@@ -1317,6 +1327,14 @@ function renderQuestSheet() {
 window.renderQuestSheet = renderQuestSheet;
 
 const rewardText = r => [
+  // **장을 맨 앞에.** 결정보다 이쪽이 크다.
+  // ⚠️ **아직 «없는» 장만 센다.** 퀘스트를 미루다 그물(단계 지급)이 먼저 주고 나면
+  // 실제로 들어오는 것은 0장인데, 「📖 24장」이라고 적혀 있으면 거짓말이 된다
+  (() => {
+    const n = ((r && r.pages) || []).reduce((k, sp) =>
+      k + D.pagesForSpec(sp).filter(id => !hasPage(id)).length, 0);
+    return n ? `📖 ${T('q_pages', { n })}` : '';
+  })(),
   r && r.crystal ? `✨ ${r.crystal}` : '',
   r && r.energy ? `⚡ ${r.energy}` : '',
   ...(r && r.items ? Object.keys(r.items).map(id => `${itemArt(id, 18)} ${itemName(id)} ×${r.items[id]}`) : []),
@@ -1343,36 +1361,18 @@ const rewardText = r => [
 function hasPage(id) { return !!(S.discovered && S.discovered.includes(id)); }
 window.hasPage = hasPage;
 
-// ⚠️ **여기는 임시 배분이다.** 진짜 배분은 퀘스트가 맡는다 (`STORY.md`) —
-// 그때 `pagesForTier()` 한 곳만 갈아 끼우면 되게 해 두었다.
-// 이게 없으면 새 플레이어는 시작 두 장으로 게임이 끝난다.
+// 장이 나오는 두 길과 그 표는 **`data.js` 에 있다** (`D.PAGE_TIERS` · `D.pagesForSpec`).
+// 검사기(`tools/checkdata.js`)가 게임을 안 띄우고도 「136장이 다 나오는지」와
+// 「퀘스트가 그물보다 먼저 오는지」를 재야 해서 데이터 쪽에 두었다.
 //
-// 단계마다 요정 대모가 한 묶음씩 준다. **등급으로 가른다** — 그 등급을 만들 수
-// 있게 되는 시점과 재료가 열리는 시점이 대체로 맞기 때문이다.
-// 중급 물약 쉰 장은 한 번에 주면 목록이 통째로 노이즈가 되므로 두 단계에 나눈다.
-const PAGE_TIERS = [
-  // 새싹 — 튜토리얼을 마치면 요정 대모가 준다
-  ['potion:basic', 'potion:low'],
-  ['creature:basic'],                       // 꽃봉오리 (매력 15)
-  ['potion:mid#0'],                         // 요정 (35) — 중급 앞 절반
-  ['potion:mid#1', 'creature:mid'],         // 뮤즈 (60) — 중급 뒤 절반
-  ['potion:high', 'creature:high'],         // 여신 (100)
-];
-// `kind:grade` 또는 `kind:grade#절반`(0=앞, 1=뒤). 절반은 **id 순으로 가른다** —
-// 정렬이 정해져 있어야 다시 불러도 같은 장이 같은 단계에 온다
-function pagesForSpec(spec) {
-  const half = spec.indexOf('#');
-  const idx = half >= 0 ? Number(spec.slice(half + 1)) : -1;
-  const [kind, grade] = (half >= 0 ? spec.slice(0, half) : spec).split(':');
-  const list = D.RECIPES
-    .filter(r => r.result.kind === kind && r.result.grade === grade)
-    .map(r => r.result.id).sort();
-  if (idx < 0) return list;
-  const cut = Math.ceil(list.length / 2);
-  return idx === 0 ? list.slice(0, cut) : list.slice(cut);
-}
+// ⚠️ **여기서 같은 이름으로 다시 선언하지 않는다.** 모듈 시스템이 없어서
+// data.js 와 game.js 의 최상위 `const` 는 **같은 전역 하나**다 — 이름이 겹치면
+// `Identifier has already been declared` 로 **game.js 가 통째로 안 실행된다.**
+// 화면은 그냥 빈 껍데기가 되고, 콘솔을 안 열면 원인을 못 찾는다 (실제로 겪었다).
+// `npm test` 의 `checkglobals` 가 이걸 잡는다.
+// 여태 닿은 단계까지의 장을 **없는 것만** 채운다 (그물). 몇 장이 들어왔는지 돌려준다.
 function pagesForTier(i) {
-  return (PAGE_TIERS[i] || []).reduce((a, spec) => a.concat(pagesForSpec(spec)), []);
+  return (D.PAGE_TIERS[i] || []).reduce((a, spec) => a.concat(D.pagesForSpec(spec)), []);
 }
 
 // 여태 닿은 단계까지의 장을 **없는 것만** 채운다. 몇 장이 들어왔는지 돌려준다.
