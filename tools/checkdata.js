@@ -13,7 +13,10 @@ global.window = {};
 global.localStorage = { getItem: () => null, setItem: () => {} };
 global.document = { querySelectorAll: () => [], documentElement: { setAttribute() {} } };
 require(path.join(ROOT, 'data.js'));
+// 퀘스트 문구가 빠졌는지도 여기서 본다 — 빠지면 칩에 열쇠(`q_first_name`)가 그대로 뜬다
+require(path.join(ROOT, 'i18n.js'));
 const D = global.window.GameData;
+const I = global.window.I18N;
 
 const problems = [];
 const add = (title, list) => { if (list.length) problems.push([title, list]); };
@@ -166,6 +169,50 @@ Object.values(D.WARDROBE).forEach(list => (list || []).forEach(x => take(x.id, '
 D.COLORS.forEach(x => take(x.id, '색'));
 D.SPEAKERS.forEach(x => take(x.id, '인물'));
 add('id 가 겹친다', dupId);
+
+// ─── 퀘스트 (QUEST.md) ────────────────────────────────────────
+//
+// **표 하나에 다섯 가지가 물려 있다** — 인물 · 목표가 가리키는 것 · 보상 · 문구 열쇠 ·
+// 여는 순서. 하나만 어긋나도 화면에서는 「빈 칩」이나 「이름 없는 퀘스트」로만 보인다.
+{
+  const qIds = new Set();
+  const bad = [];
+  const kinds = ['brew', 'creature', 'drink', 'visit', 'deliver', 'charm', 'farm'];
+  D.QUESTS.forEach(q => {
+    if (qIds.has(q.id)) bad.push(`${q.id} — id 가 겹친다`);
+    qIds.add(q.id);
+    take(q.id, '퀘스트');
+    if (!D.speaker(q.npc)) bad.push(`${q.id} — 없는 인물 ${q.npc}`);
+    const g = q.goal || {};
+    if (kinds.indexOf(g.kind) < 0) bad.push(`${q.id} — 모르는 목표 종류 ${g.kind}`);
+    if (!(g.n > 0)) bad.push(`${q.id} — 목표 수가 ${g.n} 이다`);
+    // 목표가 가리키는 것이 실제로 있는가
+    if (g.id) {
+      const ok = g.kind === 'deliver' ? !!D.INGREDIENTS[g.id]
+        : g.kind === 'visit' ? D.MAPS.some(m => m.id === g.id)
+        : D.RECIPES.some(r => r.result.id === g.id && r.result.kind
+            === (g.kind === 'creature' ? 'creature' : 'potion'));
+      if (!ok) bad.push(`${q.id} — 목표가 없는 것을 가리킨다 (${g.kind} ${g.id})`);
+    }
+    // 보상의 재료도 실제로 있어야 한다
+    Object.keys((q.reward || {}).items || {}).forEach(id => {
+      if (!D.INGREDIENTS[id]) bad.push(`${q.id} — 보상에 없는 재료 ${id}`);
+    });
+    // 문구 넷 (이름 · 설명 · 대사). **빠지면 칩에 열쇠가 그대로 뜬다**
+    ['_name', '_desc', '_in'].forEach(suf => {
+      const k = q.id + suf;
+      if (I.t(k) === k) bad.push(`${q.id} — 문구가 없다 (${k})`);
+    });
+  });
+  // **여는 순서가 오름차순이어야 한다.** 큐가 표 순서대로 쌓이므로, 뒤에 있는 것이
+  // 더 낮은 조건이면 「나중 이야기가 먼저 온다」
+  D.QUESTS.forEach((q, i) => {
+    if (i && q.at < D.QUESTS[i - 1].at) {
+      bad.push(`${q.id}(${q.at}) 가 앞의 ${D.QUESTS[i - 1].id}(${D.QUESTS[i - 1].at}) 보다 먼저 열린다`);
+    }
+  });
+  add('퀘스트 표가 어긋난다', bad);
+}
 
 // ─── 결과 ─────────────────────────────────────────────────────
 if (!problems.length) {

@@ -1057,6 +1057,46 @@ const farmCrop = id => FARM_CROPS.find(c => c.id === id) || null;
 // 다섯 칸을 다 여는 데 700이면 「AP 한 번 안 채우면 칸 하나」쯤이다. 전부 임시값.
 const PLOT_COST = [0, 0, 100, 200, 400];
 
+// ═══════════════════════════════════════════════════════════════
+//  퀘스트 (QUEST.md) — 1단계 「그릇」
+//
+//  **이야기를 나르는 그릇이자, 다음 할 일이자, 나중에 비법서 장이 나올 자리다.**
+//
+//  · `at`  — 여는 조건. **여태 닿은 최고 매력**(`charmPeak`)으로 판정한다.
+//            매력이 내려가도 **한 번 열린 퀘스트는 안 닫힌다** (맵·밭과 같은 규칙)
+//  · `npc` — 칩에 뜰 얼굴. `SPEAKERS` 의 id 를 가리킨다
+//  · `goal`— 목표 하나. 종류는 game.js 의 `questProgress` 참고
+//  · `act` — 스토리 다시보기의 묶음 (`STORY.md` 의 3막)
+//
+//  ⚠️ **`id` 는 세이브에 들어간다.** 옷·크리처 id 와 같은 규칙 — 한 번 나가면 안 바꾼다.
+//  이름·설명·대사는 전부 `i18n.js` 에 있다 (`<id>_name` `<id>_desc` `<id>_in` `<id>_out`).
+//
+//  ⚠️ **보상에 비법서 장이 아직 없다.** 지금은 단계마다 자동으로 주고 있고
+//  (`PAGE_TIERS`), 그것을 퀘스트로 옮기는 것은 3단계다 (`QUEST.md` 10장).
+//  둘을 같이 두면 이미 가진 장을 또 주게 되어 「받았는데 아무 일도 안 일어난다」가 된다.
+// ═══════════════════════════════════════════════════════════════
+const QUESTS = [
+  { id: 'q_first', npc: 'sp_althea', act: 1, at: 0,
+    goal: { kind: 'brew', id: 'vitality', n: 2 },
+    reward: { crystal: 40, items: { dew: 5 } } },
+  { id: 'q_walk', npc: 'sp_althea', act: 1, at: 6,
+    goal: { kind: 'visit', n: 8 },
+    reward: { crystal: 60 } },
+  { id: 'q_bring', npc: 'sp_althea', act: 1, at: 14,
+    goal: { kind: 'deliver', id: 'herb', n: 10 },
+    reward: { crystal: 80, items: { berry: 6 } } },
+  { id: 'q_egg', npc: 'sp_althea', act: 1, at: 22,
+    goal: { kind: 'creature', n: 1 },
+    reward: { crystal: 120 } },
+  { id: 'q_sip', npc: 'sp_althea', act: 1, at: 32,
+    goal: { kind: 'drink', n: 5 },
+    reward: { crystal: 150, items: { dew: 8 } } },
+  { id: 'q_bloom', npc: 'sp_althea', act: 1, at: 45,
+    goal: { kind: 'charm', n: 60 },
+    reward: { crystal: 200 } },
+];
+function questOf(id) { return QUESTS.find(q => q.id === id) || null; }
+
 // ─── 레시피 북 카테고리 ───
 // 물약은 등급(grade)으로, 크리처는 kind 로 분류한다.
 // 등급 기준: 하급 = 효과 합 3 이하 / 중급 = 4~6 / 상급 = 7 이상
@@ -1857,7 +1897,7 @@ window.GameData = {
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   CREATURE_ATTRS, creatureAttr, MAP_ATTRS, mapAttr,
-  FARM_CROPS, farmCrop, PLOT_COST,
+  FARM_CROPS, farmCrop, PLOT_COST, QUESTS, questOf,
   WEATHERS, WEATHER_HOURS, DAYPARTS, SPECIAL_TIERS, specialTier,
   getTier, recipeKey,
 };

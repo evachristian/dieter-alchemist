@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260902a">
+<link rel="stylesheet" href="style.css?v=20260902b">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260902a" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260902b" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -758,6 +758,20 @@
   </div>
 </div>
 
+<!-- ── 퀘스트 칩 (QUEST.md 2-1) ──
+     탭 바 바로 위에 뜨는 NPC 얼굴. **누가 주는 퀘스트인지가 얼굴로 보인다.**
+     ⚠️ 퀘스트가 없으면 `hidden` 이다 — 회색으로 남겨 두면 「내가 뭘 안 한 건가」가 된다 -->
+<button id="questChip" class="quest-chip" onclick="openQuest()" hidden></button>
+
+<!-- ── 퀘스트 시트 ── -->
+<div id="questSheet" class="modal" onclick="if(event.target===this) closeQuest()">
+  <div class="modal-card farm-card">
+    <div id="questTitle" class="confirm-text"></div>
+    <div id="questBody" class="q-body"></div>
+    <button class="btn btn-ghost" onclick="closeQuest()" data-i18n="pal_close">닫기</button>
+  </div>
+</div>
+
 <!-- ── 연금술 비법서 한 장 ──
      장을 가지면 「무엇을 얼마나」뿐 아니라 **「어디로 가면 되는지」**까지 알게 된다.
      재료 이름만 알려 주면 맵 51곳의 대응표를 사람이 외워야 한다 -->
@@ -878,19 +892,19 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260902a"></script>
-<script src="intro.js?v=20260902a"></script>
-<script src="data.js?v=20260902a"></script>
-<script src="avatar.js?v=20260902a"></script>
-<script src="village.js?v=20260902a"></script>
-<script src="portrait.js?v=20260902a"></script>
-<script src="creature.js?v=20260902a"></script>
-<script src="cauldron.js?v=20260902a"></script>
-<script src="pumpkin.js?v=20260902a"></script>
-<script src="sfx.js?v=20260902a"></script>
-<script src="sync.js?v=20260902a"></script>
-<script src="game.js?v=20260902a"></script>
-<script src="tutorial.js?v=20260902a"></script>
-<script src="a11y.js?v=20260902a"></script>
+<script src="i18n.js?v=20260902b"></script>
+<script src="intro.js?v=20260902b"></script>
+<script src="data.js?v=20260902b"></script>
+<script src="avatar.js?v=20260902b"></script>
+<script src="village.js?v=20260902b"></script>
+<script src="portrait.js?v=20260902b"></script>
+<script src="creature.js?v=20260902b"></script>
+<script src="cauldron.js?v=20260902b"></script>
+<script src="pumpkin.js?v=20260902b"></script>
+<script src="sfx.js?v=20260902b"></script>
+<script src="sync.js?v=20260902b"></script>
+<script src="game.js?v=20260902b"></script>
+<script src="tutorial.js?v=20260902b"></script>
+<script src="a11y.js?v=20260902b"></script>
 </body>
 </html>

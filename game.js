@@ -66,6 +66,14 @@ const defaultState = () => ({
   // 옛 세이브에는 이 칸이 없고 `defaultState()` 의 `[]` 가 그대로 남는다
   // (`CREATURE.md` 11장의 `petField` 와 같은 경우다)
   diary: [],
+  // 퀘스트 (`QUEST.md`). **없던 칸을 더하는 것**이라 `SAVE_VER` 를 안 올린다.
+  // · `active` — 지금 하는 것 하나. **한 번에 하나만 내보낸다** (목록은 곧 숙제다)
+  // · `n`      — 지금 퀘스트의 진행 수. **받은 뒤부터 센다**
+  // · `done`   — 마친 것 (순서대로 · 스토리 다시보기가 이 순서를 쓴다)
+  // · `queue`  — 조건은 찼는데 아직 안 내보낸 것
+  quest: { active: null, n: 0, done: [], queue: [] },
+  // 본 컷씬 — 스토리 다시보기 목록 (2단계에서 쓴다)
+  seenCuts: [],
   // 일지에 **어느 시각의 밭 기록까지 옮겨 적었나.** `farmSeenAt`(배지용)과 따로 둔다 —
   // 하나로 쓰면 밭 탭을 열어 배지를 지우는 순간 아직 안 적은 침입이 영영 안 적힌다
   diaryFarmAt: 0,
@@ -592,6 +600,9 @@ const fix1 = v => v.toFixed(1);   // 소수 둘째 자리 반올림 → 첫째 �
 // 매력 총합이 올라 새 채집지가 열리면 알려 준다
 let lastCharmSeen = null;
 function checkUnlocks() {
+  // 매력이 오르는 자리가 곧 퀘스트가 열리는 자리다 — 판정을 두 곳에 두지 않는다
+  refreshQuests();
+  renderQuestChip();
   const now = totalCharm();
   if (lastCharmSeen === null) { lastCharmSeen = now; return; }
   if (now <= lastCharmSeen) { lastCharmSeen = now; return; }
@@ -1006,6 +1017,194 @@ function gatherCost(mapId) {
   return m ? D.zoneAp(m.zone) : D.ENERGY.cost.gather;
 }
 window.gatherCost = gatherCost;
+
+// ═══════════════════════════════════════════════════════════════
+//  퀘스트 (QUEST.md · 1단계 「그릇」)
+//
+//  **숙제가 되면 진다.** 본받는 모델이 듀오링고라 규칙이 넷뿐이다:
+//    ① 기한이 없다 — 며칠 뒤에 들어와도 그대로 기다린다
+//    ② 실패가 없다 — 진행도는 뒤로 안 간다. 포기 버튼도 없다
+//    ③ 한 번에 하나 — 목록이 생기는 순간 그건 할 일 목록이고, 할 일 목록은 숙제다
+//    ④ 어디로 가면 되는지까지 말한다
+// ═══════════════════════════════════════════════════════════════
+
+// 여는 조건. ⚠️ **`charmPeak()`(여태 닿은 최고 매력)으로 판정한다.**
+// 지금 총합을 보면 애착 크리처를 약한 것으로 바꾼 순간 열려 있던 퀘스트가 사라진다 —
+// 맵 해금·밭 탭·AP 상한에서 **같은 사고를 세 번** 냈다.
+function questReady(q) { return charmPeak() >= (q.at || 0); }
+
+function questState() {
+  if (!S.quest || typeof S.quest !== 'object') S.quest = { active: null, n: 0, done: [], queue: [] };
+  if (!Array.isArray(S.quest.done)) S.quest.done = [];
+  if (!Array.isArray(S.quest.queue)) S.quest.queue = [];
+  return S.quest;
+}
+function activeQuest() { const q = questState(); return q.active ? D.questOf(q.active) : null; }
+
+// 조건이 찬 것을 큐에 담고, 하는 것이 없으면 하나를 꺼내 준다.
+// **완료하자마자 다음 것을 바로 내보낸다** — 하루 제한 같은 걸 두지 않는다
+// (한 번에 하나라서 잘 하는 사람에게는 이미 느리다 · `QUEST.md` 8-4)
+function refreshQuests() {
+  const st = questState();
+  if (!S.tutorialDone) return;           // 튜토리얼 중에는 안 준다 (막이 겹친다)
+  D.QUESTS.forEach(q => {
+    if (st.done.includes(q.id) || st.active === q.id || st.queue.includes(q.id)) return;
+    if (questReady(q)) st.queue.push(q.id);
+  });
+  if (!st.active && st.queue.length) { st.active = st.queue.shift(); st.n = 0; }
+}
+window.refreshQuests = refreshQuests;
+
+// ─── 진행도 ──────────────────────────────────────────────────
+//
+// 목표는 **이벤트형**과 **상태형** 둘이다.
+//
+// · 이벤트형(`brew` `creature` `drink` `visit` `farm`) — 그 일이 일어난 자리에서
+//   `questBump()` 를 부른다. **받은 뒤부터 세므로** 「이미 마흔 번 조합한 사람에게
+//   5번 조합을 주면 즉시 완료」가 아예 생기지 않는다.
+//   ⚠️ `S.record` 를 그대로 보면 그 사고가 난다 — 그래서 자기 카운터를 따로 둔다
+// · 상태형(`deliver` `charm`) — 볼 때마다 지금 값으로 잰다. 진행도가 뒤로 갈 수
+//   있는 것은 `deliver` 뿐인데, 그건 「갖다줘」라서 자연스럽다
+function questProgress(q) {
+  const st = questState();
+  const g = q.goal || {};
+  if (g.kind === 'deliver') return Math.min(g.n, invCount(g.id));
+  if (g.kind === 'charm')   return Math.min(g.n, charmPeak());
+  return Math.min(g.n, st.n || 0);
+}
+function questFull(q) { return questProgress(q) >= (q.goal ? q.goal.n : 0); }
+
+// 이벤트 하나를 센다. **지금 하는 퀘스트의 목표와 맞을 때만** 오른다
+function questBump(kind, id, n) {
+  const q = activeQuest();
+  if (!q || !q.goal || q.goal.kind !== kind) return;
+  if (q.goal.id && q.goal.id !== id) return;      // 특정 물약·크리처를 지목한 퀘스트
+  const st = questState();
+  st.n = Math.min(q.goal.n, (st.n || 0) + (n === undefined ? 1 : n));
+  renderQuestChip();
+}
+window.questBump = questBump;
+
+// ─── 보상 ────────────────────────────────────────────────────
+//
+// ⚠️ **컷씬 재생과 보상 지급을 갈라 놓는다.** 한 함수에 두면 스토리 다시보기가
+// 보상을 또 준다 (`QUEST.md` 8-5). 여기는 **보상만** 한다.
+function claimQuest() {
+  const q = activeQuest();
+  if (!q || !questFull(q)) return;
+  const st = questState();
+  const r = q.reward || {};
+  // 「갖다줘」는 **낼 때 소모한다.** 그래야 갖다준 것이 된다
+  if (q.goal.kind === 'deliver') spendItem(q.goal.id, q.goal.n);
+  if (r.crystal) S.crystal = (S.crystal || 0) + r.crystal;
+  if (r.energy) S.energy = Math.min(energyCap(), (S.energy || 0) + r.energy);
+  if (r.items) Object.keys(r.items).forEach(id => addInv(id, r.items[id]));
+  st.done.push(q.id);
+  st.active = null; st.n = 0;
+  rec('quests');
+  diaryAdd('di_quest', { id: q.id, who: q.npc });
+  refreshQuests();                       // 다음 것을 바로 내보낸다
+  save();
+  closeQuest();
+  toast(T('q_done_toast', { name: T(q.id + '_name') }), null, 3200);
+  if (window.Sfx) Sfx.play('success');
+  render();
+}
+window.claimQuest = claimQuest;
+
+// ─── 칩 (화면 하단의 NPC 얼굴) ────────────────────────────────
+//
+// ⚠️ **퀘스트가 없으면 칩도 없앤다.** 회색으로 남겨 두면 「내가 뭘 안 한 건가」가 된다.
+// ⚠️ **완료 배지는 낼 것이 있을 때만.** 늘 붉은 점을 달고 있으면 그건 알림이지 초대가 아니다
+function renderQuestChip() {
+  const el = document.getElementById('questChip');
+  if (!el) return;
+  const q = activeQuest();
+  // **칩이 뜨면 화면 아래를 그만큼 비운다** — 안 비우면 옷장 칸 위에 앉는다
+  document.body.classList.toggle('has-quest', !!q);
+  if (!q) { el.hidden = true; return; }
+  el.hidden = false;
+  const now = questProgress(q), max = q.goal.n;
+  const full = now >= max;
+  const fresh = !(S.quest.n || now) && !full;      // 아직 한 걸음도 안 뗀 것
+  el.classList.toggle('done', full);
+  el.classList.toggle('fresh', fresh);
+  // 진행도는 **얼굴 둘레의 링**이다 — 숫자를 안 읽어도 얼마나 남았는지 보인다
+  const R = 26, C = 2 * Math.PI * R;
+  const sp = D.speaker(q.npc);
+  el.innerHTML = `
+    <svg class="qc-ring" viewBox="0 0 60 60" aria-hidden="true">
+      <circle class="qc-track" cx="30" cy="30" r="${R}"/>
+      <circle class="qc-fill" cx="30" cy="30" r="${R}"
+        stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - now / max)}"/>
+    </svg>
+    <span class="qc-face">${sp && window.Portrait ? Portrait.bust(sp, 'def', { bare: true }) : '🧚'}</span>
+    ${full ? `<span class="qc-badge">!</span>` : ''}`;
+  el.setAttribute('aria-label', T(q.id + '_name'));
+}
+window.renderQuestChip = renderQuestChip;
+
+// ─── 시트 ────────────────────────────────────────────────────
+function openQuest() {
+  const q = activeQuest();
+  if (!q) return;
+  renderQuestSheet();
+  const m = document.getElementById('questSheet');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeQuest() {
+  const m = document.getElementById('questSheet');
+  if (m) m.classList.remove('show');
+}
+window.openQuest = openQuest;
+window.closeQuest = closeQuest;
+
+function renderQuestSheet() {
+  const q = activeQuest();
+  const body = document.getElementById('questBody');
+  const ti = document.getElementById('questTitle');
+  if (!q || !body) return;
+  if (ti) ti.textContent = T(q.id + '_name');
+  const now = questProgress(q), max = q.goal.n;
+  const full = now >= max;
+
+  // **어디로 가면 되는지까지 말한다.** 비법서에서 만든 부품을 그대로 쓴다 —
+  // 무엇을 해야 할지 알아도 어디로 갈지 모르면 게임이 그 자리에서 멈춘다
+  let where = '';
+  const targetId = q.goal.id;
+  if (targetId && (q.goal.kind === 'deliver')) {
+    where = pageRowsFor([targetId]);
+  } else if (targetId && (q.goal.kind === 'brew' || q.goal.kind === 'creature')) {
+    const r = D.RECIPES.find(x => x.result.id === targetId);
+    if (r) where = pageRowsFor(r.inputs);
+  }
+
+  body.innerHTML = `
+    <div class="q-say">
+      <span class="q-face" aria-hidden="true">${
+        window.Portrait ? Portrait.bust(D.speaker(q.npc), 'def', { bare: true }) : ''}</span>
+      <span class="q-line">
+        <b class="q-who">${speakerName(q.npc)}</b>
+        <span class="q-text">${T(q.id + '_in')}</span>
+      </span>
+    </div>
+    <div class="q-goal">${T(q.id + '_desc')}</div>
+    <div class="q-bar"><span style="width:${Math.round(now / max * 100)}%"></span></div>
+    <div class="q-num ${full ? 'ok' : ''}">${now} / ${max}</div>
+    ${where ? `<div class="q-where">${where}</div>` : ''}
+    <div class="q-reward">${T('q_reward')} ${rewardText(q.reward)}</div>
+    <button class="btn ${full ? 'btn-primary' : 'btn-ghost'} q-claim"
+      onclick="claimQuest()"${full ? '' : ' disabled'}>
+      ${T(full ? 'q_claim' : 'q_not_yet')}</button>`;
+}
+window.renderQuestSheet = renderQuestSheet;
+
+const rewardText = r => [
+  r && r.crystal ? `✨ ${r.crystal}` : '',
+  r && r.energy ? `⚡ ${r.energy}` : '',
+  ...(r && r.items ? Object.keys(r.items).map(id => `${itemArt(id, 18)} ${itemName(id)} ×${r.items[id]}`) : []),
+].filter(Boolean).join(' · ');
 
 // ═══════════════════════════════════════════════════════════════
 //  연금술 비법서
@@ -1602,6 +1801,9 @@ function gather(mapId) {
   addInv(id, 1);
   S.gathered++;
   rec('gathered'); rec('itemsGot');
+  // 퀘스트 — **한 번 채집한 것을 한 걸음으로 센다** (재료 개수가 아니라).
+  // 동행이 덤을 주면 두 걸음이 되어 「여덟 번」이 네 번이 될 수 있다
+  questBump('visit', mapId);
   if (isSpecial) rec('specials');
   // 동행 크리처가 하나 더 찾아 준다. **히든 재료를 또 뽑지는 않는다** —
   // 덤으로 히든이 두 배 나오면 그쪽이 본 효과가 되어 버린다 (CREATURE.md 5장)
@@ -2168,7 +2370,9 @@ function brew() {
 
   if (result.kind === 'potion') {
     S.potions[result.id] = (S.potions[result.id] || 0) + 1;
+    questBump('brew', result.id);
   } else if (result.kind === 'creature') {
+    questBump('creature', result.id);
     rec('creatures');
     S.creatures.push(result.id);
     // 일지 — 속성마다 한 마디가 다르다. 서른 마리에 한 줄씩 쓰면 예순 줄이 되고,
@@ -2224,6 +2428,7 @@ function drinkPotion(potionId) {
   S.potions[potionId]--;
   if (S.potions[potionId] === 0) delete S.potions[potionId];
   rec('drinks');
+  questBump('drink', potionId);
   const beforeStep = bodyStep();
   S.stats.beauty += r.result.beauty || 0;
   S.stats.charm  += r.result.charm  || 0;
@@ -2306,6 +2511,8 @@ function render() {
   if (currentTab === 'showcase') renderShowcase();
   if (currentTab === 'league') renderLeague();
   renderTabBar();
+  // 퀘스트 칩은 **모든 탭에 뜬다** — 퀘스트는 특정 화면의 것이 아니다
+  renderQuestChip();
   applyDevTools();   // 임시(출시 때 지운다): 화면마다 있는 개발용 블록의 접힘 상태를 맞춘다
   // 화면이 통째로 다시 그려졌다 — 튜토리얼의 구멍도 다시 재야 한다
   if (window.Tut) Tut.refresh();
@@ -4674,6 +4881,16 @@ function renderPage() {
   if (!r || !el) return;
   if (ti) ti.textContent = T('pg_title', { name: N(r.result.id, r.result.name) });
 
+  el.innerHTML = pageRowsFor(r.inputs);
+}
+window.renderPage = renderPage;
+
+// 재료 목록 → 「무엇을 얼마나 · 어디서 · 갈 수 있는지 · 언제 · 누구와」 줄들.
+//
+// **비법서와 퀘스트가 같은 것을 쓴다.** 두 벌로 두면 한쪽만 고치게 되고,
+// 그러면 「비법서에는 나오는데 퀘스트에는 안 나오는 맵」 같은 것이 생긴다
+// (밭 시트와 밭 탭을 `farmHtml()` 하나로 그리는 것과 같은 이유다)
+function pageRowsFor(inputs) {
   // **같은 재료를 묶어 분량으로 적는다.** 비법서에는 「분량」이 적혀 있다는 설정이고,
   // 화면으로도 이모지 여섯 개보다 「×3」이 훨씬 빨리 읽힌다.
   //
@@ -4682,9 +4899,9 @@ function renderPage() {
   // (`tools/gen*.js`)에서 같은 재료를 두 번 넣어야 한다. 묶는 쪽을 미리 해 둔 것은
   // 그때 화면을 다시 손대지 않으려는 것이다
   const need = {};
-  r.inputs.forEach(id => { need[id] = (need[id] || 0) + 1; });
+  inputs.forEach(id => { need[id] = (need[id] || 0) + 1; });
 
-  el.innerHTML = Object.keys(need).map(id => {
+  return Object.keys(need).map(id => {
     const n = need[id], have = stockOf(id);
     const src = ingSource(id);
     const map = bestMapFor(src.maps);
@@ -4728,7 +4945,8 @@ function renderPage() {
     </div>`;
   }).join('');
 }
-window.renderPage = renderPage;
+window.pageRowsFor = pageRowsFor;
+
 
 // 레시피 줄의 재료 이모지를 눌렀을 때 — 그 자리에 이름을 띄운다.
 // 이모지만으로는 무엇인지 알 수 없는 재료가 많다 (씨앗·이끼·조각 종류가 특히 그렇다)
@@ -5477,7 +5695,14 @@ function diaryLine(e) {
     p.nj = josa(p.name, '을를'); p.ni = josa(p.name, '이가');
   }
   if (v.food) { const f = foodOf(v.food); p.food = f ? N(f.id, f.name) : ''; p.fj = josa(p.food, '을를'); }
-  if (v.who) { p.who = `<b class="di-who">${escHtml(v.who)}</b>`; p.wj = josa(v.who, '이가'); }
+  if (v.who) {
+    // **이웃 이름이거나 인물 id 다.** 밭 기록은 남이 지은 이름(그래서 `escHtml`),
+    // 퀘스트는 `SPEAKERS` 의 id(`sp_*`) — 그건 이름으로 풀어야 한다.
+    // ⚠️ 「부르는 말」로 푼다 (`speakerName`): 요정 대모는 설정상의 이름(알테이아)이
+    // 아니라 「요정 대모」로 불린다 (STORY.md 「호칭 규칙」)
+    const raw = /^sp_/.test(v.who) ? speakerName(v.who) : v.who;
+    p.who = `<b class="di-who">${escHtml(raw)}</b>`; p.wj = josa(raw, '이가');
+  }
   if (v.items) { p.items = stashText(v.items) || T('di_nothing'); p.ij = josa(p.items, '을를'); }
   if (v.attr) p.quip = T('di_cr_' + v.attr);
   if (v.map) {
@@ -5516,12 +5741,12 @@ const DIARY_VARIANTS = 20;
 const DIARY_BODIES = {
   di_binge: 5, di_creature: 5, di_find: 5, di_rare: 5,
   di_slim: 5, di_slim_done: 5, di_raid_win: 5, di_raid_empty: 5,
-  di_raid_lose: 5, di_robbed: 5, di_kept: 5,
+  di_raid_lose: 5, di_robbed: 5, di_kept: 5, di_quest: 5,
 };
 const DIARY_TAILS = {
   di_binge: 4, di_creature: 4, di_find: 4, di_rare: 4,
   di_slim: 4, di_slim_done: 4, di_raid_win: 4, di_raid_empty: 4,
-  di_raid_lose: 4, di_robbed: 4, di_kept: 4,
+  di_raid_lose: 4, di_robbed: 4, di_kept: 4, di_quest: 4,
 };
 window.DIARY_BODIES = DIARY_BODIES;
 window.DIARY_TAILS = DIARY_TAILS;
@@ -5552,7 +5777,7 @@ function diaryPick(key, salt, table, e, p) {
 const DIARY_ICON = {
   di_binge: '🍽️', di_creature: '🥚', di_find: '📖', di_rare: '✨',
   di_slim: '🎀', di_raid_win: '🌾', di_raid_empty: '🌾', di_raid_lose: '💦',
-  di_robbed: '😿', di_kept: '🛡️',
+  di_robbed: '😿', di_kept: '🛡️', di_quest: '📜',
 };
 // **이 표가 사건의 목록이다.** 검사기가 여기 있는 열쇠를 하나씩 심어 보고
 // 문장이 나오는지 본다 — 새 사건을 만들면 아이콘을 여기 넣는 것만으로 검사에 걸린다
@@ -6961,6 +7186,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // 이미 여신인 사람은 다음에 물약을 마실 때까지 제 단계의 장을 못 받는다.
   // 조용히(`true`) 채운다 — 켤 때마다 「새 장 30장!」이 뜨면 그건 소식이 아니다
   grantPages(true);
+  // 퀘스트도 같이 맞춘다 — 조건이 이미 찬 사람에게 칩이 바로 떠야 한다
+  refreshQuests();
   // 튜토리얼 — 인트로를 아직 안 봤으면 여기서는 그냥 돌아가고,
   // 인트로가 끝나면서 index.html 이 걸어 둔 콜백이 다시 부른다
   if (window.Tut) Tut.maybeStart();

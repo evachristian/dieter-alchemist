@@ -523,6 +523,117 @@ function launchOpts() {
           await page.waitForTimeout(150);
         }
 
+        // **퀘스트** (QUEST.md 1단계) — 칩 · 시트 · 완료 · 보상.
+        //
+        // ⚠️ 여기서 제일 중요한 것은 **칩이 무엇을 덮고 있는가**다. 칩은 화면 위에
+        // 떠 있어서, 밑에 눌러야 할 것이 깔리면 그 버튼을 «영영» 못 누른다.
+        // 스크린샷의 그 자리가 마이 룸에서는 옷장 칸이었다 (`QUEST.md` 2-1).
+        {
+          const qBad = await page.evaluate(async () => {
+            S.quest = { active: null, n: 0, done: [], queue: [] };
+            S.charmPeak = 0;
+            refreshQuests(); render();
+            const chip = document.getElementById('questChip');
+            if (!chip || chip.hidden) return '칩이 안 뜬다';
+            if (!S.quest.active) return '퀘스트가 안 열렸다';
+            // **한 번에 하나만.** 조건을 다 채워도 칩은 하나여야 한다
+            S.charmPeak = 9999; refreshQuests(); render();
+            if (document.querySelectorAll('.quest-chip:not([hidden])').length !== 1) {
+              return '칩이 둘 이상 뜬다 (한 번에 하나여야 한다)';
+            }
+            if (S.quest.queue.length !== D.QUESTS.length - 1) {
+              return `큐가 ${S.quest.queue.length}개다 (${D.QUESTS.length - 1} 기대)`;
+            }
+            // ⚠️ **칩 밑에 갇히는 것이 없어야 한다.**
+            //
+            // 칩은 떠 있으니 «지금» 무언가를 덮는 것은 정상이다 — 밀어 내리면 비켜난다.
+            // 진짜로 잡아야 할 것은 **맨 아래까지 밀어 내렸을 때도 덮여 있는 것**이다.
+            // 그건 아무리 스크롤해도 못 누르는 버튼이고, 그래서 `body.has-quest` 가
+            // 화면 아래를 칩 높이만큼 비운다 (`QUEST.md` 2-1).
+            if (!document.body.classList.contains('has-quest')) return '칩이 떴는데 아래를 안 비웠다';
+            // ⚠️ **비운 자리가 칩을 덮을 만큼인지 «수치로» 본다.**
+            //   비운 값 = `.screen` 의 padding-bottom
+            //   필요한 값 = 화면 바닥에서 칩 «위»까지
+            // 눌러 보는 것만으로는 못 잡는다 — 지금은 맨 아래에 개발용 블록이 있어서
+            // 여유가 남아 돌고, 그게 사라지는 날 조용히 깨진다 (실제로 사보타주가 통과했다)
+            const scr = document.querySelector('.screen.active');
+            const chipTop = chip.getBoundingClientRect().top;
+            const need = Math.round(window.innerHeight - chipTop);
+            const have = Math.round(parseFloat(getComputedStyle(scr).paddingBottom) || 0);
+            if (have < need) return `아래를 ${have}px 비웠는데 칩이 ${need}px 을 먹는다`;
+            const sc = document.scrollingElement;
+            sc.scrollTop = sc.scrollHeight;                 // 맨 아래까지
+            await new Promise(r => requestAnimationFrame(r));
+            const r = chip.getBoundingClientRect();
+            const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+            const top = document.elementFromPoint(cx, cy);
+            if (!top || !top.closest('#questChip')) return '칩이 다른 것에 덮여 있다';
+            chip.style.visibility = 'hidden';
+            const under = document.elementFromPoint(cx, cy);
+            chip.style.visibility = '';
+            const hit = under && under.closest('button, a, input, .spot-card, .ward-item, [onclick]');
+            if (hit && !hit.closest('#questChip')) {
+              return `맨 아래까지 내려도 칩이 «${(hit.className || hit.tagName).trim()}» 를 덮는다`;
+            }
+            sc.scrollTop = 0;
+            return null;
+          });
+          if (qBad) results.push({ 화면: `${t}/퀘스트칩`, 오류: qBad });
+          else { await page.waitForTimeout(200); await run(`${t}/퀘스트칩`); }
+
+          // 시트 — NPC 한 마디 · 목표 · 진행 막대 · **어디로 가면 되는지** · 보상
+          const qsBad = await page.evaluate(() => {
+            openQuest();
+            if (!document.getElementById('questSheet').classList.contains('show')) return '시트가 안 떴다';
+            if (!document.querySelector('#questSheet .q-face svg')) return 'NPC 초상이 없다';
+            if (!document.querySelector('#questSheet .q-bar span')) return '진행 막대가 없다';
+            // 비법서 부품을 그대로 쓰는가 — 재료 줄이 있어야 한다 (`pageRowsFor`)
+            if (!document.querySelector('#questSheet .pg-row')) return '어디로 가면 되는지가 없다';
+            const btn = document.querySelector('#questSheet .q-claim');
+            if (!btn || !btn.disabled) return '아직 못 냈는데 「가져가기」가 살아 있다';
+            return null;
+          });
+          if (qsBad) results.push({ 화면: `${t}/퀘스트시트`, 오류: qsBad });
+          else { await page.waitForTimeout(280); await run(`${t}/퀘스트시트`); }
+          const qsBad2 = await page.evaluate(() => window.__cardFits('#questSheet'));
+          if (qsBad2) results.push({ 화면: `${t}/퀘스트시트`, 오류: qsBad2 });
+
+          // **끝까지 눌러 본다** — 진행 → 완료 → 보상 → 다음 것.
+          // ⚠️ 진행도는 **받은 뒤부터** 센다. `record` 를 그대로 보면 이미 마흔 번
+          // 조합한 사람에게 「2번 조합」이 즉시 완료되고 이야기가 통째로 스킵된다
+          const qcBad = await page.evaluate(() => {
+            const q = D.questOf(S.quest.active);
+            if (!q || q.goal.kind !== 'brew') return `첫 퀘스트가 조합이 아니다 (${q && q.goal.kind})`;
+            S.record.brews = 999;                      // 이미 많이 해 본 사람
+            renderQuestChip();
+            if (questProgress(q) !== 0) return `이미 ${questProgress(q)} 진행돼 있다 (0 기대 — record 를 보고 있다)`;
+            const r = D.RECIPES.find(x => x.result.id === q.goal.id);
+            r.inputs.forEach(id => { S.inventory[id] = 30; });
+            const c0 = S.crystal || 0;
+            for (let i = 0; i < q.goal.n; i++) { S.energy = 900; S.cauldron = r.inputs.slice(); brew(); }
+            if (typeof closeBrewModal === 'function') closeBrewModal();
+            if (questProgress(q) !== q.goal.n) return `진행이 ${questProgress(q)} 다 (${q.goal.n} 기대)`;
+            openQuest();
+            if (document.querySelector('#questSheet .q-claim').disabled) return '다 했는데 「가져가기」가 잠겨 있다';
+            claimQuest();
+            if (S.quest.done[0] !== q.id) return '마친 목록에 안 들어갔다';
+            if (S.quest.active === q.id) return '마쳤는데 아직 그 퀘스트다';
+            if (!S.quest.active) return '다음 퀘스트가 안 나왔다 (큐가 차 있는데)';
+            // 보상 — 조합 보상(brewReward)과 섞이지 않게 «퀘스트 몫만» 따로 센다
+            const want = (q.reward.crystal || 0) + D.ENERGY.brewReward * q.goal.n;
+            const got = (S.crystal || 0) - c0;
+            if (got !== want) return `결정이 ${got} 늘었다 (${want} 기대)`;
+            return null;
+          });
+          if (qcBad) results.push({ 화면: `${t}/퀘스트완료`, 오류: qcBad });
+          await page.evaluate(() => {
+            closeQuest();
+            S.quest = { active: null, n: 0, done: [], queue: [] };
+            S.charmPeak = 0; S.record.brews = 0; render();
+          });
+          await page.waitForTimeout(150);
+        }
+
         // **채집 값이 지대마다 다른가.** 카드에 적힌 ⚡ 값과 **실제로 깎이는 값**이
         // 같아야 한다 — 둘이 갈리면 「10 이라더니 17 이 깎였다」가 되고, 그건
         // 사람이 게임을 못 믿게 되는 종류의 버그다

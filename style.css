@@ -206,9 +206,13 @@ body {
 .screen {
   display: none;
   flex: 1;
+  /* 아래 96px 은 탭 바 자리다. ⚠️ **퀘스트 칩이 뜨면 그만큼 더 비운다** —
+     안 비우면 칩이 옷장 칸 위에 앉아 옷 한 벌을 영영 못 고른다 (`QUEST.md` 2-1).
+     `body.has-quest` 는 칩을 그릴 때 game.js 가 켠다 */
   padding: 18px 16px 96px;
   animation: fade 0.25s ease;
 }
+body.has-quest .screen { padding-bottom: 168px; }
 .screen.active { display: block; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .screen-title { font-size: 1.35rem; font-weight: 800; margin-bottom: 2px; }
@@ -2794,3 +2798,62 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 .pg-have.ok { color: var(--text-mint); }
 .pg-have.lack { color: var(--text-pink); }
+
+/* ═══ 퀘스트 (QUEST.md) ═══════════════════════════════════════
+   탭 바 바로 위에 뜨는 NPC 얼굴. **누가 주는 퀘스트인지가 얼굴로 보인다.**
+   진행도는 얼굴 둘레의 링 — 숫자를 안 읽어도 얼마나 남았는지 보인다 */
+.quest-chip {
+  position: fixed; z-index: 31;
+  right: max(12px, calc(50vw - 240px + 12px));
+  bottom: calc(74px + env(safe-area-inset-bottom));
+  width: 64px; height: 64px; padding: 0;
+  border: none; border-radius: 50%; background: var(--card);
+  box-shadow: 0 4px 14px rgba(90,74,85,0.22);
+  cursor: pointer;
+}
+.quest-chip:active { transform: scale(0.95); }
+.qc-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.qc-track { fill: none; stroke: var(--cream); stroke-width: 5; }
+.qc-fill {
+  fill: none; stroke: var(--text-pink); stroke-width: 5; stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s ease;
+}
+/* 얼굴 — 링 «안쪽»에 들어간다. 넘치면 링이 목걸이처럼 보인다 */
+.qc-face {
+  position: absolute; inset: 7px; border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: var(--cream);
+}
+.qc-face svg { width: 100%; height: 100%; display: block; }
+/* 아직 한 걸음도 안 뗀 퀘스트 — 「여기 새 게 있다」를 반짝임으로 알린다.
+   ⚠️ 끝이 없는 애니메이션이라 `settle()` 이 안 건드린다 (검증기가 잴 수 있다) */
+.quest-chip.fresh { animation: qcPulse 1.8s ease-in-out infinite; }
+@keyframes qcPulse {
+  0%, 100% { box-shadow: 0 4px 14px rgba(90,74,85,0.22); }
+  50% { box-shadow: 0 4px 14px rgba(90,74,85,0.22), 0 0 0 6px rgba(255,184,217,0.45); }
+}
+/* 완료 — **낼 것이 있을 때만** 배지를 단다. 늘 붉으면 그건 알림이지 초대가 아니다 */
+.quest-chip.done .qc-fill { stroke: var(--text-mint); }
+.qc-badge {
+  position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px;
+  border-radius: 999px; background: var(--text-red); color: #fff;
+  font-size: 0.72rem; font-weight: 900; line-height: 20px; text-align: center;
+}
+/* ─── 퀘스트 시트 ─── */
+.q-body { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; text-align: left; }
+/* NPC 한 마디 — 초상화 + 말풍선 (튜토리얼 대사와 같은 짜임) */
+.q-say { display: flex; gap: 10px; align-items: flex-start; }
+.q-face { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 14px; overflow: hidden; background: var(--cream); }
+.q-face svg { width: 100%; height: 100%; display: block; }
+.q-line { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.q-who { font-size: 0.8rem; font-weight: 800; color: var(--text-pink); }
+.q-text { font-size: 0.84rem; font-weight: 500; line-height: 1.55; color: var(--ink); }
+.q-goal { font-size: 0.88rem; font-weight: 800; color: var(--ink); }
+/* 진행 막대 — 링과 같은 값을 두 번째로 보여 준다 (칩은 훑는 곳, 여기는 읽는 곳) */
+.q-bar { height: 10px; border-radius: 999px; background: var(--cream); overflow: hidden; }
+.q-bar span { display: block; height: 100%; border-radius: 999px; background: var(--text-pink); transition: width 0.4s ease; }
+.q-num { font-size: 0.84rem; font-weight: 800; color: var(--text-lav); text-align: right; }
+.q-num.ok { color: var(--text-mint); }
+.q-where { display: flex; flex-direction: column; gap: 6px; }
+.q-reward { font-size: 0.8rem; font-weight: 700; color: var(--text-lav); }
+.q-claim { width: 100%; margin-top: 2px; }
+.q-claim:disabled { filter: saturate(0.15); opacity: 0.8; cursor: default; }
