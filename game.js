@@ -87,6 +87,10 @@ const defaultState = () => ({
   keywords: ['kw_hunger'],
   // 이미 물어본 것 — `'npc|kw'` 꼴. 회색으로 표시하고, 다시 물어도 된다
   talked: [],
+  // 복구 코드를 한 번이라도 봤는가 (복사했거나 시트에서 확인했거나).
+  // **세이브에 둔다** — 「이 기기에서 봤나」가 아니라 「이 캐릭터의 코드를 아는가」라서,
+  // 기기를 옮기면 그 사실도 따라가야 한다. 없던 칸이라 SAVE_VER 는 안 올린다
+  codeSeen: false,
   // 키워드로 연 마을 (`ASKS` 의 `opens`). **점수로 두 번 잠그지 않는다**
   villages: [],
   // ─── 호감도 (STORY.md 「남자 NPC 여섯 › 공통 규칙」) ────────
@@ -6183,6 +6187,10 @@ function renderActBadges() {
   if (kb) kb.hidden = !kitchenOpen();
   // **새로 물어볼 것이 있어도 켠다** — 마을이 전부 잠겨 있을 때 이야기가 시작되는
   // 자리가 여기뿐이라, 「밥은 먹었다」로 점이 꺼지면 갈 곳이 아예 안 보인다
+  // 복구 코드를 아직 안 본 사람에게 톱니에 점. **한 번 보면 다시 안 뜬다** —
+  // 계속 떠 있으면 그것도 잔소리가 된다
+  const gd = document.getElementById('gearDot');
+  if (gd) gd.hidden = !!S.codeSeen;
   const kd = document.getElementById('kitchenDot');
   if (kd) kd.hidden = !kitchenOpen() || (ateToday() && !kitchenNews());
   const el = document.getElementById('bingeBadge');
@@ -7734,23 +7742,110 @@ function renderSyncSettings() {
 function copyRecoveryCode(el) {
   const code = window.Sync ? Sync.code() : '';
   if (!code) return;
-  const done = () => toast(T('sync_copied'), el, 2400);
+  const done = () => {
+    // 복사했으면 **본 것으로 친다** — 톱니의 점이 꺼진다
+    if (!S.codeSeen) { S.codeSeen = true; save(); renderActBadges(); }
+    toast(T('sync_copied'), el, 2400);
+  };
   if (navigator.clipboard) navigator.clipboard.writeText(code).then(done, () => {
     const i = document.getElementById('syncCode'); if (i) { i.select(); done(); }
   });
   else { const i = document.getElementById('syncCode'); if (i) { i.select(); document.execCommand('copy'); done(); } }
 }
 
-// 다른 기기의 복구 코드로 갈아타기 — 지금 기기의 진행은 사라지므로 한 번 묻는다
-function askUseRecoveryCode() {
-  const code = prompt(T('sync_restore_ask'));
-  if (code === null) return;
-  if (!window.Sync || !Sync.useCode(code)) { toast(T('sync_bad_code')); return; }
-  showConfirm(T('sync_restore_confirm'), async () => {
+// ─── 코드로 이어하기 ─────────────────────────────────────────
+//
+// ⚠️ **먼저 받아 보고, 있으면 갈아탄다.** 예전에는 `prompt()` 로 받은 코드를
+// 형식만 보고 곧바로 신원을 갈아엎은 뒤 로컬 세이브를 지우고 새로고침했다 —
+// 오타가 하나 있으면 **되돌릴 방법 없이 빈손으로 새 게임**이 시작됐다.
+// 원래 신원까지 잃은 채로. 지금은 `Sync.peek()` 이 신원을 안 건드리고 물어보고,
+// **누구의 세이브인지 보여 준 다음에야** 갈아탄다.
+let restoreFound = null;      // peek 이 찾아 온 것 (화면에 보여 줄 요약)
+function openRestore() {
+  restoreFound = null;
+  const m = document.getElementById('restoreSheet');
+  if (m) m.classList.add('show');
+  renderRestore();
+  const i = document.getElementById('restoreInput');
+  if (i) { i.value = ''; i.focus(); }
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeRestore() {
+  const m = document.getElementById('restoreSheet');
+  if (m) m.classList.remove('show');
+  restoreFound = null;
+}
+window.openRestore = openRestore;
+window.closeRestore = closeRestore;
+
+function renderRestore(msg) {
+  const ti = document.getElementById('restoreTitle');
+  if (ti) ti.textContent = T('sync_restore');
+  const el = document.getElementById('restoreFound');
+  if (!el) return;
+  if (msg) { el.innerHTML = `<div class="rs-bad">${msg}</div>`; return; }
+  if (!restoreFound) { el.innerHTML = ''; return; }
+  const st = restoreFound.state || {};
+  const nm = st.name || T('sp_princess');
+  const charm = Math.round((st.stats && st.stats.charm) || 0);
+  el.innerHTML = `
+    <div class="rs-found">
+      <div class="rs-name">${nm}</div>
+      <div class="rs-meta">${T('sync_found_meta', { charm, when: agoText(restoreFound.savedAt) })}</div>
+    </div>
+    <button class="btn btn-primary rs-go" onclick="doRestore()">${T('sync_restore_go')}</button>`;
+}
+
+// 「얼마 전」 — 정확한 시각보다 이쪽이 「내 것이 맞나」를 빨리 판단하게 해 준다
+function agoText(ts) {
+  // ⚠️ 서버는 `savedAt` 을 **ISO 문자열**로 준다 (`store.js`). 숫자로 알고 빼면
+  // NaN 이 되어 「NaN일 전 저장」이 화면에 뜬다 (실제로 그랬다)
+  const t = typeof ts === 'number' ? ts : Date.parse(ts);
+  if (!t || isNaN(t)) return T('sync_ago_unknown');
+  const m = Math.max(0, Math.floor((Date.now() - t) / 60000));
+  if (m < 60) return T('sync_ago_min', { n: m });
+  const h = Math.floor(m / 60);
+  if (h < 24) return T('sync_ago_hour', { n: h });
+  return T('sync_ago_day', { n: Math.floor(h / 24) });
+}
+
+// 붙여넣은 코드를 **신원을 안 건드리고** 확인한다
+async function checkRestoreCode() {
+  const i = document.getElementById('restoreInput');
+  const code = i ? i.value.trim() : '';
+  restoreFound = null;
+  if (!code) { renderRestore(T('sync_need_code')); return; }
+  if (!window.Sync) { renderRestore(T('sync_no_server')); return; }
+  renderRestore(T('sync_checking'));
+  const r = await Sync.peek(code);
+  if (!r.ok) {
+    // **왜 안 되는지를 갈라서 말한다.** 「코드가 틀렸다」 하나로 묶으면
+    // 오프라인인 사람이 코드를 계속 다시 치게 된다
+    renderRestore(T({ bad: 'sync_bad_code', none: 'sync_no_such',
+                      wrong: 'sync_wrong_secret', net: 'sync_cant_reach' }[r.why] || 'sync_bad_code'));
+    return;
+  }
+  restoreFound = r;
+  renderRestore();
+  if (window.Sfx) Sfx.play('success');
+}
+window.checkRestoreCode = checkRestoreCode;
+
+// 진짜로 갈아탄다. **지금 기기의 진행은 사라지므로** 한 번 더 묻는다
+function doRestore() {
+  const i = document.getElementById('restoreInput');
+  const code = i ? i.value.trim() : '';
+  if (!restoreFound || !window.Sync) return;
+  showConfirm(T('sync_restore_confirm'), () => {
+    if (!Sync.useCode(code)) { toast(T('sync_bad_code')); return; }
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
     location.reload();
   });
 }
+window.doRestore = doRestore;
+
+// (보관) 예전 이름 — 설정 화면이 이 이름으로 부르고 있었다
+function askUseRecoveryCode() { openRestore(); }
 
 // (보관) 외형만 기본값으로 되돌리기 — 지금은 ↺ 버튼이 '게임 초기화'로 쓰이는 중
 function resetGame() { askResetGame(); }

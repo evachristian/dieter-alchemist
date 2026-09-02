@@ -255,6 +255,38 @@
     return true;
   }
 
+  // 코드가 «진짜 있는 세이브»인지 **신원을 갈아타지 않고** 물어본다.
+  //
+  // ⚠️ 이것이 없으면 오타 하나로 진행이 통째로 날아간다. 예전에는 `useCode()` 가
+  // **형식만 보고** 곧바로 신원을 갈아엎은 뒤 로컬 세이브를 지우고 새로고침했다 —
+  // 그 코드가 서버에 없으면(오타 · 비밀키 한 글자 차이) 되돌릴 방법 없이
+  // **빈손으로 새 게임이 시작된다.** 원래 신원까지 잃은 채로.
+  //
+  // 그래서 «먼저 받아 보고, 있으면 갈아탄다». 여기서는 `me` 를 건드리지 않는다.
+  //   ok      — 200. 그 세이브가 있다
+  //   'none'  — 404. 그런 아이디가 없다
+  //   'wrong' — 403. 아이디는 맞는데 비밀키가 다르다 (코드가 잘린 경우가 대부분이다)
+  //   'bad'   — 형식이 코드가 아니다
+  //   'net'   — 서버에 못 닿았다. **이때도 갈아타면 안 된다** (있는지 모르는 것이다)
+  async function peek(str) {
+    const s = String(str || '').trim();
+    const i = s.indexOf('.');
+    if (i < 1) return { ok: false, why: 'bad' };
+    const playerId = s.slice(0, i), secret = s.slice(i + 1);
+    if (!/^[A-Za-z0-9_-]{8,64}$/.test(playerId) || !/^[A-Za-z0-9_-]{16,128}$/.test(secret))
+      return { ok: false, why: 'bad' };
+    if (!enabled()) return { ok: false, why: 'net' };
+    try {
+      const r = await api('GET', `/api/save/${playerId}?secret=${encodeURIComponent(secret)}`);
+      if (r.status === 404) return { ok: false, why: 'none' };
+      if (r.status === 403) return { ok: false, why: 'wrong' };
+      if (r.status !== 200 || !r.body) return { ok: false, why: 'net' };
+      return { ok: true, rev: r.body.rev || 0, savedAt: r.body.savedAt || 0, state: r.body.state || {} };
+    } catch (e) {
+      return { ok: false, why: 'net' };
+    }
+  }
+
   // ─── 밭 · 약탈 (크리처 9단계) ───
   // **세이브와 다른 길이다.** 밭은 서버가 정본을 갖고 있어서 여기서는 모아 두거나
   // 나중에 다시 보내지 않는다 — 실패하면 실패한 것으로 알리고 화면이 그렇게 말한다.
@@ -334,7 +366,7 @@
   window.addEventListener('online', () => { backoff = 1000; flush(); });
 
   window.Sync = {
-    push, pushNow, pull, flushNow, wipe, code, useCode, claimName,
+    push, pushNow, pull, flushNow, wipe, code, useCode, peek, claimName,
     nonce, farmGet, harvest, plant, addPlot, raidTargets, raid, farmDev, freeRaids,
     get status() { return status; },
     get playerId() { return me.playerId; },
