@@ -1317,6 +1317,43 @@ const VILLAGE_SHOWN = villagesShown().length;   // 지금 몇 곳인지 (검사�
 //
 // `moods` 는 표정표다. **눈과 입만 바꾼다** — 머리와 옷은 그대로여야 같은 사람으로 보인다.
 // 이름·설명은 STORY.md 에 있다.
+// **표정은 한 표에서 나온다.** 사람마다 손으로 적으면 열 명 × 스무 표정이 되고,
+// 하나를 늘릴 때마다 열 군데를 고쳐야 한다 — 그러면 아무도 안 늘린다.
+// 여기 한 줄을 더하면 **부품을 조합해 그리는 사람 여덟이 같이** 그 표정을 갖는다.
+//
+// ⚠️ **인트로 그림을 쓰는 둘(요정 대모·공주)에게는 안 붙인다.** 그쪽은 눈·입이
+// 아니라 «인트로의 어느 표정을 쓸까»(`art`)로 그려지고, 없는 이름을 적으면
+// 조용히 첫 표정으로 떨어진다. 그 둘은 아래에서 따로, 있는 포즈만큼만 적는다.
+//
+// 이름은 **감정**이지 부품이 아니다 — 「눈웃음」이 아니라 「기쁨」이라야
+// 사람마다 다르게 그려도 대사가 같은 이름을 쓸 수 있다.
+const BASE_MOODS = {
+  def:    { eye: 'normal', mouth: 'calm' },                     // 기본
+  smile:  { eye: 'smile',  mouth: 'smile' },                    // 웃음
+  warm:   { eye: 'soft',   mouth: 'calm' },                     // 다정
+  laugh:  { eye: 'closed', mouth: 'grin' },                     // 크게 웃음
+  wink:   { eye: 'closed', mouth: 'smirk' },                    // 윙크
+  proud:  { eye: 'sharp',  mouth: 'smirk', brow: 'up' },        // 우쭐
+  smirk:  { eye: 'side',   mouth: 'smirk' },                    // 능글
+  flat:   { eye: 'normal', mouth: 'flat' },                     // 무표정
+  meh:    { eye: 'half',   mouth: 'meh' },                      // 심드렁
+  sleepy: { eye: 'half',   mouth: 'small' },                    // 졸림
+  think:  { eye: 'up',     mouth: 'small' },                    // 생각 중
+  doubt:  { eye: 'side',   mouth: 'meh',   brow: 'up' },        // 미심쩍음
+  shock:  { eye: 'wide',   mouth: 'open',  brow: 'up' },        // 놀람
+  worry:  { eye: 'wide',   mouth: 'wavy',  brow: 'sad' },       // 걱정
+  sad:    { eye: 'soft',   mouth: 'frown', brow: 'sad' },        // 슬픔
+  cry:    { eye: 'teary',  mouth: 'wavy',  brow: 'sad' },       // 울음
+  angry:  { eye: 'sharp',  mouth: 'frown', brow: 'angry' },     // 화남
+  grit:   { eye: 'sharp',  mouth: 'grit',  brow: 'angry' },     // 참음
+  cold:   { eye: 'sharp',  mouth: 'flat',  brow: 'flat' },      // 차가움
+  shy:    { eye: 'closed', mouth: 'small', brow: 'sad' },       // 수줍음
+  ohh:    { eye: 'wide',   mouth: 'ohh' },                      // 아하
+  star:   { eye: 'star',   mouth: 'grin',  brow: 'up' },        // 반짝(기대)
+  love:   { eye: 'heart',  mouth: 'grin' },                     // 반함
+  faint:  { eye: 'cross',  mouth: 'open' },                     // 질색·기절
+};
+
 const SPEAKERS = [
   { id: 'sp_stark', name: '슈타르크', hair: 'short', hairColor: '#4a3a2e', beard: 'stub',
     skin: '#e8c3a3', cloth: '#6b5a44', bg: '#dfe6d8', deco: 'hood', decoColor: '#4f5f42',
@@ -1345,20 +1382,53 @@ const SPEAKERS = [
   { id: 'sp_althea', name: '알테이아', hair: 'updo', hairColor: '#eeeaf2', beard: 'none',
     skin: '#ffdcc4', cloth: '#8fc5e8', bg: '#e6edf4', deco: 'hood', decoColor: '#7fb8de',
     introArt: 'fairy',
+    // ⚠️ **인트로 그림에 있는 포즈만 쓸 수 있다** (`idle · smile · glance · cross`).
+    // 없는 이름을 적으면 조용히 첫 포즈로 떨어져서 티가 안 난다 — `checktalk` 이 잡는다.
+    // 그래서 공통 표(BASE_MOODS)를 안 깔고, **있는 넷에 여러 이름을 붙여** 쓴다:
+    // 대사가 「angry」라고 적어도 이 사람에게는 `cross` 그림이 나오게
     moods: { def:   { eye: 'soft',   mouth: 'calm',  art: 'idle' },
+             flat:  { eye: 'normal', mouth: 'flat',  art: 'idle' },
+             think: { eye: 'up',     mouth: 'small', art: 'think' },
+             sad:   { eye: 'soft',   mouth: 'frown', art: 'sad', brow: 'sad' },
+             worry: { eye: 'wide',   mouth: 'wavy',  art: 'sad', brow: 'sad' },
              scold: { eye: 'sharp',  mouth: 'flat',  art: 'glance' },
+             doubt: { eye: 'side',   mouth: 'meh',   art: 'glance' },
              // 대노 — 「혼자 먹은 밤」을 다섯 번 보고 나면 나온다 (scold 는 미심쩍은 곁눈질이라 약하다)
              cross: { eye: 'sharp',  mouth: 'flat',  art: 'cross' },
+             angry: { eye: 'sharp',  mouth: 'frown', art: 'cross', brow: 'angry' },
+             cold:  { eye: 'sharp',  mouth: 'flat',  art: 'cross', brow: 'flat' },
              warm:  { eye: 'smile',  mouth: 'smile', art: 'smile' },
-             wink:  { eye: 'closed', mouth: 'grin',  art: 'smile' } } },
+             smile: { eye: 'smile',  mouth: 'smile', art: 'smile' },
+             laugh: { eye: 'closed', mouth: 'grin',  art: 'laugh' },
+             proud: { eye: 'sharp',  mouth: 'smirk', art: 'proud' },
+             wink:  { eye: 'closed', mouth: 'grin',  art: 'wink' } } },
   // 공주 — 인트로 그림과 같은 갈색 긴 머리 · 연두 드레스
   { id: 'sp_gwiriel', name: '그위리엘', hair: 'long', hairColor: '#7b5640', beard: 'none',
     skin: '#ffdcc4', cloth: '#7fa06a', bg: '#eef1e6', deco: 'none',
     introArt: 'princess',
-    moods: { def:   { eye: 'normal', mouth: 'flat', art: 'puzzled' },
-             smile: { eye: 'smile',  mouth: 'grin', art: 'smile' },
-             soft:  { eye: 'soft',   mouth: 'calm', art: 'shy' },
-             shock: { eye: 'normal', mouth: 'grin', art: 'ask' } } },
+    // 공주도 인트로 그림이다. **포즈를 여덟 늘렸다** (`intro.js` 의 princessFace) —
+    // 이름만 늘리면 네 그림에 열여섯 이름이 붙어서, 대사가 「울음」이라고 적어도
+    // 화면에는 어리둥절한 얼굴이 나온다. 그림이 있어야 표정이 는 것이다
+    moods: { def:    { art: 'puzzled' },
+             flat:   { art: 'puzzled' },
+             think:  { art: 'puzzled' },
+             doubt:  { art: 'puzzled' },
+             smile:  { art: 'smile' },
+             warm:   { art: 'smile' },
+             laugh:  { art: 'laugh' },
+             wink:   { art: 'wink' },
+             proud:  { art: 'proud' },
+             soft:   { art: 'shy' },
+             shy:    { art: 'shy' },
+             love:   { art: 'love' },
+             shock:  { art: 'ask' },
+             ohh:    { art: 'ask' },
+             sad:    { art: 'sad' },
+             worry:  { art: 'sad' },
+             cry:    { art: 'cry' },
+             angry:  { art: 'angry' },
+             sleepy: { art: 'sleepy' },
+             faint:  { art: 'dizzy' } } },
   { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', beard: 'full',
     skin: '#e0c09a', cloth: '#6f7f52', bg: '#e2e9d6', deco: 'leaf', decoColor: '#6f9455',
     moods: { def: { eye: 'normal', mouth: 'flat' }, warm: { eye: 'smile', mouth: 'smile' } } },
@@ -1367,7 +1437,15 @@ const SPEAKERS = [
     eyeColor: '#2f2a30',
     moods: { def: { eye: 'sharp', mouth: 'flat' }, cold: { eye: 'sharp', mouth: 'smirk' } } },
 ];
+// **표를 깔아 준다.** 각자 적어 둔 것은 그대로 이기고(그 인물만의 버릇),
+// 없는 이름은 공통 표에서 온다. ⚠️ 인트로 그림을 쓰는 사람은 건드리지 않는다
+SPEAKERS.forEach(sp => {
+  if (sp.introArt) return;
+  sp.moods = Object.assign({}, BASE_MOODS, sp.moods || {});
+});
 function speaker(id) { return SPEAKERS.find(x => x.id === id) || null; }
+// 그 인물이 지을 수 있는 표정 이름들 (검사·도감용)
+function moodsOf(id) { const sp = speaker(id); return sp && sp.moods ? Object.keys(sp.moods) : []; }
 
 // 대사 — 지금은 **인사말 몇 줄**뿐이다. 키워드로 열리는 대화 루트는 아직 없다
 // (STORY.md 「키워드 시스템」). 줄 수가 곧 대화 화면의 닷 개수다.
@@ -2177,7 +2255,7 @@ for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 
 window.GameData = {
   INGREDIENTS, ZONES, MAPS, zoneUnlock, zoneAp, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
-  VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS,
+  VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS, BASE_MOODS, moodsOf,
   KEYWORDS, keyword, ASKS, asksOf,
   BOND_TIERS, bondTierOf, BOND_GAIN, BONDS, BOND_GIFTS, bondNpcs, BOND_GIVES, bondGiver,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,

@@ -64,6 +64,43 @@
     sharp:  (x, c) => `<path d="M${x - 5.5},63 L${x + 5.5},66 L${x - 5.5},70 Z" fill="${c}"/>`,
     soft:   (x, c) => `<ellipse cx="${x}" cy="67" rx="4" ry="4" fill="${c}"/><path d="M${x - 5},61 q5,-3 10,1" stroke="#3f3239" stroke-width="2" fill="none" stroke-linecap="round"/>`,
     closed: (x)    => `<path d="M${x - 5},66 q5,5 10,0" stroke="#3f3239" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
+    // ─ 여기부터는 나중에 늘린 것 ─
+    // **눈 하나를 늘리면 표정이 입 수만큼 늘어난다** (지금 눈 11 × 입 12).
+    // 그래서 부품을 늘리는 것이 표정을 하나씩 그리는 것보다 언제나 싸다.
+    wide:   (x, c) => `<ellipse cx="${x}" cy="66" rx="4.6" ry="6.4" fill="#fff" stroke="${c}" stroke-width="1"/>`
+                    + `<circle cx="${x}" cy="66" r="2.9" fill="${c}"/><circle cx="${x + 1.1}" cy="64.2" r="1.2" fill="#fff"/>`,
+    // 눈물 — 아래로 한 방울. 「슬픔」은 눈만으로 읽혀야 입을 바꿔도 안 흐려진다
+    teary:  (x, c) => `<ellipse cx="${x}" cy="67" rx="4" ry="4.8" fill="${c}"/><circle cx="${x + 1.2}" cy="65.4" r="1.5" fill="#fff"/>`
+                    + `<path d="M${x + 3.6},71 q2.2,4 0,6 q-2.2,-2 0,-6 Z" fill="#8fc5e8"/>`,
+    // 반쯤 감은 눈 — 졸림·심드렁
+    half:   (x, c) => `<path d="M${x - 5},64 L${x + 5},64" stroke="#3f3239" stroke-width="2.2" stroke-linecap="round"/>`
+                    + `<path d="M${x - 4},64 a4,4.6 0 0 0 8,0 Z" fill="${c}"/>`,
+    // 위를 본다 — 생각·딴청
+    up:     (x, c) => `<ellipse cx="${x}" cy="66" rx="4" ry="5.2" fill="#fff" stroke="${c}" stroke-width="0.9"/>`
+                    + `<circle cx="${x}" cy="63.6" r="2.6" fill="${c}"/>`,
+    // 하트 눈 — 반함
+    heart:  (x)    => `<path d="M${x},70 C${x - 6},64 ${x - 5},58 ${x - 2},58 q2,0 2,2.4 q0,-2.4 2,-2.4 c3,0 4,6 -2,12 Z" fill="#e2557f"/>`,
+    // × 눈 — 기절·질색
+    cross:  (x)    => `<path d="M${x - 4.4},62 L${x + 4.4},70 M${x + 4.4},62 L${x - 4.4},70"`
+                    + ` stroke="#3f3239" stroke-width="2.6" stroke-linecap="round"/>`,
+    // 곁눈질 — 미심쩍음
+    side:   (x, c) => `<ellipse cx="${x}" cy="66" rx="4.2" ry="4.6" fill="#fff" stroke="${c}" stroke-width="0.9"/>`
+                    + `<circle cx="${x + 2}" cy="66" r="2.5" fill="${c}"/>`,
+    // 반짝 — 기대·감동
+    star:   (x, c) => `<ellipse cx="${x}" cy="66" rx="4.4" ry="5.4" fill="${c}"/>`
+                    + `<circle cx="${x + 1.3}" cy="64" r="1.8" fill="#fff"/><circle cx="${x - 1.6}" cy="68.4" r="1" fill="#fff"/>`,
+  };
+
+  // ─── 눈썹 ─────────────────────────────────────────────────
+  // **눈만으로는 화남과 슬픔이 잘 안 갈린다.** 눈썹 각도가 그 둘을 가른다 —
+  // 부품 하나로 표정 전체의 폭이 눈에 띄게 넓어진다.
+  // `null` 이면 안 그린다 (기본 표정은 눈썹 없이도 읽힌다)
+  const BROW = {
+    none:  () => '',
+    up:    (x, f) => `<path d="M${x - 5.5},${57 - f * 1.5} q5.5,-3 11,${f * 2}" stroke="#3f3239" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    angry: (x, f) => `<path d="M${x - 5.5},${54 + f * 3} L${x + 5.5},${59 - f * 1}" stroke="#3f3239" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    sad:   (x, f) => `<path d="M${x - 5.5},${59 - f * 1} L${x + 5.5},${54 + f * 3}" stroke="#3f3239" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    flat:  (x)    => `<path d="M${x - 5.5},57 L${x + 5.5},57" stroke="#3f3239" stroke-width="2.2" stroke-linecap="round"/>`,
   };
 
   const MOUTH = {
@@ -72,6 +109,19 @@
     calm:  '<path d="M54,84 q6,2 12,0" stroke="#a4636c" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
     flat:  '<path d="M53,85 L67,85" stroke="#a4636c" stroke-width="2.4" stroke-linecap="round"/>',
     smirk: '<path d="M52,85 q9,4 16,-4" stroke="#a4636c" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
+    // ─ 여기부터는 나중에 늘린 것 ─
+    frown: '<path d="M52,88 q8,-7 16,0" stroke="#a4636c" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
+    open:  '<ellipse cx="60" cy="86" rx="6" ry="7.5" fill="#a4636c"/><ellipse cx="60" cy="88.5" rx="3.4" ry="3.6" fill="#d98f96"/>',
+    small: '<ellipse cx="60" cy="85" rx="3.2" ry="3.6" fill="#a4636c"/>',
+    // 이를 앙다문 — 참는 얼굴
+    grit:  '<rect x="51" y="82" width="18" height="7" rx="2.4" fill="#a4636c"/><rect x="52" y="83" width="16" height="5" rx="1.8" fill="#fff"/>'
+         + '<path d="M56,83 L56,88 M60,83 L60,88 M64,83 L64,88" stroke="#e3cdd0" stroke-width="0.9"/>',
+    // 물결 — 울먹임
+    wavy:  '<path d="M51,85 q3,-3.5 6,0 q3,3.5 6,0 q3,-3.5 6,0" stroke="#a4636c" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+    // 살짝 벌린 — 놀람(작게)
+    ohh:   '<ellipse cx="60" cy="86" rx="4.2" ry="5.4" fill="#a4636c"/>',
+    // 한쪽만 올린 — 시큰둥
+    meh:   '<path d="M52,86 q8,1 16,-3" stroke="#a4636c" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
   };
 
   const BEARD = {
@@ -129,6 +179,9 @@
     }
     const hair = HAIR[sp.hair] || HAIR.short;
     const eye = EYE[m.eye] || EYE.normal;
+    // 눈썹은 **없는 것이 기본**이다 — 기본 표정은 눈썹 없이도 읽히고,
+    // 있는 쪽이 예외라야 얼굴이 안 시끄럽다. 안쪽 끝을 내리거나 올려 각도를 만든다
+    const brow = BROW[m.brow] || null;
     return `<svg class="pt-svg ${bare ? 'bare' : ''}" viewBox="0 0 ${W} ${H}"
       xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}">
       ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${W}" height="${H}" rx="18"/></clipPath></defs>`}
@@ -142,6 +195,7 @@
         <ellipse data-part="face" cx="60" cy="66" rx="26" ry="30" fill="${sp.skin}"/>
         ${BEARD[sp.beard || 'none'](sp.hairColor)}
         ${hair.front ? hair.front(sp.hairColor) : ''}
+        ${brow ? brow(50, 1) + brow(70, -1) : ''}
         ${eye(50, sp.eyeColor || '#3f3239')}${eye(70, sp.eyeColor || '#3f3239')}
         ${MOUTH[m.mouth] || MOUTH.calm}
         ${sp.deco && sp.deco !== 'hood' ? DECO[sp.deco](sp.decoColor || '#ffd76a') : ''}

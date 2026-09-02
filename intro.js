@@ -170,6 +170,56 @@
         </g>`;
       mouth = `<ellipse cx="150" cy="193" rx="6.5" ry="5" fill="#b5566a"/>`;
       extra = `<g fill="#ff9db4" opacity="0.5"><ellipse cx="126" cy="188" rx="7" ry="4.6"/><ellipse cx="174" cy="188" rx="7" ry="4.6"/></g>`;
+    // ── 여기부터는 나중에 늘린 표정 (초상화·대사용) ──
+    // 몸·머리는 그대로 두고 **눈과 입만** 바꾼다 — 그래야 같은 사람으로 보인다
+    } else if (mood === 'laugh') {
+      eyes = `<path d="M131,179 Q138,169 145,179" stroke="#4a3a42" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+              <path d="M155,179 Q162,169 169,179" stroke="#4a3a42" stroke-width="2.8" fill="none" stroke-linecap="round"/>`;
+      mouth = `<path d="M140,187 Q150,199 160,187 Z" fill="#b5566a"/><path d="M142,188 Q150,191 158,188 Z" fill="#fff"/>`;
+      extra = `<g class="i-blush" fill="#ff9db4" opacity="0.6"><ellipse cx="127" cy="187" rx="8.5" ry="5.2"/><ellipse cx="173" cy="187" rx="8.5" ry="5.2"/></g>`;
+    } else if (mood === 'wink') {
+      eyes = `<ellipse cx="138" cy="176" rx="6" ry="7.4" fill="#4a3a42"/><circle cx="140" cy="173" r="2.2" fill="#fff"/>
+              <path d="M155,178 Q162,170 169,178" stroke="#4a3a42" stroke-width="2.8" fill="none" stroke-linecap="round"/>`;
+      mouth = `<path d="M142,188 Q150,195 158,188" stroke="#c97b86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+      extra = `<g class="i-blush" fill="#ff9db4" opacity="0.5"><ellipse cx="127" cy="187" rx="8" ry="5"/><ellipse cx="173" cy="187" rx="8" ry="5"/></g>`;
+    } else if (mood === 'sad') {
+      // 눈썹 안쪽이 올라가는 것이 슬픔을 만든다 — 눈만으로는 안 읽힌다
+      eyes = `<ellipse cx="138" cy="177" rx="6.4" ry="7.6" fill="#4a3a42"/><ellipse cx="162" cy="177" rx="6.4" ry="7.6" fill="#4a3a42"/>
+              <circle cx="140" cy="174" r="2.3" fill="#fff"/><circle cx="164" cy="174" r="2.3" fill="#fff"/>`;
+      mouth = `<path d="M143,192 Q150,186 157,192" stroke="#c97b86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+      extra = `<g stroke="#4a3a42" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.65">
+          <path d="M129,163 Q138,158 146,163"/><path d="M171,163 Q162,158 154,163"/></g>`;
+    } else if (mood === 'cry') {
+      eyes = `<path d="M131,177 Q138,171 145,177" stroke="#4a3a42" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+              <path d="M155,177 Q162,171 169,177" stroke="#4a3a42" stroke-width="2.8" fill="none" stroke-linecap="round"/>`;
+      mouth = `<path d="M142,191 q4,-5 8,0 q4,5 8,0" stroke="#c97b86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+      extra = `<g fill="#8fc5e8" opacity="0.9">
+          <path d="M136,181 q3,7 0,10 q-3,-3 0,-10 Z"/><path d="M164,181 q3,7 0,10 q-3,-3 0,-10 Z"/></g>
+        <g stroke="#4a3a42" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.65">
+          <path d="M129,163 Q138,158 146,163"/><path d="M171,163 Q162,158 154,163"/></g>`;
+    } else if (mood === 'angry') {
+      eyes = `<ellipse cx="138" cy="177" rx="6.2" ry="7" fill="#4a3a42"/><ellipse cx="162" cy="177" rx="6.2" ry="7" fill="#4a3a42"/>`;
+      mouth = `<path d="M143,193 Q150,187 157,193" stroke="#b5566a" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+      extra = `<g stroke="#4a3a42" stroke-width="2.6" fill="none" stroke-linecap="round">
+          <path d="M129,158 L146,165"/><path d="M171,158 L154,165"/></g>`;
+    } else if (mood === 'sleepy') {
+      eyes = `<path d="M131,176 L145,176" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M155,176 L169,176" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>`;
+      mouth = `<ellipse cx="150" cy="192" rx="3.4" ry="4.6" fill="#b5566a"/>`;
+      extra = `<text x="176" y="158" font-size="15" fill="#8fa0c4" opacity="0.85">z</text>
+               <text x="186" y="146" font-size="11" fill="#8fa0c4" opacity="0.6">z</text>`;
+    } else if (mood === 'love') {
+      eyes = `<g fill="#e2557f">
+          <path d="M138,182 C130,175 131,167 135,167 q3,0 3,3.4 q0,-3.4 3,-3.4 c4,0 5,8 -3,15 Z"/>
+          <path d="M162,182 C154,175 155,167 159,167 q3,0 3,3.4 q0,-3.4 3,-3.4 c4,0 5,8 -3,15 Z"/></g>`;
+      mouth = `<path d="M141,187 Q150,197 159,187 Z" fill="#b5566a"/>`;
+      extra = `<g class="i-blush" fill="#ff9db4" opacity="0.65"><ellipse cx="126" cy="188" rx="9" ry="5.4"/><ellipse cx="174" cy="188" rx="9" ry="5.4"/></g>`;
+    } else if (mood === 'proud') {
+      eyes = `<path d="M131,174 L145,177" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M169,174 L155,177" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>`;
+      mouth = `<path d="M142,188 q9,5 16,-4" stroke="#c97b86" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+      extra = `<g stroke="#4a3a42" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.6">
+          <path d="M129,160 Q138,155 146,160"/><path d="M171,160 Q162,155 154,160"/></g>`;
     } else { // scream
       eyes = `<path d="M132,178 L144,172 M132,172 L144,178" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>
               <path d="M156,172 L168,178 M156,178 L168,172" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>`;
@@ -344,6 +394,39 @@
       <!-- 벌린 입 (외치는 중) -->
       <path d="M321,199 Q330,196 339,199 Q336,211 330,211 Q324,211 321,199 Z" fill="#b4505f"/>
       <path d="M323.5,200.4 Q330,199 336.5,200.4 Q330,203 323.5,200.4 Z" fill="#fff"/>`;
+    // ── 나중에 늘린 표정 (초상화·대사용) ──
+    // 후드와 얼굴 윤곽은 그대로 두고 **눈썹·눈·입만** 바꾼다
+    if (pose === 'laugh') return `
+      <path d="M315,178 Q322,171 329,178" stroke="#4a3a42" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      <path d="M331,178 Q338,171 345,178" stroke="#4a3a42" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      <path d="M322,197 Q330,208 338,197 Z" fill="#b4505f"/><path d="M324,198 Q330,200 336,198 Z" fill="#fff"/>
+      <ellipse cx="313" cy="195" rx="5.4" ry="3.6" fill="#ffb0c4" opacity="0.7"/>
+      <ellipse cx="347" cy="195" rx="5.4" ry="3.6" fill="#ffb0c4" opacity="0.7"/>`;
+    if (pose === 'wink') return `
+      <ellipse cx="322" cy="188" rx="4.4" ry="5" fill="#4a3a42"/><circle cx="323.4" cy="186.2" r="1.5" fill="#fff"/>
+      <path d="M331,189 Q338,183 345,189" stroke="#4a3a42" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      <path d="M323,199 q8,4 14,-3" stroke="#c07a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <ellipse cx="313" cy="195" rx="5" ry="3.4" fill="#ffb0c4" opacity="0.65"/>
+      <ellipse cx="347" cy="195" rx="5" ry="3.4" fill="#ffb0c4" opacity="0.65"/>`;
+    if (pose === 'sad') return `
+      <path d="M315,172 Q322,168 329,173" stroke="#8a7a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <path d="M345,172 Q338,168 331,173" stroke="#8a7a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <ellipse cx="322" cy="189" rx="4.4" ry="5.2" fill="#4a3a42"/><ellipse cx="338" cy="189" rx="4.4" ry="5.2" fill="#4a3a42"/>
+      <circle cx="323.4" cy="187" r="1.5" fill="#fff"/><circle cx="339.4" cy="187" r="1.5" fill="#fff"/>
+      <path d="M324,202 Q330,197 336,202" stroke="#c07a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+    if (pose === 'think') return `
+      <ellipse cx="322" cy="187" rx="4.4" ry="5" fill="#fffdfd" stroke="#d8d0dc" stroke-width="0.9"/>
+      <ellipse cx="338" cy="187" rx="4.4" ry="5" fill="#fffdfd" stroke="#d8d0dc" stroke-width="0.9"/>
+      <circle cx="322" cy="184.6" r="2.6" fill="#4a3a42"/><circle cx="338" cy="184.6" r="2.6" fill="#4a3a42"/>
+      <ellipse cx="330" cy="199" rx="2.8" ry="3.2" fill="#b4505f"/>
+      <ellipse cx="313" cy="195" rx="5" ry="3.4" fill="#ffb0c4" opacity="0.5"/>
+      <ellipse cx="347" cy="195" rx="5" ry="3.4" fill="#ffb0c4" opacity="0.5"/>`;
+    if (pose === 'proud') return `
+      <path d="M315,173 L329,177" stroke="#8a7a86" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M345,173 L331,177" stroke="#8a7a86" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M316,187 L328,190" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M344,187 L332,190" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M322,199 q9,5 15,-4" stroke="#c07a86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
     // 곁눈질 — 흰자 위에서 눈동자가 공주(왼쪽) 쪽으로 굴러간다
     const glanceFace = `
       <path d="M316,176 Q322,172 327,176" stroke="#8a7a86" stroke-width="2.2" fill="none" stroke-linecap="round" transform="rotate(-14 321.5 174)"/>
@@ -840,7 +923,7 @@
   const BUSTS = {
     fairy: {
       box: [286, 136, 88, 118],
-      poses: ['idle', 'smile', 'glance', 'cross'],
+      poses: ['idle', 'smile', 'glance', 'cross', 'laugh', 'wink', 'sad', 'think', 'proud'],
       draw: pose => `
         <path d="M296,300 C292,240 306,206 330,206 C354,206 368,240 364,300 Z" fill="#8fc5e8"/>
         <path d="M330,206 C318,206 310,214 308,226 L352,226 C350,214 342,206 330,206 Z" fill="#a8d6f2"/>
@@ -848,7 +931,8 @@
     },
     princess: {
       box: [102, 130, 96, 118],
-      poses: ['puzzled', 'shy', 'smile', 'ask', 'dizzy'],
+      poses: ['puzzled', 'shy', 'smile', 'ask', 'dizzy',
+              'laugh', 'wink', 'sad', 'cry', 'angry', 'sleepy', 'love', 'proud'],
       draw: mood => {
         const f = princessFace(mood);
         return `

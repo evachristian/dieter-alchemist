@@ -57,6 +57,49 @@ const CHIMNEY = D.VILLAGES.find(v => v.id === 'vl_chimney');
 if (CHIMNEY && (CHIMNEY.spots || []).length !== 7)
   bad.push(`vl_chimney: 「일곱 굴뚝」인데 건물이 ${(CHIMNEY.spots || []).length}채다 — 이름이 거짓말이 된다`);
 
+// ── 표정 부품 이름이 진짜 있는가
+//
+// ⚠️ **없는 부품 이름은 조용히 기본으로 떨어진다.** `EYE[m.eye] || EYE.normal` 이라
+// `eye: 'wied'` 라고 오타를 내도 화면은 멀쩡하고, 그 표정만 영영 기본 눈이 된다.
+// 그래서 `portrait.js` 에서 부품 이름을 읽어 대조한다 (소스를 그대로 본다 —
+// 사본을 두면 부품을 늘릴 때 한쪽만 고치게 된다).
+{
+  const pt = fs.readFileSync(path.join(ROOT, 'portrait.js'), 'utf8');
+  const keysOf = (head) => {
+    const at = pt.indexOf(head);
+    if (at < 0) return null;
+    const open = pt.indexOf('{', at);
+    let i = open, d = 0, end = open;
+    for (; i < pt.length; i++) {
+      if (pt[i] === '{') d++;
+      else if (pt[i] === '}') { d--; if (!d) { end = i; break; } }
+    }
+    const body = pt.slice(open + 1, end);
+    const out = new Set();
+    body.replace(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:/gm, (_, k) => { out.add(k); return _; });
+    return out;
+  };
+  const EYES = keysOf('const EYE = ');
+  const MOUTHS = keysOf('const MOUTH = ');
+  const BROWS = keysOf('const BROW = ');
+  if (!EYES || !MOUTHS || !BROWS) {
+    console.error('portrait.js 에서 EYE/MOUTH/BROW 를 못 찾았다 — 이 검사기가 그 구조를 따라가야 한다');
+    process.exit(2);
+  }
+  let moodN = 0;
+  D.SPEAKERS.forEach(sp => {
+    Object.entries(sp.moods || {}).forEach(([name, m]) => {
+      moodN++;
+      // 인트로 그림을 쓰는 사람은 눈·입을 안 쓴다 (art 로만 그린다) — 있으면 대비용이다
+      if (m.eye && !EYES.has(m.eye)) bad.push(`${sp.id}/${name}: 그런 눈이 없다 (${m.eye})`);
+      if (m.mouth && !MOUTHS.has(m.mouth)) bad.push(`${sp.id}/${name}: 그런 입이 없다 (${m.mouth})`);
+      if (m.brow && !BROWS.has(m.brow)) bad.push(`${sp.id}/${name}: 그런 눈썹이 없다 (${m.brow})`);
+    });
+  });
+  global.__moodN = moodN;
+  global.__partN = `눈 ${EYES.size} · 입 ${MOUTHS.size} · 눈썹 ${BROWS.size}`;
+}
+
 // ── 초상화 사양
 const NEED = ['hair', 'hairColor', 'skin', 'cloth'];
 D.SPEAKERS.forEach(sp => {
@@ -185,6 +228,7 @@ Object.keys(edges).forEach(n => { if (!state[n]) walk(n, []); });
 cyc.forEach(c => bad.push(`순환: 마을이 서로를 연다 (${c}) — 둘 다 영영 안 열린다`));
 
 console.log(`인물 ${D.SPEAKERS.length}명 · 대사 ${Object.keys(D.TALKS).length}묶음 · 앉은 자리 ${placed.size}곳`);
+console.log(`표정 ${global.__moodN}가지 (부품 ${global.__partN})`);
 console.log(`키워드 ${D.KEYWORDS.length}개 · 물어볼 것 ${D.ASKS.length}줄 · 시작 [${START.join(', ')}] → 마을 ${openV.size}곳 개방`);
 if (!bad.length) { console.log('✅ 인물·대사 표에 어긋난 곳 없음'); process.exit(0); }
 console.log(`❌ ${bad.length}건`);

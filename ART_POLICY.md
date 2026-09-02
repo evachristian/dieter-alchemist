@@ -112,3 +112,39 @@ no marionette joints, seamless limbs, minimal details
 
 정책과 검사기는 짝이다. 형태 규칙을 바꿨으면 `tools/checkavatar.js` 의 상수도 같이 본다
 (`SHOULDER_DIP` · 목 길이 상·하한 · 커버리지 창).
+
+
+---
+
+## 표정 (`portrait.js` · `data.js` 의 `BASE_MOODS`)
+
+**표정을 하나씩 그리지 않는다.** 눈·입·눈썹을 부품으로 두고 **조합**한다 —
+눈 하나를 늘리면 표정이 입 수만큼 늘고, 열 명이 한꺼번에 그 표정을 갖는다.
+
+| 부품 | 어디에 | 지금 |
+|---|---|---|
+| 눈 `EYE` | `portrait.js` | 13가지 |
+| 입 `MOUTH` | `portrait.js` | 12가지 |
+| 눈썹 `BROW` | `portrait.js` | 5가지 (없는 것이 기본) |
+| 이름 `BASE_MOODS` | `data.js` | 24가지 |
+
+- **이름은 감정이지 부품이 아니다.** 「눈웃음」이 아니라 「기쁨」이라야 사람마다
+  다르게 그려도 대사가 같은 이름을 쓸 수 있다
+- **눈썹은 없는 것이 기본이다.** 있는 쪽이 예외라야 얼굴이 안 시끄럽다.
+  다만 **화남과 슬픔은 눈만으로 안 갈린다** — 그 둘은 눈썹 각도가 만든다
+- ⚠️ **없는 부품 이름은 조용히 기본으로 떨어진다** (`EYE[m.eye] || EYE.normal`).
+  오타를 내도 화면은 멀쩡하고 그 표정만 영영 기본 눈이 된다 —
+  `tools/checktalk.js` 가 `portrait.js` 에서 부품 이름을 읽어 대조한다
+
+### ⚠️ 인트로 그림을 쓰는 둘은 다르다
+
+요정 대모와 공주는 **인트로에 이미 얼굴이 있다.** 부품으로 다시 그리면 방금까지
+보던 사람과 다른 사람이 되므로(실제로 그랬다), `intro.js` 의 그림을 그대로 쓴다.
+
+그래서 그 둘은 **이름만 늘려서는 표정이 안 는다** — 그림(`poses`)이 있어야 한다.
+없는 포즈를 적으면 조용히 첫 포즈로 떨어진다 (checktalk 이 잡는다).
+포즈를 늘릴 때는 **몸·머리는 그대로 두고 눈·입만** 바꾼다.
+
+- 요정 대모 `fairyFace()` — idle · smile · glance · cross · laugh · wink · sad · think · proud
+- 공주 `princessFace()` — puzzled · shy · smile · ask · dizzy ·
+  laugh · wink · sad · cry · angry · sleepy · love · proud
