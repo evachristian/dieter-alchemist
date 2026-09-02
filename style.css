@@ -2722,3 +2722,23 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 다녀간 이웃의 이름 — 밭 기록과 **같은 색으로 맞춘다**. 한 사람을 두 화면에서
    다른 색으로 부르면 같은 사람인지 알아보는 데 한 박자가 더 든다 */
 .di-who { color: var(--text-pink); font-weight: 800; }
+/* 꼬리말 — 사건 뒤에 붙는 혼잣말. **본문보다 한 단 흐리게** 둔다:
+   같은 색이면 사실과 농담이 한 덩어리로 읽혀 둘 다 안 읽힌다.
+   ⚠️ `--ink-dim` 은 안 쓴다 (읽을 글자에는 금지 — TEXT_POLICY) */
+.di-tail { color: var(--text-lav); }
+/* 쪽 넘기기 — 한 날이 한 쪽이다. 화살표 둘과 쪽수 하나.
+   ⚠️ **265px 에서 잰다.** 화살표 44 + 44 에 여백 14 씩을 주고 쪽수에 `min-width: 62`
+   를 박았더니 178px 이 되어 161px 칸을 9px 넘쳤다 — 가운데 쪽수가 남는 자리를
+   차지하게 두고(`flex: 1 1 auto`) 여백을 줄인다 (UI_POLICY 2장 「3단 방어」) */
+.di-nav { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0 4px; }
+.di-nav-btn {
+  flex: 0 0 auto; width: 40px; height: 36px; border-radius: 12px;
+  border: 2px solid var(--pink-2); background: var(--cream);
+  color: var(--text-pink); font-family: inherit; font-size: 0.9rem; font-weight: 800;
+  cursor: pointer;
+}
+.di-nav-btn:active { transform: scale(0.96); }
+/* 끝 쪽 — **누를 수 없다는 것이 보여야 한다.** 잠긴 콘텐츠와 같은 표현을 쓴다
+   (채도만 뺀다: 명도를 보존해 글자 대비가 안 깎인다 — CLAUDE.md 4번) */
+.di-nav-btn:disabled { filter: saturate(0.15); opacity: 0.8; cursor: default; }
+.di-page { flex: 1 1 auto; min-width: 0; font-size: 0.82rem; font-weight: 800; color: var(--text-lav); text-align: center; }

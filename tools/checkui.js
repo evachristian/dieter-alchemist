@@ -530,50 +530,105 @@ function launchOpts() {
         // 열쇠 목록은 `DIARY_ICON` 에서 가져온다 — 새 사건을 만들면 아이콘을 넣는
         // 순간 이 검사가 그 열쇠까지 같이 본다 (검사기에 목록을 옮겨 적으면 어긋난다)
         {
-          const diBad = await page.evaluate(() => {
-            const keys = Object.keys(window.DIARY_ICON || {});
-            if (keys.length < 5) return `사건 열쇠가 ${keys.length}개다`;
-            // 모든 문구가 쓸 수 있는 값을 한꺼번에 담는다. `diaryLine` 은 제가
-            // 필요한 것만 꺼내 쓰므로 남는 값은 그냥 안 쓰인다
-            const bag = {
-              id: 'unicorn', food: (D.FOODS[0] || {}).id, who: 'Wwwwwwwwwwww',
+          // 모든 문구가 쓸 수 있는 값을 한꺼번에 담는다. `diaryLine` 은 제가
+          // 필요한 것만 꺼내 쓰므로 남는 값은 그냥 안 쓰인다.
+          // ⚠️ **한 날이 한 쪽이다** — 사건 열쇠를 여러 날에 나눠 심으면 한 번에
+          // 한 쪽만 보이므로 「문구가 빠졌나」를 못 잰다. 열쇠는 **같은 날**에 몰아 심는다
+          const seed = `
+            const K = Object.keys(window.DIARY_ICON || {});
+            const bag = { id: 'unicorn', food: (D.FOODS[0] || {}).id, who: 'Wwwwwwwwwwww',
               items: { firefly: 3, walnut: 2 }, attr: 'fire', map: D.MAPS[0].id,
-              n: 3, wins: 4, step: 2,
-            };
-            // **이틀에 나눠 심는다** — 날짜 묶음이 실제로 갈리는지 봐야 한다
+              n: 3, wins: 4, step: 2 };
+            const mk = (k, v, off) => { const d = new Date(Date.now() - off);
+              return { t: d.getTime() - K.indexOf(k) * 1000, y: d.getFullYear() - 1800,
+                m: d.getMonth() + 1, d: d.getDate(), k, v: { ...bag, ...v } }; };
+          `;
+          const diBad = await page.evaluate(`(() => {
+            ${seed}
+            if (K.length < 5) return '사건 열쇠가 ' + K.length + '개다';
+            // 오늘 하루에 사건 전부 + 「마지막 단계」 한 줄. 앞의 이틀은 쪽 넘기기용이다
             const day = 24 * 60 * 60 * 1000;
-            S.diary = [];
-            S.diary = keys.map((k, i) => {
-              const d = new Date(Date.now() - (i < keys.length / 2 ? day : 0));
-              return { t: d.getTime(), y: d.getFullYear() - 1800, m: d.getMonth() + 1, d: d.getDate(), k, v: bag };
-            });
-            // 마지막 단계에 닿은 날은 문장이 따로다 — 그것도 같이 심는다
-            const now = new Date();
-            S.diary.push({ t: now.getTime(), y: now.getFullYear() - 1800, m: now.getMonth() + 1,
-              d: now.getDate(), k: 'di_slim', v: { ...bag, done: 1 } });
+            S.diary = K.map(k => mk(k, {}, 0));
+            S.diary.push(mk('di_slim', { done: 1 }, 0));
+            S.diary.push(mk('di_binge', {}, day));
+            S.diary.push(mk('di_binge', {}, day * 2));
             openDiary();
             if (!document.getElementById('diaryModal').classList.contains('show')) return '시트가 안 떴다';
             const rows = [...document.querySelectorAll('#diaryModal .di-row .di-txt')];
-            if (rows.length !== S.diary.length) {
-              return `줄이 ${rows.length}개다 (${S.diary.length} 기대) — 문구가 빠진 사건이 있다`;
+            if (rows.length !== K.length + 1) {
+              return '줄이 ' + rows.length + '개다 (' + (K.length + 1) + ' 기대) — 문구가 빠진 사건이 있다';
             }
-            // **끼울 값이 남아 있으면 안 된다.** `{who}` 가 그대로 보이는 것은
+            // **끼울 값이 남아 있으면 안 된다.** '{who}' 가 그대로 보이는 것은
             // 「문구는 있는데 값이 안 들어간」 자리다 — 눈으로는 잘 안 걸린다
             const raw = rows.find(r => /[{}]/.test(r.textContent));
-            if (raw) return `끼우지 못한 값이 보인다: ${raw.textContent.slice(0, 40)}`;
+            if (raw) return '끼우지 못한 값이 보인다: ' + raw.textContent.slice(0, 40);
             // 조사 자리표가 그대로 남았는지 — 「이(가)」 같은 괄호는 문장을 무너뜨린다
-            const par = rows.find(r => /\(가\)|\(을\)|\(를\)|\(이\)/.test(r.textContent));
-            if (par) return `조사 괄호가 남았다: ${par.textContent.slice(0, 40)}`;
-            const days = document.querySelectorAll('#diaryModal .di-date').length;
-            if (days !== 2) return `날짜 묶음이 ${days}개다 (2 기대)`;
+            const par = rows.find(r => /\\(가\\)|\\(을\\)|\\(를\\)|\\(이\\)/.test(r.textContent));
+            if (par) return '조사 괄호가 남았다: ' + par.textContent.slice(0, 40);
             // 이웃 이름이 색으로 갈리는가 — 밭 기록과 같은 규칙이다
             if (!document.querySelector('#diaryModal .di-who')) return '이웃 이름이 강조되지 않는다';
             return null;
-          });
+          })()`);
           if (diBad) results.push({ 화면: `${t}/탐험일지`, 오류: diBad });
           else { await page.waitForTimeout(280); await run(`${t}/탐험일지`); }
           const diBad2 = await page.evaluate(() => window.__cardFits('#diaryModal'));
           if (diBad2) results.push({ 화면: `${t}/탐험일지`, 오류: diBad2 });
+
+          // **꼬리말** — 사건 뒤에 붙는 혼잣말. `DIARY_TAILS` 가 적어 둔 수만큼
+          // `<열쇠>_t1` … `_tN` 이 있어야 한다. 하나만 빠져도 그 줄은 **본문만** 남는데,
+          // 화면은 멀쩡해 보여서 눈으로는 영영 안 걸린다
+          const tlBad = await page.evaluate(() => {
+            const tails = window.DIARY_TAILS || {};
+            const keys = Object.keys(tails);
+            if (!keys.length) return '꼬리말 표가 비었다';
+            const miss = [];
+            keys.forEach(k => {
+              for (let i = 1; i <= tails[k]; i++) {
+                const id = `${k}_t${i}`;
+                if (I18N.t(id) === id) miss.push(id);
+              }
+            });
+            if (miss.length) return `꼬리말 문구가 없다: ${miss.slice(0, 5).join(' · ')}`;
+            // 사건마다 아이콘이 있는가 — 아이콘 표가 곧 사건 목록이라 짝이 맞아야 한다
+            const noIcon = keys.filter(k => k !== 'di_slim_done' && !window.DIARY_ICON[k]);
+            if (noIcon.length) return `아이콘이 없는 사건: ${noIcon.join(' · ')}`;
+            // 화면에 실제로 붙었는가. **다 붙어야 한다** — `DIARY_TAILS` 에 적힌
+            // 사건은 전부 꼬리말을 갖는다
+            const shown = document.querySelectorAll('#diaryModal .di-tail').length;
+            const rows = document.querySelectorAll('#diaryModal .di-row').length;
+            return shown === rows ? null : `꼬리말이 ${shown}/${rows} 줄에만 붙었다`;
+          });
+          if (tlBad) results.push({ 화면: `${t}/일지꼬리말`, 오류: tlBad });
+
+          // **쪽 넘기기** — 한 날이 한 쪽이다. 끝에 닿으면 그쪽 버튼이 잠긴다.
+          // ⚠️ 눌러서 **날짜가 실제로 바뀌는지**를 본다. 쪽수 글자만 보면
+          // 본문을 안 갈아 끼워도 통과한다
+          const pgBad = await page.evaluate(() => {
+            const date = () => (document.querySelector('#diaryModal .di-date') || {}).textContent;
+            const btns = () => [...document.querySelectorAll('#diaryNav .di-nav-btn')];
+            const page = () => (document.querySelector('#diaryNav .di-page') || {}).textContent;
+            if (btns().length !== 2) return `넘기기 버튼이 ${btns().length}개다 (2 기대)`;
+            const p1 = page(), d1 = date();
+            // 첫 쪽에서는 **최근 쪽(▶)이 잠겨** 있어야 한다
+            if (!btns()[1].disabled) return '첫 쪽인데 최근 쪽 버튼이 살아 있다';
+            if (btns()[0].disabled) return '뒤에 이틀이 더 있는데 과거 쪽 버튼이 잠겼다';
+            diaryFlip(1);
+            if (date() === d1) return `쪽을 넘겼는데 날짜가 그대로다 (${d1})`;
+            if (page() === p1) return `쪽을 넘겼는데 쪽수가 그대로다 (${p1})`;
+            diaryFlip(1);                       // 마지막 쪽 (사흘치를 심었다)
+            if (!btns()[0].disabled) return '마지막 쪽인데 과거 쪽 버튼이 살아 있다';
+            // 끝에서 더 눌러도 넘어가지 않는다
+            const last = page(); diaryFlip(1);
+            if (page() !== last) return '마지막 쪽에서 더 넘어갔다';
+            diaryFlip(-1); diaryFlip(-1);
+            return date() === d1 ? null : `되돌아왔는데 첫 쪽이 아니다 (${date()} · ${d1} 기대)`;
+          });
+          if (pgBad) results.push({ 화면: `${t}/일지쪽넘기기`, 오류: pgBad });
+          else {
+            // 중간 쪽에서도 한 번 잰다 — 양쪽 버튼이 다 살아 있는 유일한 상태다
+            await page.evaluate(() => diaryFlip(1));
+            await page.waitForTimeout(200); await run(`${t}/일지쪽넘기기`);
+          }
           // ⚠️ **심은 것을 치운다.** 남겨 두면 뒤에 오는 검사가 남의 값을 보게 된다
           // (작물 검사와 부대 검사에서 실제로 두 번 겪었다)
           await page.evaluate(() => { closeDiary(); S.diary = []; });

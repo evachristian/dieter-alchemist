@@ -5220,7 +5220,39 @@ function diaryLine(e) {
   // 마지막 단계에 닿은 날은 다른 문장이다 — 매번 같은 줄이면 마지막 날이 안 특별해진다
   const key = e.k === 'di_slim' && v.done ? 'di_slim_done' : e.k;
   const s = T(key, p);
-  return s === key ? '' : s;                  // 모르는 열쇠는 그 줄만 뺀다
+  if (s === key) return '';                   // 모르는 열쇠는 그 줄만 뺀다
+  const tail = diaryTail(key, e, p);
+  return tail ? `${s} <span class="di-tail">${tail}</span>` : s;
+}
+
+// 꼬리말 — 사건마다 몇 벌씩. 여기 적힌 수만큼 `<열쇠>_t1` … `_tN` 이 있어야 한다.
+//
+// **본문이 「무슨 일이 있었나」라면 꼬리말은 「그래서 내 기분이 어땠나」다.**
+// 웃음은 사건이 아니라 반응에서 나온다 — 「우리 애들이 막아 냈다」는 사실이고,
+// 「요정 대모가 또 그만 먹어요! 하겠지」가 웃긴 자리다.
+//
+// 농담의 과녁은 늘 **우리 쪽**이다 (약탈 연출과 같은 규칙 — `roundQuip`).
+// 잔소리하는 요정 대모 · 말 안 듣는 크리처 · 변명하는 공주 본인 셋이면 충분하다.
+// **남을 비웃는 농담은 안 만든다** — 코지 게임이고, 이웃은 다음 주에 내가 털릴 사람이다.
+const DIARY_TAILS = {
+  di_binge: 4, di_creature: 3, di_find: 3, di_rare: 3,
+  di_slim: 3, di_slim_done: 3, di_raid_win: 3, di_raid_empty: 3,
+  di_raid_lose: 3, di_robbed: 3, di_kept: 3,
+};
+window.DIARY_TAILS = DIARY_TAILS;
+
+// ⚠️ **`Math.random()` 이면 안 된다.** 일지는 열 때마다 다시 그리므로 볼 때마다
+// 꼬리말이 바뀐다 — 「내가 잘못 읽었나」가 된다 (날씨·약탈 한 마디와 같은 이유).
+// 줄이 적힌 시각으로 시드를 고정하면 **줄마다 다르되 그 줄은 늘 같다.**
+function diaryTail(key, e, p) {
+  const n = DIARY_TAILS[key] || 0;
+  if (!n) return '';
+  const seed = key + '|' + (e.t || 0);
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const k = `${key}_t${(h % n) + 1}`;
+  const s = T(k, p);
+  return s === k ? '' : s;                    // 꼬리말이 없으면 본문만 남는다
 }
 
 // 줄 앞의 아이콘. 사건마다 하나씩 — 훑을 때 「그날 뭐가 있었나」가 먼저 읽힌다
@@ -5234,6 +5266,7 @@ const DIARY_ICON = {
 window.DIARY_ICON = DIARY_ICON;
 
 function openDiary() {
+  diaryPage = 0;                 // **열면 늘 오늘부터.** 어제 넘겨 본 자리로 열면 놀란다
   renderDiary();
   const m = document.getElementById('diaryModal');
   if (m) m.classList.add('show');
@@ -5244,18 +5277,15 @@ function closeDiary() {
   if (m) m.classList.remove('show');
 }
 
-function renderDiary() {
-  const ti = document.getElementById('diaryTitle');
-  if (ti) ti.textContent = T('di_title');
-  const era = document.getElementById('diaryEra');
-  if (era) era.textContent = T('di_era', { y: eraYear() });
-  const el = document.getElementById('diaryBody');
-  if (!el) return;
-  const all = Array.isArray(S.diary) ? S.diary : [];
-  if (!all.length) { el.innerHTML = `<div class="empty-hint">${T('di_empty')}</div>`; return; }
+// 지금 펼쳐 놓은 쪽. **0 이 제일 최근 날**이고 커질수록 과거로 간다.
+// 세이브에 안 남긴다 — 어제 어디까지 넘겨 봤는지는 다음에 열 때 알 바가 아니다
+let diaryPage = 0;
 
-  // 날짜별로 묶는다. **날은 새것이 위**, 그 안은 **일어난 순서대로**다 —
-  // 하루치는 아침부터 읽어야 이야기가 되고, 날은 오늘부터 봐야 찾기가 쉽다
+// 날짜별로 묶는다. **한 날이 한 쪽이다** — 책장을 넘기듯 하루씩 본다.
+// 날은 새것이 앞(0쪽), 그 안은 **일어난 순서대로**다 — 하루치는 아침부터 읽어야
+// 이야기가 되고, 날은 오늘부터 봐야 찾기가 쉽다
+function diaryDays() {
+  const all = Array.isArray(S.diary) ? S.diary : [];
   const days = [];
   all.slice().sort((a, b) => a.t - b.t).forEach(e => {
     const k = `${e.y}-${e.m}-${e.d}`;
@@ -5263,17 +5293,57 @@ function renderDiary() {
     if (last && last.k === k) last.rows.push(e);
     else days.push({ k, y: e.y, m: e.m, d: e.d, rows: [e] });
   });
+  return days.reverse();
+}
 
-  el.innerHTML = days.reverse().map(g => {
-    const rows = g.rows.map(e => {
-      const s = diaryLine(e);
-      if (!s) return '';
-      return `<div class="di-row"><span class="di-ic" aria-hidden="true">${DIARY_ICON[e.k] || '·'}</span>
-        <span class="di-txt">${s}</span></div>`;
-    }).join('');
-    if (!rows) return '';
-    return `<div class="di-day"><div class="di-date">${T('di_day', { m: g.m, d: g.d })}</div>${rows}</div>`;
-  }).join('') || `<div class="empty-hint">${T('di_empty')}</div>`;
+// 쪽을 넘긴다. `d` 가 +1 이면 **과거로**(다음 쪽), −1 이면 최근으로
+function diaryFlip(d) {
+  const n = diaryDays().length;
+  const next = Math.max(0, Math.min(n - 1, diaryPage + d));
+  if (next === diaryPage) return;             // 끝에서 눌러도 아무 일 없다
+  diaryPage = next;
+  renderDiary();
+  if (window.Sfx) Sfx.play('pick');
+}
+window.diaryFlip = diaryFlip;
+
+function renderDiary() {
+  const ti = document.getElementById('diaryTitle');
+  if (ti) ti.textContent = T('di_title');
+  const era = document.getElementById('diaryEra');
+  if (era) era.textContent = T('di_era', { y: eraYear() });
+  const el = document.getElementById('diaryBody');
+  const nav = document.getElementById('diaryNav');
+  if (!el) return;
+  const days = diaryDays();
+  if (!days.length) {
+    el.innerHTML = `<div class="empty-hint">${T('di_empty')}</div>`;
+    if (nav) nav.innerHTML = '';
+    return;
+  }
+  // 줄이 지워져 쪽수가 줄어들 수 있다 (`DIARY_MAX`) — 범위를 벗어나면 당겨 온다
+  if (diaryPage > days.length - 1) diaryPage = days.length - 1;
+
+  const g = days[diaryPage];
+  const rows = g.rows.map(e => {
+    const s = diaryLine(e);
+    if (!s) return '';
+    return `<div class="di-row"><span class="di-ic" aria-hidden="true">${DIARY_ICON[e.k] || '·'}</span>
+      <span class="di-txt">${s}</span></div>`;
+  }).join('');
+  el.innerHTML = `<div class="di-day"><div class="di-date">${T('di_day', { m: g.m, d: g.d })}</div>${
+    rows || `<div class="empty-hint">${T('di_empty')}</div>`}</div>`;
+
+  // 쪽 넘기기. **왼쪽이 과거다** — 책장을 뒤로 넘기는 방향과 같다.
+  // 끝에 닿은 쪽은 `disabled` 로 둔다: 눌러도 아무 일 없는 버튼을 살려 두지 않는다
+  if (nav) {
+    nav.innerHTML = `
+      <button class="di-nav-btn" onclick="diaryFlip(1)"${diaryPage >= days.length - 1 ? ' disabled' : ''}
+        aria-label="${T('di_prev')}">◀</button>
+      <span class="di-page">${T('di_page', { i: diaryPage + 1, n: days.length })}</span>
+      <button class="di-nav-btn" onclick="diaryFlip(-1)"${diaryPage <= 0 ? ' disabled' : ''}
+        aria-label="${T('di_next')}">▶</button>`;
+  }
 }
 window.openDiary = openDiary;
 window.closeDiary = closeDiary;
