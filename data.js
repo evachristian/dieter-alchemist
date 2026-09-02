@@ -1082,12 +1082,20 @@ const QUESTS = [
   { id: 'q_walk', npc: 'sp_althea', act: 1, at: 6,
     goal: { kind: 'visit', n: 8 },
     reward: { pages: ['creature:basic'], crystal: 60 }, cut: { in: 'c_walk_in', out: 'c_walk_out' } },
+  // 요리사 클레멘 (STORY.md 1순위). **부엌 자체는 퀘스트와 상관없이 열려 있다** —
+  // 「혼자 먹은 밤」의 페널티를 피할 길을 선택 콘텐츠 뒤에 숨기면 안 된다
+  { id: 'q_kitchen', npc: 'sp_clemen', act: 1, at: 10,
+    goal: { kind: 'kitchen', n: 3 },
+    reward: { crystal: 70, items: { wheat: 8 } }, cut: { in: 'c_kitchen_in', out: 'c_kitchen_out' } },
   { id: 'q_bring', npc: 'sp_althea', act: 1, at: 14,
     goal: { kind: 'deliver', id: 'herb', n: 10 },
     reward: { pages: ['potion:mid#0'], crystal: 80, items: { berry: 6 } }, cut: { in: 'c_bring_in', out: 'c_bring_out' } },
   { id: 'q_egg', npc: 'sp_althea', act: 1, at: 22,
     goal: { kind: 'creature', n: 1 },
     reward: { pages: ['potion:mid#1'], crystal: 120 }, cut: { in: 'c_egg_in', out: 'c_egg_out' } },
+  { id: 'q_soup', npc: 'sp_clemen', act: 1, at: 26,
+    goal: { kind: 'deliver', id: 'wheat', n: 12 },
+    reward: { crystal: 140, items: { herb: 10 } }, cut: { in: 'c_soup_in', out: 'c_soup_out' } },
   { id: 'q_sip', npc: 'sp_althea', act: 1, at: 32,
     goal: { kind: 'drink', n: 5 },
     reward: { pages: ['creature:mid'], crystal: 150, items: { dew: 8 } }, cut: { in: 'c_sip_in', out: 'c_sip_out' } },
@@ -1158,6 +1166,14 @@ const CUTS = [
   { id: 'c_sip_out',   act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
   { id: 'c_bloom_in',  act: 1, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'soft']] },
   { id: 'c_bloom_out', act: 1, lines: [['sp_althea', 'cross'], ['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
+  // ─ 요리사 클레멘 ─
+  // **그는 대가 없이 준다** (STORY.md). 폭식해도 안 깎고 다음 날 아침 아무 말 없이
+  // 또 차린다. 그래서 대사에 조건이 없다 — 「먹어요」 뿐이다
+  { id: 'c_clemen_meet', act: 1, lines: [['sp_gwiriel', 'shock'], ['sp_clemen', 'def'], ['sp_gwiriel', 'soft'], ['sp_clemen', 'smile']] },
+  { id: 'c_kitchen_in',  act: 1, lines: [['sp_clemen', 'def'], ['sp_gwiriel', 'soft']] },
+  { id: 'c_kitchen_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_clemen', 'smile']] },
+  { id: 'c_soup_in',     act: 1, lines: [['sp_clemen', 'def'], ['sp_gwiriel', 'smile']] },
+  { id: 'c_soup_out',    act: 1, lines: [['sp_clemen', 'smile'], ['sp_gwiriel', 'soft'], ['sp_clemen', 'def']] },
 ];
 function cutOf(id) { return CUTS.find(c => c.id === id) || null; }
 

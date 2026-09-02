@@ -72,6 +72,8 @@ const defaultState = () => ({
   // · `done`   — 마친 것 (순서대로 · 스토리 다시보기가 이 순서를 쓴다)
   // · `queue`  — 조건은 찼는데 아직 안 내보낸 것
   quest: { active: null, n: 0, done: [], queue: [] },
+  // 부엌에 마지막으로 간 날 (`STORY.md` 요리사 클레멘). **그날 밤은 혼자가 아니다.**
+  kitchenDay: 0,
   // 본 컷씬 — 스토리 다시보기 목록 (2단계에서 쓴다)
   seenCuts: [],
   // 일지에 **어느 시각의 밭 기록까지 옮겨 적었나.** `farmSeenAt`(배지용)과 따로 둔다 —
@@ -1133,6 +1135,85 @@ function claimQuest() {
 }
 window.claimQuest = claimQuest;
 
+// ═══════════════════════════════════════════════════════════════
+//  부엌 — 요리사 클레멘 (STORY.md)
+//
+//  **그는 대가 없이 준다.** AP 도, 재료도, 현자의 결정도 안 든다.
+//  폭식해도 그의 호감도는 안 깎이고, 다음 날 아침 아무 말 없이 또 차린다 —
+//  「온기만이 등가 교환의 밖에 있다」가 이 인물의 전부다.
+//
+//  ⚠️ **부엌은 퀘스트와 상관없이 열려 있다.** 「혼자 먹은 밤」은 지금까지
+//  **피할 방법이 없는 페널티**였는데(판정 기준이 「혼자 먹었느냐」인데 같이 먹을
+//  사람이 없었다), 그 해소를 «선택 콘텐츠»인 퀘스트 뒤에 숨기면 안 된다.
+//  튜토리얼을 마치면 바로 열린다.
+// ═══════════════════════════════════════════════════════════════
+function kitchenOpen() { return !!S.tutorialDone; }
+window.kitchenOpen = kitchenOpen;
+
+// 오늘 이미 같이 먹었나
+function ateToday() { return (S.kitchenDay || 0) === dayKey(); }
+
+function openKitchen() {
+  if (!kitchenOpen()) return;
+  // **처음 오면 인사부터.** 퀘스트가 아니라 부엌 자체가 그를 소개한다
+  if (!(S.seenCuts || []).includes('c_clemen_meet')) { playCut('c_clemen_meet', openKitchen); return; }
+  renderKitchen();
+  const m = document.getElementById('kitchenSheet');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeKitchen() {
+  const m = document.getElementById('kitchenSheet');
+  if (m) m.classList.remove('show');
+}
+window.openKitchen = openKitchen;
+window.closeKitchen = closeKitchen;
+
+function renderKitchen() {
+  const ti = document.getElementById('kitchenTitle');
+  const el = document.getElementById('kitchenBody');
+  if (ti) ti.textContent = T('kt_title');
+  if (!el) return;
+  const done = ateToday();
+  // 오늘의 한 마디 — **날짜로 고정한다.** 다시 그릴 때마다 말이 바뀌면
+  // 「내가 잘못 읽었나」가 된다 (일지 꼬리말·날씨와 같은 규칙)
+  const i = diaryHash('kt|' + dayKey()) % KITCHEN_LINES;
+  el.innerHTML = `
+    <div class="q-say">
+      <span class="q-face" aria-hidden="true">${
+        window.Portrait ? Portrait.bust(D.speaker('sp_clemen'), done ? 'smile' : 'def', { bare: true }) : ''}</span>
+      <span class="q-line">
+        <b class="q-who">${speakerName('sp_clemen')}</b>
+        <span class="q-text">${T(done ? 'kt_after' : `kt_say_${i + 1}`)}</span>
+      </span>
+    </div>
+    <div class="kt-note">${T('kt_free')}</div>
+    <button class="btn ${done ? 'btn-ghost' : 'btn-primary'} kt-eat"
+      onclick="eatWithClemen()"${done ? ' disabled' : ''}>
+      ${T(done ? 'kt_done' : 'kt_eat')}</button>`;
+}
+window.renderKitchen = renderKitchen;
+const KITCHEN_LINES = 5;
+
+// 같이 먹는다. **아무것도 안 든다.**
+function eatWithClemen() {
+  if (!kitchenOpen() || ateToday()) return;
+  S.kitchenDay = dayKey();
+  // 배가 부르다 — 혼자 먹은 밤의 `fullnessBack` 과 같은 값이다.
+  // 「따뜻한 밥」이 야식보다 덜 채우면 그건 벌이지 온기가 아니다
+  S.fullness = Math.max(fullness(), BINGE.fullnessBack);
+  S.bodyTs = Date.now();
+  rec('meals');
+  questBump('kitchen');
+  diaryAdd('di_meal', { who: 'sp_clemen' });
+  save();
+  renderKitchen();
+  render();
+  toast(T('kt_ate'), null, 3000);
+  if (window.Sfx) Sfx.play('success');
+}
+window.eatWithClemen = eatWithClemen;
+
 // ─── 컷씬 (QUEST.md 2-2) ─────────────────────────────────────
 //
 // **초상화 + 말풍선.** 아무 데나 눌러 넘긴다.
@@ -1591,8 +1672,16 @@ function checkBinge() {
 
   // 며칠이 지났는지 — 날짜 키는 정수라 뺄셈이 안 되므로 **마지막 계산 시각**으로 센다.
   // (bodyTs 는 tickBody 가 방금 지금으로 맞춰 놓았으므로 lastWorkoutTs 를 쓰지 않는다)
-  const nights = Math.min(BINGE.maxNights, Math.max(1, daysBetween(S.bingeDay, today)));
+  let nights = Math.min(BINGE.maxNights, Math.max(1, daysBetween(S.bingeDay, today)));
+  // ⚠️ **부엌에 간 밤은 혼자가 아니다** (`STORY.md` 요리사 클레멘).
+  // 판정 기준은 처음부터 「혼자 먹었느냐」였는데 같이 먹을 사람이 없어서
+  // 늘 참이었다 — 피할 방법이 없는 페널티였다. 이제 갈래가 하나 생긴다.
+  // 정산하는 구간(`S.bingeDay` ~ 어제) 안에 부엌에 간 날이 있으면 **그 밤 하나를 뺀다**
+  const warm = (S.kitchenDay || 0) >= S.bingeDay && (S.kitchenDay || 0) < today ? 1 : 0;
+  nights = Math.max(0, nights - warm);
   S.bingeDay = today;
+  if (warm) { rec('warmNights'); diaryAdd('di_meal_night', { who: 'sp_clemen' }); }
+  if (!nights) return null;                    // 밤이 하나뿐이었고 그 밤은 함께였다
   if (fullness() > BINGE.atFullness) return null;
 
   // **밤마다 한 칸씩 쌓는다.** 여러 밤을 하나로 뭉치면 「그날 밤」이 사라진다
@@ -5709,6 +5798,12 @@ window.eatFood = eatFood;
 function bingeCount() { return (S.binges || []).length; }
 
 function renderActBadges() {
+  // 부엌 — 튜토리얼을 마치면 보이고, **오늘 안 먹었으면 점이 켜진다.**
+  // 숫자가 아니라 점인 이유: 하루에 한 번이라 셀 것이 없다
+  const kb = document.getElementById('actKitchen');
+  if (kb) kb.hidden = !kitchenOpen();
+  const kd = document.getElementById('kitchenDot');
+  if (kd) kd.hidden = !kitchenOpen() || ateToday();
   const el = document.getElementById('bingeBadge');
   if (!el) return;
   const n = bingeCount();
@@ -5858,11 +5953,13 @@ const DIARY_BODIES = {
   di_binge: 5, di_creature: 5, di_find: 5, di_rare: 5,
   di_slim: 5, di_slim_done: 5, di_raid_win: 5, di_raid_empty: 5,
   di_raid_lose: 5, di_robbed: 5, di_kept: 5, di_quest: 5,
+  di_meal: 5, di_meal_night: 5,
 };
 const DIARY_TAILS = {
   di_binge: 4, di_creature: 4, di_find: 4, di_rare: 4,
   di_slim: 4, di_slim_done: 4, di_raid_win: 4, di_raid_empty: 4,
   di_raid_lose: 4, di_robbed: 4, di_kept: 4, di_quest: 4,
+  di_meal: 4, di_meal_night: 4,
 };
 window.DIARY_BODIES = DIARY_BODIES;
 window.DIARY_TAILS = DIARY_TAILS;
@@ -5894,6 +5991,7 @@ const DIARY_ICON = {
   di_binge: '🍽️', di_creature: '🥚', di_find: '📖', di_rare: '✨',
   di_slim: '🎀', di_raid_win: '🌾', di_raid_empty: '🌾', di_raid_lose: '💦',
   di_robbed: '😿', di_kept: '🛡️', di_quest: '📜',
+  di_meal: '🍲', di_meal_night: '🌙',
 };
 // **이 표가 사건의 목록이다.** 검사기가 여기 있는 열쇠를 하나씩 심어 보고
 // 문장이 나오는지 본다 — 새 사건을 만들면 아이콘을 여기 넣는 것만으로 검사에 걸린다

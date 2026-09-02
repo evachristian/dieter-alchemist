@@ -1167,6 +1167,44 @@ function launchOpts() {
         await page.waitForTimeout(150);
         continue;
       }
+      // **부엌** (STORY.md 요리사 클레멘) — 아무것도 안 드는 유일한 자리다.
+      // ⚠️ 여기서 재는 것의 핵심: **아무것도 안 깎이는가.** 값을 받기 시작하면
+      // 「온기만이 등가 교환의 밖에 있다」가 무너진다
+      if (process.env.FULL && t === 'showcase') {
+        const ktBad = await page.evaluate(() => {
+          S.seenCuts = ['c_clemen_meet']; S.kitchenDay = 0;
+          const btn = document.getElementById('actKitchen');
+          renderActBadges();
+          if (!btn || btn.hidden) return '부엌 버튼이 안 보인다 (튜토리얼을 마쳤는데)';
+          if (document.getElementById('kitchenDot').hidden) return '오늘 안 먹었는데 점이 안 켜진다';
+          openKitchen();
+          if (!document.getElementById('kitchenSheet').classList.contains('show')) return '시트가 안 떴다';
+          if (!document.querySelector('#kitchenSheet .q-face svg')) return '클레멘 초상이 없다';
+          const before = { ap: S.energy, crystal: S.crystal || 0,
+            inv: Object.keys(S.inventory).reduce((n, id) => n + S.inventory[id], 0) };
+          S.fullness = 0; S.bodyTs = Date.now();
+          eatWithClemen();
+          // **아무것도 안 든다** — AP 도, 결정도, 재료도
+          if (S.energy !== before.ap) return `AP 가 ${before.ap - S.energy} 깎였다 (0 이어야 한다)`;
+          if ((S.crystal || 0) !== before.crystal) return '현자의 결정이 깎였다';
+          const inv = Object.keys(S.inventory).reduce((n, id) => n + S.inventory[id], 0);
+          if (inv !== before.inv) return `재료가 ${before.inv - inv} 줄었다 (0 이어야 한다)`;
+          if (Math.floor(fullness()) < 70) return `배가 안 부르다 (포만감 ${Math.floor(fullness())})`;
+          if (S.kitchenDay !== dayKey()) return '오늘 먹은 것으로 안 적혔다';
+          // 하루에 한 번 — 버튼이 잠기고 점이 꺼진다
+          renderKitchen(); renderActBadges();
+          if (!document.querySelector('#kitchenSheet .kt-eat').disabled) return '먹었는데 버튼이 살아 있다';
+          if (!document.getElementById('kitchenDot').hidden) return '먹었는데 점이 안 꺼진다';
+          return null;
+        });
+        if (ktBad) results.push({ 화면: `${t}/부엌`, 오류: ktBad });
+        else { await page.waitForTimeout(280); await run(`${t}/부엌`); }
+        const ktBad2 = await page.evaluate(() => window.__cardFits('#kitchenSheet'));
+        if (ktBad2) results.push({ 화면: `${t}/부엌`, 오류: ktBad2 });
+        await page.evaluate(() => { closeKitchen(); S.kitchenDay = 0; renderActBadges(); });
+        await page.waitForTimeout(150);
+      }
+
       // 마이 룸은 하위 탭마다 내용이 통째로 다르다 — FULL 이면 셋을 다 돌아본다
       if (process.env.FULL && t === 'showcase') {
         // 스탯은 접었을 때와 펼쳤을 때가 **다른 화면**이다 — 접으면 카드도 테두리도 없이

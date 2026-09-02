@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260902c">
+<link rel="stylesheet" href="style.css?v=20260902d">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260902c" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260902d" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -484,6 +484,13 @@
         <!-- 크리처 생산 (CREATURE.md 8장) — 만든 것은 **저절로 가방에 들어간다.**
              이 버튼은 「무엇이 들어왔는지」를 보여 주는 기록이다.
              뱃지에 **안 본 날 수**를 적는다 (흡입과 같은 규칙) -->
+        <!-- 부엌 — 요리사 클레멘 (STORY.md). **그는 대가 없이 준다.**
+             ⚠️ 퀘스트와 상관없이 열려 있다: 「혼자 먹은 밤」을 피할 길을
+             선택 콘텐츠 뒤에 숨기면 안 된다. 하루에 한 번, 오늘 먹었으면 점이 꺼진다 -->
+        <button id="actKitchen" class="room-act" onclick="openKitchen()" hidden>
+          <span aria-hidden="true">🍲</span><span data-i18n="act_kitchen">부엌</span>
+          <span id="kitchenDot" class="act-dot" hidden></span>
+        </button>
         <button id="actProduce" class="room-act" onclick="openProduceLog()">
           <span aria-hidden="true">🧺</span><span data-i18n="act_produce">수확</span>
           <span id="produceBadge" class="act-badge" hidden>0</span>
@@ -763,6 +770,16 @@
   </div>
 </div>
 
+<!-- ── 부엌 (요리사 클레멘) ──
+     아무것도 안 드는 유일한 자리다. 「온기만이 등가 교환의 밖에 있다」(STORY.md) -->
+<div id="kitchenSheet" class="modal" onclick="if(event.target===this) closeKitchen()">
+  <div class="modal-card farm-card">
+    <div id="kitchenTitle" class="confirm-text"></div>
+    <div id="kitchenBody" class="q-body"></div>
+    <button class="btn btn-ghost" onclick="closeKitchen()" data-i18n="pal_close">닫기</button>
+  </div>
+</div>
+
 <!-- ── 컷씬 (QUEST.md 2-2) ──
      **초상화 + 말풍선.** 인트로처럼 손으로 그린 SVG 장면을 퀘스트마다 만들지 않는다.
      ⚠️ 재생과 «보상 지급»은 갈라 놓았다 — 한 함수면 스토리 다시보기가 보상을 또 준다 -->
@@ -922,19 +939,19 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260902c"></script>
-<script src="intro.js?v=20260902c"></script>
-<script src="data.js?v=20260902c"></script>
-<script src="avatar.js?v=20260902c"></script>
-<script src="village.js?v=20260902c"></script>
-<script src="portrait.js?v=20260902c"></script>
-<script src="creature.js?v=20260902c"></script>
-<script src="cauldron.js?v=20260902c"></script>
-<script src="pumpkin.js?v=20260902c"></script>
-<script src="sfx.js?v=20260902c"></script>
-<script src="sync.js?v=20260902c"></script>
-<script src="game.js?v=20260902c"></script>
-<script src="tutorial.js?v=20260902c"></script>
-<script src="a11y.js?v=20260902c"></script>
+<script src="i18n.js?v=20260902d"></script>
+<script src="intro.js?v=20260902d"></script>
+<script src="data.js?v=20260902d"></script>
+<script src="avatar.js?v=20260902d"></script>
+<script src="village.js?v=20260902d"></script>
+<script src="portrait.js?v=20260902d"></script>
+<script src="creature.js?v=20260902d"></script>
+<script src="cauldron.js?v=20260902d"></script>
+<script src="pumpkin.js?v=20260902d"></script>
+<script src="sfx.js?v=20260902d"></script>
+<script src="sync.js?v=20260902d"></script>
+<script src="game.js?v=20260902d"></script>
+<script src="tutorial.js?v=20260902d"></script>
+<script src="a11y.js?v=20260902d"></script>
 </body>
 </html>

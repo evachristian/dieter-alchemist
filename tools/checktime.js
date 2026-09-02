@@ -245,6 +245,57 @@ function launchOpts() {
       ok(invCount(mk.id) === 0, `크리처가 없으면 ${invCount(mk.id)}개 (0이어야 한다)`);
     }
 
+    // ── 부엌에 간 밤은 혼자가 아니다 (STORY.md 요리사 클레멘) ──
+    //
+    // ⚠️ **이건 시계를 옮겨 놓지 않으면 확인할 방법이 없다.** 「어제 부엌에 갔고
+    // 오늘 날이 바뀌었다」를 실제로 만들어 봐야 갈래가 도는지 알 수 있다.
+    //
+    // 「혼자 먹은 밤」의 판정 기준은 처음부터 「혼자 먹었느냐」였는데, 같이 먹을
+    // 사람이 없어서 **늘 참**이었다 — 피할 방법이 없는 페널티였다.
+    {
+      const setup = () => {
+        S.aura.happy = 500; S.fit = 0; S.binges = [];
+        S.fullness = 0; S.bodyTs = Date.now();
+        S.bingeDay = dayKey(); S.kitchenDay = 0;
+        if (S.record) S.record.warmNights = 0;
+      };
+      // ① 부엌에 안 가면 그 밤은 혼자다 (예전 동작 그대로)
+      setup();
+      jumpH(26); tickBody();
+      const alone = checkBinge();
+      ok(alone && alone.nights === 1, `안 갔으면 혼자 먹은 밤 ${alone && alone.nights} (1 기대)`);
+
+      // ② **어제 부엌에 갔으면 그 밤은 혼자가 아니다**
+      setup();
+      eatWithClemen();                       // 오늘 같이 먹는다
+      S.fullness = 0; S.bodyTs = Date.now(); // 밤새 배가 꺼진 상태로 만든다
+      jumpH(26); tickBody();
+      const warm = checkBinge();
+      ok(warm === null, `같이 먹은 밤은 폭식이 아니다 (${JSON.stringify(warm)})`);
+      ok((S.record.warmNights || 0) === 1, `함께한 밤 ${S.record.warmNights} (1 기대)`);
+      ok(!S.binges.length, `혼자 먹은 장면이 ${S.binges.length}개 남았다 (0 기대)`);
+
+      // ③ 이틀을 비웠고 그중 하루만 부엌에 갔으면 **한 밤만** 뺀다
+      setup();
+      eatWithClemen();
+      S.fullness = 0; S.bodyTs = Date.now();
+      jumpH(24 * 3); tickBody();
+      const some = checkBinge();
+      ok(some && some.nights === 2, `사흘 중 하루는 함께 → 혼자인 밤 ${some && some.nights} (2 기대)`);
+
+      // ④ **하루에 한 번뿐이다** — 두 번 눌러도 한 번으로 친다
+      setup();
+      eatWithClemen();
+      const n0 = S.record.meals || 0;
+      eatWithClemen();
+      ok((S.record.meals || 0) === n0, `같은 날에는 한 번만 먹는다 (${S.record.meals} · ${n0} 기대)`);
+      // 날이 바뀌면 다시 먹을 수 있다
+      jumpH(26);
+      eatWithClemen();
+      ok((S.record.meals || 0) === n0 + 1, `날이 바뀌었는데 못 먹는다 (${S.record.meals})`);
+      setup();
+    }
+
     // ── 로엔 제국력 (탐험 일지) ──
     //
     // **현실 연도에서 1800 을 뺀다.** 2026 → 226 · 2027 → 227 · 2127 → 327.

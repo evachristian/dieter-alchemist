@@ -177,7 +177,7 @@ add('id 가 겹친다', dupId);
 {
   const qIds = new Set();
   const bad = [];
-  const kinds = ['brew', 'creature', 'drink', 'visit', 'deliver', 'charm', 'farm'];
+  const kinds = ['brew', 'creature', 'drink', 'visit', 'deliver', 'charm', 'farm', 'kitchen'];
   D.QUESTS.forEach(q => {
     if (qIds.has(q.id)) bad.push(`${q.id} — id 가 겹친다`);
     qIds.add(q.id);
