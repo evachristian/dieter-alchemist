@@ -148,6 +148,7 @@ D.FEEDS.forEach(x => push(x.id, x.name, '먹이'));
 // 인물 이름은 초상화·대화 화면에 그대로 나온다
 D.SPEAKERS.forEach(x => push(x.id, x.name, '인물'));
 D.KEYWORDS.forEach(x => push(x.id, x.name, '키워드'));
+D.BOND_TIERS.forEach(x => push(x.id, x.name, '호감도 단계'));
 D.LEAGUE_FAMS.forEach(f => push(f.id, f.name, '리그 계열'));
 D.NPC_HEAD.concat(D.NPC_TAIL).forEach(w => push(w.id, w.name, 'NPC 이름 낱말'));
 

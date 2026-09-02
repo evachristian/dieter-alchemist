@@ -24,6 +24,9 @@ const D = B.D;
 const ROOT = path.join(__dirname, '..');
 const out = [];
 const ok = (name, pass, detail) => out.push({ name, pass: !!pass, detail });
+// 레시피 하나에 드는 AP (채집 + 조합). 아래 두 블록이 같은 식을 쓴다 —
+// 사본을 두면 지대별 AP 를 고칠 때 한쪽만 고치게 된다
+let apOfR;
 
 // game.js 는 브라우저 파일이라 통째로 못 읽는다 — **써진 숫자를 그대로 본다.**
 // (`checkdata` 가 생성 구간을 파일에서 읽는 것과 같은 방식이다)
@@ -118,11 +121,12 @@ const numIn = (re, what) => {
   // 못 잰다. 그리고 **밭 작물은 채집으로 얻는 것이 아니라** 심어서 기르는 것이라
   // 채집 AP 를 한 푼도 안 낸다 — 옛 식은 여기에 10 씩을 매겨 상한을 낮게 잡고 있었다
   const cropIds = new Set((D.FARM_CROPS || []).map(c => c.id));
-  const apOf = r => (r.inputs || []).reduce((sum, id) => {
+  apOfR = r => (r.inputs || []).reduce((sum, id) => {
     if (cropIds.has(id)) return sum;                       // 밭에서 기른다
     const m = D.MAPS.find(x => (x.pool || []).includes(id) || x.special === id);
     return sum + (m ? D.zoneAp(m.zone) : E.cost.gather);
   }, 0) + E.cost.brew;
+  const apOf = apOfR;
   const eff = D.RECIPES
     .filter(r => r.result && r.result.kind === 'potion' && (r.result.charm || 0) > 0)
     .map(r => {
@@ -156,6 +160,37 @@ const numIn = (re, what) => {
   sim.judge(res.rows).forEach(m => {
     ok(`시뮬 · ${m.what}`, m.pass, `${m.값} (${m.lo}~${m.hi})`);
   });
+}
+
+// ─── 호감도 — **답례가 값보다 크면 안 된다** ────────────────
+//
+// 호감도가 「눌러서 재료 받기」가 되면 안 된다. 한 사람을 각별한 사이까지 올리려면
+// 물약을 몇 개 만들어 줘야 하고(=그만큼의 AP), 그 값보다 답례가 크면
+// **선물이 곧 파밍**이 된다 — 채집을 건너뛰고 선물만 도는 고리가 생긴다.
+{
+  const T = D.BOND_TIERS, G = D.BOND_GAIN, GF = D.BOND_GIFTS;
+  const top = T[T.length - 1].at;
+  // 제일 빨리 올리는 방법 = 좋아하는 등급을 «처음 주는 종류»로만 계속 주는 것
+  const best = G.fresh + G.like;
+  const potions = Math.ceil(top / best);
+  // 물약 하나에 드는 AP — 제일 싼 물약으로 잡는다 (가장 유리한 쪽으로 재야 한다)
+  const cheapest = Math.min(...D.RECIPES
+    .filter(r => r.result && r.result.kind === 'potion').map(r => apOfR(r)));
+  const spend = potions * cheapest;
+  const back = GF.reduce((n, g) => n + (g ? g.crystal : 0), 0);
+  // 답례 결정을 AP 로 환산한다 — 결정은 AP 충전으로 바꿀 수 있어서 같은 저울에 올라간다
+  const backAp = back * (D.ENERGY.cap / D.ENERGY.chargeCost);
+  ok('호감도 답례 < 들인 값', backAp < spend,
+     `물약 ${potions}개 ≈ ${spend} AP 들여서 답례 💎${back}(≈${Math.round(backAp)} AP)`);
+  // 단계가 «오르기만» 하는가 — 문턱이 뒤로 갈수록 커야 한다
+  ok('호감도 문턱이 오름차순', T.every((b, i) => !i || b.at > T[i - 1].at),
+     T.map(b => b.at).join(' → '));
+  // 「처음 주는 종류」가 커야 초반 레시피가 안 죽는다
+  ok('처음 주는 종류가 더 크다', G.fresh > G.again, `처음 ${G.fresh} > 두 번째 ${G.again}`);
+  // 답례가 단계마다 커지는가 — 뒤 단계가 더 싸면 올릴 이유가 없다
+  const gs = GF.filter(Boolean);
+  ok('답례가 단계마다 커진다', gs.every((g, i) => !i || (g.n > gs[i - 1].n && g.crystal > gs[i - 1].crystal)),
+     gs.map(g => `${g.n}/💎${g.crystal}`).join(' → '));
 }
 
 // ─── 결과 ────────────────────────────────────────────────────

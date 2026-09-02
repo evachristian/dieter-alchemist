@@ -89,6 +89,14 @@ const defaultState = () => ({
   talked: [],
   // 키워드로 연 마을 (`ASKS` 의 `opens`). **점수로 두 번 잠그지 않는다**
   villages: [],
+  // ─── 호감도 (STORY.md 「남자 NPC 여섯 › 공통 규칙」) ────────
+  // ⚠️ **매력·비주얼이 여기 안 들어간다.** 예뻐질수록 좋아해 주는 구조가 되면
+  // 주제와 정면으로 부딪힌다 — 오르는 것은 **공주가 만들어 준 것**뿐이다.
+  // ⚠️ **내려가지 않는다.** 코지 게임에서 관리 압박은 독이다.
+  // `bond`   — 사람 id → 점수. `gifted` — 사람 id → 이미 준 물약 종류
+  // (「처음 주는 종류」를 크게 치려면 무엇을 줬는지 사람마다 따로 기억해야 한다)
+  bond: {},
+  gifted: {},
   // 일지에 **어느 시각의 밭 기록까지 옮겨 적었나.** `farmSeenAt`(배지용)과 따로 둔다 —
   // 하나로 쓰면 밭 탭을 열어 배지를 지우는 순간 아직 안 적은 침입이 영영 안 적힌다
   diaryFarmAt: 0,
@@ -1322,6 +1330,157 @@ function villageNews(v) {
 // 부엌에 새로 물어볼 것이 있는가 (마이 룸의 🍲 에 점을 찍는다)
 function kitchenNews() { return kitchenOpen() && asksNew('sp_clemen') > 0; }
 window.kitchenNews = kitchenNews;
+
+// ═══════════════════════════════════════════════════════════════
+//  호감도 — 만들어 주면 오르고, 그들이 공급으로 갚는다
+//  (STORY.md 「남자 NPC 여섯 › 공통 규칙」 · 표는 `data.js` 의 `BONDS`)
+// ═══════════════════════════════════════════════════════════════
+//
+// ⚠️ **이 파일 어디에서도 호감도에 `totalCharm()` · `S.stats.beauty` 를 넣지 않는다.**
+// 예뻐질수록 좋아해 주는 구조는 `intro_6` 의 주제와 정면으로 부딪힌다.
+// 오르는 것은 **공주가 만들어 준 물약**뿐이고, `checkbond` 가 그것을 수치로 잰다
+// (매력을 999 로 올려 놓고 호감도가 한 톨도 안 움직이는지 본다).
+function bondOf(npc) { return (S.bond && S.bond[npc]) || 0; }
+function bondTier(npc) { return D.bondTierOf(bondOf(npc)); }
+function hasBond(npc) { return !!D.BONDS[npc]; }
+function giftedTo(npc) { return (S.gifted && S.gifted[npc]) || []; }
+
+// 이 물약을 주면 몇 점인가. **값이 큰 물약이 아니라 «새로운» 물약이 크게 오른다** —
+// 좋은 것만 치면 초반 레시피가 통째로 죽은 콘텐츠가 된다
+function giftGain(npc, potionId) {
+  const b = D.BONDS[npc];
+  if (!b) return 0;
+  const r = D.RECIPES.find(x => x.result.id === potionId);
+  if (!r || r.result.kind !== 'potion') return 0;
+  const g = D.BOND_GAIN;
+  return (giftedTo(npc).includes(potionId) ? g.again : g.fresh)
+       + (r.result.grade === b.like ? g.like : 0);
+}
+
+// 물약을 준다. **물약은 사라진다** — 이것이 유일한 제동이다.
+// 하루 몇 번 같은 제한은 안 건다: 「오늘 여섯 명 다 돌아야 한다」가 되면 그게 숙제다
+function giveGift(npc, potionId) {
+  if (!hasBond(npc) || (S.potions[potionId] || 0) <= 0) return;
+  const gain = giftGain(npc, potionId);
+  if (!gain) return;
+  const before = bondTier(npc);
+  S.potions[potionId]--;
+  if (S.potions[potionId] === 0) delete S.potions[potionId];
+  if (!S.gifted[npc]) S.gifted[npc] = [];
+  if (!S.gifted[npc].includes(potionId)) S.gifted[npc].push(potionId);
+  S.bond[npc] = bondOf(npc) + gain;
+  const after = bondTier(npc);
+  const r = D.RECIPES.find(x => x.result.id === potionId);
+  save();
+  renderGather();
+  renderGift();
+  const nm = N(potionId, r.result.name);
+  toast(T('gift_done', { name: nm, nj: josa(nm, '을를'), who: speakerName(npc), n: gain }), null, 3000);
+  if (window.Sfx) Sfx.play('pick');
+  // **단계가 올랐으면 답례.** 토스트를 겹치지 않게 뒤에 세운다
+  if (after > before) for (let t = before + 1; t <= after; t++) bondReward(npc, t);
+}
+window.giveGift = giveGift;
+
+// 갚는 쪽 — **그 사람의 자리에서 나는 것**이다. 공급이 곧 그 인물의 설명이 된다
+function bondReward(npc, tier) {
+  const gift = D.BOND_GIFTS[tier];
+  const b = D.BONDS[npc];
+  if (!gift || !b) return;
+  b.ing.forEach(id => addInv(id, gift.n));
+  if (gift.crystal) S.crystal = (S.crystal || 0) + gift.crystal;
+  save();
+  const what = b.ing.map(id => {
+    const it = D.INGREDIENTS[id];
+    return `${it ? it.emoji : ''}${N(id, it ? it.name : id)} ×${gift.n}`;
+  }).join(' · ');
+  const tn = D.BOND_TIERS[tier];
+  setTimeout(() => {
+    const who = speakerName(npc);
+    toast(T('bond_up', { who, nj: josa(who, '과와'), tier: N(tn.id, tn.name) }), null, 3400);
+    if (window.Sfx) Sfx.play('success');
+  }, 1200);
+  setTimeout(() => toast(T('bond_gift', { what, c: gift.crystal }), null, 3600), 2600);
+}
+
+// 하트 다섯 칸. **채운 칸 수가 곧 단계**라 색이 없어도 읽힌다
+// (색만으로 구분하지 않는다 — UI_POLICY.md)
+function bondHtml(npc) {
+  if (!hasBond(npc)) return '';
+  const t = bondTier(npc);
+  const tn = D.BOND_TIERS[t];
+  const pips = D.BOND_TIERS.map((_, i) =>
+    `<span class="bd-pip ${i <= t ? 'on' : ''}" aria-hidden="true">${i <= t ? '♥' : '♡'}</span>`).join('');
+  return `<span class="bd-row" title="${N(tn.id, tn.name)}">
+      <span class="bd-pips">${pips}</span>
+      <span class="bd-name">${N(tn.id, tn.name)}</span>
+    </span>`;
+}
+
+// ── 선물 시트 ────────────────────────────────────────────────
+// 가진 물약을 늘어놓고 **오를 점수를 미리 보여 준다.** 주고 나서야 알면
+// 「새 종류가 크다」는 규칙을 아무도 눈치 못 챈다
+let giftNpc = null;
+function openGift(npc) {
+  if (!hasBond(npc)) return;
+  giftNpc = npc;
+  // ⚠️ **띄우고 나서 그린다.** `renderGift()` 는 시트가 닫혀 있으면 아무것도 안 한다
+  // (선물할 때마다 닫힌 시트를 다시 그리지 않으려는 것) — 순서를 바꾸면 «빈 시트»가 뜬다
+  const m = document.getElementById('giftSheet');
+  if (m) m.classList.add('show');
+  renderGift();
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeGift() {
+  const m = document.getElementById('giftSheet');
+  if (m) m.classList.remove('show');
+  giftNpc = null;
+}
+window.openGift = openGift;
+window.closeGift = closeGift;
+
+function renderGift() {
+  const m = document.getElementById('giftSheet');
+  if (!m || !m.classList.contains('show') || !giftNpc) return;
+  const npc = giftNpc;
+  const b = D.BONDS[npc];
+  const ti = document.getElementById('giftTitle');
+  if (ti) ti.textContent = T('gift_title', { who: speakerName(npc) });
+  const el = document.getElementById('giftBody');
+  if (!el) return;
+  const ids = Object.keys(S.potions || {}).filter(id => (S.potions[id] || 0) > 0);
+  // 오를 점수가 큰 것부터 — 무엇을 주면 좋은지가 줄 순서로 읽힌다
+  ids.sort((a, c) => giftGain(npc, c) - giftGain(npc, a));
+  const likeName = T('grade_' + b.like);
+  const rows = ids.map(id => {
+    const r = D.RECIPES.find(x => x.result.id === id);
+    if (!r) return '';
+    const gain = giftGain(npc, id);
+    const fresh = !giftedTo(npc).includes(id);
+    const liked = r.result.grade === b.like;
+    return `<button class="gift-row" data-gift="${id}" onclick="giveGift('${npc}','${id}')">
+        <span class="gift-em" aria-hidden="true">${r.result.emoji}</span>
+        <span class="gift-nm">${N(id, r.result.name)}<span class="gift-have">×${S.potions[id]}</span></span>
+        <span class="gift-gain">+${gain}</span>
+        <span class="gift-tags">${fresh ? `<span class="gift-tag new">${T('gift_first')}</span>` : ''}${
+          liked ? `<span class="gift-tag like">${T('gift_like')}</span>` : ''}</span>
+      </button>`;
+  }).join('');
+  const t = bondTier(npc);
+  const next = D.BOND_TIERS[t + 1];
+  el.innerHTML = `
+    <div class="gift-head">
+      ${bondHtml(npc)}
+      <span class="gift-need">${next
+        ? T('bond_next', { n: next.at - bondOf(npc), tier: N(next.id, next.name) })
+        : T('bond_max')}</span>
+    </div>
+    <div class="gift-like">${T('gift_likes',
+        { who: speakerName(npc), nj: josa(speakerName(npc), '은는'), grade: likeName })}</div>
+    ${rows ? `<div class="gift-list">${rows}</div>`
+           : `<div class="gift-none">${T('gift_none')}</div>`}`;
+}
+window.renderGift = renderGift;
 
 // ─── 컷씬 (QUEST.md 2-2) ─────────────────────────────────────
 //
@@ -3104,7 +3263,7 @@ function renderVillageSpot(el, v, s) {
     </div>
     <div class="npc-bubble ${talking ? 'live' : ''}"
       ${talking ? `onclick="talkNext('${s.id}')" role="button" tabindex="0"` : ''}>
-      ${sp ? `<div class="npc-name">${speakerName(sp.id)}</div>` : ''}
+      ${sp ? `<div class="npc-name">${speakerName(sp.id)}${bondHtml(sp.id)}</div>` : ''}
       <div class="npc-line">${line}</div>
       ${dots}
       ${more ? '<span class="npc-more">▾</span>' : ''}
@@ -3117,7 +3276,9 @@ function renderVillageSpot(el, v, s) {
              ask ? (ask.mood || 'def') : (talking ? (moods[talkIdx] || 'def') : greetMood), { bare: true })}</div>`
         : ''}
       <div class="npc-acts">
-        ${trade ? `<button class="npc-act" onclick="npcAct('trade','${s.id}')">${T('npc_trade')}</button>` : ''}
+        ${sp && hasBond(sp.id)
+          ? `<button class="npc-act" onclick="openGift('${sp.id}')">${T('npc_gift')}</button>`
+          : (trade ? `<button class="npc-act" onclick="npcAct('trade','${s.id}')">${T('npc_trade')}</button>` : '')}
         <button class="npc-act main" onclick="npcAct('talk','${s.id}')">${T('npc_talk')}</button>
       </div>
     </div>`;
@@ -4853,8 +5014,33 @@ function renderGatherDev() {
       // 마을 하나씩 — 지금 화면에 나오는 마을만 (안 나오는 마을은 열어도 볼 곳이 없다)
       ...D.villagesShown().map(v =>
         devSw(devFlag(devVillageKey(v.id)), `${v.emoji} ${N(v.id, v.name)}`, `devVillageOne('${v.id}')`)),
-    ]);
+    ]) +
+    // **호감도 단계를 사람마다 골라 본다.** 올리려면 물약을 스무 개씩 만들어 줘야 해서
+    // 눈으로 확인할 길이 이것뿐이다 (방 배경 단계와 같은 이유).
+    // ⚠️ 여기서는 **답례를 주지 않는다** — 단계만 맞춘다. 답례까지 나오면
+    // 「눌러서 재료 받기」가 되고, 진짜 경로(선물 → 단계 → 답례)는 여전히 안 검사된다
+    devGroup(T('dev_g_bond')) +
+    D.bondNpcs().map(npc => {
+      const t = bondTier(npc);
+      const btns = D.BOND_TIERS.map((_, i) =>
+        `<button class="btn btn-dev${i === t ? ' on' : ''}" onclick="devBondSet('${npc}',${i})"
+          aria-label="${speakerName(npc)} ${i}">${i}</button>`).join('');
+      return `<div class="dev-row dev-bond"><span class="dev-bond-t">${speakerName(npc)}</span>${btns}</div>`;
+    }).join('');
 }
+
+// 호감도 단계를 그 자리에 맞춘다. **세이브에 들어간다** — 진짜 진행 값이라
+// 튜토리얼 완료·방 배경 단계와 같은 부류다. 내리는 것도 되게 둔다:
+// 게임 규칙으로는 안 내려가지만, 낮은 단계 화면을 다시 보려면 이 길이 있어야 한다
+function devBondSet(npc, tier) {
+  const t = Math.max(0, Math.min(D.BOND_TIERS.length - 1, tier | 0));
+  S.bond[npc] = D.BOND_TIERS[t].at;
+  save();
+  const tn = D.BOND_TIERS[t];
+  toast(T('dev_bond_done', { who: speakerName(npc), tier: N(tn.id, tn.name) }), null, 2600);
+  render();
+}
+window.devBondSet = devBondSet;
 
 // 튜토리얼 완료 표시. 채집 쪽 스위치들과 달리 이건 **세이브에 들어간다** —
 // 진짜 진행 상태이고, 기기를 바꿔도 따라가야 하기 때문이다.

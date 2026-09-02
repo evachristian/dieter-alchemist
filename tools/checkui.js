@@ -99,6 +99,9 @@ function launchOpts() {
       // 그려져, 사람이 실제로 보는 세 개·네 개짜리 줄을 **한 번도 안 재게 된다**
       // (아무것도 없는 세이브가 남기는 구멍과 같은 종류다)
       S.keywords = D.KEYWORDS.map(k => k.id);
+      // **호감도도 섞어 둔다.** 다 0 이면 빈 하트만 그려져, 채운 하트·단계 이름이
+      // 긴 쪽(「각별한 사이」)을 한 번도 안 잰다
+      S.bond = {}; D.bondNpcs().forEach((npc, i) => { S.bond[npc] = D.BOND_TIERS[i % 5].at; });
       // 랭킹 탭은 '여신' 단계(매력 100)부터 나타난다 — 매력을 안 주면 그 화면이
       // 통째로 검사에서 빠진다. 지난 주 결과 배너도 같이 띄워 둔다 (그것도 화면이다)
       // 운동 — 근성을 **중간쯤**으로 잡아 잠긴 종목과 열린 종목이 같이 나오게 한다.
@@ -1086,6 +1089,32 @@ function launchOpts() {
           if (askBad) results.push({ 화면: `${t}/물어볼것`, 오류: askBad });
           await page.evaluate(() => leaveSpot());
           await page.waitForTimeout(120);
+        }
+        // **선물 (호감도)** — 물약 줄이 제일 붐비는 화면이다.
+        // ⚠️ 여기서 재는 것의 핵심은 화면이 아니라 **매력이 안 섞이는가**인데
+        // 그것은 `checkbond` 가 수치로 본다. 여기서는 줄이 안 넘치는지만 잰다
+        {
+          const bad = await page.evaluate(() => {
+            // 단계 이름이 제일 긴 사람으로 연다 — 「각별한 사이」가 머리줄을 밀어낸다
+            S.bond.sp_orix = D.BOND_TIERS[D.BOND_TIERS.length - 1].at;
+            S.potions = {};
+            D.RECIPES.filter(r => r.result.kind === 'potion').slice(0, 6)
+              .forEach(r => { S.potions[r.result.id] = 3; });
+            setGatherTab('village'); setVillage('vl_chimney');
+            tapVillageSpot('vl_chimney', 'vs_chimney_forge');
+            openGift('sp_orix');
+            if (!document.getElementById('giftSheet').classList.contains('show')) return '시트가 안 떴다';
+            const rows = document.querySelectorAll('#giftSheet .gift-row').length;
+            if (rows !== 6) return `물약 줄이 ${rows}개다 (6 기대)`;
+            if (!document.querySelector('#giftSheet .gift-tag')) return '딱지가 하나도 없다';
+            return null;
+          });
+          if (bad) results.push({ 화면: `${t}/선물`, 오류: bad });
+          else { await page.waitForTimeout(280); await run(`${t}/선물`); }
+          const gfBad = await page.evaluate(() => window.__cardFits('#giftSheet'));
+          if (gfBad) results.push({ 화면: `${t}/선물`, 오류: gfBad });
+          await page.evaluate(() => { closeGift(); leaveSpot(); });
+          await page.waitForTimeout(150);
         }
         for (const sid of ['vs_chimney_shop', 'vs_chimney_tower']) {
           const bad = await page.evaluate((id) => {

@@ -1484,6 +1484,66 @@ const ASKS = [
 ];
 function asksOf(npc) { return ASKS.filter(a => a.npc === npc); }
 
+// ═══════════════════════════════════════════════════════════════
+//  호감도 — 공주가 «주는» 쪽에서 오른다 (STORY.md 「남자 NPC 여섯 › 공통 규칙」)
+// ═══════════════════════════════════════════════════════════════
+//
+// ⚠️ **매력·비주얼 수치를 여기에 곱하지 않는다.** 예뻐질수록 남자들이 좋아해 주는
+// 구조가 되면 `intro_6` 의 주제와 정면으로 부딪힌다 — 공주가 살을 빼는 이유가
+// 남에게 잘 보이기 위해서가 되어 버린다. 그들이 끌리는 것은 외모가 아니라
+// **연금술사로서의 그녀**다: 공주가 만들어 주고, 그들이 공급으로 갚는다.
+//
+// ⚠️ **내려가지 않는다.** 코지 게임에서 관리 압박은 독이다.
+// ⚠️ **공략 대상을 고르는 게임이 아니다.** 엔딩은 하나이고, 호감도는 분기가 아니라
+// 이야기를 앞으로 미는 재료다.
+//
+// **클레멘에게는 호감도가 없다.** 그는 「받는다」 쪽이 아니라 **대가 없이 주는** 쪽이고
+// (「온기만이 등가 교환의 밖에 있다」), 여기에 눈금을 붙이는 순간 그것도 등가 교환이 된다.
+const BOND_TIERS = [
+  { id: 'bd_0', name: '모르는 사이', at: 0 },
+  { id: 'bd_1', name: '안면',       at: 8 },
+  { id: 'bd_2', name: '친함',       at: 24 },
+  { id: 'bd_3', name: '신뢰',       at: 50 },
+  { id: 'bd_4', name: '각별한 사이', at: 90 },
+];
+function bondTierOf(n) {
+  let t = 0;
+  BOND_TIERS.forEach((b, i) => { if ((n || 0) >= b.at) t = i; });
+  return t;
+}
+
+// 점수가 붙는 방식 — **값이 큰 물약이 아니라 «새로운» 물약이 크게 오른다.**
+//
+// 「좋은 것을 주면 많이 오른다」로 두면 후반 물약 하나가 초반 물약 스무 개를 덮어써서
+// **초반 레시피가 통째로 죽은 콘텐츠**가 된다. 「처음 주는 종류」를 크게 잡으면
+// 비법서를 넓히는 일과 그대로 맞물린다 — 다양하게 만들어 본 사람이 빨리 친해진다.
+const BOND_GAIN = { fresh: 3, again: 1, like: 2 };
+
+// 사람마다 — 좋아하는 물약 «등급» · 갚을 때 내놓는 재료.
+//
+// **좋아하는 등급을 나눠 놓는다.** 초반에는 카이로스·슈타르크·실반과 친해지고
+// 오릭스·발렌은 뒤에 오는 식으로, 점수 하나 없이도 순서가 생긴다.
+// `ing` 은 그 사람의 «자리»에서 나는 것이다 — 공급이 곧 그 인물의 설명이 된다.
+const BONDS = {
+  sp_orix:   { like: 'high',  ing: ['iron_ore', 'crystal'] },      // 대장간 · 광석
+  sp_kairos: { like: 'basic', ing: ['clover', 'honey'] },          // 떠돌이 · 들에서 주운 것
+  sp_sylvan: { like: 'low',   ing: ['petal', 'tree_resin'] },      // 과수원 · 숲
+  sp_yutark: { like: 'mid',   ing: ['pearl_bit', 'sea_glass'] },   // 물가 · 거울못
+  sp_stark:  { like: 'low',   ing: ['mushroom', 'owl_feather'] },  // 사냥꾼 · 깊은 숲
+  sp_valen:  { like: 'high',  ing: ['bone_frag', 'lizard_scale'] },// 호위 · 위험 지대
+};
+// 단계가 오를 때의 답례. **0단계에는 없다** (시작이 0이라 줄 것이 없다).
+// ⚠️ 여기 값이 커지면 「호감도가 곧 파밍」이 된다 — `tools/checkbalance.js` 가
+// **한 사람을 각별한 사이까지 올리는 값보다 답례가 작은지**를 지킨다.
+const BOND_GIFTS = [
+  null,
+  { n: 3,  crystal: 20 },
+  { n: 5,  crystal: 40 },
+  { n: 8,  crystal: 70 },
+  { n: 12, crystal: 120 },
+];
+function bondNpcs() { return Object.keys(BONDS); }
+
 // 지대의 해금 점수 = 그 지대에서 가장 먼저 열리는 맵의 점수
 function zoneUnlock(zoneId) {
   return MAPS.filter(m => m.zone === zoneId).reduce((min, m) => Math.min(min, m.unlock), Infinity);
@@ -2086,6 +2146,7 @@ window.GameData = {
   INGREDIENTS, ZONES, MAPS, zoneUnlock, zoneAp, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS,
   KEYWORDS, keyword, ASKS, asksOf,
+  BOND_TIERS, bondTierOf, BOND_GAIN, BONDS, BOND_GIFTS, bondNpcs,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,
   FEEDS, FEED_RATE, LOYALTY_MAX, LOYALTY_STEPS, loyaltyBonus,
