@@ -1524,14 +1524,47 @@ const BOND_GAIN = { fresh: 3, again: 1, like: 2 };
 // **좋아하는 등급을 나눠 놓는다.** 초반에는 카이로스·슈타르크·실반과 친해지고
 // 오릭스·발렌은 뒤에 오는 식으로, 점수 하나 없이도 순서가 생긴다.
 // `ing` 은 그 사람의 «자리»에서 나는 것이다 — 공급이 곧 그 인물의 설명이 된다.
+//
+// `give` 는 **그가 «담당»하는 것**이다 (STORY.md 「남자 NPC 여섯」의 표 그대로).
+// 단계가 오를수록 그 몫이 커진다 — 재료 답례가 한 번뿐인 선물이라면 이쪽은 상시 효과다.
+// ⚠️ **실반에게는 `give` 가 없다.** 그는 STORY 의 「남자 NPC 여섯」이 아니라
+// 3막의 농민 연합 쪽 인물이라 담당이 아직 정해지지 않았다 — 재료로만 갚는다.
+// (억지로 하나 붙이면 여섯의 표가 흐려진다)
 const BONDS = {
-  sp_orix:   { like: 'high',  ing: ['iron_ore', 'crystal'] },      // 대장간 · 광석
-  sp_kairos: { like: 'basic', ing: ['clover', 'honey'] },          // 떠돌이 · 들에서 주운 것
-  sp_sylvan: { like: 'low',   ing: ['petal', 'tree_resin'] },      // 과수원 · 숲
-  sp_yutark: { like: 'mid',   ing: ['pearl_bit', 'sea_glass'] },   // 물가 · 거울못
-  sp_stark:  { like: 'low',   ing: ['mushroom', 'owl_feather'] },  // 사냥꾼 · 깊은 숲
-  sp_valen:  { like: 'high',  ing: ['bone_frag', 'lizard_scale'] },// 호위 · 위험 지대
+  sp_orix:   { like: 'high',  ing: ['iron_ore', 'crystal'],       give: 'gem' },   // 보석 → 악세사리
+  sp_kairos: { like: 'basic', ing: ['clover', 'honey'],           give: 'aura' },  // 노래 → 아우라
+  sp_sylvan: { like: 'low',   ing: ['petal', 'tree_resin'] },                      // (담당 없음)
+  sp_yutark: { like: 'mid',   ing: ['pearl_bit', 'sea_glass'],    give: 'lore' },  // 지식 → 히든 재료
+  sp_stark:  { like: 'low',   ing: ['mushroom', 'owl_feather'],   give: 'meat' },  // 단백질 → 근육
+  sp_valen:  { like: 'high',  ing: ['bone_frag', 'lizard_scale'], give: 'guard' }, // 호위 → 위험 지대
 };
+
+// **그들이 주는 것** — 단계(0~4)를 그대로 첨자로 쓴다. 0 은 「모르는 사이」라 언제나 0 이다.
+//
+// ⚠️ **효과는 «이미 있는 한 곳»을 지나게 한다.** 새 경로를 만들면 화면에 적힌 값과
+// 실제로 먹는 값이 갈린다 (지대별 AP 에서 배운 것과 같다). 그래서 다섯 다
+// 함수 하나에 곱해 붙는다 — 그 덕에 **셋은 저절로 화면에 보인다**:
+//   · 호위 → `gatherCost()` 라서 채집 버튼의 ⚡ 숫자가 그대로 내려간다
+//   · 단백질 → `exCost()` 라서 운동 팝업의 「단련 +」가 그대로 올라간다
+//   · 노래 → 물약을 마실 때의 아우라 획득에 붙는다
+// 나머지 둘(보석·지식)은 눈에 안 띄므로 선물 시트에 글자로 적는다.
+const BOND_GIVES = {
+  // 🏹 단백질 → 근육. 운동으로 얻는 **단련**이 그만큼 더 붙는다 (%)
+  meat:  { kind: 'pct', v: [0, 8, 16, 24, 32] },
+  // 🎻 노래 → 물약을 마실 때 오르는 **아우라**가 그만큼 더 붙는다 (%)
+  aura:  { kind: 'pct', v: [0, 10, 20, 30, 40] },
+  // 🪞 지식 → **히든 재료**가 나올 확률이 그만큼 오른다 (%)
+  lore:  { kind: 'pct', v: [0, 10, 20, 30, 40] },
+  // ⚔️ 호위 → **위험 지대**의 채집 AP 를 깎아 준다. 그가 데려다주는 곳만이다
+  guard: { kind: 'ap', v: [0, 1, 2, 3, 4], zones: ['waste', 'shore'] },
+  // ⛏️ 보석 → 단계가 오를 때마다 **악세사리 한 벌**. 이것만 상시가 아니라 그때 한 번이다
+  //    (그가 주는 것은 보석 자체가 아니라 그것으로 만든 물건이라서다)
+  gem:   { kind: 'wear', slots: [null, 'circlet', 'earring', 'necklace', 'circlet'] },
+};
+// 누가 그것을 담당하는가 (한 사람이 하나씩이다)
+function bondGiver(kind) {
+  return Object.keys(BONDS).find(id => BONDS[id].give === kind) || null;
+}
 // 단계가 오를 때의 답례. **0단계에는 없다** (시작이 0이라 줄 것이 없다).
 // ⚠️ 여기 값이 커지면 「호감도가 곧 파밍」이 된다 — `tools/checkbalance.js` 가
 // **한 사람을 각별한 사이까지 올리는 값보다 답례가 작은지**를 지킨다.
@@ -2146,7 +2179,7 @@ window.GameData = {
   INGREDIENTS, ZONES, MAPS, zoneUnlock, zoneAp, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS,
   KEYWORDS, keyword, ASKS, asksOf,
-  BOND_TIERS, bondTierOf, BOND_GAIN, BONDS, BOND_GIFTS, bondNpcs,
+  BOND_TIERS, bondTierOf, BOND_GAIN, BONDS, BOND_GIFTS, bondNpcs, BOND_GIVES, bondGiver,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,
   FEEDS, FEED_RATE, LOYALTY_MAX, LOYALTY_STEPS, loyaltyBonus,

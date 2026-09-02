@@ -121,10 +121,17 @@ const numIn = (re, what) => {
   // 못 잰다. 그리고 **밭 작물은 채집으로 얻는 것이 아니라** 심어서 기르는 것이라
   // 채집 AP 를 한 푼도 안 낸다 — 옛 식은 여기에 10 씩을 매겨 상한을 낮게 잡고 있었다
   const cropIds = new Set((D.FARM_CROPS || []).map(c => c.id));
+  // ⚠️ **왕자의 호위가 위험 지대의 값을 깎는다** (`BOND_GIVES.guard`).
+  // 그 몫을 안 빼면 상한을 실제보다 낮게 잡는다 — 「맨 위 리그에 닿는가」가
+  // 조용히 헐거워지는 자리다. **제일 유리한 쪽(각별한 사이)으로 잰다**
+  const G = D.BOND_GIVES.guard;
+  const cut = G.v[G.v.length - 1];
+  const floorAp = D.zoneAp('plain');
+  const zAp = z => Math.max(floorAp, D.zoneAp(z) - (G.zones.indexOf(z) >= 0 ? cut : 0));
   apOfR = r => (r.inputs || []).reduce((sum, id) => {
     if (cropIds.has(id)) return sum;                       // 밭에서 기른다
     const m = D.MAPS.find(x => (x.pool || []).includes(id) || x.special === id);
-    return sum + (m ? D.zoneAp(m.zone) : E.cost.gather);
+    return sum + (m ? zAp(m.zone) : E.cost.gather);
   }, 0) + E.cost.brew;
   const apOf = apOfR;
   const eff = D.RECIPES
@@ -187,6 +194,29 @@ const numIn = (re, what) => {
      T.map(b => b.at).join(' → '));
   // 「처음 주는 종류」가 커야 초반 레시피가 안 죽는다
   ok('처음 주는 종류가 더 크다', G.fresh > G.again, `처음 ${G.fresh} > 두 번째 ${G.again}`);
+  // **호위 할인이 지대 순서를 뒤집지 않는가.** 후반 지대가 초반보다 싸지면
+  // 「비싼 곳일수록 좋은 것이 난다」가 무너져서 지대를 나눈 뜻이 없어진다
+  const gz = D.BOND_GIVES.guard;
+  const maxCut = gz.v[gz.v.length - 1];
+  const plainAp = D.zoneAp('plain');
+  // ⚠️ **`gatherCost()` 의 바닥(`Math.max`)을 여기서 다시 씌우면 안 된다.**
+  // 그러면 무슨 값을 넣어도 통과하는 «스스로 맞는» 검사가 된다 (실제로 그렇게 썼다가
+  // 사보타주가 안 잡혀서 알았다). 바닥은 마지막 안전장치이고, **표 자체가
+  // 바닥을 안 건드려야 한다** — 건드리면 그 순간부터 단계를 올려도 값이 안 내려간다
+  const flipped = D.ZONES.filter(z => gz.zones.indexOf(z.id) >= 0)
+    .filter(z => z.ap - maxCut < plainAp);
+  ok('호위 할인이 지대 순서를 안 뒤집는다 (바닥에 안 닿는다)', !flipped.length,
+     gz.zones.map(id => {
+       const z = D.ZONES.find(x => x.id === id);
+       return `${id} ${z.ap}→${z.ap - maxCut}`;
+     }).join(' · ') + ` (평야 ${plainAp})`);
+  // **한 사람이 하나씩만 담당한다.** 둘이 같은 것을 담당하면 `bondGiver` 가
+  // 앞엣것만 돌려줘서 뒷사람의 몫이 조용히 사라진다
+  const kinds = Object.keys(D.BONDS).map(id => D.BONDS[id].give).filter(Boolean);
+  ok('담당이 겹치지 않는다', new Set(kinds).size === kinds.length, kinds.join(' · '));
+  ok('담당 이름이 모두 표에 있다', kinds.every(k => D.BOND_GIVES[k]),
+     Object.keys(D.BOND_GIVES).join(' · '));
+
   // 답례가 단계마다 커지는가 — 뒤 단계가 더 싸면 올릴 이유가 없다
   const gs = GF.filter(Boolean);
   ok('답례가 단계마다 커진다', gs.every((g, i) => !i || (g.n > gs[i - 1].n && g.crystal > gs[i - 1].crystal)),

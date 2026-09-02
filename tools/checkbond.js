@@ -192,6 +192,68 @@ function ok(cond, msg, extra) {
   ok(pip.length > 0 && worst >= 4.5, '하트도 4.5:1 을 지킨다 (검증기가 그림 글자로 봐서 안 잰다)',
      `${pip.length}칸 · 가장 낮은 대비 ${worst.toFixed(2)}:1`);
 
+  // ═══ 그들이 «주는 것» (STORY.md 「남자 NPC 여섯」의 표) ═══
+  //
+  // ⚠️ **효과가 이미 있는 함수 한 곳을 지나는지**를 본다. 새 경로를 만들면
+  // 화면에 적힌 값과 실제로 먹는 값이 갈린다 (지대별 AP 에서 겪은 것과 같다).
+  const gives = await page.evaluate(() => {
+    const wasteMap = D.MAPS.find(m => m.zone === 'waste');
+    const plainMap = D.MAPS.find(m => m.zone === 'plain');
+    const ex = D.EXERCISES[0];
+    const pot = D.RECIPES.find(r => r.result.kind === 'potion' && (r.result.charm || 0) > 0);
+    const read = () => ({
+      ap:    gatherCost(wasteMap.id),
+      apLow: gatherCost(plainMap.id),
+      fit:   exCost(ex, 30).fit,
+      rate:  specialRate(wasteMap),
+      aura:  Math.round((pot.result.charm || 0) * 5 * bondMult('aura')),
+    });
+    const set = t => { D.bondNpcs().forEach(n => { S.bond[n] = D.BOND_TIERS[t].at; }); };
+    S.bond = {}; set(0);
+    const lo = read();
+    set(4);
+    const hi = read();
+    set(0);
+    return { lo, hi, floor: D.zoneAp('plain') };
+  });
+  ok(gives.hi.ap < gives.lo.ap, '🛡️ 호위 — 위험 지대 채집 AP 가 내려간다',
+     `${gives.lo.ap} → ${gives.hi.ap}`);
+  ok(gives.hi.ap >= gives.floor, '   …평야보다 싸지지는 않는다 (지대 순서가 안 뒤집힌다)',
+     `${gives.hi.ap} ≥ ${gives.floor}`);
+  ok(gives.hi.apLow === gives.lo.apLow, '   …안 데려다주는 지대는 그대로다',
+     `평야 ${gives.lo.apLow} → ${gives.hi.apLow}`);
+  ok(gives.hi.fit > gives.lo.fit, '🍖 단백질 — 운동으로 붙는 단련이 커진다',
+     `${gives.lo.fit} → ${gives.hi.fit}`);
+  ok(gives.hi.rate > gives.lo.rate, '📖 지식 — 히든 재료 확률이 오른다',
+     `${gives.lo.rate.toFixed(4)} → ${gives.hi.rate.toFixed(4)}`);
+  ok(gives.hi.aura > gives.lo.aura, '🎻 노래 — 물약으로 오르는 아우라가 커진다',
+     `${gives.lo.aura} → ${gives.hi.aura}`);
+
+  // 💎 보석 — **단계마다 한 벌씩, 같은 것을 두 번 안 준다**
+  const gem = await page.evaluate(async () => {
+    S.unlocked = []; S.bond = {}; S.gifted = {}; S.crystal = 0;
+    const got = [];
+    for (let t = 1; t <= 4; t++) {
+      const before = S.unlocked.length;
+      bondReward('sp_orix', t);
+      got.push(S.unlocked.length - before);
+    }
+    await new Promise(r => setTimeout(r, 200));
+    return { got, ids: S.unlocked.slice(), uniq: new Set(S.unlocked).size };
+  });
+  ok(gem.got.every(n => n === 1), '💎 보석 — 단계마다 악세사리가 한 벌씩',
+     gem.got.join('/'));
+  ok(gem.uniq === gem.ids.length, '   …같은 것을 두 번 안 준다',
+     `${gem.ids.length}벌 · 서로 다른 것 ${gem.uniq}`);
+
+  // 담당이 없는 사람(실반)은 「주는 것」 줄을 아예 안 낸다 —
+  // 「없음」이라고 적으면 뭔가 빠진 것처럼 보인다
+  const sylvan = await page.evaluate(() => ({
+    none: giveHtml('sp_sylvan', 4) === '',
+    some: giveHtml('sp_valen', 4).length > 0,
+  }));
+  ok(sylvan.none && sylvan.some, '담당이 없는 사람은 그 줄을 안 낸다 (있는 사람은 낸다)');
+
   // ── 개발용 단계 스위치
   const dev = await page.evaluate(() => {
     closeGift();

@@ -492,7 +492,18 @@ body.has-quest .screen { padding-bottom: 168px; }
 .gift-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 4px 10px; margin: 0 0 8px; }
 .gift-need { font-size: 0.76rem; font-weight: 800; color: var(--ink-soft); }
-.gift-like { font-size: 0.76rem; color: var(--ink-soft); margin: 0 0 10px; }
+.gift-like { font-size: 0.76rem; color: var(--ink-soft); margin: 0 0 6px; }
+/* 「이 사람이 주는 것」 — 지금 몫과 다음 단계 몫을 같이 적는다.
+   좁아지면 접힌다: 담당 이름이 길어(「🛡️ 호위 — 위험 지대 채집 AP」) 265px 에서
+   한 줄에 안 들어간다 */
+.give-row {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px;
+  margin: 0 0 10px; padding: 8px 10px;
+  background: var(--cream); border-radius: 12px;
+}
+.give-what { flex: 1 1 auto; min-width: 0; font-size: 0.76rem; font-weight: 700; color: var(--ink); }
+.give-now { flex: 0 0 auto; font-size: 0.78rem; font-weight: 900; color: #b04a6a; }
+.give-next { flex: 0 0 auto; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft); }
 .gift-list { display: flex; flex-direction: column; gap: 7px; max-height: 46vh; overflow-y: auto; }
 .gift-none { font-size: 0.82rem; color: var(--ink-soft); padding: 14px 0; text-align: center; }
 /* 한 줄 = 이모지 · 이름(+개수) · 딱지 · 오를 점수.

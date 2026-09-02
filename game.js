@@ -864,7 +864,9 @@ function specialMult(mapId) {
        * (m.daypart ? PAL_SP.daypart : 1);
 }
 function specialRate(map) {
-  return D.specialTier(map.unlock).rate * specialMult(map.id);
+  // **거울 정령의 지식**이 여기에 곱해진다 (STORY.md 「지식」).
+  // 확률에 이미 셋(속성·날씨·시간대)이 붙어 있어서 네 번째다 — 그래서 배수로만 둔다
+  return D.specialTier(map.unlock).rate * specialMult(map.id) * bondMult('lore');
 }
 
 // ─── 날씨 ────────────────────────────────────────────────────
@@ -1037,7 +1039,12 @@ function energyCap() {
 // 버튼에 적힌 값과 실제로 깎이는 값이 갈린다 (그게 제일 나쁜 종류의 버그다)
 function gatherCost(mapId) {
   const m = mapId && D.MAPS.find(x => x.id === mapId);
-  return m ? D.zoneAp(m.zone) : D.ENERGY.cost.gather;
+  const base = m ? D.zoneAp(m.zone) : D.ENERGY.cost.gather;
+  // **왕자의 호위**가 위험 지대의 값을 깎아 준다 (STORY.md 「호위 → 위험 지대 탐험」).
+  // ⚠️ 여기 한 곳을 지나므로 **버튼에 적힌 값과 깎이는 값이 갈리지 않는다.**
+  // 평야보다 싸지지는 않게 바닥을 둔다 — 후반 지대가 초반보다 싸면 지대 순서가 뒤집힌다
+  const floor = D.zoneAp('plain');
+  return Math.max(floor, base - bondApCut(m ? m.zone : null));
 }
 window.gatherCost = gatherCost;
 
@@ -1389,6 +1396,11 @@ function bondReward(npc, tier) {
   if (!gift || !b) return;
   b.ing.forEach(id => addInv(id, gift.n));
   if (gift.crystal) S.crystal = (S.crystal || 0) + gift.crystal;
+  // **난쟁이의 보석** — 단계마다 악세사리 한 벌 (STORY.md 「보석 → 악세사리」).
+  // 다섯 중 이것만 상시 효과가 아니다: 그가 주는 것은 보석 «자체»가 아니라
+  // 그것으로 만든 물건이라 한 번 받으면 그대로 남는다
+  const wear = b.give === 'gem' && D.BOND_GIVES.gem.slots[tier];
+  if (wear) unlockNextIn(wear);
   save();
   const what = b.ing.map(id => {
     const it = D.INGREDIENTS[id];
@@ -1403,6 +1415,28 @@ function bondReward(npc, tier) {
   setTimeout(() => toast(T('bond_gift', { what, c: gift.crystal }), null, 3600), 2600);
 }
 
+// ── 그들이 «주는 것» (STORY.md 「남자 NPC 여섯」의 표) ─────────
+//
+// ⚠️ **효과는 이미 있는 함수 한 곳을 지난다.** 새 경로를 만들면 화면에 적힌 값과
+// 실제로 먹는 값이 갈린다 — 지대별 AP 에서 배운 것과 같은 규칙이다.
+// 그 덕에 호위(채집 AP)·단백질(운동의 단련)·노래(아우라)는 **저절로 화면에 보인다.**
+function bondGiveTier(kind) {
+  const npc = D.bondGiver(kind);
+  return npc ? bondTier(npc) : 0;
+}
+// %로 붙는 것 — 배수로 돌려준다 (1.0 = 없음)
+function bondMult(kind) {
+  const g = D.BOND_GIVES[kind];
+  if (!g || g.kind !== 'pct') return 1;
+  return 1 + (g.v[bondGiveTier(kind)] || 0) / 100;
+}
+// 위험 지대 채집 AP 를 깎아 주는 몫. **그가 데려다주는 지대만이다**
+function bondApCut(zoneId) {
+  const g = D.BOND_GIVES.guard;
+  if (!g || !zoneId || g.zones.indexOf(zoneId) < 0) return 0;
+  return g.v[bondGiveTier('guard')] || 0;
+}
+
 // 하트 다섯 칸. **채운 칸 수가 곧 단계**라 색이 없어도 읽힌다
 // (색만으로 구분하지 않는다 — UI_POLICY.md)
 function bondHtml(npc) {
@@ -1415,6 +1449,29 @@ function bondHtml(npc) {
       <span class="bd-pips">${pips}</span>
       <span class="bd-name">${N(tn.id, tn.name)}</span>
     </span>`;
+}
+
+// 「이 사람이 주는 것」 한 줄. **지금 몫과 다음 단계 몫을 같이 적는다** —
+// 지금 것만 적으면 더 친해질 이유가 안 읽히고, 다음 것만 적으면 지금 뭘 받고 있는지 모른다.
+//
+// ⚠️ 담당이 없는 사람(실반)은 이 줄을 아예 안 낸다. 「없음」이라고 적으면
+// 뭔가 빠진 것처럼 보이는데, 그는 원래 재료로 갚는 사람이다.
+function giveHtml(npc, tier) {
+  const kind = (D.BONDS[npc] || {}).give;
+  const g = kind && D.BOND_GIVES[kind];
+  if (!g) return '';
+  const val = i => {
+    if (g.kind === 'pct') return T('give_pct', { n: g.v[i] });
+    if (g.kind === 'ap')  return T('give_ap',  { n: g.v[i] });
+    return g.slots[i] ? T('give_wear') : '—';
+  };
+  const now = tier > 0 ? val(tier) : T('give_none');
+  const nx = tier < D.BOND_TIERS.length - 1
+    ? `<span class="give-next">${T('give_next', { v: val(tier + 1) })}</span>` : '';
+  return `<div class="give-row">
+      <span class="give-what">${T('give_' + kind)}</span>
+      <span class="give-now">${now}</span>${nx}
+    </div>`;
 }
 
 // ── 선물 시트 ────────────────────────────────────────────────
@@ -1477,6 +1534,7 @@ function renderGift() {
     </div>
     <div class="gift-like">${T('gift_likes',
         { who: speakerName(npc), nj: josa(speakerName(npc), '은는'), grade: likeName })}</div>
+    ${giveHtml(npc, t)}
     ${rows ? `<div class="gift-list">${rows}</div>`
            : `<div class="gift-none">${T('gift_none')}</div>`}`;
 }
@@ -2907,7 +2965,8 @@ function drinkPotion(potionId) {
   S.stats.charm  += r.result.charm  || 0;
   addWeekScore(r.result.charm || 0);   // 리그 주간 점수 = 그 주에 오른 매력
   // 물약마다 아우라 세부 수치가 다르게 오른다 (아우라 획득량 × 5)
-  const gain = (r.result.charm || 0) * 5;
+  // **음유 시인의 노래**가 아우라 획득에 붙는다 (STORY.md 「아우라는 카이로스가 채운다」)
+  const gain = Math.round((r.result.charm || 0) * 5 * bondMult('aura'));
   if (gain > 0) {
     const kinds = AURA_BY_POTION[r.result.id] || AURA_KEYS;
     kinds.forEach(k => addAura(k, Math.round(gain / kinds.length)));
@@ -4284,6 +4343,16 @@ function unlockCosmetic(id) {
   return false;
 }
 window.unlockCosmetic = unlockCosmetic;
+
+// 그 칸에서 **잠긴 것 중 첫 번째**를 연다. ⚠️ `unlockRandom` 과 달리 `Math.random()` 을
+// 안 쓴다 — 보상은 되풀이해도 같은 것이 나와야 검사할 수 있고, 무작위면 「어제 받은 것을
+// 오늘 또 받았다」가 생긴다 (날씨·일지와 같은 규칙이다).
+// 그 칸이 다 찼으면 조용히 넘어간다 — 재료·결정은 이미 들어갔으니 보상이 빈손은 아니다.
+function unlockNextIn(slot) {
+  const it = (D.WARDROBE[slot] || []).find(x => !isOwned(slot, x));
+  return it ? unlockCosmetic(it.id) : false;
+}
+window.unlockNextIn = unlockNextIn;
 
 // 테스트용: 잠긴 아이템 중 하나를 무작위 해금.
 // slot 을 주면 그 칸에서만 고른다 (개발용 블록의 종류별 버튼).
@@ -7451,7 +7520,8 @@ function exCost(ex, min) {
     ap:    Math.round(ex.ap * min),
     stam:  Math.round(ex.stam * min),
     grit:  Math.round(ex.grit * min * w.grit),
-    fit:   +(ex.fit * min).toFixed(2),
+    // **사냥꾼의 단백질**이 여기 붙는다 — 운동 팝업에 적히는 값이 그대로 커진다
+    fit:   +(ex.fit * min * bondMult('meat')).toFixed(2),
     full:  +(ex.full * min * w.full).toFixed(1),
     happy: w.happy,
   };
