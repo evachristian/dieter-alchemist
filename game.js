@@ -5260,6 +5260,8 @@ function renderRoomDevTail() {
       devAct(T('dev_all_story'), 'devAllStory()'),
       // 「혼자 먹은 밤」의 **갈래**를 보려면 어젯밤에 부엌에 다녀와 있어야 한다
       devAct(T('dev_kitchen'), 'devKitchenVisit()'),
+      // 여러 캐릭터를 오가며 시험하려면 신원을 «보관»해 둘 데가 있어야 한다
+      devAct(T('dev_acct'), 'openDevAccounts()'),
     ]) +
     devGroup(T('dev_g_open')) +
     devSws([devSw(on, T('dev_tutorial'), 'devToggleTutorial()')]) +
@@ -5371,6 +5373,105 @@ function renderLeagueDev() {
 // 솥 해금은 세이브에 쓰지 않는다 (채집의 맵/히든과 같은 이유 — 서버에 올라가면
 // 다른 기기에서도 다 열린 채가 되고 되돌릴 방법이 없다).
 // 레시피는 다르다. '알아낸 레시피' 는 진짜 진행이라 세이브에 들어간다.
+// ─── 개발용 계정 보관함 ──────────────────────────────────────
+//
+// 「여러 캐릭터를 만들어 가며 시험한다」를 하려면, 초기화하기 «전에» 지금 신원을
+// 어딘가 적어 둬야 한다. 복구 코드를 손으로 옮겨 적는 대신 여기 담아 둔다.
+//
+// ⚠️ **이 칸만은 게임 초기화가 안 지운다**(`wipeLocalAll`). 게임 상태가 아니라
+// 도구라서다 — 초기화할 때마다 같이 날아가면 애초에 쓸 수가 없다.
+// ⚠️ **담기는 것은 복구 코드다.** 세이브 사본이 아니라 «열쇠»이므로,
+// 그 계정의 진행은 서버에 있는 것을 그대로 다시 받아 온다.
+const DEV_ACCT_KEY = 'dieter_alchemist_devaccounts_v1';
+// 이름은 사람이 지은 문자열이라 그대로 HTML 에 넣지 않는다.
+// (`NAME_ALLOW` 가 막고는 있지만 화면에 글자를 넣는 자리는 늘 한 번 막아 둔다)
+const esc = t => String(t).replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function devAccounts() {
+  try {
+    const v = JSON.parse(localStorage.getItem(DEV_ACCT_KEY) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
+}
+function saveDevAccounts(list) {
+  try { localStorage.setItem(DEV_ACCT_KEY, JSON.stringify(list)); } catch (e) {}
+}
+// 지금 계정을 담는다. **같은 코드면 이름·시각만 새로 적는다** — 누를 때마다
+// 같은 줄이 쌓이면 목록이 금세 못 쓰게 된다
+function devAcctSave() {
+  if (!window.Sync) { toast(T('dev_acct_nosync')); return; }
+  const code = Sync.code();
+  if (!code) { toast(T('dev_acct_nosync')); return; }
+  const list = devAccounts();
+  const row = { code, name: S.name || T('dev_acct_noname'), at: nowDate().toISOString() };
+  const i = list.findIndex(x => x.code === code);
+  if (i >= 0) list[i] = row; else list.unshift(row);
+  saveDevAccounts(list.slice(0, 12));
+  renderDevAccounts();
+  toast(T('dev_acct_saved', { who: row.name, j: josa(row.name, '을를') }), null, 2600);
+}
+// 담아 둔 계정으로 갈아탄다. **복구 코드와 같은 길을 지난다** —
+// 「먼저 받아 보고, 있으면 갈아탄다」(`doRestore`)를 두 벌로 만들지 않는다
+function devAcctUse(code) {
+  const m = document.getElementById('devAcctSheet');
+  if (m) m.classList.remove('show');
+  openRestore();
+  const i = document.getElementById('restoreInput');
+  if (i) { i.value = code; }
+  checkRestoreCode();
+}
+// ⚠️ **「담고 새 캐릭터로」가 보관함의 짝이다.**
+// 그냥 「게임 초기화」를 쓰면 **서버 사본까지 지워서**(`Sync.wipe`) 방금 담아 둔
+// 계정이 죽는다 — 보관함에 열쇠만 남고 열 문이 없어진다.
+// 여기서는 **서버는 그대로 두고** 이 기기의 신원만 버린다.
+// (진짜 「게임 초기화」는 그대로 파괴적이어야 한다 — 사람이 지우겠다고 한 것이다)
+function devAcctNew() {
+  if (!window.Sync) { toast(T('dev_acct_nosync')); return; }
+  showConfirm(T('dev_acct_new_ask'), () => {
+    devAcctSave();
+    wipeLocalAll();
+    Sync.forget();
+    location.reload();
+  });
+}
+function devAcctDrop(code) {
+  saveDevAccounts(devAccounts().filter(x => x.code !== code));
+  renderDevAccounts();
+}
+function openDevAccounts() {
+  const m = document.getElementById('devAcctSheet');
+  if (m) m.classList.add('show');
+  renderDevAccounts();
+}
+function closeDevAccounts() {
+  const m = document.getElementById('devAcctSheet');
+  if (m) m.classList.remove('show');
+}
+function renderDevAccounts() {
+  const el = document.getElementById('devAcctList');
+  if (!el) return;
+  const list = devAccounts();
+  const mine = window.Sync ? Sync.code() : '';
+  el.innerHTML = list.length ? list.map(a => {
+    const now = a.code === mine;
+    // 코드를 통째로 보여 주지 않는다 — 길어서 줄이 넘친다. 앞뒤만 보인다
+    const short = a.code.length > 16 ? a.code.slice(0, 8) + '…' + a.code.slice(-4) : a.code;
+    return `<div class="gift-row">
+        <span class="gift-nm">${esc(a.name)}${now ? ` <span class="gift-tag">${T('dev_acct_now')}</span>` : ''}</span>
+        <span class="ask-none">${esc(short)}</span>
+        <button class="btn btn-dev" onclick="devAcctUse('${esc(a.code)}')"
+          ${now ? 'disabled' : ''}>${T('dev_acct_use')}</button>
+        <button class="btn btn-dev" onclick="devAcctDrop('${esc(a.code)}')">${T('dev_acct_drop')}</button>
+      </div>`;
+  }).join('') : `<div class="ask-none">${T('dev_acct_empty')}</div>`;
+}
+window.openDevAccounts = openDevAccounts;
+window.closeDevAccounts = closeDevAccounts;
+window.devAcctSave = devAcctSave;
+window.devAcctNew = devAcctNew;
+window.devAcctUse = devAcctUse;
+window.devAcctDrop = devAcctDrop;
+
 const DEV_POTS_KEY = 'dieter_alchemist_devpots_v1';
 function devPots() {
   try { return JSON.parse(localStorage.getItem(DEV_POTS_KEY) || '[]'); } catch (e) { return []; }
@@ -7914,15 +8015,38 @@ function fillEnergy() {
 // ─── 게임 초기화 = 신규 시작 (마이 룸 상단 ↺ 버튼) ───
 // 세이브와 '튜토리얼 봤음' 표시를 지우고 새로고침 → 로고 → 튜토리얼 → 이름 입력까지 처음부터.
 // 언어·사운드 설정은 게임 진행이 아니라 앱 환경설정이라 남겨 둔다.
+// ─── 게임 초기화 = **공장 초기화** ───────────────────────────
+//
+// 「새 이름으로 시작하면 게임을 처음 실행한 것과 똑같아야 한다.」
+// 그래서 세이브만 지우지 않고 **`dieter_alchemist_` 로 시작하는 것을 전부** 지운다 —
+// 예전에는 세이브와 인트로 표시 둘만 지워서, 몸 슬라이더 · 개발용 스위치 ·
+// 통계 · **신원(playerId)** 이 그대로 남았다. 신원이 남으면 아이디로 시드를 잡는
+// 것들이 초기화해도 안 바뀐다.
+//
+// ⚠️ **개발용 계정 보관함만 남긴다.** 그건 게임 상태가 아니라 «도구»라,
+// 초기화할 때마다 같이 날아가면 여러 계정을 옮겨 다니며 시험할 수가 없다.
+//
+// ⚠️ **순서가 있다** — 서버 사본을 먼저 지우고(열쇠가 필요하다) 그다음에 신원을 버린다.
+const RESET_KEEP = [/* 개발용 계정 보관함 */];
+function wipeLocalAll() {
+  const keep = new Set(RESET_KEEP.concat([DEV_ACCT_KEY]));
+  const doomed = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('dieter_alchemist_') === 0 && !keep.has(k)) doomed.push(k);
+    }
+    doomed.forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
+  return doomed;
+}
 function askResetGame() {
   showConfirm(T('confirm_reset_game'), async () => {
     // 서버 사본을 먼저 지운다. 로컬만 지우면 다음 접속 때 서버에서 되살아난다.
     // (서버가 죽어 있어도 초기화 자체는 진행한다 — 로컬이 진짜이므로)
     if (window.Sync) { try { await Sync.wipe(); } catch (e) {} }
-    try {
-      localStorage.removeItem(SAVE_KEY);
-      localStorage.removeItem(window.Intro ? Intro.SEEN_KEY : 'dieter_alchemist_intro_seen_v1');
-    } catch (e) {}
+    wipeLocalAll();
+    if (window.Sync) { try { Sync.forget(); } catch (e) {} }
     location.reload();
   });
 }

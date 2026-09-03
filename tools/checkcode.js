@@ -165,6 +165,104 @@ async function boot(page) {
      '   …그 캐릭터로 «진짜» 이어진다 (이름·매력이 따라온다)',
      `${after.name} · 매력 ${after.charm}`);
 
+  // ── 개발용 계정 보관함 — 담아 두고, 초기화하고, 꺼내 온다
+  //
+  // ⚠️ **초기화는 «공장 초기화»여야 한다.** 예전에는 세이브와 인트로 표시 둘만
+  // 지워서 몸 슬라이더 · 개발용 스위치 · 통계 · **신원(playerId)** 이 그대로 남았다.
+  // 신원이 남으면 새 캐릭터가 옛 아이디를 물려받아, 아이디로 시드를 잡는 것들이
+  // 초기화해도 안 바뀐다. 「새 이름으로 시작하면 처음 실행한 것과 똑같다」를 잰다.
+  async function resetHere() {
+    await b.evaluate(() => {
+      askResetGame();
+      const yes = document.querySelector('#confirmModal .btn-primary');
+      if (yes) yes.click();
+    });
+    await b.waitForTimeout(600);
+    await b.waitForLoadState('load');
+    await b.waitForTimeout(2400);
+    await b.evaluate(() => {
+      const s = document.getElementById('splash'); if (s) s.classList.add('done');
+      const i = document.getElementById('intro'); if (i) i.style.display = 'none';
+    });
+  }
+  const wasCode = await b.evaluate(() => {
+    // 남아 있으면 안 되는 것들을 일부러 만들어 둔다
+    localStorage.setItem('dieter_alchemist_bodytune_v1', JSON.stringify({ torso: 140 }));
+    localStorage.setItem('dieter_alchemist_devpots_v1', JSON.stringify(['pot_iron3']));
+    return Sync.code();
+  });
+  await resetHere();
+
+  const fresh = await b.evaluate(() => ({
+    code: Sync.code(),
+    left: Object.keys(localStorage).filter(k => k.indexOf('dieter_alchemist_') === 0).sort(),
+    name: S.name || '', tut: !!S.tutorialDone,
+  }));
+  ok(fresh.code !== wasCode, '초기화하면 **신원까지 새로 난다**',
+     `${String(wasCode).slice(0, 8)}… → ${String(fresh.code).slice(0, 8)}…`);
+  ok(!fresh.name && !fresh.tut, '   …진행도 처음 상태다 (이름 없음 · 튜토리얼 안 끝남)',
+     `이름 «${fresh.name}» · 튜토리얼 ${fresh.tut}`);
+  // ⚠️ 인트로 표시(`intro_seen`)는 **이 검사기가** 매 로드마다 다시 심는다
+  // (인트로를 건너뛰려고). 초기화가 안 지운 것이 아니다
+  const junk = fresh.left.filter(k => !/devaccounts|player_v1|save_v1|intro_seen/.test(k));
+  ok(junk.length === 0, '   …몸 슬라이더·개발용 스위치 같은 찌꺼기가 안 남는다', junk.join(', '));
+
+  // 새 캐릭터를 하나 만들어 서버에 올리고 → **담고 새 캐릭터로** → 꺼내 온다
+  //
+  // ⚠️ **여기서 「게임 초기화」를 쓰면 안 된다.** 그건 서버 사본까지 지워서
+  // 방금 담아 둔 계정이 죽는다 — 보관함에 열쇠만 남고 열 문이 없어진다.
+  // 「담고 새 캐릭터로」가 보관함의 짝이다 (서버는 그대로 두고 이 기기만 되돌린다).
+  const kept = await b.evaluate(async () => {
+    S.name = '보관함시험'; S.nameClaimed = true; S.tutorialDone = true;
+    save(); await Sync.pushNow(S);
+    return { code: Sync.code() };
+  });
+
+  await b.evaluate(() => {
+    devAcctNew();
+    const yes = document.querySelector('#confirmModal .btn-primary');
+    if (yes) yes.click();
+  });
+  await b.waitForTimeout(700);
+  await b.waitForLoadState('load');
+  await b.waitForTimeout(2400);
+  await b.evaluate(() => {
+    const s = document.getElementById('splash'); if (s) s.classList.add('done');
+    const i = document.getElementById('intro'); if (i) i.style.display = 'none';
+  });
+  const after2 = await b.evaluate(() => ({
+    code: Sync.code(), vault: devAccounts().length, name: S.name || '' }));
+  ok(after2.vault === 1, '계정 보관함에 지금 계정이 담긴다', `${after2.vault}개`);
+  ok(after2.code !== kept.code && !after2.name,
+     '   …「담고 새 캐릭터로」는 처음 상태로 되돌린다',
+     `${String(kept.code).slice(0, 8)}… → ${String(after2.code).slice(0, 8)}…`);
+  await b.evaluate((c) => { devAcctUse(c); }, kept.code);
+  await b.waitForTimeout(1200);
+  const backFound = await b.evaluate(() => {
+    const el = document.getElementById('restoreFound');
+    return { name: (el.querySelector('.rs-name') || {}).textContent || '',
+             go: !!el.querySelector('.rs-go') };
+  });
+  ok(backFound.go && backFound.name === '보관함시험',
+     '보관함에서 꺼내면 **복구 코드와 같은 길**을 지난다 (먼저 «누구인지»를 보여 준다)',
+     backFound.name);
+  await b.evaluate(() => {
+    doRestore();
+    const yes = document.querySelector('#confirmModal .btn-primary');
+    if (yes) yes.click();
+  });
+  await b.waitForTimeout(500);
+  await b.waitForLoadState('load');
+  await b.waitForTimeout(2400);
+  await b.evaluate(() => {
+    const s = document.getElementById('splash'); if (s) s.classList.add('done');
+    const i = document.getElementById('intro'); if (i) i.style.display = 'none';
+  });
+  await b.waitForTimeout(1200);
+  const back = await b.evaluate(() => ({ code: Sync.code(), name: S.name }));
+  ok(back.code === kept.code && back.name === '보관함시험',
+     '   …담아 둔 캐릭터로 그대로 돌아온다', `${back.name}`);
+
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));
 
   await browser.close();

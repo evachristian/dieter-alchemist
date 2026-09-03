@@ -365,8 +365,25 @@
   });
   window.addEventListener('online', () => { backoff = 1000; flush(); });
 
+  // ─── 신원을 통째로 버린다 (게임 초기화 전용) ─────────────────
+  //
+  // ⚠️ **평소에는 `playerId` 를 절대 바꾸지 않는다** (복구 코드가 여기 묶여 있다).
+  // 여기는 「처음 실행한 것과 똑같이」를 만들어야 하는 자리라 예외다 —
+  // 신원을 남겨 두면 새 캐릭터가 **옛 아이디를 그대로 물려받아**, 아이디로 시드를
+  // 잡는 것들(사람마다 다른 비법서 같은 것)이 초기화해도 그대로다.
+  //
+  // 서버 사본은 **이 함수를 부르기 전에** `wipe()` 로 지운다 — 여기서 신원을 버리면
+  // 지울 열쇠(playerId·secret)가 사라진다.
+  function forget() {
+    wiped = true;                 // 이 시점 이후로는 아무것도 올리지 않는다
+    pending = null;
+    clearTimeout(timer);
+    try { localStorage.removeItem(ID_KEY); } catch (e) {}
+    return true;
+  }
+
   window.Sync = {
-    push, pushNow, pull, flushNow, wipe, code, useCode, peek, claimName,
+    push, pushNow, pull, flushNow, wipe, forget, code, useCode, peek, claimName,
     nonce, farmGet, harvest, plant, addPlot, raidTargets, raid, farmDev, freeRaids,
     get status() { return status; },
     get playerId() { return me.playerId; },

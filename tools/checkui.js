@@ -1174,6 +1174,32 @@ function launchOpts() {
           await page.evaluate(() => { closeGift(); leaveSpot(); });
           await page.waitForTimeout(150);
         }
+        // **개발용 계정 보관함** — 줄에 이름 · 코드 · 버튼 둘이 한 줄에 들어간다.
+        // ⚠️ 새 모달 시트는 `checkLayout` 의 선택자에 안 걸리므로 `__cardFits` 를 같이 부른다
+        {
+          const bad = await page.evaluate(() => {
+            // 값을 심어 놓고 연다 — 빈 목록의 0건은 아무것도 안 잰 것이다
+            localStorage.setItem('dieter_alchemist_devaccounts_v1', JSON.stringify([
+              { code: 'pAAAAAAAAAAAAAAAAAAAAA.BBBBBBBBBBBBBBBBBBBBBBBBBBBB', name: '그위리엘', at: new Date().toISOString() },
+              { code: 'pCCCCCCCCCCCCCCCCCCCCC.DDDDDDDDDDDDDDDDDDDDDDDDDDDD', name: '테스트캐릭', at: new Date().toISOString() },
+            ]));
+            openDevAccounts();
+            if (!document.getElementById('devAcctSheet').classList.contains('show')) return '시트가 안 떴다';
+            const rows = document.querySelectorAll('#devAcctList .gift-row').length;
+            if (rows !== 2) return `계정 줄이 ${rows}개다 (2 기대)`;
+            return null;
+          });
+          if (bad) results.push({ 화면: `${t}/계정보관함`, 오류: bad });
+          else { await page.waitForTimeout(220); await run(`${t}/계정보관함`); }
+          const daBad = await page.evaluate(() => window.__cardFits('#devAcctSheet'));
+          if (daBad) results.push({ 화면: `${t}/계정보관함`, 오류: daBad });
+          // ⚠️ **뒷정리** — 심어 둔 것을 안 지우면 뒤 화면이 다른 조건에서 재진다
+          await page.evaluate(() => {
+            closeDevAccounts();
+            localStorage.removeItem('dieter_alchemist_devaccounts_v1');
+          });
+          await page.waitForTimeout(150);
+        }
         for (const sid of ['vs_chimney_shop', 'vs_chimney_tower']) {
           const bad = await page.evaluate((id) => {
             setGatherTab('village');
