@@ -244,16 +244,24 @@
   // ⚠️ **`tuneOf` 를 그냥 바꾸면 안 된다.** 슬라이더 값 자체를 쓰는 곳(옷이 어느 파츠를
   // 따라갈지 고르는 `tuneMax` · 세이브·화면의 % 표시)은 사람이 고른 값 그대로여야 한다.
   // **살의 양을 셈하는 자리에서만** `fatOf` 를 쓴다.
-  // ⚠️ **끝까지 올렸을 때를 한 번 더 키웠다** (0.6 → 0.95 · 살의 양이 1.22배).
+  // ⚠️ **끝까지 올렸을 때를 한 번 더 키웠다** (0.444 → 0.87 · 살의 양이 1.28배).
   // 「최대인데도 더 뚱뚱해져도 되겠다」는 판단이었다 — 100% 는 여전히 안 움직인다.
   //
   // ⚠️ **여기가 그림 상자의 한계다.** 원래는 1.3배로 키우려 했는데,
   // `viewBox` 가 200 인데 **통통 최대는 이미 191.5 까지 차 있었다** — 몸무게가
-  // 가로로 1.36배 늘리기 때문이다(`bodyScaleX`). 재어 보니 gain 1.0 부터
-  // 오른쪽이 상자 밖으로 나가 **64줄이 잘렸다.** 0.95 가 안 잘리는 가장 큰 값이다.
+  // 가로로 1.36배 늘리기 때문이다(`bodyScaleX`).
+  // 한동안 0.95 로 두었는데, `thighOuterAt` 이 **그리는 곡선을 그대로 풀도록**
+  // 고쳐지면서 허벅지가 실제로는 더 굵다는 것이 드러났고 — 엉덩이는 그것을
+  // 덮어야 하므로 반폭이 2.2px 늘어 상자 밖으로 나갔다(39~65줄이 잘렸다).
+  // **0.87 이 지금 안 잘리는 가장 큰 값이다** (오른쪽 끝 198.8/200 · 여백 1.3px).
   // 더 키우려면 `viewBox` 를 「-12 0 224 342」 처럼 **양옆으로 넓혀야** 한다
   // (중심선 100 을 안 옮기는 것이 요령이다 — 옮기면 모든 좌표가 어긋난다).
-  const TUNE_GAIN = { thigh: 0.95, hip: 0.27, calf: 0.95 };
+  //
+  // ⚠️ **엉덩이의 몫(0.27 → 0.5)은 슬라이더를 살리려고 올렸다.** 엉덩이 반폭에는
+  // 「허벅지 윗머리를 덮어야 한다」는 바닥이 있는데, 위의 `thighOuterAt` 수정으로
+  // 그 바닥이 올라가 **100% 와 125% 가 둘 다 40.3px** 이 됐다 — 슬라이더를
+  // 한 칸 밀어도 몸이 하나도 안 변한다. 몫을 키워 바닥 위로 다시 띄웠다.
+  const TUNE_GAIN = { thigh: 0.87, hip: 0.5, calf: 0.87 };
   function fatOf(tune, k) {
     const v = tuneOf(tune, k), g = TUNE_GAIN[k];
     return (g == null || v <= 1) ? v : 1 + (v - 1) * g;
@@ -318,7 +326,12 @@
   // 라운드 숄더로 보이던 것은 결국 **어깨선이 직각이던 것**이라, 그쪽(`shoulderC`)만
   // 눕혀서 해결했다. 여기를 건드리려면 어깨가 팔을 «높이마다» 따라가야 한다.
   const ARM_W = { shoulder: 15, elbow: 12, wrist: 9.5 };
-  const ARM_SHADE = 2.5;                 // 몸 쪽으로 깔아 두는 그늘의 폭
+  // 몸 쪽으로 깔아 두는 그늘의 폭.
+  // ⚠️ **배율을 같이 타야 한다.** 2.5px 붙박이였는데, 그러면 팔이 가늘어질수록
+  // 그늘의 «몫»이 커진다 — 팔 50% 에서 7.5px 짜리 팔에 2.5 가 붙어 실루엣이 33% 나
+  // 두꺼워졌고, 그래서 **모든 파츠를 최소로 하면 팔이 종아리보다 두꺼웠다.**
+  const ARM_SHADE = 2.5;
+  const armShadeW = k => +(ARM_SHADE * Math.min(1.2, Math.max(0.45, k))).toFixed(2);
   const ARM_OUTLINE = 0.9;               // 옷과 같은 색으로 겹칠 때 두르는 윤곽선의 반두께
   const ARM_SHADE_FROM = 10;             // 팔 위 끝에서 이만큼 내려와서 시작한다
   function armWidths(k) {
@@ -456,7 +469,7 @@
       : '';
     // 윤곽선을 두르면 그늘은 안 깐다 — 둘 다 두면 안쪽에 선이 두 줄이 된다
     const shadeLayer = o.outline ? ''
-      : `<g transform="translate(${(-sgn * ARM_SHADE).toFixed(2)},0)">`
+      : `<g transform="translate(${(-sgn * armShadeW(ka)).toFixed(2)},0)">`
         + emit(shadeSegs, sc) + joint(sc) + '</g>';
     return shadeLayer + outline
       + emit(segs, fill, o.extra) + joint(fill, o.extra);
@@ -690,10 +703,26 @@
       * (1 - HIP_PULL * (1 - Math.min(1, fatOf(tune, 'hip')))));
   // 허벅지 바깥 변 — **높이에 따라 다르다.** 위(엉덩이 밑)가 가장 굵고 무릎으로 가늘어진다.
   // 엉덩이가 붙을 자리를 잡으려면 「그 높이의」 허벅지 폭을 알아야 한다
+  // ⚠️ **재는 곡선과 그리는 곡선이 같아야 한다.**
+  // 예전에는 여기서 smoothstep 으로 «모델»을 세우고 `limbPath` 는 큐빅으로 그렸다.
+  // 둘이 달라서 엉덩이가 「허벅지가 여기 있다」고 믿는 자리보다 허벅지가
+  // **7.3px 더 바깥**에 있었고, 그 차이가 이음매에 각진 턱을 만들었다
+  // (「엉덩이랑 허벅지 연결 부분이 부드럽지 않다」로 신고받은 자리다).
+  // 지금은 `limbPath` 가 그리는 큐빅을 **그대로 풀어** 답한다.
   function thighOuterAt(tune, y) {
     const L = LEG, top = thighTop(tune), kx = kneeX(tune);
-    const u = Math.max(0, Math.min(1, (y - L.hipY) / (L.kneeY - L.hipY)));
-    return top + (kx - top) * u * u * (3 - 2 * u);
+    // limbPath 의 둥근 마개와 같은 반지름 — 곡선이 시작·끝나는 높이가 그만큼 안으로 들어온다
+    const cap = (yy, half) => Math.max(1, Math.min(5, (half - innerX(yy)) / 2));
+    const y0 = L.hipY + cap(L.hipY, top), y1 = L.kneeY - cap(L.kneeY, kx);
+    if (y <= y0) return top;
+    if (y >= y1) return kx;
+    const h = (y1 - y0) * 0.45;                      // limbPath 와 같은 제어점 높이
+    const yAt = t => { const u = 1 - t;
+      return u * u * u * y0 + 3 * u * u * t * (y0 + h) + 3 * u * t * t * (y1 - h) + t * t * t * y1; };
+    let lo = 0, hi = 1;                              // y(t) 는 단조로우므로 이분법으로 푼다
+    for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (yAt(m) < y) lo = m; else hi = m; }
+    const t = (lo + hi) / 2, u = 1 - t;
+    return top * (u * u * u + 3 * u * u * t) + kx * (3 * u * t * t + t * t * t);
   }
   // 가장 굵은 곳 (엉덩이 바로 밑) — 기본값이면 122
   const thighOuter = tune => thighOuterAt(tune, LEG.hipY);
@@ -1194,6 +1223,7 @@
     const tRa = +(100 + thighJoin(tune)).toFixed(2), tLa = +(200 - tRa).toFixed(2);
     const hRa = +(100 + hipHalf(tune)).toFixed(2), hLa = +(200 - hRa).toFixed(2);
     const ha = +((HY1 - WY) * 0.45).toFixed(1), hb = +((BY - HY2) * 0.45).toFixed(1);
+
     // 몸통 옆선이 허리로 좁아지는 곡선. 제어점을 어깨(133)~허리 사이의 **비율**로 잡아,
     // waistY 를 올리고 내려도 곡선 모양이 그대로 따라오게 한다.
     // 마지막 제어점의 x 는 **허리와 같다** — 그래야 허리에서 접선이 세로가 되어
@@ -1280,6 +1310,30 @@
               + `<circle cx="${x - 2.4}" cy="${AV.Y + 1.2}" r="1.3" fill="#fff"/>`,
     // 점눈 — 김빠짐·질색. **작아지는 것 자체가 농담**이라 크게 만들지 않는다
     dot:   x => `<circle cx="${x}" cy="${AV.Y}" r="2.2" fill="${AV.INK}"/>`,
+    // ─── 무거운 윗눈꺼풀 ─────────────────────────────────────
+    // 결은 「장송의 프리렌」 쪽이다: **두꺼운 윗꺼풀 한 줄**로 눈을 거의 덮고,
+    // 감정은 그 꺼풀의 «기울기»와 아주 작은 입으로만 진다. 아냐(큰 눈)와 반대 축이라
+    // 둘을 같이 두면 표정의 폭이 넓어진다.
+    lid:   x => `<path d="M${x - 6.6},${AV.Y - 1.6} q6.6,-1.2 13.2,0" stroke="${AV.INK}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`
+              + `<path d="M${x - 4.6},${AV.Y + 1.8} q4.6,1.6 9.2,0" stroke="${AV.INK}" stroke-width="1.6" fill="none" stroke-linecap="round" opacity="0.55"/>`,
+    // 바깥이 처진 꺼풀 — 나른함·체념. 같은 부품에서 각만 바꾼다
+    lidLow: (x) => {
+      const f = x < 100 ? 1 : -1;
+      return `<path d="M${x - 6.6},${AV.Y - 3.4 + f * 1.6} q6.6,0.6 13.2,${-f * 3.2}" stroke="${AV.INK}" stroke-width="3.4" fill="none" stroke-linecap="round"/>`;
+    },
+    // ─── 「페른」 결 — 곧은 윗꺼풀이 큰 눈의 위를 «자른다» ─────
+    // 위의 `lid`(프리렌)가 눈을 거의 덮어 버리는 것과 반대다: **눈은 크게 열려 있는데
+    // 윗꺼풀만 곧게 내려와** 있어서, 눈빛의 힘은 그대로인 채 못마땅함이 얹힌다.
+    // 이 한 부품이 「조용히 화난 얼굴」을 맡는다 — 눈썹을 낮게(`aBrow` 의 low) 깔면 완성된다
+    jito:  x => `<ellipse cx="${x}" cy="${AV.Y + 0.6}" rx="6.4" ry="7.4" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
+              + `<circle cx="${x}" cy="${AV.Y + 1.2}" r="4.6" fill="${AV.INK}"/>`
+              + `<circle cx="${x + 1.8}" cy="${AV.Y - 0.8}" r="1.5" fill="#fff"/>`
+              + `<path d="M${x - 6.6},${AV.Y - 4.8} L${x + 6.6},${AV.Y - 4.8}" stroke="${AV.INK}" stroke-width="4.2" stroke-linecap="round"/>`,
+    // 같은 꺼풀에 눈동자만 옆으로 — 곁눈질. 「말은 안 하지만 보고 있다」
+    jside: x => `<ellipse cx="${x}" cy="${AV.Y + 0.6}" rx="6.4" ry="7.4" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
+              + `<circle cx="${x + 2.4}" cy="${AV.Y + 1.2}" r="4.4" fill="${AV.INK}"/>`
+              + `<circle cx="${x + 3.8}" cy="${AV.Y - 0.6}" r="1.4" fill="#fff"/>`
+              + `<path d="M${x - 6.6},${AV.Y - 4.8} L${x + 6.6},${AV.Y - 4.8}" stroke="${AV.INK}" stroke-width="4.2" stroke-linecap="round"/>`,
     // >_< — 박장대소·질색. 감은 눈보다 힘이 세다
     tight: x => `<path d="M${x - 6},${AV.Y - 4.4} L${x + 1},${AV.Y} L${x - 6},${AV.Y + 4.4}"`
               + ` stroke="${AV.INK}" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"`
@@ -1320,6 +1374,10 @@
   // 눈이 커진 만큼 입은 작아야 균형이 맞는다. 「ω」 같은 고양이 입이 이 결의 핵심이다
   const aMouth = {
     calm:  `<path d="M${AV.MX - 4},${AV.MY} q4,2.6 8,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    // 아주 작은 입 — 프리렌 결. 얼굴이 커도 입이 작으면 표정이 «조용»해진다
+    tiny:  `<path d="M${AV.MX - 2.6},${AV.MY} q2.6,2 5.2,0" stroke="${AV.LIP}" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    // 작은 ω — 같은 결의 «조용한 귀여움»
+    wee:   `<path d="M${AV.MX - 4},${AV.MY} q2,2.8 4,0 q2,2.8 4,0" stroke="${AV.LIP}" stroke-width="2" fill="none" stroke-linecap="round"/>`,
     smile: `<path d="M${AV.MX - 5},${AV.MY} q5,4.6 10,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
     // ω — 고양이 입. 아무 감정에도 안 붙는 대신 **귀여움 그 자체**를 맡는다
     w:     `<path d="M${AV.MX - 6},${AV.MY} q3,4 6,0 q3,4 6,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
@@ -1327,6 +1385,9 @@
     haha:  `<path d="M${AV.MX - 8},${AV.MY - 1} q8,12 16,0 z" fill="#b5566a"/><path d="M${AV.MX - 5.6},${AV.MY} q5.6,2.6 11.2,0" fill="#fff"/>`
          + `<ellipse cx="${AV.MX}" cy="${AV.MY + 5.4}" rx="3" ry="2" fill="#d98f96"/>`,
     flat:  `<path d="M${AV.MX - 4},${AV.MY + 1} L${AV.MX + 4},${AV.MY + 1}" stroke="${AV.LIP}" stroke-width="2.2" stroke-linecap="round"/>`,
+    // へ — 못마땅하게 꾹 다문 작은 입 (페른 결). `frown` 보다 작고 얕다 —
+    // 슬픔이 아니라 «참고 있는 것»이라 크게 그리면 울상이 된다
+    hmm:   `<path d="M${AV.MX - 3.6},${AV.MY + 2.2} q3.6,-3.2 7.2,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
     frown: `<path d="M${AV.MX - 5},${AV.MY + 3.4} q5,-5 10,0" stroke="${AV.LIP}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
     small: `<ellipse cx="${AV.MX}" cy="${AV.MY + 1}" rx="2.6" ry="3" fill="#b5566a"/>`,
     ohh:   `<ellipse cx="${AV.MX}" cy="${AV.MY + 1}" rx="3.4" ry="4.4" fill="#b5566a"/>`,
@@ -1351,15 +1412,19 @@
     ? `<path d="M${x - 7},${66 - f * 2.6} q7,-4.4 14,${f * 5.4}" stroke="${AV.INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
     : kind === 'droop'
     ? `<path d="M${x - 7},${60 + f * 2.6} q7,2.6 14,${-f * 1}" stroke="${AV.INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+    // 낮고 곧은 눈썹 (페른 결) — 눈에 가까이 깔릴수록 「못마땅함」이 된다.
+    // 기본(62)보다 3px 내려와 눈꺼풀 바로 위에 앉는다
+    : kind === 'low'
+    ? `<path d="M${x - 6.6},${65 - f * 0.8} L${x + 6.6},${65 + f * 0.8}" stroke="${AV.INK}" stroke-width="2.2" stroke-linecap="round"/>`
     : `<path d="M${x - 7},62 L${x + 7},62" stroke="${AV.INK}" stroke-width="2.2" stroke-linecap="round"/>`;
   // 원래 있던 여섯(puzzled · smile · wink · happy · surprise · cool)에 «없는» 것만
   const AV_FACE = {
-    warm:    { e: 'arc',     m: 'w' },
+    warm:    { e: 'arc',     m: 'wee' },
     proud:   { e: 'sharp',   m: 'smirk',  b: 'up' },
     smirk:   { e: 'side',    m: 'smirk' },
-    flat:    { e: 'dot',     m: 'flat' },
-    meh:     { e: 'half',    m: 'meh' },
-    sleepy:  { e: 'half',    m: 'w' },
+    flat:    { e: 'lid',     m: 'tiny' },
+    meh:     { e: 'lidLow',  m: 'meh' },
+    sleepy:  { e: 'lidLow',  m: 'wee' },
     think:   { e: 'up',      m: 'small' },
     doubt:   { e: 'side',    m: 'meh',    b: 'up' },
     worry:   { e: 'wobble',  m: 'wavy',   b: 'sad' },
@@ -1373,13 +1438,17 @@
     love:    { e: 'heart',   m: 'grin' },
     faint:   { e: 'cross',   m: 'ohh' },
     haha:    { e: 'tight',   m: 'haha',   b: 'up' },
-    tease:   { e: 'shut',    m: 'tongue' },
-    pout:    { e: 'low',     m: 'pout',   b: 'sad' },
+    // 😝 는 눈을 «질끈» 감는다 — 그냥 감은 눈(‿‿)으로 그리면 이모지와 딴 얼굴이 된다
+    tease:   { e: 'tight',   m: 'tongue' },
+    // 😒 · 😑 는 **페른** 결이다 — 큰 눈 위를 곧은 꺼풀이 자르고 눈썹이 낮게 깔린다.
+    // 화난 얼굴(`glare`)과 갈리는 자리라서 눈썹을 세우지 않는다: 조용히 못마땅한 것이지
+    // 노려보는 것이 아니다
+    pout:    { e: 'jito',    m: 'hmm',    b: 'low' },
     glare:   { e: 'glare',   m: 'flat',   b: 'angry' },
-    suspect: { e: 'slit',    m: 'meh',    b: 'flat' },
+    suspect: { e: 'jside',   m: 'meh',    b: 'low' },
     dizzy:   { e: 'dizzy',   m: 'wavy' },
-    weary:   { e: 'dot',     m: 'wavy',   b: 'droop' },
-    relief:  { e: 'shut',    m: 'calm',   b: 'droop' },
+    weary:   { e: 'lidLow',  m: 'wavy',   b: 'droop' },
+    relief:  { e: 'lid',     m: 'wee',    b: 'droop' },
     sorry:   { e: 'low',     m: 'small',  b: 'beg' },
     // **아냐의 대표 얼굴** — 눈물이 그렁그렁 고인 채 올려다본다
     plead:   { e: 'wobble',  m: 'small',  b: 'beg' },

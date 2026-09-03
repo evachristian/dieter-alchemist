@@ -4373,7 +4373,14 @@ function equip(slot, id, el) {
   if (slot === 'top' || slot === 'bottom') S.outfit.dress = 'dress_none';
   S.outfit[slot] = id;
   save();
+  // ⚠️ **스크롤 자리를 붙들어 둔다.** `renderShowcase()` 가 옷장을 통째로 다시 그리는데,
+  // 그 사이 문서가 잠깐 짧아지면 브라우저가 스크롤을 **위로 끌어올린다** —
+  // 그리고 다시 길어져도 안 돌아온다. 칸이 많은 「표정」(38개)에서 특히 크게 튀었다
+  // (「스퀘어 아이콘을 누르면 원치 않는 스크롤이 생긴다」로 신고받았다).
+  const sc = document.scrollingElement || document.documentElement;
+  const keepY = sc.scrollTop;
   renderShowcase();  // 아바타 + 옷장 동시 갱신
+  if (sc.scrollTop !== keepY) sc.scrollTop = keepY;
   toast(name, at, null, 'above');
   if (window.Tut) Tut.fire('equip:' + id);
 }

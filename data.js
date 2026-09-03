@@ -2107,7 +2107,7 @@ const WARDROBE = {
     { id: 'exp_wink',     slot: 'expression', kind: 'wink',     name: '윙크',   emoji: '😉' },
     { id: 'exp_happy',    slot: 'expression', kind: 'happy',    name: '활짝',   emoji: '😄' },
     { id: 'exp_surprise', slot: 'expression', kind: 'surprise', name: '놀람',   emoji: '😲' },
-    { id: 'exp_cool',     slot: 'expression', kind: 'cool',     name: '시크',   emoji: '😑' },
+    { id: 'exp_cool',     slot: 'expression', kind: 'cool',     name: '시크',   emoji: '😎' },
     // ─── 여기부터 늘린 것 ─────────────────────────────────────
     // ⚠️ **부품 표에서 나온다** (`avatar.js` 의 `AV_FACE`) — 얼굴을 하나씩 그리지 않는다.
     // 위의 여섯은 손으로 그린 것이라 `switch` 에 그대로 남아 있다 (세이브에 든 id 다).
@@ -2140,8 +2140,8 @@ const WARDROBE = {
     { id: 'exp_sorry',     slot: 'expression', kind: 'sorry',     name: '미안', emoji: '😔' },
     { id: 'exp_plead',     slot: 'expression', kind: 'plead',     name: '부탁', emoji: '🥺' },
     { id: 'exp_blush',     slot: 'expression', kind: 'blush',     name: '부끄러움', emoji: '😳' },
-    { id: 'exp_resolve',   slot: 'expression', kind: 'resolve',   name: '결심', emoji: '😤' },
-    { id: 'exp_awe',       slot: 'expression', kind: 'awe',       name: '감탄', emoji: '😲' },
+    { id: 'exp_resolve',   slot: 'expression', kind: 'resolve',   name: '결심', emoji: '💪' },
+    { id: 'exp_awe',       slot: 'expression', kind: 'awe',       name: '감탄', emoji: '🫢' },
     { id: 'exp_curious',   slot: 'expression', kind: 'curious',   name: '궁금', emoji: '🤨' },
   ],
   tattoo: [

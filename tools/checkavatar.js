@@ -1193,7 +1193,11 @@ function launchOpts() {
   // ⚠️ **재는 창을 199 까지 넓혔다.** 175 에서 자르고 있어서 굵어진 허벅지가
   // 창 밖으로 나가 「74.0px」에 붙박여 있었다 — gain 을 올려도 숫자가 안 움직였다.
   // 재는 자리가 좁으면 «고쳐도 그대로»로 보인다.
-  const FAT_MAX = { 허벅지: [2, 1.93], 엉덩이: [1.5, 1.11], 종아리: [2, 1.93] };
+  // ⚠️ 값이 한 번 내려갔다: `thighOuterAt` 이 그리는 곡선을 그대로 풀게 되면서
+  // 허벅지가 실제로는 더 굵다는 것이 드러났고, 그것을 덮는 엉덩이가 그림 상자
+  // 밖으로 나갔다 — `TUNE_GAIN.thigh/calf` 를 0.95 → 0.87 로 낮춰 되돌렸다.
+  // 엉덩이(0.27 → 0.5)는 반대로 올렸다 (슬라이더 100%↔125% 가 붙어 버려서).
+  const FAT_MAX = { 허벅지: [2, 1.85], 엉덩이: [1.5, 1.17], 종아리: [2, 1.86] };
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
@@ -1411,6 +1415,59 @@ function launchOpts() {
       bad: worst > max ? [`목 옆(y≈${at})에서 어깨와 머리카락 사이가 ${worst.toFixed(1)}px 벌어졌다`
         + ` (${max}px 까지) — 어깨와 팔 사이에 배경이 끼어든 것처럼 보인다`] : [] };
   }, SH_HAIR_GAP_MAX);
+
+  // ─── 팔은 다리보다 가늘다 ────────────────────────────────────
+  //
+  // 사람 몸이 그렇고, 아니면 그림이 곧바로 이상해 보인다.
+  // ⚠️ **최소 배율에서 뒤집혔다** — 팔 «그늘»이 2.5px 붙박이라 팔이 가늘어질수록
+  // 그 몫이 커져서(50% 에서 +33%) 팔이 종아리보다 두꺼워졌다.
+  // 「모든 바디파츠를 최소로 했더니 팔이 다리보다 두껍다」로 신고받은 것이 이것이다.
+  const armLeg = await page.evaluate(async () => {
+    const D = window.GameData, bad = [], rows = [], S = 4, W = 200 * S, H = 348 * S;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    function keep(svg, sel) {
+      const wrap = document.createElement('div'); wrap.innerHTML = svg;
+      const root = wrap.firstElementChild, only = root.cloneNode(false);
+      [...root.querySelectorAll(sel)].forEach(n => only.appendChild(n.cloneNode(true)));
+      return only.outerHTML;
+    }
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+      return ctx.getImageData(0, 0, W, H).data;
+    }
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
+    async function thick(sel, t, y0, y1) {
+      const d = await px(keep(window.Avatar.build(outfit, 0, t), sel));
+      let best = 0;
+      for (let y = y0; y <= y1; y += 0.5) {
+        const row = Math.round(y * S);
+        let i = null, o = null;
+        for (let x = 100 * S; x < 199 * S; x++) if (d[(row * W + x) * 4 + 3] > 128) { i = x / S; break; }
+        if (i == null) continue;
+        for (let x = 199 * S; x >= 100 * S; x--) if (d[(row * W + x) * 4 + 3] > 128) { o = x / S; break; }
+        if (o - i > best) best = o - i;
+      }
+      return +best.toFixed(1);
+    }
+    // 슬라이더를 «같이» 움직인다 — 사람이 실제로 하는 짓이다 (전부 최소 · 전부 최대)
+    for (const k of [0.5, 0.75, 1, 1.5, 2]) {
+      const t = { arm: Math.min(k, 1.5), thigh: k, calf: k };
+      const a = await thick('[data-part="arm"]', t, 130, 200);
+      const c = await thick('[data-part="calf"]', t, 265, 300);
+      rows.push(`${k * 100}% 팔 ${a} · 종아리 ${c}`);
+      if (a >= c) {
+        bad.push(`배율 ${k * 100}% 에서 **팔(${a}px)이 종아리(${c}px)보다 두껍다**`
+          + ` — 사람 몸이 그렇지 않아서 곧바로 이상해 보인다`);
+      }
+    }
+    return { bad: bad, rows: rows };
+  });
 
   const SLIDER_SPAN_MIN = 8, SLIDER_STEP_MIN = 1;
   const SLIDER = [['엉덩이', 'hip', [0.2, 0.5, 0.8, 1, 1.25, 1.5], [190, 214], '[data-part="hip"]'],
@@ -2130,6 +2187,7 @@ function launchOpts() {
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
     .concat(armSkirt.bad.map(m => ({ id: '팔↔하의', body: '-', where: m, n: '-' })))
     .concat(shHair.bad.map(m => ({ id: '어깨↔머리카락', body: '-', where: m, n: '-' })))
+    .concat(armLeg.bad.map(m => ({ id: '팔↔다리', body: '-', where: m, n: '-' })))
     .concat(fat.bad.map(m => ({ id: '상한 두께', body: '-', where: m, n: '-' })))
     .concat(slider.bad.map(m => ({ id: '슬라이더', body: '-', where: m, n: '-' })))
     .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
@@ -2181,6 +2239,8 @@ function launchOpts() {
     + ` ${armSkirt.rows.join(' · ')} (${ARM_SKIRT_MAX} 점까지 · 마개가 붙으면 227~238 점이 된다)`);
   console.log(`어깨↔머리카락: 목 옆의 틈 ${shHair.gap}px (y≈${shHair.at})`
     + ` (${SH_HAIR_GAP_MAX}px 까지 · 넓어지면 어깨와 팔 사이에 배경이 낀 것처럼 보인다)`);
+  console.log(`팔은 다리보다 가는가: ${armLeg.rows.join(' · ')}`
+    + ` (팔 < 종아리 · 최소 배율에서 뒤집혔던 자리다)`);
   console.log(`슬라이더: 하한→상한의 반폭 ${slider.rows.join(' · ')}`
     + ` (칸마다 ${SLIDER_STEP_MIN}px · 전체 ${SLIDER_SPAN_MIN}px 이상 — 밀어도 안 변하면 안 된다)`);
   console.log(`다리 옆선: 허벅지×종아리 ${legLine.n}조합 — 가장 선 곳 ${legLine.worst}`
