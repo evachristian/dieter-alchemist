@@ -51,12 +51,14 @@ function launchOpts() {
     // **build() 가 몸을 통째로 늘린다** — 재는 창도 같은 변환을 지나야 한다.
     // (예전에 이걸 빼먹고 고정 좌표로 쟀더니, 통통한 체형에서 창이 턱·목에 걸려
     //  멀쩡한 옷까지 전부 '살이 나왔다' 고 잡혔다)
-    const HEAD_H = 84, BODY_SPAN = 229, FLOOR_Y = 342;
+    // ⚠️ **상수를 베끼지 않는다 — `Avatar.bodyMetrics(w)` 에게 물어본다.**
+    // 예전에는 여기에 `0.979 + (1.314-0.979)*w` 라고 머리 배율을 **따로 적어** 두었다.
+    // avatar.js 쪽 `HEAD_K_FAT` 을 고치자마자 창이 통째로 어긋나
+    // **멀쩡한 옷 80벌이 「허리 살이 나왔다」로 잡혔다** — 검사기가 거짓말을 한 것이다.
     const bodyBox = (w, x0, x1, y0, y1) => {
-      const head = HEAD_H * (0.979 + (1.314 - 0.979) * w);
-      const ky = 1 + (HEAD_H - head) / BODY_SPAN, kx = 1 + 0.36 * w;
-      const my = y => Math.round(FLOOR_Y + (y - FLOOR_Y) * ky);
-      return [Math.round(100 + (x0 - 100) * kx), Math.round(100 + (x1 - 100) * kx), my(y0), my(y1)];
+      const m = window.Avatar.bodyMetrics(w);
+      const my = y => Math.round(m.floorY + (y - m.floorY) * m.ky);
+      return [Math.round(100 + (x0 - 100) * m.kx), Math.round(100 + (x1 - 100) * m.kx), my(y0), my(y1)];
     };
     const SLEEVE_H = { none: 0, cap: 20, short: 42, half: 66, long: 94 };
     // 아래끝을 소매 끝보다 **6px 위**에서 끊는다. 소매 밑단은 둥글어서 **바깥쪽이

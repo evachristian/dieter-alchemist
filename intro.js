@@ -83,7 +83,6 @@
       <path d="M188,178 C194,214 186,244 172,246 C182,222 184,198 180,184 Z" fill="${HAIR}"/>
       <!-- 얼굴 (통통) -->
       <ellipse cx="150" cy="180" rx="34" ry="33" fill="${SKIN}"/>
-      <ellipse cx="150" cy="205" rx="17" ry="9" fill="${SKIN_SH}" opacity="0.5"/>
       <!-- 행복하게 먹는 표정 (^ ^) -->
       <path d="M130,178 Q137,171 144,178" stroke="#4a3a42" stroke-width="2.8" fill="none" stroke-linecap="round"/>
       <path d="M156,178 Q163,171 170,178" stroke="#4a3a42" stroke-width="2.8" fill="none" stroke-linecap="round"/>
@@ -391,8 +390,9 @@
       <path d="M112,178 C106,214 114,244 128,246 C118,222 116,198 120,184 Z" fill="${HAIR}"/>
       <path d="M188,178 C194,214 186,244 172,246 C182,222 184,198 180,184 Z" fill="${HAIR}"/>
       <!-- 얼굴 (통통) -->
+      <!-- ⚠️ 턱 밑에 살 그늘(SKIN_SH 타원)을 깔았다가 뺐다 — 입 바로 밑에 있어서
+           **수염처럼 보였다.** 통통함은 얼굴 타원(rx34 ry33)이 이미 내고 있다 -->
       <ellipse cx="150" cy="180" rx="34" ry="33" fill="${SKIN}"/>
-      <ellipse cx="150" cy="205" rx="17" ry="9" fill="${SKIN_SH}" opacity="0.5"/>
       ${extra}
       ${eyes}
       ${mouth}
