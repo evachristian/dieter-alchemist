@@ -88,6 +88,21 @@ async function boot(page) {
   ok(dotOk.before && !dotOk.after && dotOk.seen, '코드를 복사하면 톱니의 점이 꺼진다',
      `${dotOk.before ? '켜짐' : '꺼짐'} → ${dotOk.after ? '켜짐' : '꺼짐'}`);
 
+  // ⚠️ **열어서 «본» 것만으로도 꺼져야 한다.** 예전에는 «복사»해야만 꺼져서,
+  // 설정을 열어 코드를 눈으로 적어 둔 사람에게는 점이 **영영 안 꺼졌다**
+  // (「왜인지 사라지질 않아」로 신고받았다). 점의 뜻은 「아직 안 본 것이 있다」이지
+  // 「아직 복사 안 했다」가 아니다
+  const dotOpen = await a.evaluate(() => {
+    S.codeSeen = false; renderActBadges();
+    const on = !document.getElementById('gearDot').hidden;
+    openSettings(); closeSettings();
+    renderActBadges();
+    return { before: on, after: !document.getElementById('gearDot').hidden, seen: S.codeSeen };
+  });
+  ok(dotOpen.before && !dotOpen.after && dotOpen.seen,
+     '설정을 «열기만» 해도 톱니의 점이 꺼진다',
+     `${dotOpen.before ? '켜짐' : '꺼짐'} → ${dotOpen.after ? '켜짐' : '꺼짐'}`);
+
   // ── 기기 B — 다른 브라우저 컨텍스트 (localStorage 가 따로다)
   const B = await browser.newContext();
   const b = await B.newPage();

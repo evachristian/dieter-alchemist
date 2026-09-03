@@ -6170,6 +6170,10 @@ function openSettings() {
   renderSettings();
   renderSyncSettings();
   document.getElementById('settingsModal').classList.add('show');
+  // ⚠️ **열어서 «본» 순간 점을 끈다.** 예전에는 복구 코드를 «복사»해야만 꺼져서,
+  // 열어 보고 눈으로 적어 둔 사람에게는 **영영 안 꺼졌다** (그렇게 신고받았다).
+  // 점의 뜻은 「아직 안 본 것이 있다」이지 「아직 복사 안 했다」가 아니다.
+  if (!S.codeSeen) { S.codeSeen = true; save(); renderActBadges(); }
 }
 function closeSettings() {
   document.getElementById('settingsModal').classList.remove('show');

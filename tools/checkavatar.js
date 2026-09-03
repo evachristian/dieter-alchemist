@@ -1373,6 +1373,45 @@ function launchOpts() {
     return { bad: bad, rows: rows };
   }, ARM_SKIRT_MAX);
 
+  // ─── 어깨와 머리카락 사이가 벌어지지 않는가 ───────────────────
+  //
+  // 목 옆에서는 **어깨 · (틈) · 머리카락** 순으로 놓인다. 그 틈이 넓어지면
+  // 어깨와 팔 사이에 배경이 끼어든 것처럼 보인다 — 「어깨랑 팔 사이에 공간 생겨」로
+  // 신고받은 것이 이것이다.
+  //
+  // ⚠️ **「어깨 홈」으로는 못 잡는다.** 그건 «위쪽 실루엣이 다시 솟는가»를 보는데,
+  // 이 틈은 실루엣이 끊긴 것이 아니라 **가로로 벌어진 것**이라 0px 로 통과했다.
+  // 어깨선을 눕히면서 위쪽이 안으로 4px 들어와 7 → 11.2px 이 됐다.
+  const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 때 9.8
+  const shHair = await page.evaluate(async (max) => {
+    const D = window.GameData, S = 4, W = 200 * S, H = 348 * S;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none', shoes: 'shoes_none' };
+    const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, null);
+    const img = new Image();
+    await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+    ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+    const d = ctx.getImageData(0, 0, W, H).data;
+    const on = (x, y) => d[(Math.round(y * S) * W + Math.round(x * S)) * 4 + 3] > 128;
+    let worst = 0, at = 0;
+    // ⚠️ **108.5 부터 잰다.** 몸통은 108 에서 시작해서, 그보다 위는 «목과 머리카락»
+    // 사이라 어깨와 상관이 없다 (107 에서 재면 늘 14px 이 나온다)
+    for (let y = 108.5; y <= 116; y += 0.5) {
+      // 중심선에서 오른쪽으로 훑어 «살 → 빈 곳 → 다시 살» 의 빈 곳 폭을 잰다
+      let end = null;
+      for (let x = 100; x <= 150; x += 0.25) {
+        if (on(x, y)) { if (end != null) { const g = x - end;
+          if (g > worst) { worst = g; at = y; } break; } }
+        else if (end == null && x > 100) end = x;
+      }
+    }
+    return { gap: +worst.toFixed(1), at: at,
+      bad: worst > max ? [`목 옆(y≈${at})에서 어깨와 머리카락 사이가 ${worst.toFixed(1)}px 벌어졌다`
+        + ` (${max}px 까지) — 어깨와 팔 사이에 배경이 끼어든 것처럼 보인다`] : [] };
+  }, SH_HAIR_GAP_MAX);
+
   const SLIDER_SPAN_MIN = 8, SLIDER_STEP_MIN = 1;
   const SLIDER = [['엉덩이', 'hip', [0.2, 0.5, 0.8, 1, 1.25, 1.5], [190, 214], '[data-part="hip"]'],
                   ['허벅지', 'thigh', [0.5, 0.8, 1, 1.5, 2], [200, 250], '[data-part="thigh"]'],
@@ -2090,6 +2129,7 @@ function launchOpts() {
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
     .concat(armSkirt.bad.map(m => ({ id: '팔↔하의', body: '-', where: m, n: '-' })))
+    .concat(shHair.bad.map(m => ({ id: '어깨↔머리카락', body: '-', where: m, n: '-' })))
     .concat(fat.bad.map(m => ({ id: '상한 두께', body: '-', where: m, n: '-' })))
     .concat(slider.bad.map(m => ({ id: '슬라이더', body: '-', where: m, n: '-' })))
     .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
@@ -2139,6 +2179,8 @@ function launchOpts() {
     + ` (부위마다 정해 둔 값 ±${FAT_TOL} · 100% 는 아무것도 안 바꾼다)`);
   console.log(`팔이 하의 위로 나오는가: 허리선 아래 «팔 자리»의 옷색 점 수 —`
     + ` ${armSkirt.rows.join(' · ')} (${ARM_SKIRT_MAX} 점까지 · 마개가 붙으면 227~238 점이 된다)`);
+  console.log(`어깨↔머리카락: 목 옆의 틈 ${shHair.gap}px (y≈${shHair.at})`
+    + ` (${SH_HAIR_GAP_MAX}px 까지 · 넓어지면 어깨와 팔 사이에 배경이 낀 것처럼 보인다)`);
   console.log(`슬라이더: 하한→상한의 반폭 ${slider.rows.join(' · ')}`
     + ` (칸마다 ${SLIDER_STEP_MIN}px · 전체 ${SLIDER_SPAN_MIN}px 이상 — 밀어도 안 변하면 안 된다)`);
   console.log(`다리 옆선: 허벅지×종아리 ${legLine.n}조합 — 가장 선 곳 ${legLine.worst}`
