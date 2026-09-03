@@ -5237,6 +5237,8 @@ function renderRoomDevTail() {
       // 스토리를 통째로 열어 본다 — 컷씬·키워드·마을·퀘스트가 서로 물려 있어서
       // 손으로 하나씩 열면 순서를 틀리기 쉽다
       devAct(T('dev_all_story'), 'devAllStory()'),
+      // 「혼자 먹은 밤」의 **갈래**를 보려면 어젯밤에 부엌에 다녀와 있어야 한다
+      devAct(T('dev_kitchen'), 'devKitchenVisit()'),
     ]) +
     devGroup(T('dev_g_open')) +
     devSws([devSw(on, T('dev_tutorial'), 'devToggleTutorial()')]) +
@@ -5266,6 +5268,23 @@ function devAllStory() {
   });
 }
 window.devAllStory = devAllStory;
+
+// 개발용: **어젯밤에 부엌에 다녀온 것으로 친다.**
+//
+// ⚠️ **오늘이 아니라 어제로 잡는다.** 「오늘 다녀온 상태」는 그냥 부엌에 가서
+// 「같이 먹기」를 누르면 되는 일이라 버튼이 필요 없다. 버튼이 필요한 것은
+// **어젯밤 다녀온 상태**다 — 「혼자 먹은 밤」은 날이 바뀔 때 정산되므로,
+// 그 갈래(`checkBinge` 의 `warm`)는 어제여야만 보인다.
+// `S.bingeDay` 도 어제로 맞춰 준다: 정산 구간이 그보다 앞이면 그 밤이 안 세어진다.
+function devKitchenVisit() {
+  const y = dayKey(new Date(nowDate().getTime() - DAY_MS));
+  S.kitchenDay = y;
+  S.bingeDay = Math.min(S.bingeDay || y, y);
+  save();
+  toast(T('dev_kitchen_done'), null, 3200);
+  render();
+}
+window.devKitchenVisit = devKitchenVisit;
 
 // 개발용: 「혼자 먹은 밤」 한 번을 지금 만든다.
 // **실제 경로를 그대로 지난다** — 포만감을 비우고 어제로 돌려 checkBinge() 를 부른다.

@@ -1321,6 +1321,24 @@ function launchOpts() {
         await page.waitForTimeout(150);
       }
 
+      // 개발용 **「부엌 다녀왔다고 치기」** — 「혼자 먹은 밤」의 갈래를 만드는 버튼이다.
+      // ⚠️ **어제로 잡혀야** 그 갈래가 실제로 돈다 (오늘로 잡으면 정산에서 안 세어진다)
+      if (process.env.FULL && t === 'showcase') {
+        const kvBad = await page.evaluate(() => {
+          S.kitchenDay = 0; S.bingeDay = dayKey(); S.fullness = 0;
+          devKitchenVisit();
+          if (S.kitchenDay === dayKey()) return '오늘로 잡혔다 — 그러면 갈래가 안 돈다';
+          const keep = S.record.warmNights || 0;
+          // 이 상태에서 밤을 하나 만들면 **따뜻한 밤**으로 세어져야 한다
+          S.bingeDay = dayKey(new Date(Date.now() - 86400000));
+          checkBinge();
+          if ((S.record.warmNights || 0) !== keep + 1) return '따뜻한 밤으로 안 세어진다';
+          return null;
+        });
+        if (kvBad) results.push({ 화면: `${t}/부엌치기`, 오류: kvBad });
+        await page.waitForTimeout(120);
+      }
+
       // **부엌** (STORY.md 요리사 클레멘) — 아무것도 안 드는 유일한 자리다.
       // ⚠️ 여기서 재는 것의 핵심: **아무것도 안 깎이는가.** 값을 받기 시작하면
       // 「온기만이 등가 교환의 밖에 있다」가 무너진다
