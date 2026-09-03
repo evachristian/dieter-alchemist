@@ -1306,67 +1306,6 @@ function launchOpts() {
                : [] };
   }, BOX_MARGIN_MIN);
 
-  // ─── 가슴 — 「그늘」이라 두께로는 못 잰다 ─────────────────────
-  //
-  // 가슴은 실루엣이 아니라 **아래에 깔린 그늘**이다(`avatar.js` 의 `chestShade`).
-  // 옆으로 넓히면 팔이 그 자리를 통째로 덮어 아무것도 안 보이기 때문이다.
-  // 그래서 「상한 두께」로는 못 재고, 두 가지를 따로 본다:
-  //   ① 슬라이더를 밀면 **그늘이 실제로 커지는가** (열어 두기만 하고 안 먹히는 함정)
-  //   ② **옷을 입어도 남는가** — 몸에만 그리면 옷 입는 순간 가슴이 사라진다
-  const CHEST_GROW_MIN = 3;            // 50% → 200% 에서 세로로 이만큼은 자란다
-  const chest = await page.evaluate(async (o) => {
-    const D = window.GameData, bad = [];
-    // ⚠️ **«마지막» 가슴을 잰다.** 몸의 가슴은 옷 밑에 그대로 남아 있어서
-    // 첫 번째를 집으면 옷에서 가슴을 통째로 빼도 그대로 잡힌다 — 사보타주가 안 걸렸다.
-    // 눈에 보이는 것은 «맨 위» 것이고, 옷을 입었으면 그것이 옷의 가슴이어야 한다
-    function box(svg) {
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:fixed;left:-9999px;top:0';
-      wrap.innerHTML = svg; document.body.appendChild(wrap);
-      const all = wrap.querySelectorAll('[data-part="chest"]');
-      const g = all[all.length - 1];
-      const r = g ? g.getBBox() : null;
-      const st = g ? g.getAttribute('stroke') : null;
-      wrap.remove();
-      return r ? { w: +r.width.toFixed(2), h: +r.height.toFixed(2), n: all.length, stroke: st } : null;
-    }
-    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
-                   shoes: 'shoes_none', hair: 'hair_none' };
-    const nude = Object.assign({}, D.DEFAULT_OUTFIT, bare);
-    const rows = [];
-    let prev = null, first = null, last = null;
-    for (const k of [0.5, 1, 1.5, 2]) {
-      const b = box(window.Avatar.build(nude, 0, { chest: k }));
-      if (!b) { bad.push(`가슴 ${k * 100}%: 몸에 가슴이 아예 안 그려진다`); continue; }
-      rows.push(`${k * 100}% ${b.w}×${b.h}`);
-      if (prev && !(b.h > prev.h)) {
-        bad.push(`가슴 ${k * 100}%: 밀었는데 세로가 안 자란다 (${prev.h} → ${b.h})`);
-      }
-      prev = b; if (first == null) first = b; last = b;
-    }
-    if (first && last && !(last.h - first.h >= o.grow)) {
-      bad.push(`가슴을 끝에서 끝까지 밀어도 세로가 ${(last.h - first.h).toFixed(2)}px 밖에`
-        + ` 안 자란다 (${o.grow}px 이상) — 슬라이더가 있는데 그림이 안 따라온다`);
-    }
-    // ② 옷 위에도 그린다 — 상의 하나 · 드레스 하나
-    const dressed = [['top', 'top_tee'], ['dress', 'dress_onepiece']];
-    const seen = [];
-    for (const [slot, id] of dressed) {
-      const o2 = Object.assign({}, D.DEFAULT_OUTFIT,
-        { top: 'top_none', bottom: 'bot_none', dress: 'dress_none', [slot]: id });
-      const b = box(window.Avatar.build(o2, 0, { chest: 1.5 }));
-      seen.push(`${id} ${b ? b.w + '×' + b.h + ' (' + b.n + '겹)' : '없음'}`);
-      if (!b) { bad.push(`${id}: 옷을 입으면 가슴이 사라진다 — 옷도 같은 함수로 그려야 한다`); continue; }
-      // 옷을 입었으면 **몸 것 위에 옷 것이 한 겹 더** 있어야 한다.
-      // 몸 것만 남으면 옷에 가려 아무것도 안 보인다
-      if (b.n < 2) {
-        bad.push(`${id}: 가슴이 몸에만 있고 옷에는 없다 (${b.n}겹) —`
-          + ` 옷이 그 위를 덮으므로 그림에서는 가슴이 사라진다`);
-      }
-    }
-    return { bad: bad, rows: rows, dressed: seen };
-  }, { grow: CHEST_GROW_MIN });
-
   const SLIDER_SPAN_MIN = 8, SLIDER_STEP_MIN = 1;
   const SLIDER = [['엉덩이', 'hip', [0.2, 0.5, 0.8, 1, 1.25, 1.5], [190, 214], '[data-part="hip"]'],
                   ['허벅지', 'thigh', [0.5, 0.8, 1, 1.5, 2], [200, 250], '[data-part="thigh"]'],
@@ -2083,7 +2022,6 @@ function launchOpts() {
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
-    .concat(chest.bad.map(m => ({ id: '가슴', body: '-', where: m, n: '-' })))
     .concat(fat.bad.map(m => ({ id: '상한 두께', body: '-', where: m, n: '-' })))
     .concat(slider.bad.map(m => ({ id: '슬라이더', body: '-', where: m, n: '-' })))
     .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
@@ -2131,10 +2069,6 @@ function launchOpts() {
     + ` — ${hand.keep.join(' · ')} (${HAND_KEEP * 100}% 이상)`);
   console.log(`상한 두께: 100% 대비 ${fat.rows.join(' · ')}`
     + ` (부위마다 정해 둔 값 ±${FAT_TOL} · 100% 는 아무것도 안 바꾼다)`);
-  console.log(`가슴: 그늘의 크기 ${chest.rows.join(' · ')}`
-    + ` (밀면 자라야 한다 · 끝에서 끝까지 ${CHEST_GROW_MIN}px 이상)`);
-  console.log(`가슴이 옷에도 남는가: ${chest.dressed.join(' · ')}`
-    + ` (몸에만 그리면 옷 입는 순간 사라진다)`);
   console.log(`슬라이더: 하한→상한의 반폭 ${slider.rows.join(' · ')}`
     + ` (칸마다 ${SLIDER_STEP_MIN}px · 전체 ${SLIDER_SPAN_MIN}px 이상 — 밀어도 안 변하면 안 된다)`);
   console.log(`다리 옆선: 허벅지×종아리 ${legLine.n}조합 — 가장 선 곳 ${legLine.worst}`

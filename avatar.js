@@ -105,12 +105,6 @@
     // **옷의 허리도 이 값을 따라간다** — 예전에는 드레스 허리가 78~122 로 박혀 있어
     // 몸통 허리(70~130)보다 좁았고, 그래서 허리 살이 드레스 밖으로 나왔다.
     waistHalf: 30,
-    // ─── 가슴 — 허리 «위» ────────────────────────────────────
-    //
-    // 몸통 옆선은 어깨에서 허리까지 한 번에 좁아지기만 해서 상체가 **판자**였다.
-    // 가슴은 그 위에 «그늘»로 얹는다 — 몸통 path 를 안 건드리므로 넥라인·커버리지 등
-    // 몸통에 걸린 규칙이 하나도 안 흔들린다 (`chestShade` 의 주의를 볼 것).
-    chestY: 140,                                 // 가슴 아래 골이 지나는 높이
     // 엉덩이 — 허리보다 넓어야 여성 실루엣이 산다. '엉덩이' 배율이 이 값을 늘이고 줄인다.
     // 예전에는 몸통이 hipY 에서 한 점(100,214)으로 모여, 허벅지(78~122)와 만나는 곳이
     // 뚝 끊겨 보였다. 둥근 엉덩이가 그 사이를 잇는다.
@@ -212,7 +206,7 @@
   // build(outfit, body, tune) 의 tune 으로 파츠 굵기/크기를 따로 조절한다. 1 = 기본.
   // 팔·허벅지·종아리는 좌우가 각자 제자리에서 굵어지도록 **자기 중심**을 축으로 늘린다.
   // (x=100 을 축으로 하면 굵어지는 대신 바깥으로 벌어져 어깨에서 떨어져 보인다)
-  const TUNE_KEYS = ['torso', 'chest', 'waist', 'hip', 'arm', 'thigh', 'calf', 'face'];
+  const TUNE_KEYS = ['torso', 'waist', 'hip', 'arm', 'thigh', 'calf', 'face'];
   function tuneOf(tune, k) {
     const v = tune && Number(tune[k]);
     return Number.isFinite(v) && v > 0 ? v : 1;
@@ -246,8 +240,6 @@
   // 오른쪽이 상자 밖으로 나가 **64줄이 잘렸다.** 0.95 가 안 잘리는 가장 큰 값이다.
   // 더 키우려면 `viewBox` 를 「-12 0 224 342」 처럼 **양옆으로 넓혀야** 한다
   // (중심선 100 을 안 옮기는 것이 요령이다 — 옮기면 모든 좌표가 어긋난다).
-  // ⚠️ **가슴에는 몫을 안 둔다.** 옆선을 밀어내는 양이 애초에 작아서(100% 에서 3.5px)
-  // 200% 라야 7px 이다 — 여기에 또 몫을 곱하면 슬라이더를 끝까지 밀어도 표가 안 난다.
   const TUNE_GAIN = { thigh: 0.95, hip: 0.27, calf: 0.95 };
   function fatOf(tune, k) {
     const v = tuneOf(tune, k), g = TUNE_GAIN[k];
@@ -655,35 +647,6 @@
   // 그 배율이 **1 밑으로 안 내려가서**(`tuneMax` 가 1 을 바닥으로 깐다) 살을 찌울 때만
   // 맞고 **뺄 때는 옷만 그대로 남았다** — 「살이 빠졌을 때 옷이 안 맞는다」가 이것이다.
   const clothWaistHalf = tune => waistHalf(tune) * tuneOf(tune, 'torso') + CLOTH_PAD;
-
-  // ─── 가슴 — 정면 그림에서는 «실루엣»이 아니라 «그늘»로 읽힌다 ──
-  //
-  // ⚠️ 처음에는 몸통 옆선을 부풀렸는데 **팔이 그 자리를 통째로 덮어** 아무것도
-  // 안 보였다. 팔은 어깨(114)에서 손목까지 몸통 옆을 따라 내려오고 가슴은 그 사이에
-  // 있다 — 옆으로 넓히는 것은 이 그림에서 애초에 안 보이는 자리다.
-  // 그래서 **아래에 그늘을 깐다.** 팔 그늘(`ARM_SHADE`)과 같은 결이다.
-  //
-  // ⚠️ **옷도 같은 함수로 그린다.** 몸에만 그리면 옷을 입는 순간 가슴이 사라진다 —
-  // 「몸과 옷이 같은 값을 본다」가 여기에도 그대로 걸린다.
-  // ⚠️ **살색이 아니라 «그 옷의» 그늘색이다.** 옷 위에 살구색 선을 그으면
-  // 옷이 뚫린 것처럼 보인다.
-  const CHEST = { gap: 12, rx: 10.5, ry: 5.5, w: 2.2 };
-  function chestShade(color, tune, k) {
-    const B = BODY, kc = tuneOf(tune, 'chest'), f = n => +n.toFixed(2);
-    // 옷은 절대 좌표라 몸통 배율을 직접 준다 (몸은 `sx(kb,100)` 그룹 안이라 1)
-    const kk = k == null ? 1 : k;
-    // 커지면 넓어지기도 하지만 **주로 아래로 처진다** — 가로로만 늘리면 나이가 들어 보인다
-    const rx = f(CHEST.rx * (0.75 + 0.25 * kc) * kk);
-    const ry = f(CHEST.ry * kc);
-    const gap = CHEST.gap * kk;
-    const sc = shade(color, 10);
-    const arc = sgn => {
-      const cx = 100 + sgn * gap;
-      return `M${f(cx - rx)},${B.chestY} Q${f(cx)},${f(B.chestY + ry * 2)} ${f(cx + rx)},${B.chestY}`;
-    };
-    return `<g data-part="chest" fill="none" stroke="${sc}" stroke-width="${CHEST.w}"
-        stroke-linecap="round" opacity="0.8"><path d="${arc(1)}"/><path d="${arc(-1)}"/></g>`;
-  }
   // 옷 옆선의 **가운데 제어점**. 기본값에서는 늘 `wR + 4` 라 그림이 그대로인데,
   // 허리가 어깨에 비해 아주 가늘어지면(허리 50%) 옷이 몸보다 **먼저** 좁아져
   // 어깨와 허리 사이에 1px 짜리 살 조각이 비쳤다. 어깨에서 잰 값으로 바닥을 깔아 둔다
@@ -1248,8 +1211,7 @@
           C${shR},${cy1} ${wR},${cy2} ${wR},${B.waistY}
           L${wL},${B.waistY}
           C${wL},${cy2} ${shL},${cy1} ${shL},${sc[2][1]}
-          C${mir(sc[1])[0]},${sc[1][1]} ${mir(sc[0])[0]},${sc[0][1]} 100,${B.torsoTopY} Z" fill="${SKIN}"/>
-        ${chestShade(SKIN, tune)}</g>
+          C${mir(sc[1])[0]},${sc[1][1]} ${mir(sc[0])[0]},${sc[0][1]} 100,${B.torsoTopY} Z" fill="${SKIN}"/></g>
       </g>
       <g data-part="arm">
         ${armShape('L', SKIN, 0, BODY.armH, tune)}
@@ -1563,7 +1525,6 @@
         C${wR - 14},${hem + 5} ${wL + 14},${hem + 5} ${wL + 4},${hem}
         C${wL + 1},${hem - 8} ${wL},${WY + 10} ${wL},${WY}
         C${200 - sc},${WY - 18} ${eL},${WY - 34} ${eL},${eY} Z" fill="${c}"/>
-      ${chestShade(c, tune, tuneOf(tune, 'torso'))}
       ${neckLine(it.neck, c, c2, 110)}
       ${it.button ? buttons(c2, 132, hem - 14) : ''}`;
   }
@@ -1781,7 +1742,6 @@
         C${R + 6},${B.waistY - 18} ${hemR - 5},${hemY - 62} ${hemR},${hemY + 5}
         C${R - 18},${hemY + 15} ${L + 18},${hemY + 15} ${hemL},${hemY + 5}
         C${hemL + 5},${hemY - 62} ${L - 6},${B.waistY - 18} ${L},${B.shoulderY + 11} Z" fill="${c}"/>
-      ${chestShade(c, tune, tuneOf(tune, 'torso'))}
       <!-- 허리 라인 -->
       <path d="M${L + 8},${B.waistY} L${R - 8},${B.waistY}" stroke="${c2}" stroke-width="4.5" stroke-linecap="round"/>
       <!-- 밑단 -->
@@ -1830,7 +1790,6 @@
         C${100 - flare},${hemY - 40} ${hL},${HYd + 24} ${hL},${HYd}
         C${hL},${HYd - 6} ${hL},${WY + 8} ${wL},${WY + 2}
         C${200 - sc},${WY - 18} ${eL},${WY - 34} ${eL},${eY} Z" fill="${c}"/>
-      ${chestShade(c, tune, tuneOf(tune, 'torso'))}
       <path d="M${wL},${WY} L${wR},${WY}" stroke="${c2}" stroke-width="4" stroke-linecap="round"/>
       ${neckLine(it.neck, c, c2, 110)}`;
   }

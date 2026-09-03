@@ -4947,9 +4947,6 @@ const TUNE_KEY = 'dieter_alchemist_bodytune_v1';
 // 라벨은 i18n 을 지난다 — 개발용이라도 영어에서 한글이 남으면 폭 검사를 못 받는다
 const TUNE_PARTS = [
   { k: 'torso', max: 150 },
-  // 가슴은 «그늘»로 그린다 (`avatar.js` 의 `chestShade`) — 옆으로 넓히면 팔에 가려
-  // 아무것도 안 보이는 자리다. 그래서 상한을 200 까지 열어 둔다
-  { k: 'chest', max: 200 },
   { k: 'waist', max: 150 },
   { k: 'hip',   max: 150, min: 20 },
   { k: 'arm',   max: 150 },
