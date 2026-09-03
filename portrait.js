@@ -89,6 +89,19 @@
     // 반짝 — 기대·감동
     star:   (x, c) => `<ellipse cx="${x}" cy="66" rx="4.4" ry="5.4" fill="${c}"/>`
                     + `<circle cx="${x + 1.3}" cy="64" r="1.8" fill="#fff"/><circle cx="${x - 1.6}" cy="68.4" r="1" fill="#fff"/>`,
+    // 가늘게 뜬 눈 — 흘김·의심. `half` 와 달리 «위아래»가 다 좁아 노려보는 느낌이 난다
+    squint: (x, c) => `<path d="M${x - 5},64.6 q5,-1.6 10,0 q-5,4 -10,0 Z" fill="${c}"/>`
+                    + `<path d="M${x - 5},64.6 q5,-1.6 10,0" stroke="#3f3239" stroke-width="1.6" fill="none" stroke-linecap="round"/>`,
+    // 빙글빙글 — 어질어질. `cross`(기절)와 달리 아직 서 있는 얼굴이다
+    dizzy:  (x)    => `<path d="M${x},66 m-4.4,0 a4.4,4.4 0 1 1 3,4.2 a3,3 0 1 1 1.6,-5.6"`
+                    + ` stroke="#3f3239" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
+    // 내리깐 눈 — 서운함·부끄러움. 눈동자가 아래에 있어 시선을 피하는 것이 읽힌다
+    low:    (x, c) => `<ellipse cx="${x}" cy="66" rx="4.2" ry="5" fill="#fff" stroke="${c}" stroke-width="0.9"/>`
+                    + `<circle cx="${x}" cy="68.4" r="2.5" fill="${c}"/>`,
+    // 치켜뜬 눈 — 흰자가 아래로 보인다. 「노려봄」이 `sharp` 보다 차갑다
+    glare:  (x, c) => `<ellipse cx="${x}" cy="66" rx="4.4" ry="5.4" fill="#fff" stroke="${c}" stroke-width="0.9"/>`
+                    + `<circle cx="${x}" cy="63.8" r="2.6" fill="${c}"/>`
+                    + `<path d="M${x - 5},61.4 L${x + 5},61.4" stroke="#3f3239" stroke-width="2.2" stroke-linecap="round"/>`,
   };
 
   // ─── 눈썹 ─────────────────────────────────────────────────
@@ -101,6 +114,10 @@
     angry: (x, f) => `<path d="M${x - 5.5},${54 + f * 3} L${x + 5.5},${59 - f * 1}" stroke="#3f3239" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
     sad:   (x, f) => `<path d="M${x - 5.5},${59 - f * 1} L${x + 5.5},${54 + f * 3}" stroke="#3f3239" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
     flat:  (x)    => `<path d="M${x - 5.5},57 L${x + 5.5},57" stroke="#3f3239" stroke-width="2.2" stroke-linecap="round"/>`,
+    // 안쪽만 바짝 올린 팔(八) 자 — 곤란함·미안함. `sad` 보다 각이 크다
+    beg:   (x, f) => `<path d="M${x - 5.5},${61 - f * 2} q5.5,-4 11,${f * 5}" stroke="#3f3239" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    // 바깥이 처진 — 지침·체념
+    droop: (x, f) => `<path d="M${x - 5.5},${55 + f * 2} q5.5,2 11,${-f * 1}" stroke="#3f3239" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
   };
 
   const MOUTH = {
@@ -120,6 +137,19 @@
     wavy:  '<path d="M51,85 q3,-3.5 6,0 q3,3.5 6,0 q3,-3.5 6,0" stroke="#a4636c" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
     // 살짝 벌린 — 놀람(작게)
     ohh:   '<ellipse cx="60" cy="86" rx="4.2" ry="5.4" fill="#a4636c"/>',
+    // 메롱 — 혀를 내민다 (장난)
+    tongue: '<path d="M52,84 q8,6 16,0" stroke="#a4636c" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
+          + '<path d="M56,86 q4,7 8,0 z" fill="#e2557f"/>',
+    // 삐죽 — 서운함·토라짐. 한쪽만 내린 입이라 좌우 대칭이 아니다
+    pout:  '<path d="M52,86 q7,-2 15,3" stroke="#a4636c" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
+    // 아랫입술을 살짝 깨문다 — 참음·부끄러움.
+    // ⚠️ **흰 이를 넣으면 `grit` 과 구별이 안 된다** (실제로 나란히 놓고 보니 같아 보였다).
+    // 윗입술 선 하나에 아랫입술만 안으로 말려 들어간 모양으로 그린다
+    bite:  '<path d="M53,84.5 q7,2.5 14,0" stroke="#a4636c" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
+         + '<path d="M56.5,86 q3.5,2.6 7,0" stroke="#c9808a" stroke-width="2" fill="none" stroke-linecap="round"/>',
+    // 크게 벌린 웃음 — `grin` 보다 한 단계 더 (박장대소)
+    haha:  '<path d="M48,81 q12,15 24,0 z" fill="#a4636c"/><path d="M51,82 q9,3 18,0" fill="#fff"/>'
+         + '<ellipse cx="60" cy="89" rx="4" ry="2.6" fill="#d98f96"/>',
     // 한쪽만 올린 — 시큰둥
     meh:   '<path d="M52,86 q8,1 16,-3" stroke="#a4636c" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
   };
@@ -178,10 +208,19 @@
       }
     }
     const hair = HAIR[sp.hair] || HAIR.short;
-    const eye = EYE[m.eye] || EYE.normal;
+    // ─── 두 눈이 달라도 된다 ────────────────────────────────────
+    //
+    // `eye` 하나로 양쪽을 그리면 **진짜 윙크를 만들 수가 없다** — 지금 「윙크」는
+    // 두 눈을 다 감고 입만 씩 웃는 얼굴이다. `eyeL`·`eyeR` 을 적으면 그쪽만 갈아 끼운다
+    // (안 적으면 예전 그대로 `eye` 하나로 양쪽을 그린다 — 기존 표정은 한 톨도 안 변한다).
+    // ⚠️ **왼쪽/오른쪽은 «보는 사람» 기준이다** (x=50 이 왼쪽).
+    const eyeL = EYE[m.eyeL || m.eye] || EYE.normal;
+    const eyeR = EYE[m.eyeR || m.eye] || EYE.normal;
     // 눈썹은 **없는 것이 기본**이다 — 기본 표정은 눈썹 없이도 읽히고,
     // 있는 쪽이 예외라야 얼굴이 안 시끄럽다. 안쪽 끝을 내리거나 올려 각도를 만든다
-    const brow = BROW[m.brow] || null;
+    // 눈썹도 좌우를 나눌 수 있다 (눈과 같은 규칙) — 「한쪽만 치켜올림」이 이걸로 난다
+    const browL = BROW[m.browL || m.brow] || null;
+    const browR = BROW[m.browR || m.brow] || null;
     return `<svg class="pt-svg ${bare ? 'bare' : ''}" viewBox="0 0 ${W} ${H}"
       xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}">
       ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${W}" height="${H}" rx="18"/></clipPath></defs>`}
@@ -195,8 +234,8 @@
         <ellipse data-part="face" cx="60" cy="66" rx="26" ry="30" fill="${sp.skin}"/>
         ${BEARD[sp.beard || 'none'](sp.hairColor)}
         ${hair.front ? hair.front(sp.hairColor) : ''}
-        ${brow ? brow(50, 1) + brow(70, -1) : ''}
-        ${eye(50, sp.eyeColor || '#3f3239')}${eye(70, sp.eyeColor || '#3f3239')}
+        ${browL ? browL(50, 1) : ''}${browR ? browR(70, -1) : ''}
+        ${eyeL(50, sp.eyeColor || '#3f3239')}${eyeR(70, sp.eyeColor || '#3f3239')}
         ${MOUTH[m.mouth] || MOUTH.calm}
         ${sp.deco && sp.deco !== 'hood' ? DECO[sp.deco](sp.decoColor || '#ffd76a') : ''}
       </g>

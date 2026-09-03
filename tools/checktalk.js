@@ -171,6 +171,25 @@ D.ASKS.forEach(a => {
     bad.push(`ASKS ${where}: ${a.npc} 는 앉은 자리가 없다 — 이 대답은 영영 안 보인다`);
 });
 
+// ─── 이름 붙은 표정은 «모든 인물»에게 있어야 한다 ──────────────
+//
+// ⚠️ **`introArt` 인물은 공통 표(BASE_MOODS)를 안 받는다.** 공주와 요정 대모는
+// 손으로 그린 포즈를 쓰기 때문인데, 그래서 **BASE_MOODS 에 이름을 늘려도 그 둘에게는
+// 안 생긴다** — `bust()` 가 조용히 `def` 로 떨어뜨려서, 대사가 「지침」이라고 적어도
+// 얼굴은 어리둥절한 채로 나온다. 화면에는 오류가 하나도 안 뜬다.
+// 그림이 모자라면 **가장 가까운 포즈에 묶어서라도** 이름을 만들어 둔다.
+{
+  const names = Object.keys(D.BASE_MOODS);
+  D.SPEAKERS.forEach(sp => {
+    if (!sp.introArt) return;                  // 부품 인물은 공통 표를 그대로 받는다
+    const miss = names.filter(n => !(sp.moods && sp.moods[n]));
+    if (miss.length) {
+      bad.push(`표정: ${sp.id} 에게 «${miss.join(' · ')}» 이 없다 — 조용히 기본 얼굴로`
+        + ` 떨어진다 (그림이 모자라면 가까운 포즈에 묶어 둘 것)`);
+    }
+  });
+}
+
 // 한 사람이 동시에 반응하는 키워드는 **3~5개**로 유지한다 (STORY.md 「화면」).
 // 넘으면 칩 줄이 화면을 먹고, 반응 없는 것을 골라 헛걸음하는 재미는 코지 게임에 안 맞는다
 const byNpc = {};

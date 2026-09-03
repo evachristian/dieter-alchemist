@@ -1332,7 +1332,9 @@ const BASE_MOODS = {
   smile:  { eye: 'smile',  mouth: 'smile' },                    // 웃음
   warm:   { eye: 'soft',   mouth: 'calm' },                     // 다정
   laugh:  { eye: 'closed', mouth: 'grin' },                     // 크게 웃음
-  wink:   { eye: 'closed', mouth: 'smirk' },                    // 윙크
+  // ⚠️ **진짜 윙크는 «한쪽만» 감는다.** 예전에는 두 눈을 다 감고 입만 씩 웃는
+  // 얼굴이었다 — 그건 윙크가 아니라 「눈 감고 웃기」다. `eyeL`/`eyeR` 로 나눈다
+  wink:   { eyeL: 'closed', eyeR: 'normal', mouth: 'smirk' },   // 윙크
   proud:  { eye: 'sharp',  mouth: 'smirk', brow: 'up' },        // 우쭐
   smirk:  { eye: 'side',   mouth: 'smirk' },                    // 능글
   flat:   { eye: 'normal', mouth: 'flat' },                     // 무표정
@@ -1352,6 +1354,25 @@ const BASE_MOODS = {
   star:   { eye: 'star',   mouth: 'grin',  brow: 'up' },        // 반짝(기대)
   love:   { eye: 'heart',  mouth: 'grin' },                     // 반함
   faint:  { eye: 'cross',  mouth: 'open' },                     // 질색·기절
+  // ─ 여기부터 다시 늘린 것. **부품을 늘려 조합으로 만든다** ─
+  //
+  // 새 그림을 그린 것은 눈 넷(가늘게·빙글·내리깐·치켜뜬) · 입 넷(메롱·삐죽·깨묾·박장대소)
+  // · 눈썹 둘(팔자·처짐)뿐이고, 아래 열넷은 **있는 부품을 다시 짝지은 것**이다.
+  haha:    { eye: 'closed', mouth: 'haha',  brow: 'up' },       // 박장대소
+  tease:   { eye: 'closed', mouth: 'tongue' },                  // 메롱
+  pout:    { eye: 'low',    mouth: 'pout',  brow: 'sad' },      // 삐죽·토라짐
+  glare:   { eye: 'glare',  mouth: 'flat',  brow: 'angry' },    // 노려봄
+  suspect: { eye: 'squint', mouth: 'meh',   brow: 'flat' },     // 흘김
+  dizzy:   { eye: 'dizzy',  mouth: 'wavy' },                    // 어질어질
+  weary:   { eye: 'half',   mouth: 'flat',  brow: 'droop' },    // 지침
+  relief:  { eye: 'closed', mouth: 'calm',  brow: 'droop' },    // 안도
+  sorry:   { eye: 'low',    mouth: 'small', brow: 'beg' },      // 미안
+  plead:   { eye: 'wide',   mouth: 'small', brow: 'beg' },      // 부탁
+  blush:   { eye: 'closed', mouth: 'bite',  brow: 'beg' },      // 부끄러움
+  resolve: { eye: 'sharp',  mouth: 'grit',  brow: 'flat' },     // 결심
+  awe:     { eye: 'star',   mouth: 'ohh' },                     // 감탄
+  // 한쪽 눈썹만 올린다 — 「그래서?」 하는 얼굴. 좌우를 나눌 수 있어야 나오는 표정이다
+  curious: { eye: 'normal', mouth: 'ohh', browL: 'up', browR: 'flat' },   // 궁금
 };
 
 const SPEAKERS = [
@@ -1401,7 +1422,28 @@ const SPEAKERS = [
              smile: { eye: 'smile',  mouth: 'smile', art: 'smile' },
              laugh: { eye: 'closed', mouth: 'grin',  art: 'laugh' },
              proud: { eye: 'sharp',  mouth: 'smirk', art: 'proud' },
-             wink:  { eye: 'closed', mouth: 'grin',  art: 'wink' } } },
+             wink:  { eye: 'closed', mouth: 'grin',  art: 'wink' },
+             // 새로 늘린 이름들 — 있는 포즈 아홉에 묶는다 (공주와 같은 이유)
+             haha:    { eye: 'closed', mouth: 'haha',   art: 'laugh' },
+             tease:   { eye: 'closed', mouth: 'tongue', art: 'wink' },
+             pout:    { eye: 'low',    mouth: 'pout',   art: 'sad',     brow: 'sad' },
+             glare:   { eye: 'glare',  mouth: 'flat',   art: 'cross',   brow: 'angry' },
+             suspect: { eye: 'squint', mouth: 'meh',    art: 'glance',  brow: 'flat' },
+             dizzy:   { eye: 'dizzy',  mouth: 'wavy',   art: 'sad' },
+             weary:   { eye: 'half',   mouth: 'flat',   art: 'idle',    brow: 'droop' },
+             relief:  { eye: 'closed', mouth: 'calm',   art: 'smile',   brow: 'droop' },
+             sorry:   { eye: 'low',    mouth: 'small',  art: 'sad',     brow: 'beg' },
+             plead:   { eye: 'wide',   mouth: 'small',  art: 'think',   brow: 'beg' },
+             blush:   { eye: 'closed', mouth: 'bite',   art: 'smile',   brow: 'beg' },
+             resolve: { eye: 'sharp',  mouth: 'grit',   art: 'proud',   brow: 'flat' },
+             awe:     { eye: 'star',   mouth: 'ohh',    art: 'think' },
+             curious: { eye: 'normal', mouth: 'ohh',    art: 'think', browL: 'up', browR: 'flat' },
+             // ⚠️ **`introArt` 인물은 그림만 본다** — 위의 눈·입·눈썹은 안 쓰인다.
+             // 아래는 «검사기가 잡아 준» 옛 구멍들이다. 이름이 없으면 조용히 기본 얼굴이 된다
+             smirk: { art: 'glance' }, meh:   { art: 'glance' }, sleepy: { art: 'idle' },
+             shock: { art: 'think' },  cry:   { art: 'sad' },    grit:   { art: 'cross' },
+             shy:   { art: 'smile' },  ohh:   { art: 'think' },  star:   { art: 'smile' },
+             love:  { art: 'smile' },  faint: { art: 'sad' } } },
   // 공주 — 인트로 그림과 같은 갈색 긴 머리 · 연두 드레스
   { id: 'sp_gwiriel', name: '그위리엘', hair: 'long', hairColor: '#7b5640', beard: 'none',
     skin: '#ffdcc4', cloth: '#7fa06a', bg: '#eef1e6', deco: 'none',
@@ -1428,7 +1470,27 @@ const SPEAKERS = [
              cry:    { art: 'cry' },
              angry:  { art: 'angry' },
              sleepy: { art: 'sleepy' },
-             faint:  { art: 'dizzy' } } },
+             faint:  { art: 'dizzy' },
+             // ⚠️ **새 이름을 늘리면 여기에도 붙여야 한다.** 안 붙이면 조용히 `def`
+             // (어리둥절)로 떨어져서, 대사가 「지침」이라고 적어도 얼굴은 딴소리를 한다.
+             // 그림이 열셋뿐이라 **가장 가까운 것**에 여럿을 묶는다
+             haha:    { art: 'laugh' },
+             tease:   { art: 'wink' },
+             pout:    { art: 'sad' },
+             glare:   { art: 'angry' },
+             suspect: { art: 'puzzled' },
+             dizzy:   { art: 'dizzy' },
+             weary:   { art: 'sleepy' },
+             relief:  { art: 'smile' },
+             sorry:   { art: 'shy' },
+             plead:   { art: 'ask' },
+             blush:   { art: 'shy' },
+             resolve: { art: 'proud' },
+             awe:     { art: 'ask' },
+             curious: { art: 'ask' },
+             // 검사기가 잡아 준 옛 구멍들 — 가까운 그림에 묶는다
+             smirk: { art: 'wink' }, meh:  { art: 'puzzled' }, grit: { art: 'angry' },
+             cold:  { art: 'angry' }, star: { art: 'love' } } },
   { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', beard: 'full',
     skin: '#e0c09a', cloth: '#6f7f52', bg: '#e2e9d6', deco: 'leaf', decoColor: '#6f9455',
     moods: { def: { eye: 'normal', mouth: 'flat' }, warm: { eye: 'smile', mouth: 'smile' } } },
