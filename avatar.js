@@ -404,9 +404,15 @@
         + ` L${f(cx - w1)},${f(jy1)} A${f(hE)},${f(hE)} 0 0 1 ${f(cx - w0)},${f(jy0)} Z"`
         + ` fill="${color}"${extra || ''} transform="${baseRot}"/>`;
     };
+    // ⚠️ **둥근 어깨 마개는 「팔의 진짜 위 끝」에서만 씌운다.**
+    // `i === 0` 만 보고 씌우고 있었는데, 그러면 **중간부터 그리는 조각**에도 마개가 붙는다 —
+    // 치마 위로 팔을 다시 찍을 때(`armsOverSkirt`, 허리부터 아래)가 그렇다.
+    // 허리선에서 팔이 갑자기 둥글게 오므라들어 **그 틈으로 치마가 비쳤다**
+    // (「하의가 팔 위에 그려진다」로 신고받은 것이 이것이다 — 실제로는 팔이 패인 것이다).
+    const capTop = from <= 0.01;
     const emit = (list, color, extra) => list.map((g, i) =>
       `<path d="${armSegPath(xin, sgn, g.y - B.armY, g.y - B.armY + g.h, ka, pad,
-                             i === 0, i === list.length - 1)}"
+                             i === 0 && capTop, i === list.length - 1)}"
         fill="${color}"${extra || ''} transform="${g.tr}"/>`).join('');
     // 몸통과 팔이 같은 색이라 **겹치면 팔이 사라진다.** 테두리를 두르면 어깨에서 팔로
     // 이어지는 선을 막아서 없앴는데(4f58adb), 그러자 이번엔 구별이 안 됐다.

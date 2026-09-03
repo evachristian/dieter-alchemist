@@ -1306,6 +1306,73 @@ function launchOpts() {
                : [] };
   }, BOX_MARGIN_MIN);
 
+  // ─── 하의 위로 다시 찍는 팔이 «패이지» 않는가 ────────────────
+  //
+  // 팔은 몸통과 같은 층이라 하의보다 **뒤**에 있고, 허리 아래만 다시 찍어 앞으로
+  // 꺼낸다(`armsOverSkirt`). ⚠️ 그 조각의 위 끝에 **둥근 어깨 마개**가 붙어 있었다 —
+  // `armShape` 이 「첫 조각이면 마개」로만 판정해서, 중간부터 그리는 조각에도 씌웠다.
+  // 허리선에서 팔이 갑자기 오므라들고 그 틈으로 치마가 비쳤다
+  // (「하의가 팔 위에 그려진다」로 신고받은 것이 실은 **팔이 패인 것**이었다).
+  //
+  // 재는 법: 팔만 그린 것에서 그 높이의 **팔 한가운데**를 찾고, 옷을 입힌 그림의
+  // 같은 자리에 **옷색이 있는지** 본다. 팔이 앞에 있으면 한 톨도 없어야 한다.
+  // 0 이 아니라 8 인 이유: 팔 «그늘»이 몸 쪽으로 2.5px 밀려 있어서 팔 조각의 맨 바깥
+  // 한 줄이 옷과 겹친다 (반바지에서 4점). 마개가 붙으면 **227~238점**이 되므로
+  // 이 문턱으로도 갈린다 — 안티에일리어싱을 살로 세지 않으려고 창을 좁히는 것과 같은 이유다
+  const ARM_SKIRT_MAX = 8;
+  const armSkirt = await page.evaluate(async (max) => {
+    const D = window.GameData, bad = [], rows = [], S = 4, W = 200 * S, H = 348 * S;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+      return ctx.getImageData(0, 0, W, H).data;
+    }
+    function keep(svg, sel) {
+      const wrap = document.createElement('div'); wrap.innerHTML = svg;
+      const root = wrap.firstElementChild, only = root.cloneNode(false);
+      [...root.querySelectorAll(sel)].forEach(n => only.appendChild(n.cloneNode(true)));
+      return only.outerHTML;
+    }
+    const hex = c => {
+      const h = c.replace('#', '');
+      const n = parseInt(h.length === 3 ? h.split('').map(q => q + q).join('') : h, 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    };
+    const WY = 164;                                   // BODY.waistY
+    const bare = { top: 'top_none', dress: 'dress_none', shoes: 'shoes_none', hair: 'hair_none' };
+    for (const it of (D.WARDROBE.bottom || [])) {
+      if (it.kind === 'none') continue;
+      const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare, { bottom: it.id });
+      const full = window.Avatar.build(outfit, 0, null);
+      const arm = await px(keep(full, '[data-part="arm"]'));
+      const all = await px(full);
+      const [r0, g0, b0] = hex(it.color);
+      // ⚠️ **팔 한가운데만 보면 못 잡는다.** 구멍은 둥근 마개가 파먹는 «안쪽 변»에
+      // 생기는데(x 125~129 · 2~4px), 가운데는 멀쩡했다 — 사보타주가 그대로 통과했다.
+      // 그래서 규칙 그대로 잰다: **팔이 있는 자리에는 옷색이 한 톨도 없어야 한다.**
+      let n = 0, worst = null;
+      for (let y = WY; y <= WY + 12; y += 0.25) {
+        const row = Math.round(y * S);
+        for (let x = 40 * S; x < 175 * S; x++) {
+          if (!(arm[(row * W + x) * 4 + 3] > 200)) continue;      // 그 자리에 팔이 있는가
+          const i = (row * W + x) * 4;
+          if (all[i + 3] > 250 && Math.abs(all[i] - r0) <= 3 && Math.abs(all[i + 1] - g0) <= 3
+              && Math.abs(all[i + 2] - b0) <= 3) { n++; if (worst == null) worst = y; }
+        }
+      }
+      rows.push(`${it.id} ${n}`);
+      if (n > max) {
+        bad.push(`${it.id}: 허리선 아래(y≈${worst})에서 **팔 자리에 옷색이 ${n}점** 보인다`
+          + ` — 팔이 하의 위로 안 나왔거나, 다시 찍는 조각이 둥글게 패였다`);
+      }
+    }
+    return { bad: bad, rows: rows };
+  }, ARM_SKIRT_MAX);
+
   const SLIDER_SPAN_MIN = 8, SLIDER_STEP_MIN = 1;
   const SLIDER = [['엉덩이', 'hip', [0.2, 0.5, 0.8, 1, 1.25, 1.5], [190, 214], '[data-part="hip"]'],
                   ['허벅지', 'thigh', [0.5, 0.8, 1, 1.5, 2], [200, 250], '[data-part="thigh"]'],
@@ -2022,6 +2089,7 @@ function launchOpts() {
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
+    .concat(armSkirt.bad.map(m => ({ id: '팔↔하의', body: '-', where: m, n: '-' })))
     .concat(fat.bad.map(m => ({ id: '상한 두께', body: '-', where: m, n: '-' })))
     .concat(slider.bad.map(m => ({ id: '슬라이더', body: '-', where: m, n: '-' })))
     .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
@@ -2069,6 +2137,8 @@ function launchOpts() {
     + ` — ${hand.keep.join(' · ')} (${HAND_KEEP * 100}% 이상)`);
   console.log(`상한 두께: 100% 대비 ${fat.rows.join(' · ')}`
     + ` (부위마다 정해 둔 값 ±${FAT_TOL} · 100% 는 아무것도 안 바꾼다)`);
+  console.log(`팔이 하의 위로 나오는가: 허리선 아래 «팔 자리»의 옷색 점 수 —`
+    + ` ${armSkirt.rows.join(' · ')} (${ARM_SKIRT_MAX} 점까지 · 마개가 붙으면 227~238 점이 된다)`);
   console.log(`슬라이더: 하한→상한의 반폭 ${slider.rows.join(' · ')}`
     + ` (칸마다 ${SLIDER_STEP_MIN}px · 전체 ${SLIDER_SPAN_MIN}px 이상 — 밀어도 안 변하면 안 된다)`);
   console.log(`다리 옆선: 허벅지×종아리 ${legLine.n}조합 — 가장 선 곳 ${legLine.worst}`
