@@ -1190,7 +1190,10 @@ function launchOpts() {
   // ⚠️ **허벅지와 종아리는 같은 배수여야 한다.** 슬라이더 상한이 둘 다 200% 인데
   // 허벅지만 1.44 배였다 — 끝까지 올리면 **다리 위쪽이 아래쪽보다 가늘어 보였고**,
   // 개발용 패널의 숫자에도 143.8% / 159.3% 으로 그렇게 찍혔다.
-  const FAT_MAX = { 허벅지: [2, 1.59], 엉덩이: [1.5, 1.11], 종아리: [2, 1.59] };
+  // ⚠️ **재는 창을 199 까지 넓혔다.** 175 에서 자르고 있어서 굵어진 허벅지가
+  // 창 밖으로 나가 「74.0px」에 붙박여 있었다 — gain 을 올려도 숫자가 안 움직였다.
+  // 재는 자리가 좁으면 «고쳐도 그대로»로 보인다.
+  const FAT_MAX = { 허벅지: [2, 1.93], 엉덩이: [1.5, 1.11], 종아리: [2, 1.93] };
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
@@ -1220,9 +1223,9 @@ function launchOpts() {
       for (let y = 186; y <= 330; y += 0.5) {
         const row = Math.round(y * S);
         let i = null, out = null;
-        for (let x = 100 * S; x <= 175 * S; x++) if (d[(row * W + x) * 4 + 3] > 128) { i = x / S; break; }
+        for (let x = 100 * S; x <= 199 * S; x++) if (d[(row * W + x) * 4 + 3] > 128) { i = x / S; break; }
         if (i == null) continue;
-        for (let x = 175 * S; x >= 100 * S; x--) if (d[(row * W + x) * 4 + 3] > 128) { out = x / S; break; }
+        for (let x = 199 * S; x >= 100 * S; x--) if (d[(row * W + x) * 4 + 3] > 128) { out = x / S; break; }
         if (out - i > best) best = out - i;
       }
       return best;
@@ -1266,6 +1269,43 @@ function launchOpts() {
   //   ② 한 칸 한 칸이 눈에 보인다 (이웃한 칸 사이가 최소 1px)
   //   ③ 양 끝의 차이가 충분하다 (한쪽 폭으로 8px = 좌우로 16px 이상)
   // 하한은 `game.js` 의 `TUNE_PARTS` 를 따른다 — 엉덩이만 20%, 나머지는 50% 다.
+  // ─── 몸이 그림 상자 밖으로 나가지 않는가 ──────────────────────
+  //
+  // ⚠️ `viewBox` 는 200 인데 **통통한 몸은 가로로 1.36배 늘어난다**(`bodyScaleX`).
+  // 그래서 「통통 최대 × 슬라이더 최대」는 이미 191.5 까지 차 있다 — 남은 것이 8.5px 다.
+  // 굵기를 키울 때 이걸 안 보면 **오른쪽이 상자에 잘린 채로 통과한다**
+  // (실제로 `TUNE_GAIN` 을 1.0 으로 올렸더니 64줄이 잘렸는데 다른 검사는 전부 통과였다).
+  const BOX_MARGIN_MIN = 0.5;          // px. 상자 끝에 닿으면 잘린 것이다
+  const box = await page.evaluate(async (min) => {
+    const D = window.GameData, S = 4, W = 200 * S, H = 348 * S;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    // **가장 넓어지는 조합**으로 잰다 — 몸무게 최대 × 슬라이더 전부 최대
+    const t = { torso: 1.5, waist: 1.5, hip: 1.5, arm: 1.5, thigh: 2, calf: 2, face: 1.14 };
+    const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 1, t);
+    const img = new Image();
+    await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+    ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+    const d = ctx.getImageData(0, 0, W, H).data;
+    let widest = 0, cut = 0;
+    for (let y = 0; y < H; y++) for (let x = W - 1; x >= 0; x--)
+      if (d[((y * W) + x) * 4 + 3] > 128) {
+        if (x / S > widest) widest = x / S;
+        if (x >= W - 2) cut++;
+        break;
+      }
+    const room = +(200 - widest).toFixed(1);
+    return { widest: +widest.toFixed(1), room: room, cut: cut,
+             bad: cut > 0 || room < min
+               ? [`통통 최대 × 슬라이더 최대에서 몸이 오른쪽 ${widest.toFixed(1)}/200 까지 간다`
+                  + ` (여백 ${room}px · ${cut}줄이 잘렸다). 굵기를 더 키우려면 viewBox 를`
+                  + ` 「-12 0 224 342」 처럼 양옆으로 넓혀야 한다 (중심선 100 은 그대로 두고)`]
+               : [] };
+  }, BOX_MARGIN_MIN);
+
   const SLIDER_SPAN_MIN = 8, SLIDER_STEP_MIN = 1;
   const SLIDER = [['엉덩이', 'hip', [0.2, 0.5, 0.8, 1, 1.25, 1.5], [190, 214], '[data-part="hip"]'],
                   ['허벅지', 'thigh', [0.5, 0.8, 1, 1.5, 2], [200, 250], '[data-part="thigh"]'],
@@ -1981,6 +2021,7 @@ function launchOpts() {
     .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
+    .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
     .concat(fat.bad.map(m => ({ id: '상한 두께', body: '-', where: m, n: '-' })))
     .concat(slider.bad.map(m => ({ id: '슬라이더', body: '-', where: m, n: '-' })))
     .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
@@ -2043,6 +2084,8 @@ function launchOpts() {
     + ` · 배율에 따른 흔들림 ${legInner.drift}px`);
   console.log(`엉덩이↔허벅지 틈: 배율 ${hipSeam.n}조합 — 가장 벌어진 곳 ${hipSeam.worst}px`
     + ` (${SEAM_GAP_MAX}px 까지 · 자락과 허벅지 사이로 배경이 비치면 안 된다)`);
+  console.log(`그림 상자: 통통 최대 × 슬라이더 최대에서 오른쪽 끝 ${box.widest}/200`
+    + ` · 여백 ${box.room}px · 잘린 줄 ${box.cut} (여백 ${BOX_MARGIN_MIN}px 이상 · 넘으면 viewBox 를 넓혀야 한다)`);
   console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
     + ` (굵어지면 안 된다 — 굵은 종아리에 가는 발목)`);
   console.log(`크리처 자리: 땅·공중·물 × 하의·원피스 전부 — 화면 폭별 치마와의 틈`
