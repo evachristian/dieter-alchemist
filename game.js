@@ -14,7 +14,7 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //  9: '헤어컬러' 칸이 없어지고 머리도 염색으로 색을 정한다
 // 10: 튜토리얼(S.tut)이 생겼다 — 이 버전 이전의 세이브는 튜토리얼을 본 적이 없으므로
 //     다시 보여 주지 않고 **마친 것으로 친다** (그래야 tutorialDone 도 같이 켜진다)
-const SAVE_VER = 12;
+const SAVE_VER = 13;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -87,6 +87,16 @@ const defaultState = () => ({
   keywords: ['kw_hunger'],
   // 이미 물어본 것 — `'npc|kw'` 꼴. 회색으로 표시하고, 다시 물어도 된다
   talked: [],
+  // ─── 흐린 장 (비법서가 수수께끼가 된다) ───────────────────
+  // ⚠️ **셋 다 없던 칸이라 SAVE_VER 를 안 올린다.**
+  // `known`    — 레시피 id → 그 장에서 «밝혀낸» 재료 id 들
+  // `gathered` — 재료 id → 여태 모아 본 누적 수. **`inventory` 를 쓰면 안 된다**
+  //              (그건 «지금 가진 것»이라 쓰면 줄어들어서, 숙련이 도로 사라진다)
+  known: {},
+  gathered: {},
+  // 지금 «무엇을 만들려는 중»인가 (비법서에서 고른 장). 모르는 칸을 채워 볼 때
+  // 무엇과 맞춰 볼지가 이것으로 정해진다. **손으로 담기 시작하면 놓는다**
+  guess: null,
   // 복구 코드를 한 번이라도 봤는가 (복사했거나 시트에서 확인했거나).
   // **세이브에 둔다** — 「이 기기에서 봤나」가 아니라 「이 캐릭터의 코드를 아는가」라서,
   // 기기를 옮기면 그 사실도 따라가야 한다. 없던 칸이라 SAVE_VER 는 안 올린다
@@ -514,13 +524,43 @@ function migrate(st, from) {
       (st.stats.beauty || 0) + (st.stats.charm || 0) + keep);
   }
 
+  if (from < 13) {
+    // ⚠️ **비법서가 「흐린 장」이 됐다** — 재료 두 칸이 가려지고 저어서 밝힌다.
+    // 그런데 **이미 하던 사람은 그 장으로 벌써 물약을 만들고 있었다.**
+    // 그냥 바꾸면 어제까지 만들던 물약이 오늘 갑자기 수수께끼가 된다 —
+    // 새 재미를 주려다 «가지고 있던 것을 뺏는» 꼴이다.
+    //
+    // 그래서 **이미 가진 장은 전부 밝혀진 것으로 친다.** 수수께끼는 이 뒤에
+    // 새로 들어오는 장부터다. (`defaultState` 는 빈 채로 둔다 — 새 플레이어는
+    // 첫 장부터 흐린 것이 맞다)
+    st.known = st.known || {};
+    (Array.isArray(st.discovered) ? st.discovered : []).forEach(id => {
+      const r = D.RECIPES.find(x => x.result.id === id);
+      if (!r) return;
+      const h = D.hiddenOf(r);
+      if (h.length) st.known[id] = h.slice();
+    });
+    // 여태 모아 본 누적은 알 길이 없다 — **지금 가진 것만큼은 모아 본 것이 맞다.**
+    // 0 에서 시작하면 이미 재료를 잔뜩 쌓아 둔 사람이 숙련만 0 인 이상한 상태가 된다
+    st.gathered = st.gathered || {};
+    Object.keys(st.inventory || {}).forEach(id => {
+      st.gathered[id] = Math.max(st.gathered[id] || 0, st.inventory[id] || 0);
+    });
+  }
+
   st.ver = SAVE_VER;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) {}
 }
 
 // ─── 유틸 ───
 function invCount(id) { return S.inventory[id] || 0; }
-function addInv(id, n = 1) { S.inventory[id] = invCount(id) + n; }
+// ⚠️ **누적도 여기서 센다.** 재료가 들어오는 길이 채집·답례·생산·수확으로 여럿인데,
+// 다 여기를 지난다 — 새 경로를 만들면 「많이 모은 재료」가 길마다 달라진다
+function addInv(id, n = 1) {
+  S.inventory[id] = invCount(id) + n;
+  if (!S.gathered) S.gathered = {};
+  S.gathered[id] = (S.gathered[id] || 0) + n;
+}
 function removeInv(id, n = 1) {
   S.inventory[id] = Math.max(0, invCount(id) - n);
   if (S.inventory[id] === 0) delete S.inventory[id];
@@ -2774,7 +2814,11 @@ function addToCauldron(id) {
     return;
   }
   S.cauldron.push(id);
-  S.want = [];              // 손으로 담기 시작하면 레시피 선택은 놓는다
+  // ⚠️ **흐린 장을 채우는 중이면 목표를 안 놓는다.** 모르는 칸에 넣어 보는 것 자체가
+  // 「손으로 담기」라서, 예전 규칙 그대로 두면 넣는 순간 목표가 사라져 **영영 못 맞힌다.**
+  // 아직 모르는 칸이 남아 있는 동안만 붙들고, 다 채우면 평소 규칙으로 돌아간다
+  const g = S.guess && D.RECIPES.find(x => x.result.id === S.guess);
+  if (!(g && unknownOf(g).length)) { S.want = []; S.guess = null; }
   save(); render();
   if (window.Tut) Tut.fire('put');
 }
@@ -2786,10 +2830,10 @@ function removeFromCauldron(idx) {
   if (!cell || cell.ghost) return;
   const real = view.slice(0, idx).filter(c => c && !c.ghost).length;
   S.cauldron.splice(real, 1);
-  S.want = [];              // 손으로 뺐으면 레시피 선택은 놓는다
+  S.want = []; S.guess = null;   // 손으로 뺐으면 레시피 선택은 놓는다
   save(); render();
 }
-function clearCauldron() { S.cauldron = []; S.want = []; save(); render(); }
+function clearCauldron() { S.cauldron = []; S.want = []; S.guess = null; save(); render(); }
 
 // 채집 가방 접기/펼치기 (기본: 닫힘)
 let bagOpen = false;
@@ -2852,6 +2896,38 @@ function brew() {
   // **없는 레시피와 「장이 없는 레시피」를 구분해서 말하지 않는다.** 갈라 말하면
   // 아무거나 넣어 보며 «조합이 존재하는지»를 알아낼 수 있게 되어, 비법서가
   // 유일한 길이라는 규칙에 뒷문이 생긴다
+  // ═══ 흐린 장 — 아직 모르는 칸이 있는 장을 만들어 보는 중이면 여기서 갈린다 ═══
+  //
+  // ⚠️ **틀려도 재료가 안 없어진다.** 이 한 줄이 부담을 없앤다 — 잃을 것이 없으니
+  // 마음껏 넣어 볼 수 있고, 그래서 「실패」라는 말이 화면에 안 나온다.
+  // AP 만 든다 (그것도 안 들면 아무 생각 없이 눌러 보게 된다).
+  {
+    const g = S.guess && D.RECIPES.find(x => x.result.id === S.guess);
+    const un = g ? unknownOf(g) : [];
+    if (g && un.length && hasPage(g.result.id)) {
+      if (!spendEnergy(D.ENERGY.cost.brew)) { toast(T('no_energy')); return; }
+      // 담긴 것 중 **모르는 칸의 정답이 있으면 그 자리가 밝혀진다.**
+      // 하나만 맞아도 진도가 나가므로 **절대 안 막힌다**
+      const got = un.filter(id => S.cauldron.indexOf(id) >= 0);
+      got.forEach(id => learnIng(g.result.id, id));
+      rec('brews');
+      // 다시 담아 준다 — 이제 밝혀진 칸까지 자동으로 채워진다
+      const left = unknownOf(g);
+      S.want = g.inputs.filter(id => left.indexOf(id) < 0);
+      refillFromWant();
+      save(); render();
+      if (got.length) {
+        const names = got.map(id => itemName(id)).join(', ');
+        toast(T(left.length ? 'lore_got' : 'lore_all', { names, n: left.length }), null, 3600);
+        if (window.Sfx) Sfx.play('success');
+      } else {
+        toast(T('lore_miss'), null, 3200);
+        if (window.Sfx) Sfx.play('pick');
+      }
+      if (window.Tut) Tut.fire('brew:fail');
+      return;
+    }
+  }
   const ready = D.RECIPE_MAP[D.recipeKey(S.cauldron)];
   if (!ready || !hasPage(ready.id)) {
     toast(T('brew_no_page'), null, 3000);
@@ -5158,11 +5234,39 @@ function renderRoomDevTail() {
       // 폭식은 **날이 바뀔 때만** 일어나서 그냥은 볼 수가 없다 (하루를 기다려야 한다).
       // 그래서 한 밤을 강제로 만든다 — 수치도 실제와 똑같이 깎인다
       devAct(T('dev_binge'), 'devBinge()'),
+      // 스토리를 통째로 열어 본다 — 컷씬·키워드·마을·퀘스트가 서로 물려 있어서
+      // 손으로 하나씩 열면 순서를 틀리기 쉽다
+      devAct(T('dev_all_story'), 'devAllStory()'),
     ]) +
     devGroup(T('dev_g_open')) +
     devSws([devSw(on, T('dev_tutorial'), 'devToggleTutorial()')]) +
     `<div class="dev-row dev-roomlv"><span class="dev-roomlv-t">🏠 ${T('dev_room_lv')}</span>${bgBtns}</div>`;
 }
+// 개발용: **스토리를 통째로 연다.**
+//
+// 컷씬·키워드·마을·퀘스트가 서로 물려 있어서 손으로 하나씩 열면 순서를 틀리기 쉽다 —
+// 마을을 열어도 키워드가 없으면 안에서 할 것이 없고, 퀘스트는 매력이 있어야 나온다.
+// ⚠️ **세이브에 들어간다** (진짜 진행 값이라 튜토리얼 완료·호감도 단계와 같은 부류다).
+// 되돌리려면 게임 초기화뿐이므로 한 번 묻는다.
+function devAllStory() {
+  showConfirm(T('dev_all_story_ask'), () => {
+    S.tutorialDone = true;
+    S.keywords = D.KEYWORDS.map(k => k.id);            // 물어볼 것 전부
+    S.villages = D.villagesShown().map(v => v.id);     // 마을 전부
+    S.seenCuts = D.CUTS.map(c => c.id);                // 스토리 다시보기에 전부
+    // 퀘스트는 **매력으로 열린다** — 점수를 안 올리면 칩이 안 뜬다.
+    // 마지막 퀘스트의 문턱까지 올려 두고 큐를 다시 채운다
+    const top = D.QUESTS.reduce((n, q) => Math.max(n, q.at || 0), 0);
+    S.charmPeak = Math.max(S.charmPeak || 0, top);
+    refreshQuests();
+    save();
+    toast(T('dev_all_story_done', {
+      kw: S.keywords.length, vl: S.villages.length, cut: S.seenCuts.length }), null, 3400);
+    render();
+  });
+}
+window.devAllStory = devAllStory;
+
 // 개발용: 「혼자 먹은 밤」 한 번을 지금 만든다.
 // **실제 경로를 그대로 지난다** — 포만감을 비우고 어제로 돌려 checkBinge() 를 부른다.
 // 따로 이벤트를 손으로 만들면 진짜 경로가 안 검사된다
@@ -5375,9 +5479,11 @@ const AURA_BY_POTION = {
 
 // ─── 레시피를 눌러 재료 자동 삽입 ───
 // 재료가 가방에 다 있어야 담긴다. **솥은 알아서 맞춰 준다** (아래 potFor).
-function hasAllInputs(r) {
+// `skip` 을 주면 그 재료는 안 따진다 — **아직 무엇인지 모르는 칸**이 그렇다
+// (모르는 재료를 가졌는지 따질 수가 없다)
+function hasAllInputs(r, skip) {
   const need = {};
-  r.inputs.forEach(id => { need[id] = (need[id] || 0) + 1; });
+  r.inputs.forEach(id => { if (!skip || skip.indexOf(id) < 0) need[id] = (need[id] || 0) + 1; });
   return Object.keys(need).every(id => stockOf(id) >= need[id]);
 }
 
@@ -5401,13 +5507,19 @@ function fillFromRecipe(resultId, el) {
     toast(T('need_pot', { name: nm, josa: josa(nm, '이가') }), el);
     return;
   }
-  if (!hasAllInputs(r)) { toast(T('mat_short'), el); return; }
+  // ⚠️ **모르는 칸은 「모자란다」로 막지 않는다.** 아직 무엇인지 모르는 재료를
+  // 가졌는지 따질 수가 없다 — 아는 칸만 보고 판정한다
+  const un = unknownOf(r);
+  if (!hasAllInputs(r, un)) { toast(T('mat_short'), el); return; }
   // 재료 가짓수에 딱 맞는 솥으로 갈아 끼운다 (이미 그 솥이면 그대로)
   if (S.cauldronId !== open.id) {
     S.cauldronId = open.id;
     if (S.record && !S.record.pots.includes(open.id)) S.record.pots.push(open.id);
   }
-  S.want = r.inputs.slice();
+  // **아는 것만 담는다.** 모르는 칸은 빈자리로 남고, 거기에 넣어 보는 것이
+  // 이 시스템의 조작 전부다
+  S.want = r.inputs.filter(id => un.indexOf(id) < 0);
+  S.guess = r.result.id;            // 지금 «무엇을 만들려는 중»인가
   refillFromWant();
   save(); render();
   // render() 가 줄을 새로 그렸다 — 넘겨받은 el 은 이미 문서에서 떨어졌으므로 새로 찾는다
@@ -5474,7 +5586,7 @@ function renderPage() {
   if (!r || !el) return;
   if (ti) ti.textContent = T('pg_title', { name: N(r.result.id, r.result.name) });
 
-  el.innerHTML = pageRowsFor(r.inputs);
+  el.innerHTML = pageRowsFor(r.inputs, r.result.id);
 }
 window.renderPage = renderPage;
 
@@ -5483,7 +5595,54 @@ window.renderPage = renderPage;
 // **비법서와 퀘스트가 같은 것을 쓴다.** 두 벌로 두면 한쪽만 고치게 되고,
 // 그러면 「비법서에는 나오는데 퀘스트에는 안 나오는 맵」 같은 것이 생긴다
 // (밭 시트와 밭 탭을 `farmHtml()` 하나로 그리는 것과 같은 이유다)
-function pageRowsFor(inputs) {
+// ═══════════════════════════════════════════════════════════════
+//  흐린 장 — 아는 칸과 모르는 칸
+// ═══════════════════════════════════════════════════════════════
+//
+// 「안다」가 되는 길은 셋이다. **하나라도 되면 이름이 보인다.**
+//   1. 그 칸이 애초에 안 가려져 있다 (`hiddenOf` 가 안 고른 자리)
+//   2. 저어서 밝혀냈다 (`S.known`)
+//   3. 그 재료를 많이 모아 봤다 (`S.gathered` ≥ `masteryAt`) — **모든 장에서** 밝다
+//
+// 3번이 있어서 **추리가 싫은 사람도 막히지 않는다.** 채집만 해도 비법서가 밝아진다.
+function ingMastered(id) { return ((S.gathered || {})[id] || 0) >= D.LORE.masteryAt; }
+function knownIn(recipeId) { return (S.known && S.known[recipeId]) || []; }
+function ingKnown(recipeId, ingId, hidden) {
+  const h = hidden || [];
+  if (h.indexOf(ingId) < 0) return true;             // 안 가려진 자리
+  if (knownIn(recipeId).indexOf(ingId) >= 0) return true;
+  return ingMastered(ingId);
+}
+// 그 장에서 아직 모르는 재료들
+function unknownOf(r) {
+  const hidden = D.hiddenOf(r);
+  return hidden.filter(id => !ingKnown(r.result.id, id, hidden));
+}
+// 밝혀낸다. **한 번 밝힌 것은 다시 안 어두워진다**
+function learnIng(recipeId, ingId) {
+  if (!S.known) S.known = {};
+  if (!S.known[recipeId]) S.known[recipeId] = [];
+  if (S.known[recipeId].indexOf(ingId) < 0) S.known[recipeId].push(ingId);
+}
+
+// 수수께끼 한 줄 — **지대 + 흔한 정도**. 후보가 일곱쯤 남는다.
+// ⚠️ 이모지를 넣으면 후보가 평균 1.05개라 답을 적어 주는 것이 된다 (`data.js` 의 ⚠️)
+function ingRiddle(id) {
+  const src = ingSource(id);
+  const map = bestMapFor(src.maps);
+  const zone = map && D.ZONES.find(z => z.id === map.zone);
+  const rar = D.ingRarity(id);
+  return T('pg_riddle', {
+    zone: zone ? `${zone.emoji} ${N(zone.id, zone.name)}` : T('pg_riddle_where'),
+    rar: T(rar),
+  });
+}
+
+// `recipeId` 를 같이 주면 **가려진 칸은 수수께끼로** 그린다.
+// 안 주면 예전처럼 전부 이름으로 나온다 (퀘스트 시트가 그렇게 쓴다)
+function pageRowsFor(inputs, recipeId) {
+  const r = recipeId && D.RECIPES.find(x => x.result.id === recipeId);
+  const hidden = r ? D.hiddenOf(r) : [];
   // **같은 재료를 묶어 분량으로 적는다.** 비법서에는 「분량」이 적혀 있다는 설정이고,
   // 화면으로도 이모지 여섯 개보다 「×3」이 훨씬 빨리 읽힌다.
   //
@@ -5496,6 +5655,19 @@ function pageRowsFor(inputs) {
 
   return Object.keys(need).map(id => {
     const n = need[id], have = stockOf(id);
+    // ⚠️ **모르는 칸은 여기서 «완전히» 갈라진다.** 아래로 내려가면 어디서 나는지·
+    // AP·시간대까지 다 적히는데, 그건 이름을 아는 것이나 마찬가지다
+    if (recipeId && !ingKnown(recipeId, id, hidden)) {
+      return `<div class="pg-row unknown">
+        <span class="pg-ic pg-q" aria-hidden="true">？</span>
+        <span class="pg-main">
+          <span class="pg-name">${T('pg_unknown')}${n > 1 ? ` <b class="pg-n">×${n}</b>` : ''}</span>
+          <span class="pg-where">${ingRiddle(id)}</span>
+          <span class="pg-tip"><span class="pg-hintway">${T('pg_howto')}</span></span>
+        </span>
+        <span class="pg-have lack">?</span>
+      </div>`;
+    }
     const src = ingSource(id);
     const map = bestMapFor(src.maps);
     let where = '', tip = '', locked = false;

@@ -1655,6 +1655,76 @@ const BOND_GIFTS = [
 ];
 function bondNpcs() { return Object.keys(BONDS); }
 
+// ═══════════════════════════════════════════════════════════════
+//  흐린 장 — 비법서가 답지가 아니라 «수수께끼»가 된다
+// ═══════════════════════════════════════════════════════════════
+//
+// 비법서가 재료 이름을 다 적어 주면 **발견이 없다.** 인터넷 공략을 그대로 따라 하는
+// 것과 다를 바가 없어진다. 그렇다고 「맞혀 보세요」로 두면 벽이 된다 —
+// 평야 재료만 25가지라 2개 조합이 **300가지**이고, 재료가 12개인 레시피도 있다.
+//
+// 그래서 **맞히기 퀴즈가 아니라 「채워 가기」**로 만든다.
+//   · 한 장에서 가려지는 것은 **최대 두 칸**. 나머지는 처음부터 보인다
+//   · 가려진 칸에는 **수수께끼 한 줄**이 붙는다 (지대 + 흔한 정도 → 후보 여덟쯤)
+//   · 저어서 맞히면 그 칸이 **영구히** 밝혀진다. ⚠️ **틀려도 재료가 안 없어진다**
+//   · 어떤 재료를 많이 모아 두면 **모든 장에서** 저절로 밝아진다 (아래 `masteryAt`)
+//
+// ⚠️ **이모지를 힌트로 쓰면 안 된다.** 「지대 + 이모지」로 좁히면 후보가 평균 1.05개라
+// 사실상 답을 적어 주는 것이 된다 (재료 111개 중 이모지가 겹치는 것은 14쌍뿐).
+// 「흔한 정도」로 좁혀야 후보가 여덟쯤 남아서 «고르는 재미»가 생긴다.
+const LORE = {
+  hiddenMax: 2,     // 한 장에서 가리는 칸 수 상한. **지겨움과 발견의 균형이 여기 있다**
+  // ⚠️ **한 칸은 언제나 보인다.** 재료 두 가지짜리를 둘 다 가리면 평야 재료 25개 중
+  // 2개 조합 300가지에서 골라야 하는 «벽»이 된다. 하나가 보이면 나머지 후보는 여덟쯤이다
+  keepShown: 1,
+  // **튜토리얼이 가르치는 물약은 안 가린다.** 배우는 중에 수수께끼를 만나면
+  // 그건 안내가 아니라 시험이다 (`STARTER_RECIPES` 와 같은 것을 여기 적는다)
+  plain: ['vitality', 'blush'],
+  masteryAt: 30,    // 이만큼 모아 본 재료는 「잘 아는 재료」 — 모든 장에서 이름이 보인다
+  // 흔한 정도를 세 구간으로 (weight 가 클수록 흔하다)
+  common: 20, uncommon: 10,
+};
+// 그 재료가 얼마나 흔한가 — 'lore_common' | 'lore_uncommon' | 'lore_rare'
+function ingRarity(id) {
+  const it = INGREDIENTS[id];
+  const w = (it && it.weight) || 0;
+  return w >= LORE.common ? 'lore_common' : (w >= LORE.uncommon ? 'lore_uncommon' : 'lore_rare');
+}
+
+// **어느 칸을 가릴 것인가** — 레시피 id 로 고정한다.
+//
+// ⚠️ **무작위로 고르면 안 된다.** `render()` 마다 바뀌면 어제 밝혀낸 칸이 오늘 다시
+// 가려진다 (날씨·일지와 같은 규칙이다).
+//
+// ⚠️ **밭 작물과 크리처는 안 가린다.** 그것들은 채집으로 안 나와서 — 심거나 녹여야 —
+// 가려 놓으면 「어디서 구하는지」 자체를 알 수가 없다. 수수께끼가 아니라 벽이 된다.
+function hideableOf(recipe) {
+  return (recipe.inputs || []).filter(id => {
+    const it = INGREDIENTS[id];
+    return !!it && !it.farm;          // 크리처는 INGREDIENTS 에 없다 — 저절로 빠진다
+  });
+}
+function hiddenOf(recipe) {
+  const rid = recipe.result ? recipe.result.id : '';
+  if (LORE.plain.indexOf(rid) >= 0) return [];      // 튜토리얼이 가르치는 것
+  const pool = hideableOf(recipe);
+  if (!pool.length) return [];
+  // 레시피 id 를 시드로 «섞어» 앞에서 몇 개 — 같은 레시피면 언제나 같은 칸이 가려진다
+  let h = 2166136261;
+  for (let i = 0; i < rid.length; i++) { h ^= rid.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const sorted = pool.slice().sort();          // 데이터 순서가 바뀌어도 같은 답이 나오게
+  const out = [];
+  // **한 칸은 언제나 남긴다** — 전부 가리면 벽이 된다 (위의 ⚠️)
+  const n = Math.max(0, Math.min(LORE.hiddenMax, sorted.length - LORE.keepShown));
+  for (let k = 0; k < n; k++) {
+    h = Math.imul(h ^ (k + 1), 16777619);
+    const i = (h >>> 0) % sorted.length;
+    const pick = sorted.splice(i, 1)[0];
+    if (pick) out.push(pick);
+  }
+  return out;
+}
+
 // 지대의 해금 점수 = 그 지대에서 가장 먼저 열리는 맵의 점수
 function zoneUnlock(zoneId) {
   return MAPS.filter(m => m.zone === zoneId).reduce((min, m) => Math.min(min, m.unlock), Infinity);
@@ -2256,7 +2326,7 @@ for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 window.GameData = {
   INGREDIENTS, ZONES, MAPS, zoneUnlock, zoneAp, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS, BASE_MOODS, moodsOf,
-  KEYWORDS, keyword, ASKS, asksOf,
+  KEYWORDS, keyword, ASKS, asksOf, LORE, ingRarity, hideableOf, hiddenOf,
   BOND_TIERS, bondTierOf, BOND_GAIN, BONDS, BOND_GIFTS, bondNpcs, BOND_GIVES, bondGiver,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,

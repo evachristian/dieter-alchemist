@@ -1255,6 +1255,11 @@ function launchOpts() {
             && x.inputs.some(i => zoneOf(i) && zoneOf(i) !== 'plain'));
           if (!r) return '열린 맵과 잠긴 맵이 같이 든 레시피가 데이터에 없다';
           if (!hasPage(r.result.id)) S.discovered.push(r.result.id);
+          // ⚠️ **가려진 칸을 먼저 밝혀 둔다.** 흐린 장이 생기면서 잠긴 맵의 재료가
+          // 하필 가려진 자리일 수 있는데, 그러면 이 검사가 재려는 «잠금 표현» 대신
+          // 수수께끼 줄이 나온다 — 그건 이 검사의 대상이 아니다
+          // (수수께끼 줄 자체는 `checklore` 가 따로 잰다)
+          D.hiddenOf(r).forEach(id => learnIng(r.result.id, id));
           openPage(r.result.id);
           if (!document.getElementById('pageSheet').classList.contains('show')) return '시트가 안 떴다';
           const rows = document.querySelectorAll('#pageSheet .pg-row');
@@ -1297,6 +1302,25 @@ function launchOpts() {
         await page.waitForTimeout(150);
         continue;
       }
+      // **개발용 「모든 스토리 오픈」** — 눌러 보지 않으면 도는지 알 수가 없다.
+      // ⚠️ 확인 모달을 지나야 실제로 열린다 (되돌리려면 초기화뿐이라 한 번 묻는다)
+      if (process.env.FULL && t === 'showcase') {
+        const stBad = await page.evaluate(() => {
+          S.keywords = []; S.villages = []; S.seenCuts = []; S.charmPeak = 0;
+          devAllStory();
+          const yes = document.querySelector('#confirmModal .btn-primary');
+          if (!yes) return '확인 모달이 안 떴다 (되돌릴 수 없는 일인데 안 묻는다)';
+          yes.click();
+          if (S.keywords.length !== D.KEYWORDS.length) return `키워드가 ${S.keywords.length}개다`;
+          if (S.villages.length !== D.villagesShown().length) return `마을이 ${S.villages.length}곳이다`;
+          if (S.seenCuts.length !== D.CUTS.length) return `컷씬이 ${S.seenCuts.length}개다`;
+          if (!S.quest.active) return '퀘스트가 안 열렸다';
+          return null;
+        });
+        if (stBad) results.push({ 화면: `${t}/스토리열기`, 오류: stBad });
+        await page.waitForTimeout(150);
+      }
+
       // **부엌** (STORY.md 요리사 클레멘) — 아무것도 안 드는 유일한 자리다.
       // ⚠️ 여기서 재는 것의 핵심: **아무것도 안 깎이는가.** 값을 받기 시작하면
       // 「온기만이 등가 교환의 밖에 있다」가 무너진다

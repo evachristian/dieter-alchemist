@@ -509,6 +509,18 @@ body.has-quest .screen { padding-bottom: 168px; }
 .rs-meta { margin-top: 3px; font-size: 0.76rem; font-weight: 700; color: var(--ink-soft); }
 .rs-go { width: 100%; margin: 0 0 8px; }
 
+/* ─── 흐린 장 (모르는 재료) ─────────────────────────────────
+   ⚠️ **잠긴 것과 달라 보여야 한다.** 잠긴 맵은 「아직 못 간다」이고 이쪽은
+   「아직 모른다」다 — 공통 잠금 표현(saturate)을 쓰면 둘이 같은 뜻으로 읽힌다 */
+.pg-row.unknown { border-style: dashed; }
+.pg-q {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 8px;
+  background: var(--cream); color: var(--ink-soft);
+  font-size: 0.9rem; font-weight: 900;
+}
+.pg-hintway { font-size: 0.7rem; font-weight: 700; color: var(--ink-soft); }
+
 .gift-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 4px 10px; margin: 0 0 8px; }
 .gift-need { font-size: 0.76rem; font-weight: 800; color: var(--ink-soft); }

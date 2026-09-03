@@ -15,6 +15,7 @@
     "test:ask": "node tools/checkask.js",
     "test:bond": "node tools/checkbond.js",
     "test:code": "node tools/checkcode.js",
+    "test:lore": "node tools/checklore.js",
     "test:data": "node tools/checkdata.js",
     "test:i18n": "node tools/checki18n.js",
     "test:save": "node tools/checksave.js",
