@@ -35,6 +35,17 @@
   --radius:  20px;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+/* ⚠️ **`hidden` 속성만으로는 안 숨는다** — 그래서 여기서 한 번에 못 박는다.
+   브라우저 기본값은 `[hidden]{display:none}` 인데 그건 **사용자 에이전트 스타일**이라
+   작성자가 쓴 `display:flex` 한 줄에 그냥 진다. `el.hidden = true` 를 해 놓고도
+   요소가 멀쩡히 그려진다 — 화면에는 오류가 안 뜨니 눈으로만 봐서는 못 찾는다.
+   이 함정을 **세 번** 겪었다 (랭킹 탭 · 안 본 밤 배지 · 튜토리얼 중의 🍲 부엌 버튼).
+   그때마다 짝 규칙을 하나씩 붙였는데, 그러면 `display` 를 주는 규칙을 새로 쓸 때마다
+   또 잊는다. HTML 명세가 권하는 모양 그대로 한 줄로 끝낸다.
+   ⚠️ **일부러 `hidden` 인 것을 보이게 하는 곳은 없어야 한다** — 그런 것이 필요하면
+   `hidden` 이 아니라 클래스로 감춘다. `checkUI()` 가 「숨김실패」로 이것을 잰다 */
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -1473,11 +1484,8 @@ button.tm-slot:active { transform: scale(0.94); }
   font-size: 0.7rem; font-weight: 900; line-height: 1;
   box-shadow: 0 1px 4px rgba(60,10,25,0.45);
 }
-/* ⚠️ **`hidden` 속성만으로는 안 숨는다.** 브라우저 기본 `[hidden]{display:none}` 은
-   작성자 스타일에 지므로, 위의 `display:flex` 가 그대로 이긴다 —
-   `el.hidden = true` 를 해 놓고도 빨간 「0」이 버튼에 붙어 있었다.
-   랭킹 탭에서 이미 한 번 겪은 함정이다 (`display` 를 주는 규칙이면 늘 짝을 지어 둘 것) */
-.act-badge[hidden] { display: none; }
+/* `hidden` 은 맨 위의 `[hidden]{display:none!important}` 이 책임진다 —
+   `display:flex` 를 주는 규칙마다 짝을 지어 두던 것을 거기서 한 번에 못 박았다 */
 .room-act { position: relative; }
 
 .char-stage { position: relative; display: flex; justify-content: center; margin: 6px 0 10px; }
@@ -2100,10 +2108,7 @@ button.tm-slot:active { transform: scale(0.94); }
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 8px 0; cursor: pointer; border-radius: 14px; transition: color 0.15s;
 }
-/* **[hidden] 만으로는 안 숨는다.** 브라우저 기본 [hidden]{display:none} 은
-   특정도가 낮아서 위의 .tab-btn{display:flex} 에 진다 — 속성은 켜져 있는데
-   화면에는 그대로 보인다. 랭킹 탭이 '새싹' 단계에서 보이던 것이 이것이었다 */
-.tab-btn[hidden] { display: none; }
+/* `hidden` 은 맨 위 한 줄이 책임진다 — 랭킹 탭이 '새싹' 단계에서 보이던 것이 이 함정이었다 */
 .tab-btn .tab-icon { font-size: 1.4rem; }
 /* 탭이 셋에서 넷으로 늘 수 있다 ('여신' 단계부터 랭킹이 나타난다).
    **글자 크기는 건드리지 않는다** — 0.66rem 으로 줄였더니 10.6px 이 되어
@@ -3019,7 +3024,6 @@ button.tm-slot:active { transform: scale(0.94); }
   background: rgba(28,20,30,0.72); backdrop-filter: blur(3px);
   cursor: pointer;
 }
-.cut[hidden] { display: none; }
 .cut-art { flex: 1 1 auto; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; }
 /* 인물은 크게. **말보다 얼굴이 먼저 읽혀야** 누가 말하는지 안다 */
 .cut-face { width: min(62vw, 260px); animation: cutIn 0.32s ease both; }

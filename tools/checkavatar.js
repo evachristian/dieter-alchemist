@@ -1187,7 +1187,10 @@ function launchOpts() {
   // 정작 사람이 쓰는 구간이 죽어 있어도 통과였다. 배수는 그대로다(43.0/38.8=1.11) —
   // 그 두께가 이제 150% 에서 나온다.
   // ⚠️ **100% 는 어느 부위도 안 움직인다** — 그것도 같이 본다.
-  const FAT_MAX = { 허벅지: [2, 1.44], 엉덩이: [1.5, 1.11], 종아리: [2, 1.59] };
+  // ⚠️ **허벅지와 종아리는 같은 배수여야 한다.** 슬라이더 상한이 둘 다 200% 인데
+  // 허벅지만 1.44 배였다 — 끝까지 올리면 **다리 위쪽이 아래쪽보다 가늘어 보였고**,
+  // 개발용 패널의 숫자에도 143.8% / 159.3% 으로 그렇게 찍혔다.
+  const FAT_MAX = { 허벅지: [2, 1.59], 엉덩이: [1.5, 1.11], 종아리: [2, 1.59] };
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
@@ -1332,7 +1335,14 @@ function launchOpts() {
   // 두 가지를 같이 본다:
   //   ① 옆선의 기울기(|dx/dy|)가 어디서도 한계를 안 넘는다 — 뾰족한 자리는 기울기가 튄다
   //   ② 허벅지·종아리를 같이 굵게 하면 **무릎도 굵어진다** (발목은 아니다 — 「발목」이 지킨다)
-  const LEG_SLOPE_MAX = 2, KNEE_GROW_MIN = 3;
+  //   ③ 굵어지는 «비율»이 허벅지와 같다 — ② 만으로는 못 잡는다
+  //
+  // ⚠️ ③ 이 필요한 이유: ② 는 「몇 px 굵어졌나」만 보는데, 허벅지가 1.5배가 되는 동안
+  // 무릎이 1.2배만 되어도 그 문턱은 넘는다. 실제로 무릎 바닥을 통째로 없애 봤더니
+  // **4.25px 굵어져서 통과**했다 — 그런데 그림은 허벅지가 무릎으로 쏟아지는 깔때기였다.
+  // 그래서 «비율»을 본다: 허벅지 윗머리 대비 무릎의 몫이 기본 그림과 같아야 한다.
+  // (허벅지만 굵게 한 경우는 뺀다 — 그때는 무릎이 **장딴지에 막히는 것이 맞다**)
+  const LEG_SLOPE_MAX = 2, KNEE_GROW_MIN = 3, KNEE_RATIO_TOL = 0.04;
   const legLine = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
     const cv = document.createElement('canvas');
@@ -1360,11 +1370,12 @@ function launchOpts() {
     const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
                    shoes: 'shoes_none', hair: 'hair_none' };
     const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
-    const knees = {};
+    const knees = {}, tops = {};
     let worst = 0, at = '', n = 0;
     for (const kt of [0.5, 1, 1.5, 2]) for (const kc of [0.5, 1, 1.5, 2]) {
       const d = await px(legsOnly(window.Avatar.build(outfit, 0, { thigh: kt, calf: kc })));
       knees[kt + 'x' + kc] = edge(d, 263);            // LEG.kneeY
+      tops[kt + 'x' + kc] = edge(d, 190);             // 허벅지 윗머리 (LEG.hipY=186 바로 아래)
       const ys = [], e = [];
       for (let y = 200; y <= 326; y++) { ys.push(y); e.push(edge(d, y)); }
       let sl = 0, sy = 0;
@@ -1386,8 +1397,25 @@ function launchOpts() {
       bad.push(`허벅지·종아리를 200% 로 해도 무릎이 ${grow.toFixed(2)}px 밖에 안 굵어졌다`
         + ` (${o.knee}px 이상) — 무릎만 잘록한 모래시계가 된다`);
     }
-    return { bad: bad, n: n, worst: +worst.toFixed(2), at: at, grow: +grow.toFixed(2) };
-  }, { slope: LEG_SLOPE_MAX, knee: KNEE_GROW_MIN });
+    // ③ 굵어지는 **비율**도 허벅지를 따라간다 (허벅지 윗머리 대비 무릎의 몫)
+    const share = k => {
+      const t = tops[k + 'x' + k], n2 = knees[k + 'x' + k];
+      return (t == null || n2 == null) ? null : (n2 - 100) / (t - 100);
+    };
+    const base = share(1);
+    const shares = {};
+    [0.5, 1.5, 2].forEach(k => {
+      const s = share(k);
+      shares[k] = s == null ? null : +s.toFixed(3);
+      if (s != null && base != null && Math.abs(s - base) > o.ratio) {
+        bad.push(`허벅지·종아리 ${k * 100}%: 무릎이 허벅지 윗머리의 ${(s * 100).toFixed(1)}% 다`
+          + ` — 기본은 ${(base * 100).toFixed(1)}% (±${o.ratio * 100}%p). 허벅지가 무릎으로`
+          + ` 쏟아지는 깔때기가 된다`);
+      }
+    });
+    return { bad: bad, n: n, worst: +worst.toFixed(2), at: at, grow: +grow.toFixed(2),
+             base: base == null ? null : +base.toFixed(3), shares: shares };
+  }, { slope: LEG_SLOPE_MAX, knee: KNEE_GROW_MIN, ratio: KNEE_RATIO_TOL });
 
   // ─── 허벅지 윗머리가 엉덩이 밖으로 나오지 않는가 ────────────
   //
@@ -2005,6 +2033,9 @@ function launchOpts() {
   console.log(`다리 옆선: 허벅지×종아리 ${legLine.n}조합 — 가장 선 곳 ${legLine.worst}`
     + ` (${legLine.at} · ${LEG_SLOPE_MAX} 까지)`
     + ` · 둘 다 200% 일 때 무릎이 ${legLine.grow}px 굵어진다 (${KNEE_GROW_MIN}px 이상)`);
+  console.log(`무릎이 허벅지를 따라가는가: 허벅지 윗머리 대비 무릎 — 기본 ${legLine.base}`
+    + ` · 50% ${legLine.shares[0.5]} · 150% ${legLine.shares[1.5]} · 200% ${legLine.shares[2]}`
+    + ` (±${KNEE_RATIO_TOL} · 비율이 떨어지면 허벅지가 무릎으로 쏟아지는 깔때기가 된다)`);
   console.log(`허벅지 윗머리: 허벅지×엉덩이×허리 ${hipBulge.n}조합 — 엉덩이 밖으로 가장 나온 곳`
     + ` ${hipBulge.worst}px${hipBulge.worst ? ' · ' + hipBulge.at : ''} (${HIP_BULGE_MAX}px 까지)`);
   console.log(`다리 안쪽 변: 꺾임 ${legInner.kink}px (${INNER_KINK_MAX}px 까지)`
