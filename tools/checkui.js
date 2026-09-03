@@ -1119,7 +1119,11 @@ function launchOpts() {
           const bad = await page.evaluate(() => {
             setGatherTab('village');
             setVillage('vl_mirror');
-            tapVillageSpot('vl_mirror', 'vs_mirror_pond');           // 유타르크 — 넷
+            // ⚠️ **호감도를 0으로 내려놓고 잰다.** 그래야 이 사람의 「신뢰에서야 털어놓는 말」
+            // 한 줄이 🔒 로 남아 **잠긴 칩의 대비·넘침까지 이 화면에서 재진다**
+            // (위쪽 시드가 사람마다 단계를 돌려 주는데, 유타르크가 마침 열려 있었다)
+            S.bond.sp_yutark = 0;
+            tapVillageSpot('vl_mirror', 'vs_mirror_pond');           // 유타르크 — 다섯
             const chips = document.querySelectorAll('#villageBody .ask-chip');
             const want = D.asksOf('sp_yutark').length;
             if (chips.length !== want) return `칩이 ${chips.length}개다 (${want} 기대)`;
@@ -1128,12 +1132,19 @@ function launchOpts() {
             const said = document.querySelector('#villageBody .npc-line').textContent;
             if (said === T('tk_yutark_greet')) return '눌렀는데 인사말 그대로다';
             if (!document.querySelector('#villageBody .ask-chip.on')) return '누른 칩에 표시가 없다';
+            // ⚠️ **자물쇠 칩이 이 화면에 있어야 한다.** 없으면 🔒 줄의 대비·넘침을
+            // 아무도 안 재는 것이다 — 「0건」이 재 본 적 없다는 뜻이 된다
+            if (!document.querySelector('#villageBody .ask-chip.locked'))
+              return '잠긴 칩이 하나도 없다 — 그 자리를 재는 화면이 사라졌다';
             return null;
           });
           if (bad) results.push({ 화면: `${t}/물어볼것`, 오류: bad });
           else { await page.waitForTimeout(250); await run(`${t}/물어볼것`); }
           const askBad = await page.evaluate(() => window.__fits('#villageBody'));
           if (askBad) results.push({ 화면: `${t}/물어볼것`, 오류: askBad });
+          // ⚠️ **내려놓은 호감도를 되돌린다.** 안 되돌리면 뒤 화면이 다른 조건에서 재진다
+          // (이 파일에서 뒷정리를 빠뜨려 뒤가 무너진 것이 이번이 여섯 번째다)
+          await page.evaluate(() => { S.bond.sp_yutark = D.BOND_TIERS[3].at; });
           await page.evaluate(() => leaveSpot());
           await page.waitForTimeout(120);
         }

@@ -1491,6 +1491,8 @@ const KEYWORDS = [
   { id: 'kw_apple',  kind: 'thing', name: '독사과' },
   { id: 'kw_curse',  kind: 'thing', name: '저주' },
   { id: 'kw_order',  kind: 'thing', name: '암살 의뢰' },
+  { id: 'kw_glass',  kind: 'thing', name: '유리관' },
+  { id: 'kw_seal',   kind: 'thing', name: '봉인' },
   { id: 'kw_queen',  kind: 'who',   name: '여왕' },
   { id: 'kw_mother', kind: 'who',   name: '엄마' },
   { id: 'kw_prince', kind: 'who',   name: '왕자' },
@@ -1559,8 +1561,39 @@ const ASKS = [
   { npc: 'sp_valen', kw: 'kw_order',  line: 'ak_valen_order',  mood: 'def' },
   { npc: 'sp_valen', kw: 'kw_queen',  line: 'ak_valen_queen',  mood: 'def' },
   { npc: 'sp_valen', kw: 'kw_mother', line: 'ak_valen_mother', mood: 'soft' },
+
+  // ─── 신뢰(3단계)에서야 털어놓는 말 ──────────────────────────
+  //
+  // **호감도가 이야기를 민다.** 물약을 만들어 주고 → 가까워지고 → 그제야 하는 말이
+  // 있고 → 그 말이 새 키워드를 준다. 「주는 쪽에서 오른다」(STORY.md)가
+  // 이야기의 동력이 되는 자리다.
+  //
+  // ⚠️ **클레멘에게는 `need.bond` 를 걸 수 없다.** 그에게는 호감도가 없어서
+  // (대가 없이 주는 쪽이라 눈금을 안 붙였다) 조건이 영영 안 채워진다 —
+  // `checktalk` 이 그것을 잡는다.
+  { npc: 'sp_orix',   kw: 'kw_apple',  line: 'ak_orix_apple',   mood: 'def',
+    need: { bond: 3 }, gives: ['kw_glass'] },
+  { npc: 'sp_stark',  kw: 'kw_curse',  line: 'ak_stark_curse',  mood: 'def',
+    need: { bond: 3 }, gives: ['kw_glass'] },
+  { npc: 'sp_kairos', kw: 'kw_mother', line: 'ak_kairos_mother', mood: 'def',
+    need: { bond: 3 }, gives: ['kw_seal'] },
+  { npc: 'sp_valen',  kw: 'kw_curse',  line: 'ak_valen_curse',  mood: 'soft',
+    need: { bond: 3 }, gives: ['kw_seal'] },
+  // 이 둘은 «주는 것 없이» 인물을 보여 주는 줄이다 — 신뢰의 값이 정보만은 아니다
+  { npc: 'sp_yutark', kw: 'kw_hunger', line: 'ak_yutark_hunger', mood: 'true',
+    need: { bond: 3 } },
+  { npc: 'sp_sylvan', kw: 'kw_queen',  line: 'ak_sylvan_queen',  mood: 'def',
+    need: { bond: 3 } },
+
+  // ─── 새 키워드를 받아 주는 자리 ────────────────────────────
+  // ⚠️ 안 만들면 `checktalk` 이 「죽은 키워드」로 잡는다 — 들고 다닐 데가 없는 것이다.
+  // 둘 다 **2막으로 가는 씨앗**이다 (유리관 호수 · 엄마의 봉인)
+  { npc: 'sp_clemen', kw: 'kw_seal',  line: 'ak_clemen_seal',  mood: 'def' },
+  { npc: 'sp_sylvan', kw: 'kw_glass', line: 'ak_sylvan_glass', mood: 'def' },
 ];
 function asksOf(npc) { return ASKS.filter(a => a.npc === npc); }
+// 그 대답에 필요한 호감도 단계 (없으면 0)
+function askNeedBond(a) { return (a.need && a.need.bond) || 0; }
 
 // ═══════════════════════════════════════════════════════════════
 //  호감도 — 공주가 «주는» 쪽에서 오른다 (STORY.md 「남자 NPC 여섯 › 공통 규칙」)
@@ -2326,7 +2359,7 @@ for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 window.GameData = {
   INGREDIENTS, ZONES, MAPS, zoneUnlock, zoneAp, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS, BASE_MOODS, moodsOf,
-  KEYWORDS, keyword, ASKS, asksOf, LORE, ingRarity, hideableOf, hiddenOf,
+  KEYWORDS, keyword, ASKS, asksOf, askNeedBond, LORE, ingRarity, hideableOf, hiddenOf,
   BOND_TIERS, bondTierOf, BOND_GAIN, BONDS, BOND_GIFTS, bondNpcs, BOND_GIVES, bondGiver,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,

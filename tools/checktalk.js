@@ -152,6 +152,16 @@ D.ASKS.forEach(a => {
     bad.push(`ASKS ${where}: 표정 '${a.mood}' 이 없다 (조용히 기본으로 떨어진다)`);
   if (!a.line) bad.push(`ASKS ${where}: 대답(line)이 없다`);
   else if (I.t(a.line) === a.line) bad.push(`ASKS ${where}: 대답 문구가 없다 (${a.line}) — 화면에 키 이름이 그대로 뜬다`);
+  // ⚠️ **호감도가 없는 사람에게 호감도 조건을 걸면 영영 안 열린다.**
+  // 클레멘이 그렇다 — 대가 없이 주는 쪽이라 눈금을 안 붙였다.
+  // 화면에는 자물쇠만 뜨고 아무리 해도 안 풀린다 (조용히 막히는 종류다)
+  const nb = D.askNeedBond(a);
+  if (nb) {
+    if (!D.BONDS[a.npc])
+      bad.push(`ASKS ${where}: ${a.npc} 에게는 호감도가 없는데 bond ${nb} 을 걸었다 — 영영 안 열린다`);
+    if (nb < 1 || nb > D.BOND_TIERS.length - 1)
+      bad.push(`ASKS ${where}: 호감도 단계 ${nb} 은 없다 (1~${D.BOND_TIERS.length - 1})`);
+  }
   (a.gives || []).forEach(k => { if (!D.keyword(k)) bad.push(`ASKS ${where}: 없는 키워드를 준다 (${k})`); });
   (a.opens || []).forEach(v => {
     if (!D.VILLAGES.find(x => x.id === v)) bad.push(`ASKS ${where}: 없는 마을을 연다 (${v})`);
@@ -180,6 +190,9 @@ for (let pass = 0; pass < D.ASKS.length + 2; pass++) {
     const vi = npcVillage[a.npc];
     if (vi && !openV.has(vi)) return;          // 그 마을이 아직 안 열렸다
     if (!have.has(a.kw)) return;               // 그 키워드가 아직 없다
+    // 호감도 조건은 **언제나 채울 수 있는 것**으로 본다 — 물약을 만들어 주면 오르고,
+    // 내려가지 않는다. 다만 **호감도가 없는 사람**에게 걸려 있으면 못 채운다
+    if (D.askNeedBond(a) && !D.BONDS[a.npc]) return;
     reached.add(i); moved = true;
     (a.gives || []).forEach(k => have.add(k));
     (a.opens || []).forEach(v => openV.add(v));
@@ -229,6 +242,7 @@ cyc.forEach(c => bad.push(`순환: 마을이 서로를 연다 (${c}) — 둘 다
 
 console.log(`인물 ${D.SPEAKERS.length}명 · 대사 ${Object.keys(D.TALKS).length}묶음 · 앉은 자리 ${placed.size}곳`);
 console.log(`표정 ${global.__moodN}가지 (부품 ${global.__partN})`);
+console.log(`  그중 호감도가 있어야 열리는 대답 ${D.ASKS.filter(a => D.askNeedBond(a)).length}줄`);
 console.log(`키워드 ${D.KEYWORDS.length}개 · 물어볼 것 ${D.ASKS.length}줄 · 시작 [${START.join(', ')}] → 마을 ${openV.size}곳 개방`);
 if (!bad.length) { console.log('✅ 인물·대사 표에 어긋난 곳 없음'); process.exit(0); }
 console.log(`❌ ${bad.length}건`);

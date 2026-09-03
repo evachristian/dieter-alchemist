@@ -51,7 +51,7 @@
     haloMinRatio: 4.5,     // 글자색 ↔ 음영색 대비. 흰 글자에 흰 그림자면 소용없다
     // 잠금 표현 (UI_POLICY 7장)
     lockedSelector: '.spot-card.locked, .cat-tab.locked, .wr-item.locked, .room-tab.locked, .wr-color.locked, .vil-map.locked,'
-      + ' .ex-item.locked, .ex-min.locked',
+      + ' .ex-item.locked, .ex-min.locked, .ask-chip.locked',
     lockMaxSaturate: 0.4,     // 이보다 채도가 높으면 '잠김'으로 안 보인다
     lockMaxOpacity: 0.92,     // 살짝이라도 투명해야 뒤로 물러나 보인다
     lockMinOpacity: 0.7,      // 그렇다고 글자를 못 읽을 만큼 흐리면 안 된다

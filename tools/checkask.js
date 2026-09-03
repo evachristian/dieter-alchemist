@@ -146,6 +146,48 @@ function ok(cond, msg, extra) {
   line = await askIn('vl_thorn', 'vs_thorn_barrack', '아름다움');
   ok(line && line.includes('나 같은'), '발렌은 「나 같은 거지」라고 답한다', (line || '').slice(0, 20));
 
+  // ── 신뢰에서야 털어놓는 말 (호감도 3단계)
+  //
+  // ⚠️ **자물쇠는 감추지 않고 보여 준다.** 안 보이면 「없는 것」이고, 보이면
+  // 「아직 못 여는 것」이다 — 코지 게임에서 갈 곳을 알려 주는 쪽이 낫다.
+  // 그 대신 **길잡이 점(●)에는 안 센다** — 점을 따라갔는데 못 여는 것뿐이면 점이 거짓말이 된다
+  await page.evaluate(() => { switchTab('gather'); setGatherTab('village');
+    setVillage('vl_chimney'); tapVillageSpot('vl_chimney', 'vs_chimney_forge'); });
+  await page.waitForSelector('#villageBody .ask-chip', { timeout: 2000 });
+  let lockTxt = await page.$$eval('#villageBody .ask-chip.locked', els => els.map(e => e.textContent.trim()));
+  ok(lockTxt.length === 1 && lockTxt[0].includes('🔒'), '아직 못 여는 대답은 🔒 로 보인다 (감추지 않는다)',
+     lockTxt.join(' / '));
+  ok(lockTxt[0] && lockTxt[0].includes('독사과'), '그것이 「독사과」 줄이다', lockTxt.join(' / '));
+  // ⚠️ 자물쇠가 통째로 사라졌으면 **여기서 죽지 말고 그렇다고 알린다** —
+  // 크래시는 「무엇이 틀렸나」를 안 알려 준다 (checklore 에서 배운 것과 같다)
+  const dimmed = lockTxt.length ? await page.$eval('#villageBody .ask-chip.locked',
+    e => getComputedStyle(e).filter.includes('saturate')) : false;
+  ok(dimmed, '잠긴 콘텐츠 공통 표현(saturate)을 쓴다');
+
+  let kwN = await page.evaluate(() => S.keywords.length);
+  // 자물쇠가 없으면 그 자리의 칩을 그냥 누른다 — 「막혔는가」는 그래도 재야 한다
+  await page.$$eval('#villageBody .ask-chip',
+    els => (els.find(e => e.classList.contains('locked')) ||
+            els.find(e => e.textContent.includes('독사과')) || els[0]).click());
+  await page.waitForTimeout(80);
+  ok(await page.evaluate(() => S.keywords.length) === kwN, '눌러도 키워드가 안 들어온다');
+  ok(!(await page.evaluate(() => S.keywords.includes('kw_glass'))), '「유리관」은 아직 없다');
+  const tst = await page.$eval('#toast', e => e.classList.contains('show') ? e.textContent.trim() : '');
+  ok(tst.includes('친해') || tst.length > 0, '왜 안 되는지 말해 준다 (막기만 하면 버그로 읽힌다)', tst.slice(0, 30));
+  // 길잡이 점은 잠긴 것을 안 센다
+  ok(await page.evaluate(() => asksNew('sp_orix')) === 0, '잠긴 것은 길잡이 점에 안 센다');
+
+  // 호감도를 3단계까지 올린다 (물약을 선물해 오르는 값이다 — 여기서는 값만 심는다)
+  await page.evaluate(() => { S.bond.sp_orix = D.BOND_TIERS[3].at; save();
+    tapVillageSpot('vl_chimney', 'vs_chimney_forge'); });
+  await page.waitForTimeout(80);
+  ok(await page.$$eval('#villageBody .ask-chip.locked', els => els.length) === 0,
+     '3단계가 되면 자물쇠가 풀린다');
+  ok(await page.evaluate(() => asksNew('sp_orix')) === 1, '풀린 순간 길잡이 점이 켜진다');
+  line = await askIn('vl_chimney', 'vs_chimney_forge', '독사과');
+  ok(line && line.includes('유리'), '오릭스가 유리관 이야기를 꺼낸다', (line || '').slice(0, 24));
+  ok(await page.evaluate(() => S.keywords.includes('kw_glass')), '「유리관」을 얻는다');
+
   // ── 탭의 점 — 다 물어보고 나면 꺼진다
   await page.evaluate(() => { leaveSpot(); });
   await page.waitForSelector('#villageTabs .cat-tab', { timeout: 2000 }).catch(() => {});
@@ -165,9 +207,13 @@ function ok(cond, msg, extra) {
   // ── 새로고침해도 남는가 (세이브)
   await page.reload({ waitUntil: 'load' });
   await page.waitForTimeout(1200);
-  st = await page.evaluate(() => ({ kw: S.keywords.length, vl: S.villages.slice(), tk: S.talked.length }));
+  st = await page.evaluate(() => ({ kw: S.keywords.length, vl: S.villages.slice(),
+    tk: S.talked.length, sl: S.keywords.includes('kw_seal') }));
   ok(st.vl.length === 5, '연 마을 다섯이 세이브에 남는다', st.vl.join(','));
-  ok(st.kw === 10 && st.tk === 27, '키워드 10 · 물어본 것 27 이 남는다', `kw ${st.kw} · talked ${st.tk}`);
+  // 열둘 중 열하나 — 「엄마의 봉인」은 카이로스·발렌의 호감도가 있어야 나온다.
+  // 여기서 올린 것은 오릭스 하나뿐이라 그 줄들은 아직 잠겨 있다 (그것이 맞는 상태다)
+  ok(st.kw === 11 && st.tk === 29, '키워드 11 · 물어본 것 29 가 남는다', `kw ${st.kw} · talked ${st.tk}`);
+  ok(!st.sl, '호감도를 안 올린 사람의 말은 아직 안 들었다 (봉인)');
 
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));
 

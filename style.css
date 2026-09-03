@@ -635,6 +635,10 @@ body.has-quest .screen { padding-bottom: 168px; }
 }
 /* 아직 안 물어본 것 — 🆕 와 분홍 테두리. 색만으로 구분하지 않는다 (이모지가 같이 붙는다) */
 .ask-chip.fresh { border-color: var(--pink-2); font-weight: 800; }
+/* 호감도가 모자라 아직 못 여는 대답 — **감추지 않고 잠가 보여 준다.**
+   무엇을 하면 되는지 알아야 하기 때문이다 (자물쇠 + 눌렀을 때의 안내).
+   ⚠️ 잠긴 콘텐츠 «공통 표현»을 쓴다 (CLAUDE.md 4번) — 화면마다 따로 흐리게 만들지 않는다 */
+.ask-chip.locked { color: var(--ink); }
 /* 지금 화면에 대답이 떠 있는 칩 */
 .ask-chip.on { background: var(--pink); border-color: var(--pink-2); font-weight: 800; }
 .ask-chip:active { transform: scale(0.97); }
@@ -1735,6 +1739,7 @@ button.tm-slot:active { transform: scale(0.94); }
    새로 잠기는 UI 를 만들면 클래스에 .locked 를 붙이고 이 목록에 선택자를 추가할 것. */
 .spot-card.locked,
 .cat-tab.locked,
+.ask-chip.locked,
 .wr-item.locked,
 .vil-map.locked,
 .ex-item.locked,

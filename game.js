@@ -1307,8 +1307,17 @@ function askKey(npc, kw) { return npc + '|' + kw; }
 function askedAlready(npc, kw) { return !!(S.talked && S.talked.includes(askKey(npc, kw))); }
 // 이 사람에게 지금 물어볼 수 있는 것 (= 그가 반응하고 + 내가 가진 것)
 function asksAvail(npc) { return D.asksOf(npc).filter(a => hasKw(a.kw)); }
-// 아직 한 번도 안 물어본 것의 수 — 마을 탭·건물의 점(●)이 이 수를 본다
-function asksNew(npc) { return asksAvail(npc).filter(a => !askedAlready(npc, a.kw)).length; }
+// 호감도가 모자라 아직 못 여는 대답인가.
+//
+// **호감도가 이야기를 민다** — 물약을 만들어 주고 → 가까워지고 → 그제야 하는 말이 있다.
+// ⚠️ **잠긴 것도 «보여 준다».** 아예 감추면 무엇을 하면 되는지 알 수가 없다
+// (「길 잃음 방지가 제일 중요하다」 — STORY.md). 대신 무엇이 모자란지 적는다
+function askLocked(a) { return bondTier(a.npc) < D.askNeedBond(a); }
+// 아직 한 번도 안 물어본 것의 수 — 마을 탭·건물의 점(●)이 이 수를 본다.
+// ⚠️ **잠긴 것은 안 센다.** 점을 보고 갔는데 못 여는 것뿐이면 그 점이 거짓말이 된다
+function asksNew(npc) {
+  return asksAvail(npc).filter(a => !askedAlready(npc, a.kw) && !askLocked(a)).length;
+}
 
 // 지금 화면에 떠 있는 대답. **저장하지 않는다** — 진행이 아니라 방금 들은 말이고,
 // 화면을 떠났다 오면 인사말부터가 맞다 (대사 `talkIdx` 와 같은 규칙)
@@ -1326,9 +1335,14 @@ function askRowHtml(npc) {
   if (!list.length) return `<div class="ask-box"><div class="ask-none">${T('ask_none')}</div></div>`;
   const chips = list.map(a => {
     const k = D.keyword(a.kw);
-    const fresh = !askedAlready(npc, a.kw);
-    return `<button class="ask-chip ${fresh ? 'fresh' : ''} ${askNpc === npc && askKw === a.kw ? 'on' : ''}"
-      data-ask="${a.kw}" onclick="doAsk('${npc}','${a.kw}')">${fresh ? '🆕 ' : ''}${N(a.kw, k ? k.name : a.kw)}</button>`;
+    const lock = askLocked(a);
+    const fresh = !lock && !askedAlready(npc, a.kw);
+    const tn = lock ? D.BOND_TIERS[D.askNeedBond(a)] : null;
+    return `<button class="ask-chip ${fresh ? 'fresh' : ''} ${lock ? 'locked' : ''} ${
+      askNpc === npc && askKw === a.kw ? 'on' : ''}"
+      data-ask="${a.kw}"${lock ? ` title="${T('ask_locked', { tier: N(tn.id, tn.name) })}"` : ''}
+      onclick="doAsk('${npc}','${a.kw}')">${lock ? '🔒 ' : (fresh ? '🆕 ' : '')}${
+      N(a.kw, k ? k.name : a.kw)}</button>`;
   }).join('');
   return `<div class="ask-box">
       <div class="ask-title">${T('ask_title')}</div>
@@ -1340,6 +1354,13 @@ function askRowHtml(npc) {
 function doAsk(npc, kw) {
   const a = D.ASKS.find(x => x.npc === npc && x.kw === kw);
   if (!a || !hasKw(kw)) return;
+  // 아직 못 여는 대답 — **무엇을 하면 되는지** 말해 준다 (막기만 하면 버그로 읽힌다)
+  if (askLocked(a)) {
+    const who = speakerName(npc);
+    toast(T('ask_locked_toast', { who, nj: josa(who, '은는') }), `.ask-chip[data-ask="${kw}"]`, 3400, 'above');
+    if (window.Sfx) Sfx.play('fail');
+    return;
+  }
   askNpc = npc; askKw = kw;
   const first = !askedAlready(npc, kw);
   const got = [], opened = [];
