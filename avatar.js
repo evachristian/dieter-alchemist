@@ -270,7 +270,7 @@
   // 「허벅지 윗머리를 덮어야 한다」는 바닥이 있는데, 위의 `thighOuterAt` 수정으로
   // 그 바닥이 올라가 **100% 와 125% 가 둘 다 40.3px** 이 됐다 — 슬라이더를
   // 한 칸 밀어도 몸이 하나도 안 변한다. 몫을 키워 바닥 위로 다시 띄웠다.
-  const TUNE_GAIN = { thigh: 0.87, hip: 0.5, calf: 0.87 };
+  const TUNE_GAIN = { thigh: 0.855, hip: 0.5, calf: 0.855 };
   function fatOf(tune, k) {
     const v = tuneOf(tune, k), g = TUNE_GAIN[k];
     return (g == null || v <= 1) ? v : 1 + (v - 1) * g;
@@ -755,9 +755,10 @@
     const y0 = L.hipY + cap(L.hipY, top), y1 = L.kneeY - cap(L.kneeY, kx);
     if (y <= y0) return top;
     if (y >= y1) return kx;
-    const h = (y1 - y0) * LIMB_C;                    // limbPath 와 **같은** 제어점 높이
+    // limbPath(허벅지) 와 **같은** 제어점 높이 — 비대칭이다
+    const ha = (y1 - y0) * THIGH_C[0], hb = (y1 - y0) * THIGH_C[1];
     const yAt = t => { const u = 1 - t;
-      return u * u * u * y0 + 3 * u * u * t * (y0 + h) + 3 * u * t * t * (y1 - h) + t * t * t * y1; };
+      return u * u * u * y0 + 3 * u * u * t * (y0 + ha) + 3 * u * t * t * (y1 - hb) + t * t * t * y1; };
     let lo = 0, hi = 1;                              // y(t) 는 단조로우므로 이분법으로 푼다
     for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (yAt(m) < y) lo = m; else hi = m; }
     const t = (lo + hi) / 2, u = 1 - t;
@@ -928,9 +929,28 @@
   // `min(엉덩이 끝, 밑단-6)` 에서 다리 폭이 되도록 곡선을 억지로 세웠는데,
   // 그러면 하의가 몸보다 가팔라져 **그 사이로 엉덩이가 비쳤다** (반바지에서 y 224~236).
   // 몸과 **같은 곡선**을 쓰고 밑단에서 자르면 어디서 잘라도 몸 바깥에 남는다.
+  // ─── 엉덩이는 허벅지에 «기대어» 닿는다 ────────────────────
+  //
+  // ⚠️ **수직으로 내려앉으면 허벅지와 만나는 자리에 모서리가 진다.** 마지막 제어점을
+  // 끝점과 같은 x 에 두면 도착 접선이 세로인데, 그 아래 허벅지는 이미 비스듬히
+  // 내려가는 중이라 둘이 각을 이룬다 — 옆선이 「울퉁불퉁」해 보이던 것이 이것이다.
+  // 제어점을 **그 높이의 허벅지만큼** 밖으로 물려 두면 접선이 그대로 이어진다.
+  // 자리는 안 바뀐다 — 끝점은 그대로다.
+  //
+  // ⚠️ **몸과 옷이 같은 값을 봐야 한다.** 몸의 엉덩이 path 는 `torsoArms` 안에 손으로
+  // 적혀 있고 하의는 `hipSideCurve` 를 쓴다 — 두 자리가 이 함수 하나를 부른다.
+  function hipLean(tune, x0, x3) {
+    const HY = hipApexBot(tune), BY = hipBlendY(tune), hb = (BY - HY) * 0.45;
+    // **접선**으로 잡는다 — 1px 위아래의 기울기 × 제어점 높이.
+    // 활(secant)로 재면(`BY-hb` 와 `BY` 의 차) 볼록한 곡선에서는 늘 더 커서
+    // 엉덩이가 허벅지 밖으로 부풀고, 그만큼 그림 상자를 넘본다 (실제로 25줄이 잘렸다)
+    const slope = thighOuterAt(tune, Math.max(LEG.hipY, BY - 1)) - thighOuterAt(tune, BY);
+    return Math.max(0, Math.min(slope * hb, Math.max(0, (x0 - x3) * 0.6)));
+  }
   function hipSideCurve(tune, x0, x3, cutY) {
     const HY = hipApexBot(tune), BY = hipBlendY(tune), hb = (BY - HY) * 0.45;
-    let P = [[x0, HY], [x0, HY + hb], [x3, BY - hb], [x3, BY]];
+    const lean = hipLean(tune, x0, x3);
+    let P = [[x0, HY], [x0, HY + hb], [x3 + lean, BY - hb], [x3, BY]];
     if (cutY != null && cutY < BY) {
       const yAt = t => {
         const u = 1 - t;
@@ -1015,8 +1035,16 @@
   // ⚠️ **`limbPath`(그리는 곳)와 `thighOuterAt`(재는 곳)이 반드시 같은 값을 써야 한다.**
   // 두 벌로 두었다가 7.3px 어긋나 엉덩이 이음매에 턱이 졌던 자리다.
   // 값을 키우면 곡선이 양 끝을 더 오래 붙들어 **가운데가 둥글어지고**, 낮추면
-  // 곧은 사선에 가까워진다 — 「허벅지 라인을 둥글게」가 이 값이다 (0.45 → 0.58).
+  // 곧은 사선에 가까워진다 — 「허벅지 라인을 둥글게」가 이 값이다 (0.45 → 0.52).
   const LIMB_C = 0.52;
+  // ─── 허벅지만 «비대칭»이다 ─────────────────────────────────
+  //
+  // ⚠️ 위아래를 같은 값으로 두면(대칭) 허벅지가 **넓은 채로 한참 내려오다가 갑자기**
+  // 좁아진다 — 종아리 옆으로 자락이 길게 늘어져 「울퉁불퉁」해 보이던 것이 그것이다.
+  // 실제 다리는 **엉덩이 밑에서 빨리 빠지고 무릎으로는 완만히** 붙는다.
+  //   앞(위) 값이 작을수록 윗머리를 빨리 떠나고, 뒤(아래) 값이 클수록 무릎에 일찍
+  //   나란해진다. 둘의 합이 1 을 넘으면 곡선이 스스로를 넘어가니 그 밑으로 둔다.
+  const THIGH_C = [0.38, 0.62];
   const KNEE_THIGH = LEG.kneeX / (THIGH_GAP + LEG.hipW);      // 0.447 — 기본 그림의 비율
   // ⚠️ **종아리 상한을 「장딴지의 85%」로 못 박아 두면 안 된다.** 허벅지만 200% 로
   // 올렸을 때 윗머리는 61.5 인데 무릎이 17 에 묶여 **다리가 막대기로 끝났다.**
@@ -1126,7 +1154,8 @@
   // 다리 마디 하나. 마디마다 **세로 접선**으로 이어져 어느 배율에서도 안 꺾인다.
   //   s 오른쪽이면 +1 · pts [[y, 중심선에서 잰 바깥 거리], ...] 위→아래
   //   (안쪽 변은 innerX 가 정한다)
-  function limbPath(s, pts) {
+  function limbPath(s, pts, c) {
+    const ca = (c && c[0]) || LIMB_C, cb = (c && c[1]) || LIMB_C;
     const X = n => +(100 + s * n).toFixed(2);
     const a = pts[0], z = pts[pts.length - 1];
     // 마개는 폭의 절반을 못 넘는다 (안쪽 변이 y 마다 다르므로 그 자리의 폭으로 잰다)
@@ -1138,8 +1167,9 @@
       const p = pts[i - 1], q = pts[i];
       const y0 = i === 1 ? p[0] + r0 : p[0];
       const y1 = i === pts.length - 1 ? q[0] - r1 : q[0];
-      const h = (y1 - y0) * LIMB_C;                         // thighOuterAt 와 **같은** 값이다
-      d += ` C${X(p[1])},${(y0 + h).toFixed(1)} ${X(q[1])},${(y1 - h).toFixed(1)} ${X(q[1])},${y1.toFixed(1)}`;
+      // thighOuterAt 와 **같은** 값이어야 한다 (허벅지는 비대칭이다)
+      const ha = (y1 - y0) * ca, hb = (y1 - y0) * cb;
+      d += ` C${X(p[1])},${(y0 + ha).toFixed(1)} ${X(q[1])},${(y1 - hb).toFixed(1)} ${X(q[1])},${y1.toFixed(1)}`;
     }
     d += ` Q${X(z[1])},${z[0]} ${X(z[1] - r1)},${z[0]} L${iBot},${z[0]}`;
     // 안쪽 변을 **아래에서 위로** 되짚어 올라간다 (바깥과 같은 세로 접선)
@@ -1169,8 +1199,8 @@
       <ellipse cx="${fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
       <ellipse cx="${200 - fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
       <g data-part="thigh">
-        ${limbPath(-1, thigh)}
-        ${limbPath(1, thigh)}
+        ${limbPath(-1, thigh, THIGH_C)}
+        ${limbPath(1, thigh, THIGH_C)}
       </g>`;
   }
 
@@ -1271,6 +1301,9 @@
     const tRa = +(100 + thighJoin(tune)).toFixed(2), tLa = +(200 - tRa).toFixed(2);
     const hRa = +(100 + hipHalf(tune)).toFixed(2), hLa = +(200 - hRa).toFixed(2);
     const ha = +((HY1 - WY) * 0.45).toFixed(1), hb = +((BY - HY2) * 0.45).toFixed(1);
+    // 허벅지에 기대어 닿는 몫 — 하의(`hipSideCurve`)와 **같은 함수**에서 나온다
+    const ln = +hipLean(tune, hipHalf(tune), thighJoin(tune)).toFixed(2);
+    const tRc = +(tRa + ln).toFixed(2), tLc = +(tLa - ln).toFixed(2);
 
     // 몸통 옆선이 허리로 좁아지는 곡선. 제어점을 어깨(133)~허리 사이의 **비율**로 잡아,
     // waistY 를 올리고 내려도 곡선 모양이 그대로 따라오게 한다.
@@ -1294,11 +1327,11 @@
         <path d="M${wLa},${WY}
           C${wLa},${WY + ha} ${hLa},${HY1 - ha} ${hLa},${HY1}
           L${hLa},${HY2}
-          C${hLa},${HY2 + hb} ${tLa},${BY - hb} ${tLa},${BY}
+          C${hLa},${HY2 + hb} ${tLc},${BY - hb} ${tLa},${BY}
           L${tLa},${HB}
           L${tRa},${HB}
           L${tRa},${BY}
-          C${tRa},${BY - hb} ${hRa},${HY2 + hb} ${hRa},${HY2}
+          C${tRc},${BY - hb} ${hRa},${HY2 + hb} ${hRa},${HY2}
           L${hRa},${HY1}
           C${hRa},${HY1 - ha} ${wRa},${WY + ha} ${wRa},${WY} Z" fill="${SKIN}"/>
       </g>
