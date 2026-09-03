@@ -325,7 +325,16 @@
   // (팔 200% 에서 4.0px). 팔 위 끝은 아직 제 폭이 아니기 때문이다.
   // 라운드 숄더로 보이던 것은 결국 **어깨선이 직각이던 것**이라, 그쪽(`shoulderC`)만
   // 눕혀서 해결했다. 여기를 건드리려면 어깨가 팔을 «높이마다» 따라가야 한다.
-  const ARM_W = { shoulder: 15, elbow: 12, wrist: 9.5 };
+  // ⚠️ **한 번 15% 가늘게 했다** (어깨 15 → 12.75 · 팔꿈치 12 → 10.2 · 손목 9.5 → 8.08).
+  // 「팔이 다리보다 두껍다」를 고친 뒤에도 굵어 보인다는 판단이었다.
+  // 실루엣으로는 팔 100% 가 17 → 15px 이 됐다 (그늘·관절이 배율을 덜 타서 12% 다).
+  //
+  // ⚠️ **여기를 깎으면 어깨가 팔 밖으로 나온다.** 팔이 목 옆을 가려 주고 있어서,
+  // 몸통 50% · 팔 75% 에서 목 자락이 1.5px 튀어나왔다 (`checkavatar` 의 「어깨 부리」).
+  // `shoulderSquash` 의 마개 몫을 2 → 3.4 로 키워서 어깨가 따라 들어오게 했다 —
+  // **기본 체형은 그대로다**(거기서는 여전히 팔이 어깨보다 바깥이다).
+  // 손도 같이 봐야 한다 — 손은 손목 폭을 따라가므로(`HAND_W`) 팔을 깎으면 같이 얇아진다.
+  const ARM_W = { shoulder: 12.75, elbow: 10.2, wrist: 8.08 };
   // 몸 쪽으로 깔아 두는 그늘의 폭.
   // ⚠️ **배율을 같이 타야 한다.** 2.5px 붙박이였는데, 그러면 팔이 가늘어질수록
   // 그늘의 «몫»이 커진다 — 팔 50% 에서 7.5px 짜리 팔에 2.5 가 붙어 실루엣이 33% 나
@@ -520,7 +529,7 @@
   // ⚠️ 자리는 `armPoint` 로 잡는다. 굵기를 바꾸면 팔의 중심선이 움직이는데(안쪽 변이
   // 고정이라 그렇다), 고정값에 두면 가는 팔에서 **손만 바깥에 남는다.**
   // ⚠️ 엄지는 **몸 쪽**에 붙인다. 팔을 내리고 서면 엄지가 안쪽을 향한다
-  const HAND_W = 1.36;      // 손목 반폭의 몇 배
+  const HAND_W = 1.4;       // 손목 반폭의 몇 배 (팔을 15% 가늘게 하면서 1.36 에서 같이 올렸다)
   const HAND_H = 1.12;      // 손 반폭 대비 높이
   const HAND_THUMB = 0.4;   // 엄지 반지름 (손 반폭 대비)
   // ─── 손은 팔을 따라 가늘어지되 **조금 덜 따라간다** ──────────
@@ -660,7 +669,12 @@
     // ⚠️ **폭은 `armWidths` 에서 가져온다.** 예전에는 `B.armW` 를 따로 읽고 있었는데,
     // 어깨만 넓히자 두 값이 갈려 **안 좁혀도 될 어깨를 좁혔다** — 같은 수를 두 군데
     // 적어 두면 한쪽만 고쳤을 때 조용히 어긋난다 (이 파일이 여러 번 겪은 일이다)
-    const armOuter = B.armX_R + armWidths(tuneOf(tune, 'arm')).S - armShift(tune) - 2;
+    // ⚠️ 물리는 폭을 2 → 3.4 로 키웠다. 팔을 가늘게(어깨 15 → 14.1 · 아랫팔 −15%) 하자
+    // 몸통 50% · 팔 75% 에서 어깨가 다시 1.25px 튀어나왔다 — 마개가 길어서(`ARM_CAP_H`)
+    // 어깨 높이의 팔은 아직 제 폭이 한참 아니다. **기본 체형에서는 여전히 안 좁힌다**
+    // (팔이 어깨보다 0.7px 바깥이라 `armOuter >= tip` 이다) — 거기서 좁아지면
+    // 어깨가 통째로 줄어들어 「어깨↔머리카락」 틈이 다시 벌어진다.
+    const armOuter = B.armX_R + armWidths(tuneOf(tune, 'arm')).S - armShift(tune) - 3.4;
     return armOuter >= tip ? 1 : (armOuter - 100) / (tip - 100);
   }
   // 어깨 쪽 x 를 중심선(100) 기준으로 f 배 좁힌다(f>1 이면 넓힌다).
@@ -1289,25 +1303,61 @@
   // 결은 「스파이 패밀리」의 아냐 쪽이다: **눈이 얼굴의 반**이고 하이라이트가 둘 이상,
   // 입은 작고, 감정은 눈썹과 눈의 «모양»이 진다. 그래서 기본 눈부터 키웠다
   // (예전 rx5 → 6.4). 작은 눈은 「점눈」처럼 **일부러 작게 하는 것**만 남긴다.
+  // ─── 눈 한 알은 «층»이다 ────────────────────────────────────
+  //
+  // ⚠️ **먹으로 칠한 타원 하나로 두면 표정이 딱딱해진다.** 예전 눈이 그랬다 —
+  // 검은 타원 + 흰 점 둘. 아니메 눈이 살아 보이는 것은 겹이 여럿이기 때문이다:
+  //   흰자 → 홍채 → **아래쪽 밝은 반달**(빛이 통과한 자리) → 동공 →
+  //   하이라이트 둘 → **위 속눈썹** → 아래 눈꺼풀
+  // 이 중 절반은 «속눈썹»이 한다. 바깥으로 살짝 뻗는 그 선 하나가 눈매를 만든다.
+  //
+  // ⚠️ **그라디언트를 쓰지 않는다.** 아바타는 한 화면에 여럿 뜨는데(도감·랭킹)
+  // `<defs>` id 가 겹치면 서로의 색을 가져간다. 층으로 쌓는 편이 셀 채색의 결에도 맞는다.
+  const IRIS = '#5b4560', IRIS_LO = '#a98bc4', PUPIL = '#2f2430';
+  function irisEye(x, o) {
+    o = o || {};
+    const y = AV.Y + (o.dy || 0);
+    const rx = o.rx || 6.6, ry = o.ry || 8.2;
+    const lx = x + (o.look || 0), ly = y + (o.lookY || 0);
+    const ir = o.ir || 0.88;                       // 홍채가 흰자를 채우는 몫
+    const f = x < 100 ? -1 : 1;                    // 바깥쪽 — 속눈썹이 뻗는 방향
+    const n = v => (+v).toFixed(2);
+    const irx = rx * ir, iry = ry * ir;
+    return `<ellipse cx="${x}" cy="${n(y)}" rx="${n(rx)}" ry="${n(ry)}" fill="#fff"/>`
+      + `<ellipse cx="${n(lx)}" cy="${n(ly)}" rx="${n(irx)}" ry="${n(iry)}" fill="${o.iris || IRIS}"/>`
+      // 아래쪽 밝은 반달 — 이것이 눈을 「투명」하게 만든다
+      + `<ellipse cx="${n(lx)}" cy="${n(ly + iry * 0.36)}" rx="${n(irx * 0.8)}" ry="${n(iry * 0.5)}"`
+      + ` fill="${o.lo || IRIS_LO}" opacity="0.8"/>`
+      + `<ellipse cx="${n(lx)}" cy="${n(ly)}" rx="${n(irx * 0.5)}" ry="${n(iry * 0.62)}" fill="${PUPIL}"/>`
+      + (o.shine === false ? ''
+        : `<circle cx="${n(lx + f * irx * 0.36)}" cy="${n(ly - iry * 0.44)}" r="${n(rx * 0.4)}" fill="#fff"/>`
+        + `<circle cx="${n(lx - f * irx * 0.4)}" cy="${n(ly + iry * 0.46)}" r="${n(rx * 0.2)}" fill="#fff" opacity="0.85"/>`)
+      + (o.extra || '')
+      // 위 속눈썹 — 안쪽에서 시작해 **바깥으로 뻗어 올라간다**
+      + `<path d="M${n(x - (rx + 0.2) * f)},${n(y - ry * 0.42)} Q${x},${n(y - ry - 1.9)}`
+      + ` ${n(x + (rx + 1.9) * f)},${n(y - ry * 0.74)}"`
+      + ` stroke="${AV.INK}" stroke-width="${o.lash || 2.7}" fill="none" stroke-linecap="round"/>`
+      // 아래 눈꺼풀 — 아주 옅게. 있고 없고가 「촉촉함」을 가른다
+      + `<path d="M${n(x - rx * 0.78)},${n(y + ry * 0.9)} Q${x},${n(y + ry + 0.9)} ${n(x + rx * 0.78)},${n(y + ry * 0.86)}"`
+      + ` stroke="${AV.INK}" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.4"/>`;
+  }
+  // 원래 있던 여섯(`switch`)이 쓰는 눈 — 「어리둥절」 크기로 맞췄다.
+  // ⚠️ 예전에는 방긋·윙크가 rx 5, 놀람이 r 6, 어리둥절만 rx 7 이라 **같은 얼굴인데
+  // 표정만 고르면 눈 크기가 들쭉날쭉**했다
+  function bigEye(x, o) { return irisEye(x, Object.assign({ rx: 7, ry: 8.4 }, o)); }
   const aEye = {
     // 기본 — 큰 눈에 하이라이트 둘 (위 큰 것 · 아래 작은 것). 이 둘이 「촉촉함」을 만든다
-    open:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="8" fill="${AV.INK}"/>`
-              + `<circle cx="${x + 2.2}" cy="${AV.Y - 3.2}" r="2.4" fill="#fff"/>`
-              + `<circle cx="${x - 2.2}" cy="${AV.Y + 3.4}" r="1.2" fill="#fff" opacity="0.85"/>`,
-    // 더 크게 — 놀람·궁금. 흰자가 보여 눈을 「부릅뜬」 느낌이 난다
-    big:   x => `<ellipse cx="${x}" cy="${AV.Y}" rx="8" ry="9.6" fill="#fff" stroke="${AV.INK}" stroke-width="1.2"/>`
-              + `<ellipse cx="${x}" cy="${AV.Y + 0.6}" rx="5.4" ry="6.6" fill="${AV.INK}"/>`
-              + `<circle cx="${x + 2}" cy="${AV.Y - 2.6}" r="2.2" fill="#fff"/>`
-              + `<circle cx="${x - 2}" cy="${AV.Y + 4}" r="1.1" fill="#fff" opacity="0.85"/>`,
+    open:  x => irisEye(x),
+    // 더 크게 — 놀람·궁금. 흰자가 넓어 눈을 「부릅뜬」 느낌이 난다
+    big:   x => irisEye(x, { rx: 8, ry: 9.8, ir: 0.74 }),
     // 반짝 — 기대·감탄. 하이라이트가 «별»이다
-    sparkle: x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.6" ry="8.2" fill="${AV.INK}"/>`
-              + `<path d="M${x + 1.8},${AV.Y - 6} l1.1,2.4 2.4,1.1 -2.4,1.1 -1.1,2.4 -1.1,-2.4 -2.4,-1.1 2.4,-1.1 Z" fill="#fff"/>`
-              + `<circle cx="${x - 2.4}" cy="${AV.Y + 3.4}" r="1.6" fill="#fff"/>`,
+    sparkle: x => irisEye(x, { rx: 6.8, ry: 8.6, shine: false, iris: '#6a4a78', lo: '#b18fc4',
+      extra: `<path d="M${x + 1.8},${AV.Y - 5.6} l1.2,2.6 2.6,1.2 -2.6,1.2 -1.2,2.6 -1.2,-2.6 -2.6,-1.2 2.6,-1.2 Z" fill="#fff"/>`
+           + `<circle cx="${x - 2.6}" cy="${AV.Y + 3.4}" r="1.7" fill="#fff"/>` }),
     // 그렁그렁 — 울먹임·부탁. **아냐의 대표 얼굴**이다: 눈물이 고여 흔들린다
-    wobble: x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.8" ry="8.4" fill="${AV.INK}"/>`
-              + `<ellipse cx="${x}" cy="${AV.Y + 3.4}" rx="5.4" ry="3.4" fill="#bfe3f5" opacity="0.9"/>`
-              + `<circle cx="${x + 2.2}" cy="${AV.Y - 3.4}" r="2.4" fill="#fff"/>`
-              + `<circle cx="${x - 2.4}" cy="${AV.Y + 1.2}" r="1.3" fill="#fff"/>`,
+    wobble: x => irisEye(x, { rx: 7, ry: 8.8,
+      extra: `<ellipse cx="${x}" cy="${AV.Y + 4}" rx="5.6" ry="3.4" fill="#bfe3f5" opacity="0.85"/>`
+           + `<ellipse cx="${x}" cy="${AV.Y + 6.4}" rx="4" ry="1.8" fill="#dff2fb" opacity="0.9"/>` }),
     // 점눈 — 김빠짐·질색. **작아지는 것 자체가 농담**이라 크게 만들지 않는다
     dot:   x => `<circle cx="${x}" cy="${AV.Y}" r="2.2" fill="${AV.INK}"/>`,
     // ─── 무거운 윗눈꺼풀 ─────────────────────────────────────
@@ -1325,15 +1375,9 @@
     // 위의 `lid`(프리렌)가 눈을 거의 덮어 버리는 것과 반대다: **눈은 크게 열려 있는데
     // 윗꺼풀만 곧게 내려와** 있어서, 눈빛의 힘은 그대로인 채 못마땅함이 얹힌다.
     // 이 한 부품이 「조용히 화난 얼굴」을 맡는다 — 눈썹을 낮게(`aBrow` 의 low) 깔면 완성된다
-    jito:  x => `<ellipse cx="${x}" cy="${AV.Y + 0.6}" rx="6.4" ry="7.4" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
-              + `<circle cx="${x}" cy="${AV.Y + 1.2}" r="4.6" fill="${AV.INK}"/>`
-              + `<circle cx="${x + 1.8}" cy="${AV.Y - 0.8}" r="1.5" fill="#fff"/>`
-              + `<path d="M${x - 6.6},${AV.Y - 4.8} L${x + 6.6},${AV.Y - 4.8}" stroke="${AV.INK}" stroke-width="4.2" stroke-linecap="round"/>`,
+    jito:  x => irisEye(x, { rx: 6.6, ry: 7.6, dy: 0.6, lash: 4.4 }),
     // 같은 꺼풀에 눈동자만 옆으로 — 곁눈질. 「말은 안 하지만 보고 있다」
-    jside: x => `<ellipse cx="${x}" cy="${AV.Y + 0.6}" rx="6.4" ry="7.4" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
-              + `<circle cx="${x + 2.4}" cy="${AV.Y + 1.2}" r="4.4" fill="${AV.INK}"/>`
-              + `<circle cx="${x + 3.8}" cy="${AV.Y - 0.6}" r="1.4" fill="#fff"/>`
-              + `<path d="M${x - 6.6},${AV.Y - 4.8} L${x + 6.6},${AV.Y - 4.8}" stroke="${AV.INK}" stroke-width="4.2" stroke-linecap="round"/>`,
+    jside: x => irisEye(x, { rx: 6.6, ry: 7.6, dy: 0.6, look: 2.4, lash: 4.4 }),
     // >_< — 박장대소·질색. 감은 눈보다 힘이 세다
     tight: x => `<path d="M${x - 6},${AV.Y - 4.4} L${x + 1},${AV.Y} L${x - 6},${AV.Y + 4.4}"`
               + ` stroke="${AV.INK}" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"`
@@ -1346,29 +1390,27 @@
     slit:  x => `<path d="M${x - 6.4},${AV.Y - 1.8} q6.4,-2.4 12.8,0 q-6.4,5 -12.8,0 Z" fill="${AV.INK}"/>`,
     sharp: x => `<path d="M${x - 6.8},${AV.Y - 3.8} L${x + 6.8},${AV.Y} L${x - 6.8},${AV.Y + 3.8} Z" fill="${AV.INK}"/>`
               + `<circle cx="${x - 3}" cy="${AV.Y - 0.6}" r="1.2" fill="#fff" opacity="0.8"/>`,
-    low:   x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.6" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
-              + `<ellipse cx="${x}" cy="${AV.Y + 2.6}" rx="4.4" ry="4.8" fill="${AV.INK}"/>`
-              + `<circle cx="${x + 1.6}" cy="${AV.Y + 0.8}" r="1.5" fill="#fff"/>`,
-    up:    x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.8" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
-              + `<ellipse cx="${x}" cy="${AV.Y - 2.6}" rx="4.4" ry="4.8" fill="${AV.INK}"/>`
-              + `<circle cx="${x + 1.6}" cy="${AV.Y - 4.4}" r="1.5" fill="#fff"/>`,
-    side:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.4" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
-              + `<ellipse cx="${x + 2.4}" cy="${AV.Y}" rx="4.2" ry="4.8" fill="${AV.INK}"/>`
-              + `<circle cx="${x + 3.6}" cy="${AV.Y - 1.8}" r="1.4" fill="#fff"/>`,
-    wide:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="7.4" ry="9" fill="#fff" stroke="${AV.INK}" stroke-width="1.2"/>`
-              + `<circle cx="${x}" cy="${AV.Y}" r="4.2" fill="${AV.INK}"/><circle cx="${x + 1.6}" cy="${AV.Y - 2.4}" r="1.6" fill="#fff"/>`,
-    glare: x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.6" ry="7.8" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
-              + `<circle cx="${x}" cy="${AV.Y - 2.4}" r="3.6" fill="${AV.INK}"/>`
-              + `<path d="M${x - 7},${AV.Y - 6} L${x + 7},${AV.Y - 6}" stroke="${AV.INK}" stroke-width="2.6" stroke-linecap="round"/>`,
-    star:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.6" ry="8.2" fill="${AV.INK}"/>`
-              + `<circle cx="${x + 2}" cy="${AV.Y - 3.2}" r="2.6" fill="#fff"/><circle cx="${x - 2.4}" cy="${AV.Y + 3.2}" r="1.5" fill="#fff"/>`,
+    // 눈동자만 아래로 — 시선을 내리깐다 (슬픔·미안)
+    low:   x => irisEye(x, { rx: 6.6, ry: 7.8, lookY: 2.2, ir: 0.76 }),
+    // 눈동자만 위로 — 딴생각 (생각 중)
+    up:    x => irisEye(x, { rx: 6.6, ry: 8, lookY: -2.2, ir: 0.76 }),
+    side:  x => irisEye(x, { rx: 6.6, ry: 7.6, look: 2.4, ir: 0.78 }),
+    wide:  x => irisEye(x, { rx: 7.6, ry: 9.2, ir: 0.66 }),
+    // 노려봄 — 눈동자를 위로 올리고 **윗꺼풀을 두껍게 눌러** 내린다
+    glare: x => irisEye(x, { rx: 6.8, ry: 8, lookY: -1.8, ir: 0.74, lash: 4 }),
+    // 눈동자 자체가 별 — 「반짝」보다 한 단계 더 나간 것
+    star:  x => irisEye(x, { rx: 6.8, ry: 8.4, shine: false, iris: '#7a4f92', lo: '#c6a2dd',
+      extra: `<path d="M${x},${AV.Y - 5.4} l1.5,3.3 3.3,1.5 -3.3,1.5 -1.5,3.3 -1.5,-3.3 -3.3,-1.5 3.3,-1.5 Z" fill="#fff"/>`
+           + `<circle cx="${x - 3}" cy="${AV.Y + 4.2}" r="1.4" fill="#fff" opacity="0.9"/>` }),
     heart: x => `<path d="M${x},${AV.Y + 6} C${x - 8},${AV.Y - 2} ${x - 7},${AV.Y - 10} ${x - 2.8},${AV.Y - 10} q2.8,0 2.8,3.4 q0,-3.4 2.8,-3.4 c4.2,0 5.6,8 -2.8,16 Z" fill="#e2557f"/>`
               + `<circle cx="${x - 2}" cy="${AV.Y - 3}" r="1.4" fill="#fff" opacity="0.9"/>`,
     cross: x => `<path d="M${x - 5},${AV.Y - 4.6} L${x + 5},${AV.Y + 4.6} M${x + 5},${AV.Y - 4.6} L${x - 5},${AV.Y + 4.6}" stroke="${AV.INK}" stroke-width="2.8" stroke-linecap="round"/>`,
     dizzy: x => `<path d="M${x},${AV.Y} m-5.4,0 a5.4,5.4 0 1 1 3.6,5.2 a3.6,3.6 0 1 1 2,-6.8" stroke="${AV.INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
-    teary: x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="8" fill="${AV.INK}"/>`
-              + `<circle cx="${x + 2.2}" cy="${AV.Y - 3.2}" r="2.4" fill="#fff"/>`
-              + `<path d="M${x + 5},${AV.Y + 5.4} q2.6,4.8 0,7.2 q-2.6,-2.4 0,-7.2 Z" fill="#8fc5e8"/>`,
+    // 눈물이 «흘러내린다» — 고이기만 하는 `wobble` 보다 한 단계 위다
+    teary: x => irisEye(x, { rx: 6.8, ry: 8.4, lookY: 0.8,
+      extra: `<ellipse cx="${x}" cy="${AV.Y + 4.2}" rx="5.2" ry="3" fill="#bfe3f5" opacity="0.85"/>` })
+           + `<path d="M${x + (x < 100 ? -5.6 : 5.6)},${AV.Y + 6.4} q2.8,5.6 0,8.4 q-2.8,-2.8 0,-8.4 Z" fill="#8fc5e8"/>`
+           + `<ellipse cx="${x + (x < 100 ? -6.2 : 6.2)}" cy="${AV.Y + 9.4}" rx="0.8" ry="1.4" fill="#e6f5fc" opacity="0.9"/>`,
   };
   // ─── 입 — **작다** ──────────────────────────────────────────
   // 눈이 커진 만큼 입은 작아야 균형이 맞는다. 「ω」 같은 고양이 입이 이 결의 핵심이다
@@ -1402,62 +1444,148 @@
     tongue: `<path d="M${AV.MX - 5},${AV.MY} q5,4.4 10,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
           + `<path d="M${AV.MX - 2.6},${AV.MY + 1.4} q2.6,5.6 5.2,0 z" fill="#e2557f"/>`,
   };
-  const aBrow = (kind) => (x, f) => kind === 'up'
-    ? `<path d="M${x - 7},${62 - f * 1.6} q7,-3.4 14,${f * 2.6}" stroke="${AV.INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
-    : kind === 'angry'
-    ? `<path d="M${x - 7},${59 + f * 3.4} L${x + 7},${64 - f * 1}" stroke="${AV.INK}" stroke-width="2.4" stroke-linecap="round"/>`
-    : kind === 'sad'
-    ? `<path d="M${x - 7},${64 - f * 1} L${x + 7},${59 + f * 3.4}" stroke="${AV.INK}" stroke-width="2.4" stroke-linecap="round"/>`
-    : kind === 'beg'
-    ? `<path d="M${x - 7},${66 - f * 2.6} q7,-4.4 14,${f * 5.4}" stroke="${AV.INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
-    : kind === 'droop'
-    ? `<path d="M${x - 7},${60 + f * 2.6} q7,2.6 14,${-f * 1}" stroke="${AV.INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
-    // 낮고 곧은 눈썹 (페른 결) — 눈에 가까이 깔릴수록 「못마땅함」이 된다.
-    // 기본(62)보다 3px 내려와 눈꺼풀 바로 위에 앉는다
-    : kind === 'low'
-    ? `<path d="M${x - 6.6},${65 - f * 0.8} L${x + 6.6},${65 + f * 0.8}" stroke="${AV.INK}" stroke-width="2.2" stroke-linecap="round"/>`
-    : `<path d="M${x - 7},62 L${x + 7},62" stroke="${AV.INK}" stroke-width="2.2" stroke-linecap="round"/>`;
+  // ─── 눈썹 — **안쪽과 바깥쪽을 나눈다** ───────────────────────
+  //
+  // ⚠️ 예전 식은 안팎을 안 가르고 y 만 `f` 로 흔들었다. 그래서 화난 얼굴인데
+  // **왼쪽 눈썹은 평평하고 오른쪽만 기울어** 있었다 — 좌우가 안 맞는 것이
+  // 「딱딱하다」의 큰 몫이었다. 눈(87·113) 기준으로 **안쪽은 x+7f · 바깥쪽은 x−7f**
+  // 라고 적으면 대칭은 저절로 따라온다 (f = +1 왼눈 · −1 오른눈).
+  //
+  // ⚠️ **곧은 선(`L`)으로 긋지 않는다.** 사람 눈썹에는 늘 결이 있어서 화난 눈썹도
+  // 얕게 휜다. 1px 도 안 되는 휨인데 얼굴이 통째로 부드러워진다.
+  //   [안쪽 y, 바깥쪽 y, 휨(음수면 위로 아치)]
+  const BROW = {
+    flat:  [62.2, 62.2, -1.2],
+    up:    [59.8, 58.4, -1.6],   // 둘 다 치켜올림 — 놀람·의문·우쭐
+    angry: [65.4, 57.8, -1.0],   // 안쪽이 내려온다
+    sad:   [57.6, 64.6,  1.2],   // 팔자 — 안쪽이 올라간다
+    beg:   [56.6, 65.4,  2.2],   // 팔자를 더 세게 (애원)
+    droop: [61.2, 65.4, -1.2],   // 바깥이 처진다 (지침·안도)
+    low:   [65.4, 64.4, -0.8],   // 낮고 곧게 (페른 결)
+  };
+  const aBrow = (kind) => (x, f) => {
+    const b = BROW[kind] || BROW.flat;
+    const xi = x + 7 * f, xo = x - 7 * f;
+    const cy = (b[0] + b[1]) / 2 + b[2] * 2;
+    return `<path d="M${xo},${b[1]} Q${(xi + xo) / 2},${cy.toFixed(1)} ${xi},${b[0]}"`
+      + ` stroke="${AV.INK}" stroke-width="2.3" fill="none" stroke-linecap="round"/>`;
+  };
+  // ─── 만화 기호 — «과장»은 얼굴 밖에서 온다 ──────────────────
+  //
+  // ⚠️ **눈·입만 키워서는 과장이 안 된다.** 놀란 얼굴과 그냥 눈을 부릅뜬 얼굴이
+  // 안 갈린다. 아니메가 쓰는 것은 **얼굴에 붙는 기호**다 — 땀방울 · 💢 · 볼의
+  // 세로선 · 반짝임 · 소용돌이 · 한숨. 이 한 겹이 표정의 세기를 통째로 올린다.
+  //
+  // ⚠️ **머리 위에는 못 둔다** — 앞머리가 덮는다 (「어리둥절」의 물음표를
+  // 눈썹으로 바꿔야 했던 것과 같은 이유다). 그래서 전부 **관자놀이~볼**에 붙인다.
+  // 얼굴 타원은 cx100 rx33 이고 귀가 67·133 이라, 안전한 자리는 x 70~80 · 120~130 이다.
+  // ⚠️ **눈썹을 피해야 한다.** 눈썹이 x 80~94 · 106~120 을 쓰므로 기호는 그 «바깥»이다 —
+  // 안쪽에 두면 화난 눈썹 위에 💢 가 겹쳐 둘 다 못 알아본다
+  const FX_L = 74, FX_R = 126;                 // 왼·오른 관자놀이
+  const aFx = {
+    // 땀방울 — 놀람·당황·미안. 한 방울이면 족하다 (둘이면 아파 보인다)
+    sweat: `<path d="M${FX_R + 2},64 q3.2,4.6 0,6.6 q-3.2,-2 0,-6.6 Z" fill="#9ad4f0"/>`
+         + `<ellipse cx="${FX_R + 1.2}" cy="${68.4}" rx="0.8" ry="1.2" fill="#e6f5fc"/>`,
+    // 💢 — 화남·노려봄. **네 변이 안으로 패인 네모**가 그 기호의 모양이다
+    // (귀퉁이 선 넷으로 그렸더니 그냥 점선 네모로 보였다)
+    // ⚠️ 45도 돌려야 한다 — 안 돌리면 그냥 **네 갈래 별**이라 「반짝임」으로 읽힌다
+    anger: `<path transform="translate(${FX_R + 3},70) rotate(45)"`
+         + ` d="M0,-5.4 Q1.1,-1.1 5.4,0 Q1.1,1.1 0,5.4 Q-1.1,1.1 -5.4,0 Q-1.1,-1.1 0,-5.4 Z" fill="#e2557f"/>`,
+    // 볼의 세로선 — 부끄러움. 홍조 «위»에 얹혀야 부끄러움이 된다
+    blush: `<g stroke="#ff8fb0" stroke-width="1" stroke-linecap="round" opacity="0.8">`
+         + [-4.4, 0, 4.4].map(d => `<path d="M${77 + d},83.4 L${77 + d},88.4"/><path d="M${123 + d},83.4 L${123 + d},88.4"/>`).join('')
+         + `</g>`,
+    // 반짝 — 기대·감탄·결심. 크기가 다른 별 둘이라야 「반짝인다」
+    spark: [[FX_L - 2, 62, 3.2], [FX_R + 2, 66, 2.2], [FX_R - 1, 58, 1.6]]
+      .map(([x, y, r]) => `<path d="M${x},${y - r} l${r * 0.42},${r * 0.58} ${r * 0.58},${r * 0.42}`
+        + ` -${r * 0.58},${r * 0.42} -${r * 0.42},${r * 0.58} -${r * 0.42},-${r * 0.58}`
+        + ` -${r * 0.58},-${r * 0.42} ${r * 0.58},-${r * 0.42} Z" fill="#ffd76e"/>`).join(''),
+    // 소용돌이 — 어질어질
+    swirl: `<path d="M${FX_R + 2},62 m-4,0 a4,4 0 1 1 2.6,3.8 a2.6,2.6 0 1 1 1.4,-4.9"`
+         + ` stroke="#9a8aa6" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
+    // 한숨 — 지침·안도. 입가에서 옆으로 새어 나간다
+    puff:  `<g fill="#cfd8e0" opacity="0.75"><circle cx="${FX_R - 8}" cy="92" r="2.2"/>`
+         + `<circle cx="${FX_R - 3.4}" cy="94" r="1.6"/><circle cx="${FX_R}" cy="95.4" r="1"/></g>`,
+    // 💤 — 졸림
+    zzz:   `<g stroke="#8fa6bd" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">`
+         + `<path d="M${FX_R},62 h4 l-4,4 h4"/><path d="M${FX_R + 5},56 h3 l-3,3 h3"/></g>`,
+    // 하트가 튀어오른다 — 반함
+    hearts: [[FX_L - 3, 62, 1], [FX_R + 3, 65, 0.8], [FX_R - 1, 57, 0.6]]
+      .map(([x, y, k]) => `<path transform="translate(${x},${y}) scale(${k})"`
+        + ` d="M0,4 C-4.4,-0.6 -3.8,-5.2 -1.4,-5.2 q1.4,0 1.4,1.8 q0,-1.8 1.4,-1.8 c2.4,0 3,4.6 -1.4,9.2 Z" fill="#e2557f"/>`).join(''),
+    // 절망의 세로선 — 슬픔·기절. 볼에 드리운다 (이마는 앞머리가 덮는다)
+    gloom: `<g stroke="#7d8a99" stroke-width="1.1" stroke-linecap="round" opacity="0.5">`
+         + [0, 3.4, 6.8].map(d => `<path d="M${71 + d},84 L${71 + d},93"/><path d="M${122 + d},84 L${122 + d},93"/>`).join('')
+         + `</g>`,
+    // ? — 궁금·미심쩍음
+    q:     `<g stroke="${AV.INK}" stroke-width="1.7" fill="none" stroke-linecap="round" opacity="0.75">`
+         + `<path d="M${FX_R},60 q0,-3.4 2.8,-3.4 q2.8,0 2.8,2.6 q0,2.2 -2.8,3 v1.2"/></g>`
+         + `<circle cx="${FX_R + 2.8}" cy="66.4" r="1" fill="${AV.INK}" opacity="0.75"/>`,
+    // ♪ — 다정·활짝
+    note:  `<g fill="${AV.INK}" opacity="0.6"><path d="M${FX_R + 1},58 v7.4" stroke="${AV.INK}" stroke-width="1.4" stroke-linecap="round"/>`
+         + `<ellipse cx="${FX_R - 0.6}" cy="65.6" rx="2" ry="1.5" transform="rotate(-18 ${FX_R - 0.6} 65.6)"/>`
+         + `<path d="M${FX_R + 1},58 q2.6,0.8 3,3" stroke="${AV.INK}" stroke-width="1.4" fill="none" stroke-linecap="round"/></g>`,
+    // 눈물이 튄다 — 울음. 눈 «바깥»으로 날아간다
+    splash: [[FX_L - 1, 76, 1], [FX_R + 1, 76, 1], [FX_L - 4, 70, 0.7], [FX_R + 4, 70, 0.7]]
+      .map(([x, y, k]) => `<ellipse cx="${x}" cy="${y}" rx="${1.8 * k}" ry="${2.6 * k}" fill="#9ad4f0" opacity="0.9"/>`).join(''),
+  };
   // 원래 있던 여섯(puzzled · smile · wink · happy · surprise · cool)에 «없는» 것만
   const AV_FACE = {
-    warm:    { e: 'arc',     m: 'wee' },
-    proud:   { e: 'sharp',   m: 'smirk',  b: 'up' },
+    warm:    { e: 'arc',     m: 'wee', fx: 'note' },
+    proud:   { e: 'sharp',   m: 'smirk',  b: 'up', fx: 'spark' },
     smirk:   { e: 'side',    m: 'smirk' },
     flat:    { e: 'lid',     m: 'tiny' },
     meh:     { e: 'lidLow',  m: 'meh' },
-    sleepy:  { e: 'lidLow',  m: 'wee' },
+    sleepy:  { e: 'lidLow',  m: 'wee', fx: 'zzz' },
     think:   { e: 'up',      m: 'small' },
-    doubt:   { e: 'side',    m: 'meh',    b: 'up' },
-    worry:   { e: 'wobble',  m: 'wavy',   b: 'sad' },
-    sad:     { e: 'low',     m: 'frown',  b: 'sad' },
-    cry:     { e: 'teary',   m: 'wavy',   b: 'sad' },
-    angry:   { e: 'sharp',   m: 'frown',  b: 'angry' },
-    grit:    { e: 'tight',   m: 'grit',   b: 'angry' },
-    shy:     { e: 'shut',    m: 'w',      b: 'sad' },
+    doubt:   { e: 'side',    m: 'meh',    b: 'up', fx: 'q' },
+    worry:   { e: 'wobble',  m: 'wavy',   b: 'sad', fx: 'sweat' },
+    sad:     { e: 'low',     m: 'frown',  b: 'sad', fx: 'gloom' },
+    cry:     { e: 'teary',   m: 'wavy',   b: 'sad', fx: 'splash' },
+    angry:   { e: 'sharp',   m: 'frown',  b: 'angry', fx: 'anger' },
+    grit:    { e: 'tight',   m: 'grit',   b: 'angry', fx: 'sweat' },
+    shy:     { e: 'shut',    m: 'w',      b: 'sad', fx: 'blush' },
     ohh:     { e: 'big',     m: 'ohh' },
-    star:    { e: 'sparkle', m: 'grin',   b: 'up' },
-    love:    { e: 'heart',   m: 'grin' },
-    faint:   { e: 'cross',   m: 'ohh' },
-    haha:    { e: 'tight',   m: 'haha',   b: 'up' },
+    star:    { e: 'sparkle', m: 'grin',   b: 'up', fx: 'spark' },
+    love:    { e: 'heart',   m: 'grin', fx: 'hearts' },
+    faint:   { e: 'cross',   m: 'ohh', fx: 'gloom' },
+    haha:    { e: 'tight',   m: 'haha',   b: 'up', fx: 'note' },
     // 😝 는 눈을 «질끈» 감는다 — 그냥 감은 눈(‿‿)으로 그리면 이모지와 딴 얼굴이 된다
     tease:   { e: 'tight',   m: 'tongue' },
     // 😒 · 😑 는 **페른** 결이다 — 큰 눈 위를 곧은 꺼풀이 자르고 눈썹이 낮게 깔린다.
     // 화난 얼굴(`glare`)과 갈리는 자리라서 눈썹을 세우지 않는다: 조용히 못마땅한 것이지
     // 노려보는 것이 아니다
-    pout:    { e: 'jito',    m: 'hmm',    b: 'low' },
-    glare:   { e: 'glare',   m: 'flat',   b: 'angry' },
+    pout:    { e: 'jito',    m: 'hmm',    b: 'low', fx: 'anger' },
+    glare:   { e: 'glare',   m: 'flat',   b: 'angry', fx: 'anger' },
     suspect: { e: 'jside',   m: 'meh',    b: 'low' },
-    dizzy:   { e: 'dizzy',   m: 'wavy' },
-    weary:   { e: 'lidLow',  m: 'wavy',   b: 'droop' },
-    relief:  { e: 'lid',     m: 'wee',    b: 'droop' },
-    sorry:   { e: 'low',     m: 'small',  b: 'beg' },
+    dizzy:   { e: 'dizzy',   m: 'wavy', fx: 'swirl' },
+    weary:   { e: 'lidLow',  m: 'wavy',   b: 'droop', fx: 'puff' },
+    relief:  { e: 'lid',     m: 'wee',    b: 'droop', fx: 'puff' },
+    sorry:   { e: 'low',     m: 'small',  b: 'beg', fx: 'gloom' },
     // **아냐의 대표 얼굴** — 눈물이 그렁그렁 고인 채 올려다본다
-    plead:   { e: 'wobble',  m: 'small',  b: 'beg' },
-    blush:   { e: 'shut',    m: 'bite',   b: 'beg' },
-    resolve: { e: 'sharp',   m: 'grit',   b: 'flat' },
-    awe:     { e: 'sparkle', m: 'ohh' },
-    curious: { e: 'big',     m: 'ohh',    bL: 'up', bR: 'flat' },
+    plead:   { e: 'wobble',  m: 'small',  b: 'beg', fx: 'sweat' },
+    blush:   { e: 'shut',    m: 'bite',   b: 'beg', fx: 'blush' },
+    resolve: { e: 'sharp',   m: 'grit',   b: 'flat', fx: 'spark' },
+    awe:     { e: 'sparkle', m: 'ohh', fx: 'spark' },
+    curious: { e: 'big',     m: 'ohh',    bL: 'up', bR: 'flat', fx: 'q' },
   };
 
+  // ─── 코 ────────────────────────────────────────────────────
+  // ⚠️ **코가 아예 없었다.** 치비 얼굴이라 없어도 되긴 하는데, 눈과 입 사이가
+  // 14px 나 비어 있어서 얼굴이 «판판»해 보였다. 아니메가 쓰는 것은 선 하나 —
+  // 콧등의 그늘만 아주 옅게 찍는다. 진하면 어른 얼굴이 된다
+  const NOSE = `<path d="M98.8,81.6 q1.8,2 3,0.4" stroke="#d09a8e" stroke-width="1.4"`
+    + ` fill="none" stroke-linecap="round" opacity="0.6"/>`;
+  // 손으로 그린 여섯에도 기호를 붙인다 — 표는 위의 `aFx` 를 그대로 쓴다
+  const HAND_FX = { surprise: 'sweat', happy: 'note', wink: 'spark', puzzled: 'q' };
+  // ⚠️ **기호는 머리카락 «위»에 그린다.** 얼굴 그룹 안에 두었더니 앞머리가
+  // 관자놀이를 덮어 땀방울도 💢 도 반쪽만 보였다 (「어리둥절」의 물음표를 눈썹으로
+  // 바꿔야 했던 것과 같은 함정이다). 얼굴 뒤에 숨을 수 없는 층에 따로 얹는다
+  function faceFx(expItem) {
+    const kind = (expItem && expItem.kind) || 'smile';
+    const av = AV_FACE[kind];
+    return aFx[av ? av.fx : HAND_FX[kind]] || '';
+  }
   function faceAndExpression(expItem) {
     const kind = (expItem && expItem.kind) || 'smile';
     const EYE = '#4a3a42', LIP = '#c97b86';
@@ -1472,8 +1600,8 @@
     } else
     switch (kind) {
       case 'wink':
-        eyes = `<ellipse cx="87" cy="75" rx="5" ry="6.5" fill="${EYE}"/><circle cx="88.7" cy="72.4" r="1.7" fill="#fff"/>
-          <path d="M108,76 Q113,71 118,76" stroke="${EYE}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+        eyes = bigEye(87) +
+          `<path d="M108,76 Q113,71 118,76" stroke="${EYE}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
         mouth = `<path d="M94,89 Q100,94 106,89" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
         break;
       case 'happy':
@@ -1482,15 +1610,12 @@
         mouth = `<path d="M92,88 Q100,98 108,88 Z" fill="#e98a9a"/><path d="M92,88 Q100,98 108,88" stroke="${LIP}" stroke-width="2" fill="none"/>`;
         break;
       case 'surprise':
-        eyes = `<circle cx="87" cy="75" r="6" fill="${EYE}"/><circle cx="89" cy="72.5" r="2" fill="#fff"/>
-          <circle cx="113" cy="75" r="6" fill="${EYE}"/><circle cx="115" cy="72.5" r="2" fill="#fff"/>`;
+        eyes = bigEye(87) + bigEye(113);
         mouth = `<ellipse cx="100" cy="91" rx="3.6" ry="4.6" fill="#b5566a"/>`;
         break;
       case 'puzzled':
         // 어리둥절 — 큰 동그란 눈에 작게 벌린 입. 튜토리얼 직후의 얼굴이다
-        eyes = `<ellipse cx="87" cy="74" rx="7" ry="8" fill="${EYE}"/><ellipse cx="113" cy="74" rx="7" ry="8" fill="${EYE}"/>
-          <circle cx="89.5" cy="70.5" r="2.6" fill="#fff"/><circle cx="115.5" cy="70.5" r="2.6" fill="#fff"/>
-          <circle cx="84.5" cy="77.5" r="1.2" fill="#fff" opacity="0.7"/><circle cx="110.5" cy="77.5" r="1.2" fill="#fff" opacity="0.7"/>`;
+        eyes = bigEye(87, { dy: -1 }) + bigEye(113, { dy: -1 });
         mouth = `<ellipse cx="100" cy="90" rx="3.2" ry="3.8" fill="#b5566a"/>`;
         // 머리 위 물음표 대신 **작게 기울인 눈썹** — 이모지를 얹으면 헤어에 가린다
         // ⚠️ 예전에는 `extra` 를 만들어 놓고 **그리지 않았다** (아래 return 에 빠져 있었다)
@@ -1499,13 +1624,13 @@
           </g>`;
         break;
       case 'cool':
-        eyes = `<path d="M81,76 L93,75" stroke="${EYE}" stroke-width="3" fill="none" stroke-linecap="round"/>
-          <path d="M107,75 L119,76" stroke="${EYE}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+        // 곧은 선 둘이던 것을 **살짝 휘게** 했다 — 그것만으로 「굳은 얼굴」이 「시크」가 된다
+        eyes = `<path d="M81,76 q6,-1.6 12,-1" stroke="${EYE}" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M107,75 q6,0.6 12,1" stroke="${EYE}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
         mouth = `<path d="M95,90 L105,90" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
         break;
       default: // smile
-        eyes = `<ellipse cx="87" cy="75" rx="5" ry="6.5" fill="${EYE}"/><ellipse cx="113" cy="75" rx="5" ry="6.5" fill="${EYE}"/>
-          <circle cx="88.7" cy="72.4" r="1.7" fill="#fff"/><circle cx="114.7" cy="72.4" r="1.7" fill="#fff"/>`;
+        eyes = bigEye(87) + bigEye(113);
         mouth = `<path d="M94,89 Q100,94 106,89" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
     }
     // '얼굴' 배율은 build() 의 H() 에서 머리 전체에 걸린다 (여기서 또 걸면 두 번 적용된다)
@@ -1518,6 +1643,7 @@
         <ellipse cx="123" cy="86" rx="6" ry="4" fill="#ffb0c4" opacity="0.7"/>
         ${extra}
         ${eyes}
+        ${NOSE}
         ${mouth}
       </g>`;
   }
@@ -2481,6 +2607,7 @@
       B(armsOverSkirt(tune, hasDress ? dress : top)),
       H(faceAndExpression(expItem)),
       H(hairFront(hairBangKind, hairColor)),
+      H(faceFx(expItem)),
       B(renderGlove(pick('glove', outfit.glove), tune)),
       B(renderTattoo(getItem('tattoo', outfit.tattoo))),
       H(renderEarring(pick('earring', outfit.earring))),
