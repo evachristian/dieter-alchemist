@@ -129,6 +129,129 @@
   // bubble: 머리 위 말풍선 / sweat: 이마에 흐르는 왕 땀
   // over: 앞머리 위에 그릴 요소 (땀방울 등)
   // 표정 — 반신(princessFront)과 전신(princessFull)이 **같은 얼굴**을 쓰도록 따로 뺐다
+  // ═══════════════════════════════════════════════════════════════
+  //  공주 얼굴 — **부품 표** (손으로 그린 열셋 다음에 온다)
+  // ═══════════════════════════════════════════════════════════════
+  //
+  // ⚠️ **이름은 서른여덟인데 그림은 열셋이었다.** 남는 스물다섯은 가까운 그림에
+  // 묶어 두었는데, 그러면 「지침」도 「부탁」도 다 같은 얼굴이라 **대사가 무슨 표정을
+  // 적어도 화면은 같은 소리**를 한다. 인물 계통(`portrait.js`)이 부품으로 푼 문제를
+  // 여기서도 같은 방식으로 푼다 — **부품을 늘리면 표정이 곱으로 는다.**
+  //
+  // ⚠️ **손으로 그린 열셋은 안 건드린다.** 인트로가 그 그림에 맞춰 짜여 있다.
+  // 여기 표는 **그 뒤에** 걸린다 (없는 이름만 여기서 만든다).
+  //
+  // 좌표는 공주 얼굴 기준이다 — 눈은 (138,176)·(162,176), 입은 (150,191).
+  const PZ = { L: 138, R: 162, Y: 176, MX: 150, MY: 191, INK: '#4a3a42', LIP: '#b5566a' };
+  const pEye = {
+    // 기본 큰 눈 — 하이라이트 둘 (「어리둥절」과 같은 결)
+    open:  x => `<ellipse cx="${x}" cy="${PZ.Y}" rx="6.4" ry="7.8" fill="${PZ.INK}"/>`
+              + `<circle cx="${x + 2.4}" cy="${PZ.Y - 3.4}" r="2.4" fill="#fff"/>`,
+    // 웃는 호
+    arc:   x => `<path d="M${x - 7},${PZ.Y + 2} Q${x},${PZ.Y - 8} ${x + 7},${PZ.Y + 2}"`
+              + ` stroke="${PZ.INK}" stroke-width="2.8" fill="none" stroke-linecap="round"/>`,
+    // 감은 눈 (아래로 볼록)
+    shut:  x => `<path d="M${x - 7},${PZ.Y - 1} Q${x},${PZ.Y + 7} ${x + 7},${PZ.Y - 1}"`
+              + ` stroke="${PZ.INK}" stroke-width="2.8" fill="none" stroke-linecap="round"/>`,
+    // 반쯤 감은 — 졸림·심드렁
+    half:  x => `<path d="M${x - 7},${PZ.Y - 3} L${x + 7},${PZ.Y - 3}"`
+              + ` stroke="${PZ.INK}" stroke-width="2.4" stroke-linecap="round"/>`
+              + `<path d="M${x - 5.4},${PZ.Y - 3} a5.4,6 0 0 0 10.8,0 Z" fill="${PZ.INK}"/>`,
+    // 가늘게 뜬 — 흘김
+    slit:  x => `<path d="M${x - 7},${PZ.Y - 1.4} q7,-2.2 14,0 q-7,5 -14,0 Z" fill="${PZ.INK}"/>`,
+    // 치켜뜬 — 노려봄
+    glare: x => `<ellipse cx="${x}" cy="${PZ.Y}" rx="6.2" ry="7.4" fill="#fff" stroke="${PZ.INK}" stroke-width="1"/>`
+              + `<circle cx="${x}" cy="${PZ.Y - 2.6}" r="3.6" fill="${PZ.INK}"/>`
+              + `<path d="M${x - 7},${PZ.Y - 6.4} L${x + 7},${PZ.Y - 6.4}"`
+              + ` stroke="${PZ.INK}" stroke-width="2.6" stroke-linecap="round"/>`,
+    // 내리깐 — 서운함·미안
+    low:   x => `<ellipse cx="${x}" cy="${PZ.Y}" rx="6.2" ry="7.2" fill="#fff" stroke="${PZ.INK}" stroke-width="1"/>`
+              + `<circle cx="${x}" cy="${PZ.Y + 2.8}" r="3.4" fill="${PZ.INK}"/>`,
+    // 위를 본다 — 생각·딴청
+    up:    x => `<ellipse cx="${x}" cy="${PZ.Y}" rx="6.2" ry="7.4" fill="#fff" stroke="${PZ.INK}" stroke-width="1"/>`
+              + `<circle cx="${x}" cy="${PZ.Y - 3}" r="3.4" fill="${PZ.INK}"/>`,
+    // 곁눈질 — 미심쩍음
+    side:  x => `<ellipse cx="${x}" cy="${PZ.Y}" rx="6.2" ry="7" fill="#fff" stroke="${PZ.INK}" stroke-width="1"/>`
+              + `<circle cx="${x + 2.6}" cy="${PZ.Y}" r="3.4" fill="${PZ.INK}"/>`,
+    // 크게 뜬 — 놀람
+    wide:  x => `<ellipse cx="${x}" cy="${PZ.Y}" rx="7" ry="9" fill="#fff" stroke="${PZ.INK}" stroke-width="1.2"/>`
+              + `<circle cx="${x}" cy="${PZ.Y}" r="4" fill="${PZ.INK}"/>`
+              + `<circle cx="${x + 1.6}" cy="${PZ.Y - 2.4}" r="1.6" fill="#fff"/>`,
+    // 반짝 — 기대·감탄
+    star:  x => `<ellipse cx="${x}" cy="${PZ.Y}" rx="6.6" ry="8" fill="${PZ.INK}"/>`
+              + `<circle cx="${x + 2}" cy="${PZ.Y - 3}" r="2.6" fill="#fff"/>`
+              + `<circle cx="${x - 2.4}" cy="${PZ.Y + 3.2}" r="1.5" fill="#fff"/>`,
+    // 눈매가 날카로운 — 화남·결심
+    sharp: x => `<path d="M${x - 7.4},${PZ.Y - 4} L${x + 7.4},${PZ.Y} L${x - 7.4},${PZ.Y + 4} Z" fill="${PZ.INK}"/>`,
+  };
+  const pMouth = {
+    calm:  `<path d="M${PZ.MX - 6},${PZ.MY - 1} q6,3 12,0" stroke="#c97b86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    smile: `<path d="M${PZ.MX - 8},${PZ.MY - 2} q8,7 16,0" stroke="#c97b86" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
+    grin:  `<path d="M${PZ.MX - 9},${PZ.MY - 3} q9,11 18,0 z" fill="${PZ.LIP}"/>`
+         + `<path d="M${PZ.MX - 7},${PZ.MY - 2} q7,3 14,0" fill="#fff"/>`,
+    haha:  `<path d="M${PZ.MX - 11},${PZ.MY - 4} q11,15 22,0 z" fill="${PZ.LIP}"/>`
+         + `<path d="M${PZ.MX - 8},${PZ.MY - 3} q8,3 16,0" fill="#fff"/>`
+         + `<ellipse cx="${PZ.MX}" cy="${PZ.MY + 4}" rx="4" ry="2.6" fill="#d98f96"/>`,
+    flat:  `<path d="M${PZ.MX - 7},${PZ.MY} L${PZ.MX + 7},${PZ.MY}" stroke="#c97b86" stroke-width="2.4" stroke-linecap="round"/>`,
+    frown: `<path d="M${PZ.MX - 8},${PZ.MY + 3} q8,-7 16,0" stroke="#c97b86" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
+    small: `<ellipse cx="${PZ.MX}" cy="${PZ.MY}" rx="3.4" ry="3.8" fill="${PZ.LIP}"/>`,
+    ohh:   `<ellipse cx="${PZ.MX}" cy="${PZ.MY}" rx="4.4" ry="5.6" fill="${PZ.LIP}"/>`,
+    smirk: `<path d="M${PZ.MX - 8},${PZ.MY + 1} q9,4 16,-4" stroke="#c97b86" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
+    meh:   `<path d="M${PZ.MX - 7},${PZ.MY} q4,-3 7,0 q3,3 7,0" stroke="#c97b86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    wavy:  `<path d="M${PZ.MX - 9},${PZ.MY} q3,-3.5 6,0 q3,3.5 6,0 q3,-3.5 6,0" stroke="#c97b86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    grit:  `<rect x="${PZ.MX - 9}" y="${PZ.MY - 4}" width="18" height="7.5" rx="2.4" fill="${PZ.LIP}"/>`
+         + `<rect x="${PZ.MX - 8}" y="${PZ.MY - 3}" width="16" height="5.5" rx="1.8" fill="#fff"/>`,
+    // 아랫입술만 말려 들어간다 — 참음·부끄러움 (흰 이를 넣으면 grit 과 구별이 안 된다)
+    bite:  `<path d="M${PZ.MX - 7},${PZ.MY - 1} q7,2.6 14,0" stroke="#c97b86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
+         + `<path d="M${PZ.MX - 3.5},${PZ.MY + 1.6} q3.5,2.8 7,0" stroke="#c9808a" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    pout:  `<path d="M${PZ.MX - 8},${PZ.MY + 1} q7,-2.4 15,3" stroke="#c97b86" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
+    tongue: `<path d="M${PZ.MX - 8},${PZ.MY - 2} q8,6 16,0" stroke="#c97b86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
+          + `<path d="M${PZ.MX - 4},${PZ.MY} q4,8 8,0 z" fill="#e2557f"/>`,
+  };
+  // 볼 홍조 — 여러 표정이 같이 쓴다
+  const pBlush = (o) => `<g fill="#ff9db4" opacity="${o}"><ellipse cx="127" cy="186" rx="8.5" ry="5.2"/>`
+                      + `<ellipse cx="173" cy="186" rx="8.5" ry="5.2"/></g>`;
+  // 눈썹 — 안쪽 끝을 올리거나 내려 각을 만든다 (f 는 좌우 반전)
+  const pBrow = (kind) => (x, f) => kind === 'up'
+    ? `<path d="M${x - 8},${164 - f * 2} q8,-4 16,${f * 3}" stroke="${PZ.INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
+    : kind === 'angry'
+    ? `<path d="M${x - 8},${160 + f * 4} L${x + 8},${166 - f * 1}" stroke="${PZ.INK}" stroke-width="2.6" stroke-linecap="round"/>`
+    : kind === 'sad'
+    ? `<path d="M${x - 8},${166 - f * 1} L${x + 8},${160 + f * 4}" stroke="${PZ.INK}" stroke-width="2.6" stroke-linecap="round"/>`
+    : kind === 'beg'
+    ? `<path d="M${x - 8},${168 - f * 3} q8,-5 16,${f * 6}" stroke="${PZ.INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`
+    : kind === 'droop'
+    ? `<path d="M${x - 8},${161 + f * 3} q8,3 16,${-f * 1}" stroke="${PZ.INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
+    : `<path d="M${x - 8},163 L${x + 8},163" stroke="${PZ.INK}" stroke-width="2.4" stroke-linecap="round"/>`;
+  // 이름 → 부품. **손으로 그린 열셋에 없는 이름만** 여기 적는다
+  const PZ_FACE = {
+    warm:    { e: 'arc',   m: 'calm',  blush: 0.4 },
+    smirk:   { e: 'side',  m: 'smirk' },
+    flat:    { e: 'open',  m: 'flat' },
+    meh:     { e: 'half',  m: 'meh' },
+    think:   { e: 'up',    m: 'small' },
+    doubt:   { e: 'side',  m: 'meh',   b: 'up' },
+    worry:   { e: 'wide',  m: 'wavy',  b: 'sad' },
+    grit:    { e: 'sharp', m: 'grit',  b: 'angry' },
+    cold:    { e: 'sharp', m: 'flat',  b: 'flat' },
+    star:    { e: 'star',  m: 'grin',  b: 'up' },
+    ohh:     { e: 'wide',  m: 'ohh' },
+    haha:    { e: 'shut',  m: 'haha',  b: 'up', blush: 0.5 },
+    tease:   { e: 'shut',  m: 'tongue' },
+    pout:    { e: 'low',   m: 'pout',  b: 'sad' },
+    glare:   { e: 'glare', m: 'flat',  b: 'angry' },
+    suspect: { e: 'slit',  m: 'meh',   b: 'flat' },
+    weary:   { e: 'half',  m: 'flat',  b: 'droop' },
+    relief:  { e: 'shut',  m: 'calm',  b: 'droop' },
+    sorry:   { e: 'low',   m: 'small', b: 'beg' },
+    plead:   { e: 'wide',  m: 'small', b: 'beg' },
+    blush:   { e: 'shut',  m: 'bite',  b: 'beg', blush: 0.6 },
+    resolve: { e: 'sharp', m: 'grit',  b: 'flat' },
+    awe:     { e: 'star',  m: 'ohh',   blush: 0.35 },
+    // 한쪽 눈썹만 올린다 — 「그래서?」 하는 얼굴
+    curious: { e: 'open',  m: 'ohh',   bL: 'up', bR: 'flat' },
+  };
+
   function princessFace(mood, sweat) {
     let eyes, mouth, extra = '', over = '';
     if (mood === 'shy') {
@@ -220,6 +343,14 @@
       mouth = `<path d="M142,188 q9,5 16,-4" stroke="#c97b86" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
       extra = `<g stroke="#4a3a42" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.6">
           <path d="M129,160 Q138,155 146,160"/><path d="M171,160 Q162,155 154,160"/></g>`;
+    } else if (PZ_FACE[mood]) {
+      // ⚠️ **부품 표는 손그림 «다음»이다** — 위에서 이미 잡힌 이름은 여기 안 온다
+      const p = PZ_FACE[mood];
+      eyes = pEye[p.e](PZ.L) + pEye[p.e](PZ.R);
+      mouth = pMouth[p.m];
+      const bL = p.bL || p.b, bR = p.bR || p.b;
+      extra = (bL ? pBrow(bL)(PZ.L, 1) : '') + (bR ? pBrow(bR)(PZ.R, -1) : '')
+            + (p.blush ? pBlush(p.blush) : '');
     } else { // scream
       eyes = `<path d="M132,178 L144,172 M132,172 L144,178" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>
               <path d="M156,172 L168,178 M156,178 L168,172" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>`;
@@ -376,6 +507,100 @@
   }
 
   // 요정 대모의 표정. 기본은 걱정, 'smile'/'castbig'은 미소, 'glance'는 공주 쪽 곁눈질
+  // 요정 대모의 얼굴 부품 — 눈 (322,187)·(338,187) · 입 (330,199)
+  const FZ = { L: 322, R: 338, Y: 187, MX: 330, MY: 199, INK: '#4a3a42', LIP: '#b4505f' };
+  const fEye = {
+    open:  x => `<ellipse cx="${x}" cy="${FZ.Y}" rx="4.6" ry="5.4" fill="${FZ.INK}"/>`
+              + `<circle cx="${x + 1.5}" cy="${FZ.Y - 2}" r="1.5" fill="#fff"/>`,
+    arc:   x => `<path d="M${x - 5},${FZ.Y + 1} Q${x},${FZ.Y - 6} ${x + 5},${FZ.Y + 1}" stroke="${FZ.INK}" stroke-width="2.8" fill="none" stroke-linecap="round"/>`,
+    shut:  x => `<path d="M${x - 5},${FZ.Y - 1} Q${x},${FZ.Y + 5} ${x + 5},${FZ.Y - 1}" stroke="${FZ.INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
+    half:  x => `<path d="M${x - 5},${FZ.Y - 2} L${x + 5},${FZ.Y - 2}" stroke="${FZ.INK}" stroke-width="2.2" stroke-linecap="round"/>`
+              + `<path d="M${x - 4},${FZ.Y - 2} a4,4.6 0 0 0 8,0 Z" fill="${FZ.INK}"/>`,
+    slit:  x => `<path d="M${x - 5},${FZ.Y - 1} q5,-1.8 10,0 q-5,4 -10,0 Z" fill="${FZ.INK}"/>`,
+    sharp: x => `<path d="M${x - 5.4},${FZ.Y - 3} L${x + 5.4},${FZ.Y} L${x - 5.4},${FZ.Y + 3} Z" fill="${FZ.INK}"/>`,
+    low:   x => `<ellipse cx="${x}" cy="${FZ.Y}" rx="4.6" ry="5.2" fill="#fffdfd" stroke="#d8d0dc" stroke-width="0.9"/>`
+              + `<circle cx="${x}" cy="${FZ.Y + 2.2}" r="2.6" fill="${FZ.INK}"/>`,
+    up:    x => `<ellipse cx="${x}" cy="${FZ.Y}" rx="4.6" ry="5.2" fill="#fffdfd" stroke="#d8d0dc" stroke-width="0.9"/>`
+              + `<circle cx="${x}" cy="${FZ.Y - 2.4}" r="2.6" fill="${FZ.INK}"/>`,
+    side:  x => `<ellipse cx="${x}" cy="${FZ.Y}" rx="4.6" ry="5" fill="#fffdfd" stroke="#d8d0dc" stroke-width="0.9"/>`
+              + `<circle cx="${x + 2}" cy="${FZ.Y}" r="2.6" fill="${FZ.INK}"/>`,
+    wide:  x => `<ellipse cx="${x}" cy="${FZ.Y}" rx="5.2" ry="6.4" fill="#fffdfd" stroke="#d8d0dc" stroke-width="1"/>`
+              + `<circle cx="${x}" cy="${FZ.Y}" r="3" fill="${FZ.INK}"/><circle cx="${x + 1.2}" cy="${FZ.Y - 1.8}" r="1.2" fill="#fff"/>`,
+    glare: x => `<ellipse cx="${x}" cy="${FZ.Y}" rx="4.8" ry="5.6" fill="#fffdfd" stroke="#d8d0dc" stroke-width="1"/>`
+              + `<circle cx="${x}" cy="${FZ.Y - 2}" r="2.8" fill="${FZ.INK}"/>`
+              + `<path d="M${x - 5},${FZ.Y - 4.6} L${x + 5},${FZ.Y - 4.6}" stroke="${FZ.INK}" stroke-width="2.2" stroke-linecap="round"/>`,
+    star:  x => `<ellipse cx="${x}" cy="${FZ.Y}" rx="4.8" ry="5.8" fill="${FZ.INK}"/>`
+              + `<circle cx="${x + 1.4}" cy="${FZ.Y - 2.2}" r="1.9" fill="#fff"/><circle cx="${x - 1.7}" cy="${FZ.Y + 2.3}" r="1.1" fill="#fff"/>`,
+    heart: x => `<path d="M${x},${FZ.Y + 4} C${x - 6},${FZ.Y - 2} ${x - 5},${FZ.Y - 8} ${x - 2},${FZ.Y - 8} q2,0 2,2.4 q0,-2.4 2,-2.4 c3,0 4,6 -2,12 Z" fill="#e2557f"/>`,
+    cross: x => `<path d="M${x - 4.4},${FZ.Y - 4} L${x + 4.4},${FZ.Y + 4} M${x + 4.4},${FZ.Y - 4} L${x - 4.4},${FZ.Y + 4}" stroke="${FZ.INK}" stroke-width="2.4" stroke-linecap="round"/>`,
+    dizzy: x => `<path d="M${x},${FZ.Y} m-4.4,0 a4.4,4.4 0 1 1 3,4.2 a3,3 0 1 1 1.6,-5.6" stroke="${FZ.INK}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
+    teary: x => `<ellipse cx="${x}" cy="${FZ.Y}" rx="4.6" ry="5.2" fill="${FZ.INK}"/><circle cx="${x + 1.4}" cy="${FZ.Y - 1.8}" r="1.6" fill="#fff"/>`
+              + `<path d="M${x + 3.8},${FZ.Y + 4} q2.2,4 0,6 q-2.2,-2 0,-6 Z" fill="#8fc5e8"/>`,
+  };
+  const fMouth = {
+    calm:  `<path d="M${FZ.MX - 5},${FZ.MY - 1} q5,3 10,0" stroke="#c07a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    smile: `<path d="M${FZ.MX - 6},${FZ.MY - 1} q6,6 12,0" stroke="#c07a86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    grin:  `<path d="M${FZ.MX - 7},${FZ.MY - 2} q7,9 14,0 z" fill="${FZ.LIP}"/><path d="M${FZ.MX - 5},${FZ.MY - 1} q5,2.5 10,0" fill="#fff"/>`,
+    haha:  `<path d="M${FZ.MX - 9},${FZ.MY - 3} q9,13 18,0 z" fill="${FZ.LIP}"/><path d="M${FZ.MX - 6},${FZ.MY - 2} q6,3 12,0" fill="#fff"/>`,
+    flat:  `<path d="M${FZ.MX - 6},${FZ.MY} L${FZ.MX + 6},${FZ.MY}" stroke="#c07a86" stroke-width="2.2" stroke-linecap="round"/>`,
+    frown: `<path d="M${FZ.MX - 6},${FZ.MY + 2.5} q6,-6 12,0" stroke="#c07a86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    small: `<ellipse cx="${FZ.MX}" cy="${FZ.MY}" rx="2.8" ry="3.2" fill="${FZ.LIP}"/>`,
+    ohh:   `<ellipse cx="${FZ.MX}" cy="${FZ.MY}" rx="3.6" ry="4.6" fill="${FZ.LIP}"/>`,
+    smirk: `<path d="M${FZ.MX - 6},${FZ.MY + 1} q7,3 12,-3.5" stroke="#c07a86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    meh:   `<path d="M${FZ.MX - 6},${FZ.MY} q3,-2.6 6,0 q3,2.6 6,0" stroke="#c07a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    wavy:  `<path d="M${FZ.MX - 7.5},${FZ.MY} q2.5,-3 5,0 q2.5,3 5,0 q2.5,-3 5,0" stroke="#c07a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    grit:  `<rect x="${FZ.MX - 7}" y="${FZ.MY - 3}" width="14" height="6" rx="2" fill="${FZ.LIP}"/><rect x="${FZ.MX - 6}" y="${FZ.MY - 2.2}" width="12" height="4.4" rx="1.5" fill="#fff"/>`,
+    bite:  `<path d="M${FZ.MX - 6},${FZ.MY - 1} q6,2.2 12,0" stroke="#c07a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+         + `<path d="M${FZ.MX - 3},${FZ.MY + 1.4} q3,2.4 6,0" stroke="#c9808a" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
+    pout:  `<path d="M${FZ.MX - 6},${FZ.MY + 1} q6,-2 12,2.5" stroke="#c07a86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    tongue: `<path d="M${FZ.MX - 6},${FZ.MY - 1} q6,5 12,0" stroke="#c07a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+          + `<path d="M${FZ.MX - 3},${FZ.MY + 0.6} q3,6 6,0 z" fill="#e2557f"/>`,
+  };
+  const fBrow = (kind) => (x, f) => kind === 'up'
+    ? `<path d="M${x - 6},${174 - f * 1.6} q6,-3 12,${f * 2.4}" stroke="#8a7a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+    : kind === 'angry'
+    ? `<path d="M${x - 6},${171 + f * 3} L${x + 6},${176 - f * 1}" stroke="#8a7a86" stroke-width="2.4" stroke-linecap="round"/>`
+    : kind === 'sad'
+    ? `<path d="M${x - 6},${176 - f * 1} L${x + 6},${171 + f * 3}" stroke="#8a7a86" stroke-width="2.4" stroke-linecap="round"/>`
+    : kind === 'beg'
+    ? `<path d="M${x - 6},${178 - f * 2.4} q6,-4 12,${f * 5}" stroke="#8a7a86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
+    : kind === 'droop'
+    ? `<path d="M${x - 6},${172 + f * 2.4} q6,2.4 12,${-f * 1}" stroke="#8a7a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+    : `<path d="M${x - 6},174 L${x + 6},174" stroke="#8a7a86" stroke-width="2.2" stroke-linecap="round"/>`;
+  // 손그림 아홉(idle · smile · glance · cross · laugh · wink · sad · think · proud)에 없는 이름만
+  const FZ_FACE = {
+    warm:    { e: 'arc',   m: 'calm',  blush: 0.45 },
+    flat:    { e: 'open',  m: 'flat' },
+    smirk:   { e: 'side',  m: 'smirk' },
+    meh:     { e: 'half',  m: 'meh' },
+    sleepy:  { e: 'half',  m: 'small' },
+    doubt:   { e: 'side',  m: 'meh',   b: 'up' },
+    shock:   { e: 'wide',  m: 'ohh',   b: 'up' },
+    worry:   { e: 'wide',  m: 'wavy',  b: 'sad' },
+    cry:     { e: 'teary', m: 'wavy',  b: 'sad' },
+    grit:    { e: 'sharp', m: 'grit',  b: 'angry' },
+    cold:    { e: 'sharp', m: 'flat',  b: 'flat' },
+    shy:     { e: 'shut',  m: 'small', b: 'sad', blush: 0.6 },
+    ohh:     { e: 'wide',  m: 'ohh' },
+    star:    { e: 'star',  m: 'grin',  b: 'up' },
+    love:    { e: 'heart', m: 'grin',  blush: 0.5 },
+    faint:   { e: 'cross', m: 'ohh' },
+    haha:    { e: 'shut',  m: 'haha',  b: 'up', blush: 0.5 },
+    tease:   { e: 'shut',  m: 'tongue' },
+    pout:    { e: 'low',   m: 'pout',  b: 'sad' },
+    glare:   { e: 'glare', m: 'flat',  b: 'angry' },
+    suspect: { e: 'slit',  m: 'meh',   b: 'flat' },
+    dizzy:   { e: 'dizzy', m: 'wavy' },
+    weary:   { e: 'half',  m: 'flat',  b: 'droop' },
+    relief:  { e: 'shut',  m: 'calm',  b: 'droop' },
+    sorry:   { e: 'low',   m: 'small', b: 'beg' },
+    plead:   { e: 'wide',  m: 'small', b: 'beg' },
+    blush:   { e: 'shut',  m: 'bite',  b: 'beg', blush: 0.6 },
+    resolve: { e: 'sharp', m: 'grit',  b: 'flat' },
+    awe:     { e: 'star',  m: 'ohh',   blush: 0.35 },
+    curious: { e: 'open',  m: 'ohh',   bL: 'up', bR: 'flat' },
+  };
+
   function fairyFace(pose) {
     const happy = pose === 'smile' || pose === 'castbig';
     const glance = pose === 'glance';
@@ -427,6 +652,17 @@
       <path d="M316,187 L328,190" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>
       <path d="M344,187 L332,190" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>
       <path d="M322,199 q9,5 15,-4" stroke="#c07a86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+    // ─── 요정 대모의 부품 표 ─────────────────────────────────
+    // 공주와 같은 이유다 — 손으로 그린 포즈 아홉에 이름 서른여덟이 겹쳐 붙어 있었다.
+    // ⚠️ **손그림 아홉은 위에서 이미 돌려보냈다.** 여기는 그 뒤에 걸린다
+    if (FZ_FACE[pose]) {
+      const q = FZ_FACE[pose];
+      const bL = q.bL || q.b, bR = q.bR || q.b;
+      return (bL ? fBrow(bL)(FZ.L, 1) : '') + (bR ? fBrow(bR)(FZ.R, -1) : '')
+           + fEye[q.e](FZ.L) + fEye[q.e](FZ.R) + fMouth[q.m]
+           + (q.blush ? `<ellipse cx="313" cy="195" rx="5" ry="3.4" fill="#ffb0c4" opacity="${q.blush}"/>`
+                      + `<ellipse cx="347" cy="195" rx="5" ry="3.4" fill="#ffb0c4" opacity="${q.blush}"/>` : '');
+    }
     // 곁눈질 — 흰자 위에서 눈동자가 공주(왼쪽) 쪽으로 굴러간다
     const glanceFace = `
       <path d="M316,176 Q322,172 327,176" stroke="#8a7a86" stroke-width="2.2" fill="none" stroke-linecap="round" transform="rotate(-14 321.5 174)"/>
@@ -923,7 +1159,9 @@
   const BUSTS = {
     fairy: {
       box: [286, 136, 88, 118],
-      poses: ['idle', 'smile', 'glance', 'cross', 'laugh', 'wink', 'sad', 'think', 'proud'],
+      // 손그림 아홉 + 부품 표 — 목록을 손으로 적어 두면 검사기만 옛 목록으로 돈다
+      poses: ['idle', 'smile', 'glance', 'cross', 'laugh', 'wink', 'sad', 'think', 'proud']
+             .concat(Object.keys(FZ_FACE)),
       draw: pose => `
         <path d="M296,300 C292,240 306,206 330,206 C354,206 368,240 364,300 Z" fill="#8fc5e8"/>
         <path d="M330,206 C318,206 310,214 308,226 L352,226 C350,214 342,206 330,206 Z" fill="#a8d6f2"/>
@@ -931,8 +1169,12 @@
     },
     princess: {
       box: [102, 130, 96, 118],
+      // ⚠️ **손으로 그린 열셋 + 부품 표(`PZ_FACE`)의 스물다섯.**
+      // 목록을 손으로 적어 두면 부품 표를 늘렸을 때 검사기만 옛 목록으로 돈다 —
+      // 그래서 표에서 «직접» 이어 붙인다
       poses: ['puzzled', 'shy', 'smile', 'ask', 'dizzy',
-              'laugh', 'wink', 'sad', 'cry', 'angry', 'sleepy', 'love', 'proud'],
+              'laugh', 'wink', 'sad', 'cry', 'angry', 'sleepy', 'love', 'proud']
+             .concat(Object.keys(PZ_FACE)),
       draw: mood => {
         const f = princessFace(mood);
         return `
