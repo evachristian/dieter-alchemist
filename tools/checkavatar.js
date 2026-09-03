@@ -1471,6 +1471,58 @@ function launchOpts() {
     return { bad: bad, rows: rows };
   });
 
+  // ─── 퍼프 소매가 «가시»를 내지 않는가 ─────────────────────────
+  //
+  // ⚠️ 퍼프는 팔과 같은 모양에 **폭만 7px 얹고 높이는 24px**(팔 위 끝 −7 ~ +17)로
+  // 자른 것이다. 그런데 위 마개는 반폭의 1.8배(`ARM_CAP_H`)라 폭이 넓어지면 마개가
+  // 22.9px 로 자라 **아래 마개(12.7px)와 겹친다** — 옆선이 거꾸로 흘러 어깨 밖으로
+  // 뾰족한 조각이 삐져나왔다 (「퍼프 드레스가 깨진다」로 신고받은 자리다).
+  //
+  // ⚠️ **바깥 변의 모양으로는 못 잡는다.** 가시는 소매와 «같은 색»으로 소매 «위»에
+  // 겹쳐서 나므로 실루엣이 거의 안 변한다 (그 방법으로 재 봤더니 사보타주가 0.0 으로
+  // 통과했다). 그래서 **퍼프를 껐다 켜서 그 차이만** 본다 —
+  // 퍼프는 제 아래끝(팔 위 끝 +17) 밑으로 **한 점도** 보태면 안 된다.
+  const PUFF_BELOW_MAX = 12;    // 점. 회전 몫과 안티에일리어싱만 봐준다
+  const puff = await page.evaluate(async (max) => {
+    const D = window.GameData, bad = [], rows = [], S = 4, W = 200 * S, H = 348 * S;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+      return ctx.getImageData(0, 0, W, H).data;
+    }
+    // 퍼프의 아래끝(BODY.armY 114 + 17 = 131)보다 «아래»에 몇 점이나 있는가
+    const BAND0 = 137, BAND1 = 170;
+    const count = d => {
+      let n = 0;
+      for (let y = BAND0 * S; y <= BAND1 * S; y++)
+        for (let x = 0; x < W; x++) if (d[((y * W) + x) * 4 + 3] > 128) n++;
+      return n;
+    };
+    const items = [];
+    ['dress', 'top'].forEach(slot => (D.WARDROBE[slot] || []).forEach(it => {
+      if (it.puff) items.push({ slot: slot, it: it });
+    }));
+    for (const c of items) {
+      const o = Object.assign({}, D.DEFAULT_OUTFIT,
+        c.slot === 'dress' ? { dress: c.it.id } : { top: c.it.id, dress: 'dress_none' });
+      const on = await px(window.Avatar.build(o, 0.4, null));
+      c.it.puff = false;                                  // 껐다 켠다 (원본은 되돌린다)
+      const off = await px(window.Avatar.build(o, 0.4, null));
+      c.it.puff = true;
+      const diff = count(on) - count(off);
+      rows.push(`${c.it.id} ${diff}`);
+      if (diff > max) {
+        bad.push(`${c.it.id}: 퍼프가 제 아래끝(y 131) 밑으로 ${diff}점을 더 그린다`
+          + ` — 마개 둘이 겹쳐 옆선이 거꾸로 흐르는 «가시»다`);
+      }
+    }
+    return { bad: bad, rows: rows };
+  }, PUFF_BELOW_MAX);
+
   const SLIDER_SPAN_MIN = 8, SLIDER_STEP_MIN = 1;
   const SLIDER = [['엉덩이', 'hip', [0.2, 0.5, 0.8, 1, 1.25, 1.5], [190, 214], '[data-part="hip"]'],
                   ['허벅지', 'thigh', [0.5, 0.8, 1, 1.5, 2], [200, 250], '[data-part="thigh"]'],
@@ -2193,7 +2245,8 @@ function launchOpts() {
     .concat(fat.bad.map(m => ({ id: '상한 두께', body: '-', where: m, n: '-' })))
     .concat(slider.bad.map(m => ({ id: '슬라이더', body: '-', where: m, n: '-' })))
     .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
-    .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })));
+    .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })))
+    .concat(puff.bad.map(m => ({ id: '퍼프 가시', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
     + ` · 상의×하의 ${res.pairs}조합`);
   console.log(`염색: ${dye.slots}칸 × 마법·영원·만료 ${dye.slots * 3}회`
@@ -2210,6 +2263,8 @@ function launchOpts() {
     + ` (목→팔 실루엣이 다시 솟지 않아야 한다 · ${SHOULDER_DIP}px 까지)`);
   console.log(`어깨 부리: 몸통×팔 배율 ${shoulder.beakN}조합 — 가장 튀어나온 곳 ${shoulder.beak}px`
     + ` (어깨·목이 팔 밖으로 나오면 안 된다)`);
+  console.log(`퍼프 가시: 퍼프를 껐다 켜서 «아래끝 밑»에 늘어난 점 — ${puff.rows.join(' · ')}`
+    + ` (${PUFF_BELOW_MAX}점까지 · 마개 둘이 겹치면 옆선이 거꾸로 흘러 가시가 된다)`);
   console.log(`어깨 마개: 팔 위 끝에서 제 폭까지 ${shoulder.capH}px (폭 ${shoulder.capW}px)`
     + ` — 반원이면 폭의 절반이다. 그보다 완만해야 어깨가 팔과 직각으로 안 보인다`
     + ` — 폭의 ${(shoulder.capH/shoulder.capW).toFixed(2)}배 (${CAP_MIN}배 이상)`);

@@ -385,7 +385,13 @@
     const y0 = B.armY + d0, y1 = B.armY + d1;
     const out = h => f(xin + sgn * h * 2);
     const sw = sgn > 0 ? 1 : 0;                       // 마개를 도는 방향
-    const rt = h0 * ARM_CAP_H;                        // 위 마개의 세로 반지름
+    // ⚠️ **마개 둘이 서로를 넘어서면 옆선이 «거꾸로» 흘러 가시가 된다.**
+    // 퍼프 소매가 실제로 그랬다 — 폭에 7px 을 얹는데 높이는 24px 뿐이라,
+    // 위 마개가 제 높이(반폭의 1.8배 = 22.9px)를 다 쓰면 아래 마개(12.7px)와 겹쳐
+    // **어깨 밖으로 뾰족한 조각이 삐져나왔다** (「퍼프 드레스가 깨진다」로 신고받은 것).
+    // 남은 높이 안으로 위 마개를 접는다 — 긴 팔에서는 여유가 넘쳐 아무것도 안 바뀐다.
+    const room = Math.max(0, (capBot ? y1 - h1 : y1) - y0);
+    const rt = Math.min(h0 * ARM_CAP_H, room);        // 위 마개의 세로 반지름
     const t0 = capTop ? y0 + rt : y0, t1 = capBot ? y1 - h1 : y1;
     const m = (t1 - t0) * 0.5;                        // 제어점 높이 — 양 끝에서 접선이 세로
     let d = capTop
