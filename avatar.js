@@ -1240,10 +1240,167 @@
   }
 
   // 얼굴(피부) + 귀 + 표정
+  // ═══════════════════════════════════════════════════════════════
+  //  아바타 얼굴의 부품 표 (「표정」 옷장 항목이 쓴다)
+  // ═══════════════════════════════════════════════════════════════
+  //
+  // ⚠️ **여섯 가지뿐이었다.** 초상화(`portrait.js`)와 인트로 그림(`intro.js`)은
+  // 서른여덟으로 늘렸는데 **마이 룸의 얼굴만 여섯**이라, 「표정 6/6」이 그대로 남아 있었다.
+  // 계통이 셋인데 이름만 늘려서는 안 늘어난다 — 세 곳 다 손대야 한다.
+  //
+  // ⚠️ **원래 있던 여섯은 `switch` 로 그대로 둔다.** 세이브에 그 id 가 들어 있고
+  // (`exp_puzzled` 는 시작 아이템이다) 이미 눈에 익은 얼굴이라 바뀌면 안 된다.
+  // 이 표는 **그 뒤에** 걸린다.
+  //
+  // 좌표: 눈 (87,75)·(113,75) · 입 (100,89)
+  const AV = { L: 87, R: 113, Y: 75, MX: 100, MY: 89, INK: '#4a3a42', LIP: '#c97b86' };
+  // ─── 눈 — **크고 반짝인다** ──────────────────────────────────
+  //
+  // 결은 「스파이 패밀리」의 아냐 쪽이다: **눈이 얼굴의 반**이고 하이라이트가 둘 이상,
+  // 입은 작고, 감정은 눈썹과 눈의 «모양»이 진다. 그래서 기본 눈부터 키웠다
+  // (예전 rx5 → 6.4). 작은 눈은 「점눈」처럼 **일부러 작게 하는 것**만 남긴다.
+  const aEye = {
+    // 기본 — 큰 눈에 하이라이트 둘 (위 큰 것 · 아래 작은 것). 이 둘이 「촉촉함」을 만든다
+    open:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="8" fill="${AV.INK}"/>`
+              + `<circle cx="${x + 2.2}" cy="${AV.Y - 3.2}" r="2.4" fill="#fff"/>`
+              + `<circle cx="${x - 2.2}" cy="${AV.Y + 3.4}" r="1.2" fill="#fff" opacity="0.85"/>`,
+    // 더 크게 — 놀람·궁금. 흰자가 보여 눈을 「부릅뜬」 느낌이 난다
+    big:   x => `<ellipse cx="${x}" cy="${AV.Y}" rx="8" ry="9.6" fill="#fff" stroke="${AV.INK}" stroke-width="1.2"/>`
+              + `<ellipse cx="${x}" cy="${AV.Y + 0.6}" rx="5.4" ry="6.6" fill="${AV.INK}"/>`
+              + `<circle cx="${x + 2}" cy="${AV.Y - 2.6}" r="2.2" fill="#fff"/>`
+              + `<circle cx="${x - 2}" cy="${AV.Y + 4}" r="1.1" fill="#fff" opacity="0.85"/>`,
+    // 반짝 — 기대·감탄. 하이라이트가 «별»이다
+    sparkle: x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.6" ry="8.2" fill="${AV.INK}"/>`
+              + `<path d="M${x + 1.8},${AV.Y - 6} l1.1,2.4 2.4,1.1 -2.4,1.1 -1.1,2.4 -1.1,-2.4 -2.4,-1.1 2.4,-1.1 Z" fill="#fff"/>`
+              + `<circle cx="${x - 2.4}" cy="${AV.Y + 3.4}" r="1.6" fill="#fff"/>`,
+    // 그렁그렁 — 울먹임·부탁. **아냐의 대표 얼굴**이다: 눈물이 고여 흔들린다
+    wobble: x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.8" ry="8.4" fill="${AV.INK}"/>`
+              + `<ellipse cx="${x}" cy="${AV.Y + 3.4}" rx="5.4" ry="3.4" fill="#bfe3f5" opacity="0.9"/>`
+              + `<circle cx="${x + 2.2}" cy="${AV.Y - 3.4}" r="2.4" fill="#fff"/>`
+              + `<circle cx="${x - 2.4}" cy="${AV.Y + 1.2}" r="1.3" fill="#fff"/>`,
+    // 점눈 — 김빠짐·질색. **작아지는 것 자체가 농담**이라 크게 만들지 않는다
+    dot:   x => `<circle cx="${x}" cy="${AV.Y}" r="2.2" fill="${AV.INK}"/>`,
+    // >_< — 박장대소·질색. 감은 눈보다 힘이 세다
+    tight: x => `<path d="M${x - 6},${AV.Y - 4.4} L${x + 1},${AV.Y} L${x - 6},${AV.Y + 4.4}"`
+              + ` stroke="${AV.INK}" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"`
+              + ` transform="${x > 100 ? `scale(-1,1) translate(${-2 * x},0)` : ''}"/>`,
+    arc:   x => `<path d="M${x - 6.4},${AV.Y + 1.4} Q${x},${AV.Y - 7} ${x + 6.4},${AV.Y + 1.4}" stroke="${AV.INK}" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+    shut:  x => `<path d="M${x - 6.4},${AV.Y - 1.4} Q${x},${AV.Y + 6} ${x + 6.4},${AV.Y - 1.4}" stroke="${AV.INK}" stroke-width="2.8" fill="none" stroke-linecap="round"/>`,
+    half:  x => `<path d="M${x - 6.4},${AV.Y - 3.4} L${x + 6.4},${AV.Y - 3.4}" stroke="${AV.INK}" stroke-width="2.6" stroke-linecap="round"/>`
+              + `<path d="M${x - 5.4},${AV.Y - 3.4} a5.4,6.4 0 0 0 10.8,0 Z" fill="${AV.INK}"/>`
+              + `<circle cx="${x + 1.8}" cy="${AV.Y - 0.4}" r="1.4" fill="#fff"/>`,
+    slit:  x => `<path d="M${x - 6.4},${AV.Y - 1.8} q6.4,-2.4 12.8,0 q-6.4,5 -12.8,0 Z" fill="${AV.INK}"/>`,
+    sharp: x => `<path d="M${x - 6.8},${AV.Y - 3.8} L${x + 6.8},${AV.Y} L${x - 6.8},${AV.Y + 3.8} Z" fill="${AV.INK}"/>`
+              + `<circle cx="${x - 3}" cy="${AV.Y - 0.6}" r="1.2" fill="#fff" opacity="0.8"/>`,
+    low:   x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.6" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
+              + `<ellipse cx="${x}" cy="${AV.Y + 2.6}" rx="4.4" ry="4.8" fill="${AV.INK}"/>`
+              + `<circle cx="${x + 1.6}" cy="${AV.Y + 0.8}" r="1.5" fill="#fff"/>`,
+    up:    x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.8" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
+              + `<ellipse cx="${x}" cy="${AV.Y - 2.6}" rx="4.4" ry="4.8" fill="${AV.INK}"/>`
+              + `<circle cx="${x + 1.6}" cy="${AV.Y - 4.4}" r="1.5" fill="#fff"/>`,
+    side:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.4" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
+              + `<ellipse cx="${x + 2.4}" cy="${AV.Y}" rx="4.2" ry="4.8" fill="${AV.INK}"/>`
+              + `<circle cx="${x + 3.6}" cy="${AV.Y - 1.8}" r="1.4" fill="#fff"/>`,
+    wide:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="7.4" ry="9" fill="#fff" stroke="${AV.INK}" stroke-width="1.2"/>`
+              + `<circle cx="${x}" cy="${AV.Y}" r="4.2" fill="${AV.INK}"/><circle cx="${x + 1.6}" cy="${AV.Y - 2.4}" r="1.6" fill="#fff"/>`,
+    glare: x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.6" ry="7.8" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
+              + `<circle cx="${x}" cy="${AV.Y - 2.4}" r="3.6" fill="${AV.INK}"/>`
+              + `<path d="M${x - 7},${AV.Y - 6} L${x + 7},${AV.Y - 6}" stroke="${AV.INK}" stroke-width="2.6" stroke-linecap="round"/>`,
+    star:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.6" ry="8.2" fill="${AV.INK}"/>`
+              + `<circle cx="${x + 2}" cy="${AV.Y - 3.2}" r="2.6" fill="#fff"/><circle cx="${x - 2.4}" cy="${AV.Y + 3.2}" r="1.5" fill="#fff"/>`,
+    heart: x => `<path d="M${x},${AV.Y + 6} C${x - 8},${AV.Y - 2} ${x - 7},${AV.Y - 10} ${x - 2.8},${AV.Y - 10} q2.8,0 2.8,3.4 q0,-3.4 2.8,-3.4 c4.2,0 5.6,8 -2.8,16 Z" fill="#e2557f"/>`
+              + `<circle cx="${x - 2}" cy="${AV.Y - 3}" r="1.4" fill="#fff" opacity="0.9"/>`,
+    cross: x => `<path d="M${x - 5},${AV.Y - 4.6} L${x + 5},${AV.Y + 4.6} M${x + 5},${AV.Y - 4.6} L${x - 5},${AV.Y + 4.6}" stroke="${AV.INK}" stroke-width="2.8" stroke-linecap="round"/>`,
+    dizzy: x => `<path d="M${x},${AV.Y} m-5.4,0 a5.4,5.4 0 1 1 3.6,5.2 a3.6,3.6 0 1 1 2,-6.8" stroke="${AV.INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    teary: x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="8" fill="${AV.INK}"/>`
+              + `<circle cx="${x + 2.2}" cy="${AV.Y - 3.2}" r="2.4" fill="#fff"/>`
+              + `<path d="M${x + 5},${AV.Y + 5.4} q2.6,4.8 0,7.2 q-2.6,-2.4 0,-7.2 Z" fill="#8fc5e8"/>`,
+  };
+  // ─── 입 — **작다** ──────────────────────────────────────────
+  // 눈이 커진 만큼 입은 작아야 균형이 맞는다. 「ω」 같은 고양이 입이 이 결의 핵심이다
+  const aMouth = {
+    calm:  `<path d="M${AV.MX - 4},${AV.MY} q4,2.6 8,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    smile: `<path d="M${AV.MX - 5},${AV.MY} q5,4.6 10,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    // ω — 고양이 입. 아무 감정에도 안 붙는 대신 **귀여움 그 자체**를 맡는다
+    w:     `<path d="M${AV.MX - 6},${AV.MY} q3,4 6,0 q3,4 6,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    grin:  `<path d="M${AV.MX - 6},${AV.MY - 1} q6,8 12,0 z" fill="#e98a9a"/><path d="M${AV.MX - 4.4},${AV.MY} q4.4,2 8.8,0" fill="#fff"/>`,
+    haha:  `<path d="M${AV.MX - 8},${AV.MY - 1} q8,12 16,0 z" fill="#b5566a"/><path d="M${AV.MX - 5.6},${AV.MY} q5.6,2.6 11.2,0" fill="#fff"/>`
+         + `<ellipse cx="${AV.MX}" cy="${AV.MY + 5.4}" rx="3" ry="2" fill="#d98f96"/>`,
+    flat:  `<path d="M${AV.MX - 4},${AV.MY + 1} L${AV.MX + 4},${AV.MY + 1}" stroke="${AV.LIP}" stroke-width="2.2" stroke-linecap="round"/>`,
+    frown: `<path d="M${AV.MX - 5},${AV.MY + 3.4} q5,-5 10,0" stroke="${AV.LIP}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    small: `<ellipse cx="${AV.MX}" cy="${AV.MY + 1}" rx="2.6" ry="3" fill="#b5566a"/>`,
+    ohh:   `<ellipse cx="${AV.MX}" cy="${AV.MY + 1}" rx="3.4" ry="4.4" fill="#b5566a"/>`,
+    smirk: `<path d="M${AV.MX - 5},${AV.MY + 2} q6,2.6 10,-3" stroke="${AV.LIP}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    meh:   `<path d="M${AV.MX - 5},${AV.MY + 1} q2.5,-2.4 5,0 q2.5,2.4 5,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    wavy:  `<path d="M${AV.MX - 6},${AV.MY + 1} q2,-2.6 4,0 q2,2.6 4,0 q2,-2.6 4,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    grit:  `<rect x="${AV.MX - 7}" y="${AV.MY - 1.6}" width="14" height="6" rx="2" fill="#b5566a"/>`
+         + `<rect x="${AV.MX - 6}" y="${AV.MY - 0.8}" width="12" height="4.4" rx="1.4" fill="#fff"/>`,
+    bite:  `<path d="M${AV.MX - 5},${AV.MY} q5,2.2 10,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+         + `<path d="M${AV.MX - 2.6},${AV.MY + 2.2} q2.6,2.4 5.2,0" stroke="#c9808a" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
+    pout:  `<path d="M${AV.MX - 5},${AV.MY + 2} q5,-2 10,2.4" stroke="${AV.LIP}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+    tongue: `<path d="M${AV.MX - 5},${AV.MY} q5,4.4 10,0" stroke="${AV.LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+          + `<path d="M${AV.MX - 2.6},${AV.MY + 1.4} q2.6,5.6 5.2,0 z" fill="#e2557f"/>`,
+  };
+  const aBrow = (kind) => (x, f) => kind === 'up'
+    ? `<path d="M${x - 7},${62 - f * 1.6} q7,-3.4 14,${f * 2.6}" stroke="${AV.INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+    : kind === 'angry'
+    ? `<path d="M${x - 7},${59 + f * 3.4} L${x + 7},${64 - f * 1}" stroke="${AV.INK}" stroke-width="2.4" stroke-linecap="round"/>`
+    : kind === 'sad'
+    ? `<path d="M${x - 7},${64 - f * 1} L${x + 7},${59 + f * 3.4}" stroke="${AV.INK}" stroke-width="2.4" stroke-linecap="round"/>`
+    : kind === 'beg'
+    ? `<path d="M${x - 7},${66 - f * 2.6} q7,-4.4 14,${f * 5.4}" stroke="${AV.INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
+    : kind === 'droop'
+    ? `<path d="M${x - 7},${60 + f * 2.6} q7,2.6 14,${-f * 1}" stroke="${AV.INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+    : `<path d="M${x - 7},62 L${x + 7},62" stroke="${AV.INK}" stroke-width="2.2" stroke-linecap="round"/>`;
+  // 원래 있던 여섯(puzzled · smile · wink · happy · surprise · cool)에 «없는» 것만
+  const AV_FACE = {
+    warm:    { e: 'arc',     m: 'w' },
+    proud:   { e: 'sharp',   m: 'smirk',  b: 'up' },
+    smirk:   { e: 'side',    m: 'smirk' },
+    flat:    { e: 'dot',     m: 'flat' },
+    meh:     { e: 'half',    m: 'meh' },
+    sleepy:  { e: 'half',    m: 'w' },
+    think:   { e: 'up',      m: 'small' },
+    doubt:   { e: 'side',    m: 'meh',    b: 'up' },
+    worry:   { e: 'wobble',  m: 'wavy',   b: 'sad' },
+    sad:     { e: 'low',     m: 'frown',  b: 'sad' },
+    cry:     { e: 'teary',   m: 'wavy',   b: 'sad' },
+    angry:   { e: 'sharp',   m: 'frown',  b: 'angry' },
+    grit:    { e: 'tight',   m: 'grit',   b: 'angry' },
+    shy:     { e: 'shut',    m: 'w',      b: 'sad' },
+    ohh:     { e: 'big',     m: 'ohh' },
+    star:    { e: 'sparkle', m: 'grin',   b: 'up' },
+    love:    { e: 'heart',   m: 'grin' },
+    faint:   { e: 'cross',   m: 'ohh' },
+    haha:    { e: 'tight',   m: 'haha',   b: 'up' },
+    tease:   { e: 'shut',    m: 'tongue' },
+    pout:    { e: 'low',     m: 'pout',   b: 'sad' },
+    glare:   { e: 'glare',   m: 'flat',   b: 'angry' },
+    suspect: { e: 'slit',    m: 'meh',    b: 'flat' },
+    dizzy:   { e: 'dizzy',   m: 'wavy' },
+    weary:   { e: 'dot',     m: 'wavy',   b: 'droop' },
+    relief:  { e: 'shut',    m: 'calm',   b: 'droop' },
+    sorry:   { e: 'low',     m: 'small',  b: 'beg' },
+    // **아냐의 대표 얼굴** — 눈물이 그렁그렁 고인 채 올려다본다
+    plead:   { e: 'wobble',  m: 'small',  b: 'beg' },
+    blush:   { e: 'shut',    m: 'bite',   b: 'beg' },
+    resolve: { e: 'sharp',   m: 'grit',   b: 'flat' },
+    awe:     { e: 'sparkle', m: 'ohh' },
+    curious: { e: 'big',     m: 'ohh',    bL: 'up', bR: 'flat' },
+  };
+
   function faceAndExpression(expItem) {
     const kind = (expItem && expItem.kind) || 'smile';
     const EYE = '#4a3a42', LIP = '#c97b86';
-    let eyes, mouth;
+    let eyes, mouth, extra = '';
+    // ⚠️ **부품 표가 먼저다** — 원래 있던 여섯은 여기 없으니 아래 `switch` 로 내려간다
+    const av = AV_FACE[kind];
+    if (av) {
+      eyes = aEye[av.e](AV.L) + aEye[av.e](AV.R);
+      mouth = aMouth[av.m];
+      const bL = av.bL || av.b, bR = av.bR || av.b;
+      extra = (bL ? aBrow(bL)(AV.L, 1) : '') + (bR ? aBrow(bR)(AV.R, -1) : '');
+    } else
     switch (kind) {
       case 'wink':
         eyes = `<ellipse cx="87" cy="75" rx="5" ry="6.5" fill="${EYE}"/><circle cx="88.7" cy="72.4" r="1.7" fill="#fff"/>
@@ -1267,6 +1424,7 @@
           <circle cx="84.5" cy="77.5" r="1.2" fill="#fff" opacity="0.7"/><circle cx="110.5" cy="77.5" r="1.2" fill="#fff" opacity="0.7"/>`;
         mouth = `<ellipse cx="100" cy="90" rx="3.2" ry="3.8" fill="#b5566a"/>`;
         // 머리 위 물음표 대신 **작게 기울인 눈썹** — 이모지를 얹으면 헤어에 가린다
+        // ⚠️ 예전에는 `extra` 를 만들어 놓고 **그리지 않았다** (아래 return 에 빠져 있었다)
         extra = `<g stroke="${EYE}" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.55">
             <path d="M80,63 L94,60"/><path d="M120,63 L106,60"/>
           </g>`;
@@ -1289,6 +1447,7 @@
         <ellipse cx="133" cy="76" rx="6" ry="9" fill="${SKIN}"/>
         <ellipse cx="77" cy="86" rx="6" ry="4" fill="#ffb0c4" opacity="0.7"/>
         <ellipse cx="123" cy="86" rx="6" ry="4" fill="#ffb0c4" opacity="0.7"/>
+        ${extra}
         ${eyes}
         ${mouth}
       </g>`;
