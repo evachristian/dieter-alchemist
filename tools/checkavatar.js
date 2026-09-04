@@ -54,8 +54,10 @@ function launchOpts() {
   await page.evaluate(() => {
     window.__drawAvatar = (ctx, img, w, h) => {
       const vb = window.Avatar.bodyMetrics(0).vb;
-      const k = w / 200;                 // 검사기는 «200 폭» 좌표로 잰다
-      ctx.drawImage(img, vb.x * k, 0, vb.w * k, h);
+      const k = w / 200;                 // 검사기는 «200 폭 × 348 높이» 좌표로 잰다
+      // ⚠️ **세로도 밀어야 한다.** 상자가 위로 36 열리면서(`VB.y`) 그림의 y=0 이
+      // 캔버스의 y=0 이 아니게 됐다 — 안 밀면 모든 검사가 36px 아래를 보게 된다
+      ctx.drawImage(img, vb.x * k, vb.y * k, vb.w * k, vb.h * k);
     };
   });
 
@@ -305,9 +307,15 @@ function launchOpts() {
     document.body.appendChild(probe);
     probe.innerHTML = Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT), 0);
     const psvg = probe.querySelector('svg'), pr = psvg.getBoundingClientRect();
-    const pk = 200 / pr.width;
+    // ⚠️ **viewBox 를 그대로 읽는다.** 여기 `200 / pr.width` 라고 적어 두었는데
+    // 상자는 이미 244 폭이라 배율이 22% 어긋나 있었고(창이 우연히 머리에 걸려
+    // 통과하고 있었다), 상자가 위로 36 열리자(`VB.y`) **창이 통째로 이마로 내려가
+    // 멀쩡한 앞머리 다섯이 전부 「정수리에 살색」으로 잡혔다.**
+    // 화면 px → svg 단위 환산도, 상자의 시작점도 그림에게 물어본다
+    const pvb = psvg.viewBox.baseVal;
+    const pk = pvb.width / pr.width;
     const hr = probe.querySelector('[data-part="head"]').getBoundingClientRect();
-    const faceTop = (hr.top - pr.top) * pk;
+    const faceTop = pvb.y + (hr.top - pr.top) * pk;
     probe.remove();
     const CROWN_TOP = Math.round(faceTop - 1), CROWN_BOT = CROWN_TOP + 8;
     const near = (r, g, b) => Math.abs(r - SKIN[0]) < 14 && Math.abs(g - SKIN[1]) < 14 && Math.abs(b - SKIN[2]) < 14;
@@ -1408,15 +1416,15 @@ function launchOpts() {
     // ⚠️ **이 검사만은 상자 «전체»를 본다.** 다른 검사들은 `__drawAvatar` 가
     // 왼쪽으로 밀어 그려 0..200 만 보지만, 여기서는 넓혀 둔 14px 까지 봐야
     // 「아직 여유가 있는가」를 알 수 있다. 그래서 제 캔버스를 따로 잡는다.
-    const D = window.GameData, S = 4, H = 348 * S;
+    const D = window.GameData, S = 4;
     const vb = window.Avatar.bodyMetrics(0).vb;
-    const W = Math.round(vb.w * S);
+    const W = Math.round(vb.w * S), H = Math.round(vb.h * S);
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
     const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
                    shoes: 'shoes_none', hair: 'hair_none' };
     // **가장 넓어지는 조합**으로 잰다 — 몸무게 최대 × 슬라이더 전부 최대
-    const t = { torso: 1.5, waist: 1.5, hip: 1.5, arm: 1.5, thigh: 1.5, calf: 1.5, face: 1.14 };
+    const t = { torso: 1.5, waist: 1.5, hip: 1.5, arm: 1.5, thigh: 1.5, calf: 1.5, face: 1.5 };
     const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 1, t);
     const img = new Image();
     await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
@@ -1433,12 +1441,48 @@ function launchOpts() {
         break;
       }
     const room = +(right - widest).toFixed(1);
+    // ─── 위쪽도 본다 (얼굴 배율의 상한이 걸려 있는 자리) ───────
+    // 머리는 목에서 **위로** 자란다. 예전에는 이 검사가 오른쪽만 봐서, 얼굴 상한이
+    // 상자에 눌려 114 로 묶여 있는데도 늘 통과였다 — 「닿을 수 없는 자리」의 반대로,
+    // **가고 싶은 자리를 상자가 막고 있는데 아무도 안 재고 있었다.**
+    //
+    // ⚠️ **머리 모양을 «전부» 돌린다.** 위의 폭 검사는 민머리(`hair_none`)로 재는데,
+    // 그 하나로 위쪽까지 재면 **올림머리가 잘리는 것을 못 본다** — 쪽이 더 높아
+    // 얼굴 150% 에서 16px 을 더 먹는다 (그리고 얼굴 114% 시절에도 이미 8.3px
+    // 잘리고 있었다. 아무도 안 재고 있었을 뿐이다)
+    let topY = null, cutTop = 0, topHair = '-';
+    for (const it of D.WARDROBE.hair) {
+      const hs = window.Avatar.build(
+        Object.assign({}, D.DEFAULT_OUTFIT, bare, { hair: it.id }), 1, t);
+      const hi = new Image();
+      await new Promise((ok, no) => { hi.onload = ok; hi.onerror = no;
+        hi.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(hs); });
+      ctx.clearRect(0, 0, W, H); ctx.drawImage(hi, 0, 0, W, H);
+      const hd = ctx.getImageData(0, 0, W, H).data;
+      let ty = null;
+      for (let y = 0; y < H && ty == null; y++) for (let x = 0; x < W; x++)
+        if (hd[((y * W) + x) * 4 + 3] > 128) { ty = y / S + vb.y; break; }
+      if (ty != null && (topY == null || ty < topY)) { topY = ty; topHair = it.id; }
+      for (let x = 0; x < W; x++) {
+        if (hd[x * 4 + 3] > 128 || hd[(W + x) * 4 + 3] > 128) cutTop++;   // 맨 위 두 줄에 닿았다
+      }
+    }
+    const roomTop = topY == null ? 0 : +(topY - vb.y).toFixed(1);
+    const bad = [];
+    if (cut > 0 || room < min) {
+      bad.push(`통통 최대 × 슬라이더 최대에서 몸이 오른쪽 ${widest.toFixed(1)}/${right} 까지 간다`
+        + ` (여백 ${room}px · ${cut}줄이 잘렸다). 더 키우려면 avatar.js 의 `
+        + `\`VB\` 를 넓힌다 (중심선 100 은 그대로 두고 양옆을 같이 연다)`);
+    }
+    if (cutTop > 0 || roomTop < min) {
+      bad.push(`얼굴 최대 × ${topHair} 에서 머리끝이 상자 위(y ${vb.y})에 ${roomTop}px 까지 다가간다`
+        + ` (${cutTop}칸이 닿았다). 정수리가 일자로 잘려 보인다 — avatar.js 의 \`VB\` 를`
+        + ` 위로 더 열고 \`style.css\` 의 \`.avatar-svg\` 높이도 **같은 비로** 올린다`);
+    }
     return { widest: +widest.toFixed(1), room: room, cut: cut, right: right,
-             bad: cut > 0 || room < min
-               ? [`통통 최대 × 슬라이더 최대에서 몸이 오른쪽 ${widest.toFixed(1)}/${right} 까지 간다`
-                  + ` (여백 ${room}px · ${cut}줄이 잘렸다). 더 키우려면 avatar.js 의 `
-                  + `\`VB\` 를 넓힌다 (중심선 100 은 그대로 두고 양옆을 같이 연다)`]
-               : [] };
+             top: topY == null ? null : +topY.toFixed(1), roomTop: roomTop, cutTop: cutTop,
+             vbY: vb.y, topHair: topHair,
+             bad: bad };
   }, BOX_MARGIN_MIN);
 
   // ─── 하의 위로 다시 찍는 팔이 «패이지» 않는가 ────────────────
@@ -2311,12 +2355,14 @@ function launchOpts() {
           // 있다고 착각해 멀쩡한 크리처가 「치마와 10.1px 겹친다」로 잡혔다
           const vb = svg.viewBox.baseVal, k = sr.width / vb.width;
           const px = x => sr.left + (x - vb.x) * k;
+          // 세로도 마찬가지다 — 상자가 위로 36 열려서 y=0 이 상자의 위가 아니다
+          const py = y => sr.top + (y - vb.y) * k;
           // 크리처 높이와 겹치는 그림 조각들의 **가장 왼쪽** (넉넉하게 — bbox 로 잡는다)
           let left = Infinity;
           svg.querySelectorAll('path,ellipse,circle,rect').forEach(n => {
             let bb; try { bb = n.getBBox(); } catch (e) { return; }
             if (!bb.width) return;
-            if (sr.top + (bb.y + bb.height) * k < cr.top || sr.top + bb.y * k > cr.bottom) return;
+            if (py(bb.y + bb.height) < cr.top || py(bb.y) > cr.bottom) return;
             left = Math.min(left, px(bb.x));
           });
           const over = cr.right - left;                             // + 면 겹쳤다
@@ -2458,7 +2504,10 @@ function launchOpts() {
   console.log(`엉덩이↔허벅지 틈: 배율 ${hipSeam.n}조합 — 가장 벌어진 곳 ${hipSeam.worst}px`
     + ` (${SEAM_GAP_MAX}px 까지 · 자락과 허벅지 사이로 배경이 비치면 안 된다)`);
   console.log(`그림 상자: 통통 최대 × 슬라이더 최대에서 오른쪽 끝 ${box.widest}/${box.right}`
-    + ` · 여백 ${box.room}px · 잘린 줄 ${box.cut} (여백 ${BOX_MARGIN_MIN}px 이상 · 넘으면 viewBox 를 넓혀야 한다)`);
+    + ` · 여백 ${box.room}px · 잘린 줄 ${box.cut}`
+    + ` · 위로는 머리 ${box.topHair} 의 끝 ${box.top} (상자 위 ${Math.round(box.vbY)}`
+    + ` · 여백 ${box.roomTop}px · 닿은 칸 ${box.cutTop})`
+    + ` (여백 ${BOX_MARGIN_MIN}px 이상 · 넘으면 viewBox 를 넓혀야 한다)`);
   console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
     + ` (굵어지면 안 된다 — 굵은 종아리에 가는 발목)`);
   console.log(`크리처 자리: 땅·공중·물 × 하의·원피스 전부 — 화면 폭별 치마와의 틈`

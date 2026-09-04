@@ -3660,7 +3660,8 @@ function renderAtelier() {
 // 아바타와 같은 200 폭 상자에 키를 맞춰 넣으면 팔이 잘리고, 폭에 맞춰 줄이면
 // 키가 74% 밖에 안 돼 아이처럼 보였다. `.avatar-svg` 는 `height:312px; width:auto` 라
 // 상자를 넓히면 **키는 그대로 두고 폭만** 늘어난다 — 그래서 상자를 260 으로 잡았다.
-// (그려지는 폭 312 × 260/348 ≈ 233px, .char-aura 240px 안에 들어온다)
+// (그려지는 폭 360 × 260/402 ≈ 233px, .char-aura 240px 안에 들어온다.
+//  세로 상자가 348 → 402 로 열리면서 높이도 312 → 360 으로 같이 올라 **몫이 그대로**다)
 //
 // 그림자는 그림이 이미 갖고 있으니 따로 그리지 않는다. 발밑은 아바타와 같은 y=342 에
 // 맞춘다 — 그림자 끝이 상자 아래로 조금 넘지만, 아바타(아래끝 350)도 마찬가지다.
@@ -3679,7 +3680,11 @@ function princessFigure() {
   const s = PRINCESS_SCALE;
   const tx = (PRINCESS_BOX / 2 - 150 * s).toFixed(2);
   const ty = (PRINCESS_GROUND - PRINCESS_FEET * s).toFixed(2);
-  return `<svg class="avatar-svg" viewBox="0 0 ${PRINCESS_BOX} 348" xmlns="http://www.w3.org/2000/svg"
+  // ⚠️ **세로 상자는 아바타에게 물어본다.** `.avatar-svg` 는 높이로 크기를 잡으므로
+  // 여기만 348 로 굳어 있으면 아바타 상자가 384 로 열린 순간 **공주만 10% 커진다.**
+  // 발밑(342)은 두 그림이 같은 좌표라 상자만 맞추면 키도 저절로 맞는다
+  const vb = (window.Avatar && Avatar.bodyMetrics) ? Avatar.bodyMetrics(0).vb : { y: 0, h: 348 };
+  return `<svg class="avatar-svg" viewBox="0 ${vb.y} ${PRINCESS_BOX} ${vb.h}" xmlns="http://www.w3.org/2000/svg"
       role="img" aria-label="${T('a11y_princess')}">
     <g transform="translate(${tx},${ty}) scale(${s})">${art}</g>
   </svg>`;
@@ -4953,7 +4958,11 @@ window.devGiveCrystal = devGiveCrystal;
 const TUNE_KEY = 'dieter_alchemist_bodytune_v1';
 // 상한은 파츠마다 다르다. 아바타 캔버스(viewBox 200×348)를 벗어나면 잘려 보이므로
 // **실측한 안전 한계 안에서** 잡았다 (체형 통통~날씬 전 구간 기준):
-//   얼굴  120% 에서 머리 위가 잘린다 (200% 면 위로 100px — 캔버스의 3분의 1) → 114
+//   얼굴  예전에는 120% 에서 머리 위가 잘려 114 였다. `VB` 를 위로 54 열어
+//         (348 → 402) **150 까지** 올렸다 — 가장 높은 올림머리의 정수리가
+//         150% 에서 y −49.7 이라 54 면 여유 4.3px 이 남는다. 더 올리려면 상자를 또 열어야 하고,
+//         그때는 `style.css` 의 `.avatar-svg` 높이도 같은 비로 올려야 한다
+//         (안 그러면 인물이 통째로 작아진다)
 //   몸통  170% 까지는 안 잘리지만 그만큼 키우면 판때기처럼 보인다 → 150
 //   팔    혼자서는 200% 도 안 잘리는데, 몸통을 키우면 팔이 바깥으로 밀려나서
 //         몸통 150% + 팔 200% 조합이 좌우로 9.1px 넘친다 → 150 (그 조합에서 0)
@@ -4972,7 +4981,7 @@ const TUNE_PARTS = [
   { k: 'arm',   max: 150 },
   { k: 'thigh', max: 150 },
   { k: 'calf',  max: 150 },
-  { k: 'face',  max: 114 },
+  { k: 'face',  max: 150 },
 ];
 // % 단위 (100 = 기본). **하한도 부위마다 다를 수 있다** — `TUNE_PARTS` 의 `min` 이 있으면 그것.
 // 엉덩이만 20 인 이유: 다른 부위는 50% 밑으로 가면 뼈만 남은 것처럼 보이는데,
@@ -6081,7 +6090,12 @@ async function shareCardBlob() {
   // ② 아바타 — 방 바닥에 발이 닿게. 화면과 같이 **높이를 맞추고 가로는 비율대로** 둔다
   const fig = roomFigure(tier);
   const box = svgBox(fig, 200, 348);
-  const avH = 560, avW = avH * box.w / box.h;
+  // ⚠️ **높이는 상자 높이의 «몫»으로 잡는다.** 560 이라고 박아 두었더니, 상자를
+  // 위로 열어(348 → 402) 얼굴 150% 를 담는 순간 **카드 속 인물만 13% 작아졌다** —
+  // 늘어난 것은 머리 위의 빈 자리인데 그 빈 자리까지 560 안에 욱여넣기 때문이다.
+  // 1.609 = 560/348 이라 상자가 348 이던 시절과 그림 크기가 정확히 같다.
+  const CARD_AVATAR_K = 1.609;
+  const avH = Math.round(box.h * CARD_AVATAR_K), avW = avH * box.w / box.h;
   ctx.save();
   ctx.shadowColor = 'rgba(180,140,160,0.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 14;
   ctx.drawImage(await svgToImage(fig, Math.round(avW), avH),

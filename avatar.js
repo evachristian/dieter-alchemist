@@ -194,13 +194,24 @@
   //
   // ⚠️ **중심선 100 은 그대로 둔다.** 왼쪽으로 14 를 열어 두면 −14 ~ 214 라
   // 100 이 정확히 한가운데다 — 모든 좌표·세이브·옷이 그대로 산다.
-  // 세로도 그대로다(348). 화면에서는 `.avatar-svg` 가 **높이로** 크기를 잡으므로
-  // 인물의 크기는 안 변하고 양옆에 여백만 생긴다.
   //
-  // ⚠️ **검사기는 아직 «200 폭» 좌표로 잰다.** `checkavatar` 가 캔버스에 그릴 때
-  // 이 값만큼 왼쪽으로 밀어 그려서 캔버스의 0..200 이 예전과 같은 자리를 가리킨다
-  // (`__drawAvatar`). 그래서 스무 개 넘는 검사의 좌표를 하나도 안 고쳤다.
-  const VB = { x: -22, w: 244, h: 348 };
+  // ⚠️ **위로도 54 를 열었다** (`y: -54` · 높이 348 → 402). 머리는 목에서 위로
+  // 자라는데 상자 위가 y=0 이라, 얼굴 배율의 상한이 **114%** 로 묶여 있었다 —
+  // 민머리 기준 정수리가 100% 에서 y 11.3 · 114% 에서 **−1.3** · 150% 에서 −33.3 이다.
+  // ⚠️ **머리 모양까지 재야 한다.** 올림머리(`hair_bun_*`)는 쪽이 더 높아
+  // 150% 에서 **−49.7** 까지 간다 — 33px 만 열면 올림머리만 잘린다.
+  // (그리고 그 올림머리는 **지금도** 얼굴 114% 에서 8.3px 잘리고 있었다.
+  //  「그림 상자」 검사가 민머리 하나로만 재고 있어서 아무도 못 봤다)
+  // ⚠️ **세로는 «인물 크기»에 바로 걸린다.** 가로와 달리 `.avatar-svg` 가 높이로
+  // 크기를 잡기 때문이다 — 그래서 `style.css` 의 `height` 도 312 → **360** 으로 같이
+  // 올렸다 (312/348 = 360/402 = 0.8955). 한쪽만 고치면 인물이 통째로 작아진다.
+  // 마이 룸의 인트로 공주(`game.js` 의 `princessFigure`)도 같은 상자를 써야 한다 —
+  // 거기만 348 로 남으면 공주가 아바타보다 10% 커진다.
+  //
+  // ⚠️ **검사기는 아직 «200 폭 × 348 높이» 좌표로 잰다.** `checkavatar` 가 캔버스에
+  // 그릴 때 이 값만큼 밀어 그려서 캔버스의 0..200 · 0..348 이 예전과 같은 자리를
+  // 가리킨다 (`__drawAvatar`). 그래서 스무 개 넘는 검사의 좌표를 하나도 안 고쳤다.
+  const VB = { x: -22, y: -54, w: 244, h: 402 };
   const HEAD_H   = 84;    // 현재 아트의 머리 높이 (y 21 ~ 105)
   const BODY_SPAN = 229;  // 어깨(113) ~ 바닥(342)
   const FLOOR_Y  = 342;   // 발이 닿는 높이 (여기를 축으로 몸을 늘린다)
@@ -2817,7 +2828,7 @@
       H(renderCirclet(pick('circlet', outfit.circlet))),
     ];
 
-    return `<svg class="avatar-svg" viewBox="${VB.x} 0 ${VB.w} ${VB.h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="내 아바타">
+    return `<svg class="avatar-svg" viewBox="${VB.x} ${VB.y} ${VB.w} ${VB.h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="내 아바타">
       <defs>${neckDefs(uid)}</defs>
       <ellipse cx="100" cy="342" rx="${(52 * (1 + 0.18 * w)).toFixed(1)}" ry="8" fill="rgba(120,90,110,0.14)"/>
       ${layers.join('')}
@@ -3170,7 +3181,7 @@
     const head = HEAD_H * lerpN(HEAD_K_SLIM, HEAD_K_FAT, w);
     const ky = 1 + (HEAD_H - head) / BODY_SPAN;
     return { w: w, kx: bodyScaleX(w), ky: ky, head: head, floorY: FLOOR_Y,
-             dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, w: VB.w, h: VB.h } };
+             dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
   window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y,
     partRatio, bodyScaleX, bodyMetrics,
