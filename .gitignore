@@ -6,3 +6,6 @@ data/
 
 # 개인 설정 (기기마다 다름)
 .claude/settings.local.json
+
+# 아티팩트 빌드 결과 (한 장짜리 HTML — 생성물이다)
+build/
