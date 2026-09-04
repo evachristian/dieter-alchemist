@@ -317,7 +317,12 @@ function launchOpts() {
     const hr = probe.querySelector('[data-part="head"]').getBoundingClientRect();
     const faceTop = pvb.y + (hr.top - pr.top) * pk;
     probe.remove();
-    const CROWN_TOP = Math.round(faceTop - 1), CROWN_BOT = CROWN_TOP + 8;
+    // ⚠️ **창을 여덟 줄에서 다섯 줄로 좁혔다.** 앞머리를 인트로 공주와 같은 호로
+    // 바꾸면서 밑단이 2.7px 올라갔는데(공주는 이마가 넓은 얼굴이다), 여덟 줄짜리
+    // 창의 «맨 아랫줄»이 그 이마를 물어 멀쩡한 앞머리가 「정수리에 살색 18px」로
+    // 잡혔다. 이 검사가 잡아야 할 것은 **정수리가 벗겨진 것**이지 이마가 아니다 —
+    // 벗겨지면 얼굴 꼭대기부터 살색이라 다섯 줄로도 그대로 걸린다
+    const CROWN_TOP = Math.round(faceTop - 1), CROWN_BOT = CROWN_TOP + 5;
     const near = (r, g, b) => Math.abs(r - SKIN[0]) < 14 && Math.abs(g - SKIN[1]) < 14 && Math.abs(b - SKIN[2]) < 14;
     const cv = document.createElement('canvas'); cv.width = 200; cv.height = 348;
     const ctx = cv.getContext('2d');
@@ -1329,7 +1334,9 @@ function launchOpts() {
   // ⚠️ 허벅지·종아리의 상한이 **200 → 150 으로 내려왔다**(`game.js` 의 `TUNE_PARTS`) —
   // 재는 자리도 같이 내린다. **닿을 수 없는 자리를 지키면 정작 쓰는 구간이 죽어 있어도
   // 통과**라는, 예전에 엉덩이에서 겪은 그 함정이다.
-  const FAT_MAX = { 허벅지: [1.5, 1.45], 엉덩이: [1.5, 1.12], 종아리: [1.5, 1.45] };
+  // ⚠️ 허벅지가 1.45 → **1.50** 이 됐다 — 옆선을 둥글게 하려고 `THIGH_BULGE` 를
+  // 0.8 → 1.4 로 올렸고, 불룩해진 만큼 «가장 굵은 곳»도 같이 굵어진 것이다.
+  const FAT_MAX = { 허벅지: [1.5, 1.50], 엉덩이: [1.5, 1.12], 종아리: [1.5, 1.45] };
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;

@@ -318,6 +318,20 @@
     const v = tuneOf(tune, k), g = TUNE_GAIN[k];
     return (g == null || v <= 1) ? v : 1 + (v - 1) * g;
   }
+  // ─── 슬라이더가 «상한까지» 얼마나 갔는가 (0 = 100% · 1 = 그 부위의 끝) ──
+  //
+  // ⚠️ **`tuneOf(...) - 1` 을 그대로 0~1 로 쓰면 안 된다.** 그 식은 상한이 200% 이던
+  // 시절에 맞춰 쓴 것이라, 상한을 150 으로 내리자 **끝까지 밀어도 0.5 밖에 안 됐다** —
+  // 허벅지의 볼록함(`THIGH_BULGE`)과 엉덩이가 허벅지를 덮는 몫(`HIP_OVER`)이
+  // 소리 없이 절반으로 줄었다. 화면에서는 「허벅지가 직선 사선으로 떨어진다」·
+  // 「엉덩이가 마름모」로 보였고, 수치로 재 보니 y226~270 이 곡률 0(직선)이었다.
+  // **상한을 바꾸면 여기 표도 같이 바꾼다** — `checkavatar` 가 game.js 의
+  // `TUNE_PARTS` 와 대조해서, 어긋나면 잡아 준다.
+  const TUNE_MAX = { torso: 1.5, waist: 1.5, hip: 1.5, arm: 1.5, thigh: 1.5, calf: 1.5, face: 1.5 };
+  function overOf(tune, k) {
+    const m = TUNE_MAX[k] || 2;
+    return Math.max(0, Math.min(1, (tuneOf(tune, k) - 1) / (m - 1)));
+  }
   // 몸무게(w: 0 날씬 ~ 1 통통)가 만드는 **가로 배율**.
   // `build()` 의 몸 변환이 이 값을 쓴다 — 식을 두 군데 두면 개발용 패널이
   // 그리는 것과 다른 숫자를 말하게 된다
@@ -901,7 +915,7 @@
   // 재어 보니 113.8 그대로였다. 0.10 에서 허리 84.5 · 봉우리 **107.3**
   // (몫 29.3 → 22.8 · 역시 −22%). 두 자리를 같이 봐야 하는 이유다.
   const HIP_OVER = 0.10;
-  const hipOverK = tune => 1 + HIP_OVER * Math.max(0, Math.min(1, tuneOf(tune, 'thigh') - 1));
+  const hipOverK = tune => 1 + HIP_OVER * overOf(tune, 'thigh');
   const hipBaseHalf = tune => Math.max(
     BODY.hipHalf * fatOf(tune, 'hip'),
     waistHalf(tune) * tuneOf(tune, 'torso') * HIP_WAIST_MIN,
@@ -1186,8 +1200,8 @@
   //
   // ⚠️ **100% 이하는 건드리지 않는다** (가는 다리까지 부풀리면 통나무가 된다).
   // 배율이 100% 를 «넘는 만큼»만 태운다 — 100% 0 → 200% THIGH_BULGE.
-  const THIGH_BULGE = 0.8;
-  const thighBul = tune => THIGH_BULGE * Math.max(0, Math.min(1, tuneOf(tune, 'thigh') - 1));
+  const THIGH_BULGE = 1.4;
+  const thighBul = tune => THIGH_BULGE * overOf(tune, 'thigh');
   const thighC = tune => [THIGH_C[0], THIGH_C[1], thighBul(tune)];
   const KNEE_THIGH = LEG.kneeX / (THIGH_GAP + LEG.hipW);      // 0.447 — 기본 그림의 비율
   // ⚠️ **종아리 상한을 「장딴지의 85%」로 못 박아 두면 안 된다.** 허벅지만 200% 로
@@ -1446,6 +1460,12 @@
     const tRa = +(100 + thighJoin(tune)).toFixed(2), tLa = +(200 - tRa).toFixed(2);
     const hRa = +(100 + hipHalf(tune)).toFixed(2), hLa = +(200 - hRa).toFixed(2);
     const ha = +((HY1 - WY) * 0.45).toFixed(1);
+    // ⚠️ **허리→엉덩이 옆선의 위쪽 절반은 «오목»할 수밖에 없다.** 허리에서 접선이
+    // 세로여야 몸통과 안 꺾이는데(그 위 `wR` 주석), 세로로 출발해서 바깥으로 벌어지는
+    // 곡선은 출발부가 반드시 현(弦) 안쪽을 지난다 — 재어 보면 y176~198 이 곡률 −0.5 다.
+    // ⚠️ **위 제어점을 엉덩이 쪽으로 밀어 봤는데 더 나빴다** (0.5 로 밀었을 때
+    // y180 의 곡률이 −0.5 → **−1.25**). 벌어지는 것을 몇 줄에 몰아넣을 뿐이라
+    // 「완만한 오목」이 「급한 꺾임」이 된다. 되돌렸다 — 여기서 고칠 것이 아니다.
     const hb1 = +((BY - HY2) * HIP_C[0]).toFixed(1), hb = +((BY - HY2) * HIP_C[1]).toFixed(1);
     // 허벅지에 기대어 닿는 몫 — 하의(`hipSideCurve`)와 **같은 함수**에서 나온다
     const ln = +hipLean(tune, hipHalf(tune), thighJoin(tune)).toFixed(2);
@@ -1510,7 +1530,18 @@
   // 이 표는 **그 뒤에** 걸린다.
   //
   // 좌표: 눈 (87,75)·(113,75) · 입 (100,89)
-  const AV = { L: 87, R: 113, Y: 75, MX: 100, MY: 89, INK: '#4a3a42', LIP: '#c97b86' };
+  // ─── 얼굴 부품의 «자리» — 인트로 공주와 **같은 좌표**다 ──────
+  //
+  // 공주(`intro.js` 의 `PZ`)와 아바타가 미묘하게 다른 사람으로 보였다 —
+  // **눈이 아바타 쪽이 아홉 픽셀 낮았다.** 공주는 눈이 얼굴 한가운데보다 «위»에
+  // 있고(중심에서 반지름의 12% 위) 아바타는 «아래»에 있었다(14% 아래).
+  //
+  // 두 얼굴 타원을 맞춰 놓고 옮겨 적었다:
+  //   공주 얼굴 cx150 cy180 rx34 ry33 · 아바타 얼굴 cx100 cy70 rx33 ry35
+  //   x' = 100 + (x − 150) × 33/34 · y' = 70 + (y − 180) × 35/33
+  // ⚠️ **눈만 옮기면 안 된다** — 입·볼도 같은 표에서 나오므로 같이 따라가야
+  // 얼굴이 흩어지지 않는다. 귀는 공주에게 없어서 눈과 같은 줄에 맞춘다.
+  const AV = { L: 88.4, R: 111.6, Y: 65.8, MX: 100, MY: 81.7, INK: '#4a3a42', LIP: '#c97b86' };
   // ─── 눈 — **크고 반짝인다** ──────────────────────────────────
   //
   // 결은 「스파이 패밀리」의 아냐 쪽이다: **눈이 얼굴의 반**이고 하이라이트가 둘 이상,
@@ -1780,7 +1811,8 @@
   // ⚠️ **코가 아예 없었다.** 치비 얼굴이라 없어도 되긴 하는데, 눈과 입 사이가
   // 14px 나 비어 있어서 얼굴이 «판판»해 보였다. 아니메가 쓰는 것은 선 하나 —
   // 콧등의 그늘만 아주 옅게 찍는다. 진하면 어른 얼굴이 된다
-  const NOSE = `<path d="M98.8,81.6 q1.8,2 3,0.4" stroke="#d09a8e" stroke-width="1.4"`
+  // 눈(65.8)과 입(81.7) 사이 — 얼굴 부품을 통째로 올리면서 같이 올라왔다
+  const NOSE = `<path d="M98.8,74.5 q1.8,2 3,0.4" stroke="#d09a8e" stroke-width="1.4"`
     + ` fill="none" stroke-linecap="round" opacity="0.6"/>`;
   // 손으로 그린 여섯에도 기호를 붙인다 — 표는 위의 `aFx` 를 그대로 쓴다
   const HAND_FX = { surprise: 'sweat', happy: 'note', wink: 'spark', puzzled: 'q' };
@@ -1797,6 +1829,14 @@
     const EYE = '#4a3a42', LIP = '#c97b86';
     let eyes, mouth, extra = '';
     // ⚠️ **부품 표가 먼저다** — 원래 있던 여섯은 여기 없으니 아래 `switch` 로 내려간다
+    // ⚠️ **손그림 열셋은 «옛 자리»에 그려져 있다** (눈 y75 · 입 y89). 얼굴 부품을
+    // 공주 좌표로 올리면서(눈 65.8 · 입 81.7) 그것들만 제자리에 남아, 같은 표정인데도
+    // 부품 표에서 나온 것보다 눈이 9px 낮았다. 두 점을 맞추는 1차식으로 옮긴다 —
+    // 눈과 입의 «간격»도 14 → 15.9 로 벌어지므로 평행이동만으로는 안 맞는다
+    const OLD_EYE = 75, OLD_MOUTH = 89;
+    const mk = (AV.MY - AV.Y) / (OLD_MOUTH - OLD_EYE);
+    const mb = AV.Y - OLD_EYE * mk;
+    const handT = `translate(0,${mb.toFixed(2)}) scale(1,${mk.toFixed(4)})`;
     const av = AV_FACE[kind];
     if (av) {
       eyes = aEye[av.e](AV.L) + aEye[av.e](AV.R);
@@ -1843,13 +1883,20 @@
         mouth = `<path d="M94,89 Q100,94 106,89" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
     }
     // '얼굴' 배율은 build() 의 H() 에서 머리 전체에 걸린다 (여기서 또 걸면 두 번 적용된다)
+    if (!av) {   // 손그림만 옛 자리에서 옮겨 온다 (부품 표는 이미 새 자리다)
+      eyes = `<g transform="${handT}">${eyes}</g>`;
+      mouth = `<g transform="${handT}">${mouth}</g>`;
+      if (extra) extra = `<g transform="${handT}">${extra}</g>`;
+    }
     return `
       <g data-part="head">
         <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
-        <ellipse cx="67" cy="76" rx="6" ry="9" fill="${SKIN}"/>
-        <ellipse cx="133" cy="76" rx="6" ry="9" fill="${SKIN}"/>
-        <ellipse cx="77" cy="86" rx="6" ry="4" fill="#ffb0c4" opacity="0.7"/>
-        <ellipse cx="123" cy="86" rx="6" ry="4" fill="#ffb0c4" opacity="0.7"/>
+        <!-- 귀는 눈과 같은 줄에 (공주에게는 귀가 없어 여기만 우리 몫이다) -->
+        <ellipse cx="67" cy="${AV.Y}" rx="6" ry="9" fill="${SKIN}"/>
+        <ellipse cx="133" cy="${AV.Y}" rx="6" ry="9" fill="${SKIN}"/>
+        <!-- 볼 — 공주의 cx128/172 cy186 rx8 ry5 를 옮겨 온 것 -->
+        <ellipse cx="78.6" cy="76.4" rx="7.8" ry="5.3" fill="#ffb0c4" opacity="0.7"/>
+        <ellipse cx="121.4" cy="76.4" rx="7.8" ry="5.3" fill="#ffb0c4" opacity="0.7"/>
         ${extra}
         ${eyes}
         ${NOSE}
@@ -1865,7 +1912,10 @@
   // 벌을 늘려도 여기 함수는 그대로다 — 데이터가 축 값만 바꿔 넣는다.
   function hairBack(kind, c) {
     const s = shade(c, 22);
-    const crown = `<ellipse cx="100" cy="63" rx="40" ry="42" fill="${c}"/>`;
+    // 공주의 뒷머리(cx150 cy174 rx40 ry32)를 같은 식으로 옮긴 것.
+    // ⚠️ 예전에는 ry 가 42 라 **정수리가 앞머리보다 9px 위로 솟아** 있었다 —
+    // 공주는 반대로 앞머리가 뒷머리보다 위다. 그 차이가 「뒷부분이 부풀었다」로 보였다
+    const crown = `<ellipse cx="100" cy="63.6" rx="38.8" ry="33.9" fill="${c}"/>`;
     switch (kind) {
       case 'bun':   // 올림머리 — 정수리 뒤로 묶은 덩어리
         return crown +
@@ -1934,8 +1984,12 @@
         // 시작 착장이 `hair_long`(뒤=긴 생머리 · 앞=일자뱅)이라 여기 한 곳만 고치면
         // **처음 진입한 플레이어가 공주 그대로**가 된다.
         // ⚠️ 「일자뱅」을 쓰는 여섯 벌이 같이 바뀐다 — id 는 그대로라 세이브는 안전하다
-        return `<path d="M68,60 C66,38 78,30 100,30 C122,30 134,38 132,60
-          C128,49 117,43 100,43 C83,43 72,49 68,60 Z" fill="${c}"/>`;
+        // 공주의 앞머리를 좌표까지 그대로 옮겼다 (눈·볼과 같은 식):
+        //   M116,174 C114,146 128,136 150,136 C172,136 186,146 184,174
+        //           C180,160 168,152 150,152 C132,152 120,160 116,174 Z
+        return `<path d="M67,63.6 C65.1,33.9 78.6,23.3 100,23.3
+          C121.4,23.3 134.9,33.9 133,63.6
+          C129.1,48.8 117.5,40.3 100,40.3 C82.5,40.3 70.9,48.8 67,63.6 Z" fill="${c}"/>`;
     }
   }
 
@@ -3222,6 +3276,6 @@
              dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
   window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y,
-    partRatio, bodyScaleX, bodyMetrics,
+    partRatio, bodyScaleX, bodyMetrics, TUNE_MAX,
     ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
 })();
