@@ -382,6 +382,7 @@ npm run test:save    # 옛 세이브를 심어 마이그레이션 확인 (브라
 npm run test:time    # 시계를 옮겨 놓고 포만감·스태미나·방치 감소 (브라우저 필요)
 npm run test:tut     # 튜토리얼을 처음부터 끝까지 눌러 본다 (브라우저 필요)
 npm run test:melt    # 중복 크리처를 솥에 넣어 녹여 본다 (브라우저 필요)
+npm run test:wardrobe # 옷장 칸을 눌러 «그 자리»에 머무는지 (브라우저 필요)
 npm run test:farm    # 밭에서 거두고 이웃 밭을 털어 본다 (브라우저 + 서버를 스스로 띄운다)
 npm run test:ask     # 키워드를 물어 마을 다섯을 열어 본다 (브라우저 필요)
 npm run test:bond    # 물약을 선물해 호감도를 올려 본다 (브라우저 필요)

@@ -21,6 +21,7 @@
     "test:save": "node tools/checksave.js",
     "test:tut": "node tools/checktut.js",
     "test:melt": "node tools/checkmelt.js",
+    "test:wardrobe": "node tools/checkwardrobe.js",
     "gen:wardrobe": "node tools/genwardrobe.js",
     "gen:creature": "node tools/gencreature.js",
     "gen:farm": "node tools/genfarm.js",

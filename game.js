@@ -4373,14 +4373,22 @@ function equip(slot, id, el) {
   if (slot === 'top' || slot === 'bottom') S.outfit.dress = 'dress_none';
   S.outfit[slot] = id;
   save();
-  // ⚠️ **스크롤 자리를 붙들어 둔다.** `renderShowcase()` 가 옷장을 통째로 다시 그리는데,
-  // 그 사이 문서가 잠깐 짧아지면 브라우저가 스크롤을 **위로 끌어올린다** —
-  // 그리고 다시 길어져도 안 돌아온다. 칸이 많은 「표정」(38개)에서 특히 크게 튀었다
-  // (「스퀘어 아이콘을 누르면 원치 않는 스크롤이 생긴다」로 신고받았다).
+  // ⚠️ **스크롤 자리를 붙들어 둔다 — «두 곳»이다.**
+  // `renderShowcase()` 가 옷장을 통째로 다시 그리는데, 그러면
+  //   ① 문서가 잠깐 짧아져 브라우저가 페이지 스크롤을 위로 끌어올리고
+  //   ② **옷장 격자(`.wr-items`) 자체가 제 스크롤 통이라**(max-height + overflow-y:auto)
+  //      새로 그려지는 순간 그 안의 scrollTop 이 0 으로 돌아간다
+  // 처음에는 ①만 붙들어 두었는데 신고가 계속 들어왔다 — 실제로 튀던 것은 ②였다.
+  // 칸이 38개나 되는 「표정」에서는 네 줄 밖이 통째로 위로 솟아 **누른 칸이 사라진다.**
+  // 재어 보니 페이지 스크롤은 832 → 832 로 멀쩡한데 누른 칸만 361 → 574 로 밀렸다.
   const sc = document.scrollingElement || document.documentElement;
   const keepY = sc.scrollTop;
+  const grid = document.querySelector('.wr-items');
+  const gridY = grid ? grid.scrollTop : 0;
   renderShowcase();  // 아바타 + 옷장 동시 갱신
   if (sc.scrollTop !== keepY) sc.scrollTop = keepY;
+  const grid2 = document.querySelector('.wr-items');
+  if (grid2 && gridY) grid2.scrollTop = gridY;
   toast(name, at, null, 'above');
   if (window.Tut) Tut.fire('equip:' + id);
 }
