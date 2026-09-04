@@ -43,6 +43,22 @@ function launchOpts() {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.Avatar && !!window.GameData);
 
+  // ─── 그림 상자가 넓어져도 검사의 좌표는 «그대로» ────────────────
+  //
+  // ⚠️ 아바타의 `viewBox` 는 이제 `-14 0 228 348` 이다 (`avatar.js` 의 `VB`).
+  // 여기 검사들은 스무 개 넘게 **「캔버스 x/S 가 곧 svg x」** 를 전제로 적혀 있어서,
+  // 그냥 그리면 좌표가 통째로 어긋난다 (중심이 100 이 아니라 114 가 된다).
+  // 그래서 **왼쪽으로 밀어 그린다** — 캔버스의 0..200 이 예전과 같은 자리를 가리키고
+  // 상자 양옆에 열린 14px 은 캔버스 밖으로 나간다. 검사 본문은 한 줄도 안 고쳤다.
+  // (「그림 상자」 검사만은 그 14px 까지 봐야 하므로 제 캔버스를 따로 잡는다)
+  await page.evaluate(() => {
+    window.__drawAvatar = (ctx, img, w, h) => {
+      const vb = window.Avatar.bodyMetrics(0).vb;
+      const k = w / 200;                 // 검사기는 «200 폭» 좌표로 잰다
+      ctx.drawImage(img, vb.x * k, 0, vb.w * k, h);
+    };
+  });
+
   const res = await page.evaluate(async () => {
     const D = window.GameData, SKIN = [255, 220, 196];
     const STEPS = [0, 0.25, 0.5, 0.75, 1];      // 체형 5단계
@@ -93,7 +109,7 @@ function launchOpts() {
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
       });
       ctx.clearRect(0, 0, 200, 348);
-      ctx.drawImage(img, 0, 0, 200, 348);
+      __drawAvatar(ctx, img, 200, 348);
       const d = ctx.getImageData(x0, y0, x1 - x0, y1 - y0).data;
       let n = 0;
       for (let i = 0; i < d.length; i += 4) {
@@ -215,7 +231,7 @@ function launchOpts() {
     const countMark = async (svg, bx) => {
       const img = new Image();
       await new Promise(ok => { img.onload = ok; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-      ctx.clearRect(0, 0, 200, 348); ctx.drawImage(img, 0, 0, 200, 348);
+      ctx.clearRect(0, 0, 200, 348); __drawAvatar(ctx, img, 200, 348);
       const d = ctx.getImageData(bx[0], bx[2], bx[1] - bx[0], bx[3] - bx[2]).data;
       let n = 0;
       for (let i = 0; i < d.length; i += 4) {
@@ -299,7 +315,7 @@ function launchOpts() {
     const ctx = cv.getContext('2d');
     const draw = (svg) => new Promise(res => {
       const img = new Image();
-      img.onload = () => { ctx.clearRect(0, 0, 200, 348); ctx.drawImage(img, 0, 0, 200, 348); res(); };
+      img.onload = () => { ctx.clearRect(0, 0, 200, 348); __drawAvatar(ctx, img, 200, 348); res(); };
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     });
     return (async () => {
@@ -536,7 +552,7 @@ function launchOpts() {
     const ctx = cv.getContext('2d');
     const draw = (svg) => new Promise(r => {
       const i = new Image();
-      i.onload = () => { ctx.clearRect(0, 0, 200, 348); ctx.drawImage(i, 0, 0, 200, 348); r(); };
+      i.onload = () => { ctx.clearRect(0, 0, 200, 348); __drawAvatar(ctx, i, 200, 348); r(); };
       i.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     });
     const nude = Object.assign({}, D.DEFAULT_OUTFIT,
@@ -663,7 +679,7 @@ function launchOpts() {
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
       });
       ctx.clearRect(0, 0, 200 * S, 348 * S);
-      ctx.drawImage(img, 0, 0, 200 * S, 348 * S);
+      __drawAvatar(ctx, img, 200 * S, 348 * S);
       return ctx.getImageData(0, 0, 200 * S, 348 * S).data;
     }
     const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
@@ -794,7 +810,7 @@ function launchOpts() {
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
       });
       ctx.clearRect(0, 0, 200 * S, 348 * S);
-      ctx.drawImage(img, 0, 0, 200 * S, 348 * S);
+      __drawAvatar(ctx, img, 200 * S, 348 * S);
       return ctx.getImageData(0, 0, 200 * S, 348 * S).data;
     }
     const edgeR = (d, y) => {
@@ -872,7 +888,7 @@ function launchOpts() {
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sil(t));
       });
       ctx.clearRect(0, 0, 200 * S, 348 * S);
-      ctx.drawImage(img, 0, 0, 200 * S, 348 * S);
+      __drawAvatar(ctx, img, 200 * S, 348 * S);
       const d = ctx.getImageData(0, 0, 200 * S, 348 * S).data;
       const e = [];
       for (let y = 150; y <= 222; y++) {
@@ -921,7 +937,7 @@ function launchOpts() {
           + encodeURIComponent(window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, t));
       });
       ctx.clearRect(0, 0, W, 348 * S);
-      ctx.drawImage(img, 0, 0, W, 348 * S);
+      __drawAvatar(ctx, img, W, 348 * S);
       const d = ctx.getImageData(0, 0, W, 348 * S).data;
       // **가운데(x=100)에서 양옆으로** 첫 살까지가 다리 사이 틈이다.
       // 창을 통째로 세면 다리 **바깥**의 배경까지 들어가 가늘게 만들수록 커진다
@@ -1006,7 +1022,7 @@ function launchOpts() {
       const img = new Image();
       await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-      ctx.clearRect(0, 0, W, 348 * S); ctx.drawImage(img, 0, 0, W, 348 * S);
+      ctx.clearRect(0, 0, W, 348 * S); __drawAvatar(ctx, img, W, 348 * S);
       return ctx.getImageData(0, 0, W, 348 * S).data;
     }
     // 오른팔의 **바깥 변**. 안쪽은 그늘(ARM_SHADE)이 2.5px 더 나와 있어 폭으로 재면
@@ -1199,7 +1215,7 @@ function launchOpts() {
   // 허벅지가 실제로는 더 굵다는 것이 드러났고, 그것을 덮는 엉덩이가 그림 상자
   // 밖으로 나갔다 — `TUNE_GAIN.thigh/calf` 를 0.95 → 0.87 로 낮춰 되돌렸다.
   // 엉덩이(0.27 → 0.5)는 반대로 올렸다 (슬라이더 100%↔125% 가 붙어 버려서).
-  const FAT_MAX = { 허벅지: [2, 1.82], 엉덩이: [1.5, 1.19], 종아리: [2, 1.82] };
+  const FAT_MAX = { 허벅지: [2, 1.90], 엉덩이: [1.5, 1.19], 종아리: [2, 1.89] };
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
@@ -1216,7 +1232,7 @@ function launchOpts() {
       const img = new Image();
       await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-      ctx.clearRect(0, 0, W, 348 * S); ctx.drawImage(img, 0, 0, W, 348 * S);
+      ctx.clearRect(0, 0, W, 348 * S); __drawAvatar(ctx, img, W, 348 * S);
       return ctx.getImageData(0, 0, W, 348 * S).data;
     }
     // 오른쪽 반의 **살 두께** = 바깥 변 − 안쪽 변 (가장 두꺼운 자리)
@@ -1283,7 +1299,12 @@ function launchOpts() {
   // (실제로 `TUNE_GAIN` 을 1.0 으로 올렸더니 64줄이 잘렸는데 다른 검사는 전부 통과였다).
   const BOX_MARGIN_MIN = 0.5;          // px. 상자 끝에 닿으면 잘린 것이다
   const box = await page.evaluate(async (min) => {
-    const D = window.GameData, S = 4, W = 200 * S, H = 348 * S;
+    // ⚠️ **이 검사만은 상자 «전체»를 본다.** 다른 검사들은 `__drawAvatar` 가
+    // 왼쪽으로 밀어 그려 0..200 만 보지만, 여기서는 넓혀 둔 14px 까지 봐야
+    // 「아직 여유가 있는가」를 알 수 있다. 그래서 제 캔버스를 따로 잡는다.
+    const D = window.GameData, S = 4, H = 348 * S;
+    const vb = window.Avatar.bodyMetrics(0).vb;
+    const W = Math.round(vb.w * S);
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
     const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
@@ -1296,19 +1317,21 @@ function launchOpts() {
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
     ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
     const d = ctx.getImageData(0, 0, W, H).data;
+    const right = vb.x + vb.w;                    // 상자의 오른쪽 끝 (svg 좌표)
     let widest = 0, cut = 0;
     for (let y = 0; y < H; y++) for (let x = W - 1; x >= 0; x--)
       if (d[((y * W) + x) * 4 + 3] > 128) {
-        if (x / S > widest) widest = x / S;
+        const sx = x / S + vb.x;                  // 캔버스 x → svg x
+        if (sx > widest) widest = sx;
         if (x >= W - 2) cut++;
         break;
       }
-    const room = +(200 - widest).toFixed(1);
-    return { widest: +widest.toFixed(1), room: room, cut: cut,
+    const room = +(right - widest).toFixed(1);
+    return { widest: +widest.toFixed(1), room: room, cut: cut, right: right,
              bad: cut > 0 || room < min
-               ? [`통통 최대 × 슬라이더 최대에서 몸이 오른쪽 ${widest.toFixed(1)}/200 까지 간다`
-                  + ` (여백 ${room}px · ${cut}줄이 잘렸다). 굵기를 더 키우려면 viewBox 를`
-                  + ` 「-12 0 224 342」 처럼 양옆으로 넓혀야 한다 (중심선 100 은 그대로 두고)`]
+               ? [`통통 최대 × 슬라이더 최대에서 몸이 오른쪽 ${widest.toFixed(1)}/${right} 까지 간다`
+                  + ` (여백 ${room}px · ${cut}줄이 잘렸다). 더 키우려면 avatar.js 의 `
+                  + `\`VB\` 를 넓힌다 (중심선 100 은 그대로 두고 양옆을 같이 연다)`]
                : [] };
   }, BOX_MARGIN_MIN);
 
@@ -1334,7 +1357,7 @@ function launchOpts() {
       const img = new Image();
       await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-      ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+      ctx.clearRect(0, 0, W, H); __drawAvatar(ctx, img, W, H);
       return ctx.getImageData(0, 0, W, H).data;
     }
     function keep(svg, sel) {
@@ -1398,7 +1421,7 @@ function launchOpts() {
     const img = new Image();
     await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-    ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+    ctx.clearRect(0, 0, W, H); __drawAvatar(ctx, img, W, H);
     const d = ctx.getImageData(0, 0, W, H).data;
     const on = (x, y) => d[(Math.round(y * S) * W + Math.round(x * S)) * 4 + 3] > 128;
     let worst = 0, at = 0;
@@ -1438,7 +1461,7 @@ function launchOpts() {
       const img = new Image();
       await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-      ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+      ctx.clearRect(0, 0, W, H); __drawAvatar(ctx, img, W, H);
       return ctx.getImageData(0, 0, W, H).data;
     }
     const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
@@ -1491,7 +1514,7 @@ function launchOpts() {
       const img = new Image();
       await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-      ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+      ctx.clearRect(0, 0, W, H); __drawAvatar(ctx, img, W, H);
       return ctx.getImageData(0, 0, W, H).data;
     }
     // 퍼프의 아래끝(BODY.armY 114 + 17 = 131)보다 «아래»에 몇 점이나 있는가
@@ -1536,7 +1559,7 @@ function launchOpts() {
       const img = new Image();
       await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-      ctx.clearRect(0, 0, W, 348 * S); ctx.drawImage(img, 0, 0, W, 348 * S);
+      ctx.clearRect(0, 0, W, 348 * S); __drawAvatar(ctx, img, W, 348 * S);
       return ctx.getImageData(0, 0, W, 348 * S).data;
     }
     const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
@@ -1616,7 +1639,7 @@ function launchOpts() {
       const img = new Image();
       await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-      ctx.clearRect(0, 0, W, 348 * S); ctx.drawImage(img, 0, 0, W, 348 * S);
+      ctx.clearRect(0, 0, W, 348 * S); __drawAvatar(ctx, img, W, 348 * S);
       return ctx.getImageData(0, 0, W, 348 * S).data;
     }
     const edge = (d, y) => {
@@ -1700,7 +1723,7 @@ function launchOpts() {
       const img = new Image();
       await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-      ctx.clearRect(0, 0, W, 348 * S); ctx.drawImage(img, 0, 0, W, 348 * S);
+      ctx.clearRect(0, 0, W, 348 * S); __drawAvatar(ctx, img, W, 348 * S);
       return ctx.getImageData(0, 0, W, 348 * S).data;
     }
     const edge = (d, y) => {
@@ -1773,7 +1796,7 @@ function launchOpts() {
           + encodeURIComponent(legsOnly(window.Avatar.build(outfit, 0, t)));
       });
       ctx.clearRect(0, 0, W, 348 * S);
-      ctx.drawImage(img, 0, 0, W, 348 * S);
+      __drawAvatar(ctx, img, W, 348 * S);
       const d = ctx.getImageData(0, 0, W, 348 * S).data;
       const out = [];
       for (let y = 216; y <= 330; y++) {
@@ -1836,7 +1859,7 @@ function launchOpts() {
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
       });
       ctx.clearRect(0, 0, W, 348 * S);
-      ctx.drawImage(img, 0, 0, W, 348 * S);
+      __drawAvatar(ctx, img, W, 348 * S);
       return ctx.getImageData(0, 0, W, 348 * S).data;
     }
     const isSkin = (d, i) => d[i + 3] > 250 && Math.abs(d[i] - SKIN[0]) <= 2
@@ -1921,7 +1944,7 @@ function launchOpts() {
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(root.outerHTML);
       });
       ctx.clearRect(0, 0, W, H);
-      ctx.drawImage(img, 0, 0, W, H);
+      __drawAvatar(ctx, img, W, H);
       return ctx.getImageData(0, 0, W, H).data;
     }
     // **바지 계열만** 본다 — 치마는 홈이 없다 (있으면 그게 버그다)
@@ -1980,7 +2003,7 @@ function launchOpts() {
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(root.outerHTML);
       });
       ctx.clearRect(0, 0, W, 348 * S);
-      ctx.drawImage(img, 0, 0, W, 348 * S);
+      __drawAvatar(ctx, img, W, 348 * S);
       const d = ctx.getImageData(0, 0, W, 348 * S).data;
       let gap = 0, at = 0;
       for (let y = 200; y <= 258; y++) {
@@ -2027,7 +2050,7 @@ function launchOpts() {
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
       });
       ctx.clearRect(0, 0, W, 348 * S);
-      ctx.drawImage(img, 0, 0, W, 348 * S);
+      __drawAvatar(ctx, img, W, 348 * S);
       return ctx.getImageData(0, 0, W, 348 * S).data;
     }
     const isSkin = (d, i) => d[i + 3] > 250 && Math.abs(d[i] - SKIN[0]) <= 2
@@ -2170,14 +2193,18 @@ function launchOpts() {
           const svg = document.querySelector('.char-body svg');
           if (!cre || !svg || !app) return { err: '크리처나 아바타가 안 그려졌다' };
           const cr = cre.getBoundingClientRect(), sr = svg.getBoundingClientRect();
+          // ⚠️ **viewBox 의 «시작점»을 빼야 한다.** 아바타 상자는 이제 x 가 −14 에서
+          // 시작한다(`avatar.js` 의 `VB`) — `bb.x * k` 로만 재면 그림이 12.6px 왼쪽에
+          // 있다고 착각해 멀쩡한 크리처가 「치마와 10.1px 겹친다」로 잡혔다
           const vb = svg.viewBox.baseVal, k = sr.width / vb.width;
+          const px = x => sr.left + (x - vb.x) * k;
           // 크리처 높이와 겹치는 그림 조각들의 **가장 왼쪽** (넉넉하게 — bbox 로 잡는다)
           let left = Infinity;
           svg.querySelectorAll('path,ellipse,circle,rect').forEach(n => {
             let bb; try { bb = n.getBBox(); } catch (e) { return; }
             if (!bb.width) return;
             if (sr.top + (bb.y + bb.height) * k < cr.top || sr.top + bb.y * k > cr.bottom) return;
-            left = Math.min(left, sr.left + bb.x * k);
+            left = Math.min(left, px(bb.x));
           });
           const over = cr.right - left;                             // + 면 겹쳤다
           const outL = app.getBoundingClientRect().left - cr.left;  // + 면 화면 밖으로 나갔다
@@ -2313,7 +2340,7 @@ function launchOpts() {
     + ` · 배율에 따른 흔들림 ${legInner.drift}px`);
   console.log(`엉덩이↔허벅지 틈: 배율 ${hipSeam.n}조합 — 가장 벌어진 곳 ${hipSeam.worst}px`
     + ` (${SEAM_GAP_MAX}px 까지 · 자락과 허벅지 사이로 배경이 비치면 안 된다)`);
-  console.log(`그림 상자: 통통 최대 × 슬라이더 최대에서 오른쪽 끝 ${box.widest}/200`
+  console.log(`그림 상자: 통통 최대 × 슬라이더 최대에서 오른쪽 끝 ${box.widest}/${box.right}`
     + ` · 여백 ${box.room}px · 잘린 줄 ${box.cut} (여백 ${BOX_MARGIN_MIN}px 이상 · 넘으면 viewBox 를 넓혀야 한다)`);
   console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
     + ` (굵어지면 안 된다 — 굵은 종아리에 가는 발목)`);

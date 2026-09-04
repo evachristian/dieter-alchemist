@@ -184,6 +184,23 @@
 
   // ─── 등신 비율 기준값 ───
   // 머리(머리카락 끝 ~ 턱) 높이와 몸(어깨 ~ 발) 길이. 이 둘의 비가 등신을 만든다.
+  // ─── 그림 상자 ─────────────────────────────────────────────
+  //
+  // ⚠️ **가로를 200 → 228 로 넓혔다.** 통통 최대는 몸이 가로로 1.36배가 되는데
+  // (`bodyScaleX`), 200 짜리 상자에서는 허벅지 하나가 폭의 90% 를 먹어 **엉덩이가
+  // 허벅지보다 넓어질 자리가 8px 밖에 없었다** — 「빌렌도르프의 비너스」 같은
+  // 난형 실루엣이 수학적으로 안 나오는 상태였다. 굵기를 조금만 키워도 상자에
+  // 잘려서, 그동안 늘 반대로 «허벅지를 깎아» 맞추고 있었다.
+  //
+  // ⚠️ **중심선 100 은 그대로 둔다.** 왼쪽으로 14 를 열어 두면 −14 ~ 214 라
+  // 100 이 정확히 한가운데다 — 모든 좌표·세이브·옷이 그대로 산다.
+  // 세로도 그대로다(348). 화면에서는 `.avatar-svg` 가 **높이로** 크기를 잡으므로
+  // 인물의 크기는 안 변하고 양옆에 여백만 생긴다.
+  //
+  // ⚠️ **검사기는 아직 «200 폭» 좌표로 잰다.** `checkavatar` 가 캔버스에 그릴 때
+  // 이 값만큼 왼쪽으로 밀어 그려서 캔버스의 0..200 이 예전과 같은 자리를 가리킨다
+  // (`__drawAvatar`). 그래서 스무 개 넘는 검사의 좌표를 하나도 안 고쳤다.
+  const VB = { x: -14, w: 228, h: 348 };
   const HEAD_H   = 84;    // 현재 아트의 머리 높이 (y 21 ~ 105)
   const BODY_SPAN = 229;  // 어깨(113) ~ 바닥(342)
   const FLOOR_Y  = 342;   // 발이 닿는 높이 (여기를 축으로 몸을 늘린다)
@@ -270,7 +287,7 @@
   // 「허벅지 윗머리를 덮어야 한다」는 바닥이 있는데, 위의 `thighOuterAt` 수정으로
   // 그 바닥이 올라가 **100% 와 125% 가 둘 다 40.3px** 이 됐다 — 슬라이더를
   // 한 칸 밀어도 몸이 하나도 안 변한다. 몫을 키워 바닥 위로 다시 띄웠다.
-  const TUNE_GAIN = { thigh: 0.835, hip: 0.62, calf: 0.835 };
+  const TUNE_GAIN = { thigh: 0.92, hip: 0.62, calf: 0.92 };
   function fatOf(tune, k) {
     const v = tuneOf(tune, k), g = TUNE_GAIN[k];
     return (g == null || v <= 1) ? v : 1 + (v - 1) * g;
@@ -757,12 +774,13 @@
     if (y >= y1) return kx;
     // limbPath(허벅지) 와 **같은** 제어점 높이 — 비대칭이다
     const ha = (y1 - y0) * THIGH_C[0], hb = (y1 - y0) * THIGH_C[1];
+    const bx = kx + (top - kx) * thighBul(tune);             // 셋째 제어점의 x (바깥으로)
     const yAt = t => { const u = 1 - t;
       return u * u * u * y0 + 3 * u * u * t * (y0 + ha) + 3 * u * t * t * (y1 - hb) + t * t * t * y1; };
     let lo = 0, hi = 1;                              // y(t) 는 단조로우므로 이분법으로 푼다
     for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (yAt(m) < y) lo = m; else hi = m; }
     const t = (lo + hi) / 2, u = 1 - t;
-    return top * (u * u * u + 3 * u * u * t) + kx * (3 * u * t * t + t * t * t);
+    return top * (u * u * u + 3 * u * u * t) + bx * (3 * u * t * t) + kx * (t * t * t);
   }
   // 가장 굵은 곳 (엉덩이 바로 밑) — 기본값이면 122
   const thighOuter = tune => thighOuterAt(tune, LEG.hipY);
@@ -800,10 +818,18 @@
   // 죽는다. 엉덩이가 허리보다 좁은 몸은 실제로 있다(사과형). 다만 아주 좁으면
   // 허리에서 골반까지 34px 만에 떨어뜨려야 해서 **쐐기**가 되므로 선은 그어 둔다.
   const HIP_WAIST_MIN = 0.75;
+  // ⚠️ **엉덩이는 허벅지보다 «넓어야» 한다** — 「빌렌도르프의 비너스」처럼 옆선이
+  // 하나의 난형이 되려면 그렇다. 예전에는 `thighOuter` 를 **바닥으로만** 삼아서,
+  // 허벅지를 키우면 엉덩이가 딱 그만큼만 따라왔다 — 재어 보니 허리(67.5)에서
+  // 봉우리(73)까지 **33줄에 5.5px** 밖에 안 벌어져 옆선이 «평평한 면»이었고,
+  // 그 위아래 끝이 「뾰족하다」로 신고받은 자리다.
+  // 100% 를 넘는 만큼만 얹는다 — 가는 다리는 지금 그대로다.
+  const HIP_OVER = 0.14;
+  const hipOverK = tune => 1 + HIP_OVER * Math.max(0, Math.min(1, tuneOf(tune, 'thigh') - 1));
   const hipBaseHalf = tune => Math.max(
     BODY.hipHalf * fatOf(tune, 'hip'),
     waistHalf(tune) * tuneOf(tune, 'torso') * HIP_WAIST_MIN,
-    thighOuter(tune));
+    thighOuter(tune) * hipOverK(tune));
   const clothHipHalf = tune => hipHalf(tune) + CLOTH_PAD;
 
   // ─── 엉덩이는 아래로 처진다 ─────────────────────────────────
@@ -894,7 +920,7 @@
   const HIP_C = [0.32, 0.64];
   const HIP_B_LO = 0.35, HIP_B_HI = 0.5;   // 마디의 어느 구간까지 재는가
   const HIP_COVER_PAD = 0.6;               // 딱 맞추면 반올림·계단 탓에 반 픽셀이 남는다
-  const HIP_SPREAD_MAX = 4.6;              // 얹을 수 있는 폭의 한계 (px)
+  const HIP_SPREAD_MAX = 10;               // 얹을 수 있는 폭의 한계 (px)
   function hipNeedHalf(tune, half, HY1, HY2, BY) {
     const w = waistHalf(tune) * tuneOf(tune, 'torso');
     const WY = BODY.waistY, HY = HY1;
@@ -1059,7 +1085,19 @@
   // 실제 다리는 **엉덩이 밑에서 빨리 빠지고 무릎으로는 완만히** 붙는다.
   //   앞(위) 값이 작을수록 윗머리를 빨리 떠나고, 뒤(아래) 값이 클수록 무릎에 일찍
   //   나란해진다. 둘의 합이 1 을 넘으면 곡선이 스스로를 넘어가니 그 밑으로 둔다.
-  const THIGH_C = [0.38, 0.62];
+  const THIGH_C = [0.34, 0.66];
+  // ─── 굵어질수록 옆선이 «볼록»해진다 ───────────────────────
+  //
+  // ⚠️ **늘 같은 모양으로 두면 안 된다.** 셋째 제어점을 끝점(무릎)의 x 에 두면
+  // 옆선이 위는 볼록 · 아래는 «오목»한 S 가 된다. 가는 다리에서는 그게 맞지만
+  // **굵은 다리에서는 종아리 옆으로 꼬리가 늘어져 뾰족해 보인다** —
+  // 그 제어점을 바깥으로 물리면 옆선이 통째로 **볼록한 덩어리**가 된다.
+  //
+  // ⚠️ **100% 이하는 건드리지 않는다** (가는 다리까지 부풀리면 통나무가 된다).
+  // 배율이 100% 를 «넘는 만큼»만 태운다 — 100% 0 → 200% THIGH_BULGE.
+  const THIGH_BULGE = 0.8;
+  const thighBul = tune => THIGH_BULGE * Math.max(0, Math.min(1, tuneOf(tune, 'thigh') - 1));
+  const thighC = tune => [THIGH_C[0], THIGH_C[1], thighBul(tune)];
   const KNEE_THIGH = LEG.kneeX / (THIGH_GAP + LEG.hipW);      // 0.447 — 기본 그림의 비율
   // ⚠️ **종아리 상한을 「장딴지의 85%」로 못 박아 두면 안 된다.** 허벅지만 200% 로
   // 올렸을 때 윗머리는 61.5 인데 무릎이 17 에 묶여 **다리가 막대기로 끝났다.**
@@ -1170,7 +1208,7 @@
   //   s 오른쪽이면 +1 · pts [[y, 중심선에서 잰 바깥 거리], ...] 위→아래
   //   (안쪽 변은 innerX 가 정한다)
   function limbPath(s, pts, c) {
-    const ca = (c && c[0]) || LIMB_C, cb = (c && c[1]) || LIMB_C;
+    const ca = (c && c[0]) || LIMB_C, cb = (c && c[1]) || LIMB_C, bul = (c && c[2]) || 0;
     const X = n => +(100 + s * n).toFixed(2);
     const a = pts[0], z = pts[pts.length - 1];
     // 마개는 폭의 절반을 못 넘는다 (안쪽 변이 y 마다 다르므로 그 자리의 폭으로 잰다)
@@ -1184,7 +1222,8 @@
       const y1 = i === pts.length - 1 ? q[0] - r1 : q[0];
       // thighOuterAt 와 **같은** 값이어야 한다 (허벅지는 비대칭이다)
       const ha = (y1 - y0) * ca, hb = (y1 - y0) * cb;
-      d += ` C${X(p[1])},${(y0 + ha).toFixed(1)} ${X(q[1])},${(y1 - hb).toFixed(1)} ${X(q[1])},${y1.toFixed(1)}`;
+      const bx = q[1] + (p[1] - q[1]) * bul;                 // thighOuterAt 와 **같은** 값
+      d += ` C${X(p[1])},${(y0 + ha).toFixed(1)} ${X(bx)},${(y1 - hb).toFixed(1)} ${X(q[1])},${y1.toFixed(1)}`;
     }
     d += ` Q${X(z[1])},${z[0]} ${X(z[1] - r1)},${z[0]} L${iBot},${z[0]}`;
     // 안쪽 변을 **아래에서 위로** 되짚어 올라간다 (바깥과 같은 세로 접선)
@@ -1214,8 +1253,8 @@
       <ellipse cx="${fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
       <ellipse cx="${200 - fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
       <g data-part="thigh">
-        ${limbPath(-1, thigh, THIGH_C)}
-        ${limbPath(1, thigh, THIGH_C)}
+        ${limbPath(-1, thigh, thighC(tune))}
+        ${limbPath(1, thigh, thighC(tune))}
       </g>`;
   }
 
@@ -2694,7 +2733,7 @@
       H(renderCirclet(pick('circlet', outfit.circlet))),
     ];
 
-    return `<svg class="avatar-svg" viewBox="0 0 200 348" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="내 아바타">
+    return `<svg class="avatar-svg" viewBox="${VB.x} 0 ${VB.w} ${VB.h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="내 아바타">
       <defs>${neckDefs(uid)}</defs>
       <ellipse cx="100" cy="342" rx="${(52 * (1 + 0.18 * w)).toFixed(1)}" ry="8" fill="rgba(120,90,110,0.14)"/>
       ${layers.join('')}
@@ -3047,7 +3086,7 @@
     const head = HEAD_H * lerpN(HEAD_K_SLIM, HEAD_K_FAT, w);
     const ky = 1 + (HEAD_H - head) / BODY_SPAN;
     return { w: w, kx: bodyScaleX(w), ky: ky, head: head, floorY: FLOOR_Y,
-             dy: BODY_SPAN * (1 - ky) };
+             dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, w: VB.w, h: VB.h } };
   }
   window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y,
     partRatio, bodyScaleX, bodyMetrics,
