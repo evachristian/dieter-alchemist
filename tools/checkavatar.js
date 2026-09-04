@@ -138,7 +138,7 @@ function launchOpts() {
     // 반대쪽도 같은 자리다 — 허벅지를 키우면 그 배율이 **어깨까지** 먹어 몸판이 두 배가 됐다.
     const TUNES = [['기본', null],
                    ['몸통 50', { torso: 0.5 }], ['몸통 150', { torso: 1.5 }],
-                   ['허벅지 200', { thigh: 2 }], ['종아리 200', { calf: 2 }],
+                   ['허벅지 150', { thigh: 1.5 }], ['종아리 150', { calf: 1.5 }],
                    ['몸통 50 팔 50', { torso: 0.5, arm: 0.5 }],
                    ['허리 50', { waist: 0.5 }], ['엉덩이 20', { hip: 0.2 }]];
     const bad = [];
@@ -732,7 +732,7 @@ function launchOpts() {
       return null;
     };
     const beaks = [];
-    for (const kt of [0.5, 0.75, 1, 1.5, 2]) for (const ka of [0.5, 0.75, 1, 1.5, 2]) {
+    for (const kt of [0.5, 0.75, 1, 1.25, 1.5]) for (const ka of [0.5, 0.75, 1, 1.25, 1.5]) {
       const svg = window.Avatar.build(outfit, 0, { torso: kt, arm: ka });
       const dBody = await pixels(keepOnly(svg, 'body'));    // 몸통 + 목 + 엉덩이
       const dArm = await pixels(keepOnly(svg, 'arm'));
@@ -831,7 +831,7 @@ function launchOpts() {
     // 150% 에서 두 배로 굵어지자(19.5 → 38.8px) 1.0px 이 나와 걸렸다 —
     // 그런데 **폭 대비로는 2.6% 로 예전과 똑같다.** 사람 눈에 보이는 것은 절대값이
     // 아니라 그 비율이므로, 굵은 팔에는 그만큼 넉넉하게 잰다.
-    for (const ka of [0.5, 0.75, 1, 1.5, 2]) {
+    for (const ka of [0.5, 0.75, 1, 1.25, 1.5]) {
       const d = await pixels(keepArm(window.Avatar.build(outfit, 0, { arm: ka })));
       for (const side of ['R', 'L']) {
         const ed = side === 'R' ? edgeR : edgeL;
@@ -887,7 +887,7 @@ function launchOpts() {
       ['몸통 150 엉덩이 60', { torso: 1.5, hip: 0.6 }],
       // 엉덩이 하한(20%) — 예전에는 허벅지가 하한 노릇을 해서 **여기까지 와도
       // 그림이 안 바뀌었다.** 아무것도 안 변하는 그림을 재고 있으니 늘 통과였다
-      ['엉덩이 20', { hip: 0.2 }], ['엉덩이 20 허벅지 200', { hip: 0.2, thigh: 2 }]];
+      ['엉덩이 20', { hip: 0.2 }], ['엉덩이 20 허벅지 150', { hip: 0.2, thigh: 1.5 }]];
     let worst = 0;
     for (const [n, t] of combos) {
       const img = new Image();
@@ -970,7 +970,7 @@ function launchOpts() {
     const YS = [240, 250, 300];            // 허벅지 · 무릎 · 종아리
     const r0 = await gapAt({}, YS);
     const base = r0.gaps, out = [];
-    for (const k of [0.4, 0.6, 0.8, 1.2, 1.6, 2]) {
+    for (const k of [0.4, 0.6, 0.8, 1.0, 1.25, 1.5]) {
       const r = await gapAt({ thigh: k, calf: k }, YS);
       out.push({ k, g: r.gaps, ankle: r.ankle });
       for (let i = 0; i < YS.length; i++) {
@@ -1175,7 +1175,7 @@ function launchOpts() {
     // 그래서 **손 마스크가 팔 마스크와 실제로 겹치는지** 센다. 자리를 견주는 것보다
     // 이쪽이 낫다 — 어느 값을 빼먹든(회전축이든 기준선이든) 결과가 어긋나면 잡힌다.
     // ⚠️ `[data-part="arm"]` 안에 손이 **들어 있다** — 안 지우면 늘 100% 로 나온다
-    for (const kt of [0.5, 0.75, 1, 1.25, 1.5]) for (const ka of [0.5, 1, 2]) {
+    for (const kt of [0.5, 0.75, 1, 1.25, 1.5]) for (const ka of [0.5, 1, 1.5]) {
       const svg2 = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0,
         { torso: kt, arm: ka });
       const wrap = document.createElement('div');
@@ -1202,6 +1202,98 @@ function launchOpts() {
   }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, bulgeMax: HAND_BULGE_MAX,
        keep: HAND_KEEP, touch: HAND_TOUCH, lines: SLEEVE_OUTLINE_MIN });
 
+  // ─── 소매 밑에서 팔이 «턱»지지 않는가 ────────────────────────
+  //
+  // 팔은 몸통과 같은 층에 있어 **옷보다 뒤**다. 그래서 `armsOverSkirt` 가 아래쪽을
+  // 다시 찍어 앞으로 꺼내는데, 그 시작을 **허리**에 두고 있었다.
+  // 몸판의 옆선은 허리에서 x 133 이고 팔의 안쪽 변은 126 이라, 소매가 끝난 뒤에도
+  // 허리까지 **여섯 줄은 팔이 옷 뒤에 남았다** — 소매 밑에서 팔이 8px 씩 잘려
+  // 화면에서는 **옷이 팔을 파고든 것**처럼 보인다 (그렇게 신고받았다).
+  // 짧은 소매 열한 벌이 전부 그랬고, 캡 소매(dress_maxi)는 스물넷 줄이었다.
+  //
+  // ⚠️ **`checkUI` 도 커버리지 검사도 이것을 못 잡는다.** 살이 옷 «밖으로» 나온 것도
+  // 아니고 색 대비 문제도 아니다 — 옷과 팔의 **층 순서**가 한 구간만 뒤집힌 것이라
+  // 실루엣을 줄마다 재야 보인다.
+  //
+  // 재는 법 — 팔 마스크에서 그 줄의 **안쪽 변·바깥쪽 변**을 정확히 얻은 다음,
+  // 입은 그림에서 줄마다 셋 중 하나로 가른다:
+  //   ㆍ다 보임  안쪽 변까지 살색이다 (소매 밑의 맨팔)
+  //   ㆍ다 가림  바깥쪽 변도 옷이다 (소매 안)
+  //   ㆍ**반만**  바깥은 살색인데 안쪽이 옷이다 ← 이것이 「파고듦」이다
+  // 소매 끝의 둥근 마개도 한두 줄은 «반만»이 되므로 **연속 길이**로 본다.
+  const ARM_HALF_RUN_MAX = 3;
+  const sleeveStep = await page.evaluate(async (o) => {
+    const D = window.GameData, bad = [], S = 4, W = 200 * S, H = 348 * S;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    function keep(svg, sel) {
+      const wrap = document.createElement('div'); wrap.innerHTML = svg;
+      const root = wrap.firstElementChild; const only = root.cloneNode(false);
+      [...root.querySelectorAll(sel)].forEach(n => only.appendChild(n.cloneNode(true)));
+      return only.outerHTML;
+    }
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      ctx.clearRect(0, 0, W, H); __drawAvatar(ctx, img, W, H);
+      return ctx.getImageData(0, 0, W, H).data;
+    }
+    const isSkin = (d, i) => d[i + 3] > 128 && d[i] > 230 && d[i + 1] > 180
+                          && d[i + 1] < 230 && d[i + 2] < 200;
+    const solid = (d, x, y) => d[((Math.round(y * S) * W) + Math.round(x * S)) * 4 + 3] > 128;
+    const skinAt = (d, x, y) => isSkin(d, ((Math.round(y * S) * W) + Math.round(x * S)) * 4);
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    // 팔 마스크 — 옷과 무관하게 팔이 «원래» 어디 있는지
+    const armMask = await px(keep(
+      window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, null),
+      '[data-part="arm"]'));
+    // ⚠️ **배열로 담는다.** 처음에 `{[y]: …}` 로 담았더니 `Object.keys` 가
+    // **정수 같은 키를 먼저** 돌려줘서(120,121,… 다음에 120.5,121.5,…) 줄 순서가
+    // 뒤섞였다 — 연속 길이가 반토막 나서 여섯 줄짜리 파고듦이 「3줄」로 통과했다.
+    const edges = [];
+    for (let y = 120; y <= 210; y += 0.5) {
+      let hi = null, lo = null;
+      for (let x = 101; x <= 190; x += 0.25) {
+        if (solid(armMask, x, y)) { if (lo == null) lo = x; hi = x; }
+      }
+      if (lo != null && hi - lo > 3) edges.push([y, lo, hi]);   // 오른팔의 안쪽·바깥쪽 변
+    }
+    // 소매가 있는 옷만 본다 — 민소매는 소매 끝이 곧 어깨라 이 규칙이 없다
+    const wears = [];
+    (D.WARDROBE.dress || []).forEach(it => {
+      if (it.kind !== 'none' && it.sleeve !== 'none') wears.push([it.id, { dress: it.id }]);
+    });
+    (D.WARDROBE.top || []).forEach(it => {
+      if (it.kind !== 'none' && it.sleeve !== 'none') {
+        wears.push([it.id, { top: it.id, bottom: 'bottom_longskirt' }]);
+      }
+    });
+    let worst = 0, at = '-';
+    for (const [name, wear] of wears) {
+      const d = await px(window.Avatar.build(
+        Object.assign({}, D.DEFAULT_OUTFIT, bare, wear), 0, null));
+      let run = 0, best = 0, from = 0, bestFrom = 0;
+      for (const [y, lo, hi] of edges) {
+        const inSkin = skinAt(d, lo + 1.5, y);        // 안쪽 변이 살색인가
+        const outSkin = skinAt(d, hi - 1.5, y);       // 바깥쪽 변이 살색인가
+        if (!inSkin && outSkin) {                     // 반만 보인다
+          if (run === 0) from = y;
+          run += 0.5;
+          if (run > best) { best = run; bestFrom = from; }
+        } else run = 0;
+      }
+      if (best > worst) { worst = best; at = `${name} (y≈${bestFrom})`; }
+      if (best > o.max) {
+        bad.push(`${name}: y≈${bestFrom} 부터 ${best}줄 동안 팔의 «바깥쪽만» 보인다`
+          + ` (${o.max}줄까지) — 소매가 끝났는데도 팔의 안쪽이 옷 뒤에 남아`
+          + ` «옷이 팔을 파고든» 것처럼 보인다`);
+      }
+    }
+    return { bad: bad, n: wears.length, worst: worst, at: at };
+  }, { max: ARM_HALF_RUN_MAX });
+
   // ─── 슬라이더를 끝까지 밀었을 때의 두께가 정해진 값인가 ──────
   //
   // 슬라이더의 상한은 **부위마다 다르고**(game.js 의 `TUNE_PARTS`), 같은 배율이라도
@@ -1226,7 +1318,10 @@ function launchOpts() {
   // ⚠️ 엉덩이가 1.19 → **1.12** 로 내려왔다 — 「최대일 때 좌우로 튀어나온 부분을
   // 20% 작게」 (`TUNE_GAIN.hip` 0.62 → 0.42 · `HIP_OVER` 0.14 → 0.10).
   // **이 표는 의도를 적어 두는 자리다** — 의도가 바뀌면 여기도 같이 바꾼다.
-  const FAT_MAX = { 허벅지: [2, 1.90], 엉덩이: [1.5, 1.12], 종아리: [2, 1.89] };
+  // ⚠️ 허벅지·종아리의 상한이 **200 → 150 으로 내려왔다**(`game.js` 의 `TUNE_PARTS`) —
+  // 재는 자리도 같이 내린다. **닿을 수 없는 자리를 지키면 정작 쓰는 구간이 죽어 있어도
+  // 통과**라는, 예전에 엉덩이에서 겪은 그 함정이다.
+  const FAT_MAX = { 허벅지: [1.5, 1.45], 엉덩이: [1.5, 1.12], 종아리: [1.5, 1.45] };
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
@@ -1321,7 +1416,7 @@ function launchOpts() {
     const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
                    shoes: 'shoes_none', hair: 'hair_none' };
     // **가장 넓어지는 조합**으로 잰다 — 몸무게 최대 × 슬라이더 전부 최대
-    const t = { torso: 1.5, waist: 1.5, hip: 1.5, arm: 1.5, thigh: 2, calf: 2, face: 1.14 };
+    const t = { torso: 1.5, waist: 1.5, hip: 1.5, arm: 1.5, thigh: 1.5, calf: 1.5, face: 1.14 };
     const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 1, t);
     const img = new Image();
     await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
@@ -1565,8 +1660,8 @@ function launchOpts() {
 
   const SLIDER_SPAN_MIN = 8, SLIDER_STEP_MIN = 1;
   const SLIDER = [['엉덩이', 'hip', [0.2, 0.5, 0.8, 1, 1.25, 1.5], [190, 214], '[data-part="hip"]'],
-                  ['허벅지', 'thigh', [0.5, 0.8, 1, 1.5, 2], [200, 250], '[data-part="thigh"]'],
-                  ['종아리', 'calf', [0.5, 0.8, 1, 1.5, 2], [270, 300], '[data-part="calf"]']];
+                  ['허벅지', 'thigh', [0.5, 0.8, 1, 1.25, 1.5], [200, 250], '[data-part="thigh"]'],
+                  ['종아리', 'calf', [0.5, 0.8, 1, 1.25, 1.5], [270, 300], '[data-part="calf"]']];
   const slider = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], rows = [], S = 4, W = 200 * S;
     const cv = document.createElement('canvas');
@@ -1669,7 +1764,7 @@ function launchOpts() {
     const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
     const knees = {}, tops = {};
     let worst = 0, at = '', n = 0;
-    for (const kt of [0.5, 1, 1.5, 2]) for (const kc of [0.5, 1, 1.5, 2]) {
+    for (const kt of [0.5, 0.75, 1, 1.5]) for (const kc of [0.5, 0.75, 1, 1.5]) {
       const d = await px(legsOnly(window.Avatar.build(outfit, 0, { thigh: kt, calf: kc })));
       knees[kt + 'x' + kc] = edge(d, 263);            // LEG.kneeY
       tops[kt + 'x' + kc] = edge(d, 190);             // 허벅지 윗머리 (LEG.hipY=186 바로 아래)
@@ -1689,9 +1784,10 @@ function launchOpts() {
       }
     }
     // ② 살이 붙으면 무릎도 굵어진다
-    const grow = knees['2x2'] - knees['1x1'];
+    // ⚠️ 슬라이더 상한이 200 → 150 으로 내려와서 **재는 자리도 1.5x1.5** 다.
+    const grow = knees['1.5x1.5'] - knees['1x1'];
     if (!(grow >= o.knee)) {
-      bad.push(`허벅지·종아리를 200% 로 해도 무릎이 ${grow.toFixed(2)}px 밖에 안 굵어졌다`
+      bad.push(`허벅지·종아리를 150% 로 해도 무릎이 ${grow.toFixed(2)}px 밖에 안 굵어졌다`
         + ` (${o.knee}px 이상) — 무릎만 잘록한 모래시계가 된다`);
     }
     // ③ 굵어지는 **비율**도 허벅지를 따라간다 (허벅지 윗머리 대비 무릎의 몫)
@@ -1701,7 +1797,7 @@ function launchOpts() {
     };
     const base = share(1);
     const shares = {};
-    [0.5, 1.5, 2].forEach(k => {
+    [0.5, 0.75, 1, 1.5].forEach(k => {
       const s = share(k);
       shares[k] = s == null ? null : +s.toFixed(3);
       if (s != null && base != null && Math.abs(s - base) > o.ratio) {
@@ -1752,7 +1848,7 @@ function launchOpts() {
                    shoes: 'shoes_none', hair: 'hair_none' };
     const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
     let worst = 0, at = '', n = 0;
-    for (const kt of [0.5, 1, 1.5, 2]) for (const kh of [0.5, 1, 1.5, 2]) for (const kw of [0.5, 1, 2]) {
+    for (const kt of [0.5, 0.75, 1, 1.5]) for (const kh of [0.5, 0.75, 1, 1.5]) for (const kw of [0.5, 1, 1.5]) {
       const t = { thigh: kt, hip: kh, waist: kw };
       const svg = window.Avatar.build(outfit, 0, t);
       const dh = await px(keep(svg, '[data-part="hip"],[data-part="torso"]'));
@@ -1840,7 +1936,7 @@ function launchOpts() {
     }
     // ③ 배율을 타지 않는가
     let drift = 0, dat = 0, dk = 1;
-    for (const k of [0.5, 0.75, 1.5, 2]) {
+    for (const k of [0.5, 0.75, 1.25, 1.5]) {
       for (const key of ['thigh', 'calf']) {
         const e = await edges({ [key]: k });
         for (let i = 0; i < base.length; i++) {
@@ -1899,7 +1995,7 @@ function launchOpts() {
       ['엉덩이 180', { hip: 1.8 }], ['허벅지 180', { thigh: 1.8 }], ['엉덩이 180 허벅지 60', { hip: 1.8, thigh: 0.6 }],
       // 엉덩이가 좁으면 허벅지 윗머리도 같이 들어온다 — 하의가 그 좁아진 몸을
       // 그대로 따라오는지 본다 (하의도 `clothHipHalf` 로 같은 값을 읽는다)
-      ['엉덩이 20', { hip: 0.2 }], ['엉덩이 20 허벅지 200', { hip: 0.2, thigh: 2 }]];
+      ['엉덩이 20', { hip: 0.2 }], ['엉덩이 20 허벅지 150', { hip: 0.2, thigh: 1.5 }]];
     const bots = (D.WARDROBE.bottom || []).filter(x => x.kind !== 'none');
     let worst = 0, maskN = 0;
     for (const [tn, t] of tunes) {
@@ -1968,8 +2064,8 @@ function launchOpts() {
     const bots = (D.WARDROBE.bottom || []).filter(x => x.kind === 'shorts' || x.kind === 'pants');
     // 허벅지를 키우면 홈이 더 벌어지는지도 같이 본다 (배율은 틈에 안 태우기로 했지만,
     // 그 약속이 깨지면 여기서 먼저 드러난다)
-    const tunes = [['기본', {}], ['허벅지 200', { thigh: 2 }], ['허벅지 20', { thigh: 0.2 }],
-      ['엉덩이 180', { hip: 1.8 }], ['엉덩이 20 허벅지 200', { hip: 0.2, thigh: 2 }]];
+    const tunes = [['기본', {}], ['허벅지 150', { thigh: 1.5 }], ['허벅지 20', { thigh: 0.2 }],
+      ['엉덩이 180', { hip: 1.8 }], ['엉덩이 20 허벅지 150', { hip: 0.2, thigh: 1.5 }]];
     let worst = 0, worstAt = '';
     for (const [tn, t] of tunes) {
       for (const bo of bots) {
@@ -2008,7 +2104,7 @@ function launchOpts() {
     const combos = [['기본', {}], ['엉덩이 150', { hip: 1.5 }], ['엉덩이 180', { hip: 1.8 }],
       ['허리 50 엉덩이 150', { waist: 0.5, hip: 1.5 }], ['허벅지 60', { thigh: 0.6 }],
       ['허벅지 180', { thigh: 1.8 }], ['엉덩이 180 허벅지 60', { hip: 1.8, thigh: 0.6 }],
-      ['엉덩이 20', { hip: 0.2 }], ['엉덩이 20 허벅지 200', { hip: 0.2, thigh: 2 }]];
+      ['엉덩이 20', { hip: 0.2 }], ['엉덩이 20 허벅지 150', { hip: 0.2, thigh: 1.5 }]];
     for (const [n, t] of combos) {
       const wrap = document.createElement('div');
       wrap.innerHTML = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, t);
@@ -2289,6 +2385,7 @@ function launchOpts() {
     .concat(fat.bad.map(m => ({ id: '상한 두께', body: '-', where: m, n: '-' })))
     .concat(slider.bad.map(m => ({ id: '슬라이더', body: '-', where: m, n: '-' })))
     .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
+    .concat(sleeveStep.bad.map(m => ({ id: '소매 밑 팔', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })))
     .concat(puff.bad.map(m => ({ id: '퍼프 가시', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
@@ -2328,6 +2425,9 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px 이상 · 부푼 폭은 ${HAND_BULGE_MIN}~${HAND_BULGE_MAX}px)`);
+  console.log(`소매 밑 팔: 소매 있는 옷 ${sleeveStep.n}벌 — «바깥쪽만 보이는» 구간이`
+    + ` 가장 긴 곳 ${sleeveStep.worst}줄 (${sleeveStep.at} · ${ARM_HALF_RUN_MAX}줄까지`
+    + ` · 소매 끝부터 팔이 옷 앞으로 나와 있어야 한다)`);
   console.log(`소매 윤곽선: 공주 드레스 아랫팔 높이에서 옷보다 어두운 선 ${hand.outline}줄`
     + ` (${SLEEVE_OUTLINE_MIN}줄 이상 · 소매가 몸판과 같은 색이라 선이 유일한 구분이다)`);
   console.log(`손이 팔에 붙어 있는가: 팔 마스크와 겹치는 몫 — ${hand.touch.join(' · ')}`
@@ -2346,9 +2446,9 @@ function launchOpts() {
     + ` (칸마다 ${SLIDER_STEP_MIN}px · 전체 ${SLIDER_SPAN_MIN}px 이상 — 밀어도 안 변하면 안 된다)`);
   console.log(`다리 옆선: 허벅지×종아리 ${legLine.n}조합 — 가장 선 곳 ${legLine.worst}`
     + ` (${legLine.at} · ${LEG_SLOPE_MAX} 까지)`
-    + ` · 둘 다 200% 일 때 무릎이 ${legLine.grow}px 굵어진다 (${KNEE_GROW_MIN}px 이상)`);
+    + ` · 둘 다 150% 일 때 무릎이 ${legLine.grow}px 굵어진다 (${KNEE_GROW_MIN}px 이상)`);
   console.log(`무릎이 허벅지를 따라가는가: 허벅지 윗머리 대비 무릎 — 기본 ${legLine.base}`
-    + ` · 50% ${legLine.shares[0.5]} · 150% ${legLine.shares[1.5]} · 200% ${legLine.shares[2]}`
+    + ` · 50% ${legLine.shares[0.5]} · 75% ${legLine.shares[0.75]} · 150% ${legLine.shares[1.5]}`
     + ` (±${KNEE_RATIO_TOL} · 비율이 떨어지면 허벅지가 무릎으로 쏟아지는 깔때기가 된다)`);
   console.log(`허벅지 윗머리: 허벅지×엉덩이×허리 ${hipBulge.n}조합 — 엉덩이 밖으로 가장 나온 곳`
     + ` ${hipBulge.worst}px${hipBulge.worst ? ' · ' + hipBulge.at : ''} (${HIP_BULGE_MAX}px 까지)`);
