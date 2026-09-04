@@ -2797,7 +2797,21 @@
     const kBody = bodyShrink(kFace);
     // 몸이 바닥을 축으로 줄어든 만큼 **목이 내려온다** — 머리도 그만큼 따라 내려간다.
     // (NECK_Y − FLOOR_Y)가 음수라 kBody<1 이면 양수, 즉 «아래»로 간다
-    const headDrop = (NECK_Y - FLOOR_Y) * bodyKy * (kBody - 1);
+    //
+    // ⚠️ **얼굴을 키우면 목이 길어진다** — 머리는 목 이음점(`NECK_Y` 112)을 축으로
+    // 커지는데 턱은 그보다 «위»(머리 안에서 105)라, 키울수록 턱이 이음점 위로
+    // 올라가 그만큼 목이 드러난다. 재어 보면 얼굴 100% 12.7px → 150% **17.1px** 이다.
+    // 머리는 커지는데 목까지 길어지니 어른 몸에 큰 머리를 얹은 꼴이 됐다.
+    // 그래서 얼굴이 커진 만큼 머리를 **더 내려 앉힌다** — 턱이 어깨 쪽으로 내려와
+    // 150% 에서 목이 8px 안팎이 된다 (머리가 클수록 목이 짧은 편이 귀엽다).
+    // ⚠️ `chinY` 도 이 값을 지나므로 **목 자체의 길이도 같이 줄어든다** —
+    // 머리만 내리면 목이 어깨 안으로 파고들어 이음매가 어긋난다.
+    //
+    // ⚠️ **바닥을 둔다.** 통통한 몸은 등신 비율(`bodyKy`) 때문에 목이 이미 짧다
+    // (전부 최대 · 통통에서 11.1px). 거기에 9 를 그대로 빼면 **2.1px** 이 되어
+    // 턱이 어깨에 얹힌다 — 그래서 「내리려는 만큼」과 「내릴 수 있는 만큼」 중 작은 쪽만 쓴다.
+    const NECK_SINK = 9, NECK_MIN = 6;
+    const dropBody = (NECK_Y - FLOOR_Y) * bodyKy * (kBody - 1);
 
     // 몸: 가로로 통통하게 + 세로로 늘려 다리를 길게 (바닥을 축으로)
     const bodyT = `translate(100,${FLOOR_Y}) scale(${(bodyScaleX(w) * kBody).toFixed(3)},${(bodyKy * kBody).toFixed(3)}) translate(-100,${-FLOOR_Y})`;
@@ -2811,6 +2825,13 @@
     // 몸무게 쪽보다 몫을 작게 준다 — 몸통은 굵기만 바꾸지 등신을 안 바꾸기 때문이다.
     const lift = NECK_LIFT * (1 - NECK_FAT * w)
       + NECK_LIFT_TORSO * (1 - Math.min(1, tuneOf(tune, 'torso')));
+    // ⚠️ **`lift` 를 알고 나서야 잴 수 있다** — 목 길이 계산에 들어간다.
+    // 머리를 1 내리면 보이는 목이 정확히 1 줄어든다 (둘 다 같은 좌표계로 환산된다)
+    const kBodyY = bodyKy * kBody;
+    const neckLenAt = c => (BODY.torsoTopY + 1 - FLOOR_Y) * kBodyY + FLOOR_Y - c;
+    const chin0 = NECK_Y + (105 - NECK_Y) * headK * kFace + (dy - lift + dropBody);
+    const headDrop = dropBody + Math.min(NECK_SINK * overOf(tune, 'face'),
+      Math.max(0, neckLenAt(chin0) - NECK_MIN));
     const headT = `translate(0,${(dy - lift + headDrop).toFixed(2)}) translate(100,${NECK_Y}) `
       + `scale(${(headK * (1 + 0.06 * w)).toFixed(3)},${headK.toFixed(3)}) translate(-100,${-NECK_Y})`;
     // 체형이 0(날씬)이어도 등신 비율 때문에 변환이 필요하므로 항상 적용한다

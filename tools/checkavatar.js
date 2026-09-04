@@ -1210,6 +1210,57 @@ function launchOpts() {
   }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, bulgeMax: HAND_BULGE_MAX,
        keep: HAND_KEEP, touch: HAND_TOUCH, lines: SLEEVE_OUTLINE_MIN });
 
+  // ─── 얼굴이 커지면 목이 «짧아지는가» ─────────────────────────
+  //
+  // 머리는 목 이음점(`NECK_Y` 112)을 축으로 커지는데 턱은 그보다 «위»(105)에 있다 —
+  // 그래서 얼굴을 키우면 턱이 이음점 위로 올라가 **목이 오히려 길어졌다**
+  // (100% 12.7px → 150% 17.1px). 큰 머리에 긴 목이라 어른 몸에 얹은 꼴이었다.
+  // 지금은 커진 만큼 머리를 더 내려 앉힌다(`NECK_SINK`) — 얼굴이 커질수록 목이 짧다.
+  //
+  // 재는 법: **실제 DOM 에 넣고** 얼굴 타원의 아래끝과 몸통 윗선의 화면 y 를 잰다.
+  // 변환이 세 겹(몸·머리·얼굴 배율)이라 좌표를 손으로 풀면 그중 하나를 빼먹는다.
+  const NECK_MAX_AT_100 = 14;    // px. 얼굴 100% 의 목 길이 (여기서 더 길어지면 안 된다)
+  const NECK_MIN_PX = 3;         // 아무리 짧아져도 이만큼은 남아야 한다
+  const neckLen = await page.evaluate(async (o) => {
+    const D = window.GameData, bad = [], rows = [];
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px';
+    document.body.appendChild(box);
+    const len = (w, kf) => {
+      box.innerHTML = window.Avatar.build(outfit, w, { face: kf });
+      const svg = box.querySelector('svg'), sr = svg.getBoundingClientRect();
+      const vb = svg.viewBox.baseVal, k = sr.height / vb.height;
+      const y = px => (px - sr.top) / k + vb.y;
+      const head = svg.querySelector('[data-part="head"]').getBoundingClientRect();
+      const torso = svg.querySelector('[data-part="torso"]').getBoundingClientRect();
+      return +(y(torso.top) - y(head.bottom)).toFixed(1);
+    };
+    for (const w of [0, 1]) {
+      let prev = null;
+      for (const kf of [1, 1.15, 1.3, 1.5]) {
+        const n = len(w, kf);
+        if (w === 0) rows.push(`얼굴 ${Math.round(kf * 100)}% ${n}px`);
+        if (kf === 1 && n > o.max) {
+          bad.push(`체형 ${w} · 얼굴 100% 의 목이 ${n}px 다 (${o.max}px 까지)`);
+        }
+        if (prev != null && n > prev + 0.3) {
+          bad.push(`체형 ${w} · 얼굴 ${Math.round(kf * 100)}% 에서 목이 ${prev} → ${n}px 로`
+            + ` **길어졌다** — 머리를 키우면 목은 짧아져야 한다 (avatar.js 의 \`NECK_SINK\`)`);
+        }
+        if (n < o.min) {
+          bad.push(`체형 ${w} · 얼굴 ${Math.round(kf * 100)}% 의 목이 ${n}px 밖에 안 남았다`
+            + ` (${o.min}px 이상) — 턱이 어깨에 얹힌다`);
+        }
+        prev = n;
+      }
+    }
+    box.remove();
+    return { bad: bad, rows: rows };
+  }, { max: NECK_MAX_AT_100, min: NECK_MIN_PX });
+
   // ─── 소매 밑에서 팔이 «턱»지지 않는가 ────────────────────────
   //
   // 팔은 몸통과 같은 층에 있어 **옷보다 뒤**다. 그래서 `armsOverSkirt` 가 아래쪽을
@@ -2445,6 +2496,7 @@ function launchOpts() {
     .concat(slider.bad.map(m => ({ id: '슬라이더', body: '-', where: m, n: '-' })))
     .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
     .concat(sleeveStep.bad.map(m => ({ id: '소매 밑 팔', body: '-', where: m, n: '-' })))
+    .concat(neckLen.bad.map(m => ({ id: '목 길이', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })))
     .concat(puff.bad.map(m => ({ id: '퍼프 가시', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
@@ -2484,6 +2536,9 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px 이상 · 부푼 폭은 ${HAND_BULGE_MIN}~${HAND_BULGE_MAX}px)`);
+  console.log(`목 길이: 체형 0 — ${neckLen.rows.join(' · ')}`
+    + ` (얼굴 100% 는 ${NECK_MAX_AT_100}px 까지 · 얼굴이 커질수록 짧아져야 하고`
+    + ` ${NECK_MIN_PX}px 밑으로는 안 된다)`);
   console.log(`소매 밑 팔: 소매 있는 옷 ${sleeveStep.n}벌 — «바깥쪽만 보이는» 구간이`
     + ` 가장 긴 곳 ${sleeveStep.worst}줄 (${sleeveStep.at} · ${ARM_HALF_RUN_MAX}줄까지`
     + ` · 소매 끝부터 팔이 옷 앞으로 나와 있어야 한다)`);
