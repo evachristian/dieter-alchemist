@@ -317,12 +317,7 @@ function launchOpts() {
     const hr = probe.querySelector('[data-part="head"]').getBoundingClientRect();
     const faceTop = pvb.y + (hr.top - pr.top) * pk;
     probe.remove();
-    // ⚠️ **창을 여덟 줄에서 다섯 줄로 좁혔다.** 앞머리를 인트로 공주와 같은 호로
-    // 바꾸면서 밑단이 2.7px 올라갔는데(공주는 이마가 넓은 얼굴이다), 여덟 줄짜리
-    // 창의 «맨 아랫줄»이 그 이마를 물어 멀쩡한 앞머리가 「정수리에 살색 18px」로
-    // 잡혔다. 이 검사가 잡아야 할 것은 **정수리가 벗겨진 것**이지 이마가 아니다 —
-    // 벗겨지면 얼굴 꼭대기부터 살색이라 다섯 줄로도 그대로 걸린다
-    const CROWN_TOP = Math.round(faceTop - 1), CROWN_BOT = CROWN_TOP + 5;
+    const CROWN_TOP = Math.round(faceTop - 1), CROWN_BOT = CROWN_TOP + 8;
     const near = (r, g, b) => Math.abs(r - SKIN[0]) < 14 && Math.abs(g - SKIN[1]) < 14 && Math.abs(b - SKIN[2]) < 14;
     const cv = document.createElement('canvas'); cv.width = 200; cv.height = 348;
     const ctx = cv.getContext('2d');
