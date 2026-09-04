@@ -1515,7 +1515,7 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 @keyframes aura { 0%,100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.06); opacity: 1; } }
 .char-body { position: relative; z-index: 2; font-size: 0; line-height: 0; }
-.avatar-svg { height: 360px; width: auto; display: block; filter: drop-shadow(0 8px 12px rgba(180,140,160,0.28)); }
+.avatar-svg { height: 328px; width: auto; display: block; filter: drop-shadow(0 8px 12px rgba(180,140,160,0.28)); }
 
 /* ─── 살 빠지는 연출 (물약을 마셨을 때) ─── */
 /* 몸이 한 번 쏙 줄었다가 제자리로 — 단계가 내려갈 때만 */

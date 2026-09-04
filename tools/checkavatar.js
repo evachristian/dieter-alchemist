@@ -1450,10 +1450,19 @@ function launchOpts() {
     // 그 하나로 위쪽까지 재면 **올림머리가 잘리는 것을 못 본다** — 쪽이 더 높아
     // 얼굴 150% 에서 16px 을 더 먹는다 (그리고 얼굴 114% 시절에도 이미 8.3px
     // 잘리고 있었다. 아무도 안 재고 있었을 뿐이다)
-    let topY = null, cutTop = 0, topHair = '-';
+    // ⚠️ **얼굴 배율도 훑는다 — 최대가 최악이 아니다.** 115% 를 넘으면 몸이 줄면서
+    // 목이 내려와 머리도 같이 내려온다(`bodyShrink`) — 그래서 **제일 높이 올라가는
+    // 것은 딱 115%** 다. 150% 만 재면 12px 짜리 여유를 「넉넉하다」고 잘못 읽는다.
+    // 머리는 **뒷머리 종류마다 한 번씩**만 본다 (정수리를 정하는 것이 그쪽이다)
+    const kinds = new Set(), heads = [];
     for (const it of D.WARDROBE.hair) {
+      if (!kinds.has(it.back)) { kinds.add(it.back); heads.push(it.id); }
+    }
+    let topY = null, cutTop = 0, topHair = '-';
+    for (const id of heads) for (const kf of [1, 1.15, 1.3, 1.5]) for (const bw of [0, 1]) {
       const hs = window.Avatar.build(
-        Object.assign({}, D.DEFAULT_OUTFIT, bare, { hair: it.id }), 1, t);
+        Object.assign({}, D.DEFAULT_OUTFIT, bare, { hair: id }),
+        bw, Object.assign({}, t, { face: kf }));
       const hi = new Image();
       await new Promise((ok, no) => { hi.onload = ok; hi.onerror = no;
         hi.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(hs); });
@@ -1462,7 +1471,9 @@ function launchOpts() {
       let ty = null;
       for (let y = 0; y < H && ty == null; y++) for (let x = 0; x < W; x++)
         if (hd[((y * W) + x) * 4 + 3] > 128) { ty = y / S + vb.y; break; }
-      if (ty != null && (topY == null || ty < topY)) { topY = ty; topHair = it.id; }
+      if (ty != null && (topY == null || ty < topY)) {
+        topY = ty; topHair = `${id} · 얼굴 ${Math.round(kf * 100)}% · 체형 ${bw}`;
+      }
       for (let x = 0; x < W; x++) {
         if (hd[x * 4 + 3] > 128 || hd[(W + x) * 4 + 3] > 128) cutTop++;   // 맨 위 두 줄에 닿았다
       }
