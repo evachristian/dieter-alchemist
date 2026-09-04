@@ -827,21 +827,29 @@ function launchOpts() {
                    shoes: 'shoes_none', hair: 'hair_none' };
     const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
     const steps = [];
+    // ⚠️ **문턱은 팔 폭에 «비례»한다.** 붙박이 0.5px 로 두었더니, 팔에 몫을 붙여
+    // 150% 에서 두 배로 굵어지자(19.5 → 38.8px) 1.0px 이 나와 걸렸다 —
+    // 그런데 **폭 대비로는 2.6% 로 예전과 똑같다.** 사람 눈에 보이는 것은 절대값이
+    // 아니라 그 비율이므로, 굵은 팔에는 그만큼 넉넉하게 잰다.
     for (const ka of [0.5, 0.75, 1, 1.5, 2]) {
       const d = await pixels(keepArm(window.Avatar.build(outfit, 0, { arm: ka })));
       for (const side of ['R', 'L']) {
         const ed = side === 'R' ? edgeR : edgeL;
-        let step = 0, at = 0, prev = null;
+        let step = 0, at = 0, prev = null, wide = 0;
         for (let y = 150; y <= 195; y += 0.5) {
           const e = ed(d, y);
           if (e == null) { prev = null; continue; }
+          const other = (side === 'R' ? edgeL : edgeR)(d, y);
+          if (other != null) wide = Math.max(wide, Math.abs(e - other));
           if (prev != null && Math.abs(e - prev) > step) { step = Math.abs(e - prev); at = y; }
           prev = e;
         }
         steps.push(+step.toFixed(2));
-        if (step > MAX) {
+        const lim = Math.max(MAX, wide * 0.028);
+        if (step > lim) {
           bad.push(`팔 ${ka * 100}% ${side}: 팔꿈치 바깥 옆선이 ${step.toFixed(2)}px 튄다`
-            + ` (y≈${at}) — 두 마디의 이음매가 굽힘을 안 따라간다`);
+            + ` (y≈${at} · 팔 폭 ${wide.toFixed(1)}px 이라 ${lim.toFixed(2)}px 까지)`
+            + ` — 두 마디의 이음매가 굽힘을 안 따라간다`);
         }
       }
     }
@@ -1215,7 +1223,10 @@ function launchOpts() {
   // 허벅지가 실제로는 더 굵다는 것이 드러났고, 그것을 덮는 엉덩이가 그림 상자
   // 밖으로 나갔다 — `TUNE_GAIN.thigh/calf` 를 0.95 → 0.87 로 낮춰 되돌렸다.
   // 엉덩이(0.27 → 0.5)는 반대로 올렸다 (슬라이더 100%↔125% 가 붙어 버려서).
-  const FAT_MAX = { 허벅지: [2, 1.90], 엉덩이: [1.5, 1.19], 종아리: [2, 1.89] };
+  // ⚠️ 엉덩이가 1.19 → **1.12** 로 내려왔다 — 「최대일 때 좌우로 튀어나온 부분을
+  // 20% 작게」 (`TUNE_GAIN.hip` 0.62 → 0.42 · `HIP_OVER` 0.14 → 0.10).
+  // **이 표는 의도를 적어 두는 자리다** — 의도가 바뀌면 여기도 같이 바꾼다.
+  const FAT_MAX = { 허벅지: [2, 1.90], 엉덩이: [1.5, 1.12], 종아리: [2, 1.89] };
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
@@ -1481,7 +1492,13 @@ function launchOpts() {
       return +best.toFixed(1);
     }
     // 슬라이더를 «같이» 움직인다 — 사람이 실제로 하는 짓이다 (전부 최소 · 전부 최대)
-    for (const k of [0.5, 0.75, 1, 1.5, 2]) {
+    //
+    // ⚠️ **100% 를 넘는 자리는 안 본다.** 이 규칙은 「모든 파츠를 최소로 했더니 팔이
+    // 다리보다 두껍다」는 신고에서 나온 것이고, 그때 잡아야 할 것은 **가는 쪽**이었다.
+    // 굵은 쪽은 그 뒤에 「팔이 실처럼 남아 몸과 안 어울린다」고 해서 **일부러**
+    // 몫을 붙였다(`TUNE_GAIN.arm` · 150% 에서 두 배). 거기까지 이 규칙을 들이대면
+    // 사람이 고른 것을 검사가 되돌리라고 하는 셈이다.
+    for (const k of [0.5, 0.75, 1]) {
       const t = { arm: Math.min(k, 1.5), thigh: k, calf: k };
       const a = await thick('[data-part="arm"]', t, 130, 200);
       const c = await thick('[data-part="calf"]', t, 265, 300);

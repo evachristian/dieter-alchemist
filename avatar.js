@@ -287,7 +287,18 @@
   // 「허벅지 윗머리를 덮어야 한다」는 바닥이 있는데, 위의 `thighOuterAt` 수정으로
   // 그 바닥이 올라가 **100% 와 125% 가 둘 다 40.3px** 이 됐다 — 슬라이더를
   // 한 칸 밀어도 몸이 하나도 안 변한다. 몫을 키워 바닥 위로 다시 띄웠다.
-  const TUNE_GAIN = { thigh: 0.92, hip: 0.62, calf: 0.92 };
+  // ⚠️ **팔에도 몫을 붙였다** (`arm: 4.4`). 슬라이더 상한이 150% 뿐이라 그냥 곱하면
+  // 끝까지 올려도 «가는 막대»를 못 벗어난다 — 통통한 몸 옆에서 팔만 실처럼 남았다.
+  // 100% 를 넘는 만큼에만 4.4배로 얹어 **150% 에서 두께가 두 배**가 된다
+  // (19.5 → 38.8px · 1.99배). 「팔이 최대일 때 지금보다 두 배는 굵어야 밸런스가 맞다」.
+  // 100% 이하는 다른 부위와 마찬가지로 한 톨도 안 변한다.
+  //
+  // ⚠️ **엉덩이의 몫은 0.62 → 0.42 로 다시 내렸다** (「엉덩이 최대일 때 가장 좌우로
+  // 튀어나온 부분을 20% 정도 작아지게」). 재는 자리는 **총 반폭이 아니라 «허리 위로
+  // 튀어나온 몫»** 이다 — 총 반폭을 20% 깎으면 150% 가 100% 보다 좁아져
+  // (49.5 × 0.8 = 39.6 < 40.8) **슬라이더가 뒤집힌다.**
+  // 기본 몸 · 엉덩이 150% 에서 허리 30.0 · 봉우리 49.5 → **45.8** (몫 19.5 → 15.8).
+  const TUNE_GAIN = { thigh: 0.92, hip: 0.42, calf: 0.92, arm: 4.4 };
   function fatOf(tune, k) {
     const v = tuneOf(tune, k), g = TUNE_GAIN[k];
     return (g == null || v <= 1) ? v : 1 + (v - 1) * g;
@@ -362,7 +373,11 @@
   // 손도 같이 봐야 한다 — 손은 손목 폭을 따라가므로(`HAND_W`) 팔을 깎으면 같이 얇아진다.
   // ⚠️ 그러고도 한 번 **더 10%** 깎았다 (12.75 → 11.48 · 10.2 → 9.18 · 8.08 → 7.27).
   //   실루엣: 팔 50% 8.5 → 7.5 → 6.8px · 100% 17 → 15 → 13.5px
-  const ARM_W = { shoulder: 11.48, elbow: 9.18, wrist: 7.27 };
+  // ⚠️ 손목만 7.27 → 8.7 로 조금 굵혔다. **손이 팔보다 넓어 «혹»처럼 보였다** —
+  // 기본 체형에서 엉덩이(39.3) → 팔(38.3) → 손(39.0) 으로 한 번 들어갔다 다시
+  // 나와서, 옆구리에 작은 돌기 둘이 생겼다 (「엉덩이 중간이 뾰족하다」로 신고받았는데
+  // 조각별로 재어 보니 엉덩이가 아니라 손이었다). 손목을 굵히면 그 골이 메워진다.
+  const ARM_W = { shoulder: 11.48, elbow: 9.18, wrist: 8.7 };
   // 몸 쪽으로 깔아 두는 그늘의 폭.
   // ⚠️ **배율을 같이 타야 한다.** 2.5px 붙박이였는데, 그러면 팔이 가늘어질수록
   // 그늘의 «몫»이 커진다 — 팔 50% 에서 7.5px 짜리 팔에 2.5 가 붙어 실루엣이 33% 나
@@ -371,11 +386,19 @@
   const armShadeW = k => +(ARM_SHADE * Math.min(1.2, Math.max(0.45, k))).toFixed(2);
   const ARM_OUTLINE = 0.9;               // 옷과 같은 색으로 겹칠 때 두르는 윤곽선의 반두께
   const ARM_SHADE_FROM = 10;             // 팔 위 끝에서 이만큼 내려와서 시작한다
+  // ⚠️ **팔의 몫은 슬라이더 상한(150%)에서 멈춘다.** `TUNE_GAIN.arm` 이 4.4 라
+  // 200% 를 넣으면 5.4배가 되는데, 팔 슬라이더는 150% 까지밖에 안 올라간다 —
+  // 닿을 수 없는 값에서 팔꿈치 이음매가 7.5px 씩 벌어졌다.
+  const ARM_K_MAX = 1 + (1.5 - 1) * 4.4;
+  const armK = tune => Math.min(fatOf(tune, 'arm'), ARM_K_MAX);
   function armWidths(k) {
     const S = ARM_W.shoulder * k;
     // 관절도 살이 붙긴 하지만 **덜 붙는다.** 그리고 마디보다 굵어질 수는 없다
-    const E = Math.min(ARM_W.elbow * (0.6 + 0.4 * k), S * 0.9);
-    const W = Math.min(ARM_W.wrist * (0.7 + 0.3 * k), E * 0.9);
+    // ⚠️ **관절이 마디를 너무 안 따라가면 이음매가 튄다.** 팔에 몫이 붙어
+    // 어깨가 3.2배가 되는데 팔꿈치는 1.9배뿐이라, 윗팔이 팔꿈치로 급하게 좁아져
+    // 굽힘 자리에서 옆선이 1.5px 튀었다 (팔꿈치 0.6+0.4k → 0.15+0.85k · 손목 0.7+0.3k → 0.45+0.55k)
+    const E = Math.min(ARM_W.elbow * (0.15 + 0.85 * k), S * 0.9);
+    const W = Math.min(ARM_W.wrist * (0.45 + 0.55 * k), E * 0.9);
     return { S: S, E: E, W: W };
   }
   // 팔 위 끝(armY)에서 dist 만큼 내려간 곳의 **반폭** (pad = 소매가 팔보다 넓은 만큼)
@@ -429,7 +452,7 @@
     const B = BODY, left = side === 'L', o = opts || {};
     const d = armShift(tune) * (left ? 1 : -1);       // 어깨선을 따라 팔을 옮긴다
     const x0 = (left ? B.armX_L : B.armX_R) + d;
-    const ka = tuneOf(tune, 'arm');
+    const ka = armK(tune);
     // **안쪽 변은 고정이다** — 굵기가 어떻든 팔이 몸통에서 안 떨어진다.
     // sgn 은 안쪽에서 바깥쪽으로 가는 방향
     const sgn = left ? -1 : 1;
@@ -526,7 +549,7 @@
   // 팔 중심선 위의 한 점 — dist 는 팔 위 끝(armY)에서 잰 거리.
   // 손 위치 계산용이라 armShift(체형 이동)는 넣지 않는다 (기존 손 계산과 같은 기준).
   function armPoint(side, dist, tune) {
-    const B = BODY, left = side === 'L', k = tuneOf(tune, 'arm'), sgn = left ? -1 : 1;
+    const B = BODY, left = side === 'L', k = armK(tune), sgn = left ? -1 : 1;
     const rot = (left ? B.armRot : -B.armRot) * Math.PI / 180;
     const bend = (left ? -B.elbowRot : B.elbowRot) * Math.PI / 180;
     // 팔이 가늘어지면 중심선도 안쪽으로 온다 — 안쪽 변이 고정이기 때문이다.
@@ -570,8 +593,9 @@
   // ⚠️ 엄지는 **몸 쪽**에 붙인다. 팔을 내리고 서면 엄지가 안쪽을 향한다
   // 손목 반폭의 몇 배. ⚠️ **팔을 깎을 때마다 같이 올려야 한다** — 손은 손목 폭을
   // 따라가므로(`HAND_FOLLOW`) 팔만 깎으면 손이 팔보다 좁아져 **마개처럼** 보인다
-  // (`checkavatar` 의 「손」이 부푼 폭 0.6~1.3px 로 지킨다). 1.36 → 1.4 → 1.46
-  const HAND_W = 1.46;
+  // (`checkavatar` 의 「손」이 부푼 폭 0.6~1.3px 로 지킨다). 1.36 → 1.4 → 1.46 → 1.38
+  // (손목을 8.7 로 굵히면서 손도 같이 커져 1.46 은 팔 밖으로 나갔다)
+  const HAND_W = 1.38;
   const HAND_H = 1.12;      // 손 반폭 대비 높이
   const HAND_THUMB = 0.4;   // 엄지 반지름 (손 반폭 대비)
   // ─── 손은 팔을 따라 가늘어지되 **조금 덜 따라간다** ──────────
@@ -585,13 +609,19 @@
   // ⚠️ **그렇다고 팔을 그대로 따라가게 하면 안 된다.** 손이 손목보다 0.5px 밖에
   // 안 넓어져 **다시 마개**가 된다 (`checkavatar` 의 「손」이 0.6px 에서 잡는다).
   // 그래서 **무릎·팔꿈치와 같은 규칙**을 쓴다 — 따라가되 덜 따라간다.
-  const HAND_FOLLOW = 0.7;  // 손이 팔 굵기를 따라가는 몫 (1 이면 그대로 따라간다)
+  // 손이 팔 굵기를 따라가는 몫 (1 이면 그대로 따라간다).
+  // ⚠️ **위아래로 다른 값을 쓴다.** 팔에 몫(`TUNE_GAIN.arm`)이 붙으면서 하나로는
+  // 안 맞는다 — 0.7 로 두면 굵은 쪽에서 손이 같이 커져 팔 밖으로 1.8px 나오고(천장 1.3),
+  // 0.5 로 낮추면 이번엔 **가는 쪽에서 손만 안 줄어** 역시 1.8px 이 된다.
+  // 굵어질 때는 덜 따라가고, 가늘어질 때는 잘 따라가야 한다.
+  const HAND_FOLLOW = { under: 0.75, over: 0.55 };
   function handShape(side, tune, color, dist) {
     const B = BODY, left = side === 'L', sgn = left ? -1 : 1;   // sgn 은 바깥 방향
-    const ka = tuneOf(tune, 'arm');
+    const ka = armK(tune);
     const p = armPoint(side, dist == null ? B.armH : dist, tune);
     const w0 = armHalf(B.armH, 1, 0);                  // 기본 손목
-    const wristHalf = w0 + (armHalf(B.armH, ka, 0) - w0) * HAND_FOLLOW;
+    const aw = armHalf(B.armH, ka, 0);
+    const wristHalf = w0 + (aw - w0) * (aw < w0 ? HAND_FOLLOW.under : HAND_FOLLOW.over);
     const hw = wristHalf * HAND_W, hh = hw * HAND_H;
     const th = left ? (B.armRot - B.elbowRot) : (B.elbowRot - B.armRot);
     const f = n => +n.toFixed(2);
@@ -716,7 +746,7 @@
     // 어깨 높이의 팔은 아직 제 폭이 한참 아니다. **기본 체형에서는 여전히 안 좁힌다**
     // (팔이 어깨보다 0.7px 바깥이라 `armOuter >= tip` 이다) — 거기서 좁아지면
     // 어깨가 통째로 줄어들어 「어깨↔머리카락」 틈이 다시 벌어진다.
-    const armOuter = B.armX_R + armWidths(tuneOf(tune, 'arm')).S - armShift(tune) - 3.4;
+    const armOuter = B.armX_R + armWidths(armK(tune)).S - armShift(tune) - 3.4;
     return armOuter >= tip ? 1 : (armOuter - 100) / (tip - 100);
   }
   // 어깨 쪽 x 를 중심선(100) 기준으로 f 배 좁힌다(f>1 이면 넓힌다).
@@ -824,7 +854,14 @@
   // 봉우리(73)까지 **33줄에 5.5px** 밖에 안 벌어져 옆선이 «평평한 면»이었고,
   // 그 위아래 끝이 「뾰족하다」로 신고받은 자리다.
   // 100% 를 넘는 만큼만 얹는다 — 가는 다리는 지금 그대로다.
-  const HIP_OVER = 0.14;
+  //
+  // ⚠️ **여기도 0.14 → 0.10 으로 같이 내렸다.** 슬라이더를 전부 최대로 밀면
+  // 엉덩이 반폭을 정하는 것은 `TUNE_GAIN.hip` 이 아니라 **이 줄**이다
+  // (허벅지가 96.5 까지 굵어져 `thighOuter × hipOverK` 가 셋 중 제일 크다).
+  // 그래서 몫만 내리면 **정작 제일 넓은 몸에서는 아무것도 안 변한다** —
+  // 재어 보니 113.8 그대로였다. 0.10 에서 허리 84.5 · 봉우리 **107.3**
+  // (몫 29.3 → 22.8 · 역시 −22%). 두 자리를 같이 봐야 하는 이유다.
+  const HIP_OVER = 0.10;
   const hipOverK = tune => 1 + HIP_OVER * Math.max(0, Math.min(1, tuneOf(tune, 'thigh') - 1));
   const hipBaseHalf = tune => Math.max(
     BODY.hipHalf * fatOf(tune, 'hip'),
