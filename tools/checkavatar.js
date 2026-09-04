@@ -1199,7 +1199,7 @@ function launchOpts() {
   // 허벅지가 실제로는 더 굵다는 것이 드러났고, 그것을 덮는 엉덩이가 그림 상자
   // 밖으로 나갔다 — `TUNE_GAIN.thigh/calf` 를 0.95 → 0.87 로 낮춰 되돌렸다.
   // 엉덩이(0.27 → 0.5)는 반대로 올렸다 (슬라이더 100%↔125% 가 붙어 버려서).
-  const FAT_MAX = { 허벅지: [2, 1.84], 엉덩이: [1.5, 1.17], 종아리: [2, 1.83] };
+  const FAT_MAX = { 허벅지: [2, 1.82], 엉덩이: [1.5, 1.19], 종아리: [2, 1.82] };
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;

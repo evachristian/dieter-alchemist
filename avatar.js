@@ -270,7 +270,7 @@
   // 「허벅지 윗머리를 덮어야 한다」는 바닥이 있는데, 위의 `thighOuterAt` 수정으로
   // 그 바닥이 올라가 **100% 와 125% 가 둘 다 40.3px** 이 됐다 — 슬라이더를
   // 한 칸 밀어도 몸이 하나도 안 변한다. 몫을 키워 바닥 위로 다시 띄웠다.
-  const TUNE_GAIN = { thigh: 0.855, hip: 0.5, calf: 0.855 };
+  const TUNE_GAIN = { thigh: 0.835, hip: 0.62, calf: 0.835 };
   function fatOf(tune, k) {
     const v = tuneOf(tune, k), g = TUNE_GAIN[k];
     return (g == null || v <= 1) ? v : 1 + (v - 1) * g;
@@ -781,7 +781,14 @@
   // 기준으로 잡아 두었더니, 붙는 높이(224)에서 허벅지는 이미 119.5 라 그 사이로
   // **세로 틈**이 벌어졌다 (기본 1.6px · 엉덩이 150% 에서 3.8px).
   // 붙는 높이에서 재면 그 위 구간에서도 허벅지가 늘 더 굵어 틈이 안 생긴다.
-  const thighJoin = tune => thighOuterAt(tune, hipBlendY(tune)) - 1;
+  // ⚠️ **1px 은 너무 깊었다.** 도착 접선을 허벅지에 맞춘 뒤로는(`hipLean`) 1px 만
+  // 물려도 **허벅지가 BY 보다 두 줄 위에서 먼저 튀어나온다** — 그 자리에서
+  // 엉덩이는 아직 3px/줄 로 내려오는 중이고 허벅지는 1.6px/줄 이라, 옆선의
+  // 기울기가 한 줄 만에 반으로 꺾인다. 「울퉁불퉁하다」의 정체가 이것이었다.
+  // 0.3 이면 만나는 자리가 BY 바로 위로 붙어 기울기가 이어진다
+  // (그래도 «닿게» 두지는 않는다 — 딱 맞추면 이음매에 가느다란 선이 생긴다).
+  const THIGH_JOIN_IN = 0.3;
+  const thighJoin = tune => thighOuterAt(tune, hipBlendY(tune)) - THIGH_JOIN_IN;
   // 엉덩이 반폭 — 옷은 여기도 덮어야 한다 (치마·바지·드레스가 이 값을 본다).
   //
   // **허벅지보다 좁을 수 없다.** 좁으면 허벅지가 엉덩이 밖으로 튀어나와 이음매에
@@ -878,13 +885,20 @@
   // ⚠️ 그리고 **얹는 폭에 상한을 둔다.** 이 식은 못 덮을 자리를 만나면 얼마든지
   // 커지는데, 커진 엉덩이는 봉우리에서 허벅지까지를 짧은 거리에 깎아 내리느라
   // 옆구리에 **선반(날개)** 을 만든다 — 사람이 보기에는 그쪽이 더 나쁘다.
+  // ─── 엉덩이 아랫마디(봉우리→허벅지)도 «비대칭»이다 ─────────
+  // ⚠️ 위아래를 같은 값(0.45)으로 두면 가장 가파른 곳이 **가운데**에 온다. 그런데
+  // 허벅지는 그보다 아래에서 튀어나오므로, 만나는 자리에서 기울기가 한 줄 만에
+  // 반으로 꺾인다 — 「울퉁불퉁하다」의 나머지 절반이 이것이다.
+  // 앞을 짧게(봉우리를 빨리 떠나고) 뒤를 길게(허벅지에 완만히 붙는다) 잡는다.
+  // 봉우리에서의 접선은 어느 값이든 세로다(제어점의 x 가 같다) — 곡률만 조여진다.
+  const HIP_C = [0.32, 0.64];
   const HIP_B_LO = 0.35, HIP_B_HI = 0.5;   // 마디의 어느 구간까지 재는가
   const HIP_COVER_PAD = 0.6;               // 딱 맞추면 반올림·계단 탓에 반 픽셀이 남는다
-  const HIP_SPREAD_MAX = 10;               // 얹을 수 있는 폭의 한계 (px)
+  const HIP_SPREAD_MAX = 4.6;              // 얹을 수 있는 폭의 한계 (px)
   function hipNeedHalf(tune, half, HY1, HY2, BY) {
     const w = waistHalf(tune) * tuneOf(tune, 'torso');
     const WY = BODY.waistY, HY = HY1;
-    const ha = (HY1 - WY) * 0.45, hb = (BY - HY2) * 0.45;
+    const ha = (HY1 - WY) * 0.45, hb1 = (BY - HY2) * HIP_C[0], hb = (BY - HY2) * HIP_C[1];
     const tJ = thighOuterAt(tune, BY) - 1;
     let need = half;
     for (let i = 1; i <= 160; i++) {
@@ -894,7 +908,7 @@
       if (y1 >= LEG.hipY && B > HIP_B_LO) {
         need = Math.max(need, w + (thighDrawnAt(tune, y1) + HIP_COVER_PAD - w) / B);
       }
-      const y2 = u*u*u*HY2 + 3*u*u*t*(HY2 + hb) + 3*u*t*t*(BY - hb) + t*t*t*BY;
+      const y2 = u*u*u*HY2 + 3*u*u*t*(HY2 + hb1) + 3*u*t*t*(BY - hb) + t*t*t*BY;
       if (y2 >= LEG.hipY && B < HIP_B_HI) {
         need = Math.max(need, (thighDrawnAt(tune, y2) + HIP_COVER_PAD - tJ * B) / (1 - B));
       }
@@ -940,7 +954,7 @@
   // ⚠️ **몸과 옷이 같은 값을 봐야 한다.** 몸의 엉덩이 path 는 `torsoArms` 안에 손으로
   // 적혀 있고 하의는 `hipSideCurve` 를 쓴다 — 두 자리가 이 함수 하나를 부른다.
   function hipLean(tune, x0, x3) {
-    const HY = hipApexBot(tune), BY = hipBlendY(tune), hb = (BY - HY) * 0.45;
+    const HY = hipApexBot(tune), BY = hipBlendY(tune), hb = (BY - HY) * HIP_C[1];
     // **접선**으로 잡는다 — 1px 위아래의 기울기 × 제어점 높이.
     // 활(secant)로 재면(`BY-hb` 와 `BY` 의 차) 볼록한 곡선에서는 늘 더 커서
     // 엉덩이가 허벅지 밖으로 부풀고, 그만큼 그림 상자를 넘본다 (실제로 25줄이 잘렸다)
@@ -948,9 +962,10 @@
     return Math.max(0, Math.min(slope * hb, Math.max(0, (x0 - x3) * 0.6)));
   }
   function hipSideCurve(tune, x0, x3, cutY) {
-    const HY = hipApexBot(tune), BY = hipBlendY(tune), hb = (BY - HY) * 0.45;
+    const HY = hipApexBot(tune), BY = hipBlendY(tune);
+    const hb1 = (BY - HY) * HIP_C[0], hb = (BY - HY) * HIP_C[1];
     const lean = hipLean(tune, x0, x3);
-    let P = [[x0, HY], [x0, HY + hb], [x3 + lean, BY - hb], [x3, BY]];
+    let P = [[x0, HY], [x0, HY + hb1], [x3 + lean, BY - hb], [x3, BY]];
     if (cutY != null && cutY < BY) {
       const yAt = t => {
         const u = 1 - t;
@@ -1300,7 +1315,8 @@
     const wRa = +(100 + wh * kb).toFixed(2), wLa = +(200 - wRa).toFixed(2);
     const tRa = +(100 + thighJoin(tune)).toFixed(2), tLa = +(200 - tRa).toFixed(2);
     const hRa = +(100 + hipHalf(tune)).toFixed(2), hLa = +(200 - hRa).toFixed(2);
-    const ha = +((HY1 - WY) * 0.45).toFixed(1), hb = +((BY - HY2) * 0.45).toFixed(1);
+    const ha = +((HY1 - WY) * 0.45).toFixed(1);
+    const hb1 = +((BY - HY2) * HIP_C[0]).toFixed(1), hb = +((BY - HY2) * HIP_C[1]).toFixed(1);
     // 허벅지에 기대어 닿는 몫 — 하의(`hipSideCurve`)와 **같은 함수**에서 나온다
     const ln = +hipLean(tune, hipHalf(tune), thighJoin(tune)).toFixed(2);
     const tRc = +(tRa + ln).toFixed(2), tLc = +(tLa - ln).toFixed(2);
@@ -1327,11 +1343,11 @@
         <path d="M${wLa},${WY}
           C${wLa},${WY + ha} ${hLa},${HY1 - ha} ${hLa},${HY1}
           L${hLa},${HY2}
-          C${hLa},${HY2 + hb} ${tLc},${BY - hb} ${tLa},${BY}
+          C${hLa},${HY2 + hb1} ${tLc},${BY - hb} ${tLa},${BY}
           L${tLa},${HB}
           L${tRa},${HB}
           L${tRa},${BY}
-          C${tRc},${BY - hb} ${hRa},${HY2 + hb} ${hRa},${HY2}
+          C${tRc},${BY - hb} ${hRa},${HY2 + hb1} ${hRa},${HY2}
           L${hRa},${HY1}
           C${hRa},${HY1 - ha} ${wRa},${WY + ha} ${wRa},${WY} Z" fill="${SKIN}"/>
       </g>
