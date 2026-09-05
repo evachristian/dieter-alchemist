@@ -1218,45 +1218,85 @@ function launchOpts() {
   // 남았다 (「옷의 목둘레랑 신체 목둘레가 안 맞는다」).
   // 지금은 `목 반폭 + 스타일 여유`라 배율을 움직여도 같이 따라간다.
   //
-  // 재는 법: 목 path 의 **곧은 윗변**(`M L,top L R,top`)에서 목 반폭을 그대로 읽고,
-  // `Avatar.neckCutBox` 가 말하는 옷깃의 입과 견준다 — 둘 다 몸통 좌표계다.
-  // 폭은 «목보다 조금 넓게» 다 — 딱 맞으면 옷깃이 목 뒤로 숨고, 넓으면 턱이 진다.
-  // 상한을 4 로 두면 예전의 «고정 13px» 이 기본 자세에서만 우연히 통과한다 (실제로 그랬다).
-  const COLLAR_GAP = { round: [1, 3], v: [1, 3], square: [5, 8] };
-  const collar = await page.evaluate(async (want) => {
+  // ⚠️ **파는 반폭과 목 반폭을 견주는 것으로는 못 잡는다.** 둘 다 `neckHalfOf()` 에서
+  // 나오니 「여유만큼 넓다」가 늘 참이고, 정작 사람 눈에 보이는 것은 그 여유가
+  // **화면에서 턱으로 보이는지**다. 실제로 그렇게 짜 놨다가, 목이 옷깃 바로 위에서
+  // 8.75 → 10.75 로 부푸는 것(`neckShape` 의 `mid` 아래 자락)을 통째로 놓쳤다 —
+  // 「여유 1~3px 이면 통과」는 **턱이 1~3px 있어도 통과**라는 뜻이었다.
+  //
+  // 그래서 **그려 놓고 잰다.** 옷깃의 맨 윗줄을 찾아, 그 **바로 위**의 목 반폭과
+  // 옷깃의 입을 견준다. 둘이 같아야 기둥이 그대로 이어진다.
+  //   COLLAR_STEP 0.5 = 4배 래스터의 안티에일리어싱 한 칸(0.25)의 두 배
+  const COLLAR_STEP = 0.5;
+  const collar = await page.evaluate(async (STEP) => {
     const D = window.GameData, bad = [], rows = [];
-    const box = document.createElement('div');
-    box.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px';
-    document.body.appendChild(box);
-    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none', shoes: 'shoes_none' };
-    const tunes = [['기본', null], ['얼굴150', { face: 1.5 }], ['몸통50', { torso: 0.5 }],
-                   ['몸통150', { torso: 1.5 }]];
-    for (const [name, t] of tunes) {
-      box.innerHTML = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, t);
-      const svg = box.querySelector('svg');
-      const nk = [...svg.querySelectorAll('path')]
-        .find(n => (n.getAttribute('fill') || '').indexOf('neckG') >= 0);
-      if (!nk) { bad.push(`${name}: 목을 못 찾았다`); continue; }
-      // 'M L,top L R,top …' — 앞의 두 점이 곧은 윗변이다
-      const m = /^M([\d.-]+),([\d.-]+)\s+L([\d.-]+),/.exec(nk.getAttribute('d').trim());
-      if (!m) { bad.push(`${name}: 목 path 를 못 읽었다`); continue; }
-      const half = (Number(m[3]) - Number(m[1])) / 2;
-      const line = [];
-      for (const kind of Object.keys(want)) {
-        const w = window.Avatar.neckCutBox(kind, t).w;
-        const gap = +(w - half).toFixed(2);
-        line.push(`${kind} ${gap}`);
-        const [lo, hi] = want[kind];
-        if (gap < lo || gap > hi) {
-          bad.push(`${name} · ${kind}: 옷깃의 입이 목보다 ${gap}px 넓다`
-            + ` (${lo}~${hi}px) — 목의 옆선과 옷깃이 어긋나 턱이 진다`);
+    const K = 4, CW = 200 * K, CH = 348 * K;
+    const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    const SK = hex('#ffdcc4'), SH = hex('#f2c6a6');       // SKIN · SKIN_SH (avatar.js)
+    const W = D.WARDROBE;
+    const list = Array.isArray(W) ? W : [].concat.apply([], Object.values(W));
+    // 넥라인 종류마다 한 벌씩. 스퀘어는 **일부러 넓다**(보트넥) — 실루엣을 목이 아니라
+    // 몸통 윗선이 만들므로 이 검사에서 뺀다
+    const wear = [['round', 'top_tee'], ['v', 'top_vneck']];
+    const poses = [['기본', null, 0], ['얼굴150', { face: 1.5 }, 0],
+                   ['몸통50', { torso: 0.5 }, 0], ['몸통150', { torso: 1.5 }, 0],
+                   ['통통', null, 1]];
+    for (const [kind, topId] of wear) {
+      const item = list.find(x => x && x.id === topId) || {};
+      const CLOTH = hex(item.color || '#ffb8d9');
+      for (const [pname, t, bw] of poses) {
+        const svg = window.Avatar.build(
+          { top: topId, bottom: 'bottom_skirt', hair: 'hair_long_straight' }, bw, t);
+        const img = new Image();
+        await new Promise(r => {
+          img.onload = r;
+          img.src = 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
+        });
+        const cv = document.createElement('canvas');
+        cv.width = CW; cv.height = CH;
+        const ctx = cv.getContext('2d');
+        // ⚠️ **캔버스와 같은 크기를 넘긴다.** `200, 348` 을 넘기면 4배 캔버스의
+        // 왼쪽 위 귀퉁이에만 그려져, 재는 자리는 빈 곳이라 「옷깃을 못 찾았다」가 된다
+        window.__drawAvatar(ctx, img, CW, CH);
+        const d = ctx.getImageData(0, 0, CW, CH).data;
+        const at = (x, y) => { const i = (y * CW + x) * 4; return [d[i], d[i + 1], d[i + 2], d[i + 3]]; };
+        const near = (c, q) => c[3] > 250 && Math.abs(c[0] - q[0]) <= 3
+          && Math.abs(c[1] - q[1]) <= 3 && Math.abs(c[2] - q[2]) <= 3;
+        // 목은 그라데이션이라 «두 끝 색 사이»인지를 본다 (한 색과 견주면 기둥 속이 빠진다)
+        const tw = (v, a, b) => v >= Math.min(a, b) - 4 && v <= Math.max(a, b) + 4;
+        const isCloth = c => near(c, CLOTH);
+        const isSkin = c => c[3] > 250 && !isCloth(c)
+          && tw(c[0], SK[0], SH[0]) && tw(c[1], SK[1], SH[1]) && tw(c[2], SK[2], SH[2]);
+        const scan = yy => {
+          const y = Math.round(yy * K);
+          if (y < 0 || y >= CH) return null;
+          let skin = null, cloth = null;
+          for (let x = 100 * K; x < 170 * K; x++) {
+            if (skin == null && !isSkin(at(x, y))) skin = x / K - 100;
+            if (skin != null && isCloth(at(x, y))) { cloth = x / K - 100; break; }
+          }
+          return { skin: skin, cloth: cloth };
+        };
+        let top = null;
+        for (let yy = 90; yy <= 220 && top == null; yy += 0.5) {
+          const r = scan(yy); if (r && r.cloth != null) top = yy;
+        }
+        if (top == null) { bad.push(`${kind} · ${pname}: 옷깃을 못 찾았다`); continue; }
+        const above = scan(top - 1), atTop = scan(top);
+        if (!above || above.skin == null || !atTop || atTop.cloth == null) {
+          bad.push(`${kind} · ${pname}: 목을 못 쟀다`); continue;
+        }
+        const step = +(atTop.cloth - above.skin).toFixed(2);
+        rows.push(`${kind}/${pname} 목 ${above.skin.toFixed(2)}→옷깃 ${atTop.cloth.toFixed(2)}`);
+        if (Math.abs(step) > STEP) {
+          bad.push(`${kind} · ${pname}: 옷깃(${atTop.cloth.toFixed(2)})이 그 위 목`
+            + `(${above.skin.toFixed(2)})과 ${step > 0 ? '+' : ''}${step}px 어긋난다`
+            + ` (±${STEP}px) — 목둘레와 옷 목둘레가 안 맞아 턱이 진다`);
         }
       }
-      rows.push(`${name} 목 ${half.toFixed(2)} (${line.join(' · ')})`);
     }
-    box.remove();
     return { bad: bad, rows: rows };
-  }, COLLAR_GAP);
+  }, COLLAR_STEP);
 
   // ─── 옆선이 «둥근가» — 허리 밑의 오목한 구간 ─────────────────
   //
@@ -2646,7 +2686,8 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px 이상 · 부푼 폭은 ${HAND_BULGE_MIN}~${HAND_BULGE_MAX}px)`);
-  console.log(`옷깃: 목 반폭 대비 «입»이 넓은 몫 — ${collar.rows.join(' · ')}`);
+  console.log(`옷깃: 옷깃 «바로 위»의 목 반폭 ↔ 옷깃의 입 — ${collar.rows.join(' · ')}`
+    + ` (±${COLLAR_STEP}px · 어긋나면 목에 턱이 진다)`);
   console.log(`옆선: 허리 밑 오목이 이어지는 길이 — ${hipRound.rows.join(' · ')}`
     + ` (${HIP_DIP_MAX}줄까지 · 허리가 있는 한 몇 줄은 오목한 것이 맞다)`);
   console.log(`목 길이: 체형 0 — ${neckLen.rows.join(' · ')}`

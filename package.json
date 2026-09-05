@@ -23,6 +23,7 @@
     "test:melt": "node tools/checkmelt.js",
     "bundle": "node tools/bundle.js",
     "side": "node tools/side.js",
+    "neck": "node tools/neckscan.js",
     "test:wardrobe": "node tools/checkwardrobe.js",
     "gen:wardrobe": "node tools/genwardrobe.js",
     "gen:creature": "node tools/gencreature.js",
