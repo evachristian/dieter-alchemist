@@ -2061,28 +2061,42 @@
     polo:   { pad: null, d: 0 },   // 목까지 올라온다 — 안 판다
     none:   { pad: null, d: 0 },
   };
-  // 목의 반폭 (몸통 좌표계). `build()` 의 `neck.half` 와 **같은 식**이다 —
-  // 거기서는 몸무게까지 넣은 정확한 비(hx/kx)를 넘기고, 옷 쪽은 안 넘긴다:
-  // ⚠️ hx/kx 는 몸무게 0→1 에서 0.979 → 1.024 로 **4.6% 밖에 안 움직인다**
-  // (머리 배율과 가로 배율이 같이 커져 거의 상쇄된다). 옷은 몸 변환 안에서
-  // 그려지므로 그 2% 를 무시하고 배율만 본다 — 대신 식은 여기 한 곳에 둔다.
-  function neckHalfOf(tune, ratio) {
+  // 몸통 좌표계에서 본 **머리의 가로 배율**. `build()` 의 `hx / kx` 와 같은 값이고,
+  // 실제로 거기서도 이것을 쓴다 — 식을 두 벌 두면 어긋난다.
+  //
+  // ⚠️ **몸무게(w)를 빼먹으면 안 된다.** 예전에는 옷 쪽만 `w = 0` 으로 어림했다.
+  // 「4.6% 밖에 안 움직이니 괜찮다」고 적어 뒀는데, 그 4.6% 가 목 반폭 전체에
+  // 곱해지면서 **통통한 몸에서 옷깃이 1px 어긋났다** — 사람 눈에 보이는 그 턱이다.
+  function headRatio(tune, w) {
+    const b = Math.max(0, Math.min(1, Number(w) || 0));
     const kFace = tuneOf(tune, 'face');
-    const r = ratio == null ? HEAD_K_SLIM * kFace / bodyShrink(kFace) : ratio;
-    return (33 * r * NECK_OF_FACE
+    return lerpN(HEAD_K_SLIM, HEAD_K_FAT, b) * (1 + 0.06 * b) * kFace
+      / ((1 + 0.36 * b) * bodyShrink(kFace));
+  }
+  // 목의 반폭 (몸통 좌표계). **몸과 옷이 같은 식을 지난다.**
+  //
+  // ⚠️ **목은 통째로 머리를 따라간다.** 예전에는 얼굴 몫만 배율을 타고 어깨 몫은
+  // 상수였는데, 그 상수가 **바닥** 노릇을 해서 머리를 줄여도 목이 안 가늘어졌다:
+  // 얼굴 50% 에서 머리는 0.497 배인데 목은 0.759 배라, 작은 머리에 굵은 목이 붙었다.
+  // (반대쪽도 어긋났다 — 얼굴 115% 에서 머리 1.151 배 · 목 1.073 배)
+  // 이제 «머리의 배율»(hk)을 두 몫에 다 곱한다 → 목/머리 비가 어디서나 같다.
+  //   hk = 100% · 몸무게 0 에서 1 이라 그때 값은 안 바뀐다
+  function neckHalfOf(tune, w) {
+    const hk = headRatio(tune, w) / HEAD_K_SLIM;
+    return hk * (33 * HEAD_K_SLIM * NECK_OF_FACE
           + (BODY.torsoR - 100) * tuneOf(tune, 'torso') * NECK_OF_SHOULDER) / 2;
   }
-  function neckCut(kind, tune) {
+  function neckCut(kind, tune, bw) {
     const c = NECK_CUT[kind] || NECK_CUT.round;
     if (c.pad == null || !c.d) return { w: 0, d: 0 };
-    return { w: +(neckHalfOf(tune) + c.pad).toFixed(2), d: c.d };
+    return { w: +(neckHalfOf(tune, bw) + c.pad).toFixed(2), d: c.d };
   }
 
   // 파낸 자리 — 반폭 · 깊이 · **모서리 높이(top)**. 검사기가 이 셋을 그대로 읽는다.
   // top 을 여기서 같이 내주는 이유: 검사기가 몸통 윗선 계산을 따로 하면
   // 두 벌이 되고, 어긋나는 순간 검사가 헛돈다.
-  function neckCutBox(kind, tune) {
-    const cut = neckCut(kind, tune);
+  function neckCutBox(kind, tune, bw) {
+    const cut = neckCut(kind, tune, bw);
     if (!cut.w || !cut.d) return { w: 0, d: 0, top: 0 };
     return { w: cut.w, d: cut.d, top: +(torsoTopAtX(100 + cut.w) - 1).toFixed(1) };
   }
@@ -2094,14 +2108,14 @@
   // 그래야 어깨에서 목으로 넘어가는 곳이 꺾이지 않는다.
   // 파낸 **가운데 부분만.** 왼쪽 모서리(EL,K)에서 시작해 오른쪽 모서리(ER,K)로 간다.
   // 어깨는 옷마다 달라서(공주 드레스는 좁고 높다) 부르는 쪽이 각자 붙인다.
-  function neckMid(kind, tune) {
-    const T = CLOTH_TOP_Y, cut = neckCut(kind, tune);
+  function neckMid(kind, tune, bw) {
+    const T = CLOTH_TOP_Y, cut = neckCut(kind, tune, bw);
     const w = cut.w, B = T + cut.d;
     const EL = 100 - w, ER = 100 + w;
     // 파낸 모서리는 **몸통 윗선 바로 위**에 둔다. 어깨끈처럼 평평하게(T) 두면
     // 모서리 안쪽에 옷도 몸도 없는 자리가 남아 배경이 비친다 — 넓게 파는
     // 스퀘어일수록 심하다 (몸통 윗선은 바깥으로 갈수록 내려간다)
-    const K = neckCutBox(kind, tune).top;
+    const K = neckCutBox(kind, tune, bw).top;
     if (kind === 'v') return { K, EL, ER, d: `L100,${B} L${ER},${K}` };
     if (kind === 'square') return { K, EL, ER, d: `L${EL},${B} L${ER},${B} L${ER},${K}` };
     // 라운드 — 대칭 3차 곡선의 한가운데는 (끝점 + 제어점×3) / 4 에 온다.
@@ -2139,15 +2153,15 @@
     const y0 = toK == null ? a[1] : toK;
     return `C${200 - b[0]},${b[1]} ${200 - a[0]},${y0} `;
   }
-  function clothTopEdge(kind, tune) {
-    const T = CLOTH_TOP_Y, cut = neckCut(kind, tune), f = clothShoulderK(tune);
+  function clothTopEdge(kind, tune, bw) {
+    const T = CLOTH_TOP_Y, cut = neckCut(kind, tune, bw), f = clothShoulderK(tune);
     const e = shoulderEndR(f);
     const startL = `M${200 - e[0]},${e[1]}`;
     // 안 파는 옷 — 가운데가 가장 높은 돔
     if (!cut.w || !cut.d) {
       return `${startL} ${clothShoulderL(null, f)}100,${T} ${clothShoulderR(null, f)}`;
     }
-    const m = neckMid(kind, tune);
+    const m = neckMid(kind, tune, bw);
     return `${startL} ${clothShoulderL(m.K, f)}${m.EL},${m.K} ${m.d} ${clothShoulderR(m.K, f)}`;
   }
 
@@ -2175,7 +2189,7 @@
   }
 
   // 소매는 팔을, 몸판은 몸통을 따라간다
-  function renderTop(it, tune) {
+  function renderTop(it, tune, bw) {
     if (isNone(it)) return '';
     const B = BODY, c = it.color, c2 = shade(c);
     // ⚠️ **통째로 늘리지 않는다.** 좌표가 이미 제 몸 부위를 따라간다
@@ -2191,7 +2205,7 @@
     return `
       ${garmentSleeves(it, tune)}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      <path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
+      <path data-part="cloth" d="${clothTopEdge(it.neck, tune, bw)}
         C${eR},${WY - 34} ${sc},${WY - 18} ${wR},${WY}
         C${wR},${WY + 10} ${wR - 1},${hem - 8} ${wR - 4},${hem}
         C${wR - 14},${hem + 5} ${wL + 14},${hem + 5} ${wL + 4},${hem}
@@ -2394,7 +2408,7 @@
   // 몸통을 덮고 hemY 까지 퍼지는 드레스 (+ 팔 소매)
   // 어깨가 좁고 높은 드레스(공주 드레스). 넥라인 가운데는 다른 옷과 **같은 것**을 쓰고,
   // 어깨만 자기 것을 붙인다 — neckMid 참고
-  function sleevedDress(c, c2, hemY, longSleeve, tune, neck) {
+  function sleevedDress(c, c2, hemY, longSleeve, tune, neck, bw) {
     const B = BODY, pad = CLOTH_PAD;
     // 어깨는 몸통보다 넓게. **몸통과 같이 좁아진다** — 안 그러면 팔을 가늘게 했을 때
     // 드레스의 어깨만 팔 밖으로 튀어나온다 (shoulderSquash 참고)
@@ -2405,7 +2419,7 @@
     const kLeg = tuneMax(tune, ['thigh', 'calf']);
     const flare = 21 * kLeg;                              // 밑단이 퍼지는 정도
     const hemL = L - flare, hemR = R + flare;
-    const cut = neck && neckCut(neck, tune).w ? neckMid(neck, tune) : null;
+    const cut = neck && neckCut(neck, tune, bw).w ? neckMid(neck, tune, bw) : null;
     const top = cut
       ? `C${L},${B.shoulderY} ${cut.EL - 14},${cut.K} ${cut.EL},${cut.K}
          ${cut.d}
@@ -2450,14 +2464,14 @@
     </g>`;
   }
 
-  function renderDress(it, tune) {
+  function renderDress(it, tune, bw) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c);
 
     // 튜토리얼 인트로의 공주 드레스 — 어깨에서 발목까지 내려오는 종 모양 + 소매
     // (인트로 princessFront 의 실루엣을 아바타 좌표계로 옮긴 것)
     if (it.kind === 'princess') {
-      return sleevedDress(c, c2, BODY.ankleY, true, tune, it.neck);
+      return sleevedDress(c, c2, BODY.ankleY, true, tune, it.neck, bw);
     }
 
     // 기장·퍼짐·넥라인·소매는 전부 아이템 필드다 (없으면 예전 값 그대로)
@@ -2478,7 +2492,7 @@
     return `
       ${garmentSleeves(it, tune)}
       ${it.puff ? puffShoulder(c, tune) : ''}
-      <path data-part="cloth" d="${clothTopEdge(it.neck, tune)}
+      <path data-part="cloth" d="${clothTopEdge(it.neck, tune, bw)}
         C${eR},${WY - 34} ${sc},${WY - 18} ${wR},${WY + 2}
         C${hR},${WY + 8} ${hR},${HYd - 6} ${hR},${HYd}
         C${hR},${HYd + 24} ${100 + flare},${hemY - 40} ${100 + flare + 8},${hemY}
@@ -2904,7 +2918,9 @@
     const neck = {
       // 몸통 좌표계로 되돌리고 2px 겹친다 — 딱 맞추면 경계에 배경이 1px 비친다
       top: FLOOR_Y + (chinY - FLOOR_Y) / (bodyKy * kBody) - 2,
-      half: neckHalfOf(tune, hx / kx),
+      // ⚠️ `hx / kx` 를 여기서 다시 적지 않는다 — `headRatio(tune, w)` 가 같은 값이고,
+      // 옷깃도 그것을 쓴다. 두 벌로 두면 한쪽만 고쳤을 때 옷깃이 목에서 어긋난다
+      half: neckHalfOf(tune, w),
     };
     // 고른 색이 있으면 아이템의 원래 색을 덮어쓴다.
     // outfit.colors = { top: '#ffffff', ... } — 없는 칸은 아이템 색 그대로.
@@ -2942,12 +2958,12 @@
       // 둘 다 몸통보다는 **앞**이어야 한다. 하의를 몸통 뒤로 보냈더니 몸통이 허리춤을
       // 덮어 버려, 상의 밑단과 치마 사이로 살이 띠처럼 드러났었다.
       // 상의 밑단(hipY-2)이 하의 허리(waistY)보다 아래라 그 사이에 틈이 생기지 않는다.
-      B(hasDress ? '' : renderTop(top, tune)),
+      B(hasDress ? '' : renderTop(top, tune, w)),
       B(hasDress ? '' : renderBottom(bottom, tune)),
       // 신발은 **드레스보다 아래** 다 — 위에 그리면 부츠 목이 드레스를 뚫고 나온다.
       // 하의(바지)보다는 위라서 부츠가 바짓단을 덮는다.
       B(renderShoes(pick('shoes', outfit.shoes), tune)),
-      B(hasDress ? renderDress(dress, tune) : ''),
+      B(hasDress ? renderDress(dress, tune, w) : ''),
       // 허리 아래의 팔은 **치마보다 앞**이다 — 안 그러면 퍼진 치마가 팔뚝과 손을
       // 통째로 덮어, 소매 끝 언저리에 살색 조각만 남는다 (armsOverSkirt 참고)
       B(armsOverSkirt(tune, hasDress ? dress : top)),

@@ -128,7 +128,10 @@ function launchOpts() {
     // 어긋나고, 어긋나는 순간 검사가 헛돈다. 표보다 크게 파면 그 바깥에서 살이 잡힌다.
     const CLOTH_TOP = window.Avatar.CLOTH_TOP_Y;
     // neck 필드가 아예 없는 옷(공주 드레스)은 파지 않는다 — 빼 주면 그만큼 검사에 구멍이 생긴다
-    const cutOf = it => (it.neck ? window.Avatar.neckCutBox(it.neck) : { w: 0, d: 0, top: 0 });
+    // ⚠️ **배율·몸무게를 같이 넘긴다.** 파는 자리는 목 반폭에서 나오고 목은 둘을 다 타므로,
+    // 안 넘기면 「기본 자세의 넥라인」을 다른 체형에 대고 빼게 된다
+    const cutOf = (it, t, w) =>
+      (it.neck ? window.Avatar.neckCutBox(it.neck, t, w) : { w: 0, d: 0, top: 0 });
 
 
     // ─── 배율(슬라이더)도 같이 돈다 ────────────────────────────
@@ -154,7 +157,7 @@ function launchOpts() {
           [c.slot]: c.it.id,
         });
         const svg = window.Avatar.build(outfit, w, t);
-        const cut = cutOf(c.it);
+        const cut = cutOf(c.it, t, w);
         // 몸통 창에서는 **팔·손을 지우고** 잰다 (위의 strip 참고)
         const noArm = strip(svg, '[data-part="arm"],[data-part="hand"]');
         const torso = await skinIn(noArm, ...bodyBox(w, 72, 128, TORSO_TOP, WAIST))
@@ -196,7 +199,7 @@ function launchOpts() {
       };
       for (const c of cases) {
         if (!c.it.neck) continue;                       // 안 파는 옷
-        const cut = window.Avatar.neckCutBox(c.it.neck);
+        const cut = window.Avatar.neckCutBox(c.it.neck, null, 0);
         if (!cut.w) continue;
         const outfit = Object.assign({}, D.DEFAULT_OUTFIT, {
           top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', [c.slot]: c.it.id,
@@ -1297,6 +1300,79 @@ function launchOpts() {
     }
     return { bad: bad, rows: rows };
   }, COLLAR_STEP);
+
+  // ─── 목이 머리를 따라가는가 ──────────────────────────────────
+  //
+  // `neckHalfOf` 의 어깨 몫이 얼굴 배율을 안 타서 **바닥** 노릇을 했다 —
+  // 얼굴 50% 에서 머리는 0.497 배인데 목은 0.759 배라, 작은 머리에 굵은 목이
+  // 붙었다 (반대쪽도 어긋나서 얼굴 115% 는 머리 1.151 · 목 1.073 이었다).
+  //
+  // **비를 본다.** 목 반폭 그 자체는 디자인이 정할 일이고, 검사가 지켜야 하는 것은
+  // 「머리를 줄이면 목도 같이 줄어드는가」다. 100% 일 때의 목/머리 비를 기준으로
+  // 삼고 어느 배율에서도 그 비에서 벗어나지 않는지 본다.
+  //   ⚠️ 머리는 **짧은 단발**로 잰다 — 긴 머리는 어깨 위로 흘러내려
+  //   「옷깃 바로 위」 줄이 목이 아니라 머리카락이 된다
+  const NECK_HEAD_TOL = 0.02;
+  const neckHead = await page.evaluate(async (TOL) => {
+    const bad = [], rows = [], K = 4, CW = 200 * K, CH = 348 * K;
+    const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    const SK = hex('#ffdcc4'), SH = hex('#f2c6a6'), CL = hex('#ffb8d9');
+    const out = [];
+    for (const f of [0.5, 0.75, 1, 1.15, 1.3, 1.5]) {
+      const tune = {}; window.Avatar.TUNE_KEYS.forEach(k => { tune[k] = 1; });
+      tune.face = f;
+      const svg = window.Avatar.build(
+        { top: 'top_tee', bottom: 'bottom_skirt', dress: 'dress_none', hair: 'hair_bob' }, 0, tune);
+      const img = new Image();
+      await new Promise(r => {
+        img.onload = r;
+        img.src = 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(svg);
+      });
+      const cv = document.createElement('canvas');
+      cv.width = CW; cv.height = CH;
+      const ctx = cv.getContext('2d');
+      window.__drawAvatar(ctx, img, CW, CH);
+      const d = ctx.getImageData(0, 0, CW, CH).data;
+      const at = (x, y) => { const i = (y * CW + x) * 4; return [d[i], d[i + 1], d[i + 2], d[i + 3]]; };
+      const nr = (c, q) => c[3] > 250 && Math.abs(c[0] - q[0]) <= 3
+        && Math.abs(c[1] - q[1]) <= 3 && Math.abs(c[2] - q[2]) <= 3;
+      const tw = (v, a, b) => v >= Math.min(a, b) - 6 && v <= Math.max(a, b) + 6;
+      const isSk = c => c[3] > 250 && !nr(c, CL)
+        && tw(c[0], SK[0], SH[0]) && tw(c[1], SK[1], SH[1]) && tw(c[2], SK[2], SH[2]);
+      let collar = null;
+      for (let yy = 60; yy <= 240 && collar == null; yy += 0.5) {
+        const y = Math.round(yy * K); if (y >= CH) break;
+        for (let x = 100 * K; x < 170 * K; x++) if (nr(at(x, y), CL)) { collar = yy; break; }
+      }
+      if (collar == null) { bad.push(`얼굴${Math.round(f * 100)}: 옷깃을 못 찾았다`); continue; }
+      let hair = 0, neck = null;
+      for (let yy = 0; yy < collar; yy += 0.5) {
+        const y = Math.round(yy * K); if (y >= CH) break;
+        let s = null;
+        for (let x = 100 * K; x < 200 * K; x++) if (at(x, y)[3] > 250) s = x / K - 100;
+        if (s != null) hair = Math.max(hair, s);
+      }
+      const y = Math.round((collar - 1) * K);
+      for (let x = 100 * K; x < 200 * K; x++) { if (!isSk(at(x, y))) break; neck = x / K - 100; }
+      if (!hair || neck == null) { bad.push(`얼굴${Math.round(f * 100)}: 목·머리를 못 쟀다`); continue; }
+      out.push({ f: f, hair: hair, neck: neck, r: neck / hair });
+    }
+    const base = out.find(o => o.f === 1);
+    if (!base) bad.push('100% 를 못 쟀다');
+    else {
+      out.forEach(o => {
+        rows.push(`얼굴${Math.round(o.f * 100)} 머리 ${o.hair.toFixed(2)}`
+          + ` · 목 ${o.neck.toFixed(2)} · 비 ${o.r.toFixed(3)}`);
+        const off = +(o.r - base.r).toFixed(3);
+        if (Math.abs(off) > TOL) {
+          bad.push(`얼굴${Math.round(o.f * 100)}: 목/머리 비가 ${o.r.toFixed(3)} 로`
+            + ` 100% 의 ${base.r.toFixed(3)} 에서 ${off > 0 ? '+' : ''}${off} 벗어난다`
+            + ` (±${TOL}) — 머리를 줄여도 목이 안 따라 줄어든다`);
+        }
+      });
+    }
+    return { bad: bad, rows: rows };
+  }, NECK_HEAD_TOL);
 
   // ─── 옆선이 «둥근가» — 허리 밑의 오목한 구간 ─────────────────
   //
@@ -2647,6 +2723,7 @@ function launchOpts() {
     .concat(neckLen.bad.map(m => ({ id: '목 길이', body: '-', where: m, n: '-' })))
     .concat(hipRound.bad.map(m => ({ id: '옆선', body: '-', where: m, n: '-' })))
     .concat(collar.bad.map(m => ({ id: '옷깃', body: '-', where: m, n: '-' })))
+    .concat(neckHead.bad.map(m => ({ id: '목과 머리', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })))
     .concat(puff.bad.map(m => ({ id: '퍼프 가시', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
@@ -2686,6 +2763,8 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px 이상 · 부푼 폭은 ${HAND_BULGE_MIN}~${HAND_BULGE_MAX}px)`);
+  console.log(`목과 머리: 얼굴 배율마다 «목/머리» 비 — ${neckHead.rows.join(' · ')}`
+    + ` (100% 의 비에서 ±${NECK_HEAD_TOL} · 벗어나면 머리만 줄고 목은 그대로다)`);
   console.log(`옷깃: 옷깃 «바로 위»의 목 반폭 ↔ 옷깃의 입 — ${collar.rows.join(' · ')}`
     + ` (±${COLLAR_STEP}px · 어긋나면 목에 턱이 진다)`);
   console.log(`옆선: 허리 밑 오목이 이어지는 길이 — ${hipRound.rows.join(' · ')}`
