@@ -147,7 +147,13 @@
       ak_sylvan_queen: '그 여자가 우리 밭을 가져간 건 사과 때문이 아니오. 흙이 필요했던 거지. 뭘 묻으려고.',
       // ─── 새 키워드를 받아 주는 자리 (2막으로 가는 씨앗) ───
       ak_clemen_seal: '봉인이요? …어머니께서 남기신 것이 하나 있다고는 들었습니다. 어디에 있는지는 저도 모릅니다.',
-      ak_sylvan_glass: '유리관… 호수 밑에 뭔가 가라앉아 있다는 말은 들었소. 가 볼 엄두는 안 났고.',
+      ak_sylvan_glass: '유리관… 호수 밑에 뭔가 가라앉아 있다는 말은 들었소. 나는 엄두가 안 났지만, 길은 알려 주겠소.',
+      // ─── 2막 ───
+      ak_orix_glass: '유리관? 그거 우리 갱도 수정으로 짠 거다. …근데 하나 걸리는 게 있어. 죽은 사람 눕힐 관에, 왜 숨구멍을 뚫으라 했겠나.',
+      // ⚠️ 이 줄이 STORY.md 「봉인은 허기의 원인이 아니다」다. **무르게 고치지 말 것**
+      ak_yutark_seal: '봉인은 어머니께서 손수 거신 것입니다. ……아니요. 그것 때문에 그렇게 드신 것이 아닙니다. 그건 봉인과 아무 상관이 없습니다.',
+      ak_clemen_life: '오래 사는 법이요? 저야 모르지요. 다만 오래 사는 것과 잘 사는 것은 다른 말입니다. 일단 좀 드십시오.',
+      ak_kairos_life: '불로장생을 노래한 사람은 많았소. 끝까지 부른 사람은 없었지 — 노래가 먼저 끝나든가, 사람이 먼저 끝나든가.',
       // 아직 못 여는 대답
       ask_locked: '더 친해지면 들려줄 것 같아요 ({tier})',
       ask_locked_toast: '{who}{nj} 아직 이 이야기를 안 해요. 물약을 만들어 주며 더 친해져 보세요.',
@@ -1135,7 +1141,12 @@
       ak_yutark_hunger: 'Hunger. ……I know it too. And I never eat a thing.',
       ak_sylvan_queen: 'She did not take our field for the apples. She needed the soil. To bury something.',
       ak_clemen_seal: 'A seal? …I heard your mother left one behind. Where it is, I do not know either.',
-      ak_sylvan_glass: 'A glass case… they say something lies sunk beneath the lake. I never had the nerve to look.',
+      ak_sylvan_glass: 'A glass case… they say something lies sunk beneath the lake. I never had the nerve — but I can show you the way.',
+      // ─── 2막 ───
+      ak_orix_glass: 'A glass case? We cut that from crystal out of our own shaft. …One thing sticks with me, though. Why would a coffin for the dead need air holes?',
+      ak_yutark_seal: 'The seal was set by your mother, with her own hands. ……No. That is not why you ate as you did. It has nothing to do with the seal.',
+      ak_clemen_life: 'How to live forever? Not my trade. Only that living long and living well are two different words. Here — eat something first.',
+      ak_kairos_life: 'Many have sung of living forever. None ever finished the song — either the song ends first, or the singer does.',
       ask_locked: 'Perhaps once you are closer ({tier})',
       ask_locked_toast: '{who} will not tell you this yet. Brew potions for them and grow closer.',
       dev_all_story: '📖 Open all story',
@@ -1972,7 +1983,7 @@
       kw_hunger: 'A Hunger of the Heart', kw_beauty: 'Beauty', kw_gem: 'Ore', kw_song: 'A Song',
       kw_apple: 'The Poisoned Apple', kw_curse: 'A Curse', kw_queen: 'The Queen', kw_mother: 'Mother',
       kw_order: 'A Contract Killing', kw_prince: 'The Prince',
-      kw_glass: 'The Glass Case', kw_seal: 'A Seal',
+      kw_glass: 'The Glass Case', kw_seal: 'A Seal', kw_life: 'Life Everlasting',
       // 호감도 5단계
       bd_0: 'Strangers', bd_1: 'Acquainted', bd_2: 'Friends', bd_3: 'Trusted', bd_4: 'Dear to Each Other',
       // 마을 (탐험의 두 번째 갈래)
@@ -1996,6 +2007,11 @@
       vs_hunter_well: 'Spring',
       vs_thorn_gate: 'Briar Gate', vs_thorn_barrack: 'Barracks', vs_thorn_armory: 'Armoury',
       vs_thorn_keep: 'Ruined Keep',
+      // 2막
+      vs_glass_shore: 'Lakeshore', vs_glass_pier: 'Old Jetty', vs_glass_hut: "Fisher's Hut",
+      vs_glass_stair: 'Sunken Stair',
+      vs_mine_adit: 'Adit', vs_mine_store: 'Ore Store', vs_mine_cut: 'Cutting Shop',
+      vs_mine_rail: 'Ore Rail',
       // 채집 맵
       m_mine: 'Abandoned Mine', m_mine_desc: 'A long-abandoned shaft littered with ore.',
       m_lake: 'Still Lake', m_lake_desc: 'A mountaintop lake without a breath of wind.',

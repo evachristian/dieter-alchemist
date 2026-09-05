@@ -45,6 +45,17 @@
     vl_thorn:   { sky: ['#e8d8dc', '#f1e8e6'], far: '#9a8088', near: '#7a636c',
                   road: '#c2b1ac', roof: '#8a3f4b', wall: '#e4d9d6',
                   rock: '#877b80', tree: '#5a4450', crop: '#b26a72' },
+    // ── 2막 ──
+    // 유리관 호수 — 물빛. 거울 골짜기보다 **푸르고 밝다**: 그쪽은 「비치는 것」이고
+    // 여기는 「가라앉은 것」이라, 같은 차가움이어도 물의 색이어야 한다
+    vl_glass:   { sky: ['#d3e6ea', '#e9f2f2'], far: '#89a8ac', near: '#6b8f94',
+                  road: '#bfc9c4', roof: '#5c7f86', wall: '#dfe9e8',
+                  rock: '#7f8f92', tree: '#476b63', crop: '#8fb0a6' },
+    // 은빛 갱도 — 은과 그을음. 일곱 굴뚝(난쟁이들의 «사는» 곳)보다 어둡고 금속빛이다.
+    // 같은 난쟁이의 자리지만 이쪽은 **일터**라 흙보다 돌이 많다
+    vl_mine:    { sky: ['#dcdde2', '#eceded'], far: '#8a8c95', near: '#6a6d78',
+                  road: '#b3b5ba', roof: '#5b5f68', wall: '#d9dade',
+                  rock: '#9aa0a6', tree: '#4e5a55', crop: '#a9adb4' },
   };
   const DEF = SKIN.vl_chimney;
 

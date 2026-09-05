@@ -1285,8 +1285,23 @@ const VILLAGES = [
       { id: 'vs_hunter_smoke', emoji: '🔥', name: '훈연막',   shape: 'forge', x: 26, y: 70 },
       { id: 'vs_hunter_well',  emoji: '💧', name: '옹달샘',   shape: 'well',  x: 74, y: 70, trade: false },
     ] },
-  { id: 'vl_glass',   emoji: '⚰️', name: '유리관 호수',   desc: '물밑에 유리관이 가라앉아 있다는 호숫가.' },
-  { id: 'vl_mine',    emoji: '⛏️', name: '은빛 갱도',     desc: '곡괭이 소리가 밤낮으로 울리는 은광촌.' },
+  // ── 2막 ── 둘 다 «유리관» 키워드에서 열린다. 그 키워드는 호감도 3단계에서야
+  // 나오므로(오릭스의 독사과 · 슈타르크의 저주), 2막은 사람과 친해진 뒤에 온다
+  { id: 'vl_glass',   emoji: '⚰️', name: '유리관 호수',   desc: '물밑에 유리관이 가라앉아 있다는 호숫가.',
+    spots: [
+      { id: 'vs_glass_shore', emoji: '🌊', name: '호숫가',      shape: 'well',  x: 26, y: 26 },
+      { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'house', x: 74, y: 26 },
+      { id: 'vs_glass_hut',   emoji: '🎣', name: '어부 오두막', shape: 'shop',  x: 26, y: 70 },
+      // 관까지 내려가는 길. **아직 아무것도 없다** — 3막에서 쓸 자리다
+      { id: 'vs_glass_stair', emoji: '🪨', name: '잠긴 계단',   shape: 'mine',  x: 74, y: 70, trade: false },
+    ] },
+  { id: 'vl_mine',    emoji: '⛏️', name: '은빛 갱도',     desc: '곡괭이 소리가 밤낮으로 울리는 은광촌.',
+    spots: [
+      { id: 'vs_mine_adit',  emoji: '⛏️', name: '갱구',      shape: 'mine',  x: 26, y: 26 },
+      { id: 'vs_mine_store', emoji: '💎', name: '원석 창고', shape: 'shop',  x: 74, y: 26 },
+      { id: 'vs_mine_cut',   emoji: '🔨', name: '세공소',    shape: 'forge', x: 26, y: 70 },
+      { id: 'vs_mine_rail',  emoji: '🚋', name: '광차 선로', shape: 'tower', x: 74, y: 70, trade: false },
+    ] },
   { id: 'vl_thorn',   emoji: '🌹', name: '가시덤불 마을', desc: '가시울타리가 성을 통째로 감싼 마을.',
     spots: [
       { id: 'vs_thorn_gate',    emoji: '🌹', name: '가시울타리 문', shape: 'tower', x: 26, y: 26, trade: false },
@@ -1565,6 +1580,8 @@ const KEYWORDS = [
   { id: 'kw_order',  kind: 'thing', name: '암살 의뢰' },
   { id: 'kw_glass',  kind: 'thing', name: '유리관' },
   { id: 'kw_seal',   kind: 'thing', name: '봉인' },
+  // 2막 — 여왕이 «정말로» 쫓는 것. 유리관에 숨구멍이 뚫려 있던 이유다
+  { id: 'kw_life',   kind: 'thing', name: '불로장생' },
   { id: 'kw_queen',  kind: 'who',   name: '여왕' },
   { id: 'kw_mother', kind: 'who',   name: '엄마' },
   { id: 'kw_prince', kind: 'who',   name: '왕자' },
@@ -1588,7 +1605,9 @@ function keyword(id) { return KEYWORDS.find(x => x.id === id) || null; }
 // 키워드 · 죽은 키워드 · 순환 · **막다른 진행**(가진 것으로 아무 마을도 못 여는 상태)을
 // 본다. 진행이 막히는 버그는 화면에 아무 오류도 안 띄우고, 플레이어는 그냥 그만둔다.
 //
-// 한 사람이 동시에 반응하는 키워드는 **3~5개**로 유지한다 (checktalk 이 센다).
+// 한 사람이 동시에 반응하는 키워드는 **3~6개**로 유지한다 (checktalk 이 센다).
+// 2막에서 다섯이 여섯이 됐다 — 막이 하나 늘 때마다 한 칸씩 늘릴 수는 없으니,
+// 3막의 것은 **새 사람**(이그리트)이 받아야 한다.
 // 전부 늘어놓으면 나중에 백 개가 되고, 반응 없는 걸 골라 헛걸음하는 재미는
 // 코지 게임에 안 맞는다.
 const ASKS = [
@@ -1661,7 +1680,28 @@ const ASKS = [
   // ⚠️ 안 만들면 `checktalk` 이 「죽은 키워드」로 잡는다 — 들고 다닐 데가 없는 것이다.
   // 둘 다 **2막으로 가는 씨앗**이다 (유리관 호수 · 엄마의 봉인)
   { npc: 'sp_clemen', kw: 'kw_seal',  line: 'ak_clemen_seal',  mood: 'def' },
-  { npc: 'sp_sylvan', kw: 'kw_glass', line: 'ak_sylvan_glass', mood: 'def' },
+  // **여기서 2막이 열린다.** 실반은 못 가 봤지만 길은 안다 — 사람이 사는 땅의 일이다
+  { npc: 'sp_sylvan', kw: 'kw_glass', line: 'ak_sylvan_glass', mood: 'def',
+    opens: ['vl_glass'] },
+
+  // ─── 2막 — 유리관 · 은빛 갱도 · 불로장생 ───────────────────
+  //
+  // **문이 둘인 것은 일부러다.** 같은 「유리관」을 두 사람에게 물으면 각각 다른 마을이
+  // 열린다 — 실반은 «어디에 있는지»를, 오릭스는 «누가 만들었는지»를 안다.
+  // 한 줄이 두 마을을 다 열면 나머지 한 사람에게 물을 이유가 사라진다.
+  //
+  // ⚠️ 오릭스의 이 줄이 **불로장생까지 준다.** 관을 짠 사람만 알 수 있는 것
+  // (숨구멍)이 곧 그 키워드라, 다른 사람 입에서 나오면 근거가 없어진다.
+  { npc: 'sp_orix',   kw: 'kw_glass', line: 'ak_orix_glass', mood: 'def',
+    gives: ['kw_life'], opens: ['vl_mine'] },
+  // ⚠️ **이 줄은 STORY.md 「봉인은 허기의 원인이 아니다」 그 자체다.**
+  // 공주가 도망칠 구멍을 하나 찾았을 때, **거짓말을 못 하는** 거울이 「아닙니다」라고
+  // 답한다. 여기를 무르게 고치면 이 게임의 주제가 통째로 무너진다 —
+  // 폭식이 마법 탓이 되는 순간 애정결핍 이야기가 없어진다
+  { npc: 'sp_yutark', kw: 'kw_seal',  line: 'ak_yutark_seal', mood: 'true' },
+  // 불로장생을 받아 주는 둘. **아무것도 안 준다** — 3막의 문은 여기서 열지 않는다
+  { npc: 'sp_clemen', kw: 'kw_life',  line: 'ak_clemen_life', mood: 'smile' },
+  { npc: 'sp_kairos', kw: 'kw_life',  line: 'ak_kairos_life', mood: 'sing' },
 ];
 function asksOf(npc) { return ASKS.filter(a => a.npc === npc); }
 // 그 대답에 필요한 호감도 단계 (없으면 0)

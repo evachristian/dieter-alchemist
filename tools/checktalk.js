@@ -190,12 +190,17 @@ D.ASKS.forEach(a => {
   });
 }
 
-// 한 사람이 동시에 반응하는 키워드는 **3~5개**로 유지한다 (STORY.md 「화면」).
-// 넘으면 칩 줄이 화면을 먹고, 반응 없는 것을 골라 헛걸음하는 재미는 코지 게임에 안 맞는다
+// 한 사람이 동시에 반응하는 키워드는 **3~6개**로 유지한다 (STORY.md 「화면」).
+// 넘으면 칩 줄이 화면을 먹고, 반응 없는 것을 골라 헛걸음하는 재미는 코지 게임에 안 맞는다.
+// ⚠️ 2막에서 다섯이 여섯이 됐다. **막마다 한 칸씩 늘릴 수는 없다** —
+// 3막의 것은 새 사람(이그리트)이 받아야 한다. 여기를 또 올리기 전에 그것부터 본다
+const ASK_MAX = 6;
 const byNpc = {};
 D.ASKS.forEach(a => { (byNpc[a.npc] = byNpc[a.npc] || []).push(a.kw); });
 Object.entries(byNpc).forEach(([npc, list]) => {
-  if (list.length > 5) bad.push(`ASKS ${npc}: 반응하는 키워드가 ${list.length}개다 (3~5개로 유지한다)`);
+  if (list.length > ASK_MAX) {
+    bad.push(`ASKS ${npc}: 반응하는 키워드가 ${list.length}개다 (3~${ASK_MAX}개로 유지한다)`);
+  }
 });
 
 // ── 걸어 본다 — 시작 키워드만 들고 어디까지 갈 수 있나

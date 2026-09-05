@@ -205,14 +205,29 @@ function ok(cond, msg, extra) {
   ok(dots.length === 0, '다 물어보면 점이 꺼진다', dots.join(','));
 
   // ── 새로고침해도 남는가 (세이브)
+  // ⚠️ **저장이 끝난 것을 보고 나서 새로고침한다.** 그냥 기다렸다 새로고침했더니
+  // 아주 가끔 아직 안 써진 상태로 다시 읽어 **「세이브가 통째로 날아갔다」**로 보였다
+  // (kw 1 · talked 0 — 기본값 그대로). 검사기가 거짓으로 빨개지는 자리다
+  await page.waitForFunction(() => {
+    try {
+      const raw = localStorage.getItem('dieter_alchemist_save_v1');
+      if (!raw) return false;
+      const p = JSON.parse(raw);
+      return Array.isArray(p.villages) && p.villages.length >= 7
+        && Array.isArray(p.talked) && p.talked.length >= 32;
+    } catch (e) { return false; }
+  }, { timeout: 10000 });
   await page.reload({ waitUntil: 'load' });
   await page.waitForTimeout(1200);
   st = await page.evaluate(() => ({ kw: S.keywords.length, vl: S.villages.slice(),
     tk: S.talked.length, sl: S.keywords.includes('kw_seal') }));
-  ok(st.vl.length === 5, '연 마을 다섯이 세이브에 남는다', st.vl.join(','));
-  // 열둘 중 열하나 — 「엄마의 봉인」은 카이로스·발렌의 호감도가 있어야 나온다.
-  // 여기서 올린 것은 오릭스 하나뿐이라 그 줄들은 아직 잠겨 있다 (그것이 맞는 상태다)
-  ok(st.kw === 11 && st.tk === 29, '키워드 11 · 물어본 것 29 가 남는다', `kw ${st.kw} · talked ${st.tk}`);
+  // 2막이 들어오면서 다섯 → **일곱**. 「유리관」 하나가 문을 둘 연다 —
+  // 실반은 «어디에 있는지»(유리관 호수)를, 오릭스는 «누가 만들었는지»(은빛 갱도)를 안다
+  ok(st.vl.length === 7, '연 마을 일곱이 세이브에 남는다', st.vl.join(','));
+  // 열셋 중 열둘 — 「엄마의 봉인」은 카이로스·발렌의 호감도가 있어야 나온다.
+  // 여기서 올린 것은 오릭스 하나뿐이라 그 줄들은 아직 잠겨 있다 (그것이 맞는 상태다).
+  // 「불로장생」은 오릭스의 유리관 대답이 바로 주므로 여기서 들어온다
+  ok(st.kw === 12 && st.tk === 32, '키워드 12 · 물어본 것 32 가 남는다', `kw ${st.kw} · talked ${st.tk}`);
   ok(!st.sl, '호감도를 안 올린 사람의 말은 아직 안 들었다 (봉인)');
 
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));
