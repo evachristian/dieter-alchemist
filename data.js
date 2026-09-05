@@ -1310,7 +1310,17 @@ const VILLAGES = [
       { id: 'vs_thorn_armory',  emoji: '🛡️', name: '무기고',       shape: 'forge', x: 26, y: 70 },
       { id: 'vs_thorn_keep',    emoji: '🏰', name: '무너진 성',     shape: 'ruin',  x: 74, y: 70, trade: false },
     ] },
-  { id: 'vl_spire',   emoji: '🏰', name: '여왕의 첨탑',   desc: '가장 아름다운 이를 묻는 거울이 걸린 탑.' },
+  // ── 3막 ── **점수로 열지 않는다.** 「여신 등급 = 여왕과 같은 자리」는 이야기의 비유이고,
+  // 문은 키워드 하나다 (`isVillageOpen()` 은 `S.villages` 만 본다 — 두 번 잠그지 않는다)
+  { id: 'vl_spire',   emoji: '🏰', name: '여왕의 첨탑',   desc: '가장 아름다운 이를 묻는 거울이 걸린 탑.',
+    spots: [
+      { id: 'vs_spire_gate',   emoji: '🏰', name: '첨탑 아래',    shape: 'tower', x: 26, y: 26, trade: false },
+      // 몇십 년째 무작위 조합 중인 자리 (STORY.md 「그녀는 레시피를 모른다」)
+      { id: 'vs_spire_lab',    emoji: '⚗️', name: '왕실 연금실',  shape: 'lab',   x: 74, y: 26 },
+      { id: 'vs_spire_mirror', emoji: '🕯️', name: '거울의 방',    shape: 'house', x: 26, y: 70,
+        npc: 'sp_ygritte', trade: false },
+      { id: 'vs_spire_forge',  emoji: '🔥', name: '화덕',        shape: 'forge', x: 74, y: 70 },
+    ] },
 ];
 // 화면에 내보일 마을 — **건물이 있는 곳만.**
 //
@@ -1556,6 +1566,10 @@ const TALKS = {
                lines: ['tk_stark_1', 'tk_stark_2'],                  moods: ['def', 'warm'] },
   sp_valen:  { greet: 'tk_valen_greet',  greetMood: 'def',
                lines: ['tk_valen_1', 'tk_valen_2'],                  moods: ['def', 'soft'] },
+  // 👑 여왕 — ⚠️ **이름이 한 번도 안 나온다.** 화면에 뜨는 이름은 `speakerName()` 이
+  // 「여왕」으로 갈아 끼운다 (STORY.md 「여왕」 항의 ⚠️). 대사에도 안 쓴다
+  sp_ygritte: { greet: 'tk_queen_greet', greetMood: 'def',
+               lines: ['tk_queen_1', 'tk_queen_2'],                  moods: ['cold', 'def'] },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -1582,6 +1596,10 @@ const KEYWORDS = [
   { id: 'kw_seal',   kind: 'thing', name: '봉인' },
   // 2막 — 여왕이 «정말로» 쫓는 것. 유리관에 숨구멍이 뚫려 있던 이유다
   { id: 'kw_life',   kind: 'thing', name: '불로장생' },
+  // 3막 — 저주가 풀리는 조건 그 자체다 (「누군가가 진짜 자기를 찾도록 돕는 것」).
+  // ⚠️ **여왕에게서 나온다.** 그녀는 평생 그것을 못 찾았고, 못 찾은 사람만이
+  // 그 말을 «질문»으로 흘릴 수 있다 — 답을 아는 사람 입에서 나오면 수수께끼가 아니다
+  { id: 'kw_self',   kind: 'idea',  name: '진짜 나' },
   { id: 'kw_queen',  kind: 'who',   name: '여왕' },
   { id: 'kw_mother', kind: 'who',   name: '엄마' },
   { id: 'kw_prince', kind: 'who',   name: '왕자' },
@@ -1702,6 +1720,40 @@ const ASKS = [
   // 불로장생을 받아 주는 둘. **아무것도 안 준다** — 3막의 문은 여기서 열지 않는다
   { npc: 'sp_clemen', kw: 'kw_life',  line: 'ak_clemen_life', mood: 'smile' },
   { npc: 'sp_kairos', kw: 'kw_life',  line: 'ak_kairos_life', mood: 'sing' },
+
+  // ─── 3막 — 여왕의 첨탑 · 진짜 나 ───────────────────────────
+  //
+  // **첨탑을 여는 사람은 슈타르크다.** 그는 원래 그녀가 고용한 암살자였고
+  // (STORY.md 「이름」), 성 안을 아는 유일한 사람이다 — 길을 아는 이유가 인물에 있다.
+  // ⚠️ **매력 점수로 또 잠그지 않는다.** 「여신 등급 = 여왕과 같은 자리」는 비유이고,
+  // 문은 이 한 줄이다 (CLAUDE.md 「점수로 두 번 잠그지 않는다」)
+  { npc: 'sp_stark',  kw: 'kw_life',  line: 'ak_stark_life',  mood: 'def',
+    opens: ['vl_spire'] },
+
+  // 👑 여왕 — **3막의 키워드는 새 사람이 받는다.** 여섯이 이미 여섯 칸씩 차서
+  // 상한을 또 올리는 대신 그녀가 받도록 했다 (checktalk 의 `ASK_MAX` 주석 참고).
+  //
+  // ⚠️ **그녀는 공주를 하찮게 본다.** 봉인 때문에 진짜로 아무것도 안 보이기 때문이고
+  // (STORY.md 「봉인과 열쇠」), 그래서 대면인데도 경계하지 않는다. 이름도 안 부른다 —
+  // 「프린세스」는 직함이지 이름이 아니다 (STORY.md 「호칭 규칙」).
+  //
+  // ⚠️ **「아름다움」이 「진짜 나」를 준다.** 평생 그것을 못 찾은 사람만이 그 말을
+  // «질문»으로 흘릴 수 있다 — 답을 아는 사람 입에서 나오면 수수께끼가 아니라 답지다.
+  { npc: 'sp_ygritte', kw: 'kw_beauty', line: 'ak_queen_beauty', mood: 'def',
+    gives: ['kw_self'] },
+  { npc: 'sp_ygritte', kw: 'kw_life',   line: 'ak_queen_life',   mood: 'cold' },
+  { npc: 'sp_ygritte', kw: 'kw_mother', line: 'ak_queen_mother', mood: 'cold' },
+  { npc: 'sp_ygritte', kw: 'kw_order',  line: 'ak_queen_order',  mood: 'cold' },
+  // 같은 상처를 앓는 두 여자가 같은 낱말 앞에 선다 (STORY.md 「그래서 — 자기 열심으로는 안 된다」).
+  // **그녀는 자기 이야기를 하는 줄도 모른다**
+  { npc: 'sp_ygritte', kw: 'kw_hunger', line: 'ak_queen_hunger', mood: 'def' },
+
+  // 「진짜 나」를 받아 주는 둘. **유타르크가 아니다** — 그에게 이 말을 가져가는 것은
+  // 저주가 풀리는 순간이라 엔딩의 몫이고, 여기서 미리 쓰면 그 장면이 죽는다.
+  // ⚠️ **슈타르크도 아니다.** 인물로는 제일 어울리지만(죽이기를 그만두고서야 자기를 알았다)
+  // 첨탑을 여는 줄이 이미 그의 여섯째 칸이라 자리가 없다 — 상한을 올리는 대신 비켜 간다
+  { npc: 'sp_sylvan', kw: 'kw_self',  line: 'ak_sylvan_self', mood: 'def' },
+  { npc: 'sp_valen',  kw: 'kw_self',  line: 'ak_valen_self',  mood: 'soft' },
 ];
 function asksOf(npc) { return ASKS.filter(a => a.npc === npc); }
 // 그 대답에 필요한 호감도 단계 (없으면 0)

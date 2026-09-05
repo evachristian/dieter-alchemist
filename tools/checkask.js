@@ -213,21 +213,22 @@ function ok(cond, msg, extra) {
       const raw = localStorage.getItem('dieter_alchemist_save_v1');
       if (!raw) return false;
       const p = JSON.parse(raw);
-      return Array.isArray(p.villages) && p.villages.length >= 7
-        && Array.isArray(p.talked) && p.talked.length >= 32;
+      return Array.isArray(p.villages) && p.villages.length >= 8
+        && Array.isArray(p.talked) && p.talked.length >= 40;
     } catch (e) { return false; }
   }, { timeout: 10000 });
   await page.reload({ waitUntil: 'load' });
   await page.waitForTimeout(1200);
   st = await page.evaluate(() => ({ kw: S.keywords.length, vl: S.villages.slice(),
     tk: S.talked.length, sl: S.keywords.includes('kw_seal') }));
-  // 2막이 들어오면서 다섯 → **일곱**. 「유리관」 하나가 문을 둘 연다 —
-  // 실반은 «어디에 있는지»(유리관 호수)를, 오릭스는 «누가 만들었는지»(은빛 갱도)를 안다
-  ok(st.vl.length === 7, '연 마을 일곱이 세이브에 남는다', st.vl.join(','));
-  // 열셋 중 열둘 — 「엄마의 봉인」은 카이로스·발렌의 호감도가 있어야 나온다.
-  // 여기서 올린 것은 오릭스 하나뿐이라 그 줄들은 아직 잠겨 있다 (그것이 맞는 상태다).
-  // 「불로장생」은 오릭스의 유리관 대답이 바로 주므로 여기서 들어온다
-  ok(st.kw === 12 && st.tk === 32, '키워드 12 · 물어본 것 32 가 남는다', `kw ${st.kw} · talked ${st.tk}`);
+  // 다섯 → 일곱(2막) → **여덟**(3막). 「유리관」 하나가 문을 둘 열고
+  // (실반은 «어디», 오릭스는 «누가»), 「불로장생」을 슈타르크에게 가져가면 첨탑이 열린다 —
+  // 그는 원래 그녀가 고용한 암살자라 성 안을 아는 유일한 사람이다
+  ok(st.vl.length === 8, '연 마을 여덟이 세이브에 남는다', st.vl.join(','));
+  // 열넷 중 열셋 — **못 얻는 것은 「엄마의 봉인」 하나뿐**이고, 그것이 맞는 상태다.
+  // 카이로스·발렌의 호감도가 있어야 나오는데 여기서 올린 것은 오릭스 하나다.
+  // 「불로장생」은 오릭스의 유리관 대답이, 「진짜 나」는 첨탑에서 여왕이 바로 준다
+  ok(st.kw === 13 && st.tk === 40, '키워드 13 · 물어본 것 40 이 남는다', `kw ${st.kw} · talked ${st.tk}`);
   ok(!st.sl, '호감도를 안 올린 사람의 말은 아직 안 들었다 (봉인)');
 
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));

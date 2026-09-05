@@ -154,6 +154,20 @@
       ak_yutark_seal: '봉인은 어머니께서 손수 거신 것입니다. ……아니요. 그것 때문에 그렇게 드신 것이 아닙니다. 그건 봉인과 아무 상관이 없습니다.',
       ak_clemen_life: '오래 사는 법이요? 저야 모르지요. 다만 오래 사는 것과 잘 사는 것은 다른 말입니다. 일단 좀 드십시오.',
       ak_kairos_life: '불로장생을 노래한 사람은 많았소. 끝까지 부른 사람은 없었지 — 노래가 먼저 끝나든가, 사람이 먼저 끝나든가.',
+      // ─── 3막 ───
+      ak_stark_life: '불로장생. …그 성에 들어가 본 적이 있소. 옛날에, 다른 일로. 밤마다 뭘 끓이는지도 봤고. 길은 내가 아오.',
+      // 👑 여왕 — ⚠️ 이름을 쓰지 않는다. 공주도 「프린세스」라고만 부른다
+      ak_queen_beauty: '아름다움? 그건 매일 아침 확인받는 것이지. …그런데 프린세스, 이상하지 않나. 매일 같은 답을 듣는데 매일 다시 물어야 한다는 게.',
+      ak_queen_life: '영원히 사는 법 말이냐. 곧 된다. 몇 가지만 더 넣어 보면 돼. …벌써 몇 번째냐고? 세어 본 적 없다.',
+      ak_queen_mother: '네 어미 말이냐. …재주가 좋았지. 나보다 나았다. 그 말을 입 밖에 낸 건 지금이 처음이구나.',
+      ak_queen_order: '사람을 시켜 무얼 했느냐고? 프린세스, 그런 건 묻는 게 아니다. 답을 들으면 네가 곤란해져.',
+      ak_queen_hunger: '허기라니. …나는 평생 배가 고팠다. 무엇을 먹어도, 무엇을 가져도. 너 같은 아이가 알 소리는 아니지.',
+      ak_sylvan_self: '진짜 나… 밭을 뺏기고 한동안은 내가 누군지도 몰랐소. 손에 흙이 없으니 아무것도 아닌 것 같더군.',
+      ak_valen_self: '진짜 나? 나 같은 거지가? …하. 갑옷을 벗으면 뭐가 남는지는 생각 안 해 봤군.',
+      // 👑 여왕 — 인사말·잡담
+      tk_queen_greet: '…너였구나. 뭘 보러 왔느냐, 프린세스.',
+      tk_queen_1: '거울은 건드리지 마라. 그건 내 것이다.',
+      tk_queen_2: '네 어미도 이 방에 서 본 적이 있다. 그때는 둘이 웃었지.',
       // 아직 못 여는 대답
       ask_locked: '더 친해지면 들려줄 것 같아요 ({tier})',
       ask_locked_toast: '{who}{nj} 아직 이 이야기를 안 해요. 물약을 만들어 주며 더 친해져 보세요.',
@@ -1013,6 +1027,8 @@
       // 인트로
       intro_skip: '건너뛰기 ✕', intro_next: '다음 ▸',
       sp_narrator: '', sp_fairy: '요정 대모', sp_princess: '공주',
+      // ⚠️ 여왕은 «이름 대신» 이 말로만 불린다 (STORY.md 「여왕」) — 이름은 엔딩의 몫이다
+      sp_queen: '여왕',
       intro_1: '깊은 밤, 성의 한쪽 구석…\n공주님은 오늘도 야식을 즐기고 있었다.',
       intro_2: '아니 대체 왜 그렇게 밤마다 야식을 드시는 거예요?',
       intro_3: '모르겠어. 자꾸 뭔가 먹고 싶어.\n정신적인 허기일지도…?',
@@ -1147,6 +1163,18 @@
       ak_yutark_seal: 'The seal was set by your mother, with her own hands. ……No. That is not why you ate as you did. It has nothing to do with the seal.',
       ak_clemen_life: 'How to live forever? Not my trade. Only that living long and living well are two different words. Here — eat something first.',
       ak_kairos_life: 'Many have sung of living forever. None ever finished the song — either the song ends first, or the singer does.',
+      // ─── 3막 ───
+      ak_stark_life: 'Life everlasting. …I have been inside that keep. Long ago, on other business. I saw what she boils at night, too. I know the way.',
+      ak_queen_beauty: 'Beauty? That is a thing one has confirmed each morning. …Though is it not strange, Princess. The same answer every day, and every day I must ask again.',
+      ak_queen_life: 'How to live forever, you mean. It is nearly done. A few more things to try, that is all. …How many attempts? I have never counted.',
+      ak_queen_mother: 'Your mother, is it. …She had a gift. Better than mine. That is the first time I have said it aloud.',
+      ak_queen_order: 'What I had done, and by whose hand? Princess, one does not ask such things. The answer would only put you in a difficult position.',
+      ak_queen_hunger: 'Hunger. …I have been hungry my whole life. Whatever I ate, whatever I took. Not a thing a child like you would understand.',
+      ak_sylvan_self: 'The real me… When they took the field, for a while I did not know who I was. No soil on my hands and I felt like nothing at all.',
+      ak_valen_self: 'The real me? A beggar like me? …Ha. I never did think about what is left once the armour comes off.',
+      tk_queen_greet: '…so it is you. What have you come to look at, Princess?',
+      tk_queen_1: 'Do not touch the mirror. That one is mine.',
+      tk_queen_2: 'Your mother stood in this room once. We both laughed, back then.',
       ask_locked: 'Perhaps once you are closer ({tier})',
       ask_locked_toast: '{who} will not tell you this yet. Brew potions for them and grow closer.',
       dev_all_story: '📖 Open all story',
@@ -1939,6 +1967,7 @@
       share_text: '[Dieter Alchemist] My Total Charm {total} — {emoji} {tier}!',
       intro_skip: 'Skip ✕', intro_next: 'Next ▸',
       sp_narrator: '', sp_fairy: 'Fairy Godmother', sp_princess: 'Princess',
+      sp_queen: 'The Queen',
       intro_1: 'Late at night, in a corner of the castle…\nthe princess was enjoying a midnight snack again.',
       intro_2: 'Why on earth do you keep eating late at night?',
       intro_3: "I don't know. I just keep wanting to eat.\nMaybe it's emotional hunger…?",
@@ -1983,7 +2012,7 @@
       kw_hunger: 'A Hunger of the Heart', kw_beauty: 'Beauty', kw_gem: 'Ore', kw_song: 'A Song',
       kw_apple: 'The Poisoned Apple', kw_curse: 'A Curse', kw_queen: 'The Queen', kw_mother: 'Mother',
       kw_order: 'A Contract Killing', kw_prince: 'The Prince',
-      kw_glass: 'The Glass Case', kw_seal: 'A Seal', kw_life: 'Life Everlasting',
+      kw_glass: 'The Glass Case', kw_seal: 'A Seal', kw_life: 'Life Everlasting', kw_self: 'The Real Me',
       // 호감도 5단계
       bd_0: 'Strangers', bd_1: 'Acquainted', bd_2: 'Friends', bd_3: 'Trusted', bd_4: 'Dear to Each Other',
       // 마을 (탐험의 두 번째 갈래)
@@ -2012,6 +2041,9 @@
       vs_glass_stair: 'Sunken Stair',
       vs_mine_adit: 'Adit', vs_mine_store: 'Ore Store', vs_mine_cut: 'Cutting Shop',
       vs_mine_rail: 'Ore Rail',
+      // 3막
+      vs_spire_gate: 'Tower Foot', vs_spire_lab: 'Royal Laboratory',
+      vs_spire_mirror: 'Mirror Room', vs_spire_forge: 'Hearth',
       // 채집 맵
       m_mine: 'Abandoned Mine', m_mine_desc: 'A long-abandoned shaft littered with ore.',
       m_lake: 'Still Lake', m_lake_desc: 'A mountaintop lake without a breath of wind.',

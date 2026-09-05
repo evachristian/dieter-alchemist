@@ -3333,6 +3333,12 @@ function renderVillages() {
 function speakerName(id) {
   if (id === 'sp_gwiriel') return S.name || T('sp_princess');
   if (id === 'sp_althea') return T('sp_fairy');
+  // ⚠️ **여왕의 이름은 게임 안에서 딱 한 번, 마지막에 불린다** (STORY.md 「여왕」).
+  // 거울이 그녀를 기억해 내며 부르는 이름이라, 그 전에 한 번이라도 화면에 뜨면
+  // 그 장면이 통째로 죽는다. 설정상의 이름은 `SPEAKERS` 에 그대로 두고
+  // (공주·요정 대모와 같은 방식) 여기서만 「여왕」으로 갈아 끼운다.
+  // `tools/checkname.js` 가 화면 어디에도 안 새는지 본다
+  if (id === 'sp_ygritte') return T('sp_queen');
   const sp = D.speaker(id);
   return sp ? N(sp.id, sp.name) : '';
 }

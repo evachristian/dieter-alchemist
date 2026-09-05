@@ -56,6 +56,11 @@
     vl_mine:    { sky: ['#dcdde2', '#eceded'], far: '#8a8c95', near: '#6a6d78',
                   road: '#b3b5ba', roof: '#5b5f68', wall: '#d9dade',
                   rock: '#9aa0a6', tree: '#4e5a55', crop: '#a9adb4' },
+    // ── 3막 ── 여왕의 첨탑 — **불의 색이다.** 그녀는 붉은 머리이고 연금술은 화덕이라
+    // (STORY.md 「모습 — 붉은 머리」), 차가운 유리인 거울 골짜기와 정면으로 대비된다
+    vl_spire:   { sky: ['#e7d2cc', '#f2e6e0'], far: '#8c6a68', near: '#6d4f52',
+                  road: '#c0a89b', roof: '#7d2f38', wall: '#e4d6ce',
+                  rock: '#8c7d77', tree: '#4f4046', crop: '#c08a4a' },
   };
   const DEF = SKIN.vl_chimney;
 
