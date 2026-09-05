@@ -1,6 +1,10 @@
 node_modules/
 data/
 
+# `npm run bundle` 이 만드는 한 장짜리 게임 (1.6MB). 소스에서 언제든 다시 나온다 —
+# 커밋하면 파일 하나 고칠 때마다 1.6MB 짜리 diff 가 따라붙는다
+dist/
+
 # macOS
 .DS_Store
 
