@@ -2034,22 +2034,45 @@
   // 건너뛰는 것과 같은 이유다. **파는 폭·깊이는 이 표가 유일한 원본이고,
   // 검사기도 같은 표를 읽는다** — 여기보다 크게 파면 그 바깥에서 살이 잡힌다.
   //   w = 파는 반폭 · d = CLOTH_TOP_Y 에서 내려오는 깊이
+  // ⚠️ **파는 반폭은 «목에 붙여» 잡는다.** 예전에는 13·13·18 로 박혀 있었는데,
+  // 목의 반폭은 얼굴 배율·몸통 배율을 타서 기본값이 **8.65** 다 — 넥라인의 입이
+  // 목보다 4.35px 씩 넓어, 목의 곧은 옆선이 옷깃에 닿는 자리에서 **턱이 졌다**
+  // (「옷의 목둘레랑 신체 목둘레가 안 맞는다」). 옷깃이 목의 실루엣을 가로질러
+  // 자르는 모양이라, 그 사이에 뾰족한 살 조각이 남는다.
+  // 이제 **목 반폭 + 스타일마다 정해진 여유**다 — 얼굴을 키워 목이 굵어지면
+  // 옷깃도 같이 넓어진다.
+  //   d = CLOTH_TOP_Y 에서 내려오는 깊이 (이건 스타일 그 자체라 그대로 둔다)
   const NECK_CUT = {
-    round:  { w: 13, d: 13 },
-    v:      { w: 13, d: 26 },
-    // 스퀘어는 **넓고 얕다.** 목(x 91~109)보다 조금만 넓게 파면 목이 그대로 이어져
+    round:  { pad: 2,  d: 13 },
+    v:      { pad: 2,  d: 26 },
+    // 스퀘어는 **넓고 얕다.** 목보다 조금만 넓게 파면 목이 그대로 이어져
     // 굴뚝처럼 보인다 — 가슴이 양옆으로 보여야 네모로 읽힌다
-    square: { w: 18, d: 15 },
-    polo:   { w: 0,  d: 0 },    // 목까지 올라온다 — 안 판다
-    none:   { w: 0,  d: 0 },
+    square: { pad: 7,  d: 15 },
+    polo:   { pad: null, d: 0 },   // 목까지 올라온다 — 안 판다
+    none:   { pad: null, d: 0 },
   };
-  function neckCut(kind) { return NECK_CUT[kind] || NECK_CUT.round; }
+  // 목의 반폭 (몸통 좌표계). `build()` 의 `neck.half` 와 **같은 식**이다 —
+  // 거기서는 몸무게까지 넣은 정확한 비(hx/kx)를 넘기고, 옷 쪽은 안 넘긴다:
+  // ⚠️ hx/kx 는 몸무게 0→1 에서 0.979 → 1.024 로 **4.6% 밖에 안 움직인다**
+  // (머리 배율과 가로 배율이 같이 커져 거의 상쇄된다). 옷은 몸 변환 안에서
+  // 그려지므로 그 2% 를 무시하고 배율만 본다 — 대신 식은 여기 한 곳에 둔다.
+  function neckHalfOf(tune, ratio) {
+    const kFace = tuneOf(tune, 'face');
+    const r = ratio == null ? HEAD_K_SLIM * kFace / bodyShrink(kFace) : ratio;
+    return (33 * r * NECK_OF_FACE
+          + (BODY.torsoR - 100) * tuneOf(tune, 'torso') * NECK_OF_SHOULDER) / 2;
+  }
+  function neckCut(kind, tune) {
+    const c = NECK_CUT[kind] || NECK_CUT.round;
+    if (c.pad == null || !c.d) return { w: 0, d: 0 };
+    return { w: +(neckHalfOf(tune) + c.pad).toFixed(2), d: c.d };
+  }
 
   // 파낸 자리 — 반폭 · 깊이 · **모서리 높이(top)**. 검사기가 이 셋을 그대로 읽는다.
   // top 을 여기서 같이 내주는 이유: 검사기가 몸통 윗선 계산을 따로 하면
   // 두 벌이 되고, 어긋나는 순간 검사가 헛돈다.
-  function neckCutBox(kind) {
-    const cut = neckCut(kind);
+  function neckCutBox(kind, tune) {
+    const cut = neckCut(kind, tune);
     if (!cut.w || !cut.d) return { w: 0, d: 0, top: 0 };
     return { w: cut.w, d: cut.d, top: +(torsoTopAtX(100 + cut.w) - 1).toFixed(1) };
   }
@@ -2061,14 +2084,14 @@
   // 그래야 어깨에서 목으로 넘어가는 곳이 꺾이지 않는다.
   // 파낸 **가운데 부분만.** 왼쪽 모서리(EL,K)에서 시작해 오른쪽 모서리(ER,K)로 간다.
   // 어깨는 옷마다 달라서(공주 드레스는 좁고 높다) 부르는 쪽이 각자 붙인다.
-  function neckMid(kind) {
-    const T = CLOTH_TOP_Y, cut = neckCut(kind);
+  function neckMid(kind, tune) {
+    const T = CLOTH_TOP_Y, cut = neckCut(kind, tune);
     const w = cut.w, B = T + cut.d;
     const EL = 100 - w, ER = 100 + w;
     // 파낸 모서리는 **몸통 윗선 바로 위**에 둔다. 어깨끈처럼 평평하게(T) 두면
     // 모서리 안쪽에 옷도 몸도 없는 자리가 남아 배경이 비친다 — 넓게 파는
     // 스퀘어일수록 심하다 (몸통 윗선은 바깥으로 갈수록 내려간다)
-    const K = neckCutBox(kind).top;
+    const K = neckCutBox(kind, tune).top;
     if (kind === 'v') return { K, EL, ER, d: `L100,${B} L${ER},${K}` };
     if (kind === 'square') return { K, EL, ER, d: `L${EL},${B} L${ER},${B} L${ER},${K}` };
     // 라운드 — 대칭 3차 곡선의 한가운데는 (끝점 + 제어점×3) / 4 에 온다.
@@ -2107,14 +2130,14 @@
     return `C${200 - b[0]},${b[1]} ${200 - a[0]},${y0} `;
   }
   function clothTopEdge(kind, tune) {
-    const T = CLOTH_TOP_Y, cut = neckCut(kind), f = clothShoulderK(tune);
+    const T = CLOTH_TOP_Y, cut = neckCut(kind, tune), f = clothShoulderK(tune);
     const e = shoulderEndR(f);
     const startL = `M${200 - e[0]},${e[1]}`;
     // 안 파는 옷 — 가운데가 가장 높은 돔
     if (!cut.w || !cut.d) {
       return `${startL} ${clothShoulderL(null, f)}100,${T} ${clothShoulderR(null, f)}`;
     }
-    const m = neckMid(kind);
+    const m = neckMid(kind, tune);
     return `${startL} ${clothShoulderL(m.K, f)}${m.EL},${m.K} ${m.d} ${clothShoulderR(m.K, f)}`;
   }
 
@@ -2372,7 +2395,7 @@
     const kLeg = tuneMax(tune, ['thigh', 'calf']);
     const flare = 21 * kLeg;                              // 밑단이 퍼지는 정도
     const hemL = L - flare, hemR = R + flare;
-    const cut = neck && neckCut(neck).w ? neckMid(neck) : null;
+    const cut = neck && neckCut(neck, tune).w ? neckMid(neck, tune) : null;
     const top = cut
       ? `C${L},${B.shoulderY} ${cut.EL - 14},${cut.K} ${cut.EL},${cut.K}
          ${cut.d}
@@ -2871,8 +2894,7 @@
     const neck = {
       // 몸통 좌표계로 되돌리고 2px 겹친다 — 딱 맞추면 경계에 배경이 1px 비친다
       top: FLOOR_Y + (chinY - FLOOR_Y) / (bodyKy * kBody) - 2,
-      half: (33 * hx / kx * NECK_OF_FACE
-           + (BODY.torsoR - 100) * tuneOf(tune, 'torso') * NECK_OF_SHOULDER) / 2,
+      half: neckHalfOf(tune, hx / kx),
     };
     // 고른 색이 있으면 아이템의 원래 색을 덮어쓴다.
     // outfit.colors = { top: '#ffffff', ... } — 없는 칸은 아이템 색 그대로.

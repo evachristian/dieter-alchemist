@@ -1210,6 +1210,54 @@ function launchOpts() {
   }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, bulgeMax: HAND_BULGE_MAX,
        keep: HAND_KEEP, touch: HAND_TOUCH, lines: SLEEVE_OUTLINE_MIN });
 
+  // ─── 옷깃이 목에 맞는가 ──────────────────────────────────────
+  //
+  // 파는 반폭이 13·13·18 로 **박혀** 있었다. 목의 반폭은 얼굴·몸통 배율을 타서
+  // 기본 9.04 인데 옷깃의 입이 13 이라, 목의 곧은 옆선이 옷깃에 닿는 자리에서
+  // **턱이 졌다** — 옷깃이 목의 실루엣을 가로질러 잘라 사이에 뾰족한 살 조각이
+  // 남았다 (「옷의 목둘레랑 신체 목둘레가 안 맞는다」).
+  // 지금은 `목 반폭 + 스타일 여유`라 배율을 움직여도 같이 따라간다.
+  //
+  // 재는 법: 목 path 의 **곧은 윗변**(`M L,top L R,top`)에서 목 반폭을 그대로 읽고,
+  // `Avatar.neckCutBox` 가 말하는 옷깃의 입과 견준다 — 둘 다 몸통 좌표계다.
+  // 폭은 «목보다 조금 넓게» 다 — 딱 맞으면 옷깃이 목 뒤로 숨고, 넓으면 턱이 진다.
+  // 상한을 4 로 두면 예전의 «고정 13px» 이 기본 자세에서만 우연히 통과한다 (실제로 그랬다).
+  const COLLAR_GAP = { round: [1, 3], v: [1, 3], square: [5, 8] };
+  const collar = await page.evaluate(async (want) => {
+    const D = window.GameData, bad = [], rows = [];
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px';
+    document.body.appendChild(box);
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none', shoes: 'shoes_none' };
+    const tunes = [['기본', null], ['얼굴150', { face: 1.5 }], ['몸통50', { torso: 0.5 }],
+                   ['몸통150', { torso: 1.5 }]];
+    for (const [name, t] of tunes) {
+      box.innerHTML = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), 0, t);
+      const svg = box.querySelector('svg');
+      const nk = [...svg.querySelectorAll('path')]
+        .find(n => (n.getAttribute('fill') || '').indexOf('neckG') >= 0);
+      if (!nk) { bad.push(`${name}: 목을 못 찾았다`); continue; }
+      // 'M L,top L R,top …' — 앞의 두 점이 곧은 윗변이다
+      const m = /^M([\d.-]+),([\d.-]+)\s+L([\d.-]+),/.exec(nk.getAttribute('d').trim());
+      if (!m) { bad.push(`${name}: 목 path 를 못 읽었다`); continue; }
+      const half = (Number(m[3]) - Number(m[1])) / 2;
+      const line = [];
+      for (const kind of Object.keys(want)) {
+        const w = window.Avatar.neckCutBox(kind, t).w;
+        const gap = +(w - half).toFixed(2);
+        line.push(`${kind} ${gap}`);
+        const [lo, hi] = want[kind];
+        if (gap < lo || gap > hi) {
+          bad.push(`${name} · ${kind}: 옷깃의 입이 목보다 ${gap}px 넓다`
+            + ` (${lo}~${hi}px) — 목의 옆선과 옷깃이 어긋나 턱이 진다`);
+        }
+      }
+      rows.push(`${name} 목 ${half.toFixed(2)} (${line.join(' · ')})`);
+    }
+    box.remove();
+    return { bad: bad, rows: rows };
+  }, COLLAR_GAP);
+
   // ─── 옆선이 «둥근가» — 허리 밑의 오목한 구간 ─────────────────
   //
   // 「엉덩이가 마름모다 · 좌우가 뾰족하다」로 여러 번 신고받은 자리다.
@@ -2558,6 +2606,7 @@ function launchOpts() {
     .concat(sleeveStep.bad.map(m => ({ id: '소매 밑 팔', body: '-', where: m, n: '-' })))
     .concat(neckLen.bad.map(m => ({ id: '목 길이', body: '-', where: m, n: '-' })))
     .concat(hipRound.bad.map(m => ({ id: '옆선', body: '-', where: m, n: '-' })))
+    .concat(collar.bad.map(m => ({ id: '옷깃', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })))
     .concat(puff.bad.map(m => ({ id: '퍼프 가시', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
@@ -2597,6 +2646,7 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px 이상 · 부푼 폭은 ${HAND_BULGE_MIN}~${HAND_BULGE_MAX}px)`);
+  console.log(`옷깃: 목 반폭 대비 «입»이 넓은 몫 — ${collar.rows.join(' · ')}`);
   console.log(`옆선: 허리 밑 오목이 이어지는 길이 — ${hipRound.rows.join(' · ')}`
     + ` (${HIP_DIP_MAX}줄까지 · 허리가 있는 한 몇 줄은 오목한 것이 맞다)`);
   console.log(`목 길이: 체형 0 — ${neckLen.rows.join(' · ')}`
