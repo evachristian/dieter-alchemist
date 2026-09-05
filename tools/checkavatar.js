@@ -1210,6 +1210,66 @@ function launchOpts() {
   }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, bulgeMax: HAND_BULGE_MAX,
        keep: HAND_KEEP, touch: HAND_TOUCH, lines: SLEEVE_OUTLINE_MIN });
 
+  // ─── 옆선이 «둥근가» — 허리 밑의 오목한 구간 ─────────────────
+  //
+  // 「엉덩이가 마름모다 · 좌우가 뾰족하다」로 여러 번 신고받은 자리다.
+  // 눈으로는 사람마다 다른 것을 가리켜서, **줄마다 곡률의 부호**로 바꿔 잰다
+  // (`npm run side` 가 같은 것을 사람이 읽게 찍어 준다).
+  //
+  // ⚠️ **허리 바로 밑이 오목한 것 자체는 «맞는» 것이다.** 허리는 옆선의 최솟점이라
+  // 위(좁아짐)와 아래(넓어짐)의 기울기가 거기서 0 으로 만나야 몸통과 안 꺾인다 —
+  // 세로로 출발해 벌어지는 곡선은 출발부가 반드시 현(弦) 안쪽을 지난다.
+  // **없앨 수 없는 것을 0 으로 잡으면 통과할 수 없는 검사가 된다.**
+  // 그래서 「오목이 있느냐」가 아니라 **「얼마나 오래 이어지느냐」**를 본다:
+  // 제어점이 [0.45,0.45] 이던 때는 24줄이 이어져 옆선이 사선 한 줄로 보였고,
+  // [0.20,0.70] 으로 일찍 눕히자 13줄이 됐다.
+  const HIP_DIP_MAX = 16;      // 줄. 허리 밑 오목이 이보다 길게 이어지면 마름모다
+  const hipRound = await page.evaluate(async (o) => {
+    const D = window.GameData, bad = [], rows = [], S = 4;
+    const vb = window.Avatar.bodyMetrics(0).vb;
+    const W = Math.round(vb.w * S), H = Math.round(vb.h * S);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
+                   shoes: 'shoes_none', hair: 'hair_none' };
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT, bare);
+    for (const t of [{ n: '기본', v: null }, { n: '엉덩이·허벅지 150%', v: { hip: 1.5, thigh: 1.5 } }]) {
+      // 팔·손은 몸의 옆선이 아니다 — 빼고 잰다 (옆구리의 «혹»이 실은 손이었던 적이 있다)
+      const wrap = document.createElement('div');
+      wrap.innerHTML = window.Avatar.build(outfit, 0, t.v);
+      const root = wrap.firstElementChild;
+      [...root.querySelectorAll('[data-part]')].forEach(n => {
+        if (!n.matches('[data-part="hip"],[data-part="thigh"],[data-part="torso"],[data-part="calf"]')) n.remove();
+      });
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(root.outerHTML); });
+      ctx.clearRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+      const d = ctx.getImageData(0, 0, W, H).data;
+      const edge = y => { const row = Math.round(y * S);
+        for (let x = W - 1; x >= 0; x--) if (d[((row * W) + x) * 4 + 3] > 128) return x / S + vb.x - 100;
+        return null; };
+      let run = 0, best = 0, from = 0, bestFrom = 0;
+      for (let y = 168; y <= 230; y++) {
+        const a = edge(y - 3), c = edge(y), e = edge(y + 3);
+        if (a == null || c == null || e == null) { run = 0; continue; }
+        const k = c - (a + e) / 2;                 // + 볼록 · − 오목
+        if (k < -0.06) {
+          if (run === 0) from = y;
+          run++;
+          if (run > best) { best = run; bestFrom = from; }
+        } else run = 0;
+      }
+      rows.push(`${t.n} ${best}줄`);
+      if (best > o.max) {
+        bad.push(`${t.n}: 허리 밑 y${bestFrom} 부터 **${best}줄**이 오목하게 이어진다`
+          + ` (${o.max}줄까지) — 옆선이 사선 한 줄이 되어 엉덩이가 마름모로 보인다`
+          + ` (avatar.js 의 \`HIP_UP_C\` · \`npm run side\` 로 줄마다 볼 수 있다)`);
+      }
+    }
+    return { bad: bad, rows: rows };
+  }, { max: HIP_DIP_MAX });
+
   // ─── 얼굴이 커지면 목이 «짧아지는가» ─────────────────────────
   //
   // 머리는 목 이음점(`NECK_Y` 112)을 축으로 커지는데 턱은 그보다 «위»(105)에 있다 —
@@ -2497,6 +2557,7 @@ function launchOpts() {
     .concat(hand.bad.map(m => ({ id: '손', body: '-', where: m, n: '-' })))
     .concat(sleeveStep.bad.map(m => ({ id: '소매 밑 팔', body: '-', where: m, n: '-' })))
     .concat(neckLen.bad.map(m => ({ id: '목 길이', body: '-', where: m, n: '-' })))
+    .concat(hipRound.bad.map(m => ({ id: '옆선', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })))
     .concat(puff.bad.map(m => ({ id: '퍼프 가시', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
@@ -2536,6 +2597,8 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px 이상 · 부푼 폭은 ${HAND_BULGE_MIN}~${HAND_BULGE_MAX}px)`);
+  console.log(`옆선: 허리 밑 오목이 이어지는 길이 — ${hipRound.rows.join(' · ')}`
+    + ` (${HIP_DIP_MAX}줄까지 · 허리가 있는 한 몇 줄은 오목한 것이 맞다)`);
   console.log(`목 길이: 체형 0 — ${neckLen.rows.join(' · ')}`
     + ` (얼굴 100% 는 ${NECK_MAX_AT_100}px 까지 · 얼굴이 커질수록 짧아져야 하고`
     + ` ${NECK_MIN_PX}px 밑으로는 안 된다)`);
