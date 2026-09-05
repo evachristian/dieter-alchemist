@@ -1374,6 +1374,78 @@ function launchOpts() {
     return { bad: bad, rows: rows };
   }, NECK_HEAD_TOL);
 
+  // ─── 뒷머리가 얼굴 옆으로 «솟아» 있는가 (긴 생머리 ↔ 인트로 공주) ─
+  //
+  // 시작 착장이 `hair_long` 이라 튜토리얼을 막 마친 플레이어는 방금까지 보던 공주와
+  // 같은 사람으로 보여야 한다. 그런데 **머리 반폭만 견주면 둘은 이미 같았다** (40 대 40) —
+  // 다른 것은 얼굴 쪽이었다: 공주는 33.75 인데 아바타는 **귀가 튀어나와** 37.88 이라,
+  // 볼 높이에서 얼굴 옆으로 나온 몫이 공주 5.50 · 아바타 1.00 이었다.
+  // 그래서 **«나온 몫»을 잰다** — 이것이 눈에 보이는 「뒷머리가 솟았나」다.
+  const BACKHAIR_TOL = 0.8;
+  const backHair = await page.evaluate(async (TOL) => {
+    const bad = [], rows = [], K = 8;
+    const shot = async (svg, x, y, w, h) => {
+      const W = Math.round(w * K), H = Math.round(h * K);
+      const t2 = svg.replace(/viewBox="[^"]*"/, `viewBox="${x} ${y} ${w} ${h}"`)
+                    .replace(/<svg /, `<svg width="${W}" height="${H}" `);
+      const img = new Image();
+      await new Promise(r => {
+        img.onload = r;
+        img.src = 'data:image/svg+xml;charset=utf8,' + encodeURIComponent(t2);
+      });
+      const cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      cv.getContext('2d').drawImage(img, 0, 0, W, H);
+      const d = cv.getContext('2d').getImageData(0, 0, W, H).data;
+      const cx = Math.round(W / 2), out = [];
+      const isSk = c => c[3] > 250 && c[0] >= 236 && c[0] <= 259
+        && c[1] >= 190 && c[1] <= 228 && c[2] >= 158 && c[2] <= 205;
+      for (let yy = 0; yy < H; yy++) {
+        let sil = null, face = null;
+        for (let xx = cx; xx < W; xx++) {
+          const j = (yy * W + xx) * 4, c = [d[j], d[j + 1], d[j + 2], d[j + 3]];
+          if (c[3] > 250) sil = (xx - cx) / K;
+          if (isSk(c)) face = (xx - cx) / K;
+        }
+        out.push({ y: yy / K + y, s: sil, f: face });
+      }
+      return out;
+    };
+    // 머리 구간 = 꼭대기 ~ «제일 넓은 줄 다음의 첫 최소»(= 목)
+    const cheek = rowsIn => {
+      const on = rowsIn.filter(r => r.s != null);
+      let wi = 0, wy = 0;
+      on.forEach(r => { if (r.s > wi) { wi = r.s; wy = r.y; } });
+      let neckY = null, prev = 1e9;
+      for (const r of on) {
+        if (r.y <= wy) continue;
+        if (r.s > prev + 0.4) break;
+        if (r.s < prev) { prev = r.s; neckY = r.y; }
+      }
+      const head = on.filter(r => r.y <= neckY);
+      let face = 0, fy = 0;
+      head.forEach(r => { if (r.f != null && r.f > face) { face = r.f; fy = r.y; } });
+      const at = head.find(r => Math.abs(r.y - fy) < 0.13) || { s: 0, f: 0 };
+      return { face: at.f, hair: at.s, over: at.s - at.f };
+    };
+    const pz = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0">`
+      + window.Intro.princessArt('puzzled', false) + `</svg>`;
+    const tune = {}; window.Avatar.TUNE_KEYS.forEach(k => { tune[k] = 1; });
+    const av = window.Avatar.build(
+      { hair: 'hair_long', top: 'top_tee', bottom: 'bottom_skirt', dress: 'dress_none' }, 0, tune);
+    const P = cheek(await shot(pz, 100, 120, 100, 120));
+    const A = cheek(await shot(av, 50, 0, 100, 130));
+    rows.push(`공주 얼굴 ${P.face.toFixed(2)} · 머리 ${P.hair.toFixed(2)} → ${P.over.toFixed(2)}`);
+    rows.push(`긴생머리 얼굴 ${A.face.toFixed(2)} · 머리 ${A.hair.toFixed(2)} → ${A.over.toFixed(2)}`);
+    const off = +(A.over - P.over).toFixed(2);
+    if (Math.abs(off) > TOL) {
+      bad.push(`긴 생머리: 얼굴 옆으로 나온 몫이 ${A.over.toFixed(2)} 로`
+        + ` 공주(${P.over.toFixed(2)})와 ${off > 0 ? '+' : ''}${off}px 다르다 (±${TOL}px)`
+        + ` — 튜토리얼을 막 마친 플레이어가 방금까지 보던 공주와 다른 사람으로 보인다`);
+    }
+    return { bad: bad, rows: rows };
+  }, BACKHAIR_TOL);
+
   // ─── 옆선이 «둥근가» — 허리 밑의 오목한 구간 ─────────────────
   //
   // 「엉덩이가 마름모다 · 좌우가 뾰족하다」로 여러 번 신고받은 자리다.
@@ -2724,6 +2796,7 @@ function launchOpts() {
     .concat(hipRound.bad.map(m => ({ id: '옆선', body: '-', where: m, n: '-' })))
     .concat(collar.bad.map(m => ({ id: '옷깃', body: '-', where: m, n: '-' })))
     .concat(neckHead.bad.map(m => ({ id: '목과 머리', body: '-', where: m, n: '-' })))
+    .concat(backHair.bad.map(m => ({ id: '뒷머리', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })))
     .concat(puff.bad.map(m => ({ id: '퍼프 가시', body: '-', where: m, n: '-' })));
   console.log(`옷 ${res.cases}종 × 체형 ${res.steps}단계 = ${res.cases * res.steps}회`
@@ -2763,6 +2836,8 @@ function launchOpts() {
     + ` (${GAP_SPREAD_MAX}px 까지 · 가늘어져도 벌어지면 안 된다)`);
   console.log(`손: ↓손목 밑으로 내려온 길이 · ↔바깥으로 부푼 폭 — ${hand.rows.join(' · ')}`
     + ` (${HAND_DROP_MIN}px 이상 · 부푼 폭은 ${HAND_BULGE_MIN}~${HAND_BULGE_MAX}px)`);
+  console.log(`뒷머리: 볼 높이에서 얼굴 옆으로 나온 몫 — ${backHair.rows.join(' · ')}`
+    + ` (공주와 ±${BACKHAIR_TOL}px)`);
   console.log(`목과 머리: 얼굴 배율마다 «목/머리» 비 — ${neckHead.rows.join(' · ')}`
     + ` (100% 의 비에서 ±${NECK_HEAD_TOL} · 벗어나면 머리만 줄고 목은 그대로다)`);
   console.log(`옷깃: 옷깃 «바로 위»의 목 반폭 ↔ 옷깃의 입 — ${collar.rows.join(' · ')}`
