@@ -1075,33 +1075,39 @@ const PLOT_COST = [0, 0, 100, 200, 400];
 //  (`PAGE_TIERS`), 그것을 퀘스트로 옮기는 것은 3단계다 (`QUEST.md` 10장).
 //  둘을 같이 두면 이미 가진 장을 또 주게 되어 「받았는데 아무 일도 안 일어난다」가 된다.
 // ═══════════════════════════════════════════════════════════════
+// ⚠️ **한 퀘스트가 등급을 «통째로» 주지 않는다.** 예전에는 첫 퀘스트(매력 0)가
+// 하급 물약 스물네 장을 한꺼번에 줬다 — 시작 밑천 여섯 장의 네 배가 첫 몇 분에
+// 들어오는 셈이라, **흐린 장 스물네 개**가 동시에 열려 하나하나 알아내는 재미가
+// 뭉개졌다. 그물(단계 지급)도 이미 다 가진 것을 또 주는 빈손이 됐다.
+// 이제 등급을 등분해서 **맛보기만** 주고, 나머지는 그물이 한 단계 뒤에 채운다
+// (`tools/checkdata.js` 의 「한 퀘스트가 주는 장 수」).
 const QUESTS = [
   { id: 'q_first', npc: 'sp_althea', act: 1, at: 0,
     goal: { kind: 'brew', id: 'vitality', n: 2 },
-    reward: { pages: ['potion:low'], crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },
+    reward: { pages: ['potion:low#0/4'], crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },
   { id: 'q_walk', npc: 'sp_althea', act: 1, at: 6,
     goal: { kind: 'visit', n: 8 },
-    reward: { pages: ['creature:basic'], crystal: 60 }, cut: { in: 'c_walk_in', out: 'c_walk_out' } },
+    reward: { pages: ['creature:basic#0/2'], crystal: 60 }, cut: { in: 'c_walk_in', out: 'c_walk_out' } },
   // 요리사 클레멘 (STORY.md 1순위). **부엌 자체는 퀘스트와 상관없이 열려 있다** —
   // 「혼자 먹은 밤」의 페널티를 피할 길을 선택 콘텐츠 뒤에 숨기면 안 된다
   { id: 'q_kitchen', npc: 'sp_clemen', act: 1, at: 10,
     goal: { kind: 'kitchen', n: 3 },
-    reward: { crystal: 70, items: { wheat: 8 } }, cut: { in: 'c_kitchen_in', out: 'c_kitchen_out' } },
+    reward: { pages: ['potion:low#1/4'], crystal: 70, items: { wheat: 8 } }, cut: { in: 'c_kitchen_in', out: 'c_kitchen_out' } },
   { id: 'q_bring', npc: 'sp_althea', act: 1, at: 14,
     goal: { kind: 'deliver', id: 'herb', n: 10 },
-    reward: { pages: ['potion:mid#0'], crystal: 80, items: { berry: 6 } }, cut: { in: 'c_bring_in', out: 'c_bring_out' } },
+    reward: { pages: ['potion:mid#0/4'], crystal: 80, items: { berry: 6 } }, cut: { in: 'c_bring_in', out: 'c_bring_out' } },
   { id: 'q_egg', npc: 'sp_althea', act: 1, at: 22,
     goal: { kind: 'creature', n: 1 },
-    reward: { pages: ['potion:mid#1'], crystal: 120 }, cut: { in: 'c_egg_in', out: 'c_egg_out' } },
+    reward: { pages: ['potion:mid#1/4'], crystal: 120 }, cut: { in: 'c_egg_in', out: 'c_egg_out' } },
   { id: 'q_soup', npc: 'sp_clemen', act: 1, at: 26,
     goal: { kind: 'deliver', id: 'wheat', n: 12 },
-    reward: { crystal: 140, items: { herb: 10 } }, cut: { in: 'c_soup_in', out: 'c_soup_out' } },
+    reward: { pages: ['creature:basic#1/2'], crystal: 140, items: { herb: 10 } }, cut: { in: 'c_soup_in', out: 'c_soup_out' } },
   { id: 'q_sip', npc: 'sp_althea', act: 1, at: 32,
     goal: { kind: 'drink', n: 5 },
-    reward: { pages: ['creature:mid'], crystal: 150, items: { dew: 8 } }, cut: { in: 'c_sip_in', out: 'c_sip_out' } },
+    reward: { pages: ['creature:mid#0/2'], crystal: 150, items: { dew: 8 } }, cut: { in: 'c_sip_in', out: 'c_sip_out' } },
   { id: 'q_bloom', npc: 'sp_althea', act: 1, at: 45,
     goal: { kind: 'charm', n: 60 },
-    reward: { pages: ['potion:high', 'creature:high'], crystal: 200 }, cut: { in: 'c_bloom_in', out: 'c_bloom_out' } },
+    reward: { pages: ['potion:high#0/2', 'creature:high#0/2'], crystal: 200 }, cut: { in: 'c_bloom_in', out: 'c_bloom_out' } },
 ];
 function questOf(id) { return QUESTS.find(q => q.id === id) || null; }
 
@@ -1121,25 +1127,38 @@ function questOf(id) { return QUESTS.find(q => q.id === id) || null; }
 //
 // `tools/checkdata.js` 가 둘을 합쳐 **136장이 다 나오는지**와
 // **퀘스트가 그물보다 먼저 오는지**를 본다.
+// ⚠️ **그물은 등급을 «통째로» 준다.** 퀘스트는 등분해서 맛보기만 주므로
+// (`QUESTS` 의 ⚠️), 나머지를 채우는 것은 여기다 — 여기까지 잘게 쪼개면
+// 퀘스트를 안 한 사람이 영영 못 얻는 장이 생긴다 (`checkdata` 의 ①)
 const PAGE_TIERS = [
   ['potion:basic'],                             // 새싹 0   — 시작 밑천 (퀘스트 없이 자동)
-  ['potion:low'],                               // 꽃봉오리 15 — q_first 의 그물
-  ['creature:basic'],                           // 요정 35  — q_walk 의 그물
+  ['potion:low'],                               // 꽃봉오리 15 — q_first · q_kitchen 의 그물
+  ['creature:basic'],                           // 요정 35  — q_walk · q_soup 의 그물
   ['potion:mid#0', 'potion:mid#1'],             // 뮤즈 60  — q_bring · q_egg 의 그물
   ['creature:mid', 'potion:high', 'creature:high'],   // 여신 100 — q_sip · q_bloom 의 그물
 ];
-// `kind:grade` 또는 `kind:grade#절반`(0=앞, 1=뒤). 절반은 **id 순으로 가른다** —
-// 정렬이 정해져 있어야 다시 불러도 같은 장이 같은 단계에 온다
+// `kind:grade` · `kind:grade#i`(절반 중 i번째) · `kind:grade#i/k`(k등분 중 i번째).
+// **id 순으로 가른다** — 정렬이 정해져 있어야 다시 불러도 같은 장이 같은 자리에 온다.
+//
+// ⚠️ **`#i` 는 예전부터 「절반」이었다** (`PAGE_TIERS` 의 `potion:mid#0`). 그 뜻을
+// 안 바꾼다 — 바꾸면 단계 지급이 통째로 어긋난다. `/k` 를 «덧붙이는» 것으로만 넓혔다.
+//
+// 등분이 필요한 이유: 퀘스트 하나가 **등급을 통째로** 주면 첫 퀘스트에서 스물네 장이
+// 한꺼번에 들어온다. 흐린 장이 스물네 개가 되면 하나하나를 알아내는 재미가 뭉개지고,
+// 그물(단계 지급)도 이미 다 가진 것을 또 주는 빈손이 된다.
 function pagesForSpec(spec) {
-  const half = spec.indexOf('#');
-  const idx = half >= 0 ? Number(spec.slice(half + 1)) : -1;
-  const [kind, grade] = (half >= 0 ? spec.slice(0, half) : spec).split(':');
+  const at = spec.indexOf('#');
+  const [kind, grade] = (at >= 0 ? spec.slice(0, at) : spec).split(':');
   const list = RECIPES
     .filter(r => r.result.kind === kind && r.result.grade === grade)
     .map(r => r.result.id).sort();
-  if (idx < 0) return list;
-  const cut = Math.ceil(list.length / 2);
-  return idx === 0 ? list.slice(0, cut) : list.slice(cut);
+  if (at < 0) return list;
+  const tail = spec.slice(at + 1).split('/');
+  const idx = Number(tail[0]);
+  const parts = tail.length > 1 ? Number(tail[1]) : 2;      // 안 적으면 절반
+  if (!(parts > 0) || !(idx >= 0) || idx >= parts) return [];
+  const cut = Math.ceil(list.length / parts);
+  return list.slice(idx * cut, (idx + 1) * cut);
 }
 
 

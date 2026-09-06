@@ -282,6 +282,27 @@ add('id 가 겹친다', dupId);
       }
     });
   });
+  // ③ **한 퀘스트가 주는 장 수** — 등급을 통째로 주면 안 된다.
+  //
+  // 예전에는 첫 퀘스트(매력 0)가 하급 물약 **스물네 장**을 한꺼번에 줬다.
+  // 시작 밑천이 여섯 장인데 그 네 배가 첫 몇 분에 들어오면
+  //   · **흐린 장이 스물네 개** 동시에 열려 하나하나 알아내는 재미가 뭉개지고
+  //   · 그물이 한 단계 뒤에 주는 것이 **이미 다 가진 것**이라 빈손이 된다
+  // 등분해서 맛보기만 주고 나머지는 그물이 채운다.
+  //
+  // ⚠️ **첫 퀘스트는 더 엄하게 본다** — 거기가 제일 눈에 띄고, 시작 밑천과 견줘진다.
+  const PAGE_MAX = 20, FIRST_MAX = 8;
+  const first = D.QUESTS.slice().sort((a, b) => a.at - b.at)[0];
+  D.QUESTS.forEach(q => {
+    const n = ((q.reward || {}).pages || [])
+      .reduce((a, sp) => a + D.pagesForSpec(sp).length, 0);
+    const cap = (first && q.id === first.id) ? FIRST_MAX : PAGE_MAX;
+    if (n > cap) {
+      bad.push(`${q.id}(매력 ${q.at}) 가 장을 ${n}개 준다 — ${cap}개까지다`
+        + ` (등급을 통째로 주면 흐린 장이 한꺼번에 열려 뭉개진다)`);
+    }
+  });
+
   // ① 어느 길로도 못 얻는 장
   const orphan = D.RECIPES.map(r => r.result.id)
     .filter(id => !net.has(id) && !byQuest.has(id));
