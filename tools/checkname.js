@@ -33,6 +33,10 @@ const rows = [];
 const ALLOW = [
   /name: '이그리트'/,                    // data.js — 설정상의 이름
   /sp_ygritte: 'Ygritte'/,               // i18n.js — 같은 것의 영어
+  // ⚠️ **엔딩의 한 줄.** 게임 안에서 그 이름이 불리는 유일한 자리이고,
+  // 그것이 이 이야기의 정점이다 (STORY.md 「클라이맥스 — 순서」 4번).
+  // **`_3` 으로 못 박아 둔다** — 컷씬의 다른 줄에 이름이 새면 여기 안 걸린다
+  /^\s*c_end_call_3: '…(이그리트|Ygritte)\.',$/,
 ];
 function scanStrings() {
   const out = [];

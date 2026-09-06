@@ -1174,6 +1174,42 @@ const CUTS = [
   { id: 'c_kitchen_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_clemen', 'smile']] },
   { id: 'c_soup_in',     act: 1, lines: [['sp_clemen', 'def'], ['sp_gwiriel', 'smile']] },
   { id: 'c_soup_out',    act: 1, lines: [['sp_clemen', 'smile'], ['sp_gwiriel', 'soft'], ['sp_clemen', 'def']] },
+
+  // ═══ 엔딩 (STORY.md 「클라이맥스 — 순서」) ═══════════════════
+  //
+  // **전투 없이 끝난다.** 여왕은 힘으로 못 이기고, 이길 필요도 없다 —
+  // 그녀가 원한 것은 힘이 아니라 «그의 인정»이었다.
+  //
+  // ⚠️ **순서가 곧 이야기다.** 봉인이 풀려야 첨탑에 «자기 자신으로» 갈 수 있고,
+  // 거울에 금이 가야 그가 답할 수 있다. 컷을 섞으면 인과가 사라진다.
+
+  // ① 5단계 공방에서 봉인이 풀린다. **공주 혼자의 순간**이라 다른 사람이 없다 —
+  // 엄마의 공방에서, 그 공방이 완성된 날에 일어난다 (STORY.md 「5단계 공방」)
+  { id: 'c_end_seal', act: 3, lines: [['sp_gwiriel', 'soft'], ['sp_gwiriel', 'shock'], ['sp_gwiriel', 'smile']] },
+
+  // ② 여왕이 마지막으로 묻고, 거울이 **그녀를 기억해 낸다.**
+  // ⚠️ **이 게임에서 그 이름이 불리는 유일한 자리다** (`c_end_call_3`).
+  // 게임 내내 아무도 여왕을 이름으로 부르지 않다가 마지막에 그가 한 번 부른다 —
+  // 그녀가 평생 원하던 것을 얻는 순간이, 그가 사라지는 순간이다.
+  // `tools/checkname.js` 의 허용 목록에 이 한 줄만 들어 있다
+  { id: 'c_end_call', act: 3,
+    lines: [['sp_ygritte', 'def'], ['sp_yutark', 'def'], ['sp_yutark', 'true'], ['sp_ygritte', 'cold']] },
+
+  // ③ 「아름다움」에 답한다. ⚠️ **고백을 시키지 않는다** — 그는 진심을 절대 말하지
+  // 않는 인물이라 고백시키면 무너진다. 대신 게임 내내 **유일하게 피해 온 것**에
+  // 답하게 한다. 사랑이라는 말을 쓰지 않고 사랑을 말하는 유일한 방식이다
+  { id: 'c_end_answer', act: 3,
+    lines: [['sp_gwiriel', 'soft'], ['sp_yutark', 'true'], ['sp_gwiriel', 'shock'], ['sp_yutark', 'true']] },
+
+  // ④ **엔딩은 그가 아니라 공주로 끝난다.** 다 되살린 공방에 선 공주이고,
+  // 「아름다움」에 대한 **그녀 자신의 답**이다. 슬픔으로 끝내지 않는다
+  { id: 'c_end_own', act: 3, lines: [['sp_gwiriel', 'soft'], ['sp_gwiriel', 'smile']] },
+
+  // ⑤ 에필로그 — **첫 장면과 같은 행위이고 딱 하나만 다르다.**
+  // 인트로 1컷도 「먹는다」였다: 깊은 밤 · 성의 한쪽 구석 · **혼자, 몰래**.
+  // 여기서는 매일 · 되살린 공방 · **같이**. 폭식 시스템의 판정 기준(혼자 먹었느냐)이
+  // 곧 한 사람의 일생으로 적히는 자리다
+  { id: 'c_epilogue', act: 3, lines: [['sp_clemen', 'smile'], ['sp_gwiriel', 'smile'], ['sp_gwiriel', 'soft']] },
 ];
 function cutOf(id) { return CUTS.find(c => c.id === id) || null; }
 

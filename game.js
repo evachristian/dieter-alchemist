@@ -1659,6 +1659,35 @@ function cutNext() {
 }
 window.cutNext = cutNext;
 
+// ─── 엔딩 (STORY.md 「클라이맥스 — 순서」) ────────────────────
+//
+// 조건은 둘이고 **둘 다 이야기가 정한 것**이다.
+//   ① 「진짜 나」를 갖고 있다 — 3막에서 여왕에게 들은 말이다
+//   ② 공방이 5단계다 — 봉인이 풀리는 자리가 거기다 (`ROOM_LEVELS[5]` 의 마법진).
+//      **여기서 마이 룸 업그레이드에 목적이 생긴다** — 지금까지는 조건조차 없었다
+//
+// ⚠️ **점수(매력)로 잠그지 않는다.** 마을 해금과 같은 규칙이다 — 두 개가 겹치면
+// 왜 안 열리는지 플레이어가 알 수 없다.
+function sealBroken() { return (S.seenCuts || []).includes('c_end_seal'); }
+// 공방에서 봉인이 풀릴 때가 됐는가 (아직 안 풀렸고, 조건은 다 됐다)
+function sealReady() {
+  return !sealBroken()
+    && (S.keywords || []).includes('kw_self')
+    && (S.roomLevel || 0) >= roomMax();
+}
+// 거울못에서 마지막 장면이 시작될 때가 됐는가
+function endingReady() {
+  return sealBroken() && !(S.seenCuts || []).includes('c_end_call');
+}
+// 다섯 컷을 **이어서** 튼다. 하나씩 끊으면 사이에 화면이 돌아와
+// 「거울에 금이 갔는데 채집하러 갈 수 있는」 상태가 된다
+function playEnding() {
+  playCut('c_end_call', () => playCut('c_end_answer', () => playCut('c_end_own', () => {
+    playCut('c_epilogue', () => { switchTab('showcase'); });
+  })));
+}
+window.playEnding = playEnding;
+
 // ─── 스토리 다시보기 (설정) ──────────────────────────────────
 //
 // ⚠️ **본 것만 보여 준다.** 안 본 컷씬을 제목까지 늘어놓으면 스포일러다 —
@@ -2352,6 +2381,11 @@ function switchTab(tab) {
   // 튜토리얼 신호는 **화면을 다 그린 뒤에** 보낸다 — 튜토리얼이 다음 단계의
   // 구멍을 뚫으려면 그 버튼이 이미 문서에 있어야 한다
   if (window.Tut) Tut.fire('tab:' + tab);
+  // **봉인은 공방에서 풀린다** (STORY.md 「5단계 공방은 봉인을 푸는 자리다」).
+  // ⚠️ `render()` 안에서 트지 않는다 — 렌더는 수시로 돌아서 컷씬이 화면을 덮은 채
+  // 다시 그려지는 일이 생긴다. 「마이 룸에 들어선다」는 이 한 자리에서만 판정한다.
+  // 튜토리얼 중에는 안 튼다 — 그때는 아직 인트로의 공주 그림이 서 있다
+  if (tab === 'showcase' && S.tutorialDone && sealReady()) playCut('c_end_seal');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3386,6 +3420,10 @@ function tapVillageSpot(vid, sid) {
     toast(T('village_locked', { name: N(v.id, v.name) }), `.vil-pin[data-vspot="${sid}"]`, null, 'above');
     return;
   }
+  // **엔딩은 여기서 시작된다** — 봉인이 풀린 채로 거울못에 서면.
+  // ⚠️ 칩(물어볼 것)으로 두지 않는다. 여섯 칸이 이미 찬 것도 있지만,
+  // 무엇보다 **마지막 순간은 공주 혼자**라 다른 다섯 개와 나란히 놓일 것이 아니다
+  if (sid === 'vs_mirror_pond' && endingReady()) { playEnding(); return; }
   villageSpotIn = sid;
   talkIdx = null;
   renderGather();

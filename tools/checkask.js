@@ -218,7 +218,14 @@ function ok(cond, msg, extra) {
     } catch (e) { return false; }
   }, { timeout: 10000 });
   await page.reload({ waitUntil: 'load' });
-  await page.waitForTimeout(1200);
+  // ⚠️ **고정 시간으로 기다리지 않는다.** 1200ms 뒤에 읽었더니 아주 가끔 아직
+  // `load()` 전이라 `S` 가 기본값이었고, 그 순간을 「세이브가 통째로 날아갔다」
+  // (kw 1 · talked 0)로 읽었다 — 게임이 아니라 검사기가 거짓으로 빨개지는 자리다.
+  // `.catch` 를 붙여 **진짜로 안 살아났을 때는 기다리다 죽지 말고** 아래에서
+  // 제대로 실패하게 둔다 (그래야 무엇이 몇 개인지가 결과에 찍힌다)
+  await page.waitForFunction(
+    () => window.S && Array.isArray(S.villages) && S.villages.length > 0,
+    { timeout: 10000 }).catch(() => {});
   st = await page.evaluate(() => ({ kw: S.keywords.length, vl: S.villages.slice(),
     tk: S.talked.length, sl: S.keywords.includes('kw_seal') }));
   // 다섯 → 일곱(2막) → **여덟**(3막). 「유리관」 하나가 문을 둘 열고
