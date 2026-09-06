@@ -1778,6 +1778,12 @@ function closeStory() {
 window.openStory = openStory;
 window.closeStory = closeStory;
 
+// 막 이름 — **번호는 그대로 두고 이름만 덧붙인다.**
+// 엔딩 다섯 컷은 act 4·5 로 나뉘어 있는데(봉인·대면·답·되찾기 / 에필로그),
+// 「4막」이라고만 적으면 STORY.md 의 3막 구성과 어긋나 보이고,
+// 이름만 적으면 사람이 센 순서를 잃는다. 둘 다 적는 편이 짧고 정확하다.
+// ⚠️ **번호를 문자열 안에 박지 않는다** — 막이 하나 늘면 통째로 어긋난다
+const ACT_NAME = { 4: 'st_act_end', 5: 'st_act_epi' };
 function renderStory() {
   const ti = document.getElementById('storyTitle');
   const el = document.getElementById('storyBody');
@@ -1798,7 +1804,8 @@ function renderStory() {
       </button>`).join('');
     const left = list.length - got.length;
     return `<div class="st-act">
-      <div class="st-actname">${T('st_act', { n: act })}</div>
+      <div class="st-actname">${T('st_act', { n: act })}${
+        ACT_NAME[act] ? ` · ${T(ACT_NAME[act])}` : ''}</div>
       ${rows}
       ${left ? `<div class="st-left">🔒 ${T('st_left', { n: left })}</div>` : ''}
     </div>`;
@@ -3600,7 +3607,7 @@ function renderVillageMap(el, v) {
 // 마을에 **처음 들어설 때** 한 번 트는 장면 (2막).
 // ⚠️ 마을이 «열리는» 순간이 아니라 «들어서는» 순간이다 — 여는 것은 대답을 읽는
 // 자리라, 거기에 컷씬을 얹으면 그 사람이 방금 한 말이 덮인다
-const VILLAGE_CUT = { vl_glass: 'c_glass_in', vl_mine: 'c_mine_in' };
+const VILLAGE_CUT = { vl_glass: 'c_glass_in', vl_mine: 'c_mine_in', vl_spire: 'c_spire_in' };
 function tapVillageSpot(vid, sid) {
   const v = D.VILLAGES.find(x => x.id === vid);
   const s = v && (v.spots || []).find(x => x.id === sid);

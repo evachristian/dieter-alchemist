@@ -534,6 +534,15 @@
       c_mine_in_1: '곡괭이 소리가 산을 울린다. 여기서 그 수정을 캤구나.',
       c_mine_in_2: '…관 하나를 짜자고, 이만한 산을 판 거야?',
 
+      // ═══ 3막 ═══
+      // 대면인데 아무 일도 안 일어난다 — 그것이 이 장면이다.
+      // 여왕은 봉인 때문에 «진짜로» 아무것도 못 본다 (STORY.md 「봉인과 열쇠」)
+      c_spire_in_title: '보이지 않는 사람',
+      c_spire_in_1: '첨탑 꼭대기. 문이 열려 있다… 지키는 사람 하나 없이.',
+      c_spire_in_2: '누구지. …아, 됐다. 아무것도 아니구나. 볼 것도 없는 아이야.',
+      c_spire_in_3: '(나를 훑어보고 그냥 지나쳤어.) 못 알아본 게 아니야. 정말로 «안 보이는» 거야.',
+      c_spire_in_4: '나가라. 여기까지 올라오는 데 쓴 그 시간이 아깝겠구나.',
+
       // ═══ 엔딩 ═══════════════════════════════════════════════
       // ① 봉인 — 공주 혼자의 순간. 엄마의 공방에서, 그 공방이 완성된 날에
       c_end_seal_title: '엄마의 마지막 마법',
@@ -592,6 +601,8 @@
       setting_story: '📖 스토리 다시보기',
       st_title: '📖 스토리 다시보기',
       st_act: '{n}막',
+      st_act_end: '엔딩',
+      st_act_epi: '에필로그',
       st_left: '아직 못 본 이야기 · {n}',
       st_empty: '아직 본 이야기가 없어요.',
       c_first_in_title: '어머니의 솥',
@@ -1611,6 +1622,13 @@
       c_mine_in_1: 'The picks ring through the mountain. So this is where they cut that crystal.',
       c_mine_in_2: '…they dug out a mountain this size, to make one coffin?',
 
+      // ═══ 3막 ═══
+      c_spire_in_title: 'The One She Cannot See',
+      c_spire_in_1: 'The top of the spire. The door stands open… with no one guarding it at all.',
+      c_spire_in_2: 'Who is that. …Never mind. It is nothing. A child with nothing worth looking at.',
+      c_spire_in_3: '(Her eyes passed over me and moved on.) She did not fail to recognize me. She truly cannot see me.',
+      c_spire_in_4: 'Leave. What a waste of the hours it took you to climb up here.',
+
       // ═══ 엔딩 ═══
       c_end_seal_title: "Mother's Last Spell",
       c_end_seal_1: '…the workshop is whole again. Down to the circle on the floor, just as she drew it.',
@@ -1662,6 +1680,8 @@
       setting_story: '📖 Replay Story',
       st_title: '📖 Replay Story',
       st_act: 'Act {n}',
+      st_act_end: 'Ending',
+      st_act_epi: 'Epilogue',
       st_left: 'Not seen yet · {n}',
       st_empty: 'No story seen yet.',
       c_first_in_title: "Mother's Cauldron",

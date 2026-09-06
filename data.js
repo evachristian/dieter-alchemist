@@ -1204,6 +1204,17 @@ const CUTS = [
   { id: 'c_glass_in', act: 2, lines: [['sp_gwiriel', 'soft'], ['sp_gwiriel', 'shock']] },
   { id: 'c_mine_in',  act: 2, lines: [['sp_gwiriel', 'def'], ['sp_gwiriel', 'soft']] },
 
+  // ═══ 3막 — 대면 ═════════════════════════════════════════════
+  //
+  // ⚠️ **여기에 장면이 없으면 다시보기에서 3막이 통째로 사라진다** — 지금까지 act 3 는
+  // 전부 엔딩이었다. 2막에서 겪은 것과 같은 구멍이다 (막을 만들면 컷씬을 같이 만든다).
+  //
+  // **그녀는 공주를 못 알아본다.** 봉인 때문에 진짜로 아무것도 안 보이기 때문이고
+  // (STORY.md 「봉인과 열쇠」), 그것이 여왕의 유일한 실수다 — 대면인데도 위협을 못 느낀다
+  { id: 'c_spire_in', act: 3,
+    lines: [['sp_gwiriel', 'soft'], ['sp_ygritte', 'def'],
+            ['sp_gwiriel', 'shock'], ['sp_ygritte', 'cold']] },
+
   // ═══ 엔딩 (STORY.md 「클라이맥스 — 순서」) ═══════════════════
   //
   // **전투 없이 끝난다.** 여왕은 힘으로 못 이기고, 이길 필요도 없다 —
@@ -1214,7 +1225,7 @@ const CUTS = [
 
   // ① 5단계 공방에서 봉인이 풀린다. **공주 혼자의 순간**이라 다른 사람이 없다 —
   // 엄마의 공방에서, 그 공방이 완성된 날에 일어난다 (STORY.md 「5단계 공방」)
-  { id: 'c_end_seal', act: 3, lines: [['sp_gwiriel', 'soft'], ['sp_gwiriel', 'shock'], ['sp_gwiriel', 'smile']] },
+  { id: 'c_end_seal', act: 4, lines: [['sp_gwiriel', 'soft'], ['sp_gwiriel', 'shock'], ['sp_gwiriel', 'smile']] },
 
   // ② 여왕이 마지막으로 묻고, 거울이 **그녀를 기억해 낸다.**
   // ⚠️ **이 게임에서 그 이름이 불리는 유일한 자리다** (`c_end_call_3`).
@@ -1223,7 +1234,7 @@ const CUTS = [
   // `tools/checkname.js` 의 허용 목록에 이 한 줄만 들어 있다
   // 줄의 셋째 칸은 **연출**이다 (`cutFx`). 없으면 아무것도 안 얹는다 —
   // 여기 말고는 쓰는 곳이 없어서 다른 컷씬은 지금 그대로다
-  { id: 'c_end_call', act: 3,
+  { id: 'c_end_call', act: 4,
     lines: [['sp_ygritte', 'def'], ['sp_yutark', 'def', 'crack'],
             ['sp_yutark', 'true', 'crack'], ['sp_ygritte', 'cold', 'crack']] },
 
@@ -1233,19 +1244,19 @@ const CUTS = [
   // ⚠️ **깨지는 것은 「조각마다 비친다」고 «말하는» 줄에서다.** 한 줄 앞에서 깨면
   // 대사가 이미 지나간 일을 설명하는 꼴이 되고, 한 줄 뒤면 그의 마지막 말이
   // 멀쩡한 거울 앞에서 나온다
-  { id: 'c_end_answer', act: 3,
+  { id: 'c_end_answer', act: 4,
     lines: [['sp_gwiriel', 'soft', 'crack'], ['sp_yutark', 'true', 'crack'],
             ['sp_gwiriel', 'shock', 'shatter'], ['sp_yutark', 'true', 'light']] },
 
   // ④ **엔딩은 그가 아니라 공주로 끝난다.** 다 되살린 공방에 선 공주이고,
   // 「아름다움」에 대한 **그녀 자신의 답**이다. 슬픔으로 끝내지 않는다
-  { id: 'c_end_own', act: 3, lines: [['sp_gwiriel', 'soft', 'shard'], ['sp_gwiriel', 'smile', 'shard']] },
+  { id: 'c_end_own', act: 4, lines: [['sp_gwiriel', 'soft', 'shard'], ['sp_gwiriel', 'smile', 'shard']] },
 
   // ⑤ 에필로그 — **첫 장면과 같은 행위이고 딱 하나만 다르다.**
   // 인트로 1컷도 「먹는다」였다: 깊은 밤 · 성의 한쪽 구석 · **혼자, 몰래**.
   // 여기서는 매일 · 되살린 공방 · **같이**. 폭식 시스템의 판정 기준(혼자 먹었느냐)이
   // 곧 한 사람의 일생으로 적히는 자리다
-  { id: 'c_epilogue', act: 3, lines: [['sp_clemen', 'smile'], ['sp_gwiriel', 'smile'], ['sp_gwiriel', 'soft']] },
+  { id: 'c_epilogue', act: 5, lines: [['sp_clemen', 'smile'], ['sp_gwiriel', 'smile'], ['sp_gwiriel', 'soft']] },
 ];
 function cutOf(id) { return CUTS.find(c => c.id === id) || null; }
 

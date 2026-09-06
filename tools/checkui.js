@@ -843,7 +843,12 @@ function launchOpts() {
             // ⚠️ **제 상태를 스스로 세운다.** 앞 검사가 `seenCuts` 를 비우고 끝나면
             // 여기서 「못 본 개수가 안 나온다」로 엉뚱하게 실패한다 —
             // 이 파일에서 **네 번째** 겪는 사고다 (작물·부대·컷씬보상에 이어)
-            S.seenCuts = [D.CUTS[0].id, D.CUTS[1].id];
+            // ⚠️ **막 이름이 붙는 줄(엔딩·에필로그)을 반드시 하나씩 넣는다.**
+            // 1막 것만 심으면 「4막 · 엔딩」 같은 «더 긴» 머리글을 한 번도 안 재는 것이라,
+            // 0건이 통과가 아니라 「재 본 적 없다」가 된다 (영어는 더 길다)
+            const named = Object.keys(ACT_NAME).map(Number)
+              .map(a => (D.CUTS.find(c => c.act === a) || {}).id).filter(Boolean);
+            S.seenCuts = [D.CUTS[0].id, D.CUTS[1].id].concat(named);
             openStory();
             if (!document.getElementById('storySheet').classList.contains('show')) return '시트가 안 떴다';
             const rows = document.querySelectorAll('#storySheet .st-row').length;

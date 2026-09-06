@@ -85,21 +85,36 @@ rows.push(`문자열 — 허용된 두 곳(설정값) 말고는 없음`);
       const s = document.getElementById('splash'); if (s) s.classList.add('done');
       const i = document.getElementById('intro'); if (i) i.style.display = 'none';
     });
-    // 첨탑 → 거울의 방
-    await page.evaluate(() => {
-      switchTab('gather'); setGatherTab('village'); setVillage('vl_spire');
-      tapVillageSpot('vl_spire', 'vs_spire_mirror');
-    });
-    await page.waitForTimeout(400);
-    // 이름표에 무엇이 떠 있는가
-    const shown = await page.$eval('#villageBody .npc-name', e => e.textContent.trim())
-      .catch(() => '(못 찾음)');
     // ⚠️ **매 걸음마다 담아 둔다.** 마지막에 한 번만 읽으면 그때 화면에 남아 있는
     // 것만 보게 된다 — 잡담 줄에 이름을 흘려 놓고도 「안 샘」이 나왔다 (사보타주로 확인).
     const seenText = [];
     const grab = async () => {
       seenText.push(await page.evaluate(() => document.body.innerText));
     };
+    // 첨탑 → 거울의 방
+    await page.evaluate(() => {
+      switchTab('gather'); setGatherTab('village'); setVillage('vl_spire');
+      tapVillageSpot('vl_spire', 'vs_spire_mirror');
+    });
+    await page.waitForTimeout(400);
+    // ⚠️ **처음 들어서면 3막 컷씬이 먼저 뜬다** (`VILLAGE_CUT`). 그냥 두면 거울의 방이
+    // 안 열려 이름표를 「못 찾음」으로 읽는다 — 건너뛰지 말고 **넘기면서 같이 훑는다.**
+    // 여왕이 말하는 장면이라 여기도 이름이 샐 수 있는 자리다 (컷씬이 끝나면
+    // `playCut` 의 뒷일이 거울의 방을 다시 연다)
+    for (let i = 0; i < 12; i++) {
+      const on = await page.evaluate(() => {
+        const el = document.getElementById('cutScene');
+        return !!el && !el.hidden;
+      });
+      if (!on) break;
+      await grab();
+      await page.evaluate(() => cutNext());
+      await page.waitForTimeout(120);
+    }
+    await page.waitForTimeout(300);
+    // 이름표에 무엇이 떠 있는가
+    const shown = await page.$eval('#villageBody .npc-name', e => e.textContent.trim())
+      .catch(() => '(못 찾음)');
     await grab();
     // ⚠️ **「대화」를 눌러야 잡담이 시작된다.** 말풍선만 두드리면 인사말에 머무르고
     // (`.npc-bubble.live` 가 아니다), 잡담 줄은 한 번도 화면에 안 뜬다 —
