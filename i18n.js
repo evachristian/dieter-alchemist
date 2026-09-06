@@ -526,6 +526,14 @@
       c_soup_out_2: '아저씨 몫도 챙기셨어요?',
       c_soup_out_3: '…아, 그건 깜빡했네요.',
 
+      // ═══ 2막 ═══
+      c_glass_in_title: '물밑의 것',
+      c_glass_in_1: '호수가… 이상하게 조용하다. 바람도 없는데 물결 하나 없어.',
+      c_glass_in_2: '(물밑을 들여다본다) 저 아래에 뭔가 있어. 네모나고, 길고… 유리처럼 빛나.',
+      c_mine_in_title: '이만한 산을 파서',
+      c_mine_in_1: '곡괭이 소리가 산을 울린다. 여기서 그 수정을 캤구나.',
+      c_mine_in_2: '…관 하나를 짜자고, 이만한 산을 판 거야?',
+
       // ═══ 엔딩 ═══════════════════════════════════════════════
       // ① 봉인 — 공주 혼자의 순간. 엄마의 공방에서, 그 공방이 완성된 날에
       c_end_seal_title: '엄마의 마지막 마법',
@@ -1531,6 +1539,14 @@
       c_soup_out_1: 'Thank you. Everyone will go to bed full tonight.',
       c_soup_out_2: 'Did you set aside a share for yourself?',
       c_soup_out_3: '...Ah. I forgot about that.',
+
+      // ═══ 2막 ═══
+      c_glass_in_title: 'What Lies Beneath',
+      c_glass_in_1: 'The lake is… strangely still. Not a breath of wind, and not a single ripple.',
+      c_glass_in_2: '(peering under the water) There is something down there. Square, long… and it shines like glass.',
+      c_mine_in_title: 'A Whole Mountain',
+      c_mine_in_1: 'The picks ring through the mountain. So this is where they cut that crystal.',
+      c_mine_in_2: '…they dug out a mountain this size, to make one coffin?',
 
       // ═══ 엔딩 ═══
       c_end_seal_title: "Mother's Last Spell",

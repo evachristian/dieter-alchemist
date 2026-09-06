@@ -3525,12 +3525,23 @@ function renderVillageMap(el, v) {
 }
 
 // 건물을 누르면 그 안으로 들어간다 — 거기서 사람을 만난다.
+// 마을에 **처음 들어설 때** 한 번 트는 장면 (2막).
+// ⚠️ 마을이 «열리는» 순간이 아니라 «들어서는» 순간이다 — 여는 것은 대답을 읽는
+// 자리라, 거기에 컷씬을 얹으면 그 사람이 방금 한 말이 덮인다
+const VILLAGE_CUT = { vl_glass: 'c_glass_in', vl_mine: 'c_mine_in' };
 function tapVillageSpot(vid, sid) {
   const v = D.VILLAGES.find(x => x.id === vid);
   const s = v && (v.spots || []).find(x => x.id === sid);
   if (!s) return;
   if (!isVillageOpen(v)) {
     toast(T('village_locked', { name: N(v.id, v.name) }), `.vil-pin[data-vspot="${sid}"]`, null, 'above');
+    return;
+  }
+  // 2막의 두 마을은 **처음 들어설 때** 장면이 한 번 붙는다.
+  // `playCut` 이 그 자리에서 본 것으로 적으므로 이어지는 호출이 되돌아오지 않는다
+  const first = VILLAGE_CUT[vid];
+  if (first && !(S.seenCuts || []).includes(first)) {
+    playCut(first, () => tapVillageSpot(vid, sid));
     return;
   }
   // **엔딩은 여기서 시작된다** — 봉인이 풀린 채로 거울못에 서면.

@@ -1175,6 +1175,16 @@ const CUTS = [
   { id: 'c_soup_in',     act: 1, lines: [['sp_clemen', 'def'], ['sp_gwiriel', 'smile']] },
   { id: 'c_soup_out',    act: 1, lines: [['sp_clemen', 'smile'], ['sp_gwiriel', 'soft'], ['sp_clemen', 'def']] },
 
+  // ═══ 2막 — 되찾기 ═══════════════════════════════════════════
+  //
+  // ⚠️ **2막에 장면이 하나도 없으면 스토리 다시보기가 1막에서 3막으로 건너뛴다.**
+  // 마을과 키워드만 늘리고 컷씬을 안 만들면 그렇게 된다 (실제로 그랬다).
+  //
+  // 둘 다 **공주 혼자**다. 두 마을에는 앉은 사람이 없고, 여기서 알게 되는 것은
+  // 누가 말해 주는 것이 아니라 **그녀가 «본» 것**이다 — 그것이 2막의 결이다.
+  { id: 'c_glass_in', act: 2, lines: [['sp_gwiriel', 'soft'], ['sp_gwiriel', 'shock']] },
+  { id: 'c_mine_in',  act: 2, lines: [['sp_gwiriel', 'def'], ['sp_gwiriel', 'soft']] },
+
   // ═══ 엔딩 (STORY.md 「클라이맥스 — 순서」) ═══════════════════
   //
   // **전투 없이 끝난다.** 여왕은 힘으로 못 이기고, 이길 필요도 없다 —
