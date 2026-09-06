@@ -1504,6 +1504,25 @@ function bondApCut(zoneId) {
 
 // 하트 다섯 칸. **채운 칸 수가 곧 단계**라 색이 없어도 읽힌다
 // (색만으로 구분하지 않는다 — UI_POLICY.md)
+// 단계 잡담의 표정 — **가까워질수록 풀어진다.** 사람마다 표정 이름이 달라서
+// 그 사람에게 «있는 것»만 고른다 (없는 이름은 조용히 기본 얼굴로 떨어진다)
+// 그 사람이 지금 할 수 있는 **잡담 줄 전부** — 표에 적힌 것 + 호감도 단계의 한 줄.
+// ⚠️ **이 함수 하나만 쓴다.** 화면과 `talkNext` 가 길이를 따로 세면, 붙인 줄에
+// 영영 못 닿는다 (실제로 그랬다 — 마지막 줄에서 대화가 끝나 버렸다)
+function talkLinesOf(npcId) {
+  const base = (D.TALKS[npcId] && D.TALKS[npcId].lines) || [];
+  const bt = D.bondTalk(npcId, bondTier(npcId));
+  return bt ? base.concat([bt.line]) : base.slice();
+}
+
+function bondTalkMood(npc) {
+  const sp = D.speaker(npc);
+  const t = bondTier(npc);
+  const want = t >= 3 ? ['warm', 'smile', 'soft', 'sing', 'wink', 'true']
+    : t >= 1 ? ['soft', 'warm', 'sing', 'def'] : ['def'];
+  return (sp && want.find(m => sp.moods && sp.moods[m])) || 'def';
+}
+
 function bondHtml(npc) {
   if (!hasBond(npc)) return '';
   const t = bondTier(npc);
@@ -3569,8 +3588,13 @@ let talkIdx = null;
 function renderVillageSpot(el, v, s) {
   const trade = s.trade !== false;
   const sp = s.npc && D.speaker(s.npc);
-  const lines = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].lines) || [];
-  const moods = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].moods) || [];
+  // 호감도 단계마다 인사말이 갈리고, 잡담이 한 줄 더 붙는다.
+  // **눈금만 차오르고 하는 말이 그대로면 호감도는 숫자놀이로 남는다** (STORY.md).
+  // ⚠️ 잡담을 늘렸으면 표정도 같이 늘린다 — `moods` 가 짧으면 그 줄만 기본 얼굴이 된다
+  const bt = sp ? D.bondTalk(sp.id, bondTier(sp.id)) : null;
+  const lines = sp ? talkLinesOf(sp.id) : [];
+  const moods = ((sp && D.TALKS[sp.id] && D.TALKS[sp.id].moods) || [])
+    .concat(bt ? [bondTalkMood(sp.id)] : []);
   const greetMood = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].greetMood) || 'def';
   const talking = talkIdx !== null && lines.length;
   const talk = (sp && D.TALKS[sp.id]) || null;
@@ -3581,8 +3605,9 @@ function renderVillageSpot(el, v, s) {
   // 인사말이 없는 사람은 첫 대사로 떨어진다 (없어도 화면이 비지 않게)
   const line = ask ? T(ask.line)
     : (talking ? T(lines[talkIdx])
+    : (bt ? T(bt.greet)
     : (talk && talk.greet ? T(talk.greet)
-    : (lines.length ? T(lines[0]) : T('npc_line_soon'))));
+    : (lines.length ? T(lines[0]) : T('npc_line_soon')))));
   // 마지막 줄에서는 ▾ 를 지운다 — 더 없는데 계속 있으면 눌러도 안 넘어가는 것처럼 보인다
   const more = !ask && talking && talkIdx < lines.length - 1;
   const dots = (!ask && talking)
@@ -3622,7 +3647,7 @@ function talkNext(sid) {
   const v = D.VILLAGES.find(x => x.id === villageTab);
   const s = v && (v.spots || []).find(x => x.id === sid);
   const sp = s && s.npc && D.speaker(s.npc);
-  const lines = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].lines) || [];
+  const lines = sp ? talkLinesOf(sp.id) : [];
   if (!lines.length) return;
   // 대사를 넘기기 시작하면 키워드 대답은 물러난다 — 둘이 같은 말풍선을 쓴다
   const wasAsk = !!(sp && shownAsk(sp.id));
@@ -3637,7 +3662,7 @@ function npcAct(kind, sid) {
     const v = D.VILLAGES.find(x => x.id === villageTab);
     const s = v && (v.spots || []).find(x => x.id === sid);
     const sp = s && s.npc && D.speaker(s.npc);
-    const lines = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].lines) || [];
+    const lines = sp ? talkLinesOf(sp.id) : [];
     if (!lines.length) { toast(T('npc_talk_soon'), '.npc-act.main', null, 'above'); return; }
     clearAsk();
     talkIdx = 0;

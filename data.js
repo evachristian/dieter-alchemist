@@ -1898,6 +1898,28 @@ const BOND_GIFTS = [
 ];
 function bondNpcs() { return Object.keys(BONDS); }
 
+// ─── 단계마다 달라지는 인사말·잡담 ───────────────────────────
+//
+// **가까워지는 것이 «말»로 보여야 한다.** 눈금(♥)만 차오르고 하는 말이 그대로면
+// 호감도는 숫자놀이로 남는다 — 연애 시뮬레이션의 재미는 고르는 데가 아니라
+// **가까워지는 데** 있다 (STORY.md 「공통 규칙」).
+//
+// ⚠️ **외모를 칭찬하는 말을 쓰지 않는다.** 「예뻐졌네요」 한 줄이면
+// 「호감도에 매력을 곱하지 않는다」는 규칙이 글에서 무너진다 — 그들이 끌리는 것은
+// **연금술사로서의 그녀**다. `tools/checkbond.js` 가 이 줄들만 따로 훑는다.
+//
+// 키는 **규칙으로** 만든다. 여섯 명 × 다섯 단계라 표로 적으면 예순 줄이고,
+// 한 줄만 빠져도 조용히 옛말이 나온다 — `checki18n` 이 규칙째로 있는지 본다.
+//   bt_<사람>_g<단계>  인사말 (들어섰을 때)
+//   bt_<사람>_l<단계>  잡담 한 줄 (「대화」의 마지막에 붙는다)
+// ⚠️ **클레멘에게는 없다** — 그에게는 눈금이 아예 없다 (`BONDS` 에 없다)
+function bondTalk(npc, tier) {
+  if (!BONDS[npc]) return null;
+  const k = npc.replace(/^sp_/, '');
+  const t = Math.max(0, Math.min(BOND_TIERS.length - 1, tier | 0));
+  return { greet: `bt_${k}_g${t}`, line: `bt_${k}_l${t}` };
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  흐린 장 — 비법서가 답지가 아니라 «수수께끼»가 된다
 // ═══════════════════════════════════════════════════════════════
@@ -2605,7 +2627,7 @@ window.GameData = {
   INGREDIENTS, ZONES, MAPS, zoneUnlock, zoneAp, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS, BASE_MOODS, moodsOf,
   KEYWORDS, keyword, ASKS, asksOf, askNeedBond, LORE, ingRarity, hideableOf, hiddenOf,
-  BOND_TIERS, bondTierOf, BOND_GAIN, BONDS, BOND_GIFTS, bondNpcs, BOND_GIVES, bondGiver,
+  BOND_TIERS, bondTierOf, BOND_GAIN, BONDS, BOND_GIFTS, bondNpcs, BOND_GIVES, bondGiver, bondTalk,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,
   FEEDS, FEED_RATE, LOYALTY_MAX, LOYALTY_STEPS, loyaltyBonus,

@@ -272,6 +272,57 @@ function ok(cond, msg, extra) {
   const kept = await page.evaluate(() => ({ n: bondOf('sp_stark'), g: (S.gifted.sp_stark || []).length }));
   ok(kept.n === 24 && kept.g === 1, '세이브에 남는다', `${kept.n} · 준 종류 ${kept.g}`);
 
+  // ─── 단계마다 말이 달라지는가 ───────────────────────────────
+  //
+  // **눈금(♥)만 차오르고 하는 말이 그대로면 호감도는 숫자놀이다.**
+  // 여섯 명 × 다섯 단계가 다 있는지, 그리고 **다섯이 서로 다른지**를 본다 —
+  // 키만 있고 내용이 같으면 화면에서는 안 달라진 것과 똑같다.
+  const talk = await page.evaluate(() => {
+    const miss = [], same = [];
+    D.bondNpcs().forEach(npc => {
+      const g = [], l = [];
+      for (let t = 0; t < D.BOND_TIERS.length; t++) {
+        const k = D.bondTalk(npc, t);
+        [['인사말', k.greet, g], ['잡담', k.line, l]].forEach(([what, key, arr]) => {
+          if (T(key) === key) miss.push(`${npc} ${t}단계 ${what}이 없다 (${key})`);
+          else arr.push(T(key));
+        });
+      }
+      if (new Set(g).size !== g.length) same.push(`${npc}: 인사말이 단계끼리 겹친다`);
+      if (new Set(l).size !== l.length) same.push(`${npc}: 잡담이 단계끼리 겹친다`);
+    });
+    return { miss, same };
+  });
+  ok(!talk.miss.length, '여섯 × 다섯 단계의 인사말·잡담이 다 있다', talk.miss.slice(0, 2).join(' | '));
+  ok(!talk.same.length, '   …단계마다 «다른» 말을 한다', talk.same.slice(0, 2).join(' | '));
+
+  // ⚠️ **외모를 칭찬하는 말이 있으면 안 된다.**
+  // 「예뻐졌네요」 한 줄이면 「호감도에 매력을 곱하지 않는다」는 규칙이 글에서 무너진다 —
+  // 그들이 끌리는 것은 **연금술사로서의 그녀**다 (STORY.md 「공통 규칙」).
+  // 수치로는 이미 위에서 막았고(매력 999), 이것은 **문장 쪽의 같은 규칙**이다
+  const look = await page.evaluate(() => {
+    const KO = ['예뻐', '예쁘', '아름다워', '아름다우', '고와', '고우신', '날씬', '미인'];
+    const EN = ['pretty', 'beautiful', 'lovely', 'gorgeous', 'slimmer', 'prettier'];
+    const hit = [];
+    ['ko', 'en'].forEach(lang => {
+      I18N.setLang(lang);
+      D.bondNpcs().forEach(npc => {
+        for (let t = 0; t < D.BOND_TIERS.length; t++) {
+          const k = D.bondTalk(npc, t);
+          [k.greet, k.line].forEach(key => {
+            const txt = T(key), low = txt.toLowerCase();
+            const bad = (lang === 'ko' ? KO : EN).find(w => low.indexOf(w) >= 0);
+            if (bad) hit.push(`${lang} ${key}: 「${bad}」 — ${txt.slice(0, 24)}`);
+          });
+        }
+      });
+    });
+    I18N.setLang("ko");
+    return hit;
+  });
+  ok(!look.length, '⚠️ 외모를 칭찬하는 말이 한 줄도 없다 (끌리는 것은 «연금술사로서의 그녀»다)',
+     look.slice(0, 2).join(' | '));
+
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));
 
   await browser.close();
