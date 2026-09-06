@@ -162,6 +162,10 @@ function ok(cond, msg, extra) {
     const before = S.potions[r.result.id] || 0;
     fillFromRecipe(r.result.id);
     brew();
+    // ⚠️ **개수 패널을 지나야 만들어진다.** 재료를 넉넉히 심어 두면 `brew()` 는
+    // 「몇 개 만들까」를 묻고 아직 안 만든다 — 그대로 세면 0개가 나오는데
+    // 그건 안 만들어져서가 아니라 아직 안 눌러서다
+    if (document.getElementById('brewQty').classList.contains('show')) confirmBrewQty();
     await new Promise(x => setTimeout(x, 200));
     // 결과 팝업이 떠 있으면 닫는다
     const okBtn = document.querySelector('#brewResult .btn-primary');

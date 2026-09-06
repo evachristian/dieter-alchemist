@@ -62,6 +62,12 @@ const launchOpts = () => {
     ings.forEach(id => { S.inventory[id] = 5; });
     S.discovered = S.discovered || [];
     if (!S.discovered.includes(target.result.id)) S.discovered.push(target.result.id);
+    // ⚠️ **흐린 장을 밝혀 놓고 시작한다.** 장을 가졌어도 «모르는 칸»이 남아 있으면
+    // 레시피를 눌러도 아는 칸만 담긴다 — 그게 맞는 동작인데(`LORE`), 그대로 두면
+    // 이 검사가 「솥에 담긴 것이 레시피와 다르다」로 잡는다. 여기서 볼 것은
+    // **크리처를 녹이는 길**이지 수수께끼가 아니라서, 실제로 이 조합에 닿는
+    // 플레이어와 같은 상태(다 밝혀낸 장)로 맞춰 놓는다
+    D.hiddenOf(target).forEach(id => learnIng(target.result.id, id));
 
     const bagIds = () => [...document.querySelectorAll('#ingredientBag .ing-chip')]
       .map(e => (e.getAttribute('onclick') || '').replace(/.*'(.+)'.*/, '$1'));
@@ -93,6 +99,9 @@ const launchOpts = () => {
     // ④ 조합하면 상급이 나오고 중급이 하나 줄어든다
     const before = S.creatures.filter(x => x === meltId).length;
     brew();
+    // 개수 패널은 «두 개 이상 만들 수 있을 때만» 뜬다. 여기서는 크리처 초과분이
+    // 하나뿐이라 안 뜨지만, 재료를 늘리면 뜨므로 지나갈 길을 열어 둔다
+    if (document.getElementById('brewQty').classList.contains('show')) confirmBrewQty();
     const after = S.creatures.filter(x => x === meltId).length;
     if (after !== before - 1) bad.push(`녹인 뒤 개체가 ${before} → ${after} (하나 줄어야 한다)`);
     if (!S.creatures.includes(target.result.id)) bad.push('상급 크리처가 안 생겼다');

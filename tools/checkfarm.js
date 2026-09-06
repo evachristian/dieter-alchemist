@@ -311,10 +311,18 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
       .some(e => (e.getAttribute('onclick') || '').includes(crop));
     S.discovered = S.discovered || [];
     if (!S.discovered.includes(r.result.id)) S.discovered.push(r.result.id);
+    // ⚠️ **흐린 장을 밝혀 놓고 시작한다** (checkmelt 와 같은 이유). 장을 가졌어도
+    // «모르는 칸»이 남으면 레시피를 눌러도 아는 칸만 담긴다 — 그게 맞는 동작인데,
+    // 그대로 두면 이 검사가 「솥에 작물까지 담긴다」로 잡는다.
+    // 여기서 볼 것은 **밭 작물이 조합에 쓰이는가**이지 수수께끼가 아니다
+    D.hiddenOf(r).forEach(id => learnIng(r.result.id, id));
     fillFromRecipe(r.result.id, null);
     const filled = D.recipeKey(S.cauldron) === D.recipeKey(r.inputs);
     const before = S.potions[r.result.id] || 0;
     brew();
+    // ⚠️ 재료가 넉넉하면 `brew()` 는 「몇 개 만들까」를 묻고 아직 안 만든다 —
+    // 그대로 세면 「0개 만들어졌다」가 나오는데 그건 아직 안 눌러서다
+    if (document.getElementById('brewQty').classList.contains('show')) confirmBrewQty();
     return {
       pot: pot.id, slots: pot.slots, crop, without, withIt, inBag, filled,
       made: (S.potions[r.result.id] || 0) - before,
