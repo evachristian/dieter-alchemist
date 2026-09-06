@@ -237,6 +237,20 @@ D.ASKS.forEach((a, i) => {
   bad.push(`도달 불가능: ${a.npc} 에게 «${a.kw}» 를 물을 수가 없다 — ${why}`);
 });
 
+// **퀘스트가 이야기에 걸려 있는가** (2막부터의 `need` · 목표의 `village`/`keyword`).
+//
+// ⚠️ 여기가 어긋나면 화면에는 **아무 오류도 안 뜬다** — 그냥 칩이 안 뜨거나,
+// 진행도가 0에서 안 움직인다. 그 퀘스트부터 뒷이야기가 통째로 안 오는데
+// 사람은 「할 게 없네」로만 읽는다. 걸어 본 결과(`have`·`openV`)로 견준다
+D.QUESTS.forEach(q => {
+  const nd = q.need || {};
+  if (nd.kw && !have.has(nd.kw)) bad.push(`${q.id}: 여는 조건 «${nd.kw}» 를 아무도 안 준다`);
+  if (nd.village && !openV.has(nd.village)) bad.push(`${q.id}: 여는 조건 «${nd.village}» 를 열 방법이 없다`);
+  const g = q.goal || {};
+  if (g.kind === 'keyword' && !have.has(g.id)) bad.push(`${q.id}: 목표 «${g.id}» 를 아무도 안 준다 (영영 0/1)`);
+  if (g.kind === 'village' && !openV.has(g.id)) bad.push(`${q.id}: 목표 «${g.id}» 를 열 방법이 없다 (영영 0/1)`);
+});
+
 // **죽은 키워드** — 가질 수는 있는데 아무도 반응하지 않는 것
 const asked = new Set(D.ASKS.map(a => a.kw));
 D.KEYWORDS.forEach(k => {

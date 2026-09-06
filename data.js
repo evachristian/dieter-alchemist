@@ -1108,6 +1108,68 @@ const QUESTS = [
   { id: 'q_bloom', npc: 'sp_althea', act: 1, at: 45,
     goal: { kind: 'charm', n: 60 },
     reward: { pages: ['potion:high#0/2', 'creature:high#0/2'], crystal: 200 }, cut: { in: 'c_bloom_in', out: 'c_bloom_out' } },
+
+  // ═══ 2막부터 — **여는 조건이 매력이 아니라 «이야기»다** ══════════
+  //
+  // 1막은 여덟 퀘스트가 전부 매력(`at`)으로 열린다. 2막부터는 그러면 안 된다:
+  // 마을과 키워드가 이야기로 열리는데 퀘스트만 점수로 열면 **「왜 안 열리지」가
+  // 두 벌**이 된다 (마을 해금에서 「점수로 두 번 잠그지 않는다」로 이미 정한 규칙).
+  // 그래서 `need` 를 둔다 — 키워드 · 마을 · 본 컷씬으로 잠근다.
+  // `at` 은 **순서를 지키는 용도로만** 남긴다 (표가 오름차순이어야 큐가 안 뒤집힌다).
+  //
+  // ⚠️ **목표를 「물어보기」로 두지 않는다.** 물어본 것은 한 번뿐이라, 퀘스트를 받기
+  // «전»에 이미 물어 놓았으면 그 뒤로 영영 안 오른다 — 화면에 오류 하나 없이 막힌다.
+  // 그래서 2·3막의 목표는 **마을이 열렸는가 · 키워드를 가졌는가** 같은 «상태»다.
+  // 상태형은 뒤로 안 가고, 이미 이룬 것이면 그 자리에서 완료로 뜬다 (막히는 것보다 낫다).
+  //
+  // ⚠️ **여기서부터는 장을 안 준다** (2막 셋 말고는). 여신 100 에서 그물이 전부
+  // 주고 나면 줄 장이 남지 않는다 — 억지로 붙이면 「받았는데 아무 일도 안 일어난다」다.
+  // 대신 결정과 재료로 갚는다.
+
+  // ─ 2막 · 되찾기 — 「유리관」 한 줄에서 마을 둘이 갈린다 ─
+  { id: 'q_glass', npc: 'sp_sylvan', act: 2, at: 60, need: { kw: 'kw_glass' },
+    goal: { kind: 'village', id: 'vl_glass', n: 1 },
+    reward: { pages: ['creature:mid#1/2'], crystal: 180, items: { mist_drop: 8 } },
+    cut: { in: 'c_glass_q_in', out: 'c_glass_q_out' } },
+  { id: 'q_mine', npc: 'sp_orix', act: 2, at: 70, need: { village: 'vl_glass' },
+    goal: { kind: 'village', id: 'vl_mine', n: 1 },
+    reward: { pages: ['potion:high#1/2'], crystal: 200, items: { crystal: 8 } },
+    cut: { in: 'c_mine_q_in', out: 'c_mine_q_out' } },
+  // 「오래 사는 법」을 물어 놓고 **오늘을 사는 물약**을 젓게 한다.
+  // 오릭스가 이 대비를 말하는 인물이라 그가 준다
+  { id: 'q_life', npc: 'sp_orix', act: 2, at: 85, need: { kw: 'kw_life' },
+    goal: { kind: 'brew', n: 6 },
+    reward: { pages: ['creature:high#1/2'], crystal: 240, items: { iron_ore: 10 } },
+    cut: { in: 'c_life_in', out: 'c_life_out' } },
+
+  // ─ 3막 · 대면 ─
+  // ⚠️ **`at` 을 100 에서 더 안 올린다.** 여신(100) 위로 올리면 이야기가 아니라
+  // 점수를 더 모아야 진행되는 것이 되고, `need` 가 이미 순서를 지킨다
+  { id: 'q_spire', npc: 'sp_stark', act: 3, at: 100, need: { kw: 'kw_life' },
+    goal: { kind: 'village', id: 'vl_spire', n: 1 },
+    reward: { crystal: 300, items: { crystal: 12 } },
+    cut: { in: 'c_spire_q_in', out: 'c_spire_q_out' } },
+  { id: 'q_self', npc: 'sp_valen', act: 3, at: 100, need: { village: 'vl_spire' },
+    goal: { kind: 'keyword', id: 'kw_self', n: 1 },
+    reward: { crystal: 340, items: { sp_starore: 2 } },
+    cut: { in: 'c_self_in', out: 'c_self_out' } },
+
+  // ─ 4막 · 봉인이 풀리기 «직전» ─
+  // ⚠️ **이 퀘스트가 공방을 5단계로 올린다.** 그전까지 `roomLevel` 을 올리는 길이
+  // 개발용 스위치밖에 없어서, 엔딩 조건(`sealReady`)이 **정상 플레이로는 영영
+  // 안 차는** 상태였다 — 만들어 놓은 엔딩에 아무도 못 닿는 종류의 사고다
+  { id: 'q_seal', npc: 'sp_althea', act: 4, at: 100, need: { kw: 'kw_self' },
+    goal: { kind: 'deliver', id: 'iron_ore', n: 20 },
+    reward: { room: 5, crystal: 400, items: { crystal: 10 } },
+    cut: { in: 'c_seal_q_in', out: 'c_seal_q_out' } },
+
+  // ─ 5막 · 에필로그 뒤 ─
+  // 에필로그가 「혼자 먹지 않는다」라서, 그 뒤에 남는 할 일도 그것이다.
+  // ⚠️ **컷씬을 본 뒤에만 열린다** — 엔딩 전에 뜨면 마지막 장면을 앞질러 말한다
+  { id: 'q_table', npc: 'sp_clemen', act: 5, at: 100, need: { cut: 'c_epilogue' },
+    goal: { kind: 'kitchen', n: 5 },
+    reward: { crystal: 500, items: { wheat: 20 } },
+    cut: { in: 'c_table_in', out: 'c_table_out' } },
 ];
 function questOf(id) { return QUESTS.find(q => q.id === id) || null; }
 
@@ -1204,6 +1266,16 @@ const CUTS = [
   { id: 'c_glass_in', act: 2, lines: [['sp_gwiriel', 'soft'], ['sp_gwiriel', 'shock']] },
   { id: 'c_mine_in',  act: 2, lines: [['sp_gwiriel', 'def'], ['sp_gwiriel', 'soft']] },
 
+  // ─ 2막 퀘스트 ─
+  // 실반은 «어디에 있는지», 오릭스는 «누가 만들었는지»를 안다 (STORY.md 2막의 갈림).
+  // 컷씬도 그 둘로 갈라 둔다 — 한 사람이 다 말하면 나머지에게 갈 이유가 없어진다
+  { id: 'c_glass_q_in',  act: 2, lines: [['sp_sylvan', 'think'], ['sp_gwiriel', 'doubt'], ['sp_sylvan', 'def']] },
+  { id: 'c_glass_q_out', act: 2, lines: [['sp_gwiriel', 'shock'], ['sp_sylvan', 'sad']] },
+  { id: 'c_mine_q_in',   act: 2, lines: [['sp_orix', 'grit'], ['sp_gwiriel', 'doubt']] },
+  { id: 'c_mine_q_out',  act: 2, lines: [['sp_gwiriel', 'flat'], ['sp_orix', 'cold'], ['sp_gwiriel', 'think']] },
+  { id: 'c_life_in',     act: 2, lines: [['sp_orix', 'smirk'], ['sp_gwiriel', 'think'], ['sp_orix', 'warm']] },
+  { id: 'c_life_out',    act: 2, lines: [['sp_gwiriel', 'smile'], ['sp_orix', 'laugh']] },
+
   // ═══ 3막 — 대면 ═════════════════════════════════════════════
   //
   // ⚠️ **여기에 장면이 없으면 다시보기에서 3막이 통째로 사라진다** — 지금까지 act 3 는
@@ -1215,6 +1287,15 @@ const CUTS = [
     lines: [['sp_gwiriel', 'soft'], ['sp_ygritte', 'def'],
             ['sp_gwiriel', 'shock'], ['sp_ygritte', 'cold']] },
 
+  // ─ 3막 퀘스트 ─
+  // 슈타르크는 **그녀가 고용한 암살자**라 성 안을 아는 유일한 사람이다.
+  // 발렌은 「진짜 나」를 받아 주는 쪽 — 3막에서 그 말을 받는 것은 실반과 발렌뿐이다
+  // (유타르크에게 가는 것은 엔딩의 몫이다)
+  { id: 'c_spire_q_in',  act: 3, lines: [['sp_stark', 'flat'], ['sp_gwiriel', 'resolve'], ['sp_stark', 'doubt']] },
+  { id: 'c_spire_q_out', act: 3, lines: [['sp_gwiriel', 'grit'], ['sp_stark', 'warm']] },
+  { id: 'c_self_in',     act: 3, lines: [['sp_valen', 'worry'], ['sp_gwiriel', 'flat']] },
+  { id: 'c_self_out',    act: 3, lines: [['sp_gwiriel', 'soft'], ['sp_valen', 'smile'], ['sp_gwiriel', 'resolve']] },
+
   // ═══ 엔딩 (STORY.md 「클라이맥스 — 순서」) ═══════════════════
   //
   // **전투 없이 끝난다.** 여왕은 힘으로 못 이기고, 이길 필요도 없다 —
@@ -1225,6 +1306,11 @@ const CUTS = [
 
   // ① 5단계 공방에서 봉인이 풀린다. **공주 혼자의 순간**이라 다른 사람이 없다 —
   // 엄마의 공방에서, 그 공방이 완성된 날에 일어난다 (STORY.md 「5단계 공방」)
+  // ⓪ 그 «전»에 — 공방을 마지막 단계까지 되살리는 퀘스트.
+  // ⚠️ 이것이 없으면 `roomLevel` 이 개발용 스위치로만 올라가서 **엔딩에 아무도 못 닿는다**
+  { id: 'c_seal_q_in',  act: 4, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'doubt'], ['sp_althea', 'def']] },
+  { id: 'c_seal_q_out', act: 4, lines: [['sp_gwiriel', 'awe'], ['sp_althea', 'cry'], ['sp_althea', 'smile']] },
+
   { id: 'c_end_seal', act: 4, lines: [['sp_gwiriel', 'soft'], ['sp_gwiriel', 'shock'], ['sp_gwiriel', 'smile']] },
 
   // ② 여왕이 마지막으로 묻고, 거울이 **그녀를 기억해 낸다.**
@@ -1257,6 +1343,12 @@ const CUTS = [
   // 여기서는 매일 · 되살린 공방 · **같이**. 폭식 시스템의 판정 기준(혼자 먹었느냐)이
   // 곧 한 사람의 일생으로 적히는 자리다
   { id: 'c_epilogue', act: 5, lines: [['sp_clemen', 'smile'], ['sp_gwiriel', 'smile'], ['sp_gwiriel', 'soft']] },
+
+  // ⑥ 에필로그 뒤 — **끝난 다음에도 하루가 온다.** 엔딩이 마지막 화면이면
+  // 「이제 뭘 하지」로 끝나는데, 이 게임의 답은 처음부터 하나였다: 같이 먹는 것.
+  // ⚠️ 새 위기를 만들지 않는다. 5막에 사건을 얹으면 4막이 클라이맥스가 아니게 된다
+  { id: 'c_table_in',  act: 5, lines: [['sp_clemen', 'warm'], ['sp_gwiriel', 'smile']] },
+  { id: 'c_table_out', act: 5, lines: [['sp_clemen', 'laugh'], ['sp_gwiriel', 'soft'], ['sp_clemen', 'warm']] },
 ];
 function cutOf(id) { return CUTS.find(c => c.id === id) || null; }
 

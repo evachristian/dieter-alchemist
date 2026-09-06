@@ -558,13 +558,29 @@ function launchOpts() {
             const chip = document.getElementById('questChip');
             if (!chip || chip.hidden) return '칩이 안 뜬다';
             if (!S.quest.active) return '퀘스트가 안 열렸다';
-            // **한 번에 하나만.** 조건을 다 채워도 칩은 하나여야 한다
-            S.charmPeak = 9999; refreshQuests(); render();
+            // **한 번에 하나만.** 조건을 다 채워도 칩은 하나여야 한다.
+            // ⚠️ 2막부터는 매력만으로 안 열린다 (`need` — 키워드·마을·본 컷씬).
+            // 매력만 9999 로 올려 놓고 「전부 열렸을 것」이라 치면 **한 개 모자란 수**가
+            // 나오는데, 그건 고장이 아니라 조건을 덜 채운 것이다 — 여기서는 「하나만
+            // 활성」을 보려는 것이므로 **열리는 조건을 전부 채워 놓고** 센다
+            // ⚠️ **재고 나서 되돌린다.** 이 파일에서 «상태를 두고 나간» 사고를
+            // 네 번 냈다 — 뒤의 검사가 「이미 다 열린 사람」을 보게 되면
+            // 잠긴 자리를 한 번도 안 재는 것이 된다 (「물어볼것」이 그렇다)
+            const keepKw = (S.keywords || []).slice();
+            const keepVil = (S.villages || []).slice();
+            const keepCut = (S.seenCuts || []).slice();
+            S.charmPeak = 9999;
+            S.keywords = D.KEYWORDS.map(k => k.id);
+            S.villages = D.VILLAGES.map(v => v.id);
+            S.seenCuts = D.CUTS.map(c => c.id);
+            refreshQuests(); render();
+            const nQueue = S.quest.queue.length;
+            S.keywords = keepKw; S.villages = keepVil; S.seenCuts = keepCut;
             if (document.querySelectorAll('.quest-chip:not([hidden])').length !== 1) {
               return '칩이 둘 이상 뜬다 (한 번에 하나여야 한다)';
             }
-            if (S.quest.queue.length !== D.QUESTS.length - 1) {
-              return `큐가 ${S.quest.queue.length}개다 (${D.QUESTS.length - 1} 기대)`;
+            if (nQueue !== D.QUESTS.length - 1) {
+              return `큐가 ${nQueue}개다 (${D.QUESTS.length - 1} 기대)`;
             }
             // ⚠️ **칩 밑에 갇히는 것이 없어야 한다.**
             //

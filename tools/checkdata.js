@@ -177,7 +177,8 @@ add('id 가 겹친다', dupId);
 {
   const qIds = new Set();
   const bad = [];
-  const kinds = ['brew', 'creature', 'drink', 'visit', 'deliver', 'charm', 'farm', 'kitchen'];
+  const kinds = ['brew', 'creature', 'drink', 'visit', 'deliver', 'charm', 'farm', 'kitchen',
+                 'village', 'keyword'];
   D.QUESTS.forEach(q => {
     if (qIds.has(q.id)) bad.push(`${q.id} — id 가 겹친다`);
     qIds.add(q.id);
@@ -190,9 +191,25 @@ add('id 가 겹친다', dupId);
     if (g.id) {
       const ok = g.kind === 'deliver' ? !!D.INGREDIENTS[g.id]
         : g.kind === 'visit' ? D.MAPS.some(m => m.id === g.id)
+        : g.kind === 'village' ? D.VILLAGES.some(v => v.id === g.id)
+        : g.kind === 'keyword' ? D.KEYWORDS.some(k => k.id === g.id)
         : D.RECIPES.some(r => r.result.id === g.id && r.result.kind
             === (g.kind === 'creature' ? 'creature' : 'potion'));
       if (!ok) bad.push(`${q.id} — 목표가 없는 것을 가리킨다 (${g.kind} ${g.id})`);
+    }
+    // **여는 조건이 가리키는 것도 실제로 있어야 한다** (2막부터의 `need`).
+    // ⚠️ 오타 하나면 조건이 «영영 안 차서» 그 퀘스트부터 뒷이야기가 통째로 안 온다 —
+    // 화면에는 아무 오류도 안 뜨고 그냥 칩이 안 뜰 뿐이라 사람 눈으로는 못 찾는다
+    {
+      const nd = q.need || {};
+      if (nd.kw && !D.KEYWORDS.some(k => k.id === nd.kw)) bad.push(`${q.id} — 없는 키워드 ${nd.kw}`);
+      if (nd.village && !D.VILLAGES.some(v => v.id === nd.village)) bad.push(`${q.id} — 없는 마을 ${nd.village}`);
+      if (nd.cut && !D.cutOf(nd.cut)) bad.push(`${q.id} — 없는 컷씬 ${nd.cut}`);
+    }
+    // **보상의 공방 단계**가 그림에 있는 범위인가 (없으면 올려도 화면이 안 바뀐다)
+    if ((q.reward || {}).room !== undefined) {
+      const n = q.reward.room;
+      if (!(n >= 1 && n <= 5)) bad.push(`${q.id} — 공방 단계 보상이 ${n} 이다 (1~5)`);
     }
     // 보상의 재료도 실제로 있어야 한다
     Object.keys((q.reward || {}).items || {}).forEach(id => {

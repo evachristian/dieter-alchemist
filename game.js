@@ -1105,7 +1105,19 @@ window.gatherCost = gatherCost;
 // 여는 조건. ⚠️ **`charmPeak()`(여태 닿은 최고 매력)으로 판정한다.**
 // 지금 총합을 보면 애착 크리처를 약한 것으로 바꾼 순간 열려 있던 퀘스트가 사라진다 —
 // 맵 해금·밭 탭·AP 상한에서 **같은 사고를 세 번** 냈다.
-function questReady(q) { return charmPeak() >= (q.at || 0); }
+//
+// 2막부터는 **이야기가 연다.** 마을·키워드가 이야기로 열리는데 퀘스트만 점수로
+// 열면 「왜 안 열리지」가 두 벌이 된다 (마을 해금의 「점수로 두 번 잠그지 않는다」).
+// ⚠️ **`need` 는 「이미 가진 것」만 본다** — 되돌아가는 값이 하나도 없다.
+// 키워드·마을·본 컷씬은 전부 한 번 얻으면 안 사라지므로, 열렸던 퀘스트가 닫히지 않는다
+function questReady(q) {
+  if (charmPeak() < (q.at || 0)) return false;
+  const need = q.need || {};
+  if (need.kw && !(S.keywords || []).includes(need.kw)) return false;
+  if (need.village && !(S.villages || []).includes(need.village)) return false;
+  if (need.cut && !(S.seenCuts || []).includes(need.cut)) return false;
+  return true;
+}
 
 function questState() {
   if (!S.quest || typeof S.quest !== 'object') S.quest = { active: null, n: 0, done: [], queue: [] };
@@ -1144,6 +1156,11 @@ function questProgress(q) {
   const g = q.goal || {};
   if (g.kind === 'deliver') return Math.min(g.n, invCount(g.id));
   if (g.kind === 'charm')   return Math.min(g.n, charmPeak());
+  // 2·3막의 목표 — **「물어봤는가」가 아니라 「열렸는가 · 가졌는가」다.**
+  // ⚠️ 물어본 것은 한 번뿐이라, 퀘스트를 받기 «전»에 이미 물어 놓았으면 이벤트형으로는
+  // 영영 안 오른다. 화면에 오류 하나 없이 막히는 종류라 상태형으로 둔다
+  if (g.kind === 'village') return (S.villages || []).includes(g.id) ? g.n : 0;
+  if (g.kind === 'keyword') return (S.keywords || []).includes(g.id) ? g.n : 0;
   return Math.min(g.n, st.n || 0);
 }
 function questFull(q) { return questProgress(q) >= (q.goal ? q.goal.n : 0); }
@@ -1187,6 +1204,9 @@ function claimQuest() {
   (r.pages || []).forEach(spec => {
     D.pagesForSpec(spec).forEach(id => { if (!hasPage(id)) { S.discovered.push(id); gotPages++; } });
   });
+  // **공방 단계** — 지금은 이 퀘스트 하나가 유일한 길이다 (개발용 스위치 말고는).
+  // ⚠️ **내려가지 않게 `max` 로 올린다** — 보상이 진행을 되돌리면 그건 벌이다
+  if (r.room) S.roomLevel = Math.min(roomMax(), Math.max(S.roomLevel || 0, r.room));
   if (r.crystal) S.crystal = (S.crystal || 0) + r.crystal;
   if (r.energy) S.energy = Math.min(energyCap(), (S.energy || 0) + r.energy);
   if (r.items) Object.keys(r.items).forEach(id => addInv(id, r.items[id]));
@@ -1370,6 +1390,10 @@ function doAsk(npc, kw) {
     (a.opens || []).forEach(id => {
       if (!S.villages.includes(id)) { S.villages.push(id); opened.push(id); }
     });
+    // **키워드와 마을이 퀘스트를 연다** (2·3막의 `need`). 여기서 안 맞추면
+    // 다음에 매력이 오를 때까지 칩이 안 뜨고, 그 사이에 사람은 「할 게 없다」고 본다
+    refreshQuests();
+    renderQuestChip();
     save();
   }
   // 부엌이냐 마을이냐에 따라 다시 그릴 화면이 다르다
@@ -1640,7 +1664,10 @@ function playCut(id, then) {
   if (!c || !c.lines.length) { if (then) then(); return; }
   cutNow = c; cutAt = 0; cutThen = then || null;
   if (!Array.isArray(S.seenCuts)) S.seenCuts = [];
-  if (!S.seenCuts.includes(id)) { S.seenCuts.push(id); save(); }
+  // **본 컷씬이 퀘스트를 열 수도 있다** (`need.cut` — 5막이 그렇다).
+  // ⚠️ 여기서 한 번 맞춰 두지 않으면 다음에 매력이 오를 때까지 칩이 안 뜬다 —
+  // 엔딩을 본 사람에게는 그 「다음」이 영영 안 올 수도 있다
+  if (!S.seenCuts.includes(id)) { S.seenCuts.push(id); refreshQuests(); save(); }
   const el = document.getElementById('cutScene');
   if (el) el.hidden = false;
   drawCut();
