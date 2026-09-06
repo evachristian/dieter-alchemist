@@ -663,7 +663,13 @@ function launchOpts() {
             const r = D.RECIPES.find(x => x.result.id === q.goal.id);
             r.inputs.forEach(id => { S.inventory[id] = 30; });
             const c0 = S.crystal || 0;
-            for (let i = 0; i < q.goal.n; i++) { S.energy = 900; S.cauldron = r.inputs.slice(); brew(); }
+            // ⚠️ **개수 패널을 지나서 센다.** 재료를 30개 심어 두면 `brew()` 는
+            // 「몇 개 만들까」를 묻고 아직 안 만든다 — 그대로 세면 진행이 0 이고,
+            // 그것은 퀘스트가 고장 나서가 아니라 아직 안 눌러서다
+            for (let i = 0; i < q.goal.n; i++) {
+              S.energy = 900; S.cauldron = r.inputs.slice(); brew();
+              if (document.getElementById('brewQty').classList.contains('show')) confirmBrewQty();
+            }
             if (typeof closeBrewModal === 'function') closeBrewModal();
             if (questProgress(q) !== q.goal.n) return `진행이 ${questProgress(q)} 다 (${q.goal.n} 기대)`;
             openQuest();
@@ -1259,6 +1265,31 @@ function launchOpts() {
         });
         if (noPage) results.push({ 화면: `${t}/장없는조합`, 오류: noPage });
 
+        // **몇 개 만드시겠습니까 패널** — 재료 이름 + 개수 + 보유량이 한 줄이고
+        // 버튼이 네 칸이라 265px·영어에서 제일 먼저 밀린다.
+        // ⚠️ **값을 심어 놓고 «많이 만들 수 있는» 상태로 연다** — 한 개밖에 못 만들면
+        // 패널이 아예 안 뜨고(일부러 그렇다), 그 0건은 아무것도 안 잰 것이다
+        {
+          const bad = await page.evaluate(() => {
+            const r = D.RECIPES.find(x => x.result.kind === 'potion' && hasPage(x.result.id));
+            if (!r) return '가진 장이 하나도 없다';
+            r.inputs.forEach(id => { S.inventory[id] = (S.inventory[id] || 0) + 40; });
+            S.energy = 1000; S.cauldron = r.inputs.slice(); S.want = [];
+            brew();
+            if (!document.getElementById('brewQty').classList.contains('show')) return '패널이 안 떴다';
+            setBrewQty(10);
+            const rows = document.querySelectorAll('#brewQty .brewq-mat').length;
+            if (rows !== new Set(r.inputs).size) return `재료 줄이 ${rows}개다`;
+            return null;
+          });
+          if (bad) results.push({ 화면: `${t}/개수패널`, 오류: bad });
+          else { await page.waitForTimeout(220); await run(`${t}/개수패널`); }
+          const bqBad = await page.evaluate(() => window.__cardFits('#brewQty'));
+          if (bqBad) results.push({ 화면: `${t}/개수패널`, 오류: bqBad });
+          await page.evaluate(() => { closeBrewQty(); S.cauldron = []; });
+          await page.waitForTimeout(120);
+        }
+
         // **조합에 성공하면 현자의 결정이 들어온다** — 실패가 사라지면서
         // 이것이 유일한 수급원이 됐다. 0 이면 AP 충전도 밭 칸도 영영 못 연다
         const rew = await page.evaluate(() => {
@@ -1267,9 +1298,14 @@ function launchOpts() {
           r.inputs.forEach(id => { S.inventory[id] = (S.inventory[id] || 0) + 5; });
           S.energy = 900; S.cauldron = r.inputs.slice(); S.want = [];
           const c0 = S.crystal || 0;
+          // ⚠️ **개수 패널을 지나서 잰다.** 재료를 넉넉히 심어 두면 `brew()` 는
+          // 「몇 개 만들까」를 묻고 «아직 안 만든다» — 여기서 바로 결정을 세면
+          // 0 이 나오고, 그것은 보상이 없어서가 아니라 아직 안 눌러서다
           brew();
+          if (document.getElementById('brewQty').classList.contains('show')) confirmBrewQty();
           const got = (S.crystal || 0) - c0;
           if (typeof closeBrewModal === 'function') closeBrewModal();
+          // 개수 패널이 떴으면 그만큼 곱해서 들어온다 — 1개로 눌렀으니 한 번 몫이다
           return got === D.ENERGY.brewReward ? null
             : `결정이 ${got} 들어왔다 (${D.ENERGY.brewReward} 기대)`;
         });

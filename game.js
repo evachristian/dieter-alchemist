@@ -2993,14 +2993,126 @@ function brew() {
     if (window.Tut) Tut.fire('brew:fail');
     return;
   }
+  // ═══ 몇 개 만들지 먼저 묻는다 ═══════════════════════════════
+  //
+  // ⚠️ **여기까지 온 뒤에 묻는다.** 앞의 관문(두 개 미만 · 흐린 장 · 없는 장)을
+  // 지나기 «전»에 물으면 「몇 개 만들까요」를 눌렀는데 「없는 장입니다」가 나온다 —
+  // 묻고 나서 거절하는 꼴이라, AP 를 먼저 깎는 것과 같은 종류의 실례다.
+  // AP 도 아직 안 깎았다 — 취소하면 아무 일도 없어야 한다
   if (!spendEnergy(D.ENERGY.cost.brew)) {
     toast(T('no_energy'));
     return;
   }
+  // 위에서 한 번 깎았으니 돌려놓고 «묻는 자리»로 넘긴다. 확인을 누르면
+  // 개수만큼 한꺼번에 깎는다 (한 번 깎고 한 번 돌려놓는 것이 조건 검사를
+  // 두 벌로 만드는 것보다 낫다 — `spendEnergy` 가 유일한 판정이다)
+  S.energy += D.ENERGY.cost.brew;
+
+  // ⚠️ **한 개밖에 못 만들면 안 묻는다.** 「몇 개 만드시겠습니까? 1 / 1」은
+  // 답이 하나뿐인 질문이라, 누르는 손만 한 번 더 든다.
+  // ⚠️ **튜토리얼 중에도 안 묻는다.** 거기서 가르치는 것은 「담고 → 젓는다」
+  // 한 동작이고, 그 사이에 패널이 끼면 막이 기다리는 신호가 안 와서
+  // **새 플레이어가 3단계에서 갇힌다** (실제로 그랬다 — 막다른 길을 만들지 않는다)
+  if (!S.tutorialDone || brewMax() <= 1) { doBrew(1); return; }
+  openBrewQty(ready);
+}
+
+// 이 조합을 최대 몇 번 할 수 있는가 — **재료와 AP 둘 다** 본다.
+// ⚠️ 재료만 보면 「Max」를 눌렀을 때 도중에 AP 가 떨어져 **절반만 만들어진다.**
+// 그러면 화면에 적힌 수와 실제로 나온 수가 갈린다
+function brewMax() {
+  const need = {};
+  S.cauldron.forEach(id => { need[id] = (need[id] || 0) + 1; });
+  // 솥에 담긴 것은 **아직 가방에 있다** (`spendItem` 은 조합할 때 부른다) —
+  // 그래서 `stockOf` 를 그대로 나누면 된다
+  let byMat = Infinity;
+  Object.keys(need).forEach(id => {
+    byMat = Math.min(byMat, Math.floor(stockOf(id) / need[id]));
+  });
+  const byAp = Math.floor((S.energy || 0) / D.ENERGY.cost.brew);
+  return Math.max(1, Math.min(byMat, byAp));
+}
+
+// ─── 「몇 개 만드시겠습니까」 ─────────────────────────────────
+let brewQtyN = 1, brewQtyOn = null;
+function openBrewQty(result) {
+  brewQtyOn = result;
+  brewQtyN = 1;
+  renderBrewQty();
+  const m = document.getElementById('brewQty');
+  if (m) m.classList.add('show');
+}
+function closeBrewQty() {
+  brewQtyOn = null;
+  const m = document.getElementById('brewQty');
+  if (m) m.classList.remove('show');
+}
+window.closeBrewQty = closeBrewQty;
+// n 이 문자열 'max' 면 최대치, 숫자면 그만큼 «더한다» (음수도 된다)
+function setBrewQty(n) {
+  const max = brewMax();
+  brewQtyN = n === 'max' ? max
+    : n === 'min' ? 1
+    : Math.max(1, Math.min(max, brewQtyN + n));
+  renderBrewQty();
+}
+window.setBrewQty = setBrewQty;
+
+function renderBrewQty() {
+  const body = document.getElementById('brewQtyBody');
+  if (!body || !brewQtyOn) return;
+  const max = brewMax();
+  brewQtyN = Math.max(1, Math.min(max, brewQtyN));
+  const need = {};
+  S.cauldron.forEach(id => { need[id] = (need[id] || 0) + 1; });
+  // 재료 소진량 — **가진 것도 같이 적는다.** 「3개 든다」만 있으면 모자란지 알 수 없다
+  const rows = Object.keys(need).map(id => {
+    const use = need[id] * brewQtyN, have = stockOf(id);
+    return `<div class="brewq-mat${use > have ? ' lack' : ''}">
+      <span class="brewq-art">${itemArt(id, 22)}</span>
+      <span class="brewq-nm">${itemName(id)}</span>
+      <span class="brewq-n">${use} / ${have}</span>
+    </div>`;
+  }).join('');
+  const ap = D.ENERGY.cost.brew * brewQtyN;
+  // ⚠️ **조사는 부르는 쪽이 넣는다** — `{josa}` 만 적어 두면 화면에 그대로 뜬다
+  const nm = N(brewQtyOn.id, brewQtyOn.name);
+  body.innerHTML = `
+    <div class="brewq-q">${T(brewQtyOn.kind === 'creature' ? 'brewq_ask_c' : 'brewq_ask',
+      { name: nm, josa: josa(nm, '을를') })}</div>
+    <div class="brewq-count"><span class="brewq-big">${brewQtyN}</span>
+      <span class="brewq-max">/ ${max}</span></div>
+    <div class="brewq-steps">
+      <button class="btn brewq-step" onclick="setBrewQty('min')">${T('brewq_min')}</button>
+      <button class="btn brewq-step" onclick="setBrewQty(1)">${T('brewq_p1')}</button>
+      <button class="btn brewq-step" onclick="setBrewQty(10)">${T('brewq_p10')}</button>
+      <button class="btn brewq-step" onclick="setBrewQty('max')">${T('brewq_max')}</button>
+    </div>
+    <div class="brewq-mats">${rows}</div>
+    <div class="brewq-ap">${T('brewq_ap', { n: ap })}</div>`;
+}
+
+function confirmBrewQty() {
+  const n = brewQtyN;
+  closeBrewQty();
+  doBrew(n);
+}
+window.confirmBrewQty = confirmBrewQty;
+
+// 실제로 n 개 만든다. **한 번에 다 깎고 한 번에 다 준다** —
+// 한 개씩 `brew()` 를 다시 부르면 결과 모달이 n 번 뜬다
+function doBrew(n) {
+  const ready = D.RECIPE_MAP[D.recipeKey(S.cauldron)];
+  if (!ready) return;
+  // ⚠️ **다시 한 번 재 본다.** 패널이 떠 있는 사이에 상태가 바뀔 수 있다
+  // (자정 충전 · 다른 탭). 화면에 적힌 수보다 실제가 적으면 그만큼만 만든다
+  n = Math.max(1, Math.min(n, brewMax()));
+  if (!spendEnergy(D.ENERGY.cost.brew * n)) { toast(T('no_energy')); return; }
   // 실패 안내에 쓸 조합을 **지우기 전에** 챙겨 둔다
   const tried = S.cauldron.slice();
-  // 재료 소모 — 크리처가 섞여 있으면 그 개체도 같이 사라진다 (`spendItem`)
-  for (const id of S.cauldron) spendItem(id, 1);
+  // 재료 소모 — 크리처가 섞여 있으면 그 개체도 같이 사라진다 (`spendItem`).
+  // **n 개분을 한 번에** 뺀다
+  for (const id of S.cauldron) spendItem(id, n);
   const key = D.recipeKey(S.cauldron);
   const result = D.RECIPE_MAP[key];
   S.cauldron = [];
@@ -3008,7 +3120,7 @@ function brew() {
   // 매번 레시피를 다시 누르지 않아도 된다. 모자라면 그 자리는 회색으로 남는다.
   refillFromWant();
 
-  rec('brews');
+  for (let i = 0; i < n; i++) rec('brews');
   // ⚠️ **여기까지 오면 실패하지 않는다.** 위에서 이미 「장이 있는 조합」만
   // 통과시켰기 때문이다. 이 갈래는 세이브가 깨졌거나 데이터가 어긋났을 때의
   // 안전망으로만 남겨 둔다 — 재료와 AP 를 먹고 아무것도 안 주는 일이 없게
@@ -3021,11 +3133,11 @@ function brew() {
     return;
   }
 
-  rec('brewOk');
+  for (let i = 0; i < n; i++) rec('brewOk');
   // **현자의 결정은 이제 성공에서 나온다.** 실패가 사라지면서 유일한 수급원이
   // 없어졌고, 그대로 두면 AP 충전도 밭 칸도 영영 못 여는 게임이 된다.
   // 조합 값(25)보다 반드시 작다 — 같기만 해도 조합을 돌려 AP 를 무한히 번다
-  S.crystal = (S.crystal || 0) + (D.ENERGY.brewReward || 0);
+  S.crystal = (S.crystal || 0) + (D.ENERGY.brewReward || 0) * n;
   const isNew = !S.discovered.includes(result.id);
   if (isNew) {
     rec('discoveries');
@@ -3040,22 +3152,21 @@ function brew() {
   }
 
   if (result.kind === 'potion') {
-    S.potions[result.id] = (S.potions[result.id] || 0) + 1;
-    questBump('brew', result.id);
+    S.potions[result.id] = (S.potions[result.id] || 0) + n;
+    for (let i = 0; i < n; i++) questBump('brew', result.id);
   } else if (result.kind === 'creature') {
-    questBump('creature', result.id);
-    rec('creatures');
-    S.creatures.push(result.id);
+    for (let i = 0; i < n; i++) { questBump('creature', result.id); rec('creatures'); }
+    for (let i = 0; i < n; i++) S.creatures.push(result.id);
     // 일지 — 속성마다 한 마디가 다르다. 서른 마리에 한 줄씩 쓰면 예순 줄이 되고,
     // 그중 대부분은 한 번도 안 읽힌다. **속성 여섯이면 결은 충분히 산다**
     diaryAdd('di_creature', { id: result.id, attr: result.attr || 'fire' });
     // 크리처는 행운을 부른다 — 전시 매력 보너스 × 8 만큼 행운 상승
-    addAura('luck', (result.charmBonus || 0) * 8);
+    addAura('luck', (result.charmBonus || 0) * 8 * n);
   }
   save(); render();
   checkUnlocks();
   if (window.Tut) Tut.fire('brew:ok');
-  showBrewResult(result, isNew);
+  showBrewResult(result, isNew, null, n);
   // 모르던 레시피가 열리면 알림 (조합 결과 모달 위에 표시)
   if (isNew) {
     setTimeout(() => toast(T('recipe_found', { name: N(result.id, result.name) }), null, 3000), 900);
@@ -3133,7 +3244,9 @@ function drinkPotion(potionId) {
 // ═══════════════════════════════════════════════════════════════
 //  조합 결과 모달
 // ═══════════════════════════════════════════════════════════════
-function showBrewResult(result, isNew, near) {
+// `n` 은 한 번에 만든 개수 (없으면 1). **이름 옆에 «×3» 으로 붙인다** —
+// 개수를 안 적으면 한 번 눌러 셋이 나왔는지 알 길이 없다
+function showBrewResult(result, isNew, near, n) {
   const modal = document.getElementById('brewModal');
   const body = document.getElementById('brewModalBody');
   const success = result.kind !== 'crystal';
@@ -3158,7 +3271,7 @@ function showBrewResult(result, isNew, near) {
   body.innerHTML = `
     ${isNew ? `<div class="brew-new">${T('brew_new')}</div>` : ''}
     <div class="brew-emoji ${success ? 'pop' : ''}">${resultArt(result)}</div>
-    <div class="brew-name">${N(result.id, result.name)}</div>
+    <div class="brew-name">${N(result.id, result.name)}${(n || 1) > 1 ? ` <span class="brew-mult">×${n}</span>` : ''}</div>
     ${result.desc ? `<div class="brew-desc">${N(result.id + '_desc', result.desc)}</div>` : ''}
     ${statLine}
   `;

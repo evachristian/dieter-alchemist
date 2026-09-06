@@ -894,6 +894,12 @@
       confirm_reset_game: '게임을 초기화 하시겠습니까?',
       confirm_restart: '정말로 처음부터 다시 시작할까요? 모든 진행이 사라집니다.',
       btn_ok: '확인', btn_cancel: '취소',
+      // ─── 몇 개 만드시겠습니까 ───
+      // ⚠️ 크리처는 «몇 마리»다 — 물약 문구를 그대로 쓰면 크리처를 물약이라 부른다
+      brewq_ask: '{name}{josa} 몇 개 만드시겠습니까?',
+      brewq_ask_c: '{name}{josa} 몇 마리 만드시겠습니까?',
+      brewq_min: '1개', brewq_p1: '+1', brewq_p10: '+10', brewq_max: '최대',
+      brewq_ap: '드는 AP {n}',
       // 설정
       settings: '⚙️ 설정', setting_lang: '언어 설정',
       setting_sound: '사운드', sound_on: '켜기', sound_off: '끄기',
@@ -1867,6 +1873,10 @@
       confirm_reset_game: 'Reset the game and start over?',
       confirm_restart: 'Start over from the beginning? All progress will be lost.',
       btn_ok: 'OK', btn_cancel: 'Cancel',
+      brewq_ask: 'How many {name} would you like to brew?',
+      brewq_ask_c: 'How many {name} would you like to brew?',
+      brewq_min: '1', brewq_p1: '+1', brewq_p10: '+10', brewq_max: 'Max',
+      brewq_ap: 'AP needed {n}',
       settings: '⚙️ Settings', setting_lang: 'Language',
       setting_sound: 'Sound', sound_on: 'On', sound_off: 'Off',
       setting_intro_replay: 'Replay Tutorial Intro', setting_temp: '(temp)',

@@ -2246,6 +2246,39 @@ button.tm-slot:active { transform: scale(0.94); }
 .brew-emoji.pop { animation: brewpop 0.5s cubic-bezier(.2,1.4,.5,1); }
 @keyframes brewpop { 0% { transform: scale(0.2) rotate(-15deg); opacity: 0; } 60% { transform: scale(1.15) rotate(6deg); } 100% { transform: scale(1); } }
 .brew-name { font-size: 1.3rem; font-weight: 900; margin: 6px 0 4px; }
+/* 한 번에 여러 개 만들었을 때의 «×3» — 이름보다 작고 물러나 있다 */
+.brew-mult { font-size: 0.95rem; font-weight: 800; color: var(--text-lav); }
+
+/* ─── 몇 개 만드시겠습니까 ───────────────────────────────────
+   ⚠️ **줄바꿈을 다 허용한다.** 재료 이름 + 개수 + 보유량이 한 줄이고,
+   영어는 라벨이 길다 — 265px 에서 안 접히면 카드를 밀어낸다 */
+.brewq-card { max-width: 340px; text-align: left; }
+.brewq-q { font-size: 0.92rem; font-weight: 800; color: var(--ink); line-height: 1.45; }
+.brewq-count { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin: 10px 0 4px; }
+.brewq-big { font-size: 1.9rem; font-weight: 900; color: var(--ink); }
+.brewq-max { font-size: 0.86rem; font-weight: 800; color: var(--ink-soft); }
+/* 네 칸이 폭을 나눠 갖는다. 좁아지면 접힌다 — 잘리는 것보다 낫다 */
+.brewq-steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.brewq-step {
+  flex: 1 1 60px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 10px 8px; font-size: 0.84rem; background: var(--cream);
+}
+.brewq-mats { display: flex; flex-direction: column; gap: 5px; max-height: 34vh; overflow-y: auto; }
+.brewq-mat {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  padding: 7px 10px; border-radius: 12px; background: var(--cream);
+  font-size: 0.84rem; font-weight: 700; color: var(--ink);
+}
+.brewq-art { flex: 0 0 auto; display: inline-flex; align-items: center; font-size: 1.05rem; }
+.brewq-art svg { width: 22px; height: 22px; display: block; }
+.brewq-nm { flex: 1 1 auto; min-width: 3em; }
+.brewq-n { flex: 0 0 auto; margin-left: auto; font-weight: 800; }
+/* 모자란 줄 — **색만으로 말하지 않는다.** 굵기까지 같이 바뀐다 */
+.brewq-mat.lack { background: var(--red); }
+.brewq-mat.lack .brewq-n { color: var(--text-red); font-weight: 900; }
+.brewq-ap { margin: 10px 0 2px; font-size: 0.82rem; font-weight: 800; color: var(--text-warn); text-align: right; }
+.brewq-btns { display: flex; gap: 8px; margin-top: 12px; }
+.brewq-btns .btn { flex: 1 1 0; min-width: 0; }
 .brew-desc { font-size: 0.85rem; color: var(--ink-soft); line-height: 1.5; margin-bottom: 10px; }
 .brew-stats { font-size: 0.9rem; font-weight: 800; background: var(--lav); border-radius: 12px; padding: 8px; margin-bottom: 16px; }
 /* 실패한 조합이 얼마나 가까웠는지 — 보상(현자의 결정) 아래에 따로 둔다.
