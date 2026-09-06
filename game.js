@@ -1648,9 +1648,62 @@ function playCut(id, then) {
 }
 window.playCut = playCut;
 
+// 연출 한 겹 — **글자는 하나도 안 넣는다.** 장식이 대비 검사를 흔들지 않게.
+//
+// ⚠️ **setTimeout 으로 조각을 «붙이지» 않는다.** 검증기가 재는 순간에 아직 안 붙은
+// 조각은 없는 것으로 세어 통과한다 (밭 약탈 줄에서 배운 것과 같다). CSS 애니메이션 +
+// `animation-delay` 로 두면 `settle()` 이 전부 끝 상태로 보내 준다.
+// 그래서 **평소 상태(애니메이션 없음)가 곧 끝난 상태**여야 한다 — 조각은 흩어져
+// 사라진 뒤가 기본이고, 시작 쪽을 키프레임의 from 이 붙든다.
+const CUT_SHARDS = 22;
+function cutFxHtml(kind) {
+  if (kind === 'crack') {
+    // 금 — 가운데에서 뻗는 선 몇 개. **깨지지는 않는다**
+    return `<svg class="fx-crack" viewBox="0 0 200 200" preserveAspectRatio="none">
+      <path d="M100,0 L104,62 L92,96 L108,140 L98,200" />
+      <path d="M104,62 L152,40" /><path d="M92,96 L36,84" />
+      <path d="M108,140 L164,150" /><path d="M92,96 L48,150" />
+    </svg>`;
+  }
+  if (kind === 'shatter' || kind === 'light') {
+    // 깨짐 — 조각이 바깥으로 흩어진다. `--i` 로 방향과 시각을 저마다 다르게
+    const bits = [];
+    for (let i = 0; i < CUT_SHARDS; i++) {
+      const a = (i / CUT_SHARDS) * Math.PI * 2 + (i % 3) * 0.4;
+      // 멀리 나는 것과 가까이 떨어지는 것을 섞는다 — 다 같은 거리면 폭죽으로 보인다
+      const far = 0.55 + (i % 4) * 0.18;
+      bits.push(`<i class="fx-shard" style="--x:${(Math.cos(a) * 52 * far).toFixed(1)}vw;`
+        + `--y:${(Math.sin(a) * 44 * far).toFixed(1)}vh;--r:${((i % 5) - 2) * 40}deg;`
+        + `--s:${(0.7 + (i % 4) * 0.35).toFixed(2)};--d:${(i % 7) * 0.05}s"></i>`);
+    }
+    // 깨지는 순간의 섬광 — 「빛으로 흩어진다」의 첫 박자다
+    return `<div class="fx-burst ${kind === 'light' ? 'soft' : ''}">`
+      + `<i class="fx-flash"></i>${bits.join('')}</div>`;
+  }
+  if (kind === 'shard') {
+    // 공방에 남은 **한 조각** — 액자 속에서 조용히 빛난다 (STORY.md 「공방의 거울 조각」)
+    return `<div class="fx-keep"></div>`;
+  }
+  return '';
+}
+
 function drawCut() {
   if (!cutNow) return;
-  const [spId, mood] = cutNow.lines[cutAt];
+  const [spId, mood, fx] = cutNow.lines[cutAt];
+  const fxEl = document.getElementById('cutFx');
+  if (fxEl) {
+    // **같은 연출이면 다시 그리지 않는다** — 다시 그리면 애니메이션이 되감겨
+    // 금이 갔다가 처음부터 다시 가는 것처럼 보인다
+    if (fxEl.dataset.fx !== (fx || '')) {
+      fxEl.dataset.fx = fx || '';
+      fxEl.innerHTML = cutFxHtml(fx);
+    }
+    // 연출이 붙은 줄에서는 **뒤 화면을 더 덮는다.** 기본 덮개(0.72)로는 탭 바와
+    // 마을 지도가 그대로 비쳐서, 거울이 깨지는 장면이 게임 UI 위에서 벌어진다.
+    // ⚠️ 이 한 줄에만 건다 — `.cut` 전체를 어둡게 하면 1막 컷씬까지 같이 어두워진다
+    const sc = document.getElementById('cutScene');
+    if (sc) sc.classList.toggle('deep', !!fx);
+  }
   const sp = D.speaker(spId);
   const face = document.getElementById('cutFace');
   const who = document.getElementById('cutWho');

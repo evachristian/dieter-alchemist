@@ -3062,6 +3062,79 @@ button.tm-slot:active { transform: scale(0.94); }
 .cut-face { width: min(62vw, 260px); animation: cutIn 0.32s ease both; }
 .cut-face svg { width: 100%; height: auto; display: block; }
 @keyframes cutIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* ═══ 엔딩 연출 — 금 · 깨짐 · 빛 ════════════════════════════
+   ⚠️ **글자가 하나도 없다.** 장식이 대비 검사를 흔들지 않게 (TEXT_POLICY).
+   ⚠️ **평소 상태(애니메이션 없음)가 곧 «끝난» 상태여야 한다** — 검증기의
+   `settle()` 이 끝이 있는 애니메이션을 전부 끝으로 보내기 때문이다. 시작 쪽은
+   키프레임의 from 이 붙들고, `both` 가 시작 전까지 그것을 유지한다 */
+.cut-fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* 연출이 있는 줄에서만 더 깊게 덮는다 — 기본값으로는 뒤의 탭 바가 그대로 비친다 */
+.cut.deep { background: rgba(16,11,20,0.93); }
+
+/* ── 금 ── 가운데에서 뻗어 나간다. **깨지지는 않는다** */
+.fx-crack {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  fill: none; stroke: rgba(255,255,255,0.5); stroke-width: 0.7;
+  stroke-linecap: round; filter: drop-shadow(0 0 2px rgba(255,255,255,0.35));
+}
+.fx-crack path {
+  stroke-dasharray: 320; stroke-dashoffset: 0;      /* 끝 상태 = 다 그어진 금 */
+  animation: fxCrack 0.9s ease-out both;
+}
+.fx-crack path:nth-child(2) { animation-delay: 0.25s; }
+.fx-crack path:nth-child(3) { animation-delay: 0.35s; }
+.fx-crack path:nth-child(4) { animation-delay: 0.45s; }
+.fx-crack path:nth-child(5) { animation-delay: 0.55s; }
+@keyframes fxCrack { from { stroke-dashoffset: 320; } to { stroke-dashoffset: 0; } }
+
+/* ── 깨짐 ── 조각이 바깥으로 흩어졌다가 사라진다.
+   **조각마다 그가 한 번씩 비친다** — 비침은 조각 안쪽의 흰 결이 맡는다 */
+.fx-burst { position: absolute; inset: 0; }
+/* 섬광 — 한 번 크게 번졌다가 사라진다. **자리를 안 차지한다**(transform 만 쓴다) */
+.fx-flash {
+  position: absolute; left: 50%; top: 56%; width: 40px; height: 40px; margin: -20px 0 0 -20px;
+  border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.95), transparent 70%);
+  opacity: 0; transform: scale(6);                   /* 끝 상태 = 번지고 사라진 뒤 */
+  animation: fxFlash 0.75s ease-out both;
+}
+@keyframes fxFlash {
+  0%   { opacity: 0;    transform: scale(0.3); }
+  18%  { opacity: 0.95; transform: scale(1.6); }
+  100% { opacity: 0;    transform: scale(6); }
+}
+.fx-shard {
+  position: absolute; left: 50%; top: 56%; width: 20px; height: 26px;
+  margin: -13px 0 0 -10px;
+  background: linear-gradient(140deg, rgba(255,255,255,0.85), rgba(210,225,255,0.25) 55%, transparent);
+  clip-path: polygon(48% 0%, 100% 38%, 72% 100%, 12% 82%, 0% 30%);
+  opacity: 0;                                        /* 끝 상태 = 흩어져 사라진 뒤 */
+  transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(0.35);
+  animation: fxShard 1.6s cubic-bezier(.2,.7,.3,1) both;
+  animation-delay: var(--d);
+}
+@keyframes fxShard {
+  0%   { opacity: 0;   transform: translate(0,0) rotate(0deg) scale(var(--s)); }
+  10%  { opacity: 1;   transform: translate(0,0) rotate(0deg) scale(var(--s)); }
+  70%  { opacity: 0.9; }
+  100% { opacity: 0;   transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(0.35); }
+}
+/* 「빛으로 흩어진다」의 뒷부분 — 더 느리고 더 옅다 */
+.fx-burst.soft .fx-shard {
+  background: linear-gradient(140deg, rgba(255,247,225,0.8), rgba(255,235,190,0.2) 60%, transparent);
+  animation-duration: 2.2s;
+}
+
+/* ── 남은 한 조각 ── 공방의 액자 속에서 조용히 빛난다.
+   **끝이 없는 반짝임**이라 `settle()` 이 안 건드린다 (장식용 무한 반복) */
+.fx-keep {
+  position: absolute; left: 50%; top: 22%; width: 16px; height: 22px; margin-left: -8px;
+  background: linear-gradient(140deg, rgba(255,255,255,0.9), rgba(215,230,255,0.3) 60%, transparent);
+  clip-path: polygon(48% 0%, 100% 38%, 72% 100%, 12% 82%, 0% 30%);
+  filter: drop-shadow(0 0 6px rgba(200,220,255,0.55));
+  animation: fxKeep 3.2s ease-in-out infinite;
+}
+@keyframes fxKeep { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
 /* 대사창 — 인트로·혼자 먹은 밤과 같은 자리(화면 아래)·같은 결로 맞춘다 */
 .cut-box {
   flex: 0 0 auto; width: 100%; max-width: 480px; margin: 0 auto;

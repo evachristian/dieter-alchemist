@@ -1221,18 +1221,25 @@ const CUTS = [
   // 게임 내내 아무도 여왕을 이름으로 부르지 않다가 마지막에 그가 한 번 부른다 —
   // 그녀가 평생 원하던 것을 얻는 순간이, 그가 사라지는 순간이다.
   // `tools/checkname.js` 의 허용 목록에 이 한 줄만 들어 있다
+  // 줄의 셋째 칸은 **연출**이다 (`cutFx`). 없으면 아무것도 안 얹는다 —
+  // 여기 말고는 쓰는 곳이 없어서 다른 컷씬은 지금 그대로다
   { id: 'c_end_call', act: 3,
-    lines: [['sp_ygritte', 'def'], ['sp_yutark', 'def'], ['sp_yutark', 'true'], ['sp_ygritte', 'cold']] },
+    lines: [['sp_ygritte', 'def'], ['sp_yutark', 'def', 'crack'],
+            ['sp_yutark', 'true', 'crack'], ['sp_ygritte', 'cold', 'crack']] },
 
   // ③ 「아름다움」에 답한다. ⚠️ **고백을 시키지 않는다** — 그는 진심을 절대 말하지
   // 않는 인물이라 고백시키면 무너진다. 대신 게임 내내 **유일하게 피해 온 것**에
   // 답하게 한다. 사랑이라는 말을 쓰지 않고 사랑을 말하는 유일한 방식이다
+  // ⚠️ **깨지는 것은 「조각마다 비친다」고 «말하는» 줄에서다.** 한 줄 앞에서 깨면
+  // 대사가 이미 지나간 일을 설명하는 꼴이 되고, 한 줄 뒤면 그의 마지막 말이
+  // 멀쩡한 거울 앞에서 나온다
   { id: 'c_end_answer', act: 3,
-    lines: [['sp_gwiriel', 'soft'], ['sp_yutark', 'true'], ['sp_gwiriel', 'shock'], ['sp_yutark', 'true']] },
+    lines: [['sp_gwiriel', 'soft', 'crack'], ['sp_yutark', 'true', 'crack'],
+            ['sp_gwiriel', 'shock', 'shatter'], ['sp_yutark', 'true', 'light']] },
 
   // ④ **엔딩은 그가 아니라 공주로 끝난다.** 다 되살린 공방에 선 공주이고,
   // 「아름다움」에 대한 **그녀 자신의 답**이다. 슬픔으로 끝내지 않는다
-  { id: 'c_end_own', act: 3, lines: [['sp_gwiriel', 'soft'], ['sp_gwiriel', 'smile']] },
+  { id: 'c_end_own', act: 3, lines: [['sp_gwiriel', 'soft', 'shard'], ['sp_gwiriel', 'smile', 'shard']] },
 
   // ⑤ 에필로그 — **첫 장면과 같은 행위이고 딱 하나만 다르다.**
   // 인트로 1컷도 「먹는다」였다: 깊은 밤 · 성의 한쪽 구석 · **혼자, 몰래**.

@@ -735,6 +735,32 @@ function launchOpts() {
             await page.evaluate(() => { while (!document.getElementById('cutScene').hidden) cutNext(); closeQuest(); });
           }
 
+          // **엔딩 연출** — 거울이 깨지는 줄은 배경이 더 깊고(`\.cut.deep`) 조각 층이
+          // 얹힌다. ⚠️ **연출이 «켜진» 줄에서 재야 한다** — 위의 컷씬 검사는 1막이라
+          // 연출이 없고, 그 0건은 이 층을 한 번도 안 잰 것이다
+          {
+            const bad = await page.evaluate(() => {
+              const c = D.cutOf('c_end_answer');
+              const at = (c.lines || []).findIndex(l => l[2] === 'shatter');
+              if (at < 0) return '깨지는 줄이 없다';
+              playCut('c_end_answer');
+              for (let i = 0; i < at; i++) cutNext();
+              const fx = document.getElementById('cutFx');
+              if (fx.dataset.fx !== 'shatter') return `연출이 ${fx.dataset.fx} 다`;
+              if (!fx.querySelectorAll('.fx-shard').length) return '조각이 하나도 없다';
+              if (!document.getElementById('cutScene').classList.contains('deep'))
+                return '배경이 안 깊어졌다';
+              return null;
+            });
+            if (bad) results.push({ 화면: `${t}/엔딩연출`, 오류: bad });
+            else { await page.waitForTimeout(260); await run(`${t}/엔딩연출`); }
+            await page.evaluate(() => {
+              while (!document.getElementById('cutScene').hidden) cutNext();
+              S.seenCuts = [];
+            });
+            await page.waitForTimeout(120);
+          }
+
           // **완료 컷씬 → 보상** 의 순서와, **다시보기가 보상을 또 주지 않는가**
           const rpBad = await page.evaluate(() => {
             // ⚠️ **앞 검사가 남긴 상태에 기대지 않는다.** 처음부터 다시 세운다 —
