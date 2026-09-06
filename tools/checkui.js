@@ -843,18 +843,40 @@ function launchOpts() {
             // ⚠️ **제 상태를 스스로 세운다.** 앞 검사가 `seenCuts` 를 비우고 끝나면
             // 여기서 「못 본 개수가 안 나온다」로 엉뚱하게 실패한다 —
             // 이 파일에서 **네 번째** 겪는 사고다 (작물·부대·컷씬보상에 이어)
-            // ⚠️ **막 이름이 붙는 줄(엔딩·에필로그)을 반드시 하나씩 넣는다.**
-            // 1막 것만 심으면 「4막 · 엔딩」 같은 «더 긴» 머리글을 한 번도 안 재는 것이라,
-            // 0건이 통과가 아니라 「재 본 적 없다」가 된다 (영어는 더 길다)
-            const named = Object.keys(ACT_NAME).map(Number)
-              .map(a => (D.CUTS.find(c => c.act === a) || {}).id).filter(Boolean);
-            S.seenCuts = [D.CUTS[0].id, D.CUTS[1].id].concat(named);
+            // ⚠️ **막 이름이 붙는 줄(엔딩·에필로그)을 하나는 «본 것», 하나는 «못 본 것»으로 둔다.**
+            // 1막 것만 심으면 「4막 · 엔딩」 같은 «더 긴» 머리글을 한 번도 안 재는 것이고,
+            // 이름 붙는 막을 전부 심으면 「못 본 막의 이름이 새는가」를 한 번도 안 재는 것이다.
+            // 어느 쪽이든 0건이 통과가 아니라 「재 본 적 없다」가 된다 (영어는 더 길다)
+            const namedActs = Object.keys(ACT_NAME).map(Number).sort((a, b) => a - b);
+            const first = namedActs.length
+              ? (D.CUTS.find(c => c.act === namedActs[0]) || {}).id : null;
+            S.seenCuts = [D.CUTS[0].id, D.CUTS[1].id].concat(first ? [first] : []);
             openStory();
             if (!document.getElementById('storySheet').classList.contains('show')) return '시트가 안 떴다';
             const rows = document.querySelectorAll('#storySheet .st-row').length;
             const seen = (S.seenCuts || []).length;
             if (rows !== seen) return `줄이 ${rows}개다 (본 것 ${seen}개 기대)`;
             if (!document.querySelector('#storySheet .st-left')) return '못 본 개수가 안 나온다';
+            // ⚠️ **막은 «전부» 서 있어야 한다.** 아무것도 못 본 막을 통째로 빼던 시절에는
+            // 다섯 막을 만들어 놓고도 화면에 1막 하나만 있었다 (두 번 신고받았다).
+            // 「안 보이면 없는 것 · 보이면 아직 못 여는 것」 — 잠긴 칩과 같은 규칙이다
+            const allActs = [...new Set(D.CUTS.map(c => c.act))];
+            const heads = [...document.querySelectorAll('#storySheet .st-actname')];
+            if (heads.length !== allActs.length) {
+              return `막이 ${heads.length}개 서 있다 (${allActs.length}개 기대)`;
+            }
+            // 못 본 막은 **번호만으로 서고, 자물쇠 줄이 붙는다.**
+            // ⚠️ 머리글을 «번호만»으로 찾는 것이 곧 이름 검사다 — 「엔딩」·「에필로그」는
+            // 이름 자체가 이야기라 하나라도 본 뒤에야 붙는다. 이름이 새면 여기서 못 찾는다
+            const blind = allActs.filter(a => !D.CUTS.some(
+              c => c.act === a && (S.seenCuts || []).includes(c.id)));
+            for (const a of blind) {
+              const g = [...document.querySelectorAll('#storySheet .st-act')]
+                .find(x => x.querySelector('.st-actname').textContent.trim()
+                  === I18N.t('st_act', { n: a }));
+              if (!g) return `${a}막 머리글이 번호만으로 안 서 있다`;
+              if (!g.querySelector('.st-left')) return `${a}막에 자물쇠 줄이 없다`;
+            }
             // **제목이 새어 나가면 안 된다** — 못 본 컷씬의 이름이 화면에 있으면 스포일러다
             const html = document.getElementById('storyBody').textContent;
             const leak = D.CUTS.filter(c => !(S.seenCuts || []).includes(c.id))

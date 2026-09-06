@@ -1790,12 +1790,22 @@ function renderStory() {
   if (ti) ti.textContent = T('st_title');
   if (!el) return;
   const seen = Array.isArray(S.seenCuts) ? S.seenCuts : [];
+  // 하나도 못 본 사람에게는 자물쇠 다섯 줄 대신 한 마디를 준다 —
+  // 누를 것이 하나도 없는 목록은 목록이 아니다
+  if (!seen.length) { el.innerHTML = `<div class="empty-hint">${T('st_empty')}</div>`; return; }
   const acts = [...new Set(D.CUTS.map(c => c.act))].sort((a, b) => a - b);
   const html = acts.map(act => {
     const list = D.CUTS.filter(c => c.act === act);
     const got = list.filter(c => seen.includes(c.id));
-    // **아직 아무것도 못 본 막은 통째로 안 내놓는다** — 막 제목만으로도 스포일러다
-    if (!got.length) return '';
+    // ⚠️ **아무것도 못 본 막도 「🔒 몇 개」로 보여 준다** — 감추지 않는다.
+    // 예전에는 통째로 뺐는데, 그러면 「없는 것」과 「아직 못 본 것」이 구별되지 않아
+    // 다섯 막을 만들어 놓고도 화면에는 1막 하나만 서 있다 (두 번 신고받았다).
+    // 잠긴 칩(`.ask-chip.locked`)에서 이미 정한 규칙이다 —
+    // **안 보이면 「없는 것」이고 보이면 「아직 못 여는 것」이다.**
+    //
+    // 대신 **막 «이름»은 하나라도 본 뒤에 붙는다.** 「엔딩」·「에필로그」는 이름 자체가
+    // 이야기를 말해 버리는데, 번호(4막·5막)는 셋을 넘는 막이 있다는 것밖에 안 알려 준다
+    const named = got.length && ACT_NAME[act];
     const rows = got.map(c =>
       `<button class="st-row" onclick="closeStory();playCut('${c.id}')">
         <span class="st-ic" aria-hidden="true">${
@@ -1805,7 +1815,7 @@ function renderStory() {
     const left = list.length - got.length;
     return `<div class="st-act">
       <div class="st-actname">${T('st_act', { n: act })}${
-        ACT_NAME[act] ? ` · ${T(ACT_NAME[act])}` : ''}</div>
+        named ? ` · ${T(named)}` : ''}</div>
       ${rows}
       ${left ? `<div class="st-left">🔒 ${T('st_left', { n: left })}</div>` : ''}
     </div>`;
