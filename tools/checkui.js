@@ -219,7 +219,7 @@ function launchOpts() {
       { step: 8,  beat: 0, tab: 'gather',   label: '8 채집' },
       { step: 13, beat: 3, tab: 'atelier',  label: '13 실패도 정보(긴 대사)' },
       { step: 14, beat: 1, tab: 'showcase', label: '14 위쪽 줄(구멍 둘)' },
-      { step: 16, beat: 2, tab: 'showcase', label: '16 갈아입기' },
+      { step: 16, beat: 2, tab: 'showcase', label: '16 신어 보기' },
     ];
     for (const c of CASES) {
       const bad = await page.evaluate((c) => {

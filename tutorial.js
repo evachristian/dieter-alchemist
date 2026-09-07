@@ -18,9 +18,11 @@
 (function () {
   // 구멍 여백 / 모서리 — 버튼에 딱 맞추면 테두리가 잘려 보인다
   const PAD = 8, RAD = 14;
-  // 졸업 선물 — 옷장을 여는 김에 갈아입을 옷 한 벌도 같이 준다.
-  // 한 벌뿐이면 '갈아입기' 라는 말 자체가 성립하지 않는다 (공주 드레스는 이미 입고 있다)
-  const GIFT_DRESS = 'dress_onepiece';
+  // 졸업 선물 — **신발이다.** 튜토리얼을 마친 아바타가 맨발(`shoes_none`)로
+  // 서 있어서, 옷장을 열어 주는 김에 신길 것을 하나 준다.
+  // ⚠️ 원피스를 주던 자리다 — 원피스는 시작 착장에 이미 한 벌이 있고, 맨발은
+  // «빠진 것»이라 눈에 띈다. 채워야 할 자리를 채우는 쪽이 선물답다
+  const GIFT_SHOES = 'shoes_maryjane';
 
   const say = (sp, key, mood) => ({ sp: 'sp_' + sp, key, mood: mood || 'def' });
 
@@ -94,18 +96,18 @@
       talk: [say('althea', 'tut_h1', 'warm'), say('althea', 'tut_h2')],
       after: () => once('grad', graduate) },
 
-    // ── 7단계. 갈아입기 ──
+    // ── 7단계. 신어 보기 ──
     // **졸업 뒤에 두는 이유**: 튜토리얼 전의 마이 룸에는 인트로의 공주 그림이 서 있어서
     // (roomFigure) 옷을 갈아입어도 화면이 하나도 안 변한다. 아바타가 된 다음이라야
     // 갈아입은 것이 눈에 보인다.
-    { id: 'dress',
+    { id: 'shoes',
       before: () => {
         if (typeof setRoomTab === 'function') setRoomTab('clothes');
-        if (typeof setWardrobeTab === 'function') setWardrobeTab('dress');
+        if (typeof setWardrobeTab === 'function') setWardrobeTab('shoes');
       },
       talk: [say('gwiriel', 'tut_h3', 'shock'), say('althea', 'tut_h4', 'warm'), say('althea', 'tut_h5')],
-      tab: 'showcase', act: 'tut_act_dress', hole: '.wr-item[data-item="' + GIFT_DRESS + '"]',
-      wait: 'equip:' + GIFT_DRESS },
+      tab: 'showcase', act: 'tut_act_shoes', hole: '.wr-item[data-item="' + GIFT_SHOES + '"]',
+      wait: 'equip:' + GIFT_SHOES },
 
     { id: 'outro',
       talk: [say('gwiriel', 'tut_i1', 'smile'), say('althea', 'tut_i2'), say('althea', 'tut_i3', 'warm')] },
@@ -115,7 +117,7 @@
   function graduate() {
     S.tutorialDone = true;
     if (!Array.isArray(S.unlocked)) S.unlocked = [];
-    if (!S.unlocked.includes(GIFT_DRESS)) S.unlocked.push(GIFT_DRESS);
+    if (!S.unlocked.includes(GIFT_SHOES)) S.unlocked.push(GIFT_SHOES);
     // 3구 무쇠 솥으로 바꿔 준다 — 열렸는데 2구에 그대로 두면 열린 줄 모른다
     const pot = D.CAULDRONS.find(c => c.needsTutorial);
     if (pot && typeof isCauldronOpen === 'function' && isCauldronOpen(pot)) {

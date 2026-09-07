@@ -324,7 +324,7 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
 
   const fin = await page.evaluate(() => ({
     step: S.tut.step, done: S.tut.done, tutorialDone: S.tutorialDone,
-    pot: S.cauldronId, dress: S.outfit.dress,
+    pot: S.cauldronId, shoes: S.outfit.shoes,
     layerOn: document.getElementById('tut').classList.contains('on'),
     creatureOpen: !document.querySelector('.room-tab[data-rtab="creatures"]').classList.contains('locked'),
     wardrobeTabs: document.querySelectorAll('.wr-tab').length,
@@ -366,7 +366,8 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     }
   }
   if (fin.layerOn) bad.push('끝났는데 막이 남아 있다');
-  if (fin.dress !== 'dress_onepiece') bad.push('선물받은 원피스로 갈아입지 않았다 (' + fin.dress + ')');
+  // 졸업 선물은 **신발**이다 — 아바타가 맨발(`shoes_none`)로 서 있던 자리를 채운다
+  if (fin.shoes !== 'shoes_maryjane') bad.push('선물받은 구두를 신지 않았다 (' + fin.shoes + ')');
   if (!fin.creatureOpen) bad.push('크리처 탭이 안 열렸다');
   if (fin.wardrobeTabs < 11) bad.push('옷장 칸이 안 열렸다 (' + fin.wardrobeTabs + '칸)');
   if (fin.pot !== 'cd_iron') bad.push('3구 무쇠 솥으로 안 바뀌었다 (' + fin.pot + ')');
