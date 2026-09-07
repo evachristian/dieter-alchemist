@@ -1819,9 +1819,7 @@
     star:    { e: 'sparkle', m: 'grin',   b: 'up', fx: 'spark' },
     love:    { e: 'heart',   m: 'grin', fx: 'hearts' },
     faint:   { e: 'cross',   m: 'ohh', fx: 'gloom' },
-    // 「활짝」 — **인트로 공주의 웃는 얼굴 그대로**. 감은 호 눈(`arc`)과 넓은 미소.
-    // ⚠️ 눈썹을 안 붙인다 — 공주에게는 없다 (눈이 이미 웃고 있어서 붙이면 과해진다)
-    haha:    { e: 'arc',     m: 'psmile' },
+    haha:    { e: 'tight',   m: 'haha',   b: 'up' },
     // 😝 는 눈을 «질끈» 감는다 — 그냥 감은 눈(‿‿)으로 그리면 이모지와 딴 얼굴이 된다
     tease:   { e: 'tight',   m: 'tongue' },
     // 😒 · 😑 는 **페른** 결이다 — 큰 눈 위를 곧은 꺼풀이 자르고 눈썹이 낮게 깔린다.
@@ -1868,15 +1866,17 @@
     const EYE = '#4a3a42', LIP = '#c97b86';
     let eyes, mouth, extra = '';
     // ⚠️ **부품 표가 먼저다** — 원래 있던 여섯은 여기 없으니 아래 `switch` 로 내려간다
-    // ⚠️ **「활짝」만은 자리까지 인트로 공주의 것이다** — 이 표정 하나가 곧
+    // ⚠️ **「활짝」(`exp_happy`)만은 자리까지 인트로 공주의 것이다** — 이 표정 하나가 곧
     // 공주의 웃는 얼굴이라 「거의 같다」로는 안 된다는 요청을 두 번 받았다.
     // 공주의 세 줄을 얼굴 포개기 배율(33/34 · 35/33)로 옮긴 값이고,
     //   눈  M132,178 Q138,170 144,178 (굵기 2.8) → 아래
     //   입  M142,188 Q150,196 158,188 (굵기 2.4)
     // 아바타의 눈·입은 공주보다 8~10px 아래에 붙어 있어서(`AV`), 부품만 같게 해서는
     // 「배치가 다른 얼굴」이 된다 — 그래서 여기서만 좌표를 직접 쓴다.
-    // ⚠️ **다른 표정에 이 방식을 퍼뜨리지 않는다.** 나머지 서른일곱은 `AV` 를 지난다
-    if (kind === 'haha') {
+    // ⚠️ **다른 표정에 이 방식을 퍼뜨리지 않는다.** 나머지 서른일곱은 `AV` 를 지난다.
+    // ⚠️ **「활짝」은 `exp_happy` 다.** `exp_haha` 는 「박장대소」다 —
+    // 이름이 비슷해서 그쪽을 고치고 있었던 적이 있다 (id 가 아니라 «이름»으로 확인할 것)
+    if (kind === 'happy') {
       const E = (x0, x1, x2) => `<path d="M${x0},67.88 Q${x1},59.39 ${x2},67.88"`
         + ` stroke="${EYE}" stroke-width="2.9" fill="none" stroke-linecap="round"/>`;
       return `
@@ -1903,12 +1903,7 @@
           `<path d="M${AV.R - 5},${AV.Y + 1} Q${AV.R},${AV.Y - 4} ${AV.R + 5},${AV.Y + 1}" stroke="${EYE}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
         mouth = `<path d="M${AV.MX - 6},${AV.MY} Q${AV.MX},${AV.MY + 5} ${AV.MX + 6},${AV.MY}" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
         break;
-      case 'happy':
-        eyes = `<path d="M${AV.L - 5},${AV.Y + 2} Q${AV.L},${AV.Y - 4} ${AV.L + 5},${AV.Y + 2}" stroke="${EYE}" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-          <path d="M${AV.R - 5},${AV.Y + 2} Q${AV.R},${AV.Y - 4} ${AV.R + 5},${AV.Y + 2}" stroke="${EYE}" stroke-width="2.8" fill="none" stroke-linecap="round"/>`;
-        mouth = `<path d="M${AV.MX - 8},${AV.MY - 1} Q${AV.MX},${AV.MY + 9} ${AV.MX + 8},${AV.MY - 1} Z" fill="#e98a9a"/>`
-          + `<path d="M${AV.MX - 8},${AV.MY - 1} Q${AV.MX},${AV.MY + 9} ${AV.MX + 8},${AV.MY - 1}" stroke="${LIP}" stroke-width="2" fill="none"/>`;
-        break;
+      // 「활짝」(happy)은 위에서 «공주 그대로» 그리고 돌아간다 — 여기 갈래는 없앴다
       case 'surprise':
         eyes = bigEye(AV.L) + bigEye(AV.R);
         mouth = `<ellipse cx="${AV.MX}" cy="${AV.MY + 2}" rx="3.6" ry="4.6" fill="#b5566a"/>`;
@@ -2050,10 +2045,23 @@
   // **공주보다 둥글고 넓어진다** (한 번 그렇게 했다가 「예전으로 되돌아간 것 같다」로
   // 신고받았다). 공주의 «선»을 지키려면 앞머리 쪽이어야 한다.
   const BANG_OUT  = 'M67,63.6 C65.1,33.9 78.7,23.3 100,23.3 C121.4,23.3 134.9,33.9 133,63.6';
-  // ⚠️ **너무 낮으면 머리가 «납작»해 보인다** (y30 으로 뒀다가 신고받았다).
-  // 지금은 y26 — 긴 생머리(23.3)보다는 낮고, 뒤통수 타원(29.7)보다는 높다.
-  // 뒤통수보다 높아야 정수리를 이 호가 만들어 «동그랗게» 떨어진다
-  const BANG_FLAT = 'M67,63.6 C64.6,36 78,26 100,26 C122,26 135.4,36 133,63.6';
+  // 나머지 다섯은 **동그랗다** — 뒤통수와 «같은 중심·같은 rx» 에 ry 만 늘린 타원의 호다.
+  //
+  // ⚠️ **손으로 그린 곡선으로 두면 모서리가 남는다.** y26 짜리 3차 곡선으로 뒀더니
+  // 뒤통수 타원(꼭대기 29.7 · rx38.82)보다 좁아지는 구간이 생겨 관자놀이 위에
+  // 각이 졌다 — 「동그랗게 다듬어 달라」는 신고가 그것이다.
+  // 같은 타원이면 y=cy 에서 폭도 접선도 정확히 맞아 이음매가 «없다».
+  //
+  // ⚠️ 긴 생머리만 이 방식을 안 쓴다. 거기서는 정수리가 «공주의 선»이어야 해서
+  // 타원으로 두면 둥글고 넓어진다 (`BANG_OUT` 의 ⚠️)
+  const FLAT_TOP = 26;
+  const BANG_FLAT = (() => {
+    const cy = CROWN_LONG.cy, rx = CROWN_LONG.rx, ry = cy - FLAT_TOP;
+    const L = (100 - rx).toFixed(2), R = (100 + rx).toFixed(2), Y = cy.toFixed(2);
+    // 끝을 앞머리 안쪽 변의 시작점(133,63.6)까지 이어 준다. 남는 조각(133~138.82)은
+    // 뒤통수 안쪽이라 안 보인다 — 왼쪽도 `Z` 가 같은 높이로 닫는다
+    return `M${L},${Y} A${rx},${ry.toFixed(2)} 0 0 1 ${R},${Y} L133,63.6`;
+  })();
   const bangTop = back => (back === 'long' ? BANG_OUT : BANG_FLAT);
   // 앞머리. 'wave' 는 옛 이름 — 사이드뱅과 같은 모양이라 그쪽으로 넘긴다
   function hairFront(kind, c, back) {
