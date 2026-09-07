@@ -357,29 +357,51 @@ function launchOpts() {
   //
   // 같은 뒷머리에서 앞머리만 바꿨을 때 **머리 꼭대기의 y 가 흔들리면 안 된다.**
   const bangTop = await page.evaluate(async (tol) => {
-    const D = window.GameData, rows = [], tops = [];
+    const D = window.GameData, rows = [], bad = [];
     const cv = document.createElement('canvas'); cv.width = 244; cv.height = 384;
     const ctx = cv.getContext('2d');
-    const seen = new Set();
-    for (const it of D.WARDROBE.hair) {
-      if ((it.back || it.kind) !== 'long' || seen.has(it.bang)) continue;
-      seen.add(it.bang);
-      const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, { hair: it.id }), 0);
+    const topOf = async (id) => {
+      const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, { hair: id }), 0);
       await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
         img.onload = () => { const vb = window.Avatar.bodyMetrics(0).vb;
           ctx.clearRect(0, 0, 244, 384); ctx.drawImage(img, vb.x, vb.y, vb.w, vb.h); ok(); };
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
-      let top = -1;
-      for (let y = 0; y < 120 && top < 0; y++) {
-        const d = ctx.getImageData(60, y, 80, 1).data;
-        for (let i = 0; i < 80; i++) if (d[i * 4 + 3] > 128) { top = y; break; }
+      // ⚠️ **관자놀이 쪽(x70~82)에서 잰다.** 가운데를 재면 올림머리의 «매듭»
+      // (cx100 rx17 · y13 부터)이 걸려서, 그 머리만 늘 제일 높게 나온다 —
+      // 매듭은 머리통이 아니라 얹은 것이라 「봉긋함」과 상관이 없다
+      for (let y = 0; y < 120; y++) {
+        const d = ctx.getImageData(70, y, 12, 1).data;
+        for (let i = 0; i < 12; i++) if (d[i * 4 + 3] > 128) return y;
       }
-      tops.push(top); rows.push(`${it.bang} ${top}`);
+      return -1;
+    };
+    const byBack = {};
+    for (const it of D.WARDROBE.hair) {
+      const back = it.back || it.kind;
+      (byBack[back] = byBack[back] || []).push(it);
     }
-    const lo = Math.min(...tops), hi = Math.max(...tops);
-    return { rows, spread: hi - lo,
-      bad: (hi - lo) > tol ? [`앞머리를 바꿨더니 머리 꼭대기가 ${hi - lo}px 움직인다`
-        + ` (${tol}px 까지 · ${rows.join(' · ')}) — 뒷머리가 사라진 것처럼 보인다`] : [] };
+    const domes = {};
+    for (const back of Object.keys(byBack)) {
+      const tops = [];
+      for (const it of byBack[back]) tops.push(await topOf(it.id));
+      const lo = Math.min(...tops), hi = Math.max(...tops);
+      domes[back] = lo;
+      rows.push(`${back} ${lo}${hi - lo ? `~${hi}` : ''}`);
+      // ① **같은 뒷머리 안에서는 앞머리를 바꿔도 꼭대기가 그대로여야 한다.**
+      // 앞머리의 바깥 호는 앞머리의 모양이 아니라 «머리의 꼭대기»라서다
+      if (hi - lo > tol) {
+        bad.push(`${back}: 앞머리를 바꿨더니 머리 꼭대기가 ${hi - lo}px 움직인다`
+          + ` (${tol}px 까지) — 뒷머리가 사라진 것처럼 보인다`);
+      }
+    }
+    // ② **긴 생머리만 봉긋하다.** 나머지 다섯은 그보다 낮아야 한다 (요청받은 결이다)
+    const others = Object.keys(domes).filter(k => k !== 'long');
+    const flat = Math.min(...others.map(k => domes[k]));
+    if (!(flat > domes.long + 2)) {
+      bad.push(`긴 생머리(${domes.long})만 봉긋해야 하는데 나머지도 같이 솟았다`
+        + ` (제일 높은 것 ${flat} · 3px 이상 낮아야 한다)`);
+    }
+    return { rows, bad, dome: domes.long, flat };
   }, BANG_TOP_TOL);
 
   // ─── 초상화 — 머리와 얼굴이 붙어 있는가 ──────────────────────
@@ -2967,8 +2989,9 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (부위마다 정해 둔 값 ±${FAT_TOL} · 100% 는 아무것도 안 바꾼다)`);
   console.log(`팔이 하의 위로 나오는가: 허리선 아래 «팔 자리»의 옷색 점 수 —`
     + ` ${armSkirt.rows.join(' · ')} (${ARM_SKIRT_MAX} 점까지 · 마개가 붙으면 227~238 점이 된다)`);
-  console.log(`머리 꼭대기: 긴 생머리 × 앞머리 다섯 — ${bangTop.rows.join(' · ')}`
-    + ` (흔들림 ${bangTop.spread}px · ${BANG_TOP_TOL}px 까지 · 앞머리 바깥 윤곽은 «머리의 꼭대기»다)`);
+  console.log(`머리 꼭대기: 뒷머리 여섯 × 앞머리 다섯 — ${bangTop.rows.join(' · ')}`
+    + ` (같은 뒷머리 안에서 ${BANG_TOP_TOL}px 까지 · 긴 생머리 ${bangTop.dome} 만 봉긋하고`
+    + ` 나머지는 ${bangTop.flat} 로 낮다)`);
   console.log(`턱밑 머리: 목 옆선에서 머리카락까지 — ${chinHair.rows.join(' · ')}`
     + ` (${CHIN_HAIR_MIN}px 이상 · 붙으면 턱과 목 사이에 머리가 낀 것처럼 보인다)`);
   console.log(`어깨↔머리카락: 목 옆의 틈 ${shHair.gap}px (y≈${shHair.at})`

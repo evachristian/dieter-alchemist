@@ -1637,7 +1637,10 @@
     tight: x => `<path d="M${x - 6},${AV.Y - 4.4} L${x + 1},${AV.Y} L${x - 6},${AV.Y + 4.4}"`
               + ` stroke="${AV.INK}" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"`
               + ` transform="${x > 100 ? `scale(-1,1) translate(${-2 * x},0)` : ''}"/>`,
-    arc:   x => `<path d="M${x - 6.4},${AV.Y + 1.4} Q${x},${AV.Y - 7} ${x + 6.4},${AV.Y + 1.4}" stroke="${AV.INK}" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+    // 감은 눈(웃는 호) — **인트로 공주의 것을 그대로 옮겼다.**
+    // 공주 `M132,178 Q138,170 144,178`(굵기 2.8)을 얼굴 포개기 배율(33/34 · 35/33)로
+    // 옮기면 반폭 5.82 · 깊이 8.49 · 굵기 2.9 다. 「활짝」과 「다정」이 이 눈을 쓴다
+    arc:   x => `<path d="M${x - 5.82},${AV.Y + 1.4} Q${x},${AV.Y - 7.09} ${x + 5.82},${AV.Y + 1.4}" stroke="${AV.INK}" stroke-width="2.9" fill="none" stroke-linecap="round"/>`,
     shut:  x => `<path d="M${x - 6.4},${AV.Y - 1.4} Q${x},${AV.Y + 6} ${x + 6.4},${AV.Y - 1.4}" stroke="${AV.INK}" stroke-width="2.8" fill="none" stroke-linecap="round"/>`,
     half:  x => `<path d="M${x - 6.4},${AV.Y - 3.4} L${x + 6.4},${AV.Y - 3.4}" stroke="${AV.INK}" stroke-width="2.6" stroke-linecap="round"/>`
               + `<path d="M${x - 5.4},${AV.Y - 3.4} a5.4,6.4 0 0 0 10.8,0 Z" fill="${AV.INK}"/>`
@@ -2017,9 +2020,20 @@
   // 꼭대기가 y29.7 이라 **혼자서는 정수리를 못 만든다** — 「기본」에서 다른 앞머리로
   // 바꾸는 순간 머리 위쪽이 납작해져 **뒷머리가 사라진 것처럼** 보였다.
   // (예전 뒤통수는 ry42 라 혼자서도 덮었다. 공주에 맞춰 낮추면서 드러난 구멍이다)
-  const BANG_OUT = 'M67,63.6 C65.1,33.9 78.7,23.3 100,23.3 C121.4,23.3 134.9,33.9 133,63.6';
+  // ⚠️ **꼭대기는 «뒷머리»가 정한다.** 긴 생머리만 인트로 공주처럼 봉긋하고
+  // (`BANG_OUT` · 꼭대기 y23.3), 나머지 다섯은 낮다 (`BANG_FLAT` · y30).
+  // 뒤통수 타원은 여섯이 같으므로(꼭대기 y29.7) 낮은 쪽은 그 타원에 딱 얹힌다.
+  //
+  // 왜 앞머리 쪽에 두는가 — 정수리를 만드는 것이 앞머리의 «바깥 호»라서다.
+  // 뒤통수를 높여 봉긋하게 만들 수도 있지만, 그러면 정수리가 타원이 되어
+  // **공주보다 둥글고 넓어진다** (한 번 그렇게 했다가 「예전으로 되돌아간 것 같다」로
+  // 신고받았다). 공주의 «선»을 지키려면 앞머리 쪽이어야 한다.
+  const BANG_OUT  = 'M67,63.6 C65.1,33.9 78.7,23.3 100,23.3 C121.4,23.3 134.9,33.9 133,63.6';
+  const BANG_FLAT = 'M67,63.6 C65,40 78,30 100,30 C122,30 135,40 133,63.6';
+  const bangTop = back => (back === 'long' ? BANG_OUT : BANG_FLAT);
   // 앞머리. 'wave' 는 옛 이름 — 사이드뱅과 같은 모양이라 그쪽으로 넘긴다
-  function hairFront(kind, c) {
+  function hairFront(kind, c, back) {
+    const BANG_OUT = bangTop(back);
     switch (kind) {
       case 'wave':
       case 'side':        // 사이드뱅 — 한쪽으로 비스듬히 넘긴 가르마.
@@ -2125,7 +2139,7 @@
     return `<svg class="hair-icon" viewBox="${box}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       ${hairBack(back, c)}
       <ellipse cx="100" cy="78" rx="30" ry="34" fill="#ffe0cf"/>
-      ${hairFront(bang, c)}
+      ${hairFront(bang, c, back)}
     </svg>`;
   }
 
@@ -3094,7 +3108,7 @@
       // 통째로 덮어, 소매 끝 언저리에 살색 조각만 남는다 (armsOverSkirt 참고)
       B(armsOverSkirt(tune, hasDress ? dress : top)),
       H(faceAndExpression(expItem)),
-      H(hairFront(hairBangKind, hairColor)),
+      H(hairFront(hairBangKind, hairColor, hairBackKind)),
       H(faceFx(expItem)),
       B(renderGlove(pick('glove', outfit.glove), tune)),
       B(renderTattoo(getItem('tattoo', outfit.tattoo))),
