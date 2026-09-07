@@ -46,7 +46,7 @@ const SLOTS = {
       // (헤어라인 y44) 「기본」(y43)과 사실상 같은 그림이었다.
       // 대신 **처음에 있던 「기본 앞머리」**를 되살렸다 — 밑단이 봉우리 셋으로
       // 물결지는 앞머리라 한눈에 갈린다 (`avatar.js` 의 `plain`)
-      { k: 'plain',    ko: '기본 앞머리', en: 'Classic Bangs' },
+      { k: 'plain',    ko: '웨이브',      en: 'Wavy' },
     ],
   },
   circlet: {
@@ -220,9 +220,14 @@ function build() {
         seenId.add(id);
 
         // 이름은 축 라벨을 이어 붙인다. 옛 벌은 원래 이름을 지킨다 —
-        // '발레플랫' 을 '플랫 리본' 으로 바꿔 부를 이유가 없다
-        const ko = (leg && leg.ko) || (b.ko ? `${a.ko} ${b.ko}` : a.ko);
-        const en = (leg && leg.en) || (b.en ? `${a.en} ${b.en}` : a.en);
+        // '발레플랫' 을 '플랫 리본' 으로 바꿔 부를 이유가 없다.
+        //
+        // ⚠️ **두 축의 라벨이 같으면 한 번만 쓴다.** 뒷머리 '웨이브' 와 앞머리 '웨이브'
+        // 가 만나 「웨이브 웨이브」가 됐다 — 두 축에 같은 낱말이 있을 수 있으니
+        // 여기서 한 번 걸러 둔다 (축 표에 이름을 더 넣을 때마다 신경 쓸 일이 없게)
+        const join = (aa, bb) => (!bb ? aa : aa === bb ? aa : `${aa} ${bb}`);
+        const ko = (leg && leg.ko) || join(a.ko, b.ko);
+        const en = (leg && leg.en) || join(a.en, b.en);
         names[id] = { ko, en };
 
         const it = { id, slot, kind: a.k, name: ko };
