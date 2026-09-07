@@ -1778,28 +1778,25 @@
     gloom: `<g stroke="#7d8a99" stroke-width="1.1" stroke-linecap="round" opacity="0.5">`
          + [0, 3.4, 6.8].map(d => `<path d="M${71 + d},84 L${71 + d},93"/><path d="M${122 + d},84 L${122 + d},93"/>`).join('')
          + `</g>`,
-    // ? — 궁금·미심쩍음
-    q:     `<g stroke="${AV.INK}" stroke-width="1.7" fill="none" stroke-linecap="round" opacity="0.75">`
-         + `<path d="M${FX_R},60 q0,-3.4 2.8,-3.4 q2.8,0 2.8,2.6 q0,2.2 -2.8,3 v1.2"/></g>`
-         + `<circle cx="${FX_R + 2.8}" cy="66.4" r="1" fill="${AV.INK}" opacity="0.75"/>`,
-    // ♪ — 다정·활짝
-    note:  `<g fill="${AV.INK}" opacity="0.6"><path d="M${FX_R + 1},58 v7.4" stroke="${AV.INK}" stroke-width="1.4" stroke-linecap="round"/>`
-         + `<ellipse cx="${FX_R - 0.6}" cy="65.6" rx="2" ry="1.5" transform="rotate(-18 ${FX_R - 0.6} 65.6)"/>`
-         + `<path d="M${FX_R + 1},58 q2.6,0.8 3,3" stroke="${AV.INK}" stroke-width="1.4" fill="none" stroke-linecap="round"/></g>`,
+    // ⚠️ **물음표(?)와 음표(♪)는 뺐다.** 나머지 기호(땀·💢·반짝·💤…)는 «상태»를
+    // 그리는데 그 둘만 **말풍선처럼 «말»을 하고 있어서**, 얼굴이 짓는 표정이 아니라
+    // 얹어 놓은 자막으로 읽혔다. 쓰던 자리는 넷(다정·미심쩍음·활짝·궁금) +
+    // 손그림 둘(해피·어리둥절)이고, 전부 기호 없이 눈·눈썹·입만으로 간다.
+    // **다시 넣지 말 것** — 지웠다가 되돌린 자리다
     // 눈물이 튄다 — 울음. 눈 «바깥»으로 날아간다
     splash: [[FX_L - 1, 76, 1], [FX_R + 1, 76, 1], [FX_L - 4, 70, 0.7], [FX_R + 4, 70, 0.7]]
       .map(([x, y, k]) => `<ellipse cx="${x}" cy="${y}" rx="${1.8 * k}" ry="${2.6 * k}" fill="#9ad4f0" opacity="0.9"/>`).join(''),
   };
   // 원래 있던 여섯(puzzled · smile · wink · happy · surprise · cool)에 «없는» 것만
   const AV_FACE = {
-    warm:    { e: 'arc',     m: 'wee', fx: 'note' },
+    warm:    { e: 'arc',     m: 'wee' },
     proud:   { e: 'sharp',   m: 'smirk',  b: 'up', fx: 'spark' },
     smirk:   { e: 'side',    m: 'smirk' },
     flat:    { e: 'lid',     m: 'tiny' },
     meh:     { e: 'lidLow',  m: 'meh' },
     sleepy:  { e: 'lidLow',  m: 'wee', fx: 'zzz' },
     think:   { e: 'up',      m: 'small' },
-    doubt:   { e: 'side',    m: 'meh',    b: 'up', fx: 'q' },
+    doubt:   { e: 'side',    m: 'meh',    b: 'up' },
     worry:   { e: 'wobble',  m: 'wavy',   b: 'sad', fx: 'sweat' },
     sad:     { e: 'low',     m: 'frown',  b: 'sad', fx: 'gloom' },
     cry:     { e: 'teary',   m: 'wavy',   b: 'sad', fx: 'splash' },
@@ -1810,7 +1807,7 @@
     star:    { e: 'sparkle', m: 'grin',   b: 'up', fx: 'spark' },
     love:    { e: 'heart',   m: 'grin', fx: 'hearts' },
     faint:   { e: 'cross',   m: 'ohh', fx: 'gloom' },
-    haha:    { e: 'tight',   m: 'haha',   b: 'up', fx: 'note' },
+    haha:    { e: 'tight',   m: 'haha',   b: 'up' },
     // 😝 는 눈을 «질끈» 감는다 — 그냥 감은 눈(‿‿)으로 그리면 이모지와 딴 얼굴이 된다
     tease:   { e: 'tight',   m: 'tongue' },
     // 😒 · 😑 는 **페른** 결이다 — 큰 눈 위를 곧은 꺼풀이 자르고 눈썹이 낮게 깔린다.
@@ -1828,7 +1825,7 @@
     blush:   { e: 'shut',    m: 'bite',   b: 'beg', fx: 'blush' },
     resolve: { e: 'sharp',   m: 'grit',   b: 'flat', fx: 'spark' },
     awe:     { e: 'sparkle', m: 'ohh', fx: 'spark' },
-    curious: { e: 'big',     m: 'ohh',    bL: 'up', bR: 'flat', fx: 'q' },
+    curious: { e: 'big',     m: 'ohh',    bL: 'up', bR: 'flat' },
   };
 
   // ─── 코 ────────────────────────────────────────────────────
@@ -1842,7 +1839,8 @@
   // 서른여덟 표정이 한꺼번에 따라온다 — 표정 쪽에 그리기 시작하면 새 표정을
   // 만들 때마다 빠뜨리게 된다
   // 손으로 그린 여섯에도 기호를 붙인다 — 표는 위의 `aFx` 를 그대로 쓴다
-  const HAND_FX = { surprise: 'sweat', happy: 'note', wink: 'spark', puzzled: 'q' };
+  // ⚠️ **물음표(?)와 음표(♪)는 안 쓴다** — 아래 `aFx` 항 참고. 해피·어리둥절은 기호 없이 간다
+  const HAND_FX = { surprise: 'sweat', wink: 'spark' };
   // ⚠️ **기호는 머리카락 «위»에 그린다.** 얼굴 그룹 안에 두었더니 앞머리가
   // 관자놀이를 덮어 땀방울도 💢 도 반쪽만 보였다 (「어리둥절」의 물음표를 눈썹으로
   // 바꿔야 했던 것과 같은 함정이다). 얼굴 뒤에 숨을 수 없는 층에 따로 얹는다
