@@ -28,6 +28,8 @@
 const BASE = process.env.BASE || 'http://localhost:8080';
 const SHOT = process.env.SHOT;   // 주면 그 경로에 대조표 이미지를 남긴다
 
+// px. 앞머리를 바꿔도 머리 꼭대기는 그대로여야 한다 (앞머리 바깥 윤곽은 «머리의 꼭대기»다)
+const BANG_TOP_TOL = 1;
 let chromium;
 try { ({ chromium } = require('playwright')); }
 catch (e) { console.error('playwright 가 없다. NODE_PATH 로 설치 위치를 알려 줄 것.'); process.exit(2); }
@@ -344,6 +346,41 @@ function launchOpts() {
       return { bad, kinds: seen.size };
     })();
   });
+
+  // ─── 앞머리를 바꿔도 «머리 꼭대기»가 그대로인가 ────────────────
+  //
+  // ⚠️ **실제로 낸 버그다.** 앞머리의 바깥 윤곽은 앞머리의 모양이 아니라 «머리의
+  // 꼭대기»인데, 「기본」만 인트로 공주의 선(y23.3)으로 올리고 나머지 넷은 y29~30 에
+  // 남겨 두었다. 긴 생머리의 뒤통수는 꼭대기가 y29.7 이라 혼자서는 정수리를 못 만들어서,
+  // **「기본」에서 다른 앞머리로 바꾸는 순간 머리 위가 납작해졌다** —
+  // 화면에서는 「뒷머리가 사라졌다」로 보였다.
+  //
+  // 같은 뒷머리에서 앞머리만 바꿨을 때 **머리 꼭대기의 y 가 흔들리면 안 된다.**
+  const bangTop = await page.evaluate(async (tol) => {
+    const D = window.GameData, rows = [], tops = [];
+    const cv = document.createElement('canvas'); cv.width = 244; cv.height = 384;
+    const ctx = cv.getContext('2d');
+    const seen = new Set();
+    for (const it of D.WARDROBE.hair) {
+      if ((it.back || it.kind) !== 'long' || seen.has(it.bang)) continue;
+      seen.add(it.bang);
+      const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, { hair: it.id }), 0);
+      await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
+        img.onload = () => { const vb = window.Avatar.bodyMetrics(0).vb;
+          ctx.clearRect(0, 0, 244, 384); ctx.drawImage(img, vb.x, vb.y, vb.w, vb.h); ok(); };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      let top = -1;
+      for (let y = 0; y < 120 && top < 0; y++) {
+        const d = ctx.getImageData(60, y, 80, 1).data;
+        for (let i = 0; i < 80; i++) if (d[i * 4 + 3] > 128) { top = y; break; }
+      }
+      tops.push(top); rows.push(`${it.bang} ${top}`);
+    }
+    const lo = Math.min(...tops), hi = Math.max(...tops);
+    return { rows, spread: hi - lo,
+      bad: (hi - lo) > tol ? [`앞머리를 바꿨더니 머리 꼭대기가 ${hi - lo}px 움직인다`
+        + ` (${tol}px 까지 · ${rows.join(' · ')}) — 뒷머리가 사라진 것처럼 보인다`] : [] };
+  }, BANG_TOP_TOL);
 
   // ─── 초상화 — 머리와 얼굴이 붙어 있는가 ──────────────────────
   //
@@ -2830,6 +2867,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(cardBad.map(m => ({ id: '과시 카드', body: '-', where: m, n: '-' })))
     .concat(dye.bad.map(m => ({ id: '염색', body: '-', where: m, n: '-' })))
     .concat(hair.bad.map(m => ({ id: '앞머리', body: '-', where: m, n: '-' })))
+    .concat(bangTop.bad.map(m => ({ id: '머리 꼭대기', body: '-', where: m, n: '-' })))
     .concat(face.bad.map(m => ({ id: '초상화', body: '-', where: m, n: '-' })))
     .concat(crouch.bad.map(m => ({ id: '웅크린 뒷모습', body: '-', where: m, n: '-' })))
     .concat(bowl.bad.map(m => ({ id: '어항', body: '-', where: m, n: '-' })))
@@ -2928,6 +2966,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (부위마다 정해 둔 값 ±${FAT_TOL} · 100% 는 아무것도 안 바꾼다)`);
   console.log(`팔이 하의 위로 나오는가: 허리선 아래 «팔 자리»의 옷색 점 수 —`
     + ` ${armSkirt.rows.join(' · ')} (${ARM_SKIRT_MAX} 점까지 · 마개가 붙으면 227~238 점이 된다)`);
+  console.log(`머리 꼭대기: 긴 생머리 × 앞머리 다섯 — ${bangTop.rows.join(' · ')}`
+    + ` (흔들림 ${bangTop.spread}px · ${BANG_TOP_TOL}px 까지 · 앞머리 바깥 윤곽은 «머리의 꼭대기»다)`);
   console.log(`턱밑 머리: 목 옆선에서 머리카락까지 — ${chinHair.rows.join(' · ')}`
     + ` (${CHIN_HAIR_MIN}px 이상 · 붙으면 턱과 목 사이에 머리가 낀 것처럼 보인다)`);
   console.log(`어깨↔머리카락: 목 옆의 틈 ${shHair.gap}px (y≈${shHair.at})`
