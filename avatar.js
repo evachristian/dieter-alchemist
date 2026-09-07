@@ -1544,7 +1544,7 @@
   // (`exp_puzzled` 는 시작 아이템이다) 이미 눈에 익은 얼굴이라 바뀌면 안 된다.
   // 이 표는 **그 뒤에** 걸린다.
   //
-  // 좌표: 눈 (87,75)·(113,75) · 입 (100,89)
+  // 좌표는 전부 `AV` 에서 나온다 — 눈 (AV.L,AV.Y)·(AV.R,AV.Y) · 입 (AV.MX,AV.MY)
   // ─── 얼굴 부품의 «자리» ──────────────────────────────────────
   //
   // ⚠️ **인트로 공주의 좌표를 그대로 옮겨 왔다가 되돌렸다.** 두 얼굴 타원을 맞춰
@@ -1552,7 +1552,15 @@
   // 몰려 얼굴이 위아래로 갈라져** 보였다. 공주는 반신·정면 한 컷이고 아바타는
   // 전신에 표정 서른여덟이라, **같은 좌표가 같은 인상을 주지 않는다.**
   // 「이 둘을 닮게 한다」는 좌표를 맞추는 것이 아니라 **머리 모양과 앞머리**로 할 일이다.
-  const AV = { L: 87, R: 113, Y: 75, MX: 100, MY: 89, INK: '#4a3a42', LIP: '#c97b86' };
+  // 눈·입의 «자리»는 여기 다섯 숫자에서만 나온다 (`aEye` 는 L/R/Y 를, `aMouth` 는
+  // MX/MY 를 받아 쓴다). 그래서 표정 서른여덟이 한꺼번에 따라온다 —
+  // ⚠️ **표정 쪽에 좌표를 박지 않는다.** 박기 시작하면 자리를 옮길 때마다 빠뜨린다.
+  //
+  // ⚠️ **입이 눈에서 너무 멀었다.** 카와이 얼굴의 결은 「눈 둘 사이에 작은 입이
+  // 바짝 붙는」 것인데, 입이 눈 밑선(75+8=83)에서 6px 이나 떨어져 있어 얼굴이
+  // 세로로 늘어져 보였다. 지금은 밑선 바로 아래(84)이고, 눈은 26 → 30 으로 벌렸다.
+  // 색은 안 건드린다 — `LIP` 은 그대로다
+  const AV = { L: 85, R: 115, Y: 75, MX: 100, MY: 84, INK: '#4a3a42', LIP: '#c97b86' };
   // ─── 눈 — **크고 반짝인다** ──────────────────────────────────
   //
   // 결은 「스파이 패밀리」의 아냐 쪽이다: **눈이 얼굴의 반**이고 하이라이트가 둘 이상,
@@ -1853,40 +1861,42 @@
     } else
     switch (kind) {
       case 'wink':
-        eyes = bigEye(87) +
-          `<path d="M108,76 Q113,71 118,76" stroke="${EYE}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
-        mouth = `<path d="M94,89 Q100,94 106,89" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+        eyes = bigEye(AV.L) +
+          `<path d="M${AV.R - 5},${AV.Y + 1} Q${AV.R},${AV.Y - 4} ${AV.R + 5},${AV.Y + 1}" stroke="${EYE}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+        mouth = `<path d="M${AV.MX - 6},${AV.MY} Q${AV.MX},${AV.MY + 5} ${AV.MX + 6},${AV.MY}" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
         break;
       case 'happy':
-        eyes = `<path d="M82,77 Q87,71 92,77" stroke="${EYE}" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-          <path d="M108,77 Q113,71 118,77" stroke="${EYE}" stroke-width="2.8" fill="none" stroke-linecap="round"/>`;
-        mouth = `<path d="M92,88 Q100,98 108,88 Z" fill="#e98a9a"/><path d="M92,88 Q100,98 108,88" stroke="${LIP}" stroke-width="2" fill="none"/>`;
+        eyes = `<path d="M${AV.L - 5},${AV.Y + 2} Q${AV.L},${AV.Y - 4} ${AV.L + 5},${AV.Y + 2}" stroke="${EYE}" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+          <path d="M${AV.R - 5},${AV.Y + 2} Q${AV.R},${AV.Y - 4} ${AV.R + 5},${AV.Y + 2}" stroke="${EYE}" stroke-width="2.8" fill="none" stroke-linecap="round"/>`;
+        mouth = `<path d="M${AV.MX - 8},${AV.MY - 1} Q${AV.MX},${AV.MY + 9} ${AV.MX + 8},${AV.MY - 1} Z" fill="#e98a9a"/>`
+          + `<path d="M${AV.MX - 8},${AV.MY - 1} Q${AV.MX},${AV.MY + 9} ${AV.MX + 8},${AV.MY - 1}" stroke="${LIP}" stroke-width="2" fill="none"/>`;
         break;
       case 'surprise':
-        eyes = bigEye(87) + bigEye(113);
-        mouth = `<ellipse cx="100" cy="91" rx="3.6" ry="4.6" fill="#b5566a"/>`;
+        eyes = bigEye(AV.L) + bigEye(AV.R);
+        mouth = `<ellipse cx="${AV.MX}" cy="${AV.MY + 2}" rx="3.6" ry="4.6" fill="#b5566a"/>`;
         break;
       case 'puzzled':
         // 어리둥절 — 큰 동그란 눈에 작게 벌린 입. 튜토리얼 직후의 얼굴이다
-        eyes = bigEye(87, { dy: -1 }) + bigEye(113, { dy: -1 });
-        mouth = `<ellipse cx="100" cy="90" rx="3.2" ry="3.8" fill="#b5566a"/>`;
+        eyes = bigEye(AV.L, { dy: -1 }) + bigEye(AV.R, { dy: -1 });
+        mouth = `<ellipse cx="${AV.MX}" cy="${AV.MY + 1}" rx="3.2" ry="3.8" fill="#b5566a"/>`;
         // 머리 위 물음표 대신 **작게 기울인 눈썹** — 이모지를 얹으면 헤어에 가린다.
         // ⚠️ 예전에는 `extra` 를 만들어 놓고 **그리지 않았다** (아래 return 에 빠져 있었다).
         // 지금은 `SHOW_BROW` 가 꺼져 있어 안 그린다 — 물음표는 `aFx.q` 가 맡는다
         extra = !SHOW_BROW ? ''
           : `<g stroke="${EYE}" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.55">
-            <path d="M80,63 L94,60"/><path d="M120,63 L106,60"/>
+            <path d="M${AV.L - 7},${AV.Y - 12} L${AV.L + 7},${AV.Y - 15}"/>
+            <path d="M${AV.R + 7},${AV.Y - 12} L${AV.R - 7},${AV.Y - 15}"/>
           </g>`;
         break;
       case 'cool':
         // 곧은 선 둘이던 것을 **살짝 휘게** 했다 — 그것만으로 「굳은 얼굴」이 「시크」가 된다
-        eyes = `<path d="M81,76 q6,-1.6 12,-1" stroke="${EYE}" stroke-width="3" fill="none" stroke-linecap="round"/>
-          <path d="M107,75 q6,0.6 12,1" stroke="${EYE}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
-        mouth = `<path d="M95,90 L105,90" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+        eyes = `<path d="M${AV.L - 6},${AV.Y + 1} q6,-1.6 12,-1" stroke="${EYE}" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M${AV.R - 6},${AV.Y} q6,0.6 12,1" stroke="${EYE}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+        mouth = `<path d="M${AV.MX - 5},${AV.MY + 1} L${AV.MX + 5},${AV.MY + 1}" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
         break;
       default: // smile
-        eyes = bigEye(87) + bigEye(113);
-        mouth = `<path d="M94,89 Q100,94 106,89" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+        eyes = bigEye(AV.L) + bigEye(AV.R);
+        mouth = `<path d="M${AV.MX - 6},${AV.MY} Q${AV.MX},${AV.MY + 5} ${AV.MX + 6},${AV.MY}" stroke="${LIP}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
     }
     // '얼굴' 배율은 build() 의 H() 에서 머리 전체에 걸린다 (여기서 또 걸면 두 번 적용된다)
     return `
