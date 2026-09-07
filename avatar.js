@@ -724,17 +724,39 @@
 
   // 구두 — 발(ellipse cx 86/114, cy BODY.footY)을 덮는다. rise 만큼 발목 위로 올라온다.
   // 높이는 전부 footY 에서 상대로 잡는다 — 다리가 움직이면 구두도 같이 따라와야 한다
-  function renderShoes(it, tune) {
+  //
+  // ⚠️ **부츠 목은 «종아리 모양»이다** (`calfPts`). 예전에는 폭 18 짜리 네모 기둥이라
+  // 종아리 150%(반폭 25.5)에서는 **다리가 부츠 밖으로 삐져나왔다** — 신고받은 자리다.
+  // 위를 네모로 자르는 것이 곧 부츠 입구라, 자르는 자리만 `rise` 로 정하면 된다
+  const BOOT_PAD = 1.6;                    // 다리보다 아주 살짝 넓게 (테두리가 비치지 않게)
+  function renderShoes(it, tune, legHemY) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c, 22), rise = Number(it.rise) || 0;
     const FY = BODY.footY;
     const fin = it.finish || ({ maryjane: 'strap', ballet: 'ribbon', sneaker: 'sole',
       glass: 'gloss', boots: 'plain' }[it.kind] || 'plain');
+    // 목 — 종아리를 부츠 색으로 한 벌 더 그리고 입구 위를 잘라 낸다.
+    // id 는 문서 전체에서 공유되므로 그릴 때마다 새로 뽑는다 (build·roomScene 과 같은 이유)
+    const uid = 'bt' + (++avatarUid);
+    let shaft = '', band = '';
+    // 목이 시작되는 높이. **무릎 위로도, 옷 밑단 위로도 안 올라간다.**
+    // 밑단을 안 보면 발목까지 오는 청바지 한가운데에 부츠 목이 기둥처럼 선다
+    const topY = Math.max(LEG.calfY, FY - rise, Number(legHemY) || 0);
+    if (rise > 0 && topY < FY - 3) {
+      const pts = calfPts(tune);
+      const cut = (id, y0, h, col) =>
+        `<clipPath id="${id}"><rect x="0" y="${y0}" width="200" height="${h}"/></clipPath>`
+        + `<g clip-path="url(#${id})">`
+        + limbPath(-1, pts, null, { fill: col, pad: BOOT_PAD })
+        + limbPath(1, pts, null, { fill: col, pad: BOOT_PAD })
+        + `</g>`;
+      shaft = cut(uid, topY, FY - topY + 12, c);
+      // 입구에 띠를 하나 둘러 발목과 경계가 보이게 한다.
+      // ⚠️ **이것도 종아리 폭을 따라야 한다** — 폭을 박아 두면 굵은 다리에서 띠만 짧아진다
+      band = cut(uid + 'b', topY, 2.6, c2);
+    }
     const foot = (cx) => {
       let s = '';
-      if (rise > 0) {   // 부츠·스니커즈: 발목을 감싸는 통
-        s += `<rect x="${cx - 9}" y="${FY - rise}" width="18" height="${rise + 4}" rx="5" fill="${c}"/>`;
-      }
       s += `<ellipse cx="${cx}" cy="${FY}" rx="13" ry="7.6" fill="${c}"/>`;
       // 마감(finish) — 목 높이(rise)와 함께 두 축이다.
       // 옛 세이브는 kind 로만 갈렸다 — finish 가 없으면 그때 규칙으로 떨어진다
@@ -743,12 +765,10 @@
         + `<circle cx="${cx}" cy="${FY - 5}" r="2" fill="${c2}"/>`;
       else if (fin === 'sole')  s += `<ellipse cx="${cx}" cy="${FY + 3}" rx="13" ry="3.4" fill="${c2}"/>`;
       else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="${FY - 2}" rx="5" ry="2.4" fill="#fff" opacity="0.75"/>`;
-      // 목이 있는 구두는 입구에 띠를 하나 둘러 발목과 경계가 보이게 한다
-      if (rise > 0) s += `<path d="M${cx - 9},${FY - rise + 5} L${cx + 9},${FY - rise + 5}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
       return s;
     };
     const fx = footX(tune);
-    return `<g data-part="shoes">${foot(fx)}${foot(200 - fx)}</g>`;
+    return `<g data-part="shoes">${shaft}${band}${foot(fx)}${foot(200 - fx)}</g>`;
   }
 
   // 몸통 배율이 바뀌면 몸통 옆선이 안팎으로 움직인다. 팔이 제자리면 몸통에서 떨어지므로
@@ -1323,8 +1343,14 @@
   // 다리 마디 하나. 마디마다 **세로 접선**으로 이어져 어느 배율에서도 안 꺾인다.
   //   s 오른쪽이면 +1 · pts [[y, 중심선에서 잰 바깥 거리], ...] 위→아래
   //   (안쪽 변은 innerX 가 정한다)
-  function limbPath(s, pts, c) {
+  //   opt { fill, pad } — 다른 색으로, 다리보다 `pad` 만큼 넓게 그린다 (부츠 목).
+  //   ⚠️ **안쪽 변은 안 넓힌다.** 다리와 «같은 innerX» 를 쓰므로 그 변에서는 살이
+  //   비칠 수가 없고, 넓히면 두 짝이 다리 사이에서 서로 겹쳐 한 덩어리가 된다
+  function limbPath(s, pts, c, opt) {
     const ca = (c && c[0]) || LIMB_C, cb = (c && c[1]) || LIMB_C, bul = (c && c[2]) || 0;
+    const pad = (opt && opt.pad) || 0;
+    const fill = (opt && opt.fill) || SKIN;
+    if (pad) pts = pts.map(p => [p[0], p[1] + pad]);
     const X = n => +(100 + s * n).toFixed(2);
     const a = pts[0], z = pts[pts.length - 1];
     // 마개는 폭의 절반을 못 넘는다 (안쪽 변이 y 마다 다르므로 그 자리의 폭으로 잰다)
@@ -1349,17 +1375,24 @@
       const h = (q[0] - p[0]) * 0.45;                       // 위로 가므로 음수다
       d += ` C${X(p[1])},${(p[0] + h).toFixed(1)} ${X(q[1])},${(q[0] - h).toFixed(1)} ${X(q[1])},${q[0].toFixed(1)}`;
     }
-    return `<path d="${d} Z" fill="${SKIN}"/>`;
+    return `<path d="${d} Z" fill="${fill}"/>`;
   }
 
+  // 종아리의 마디 — **부츠 목도 이 곡선을 그대로 쓴다.**
+  // 두 벌로 두면 다리를 굵게 했을 때 한쪽만 따라와 살이 부츠 밖으로 나온다
+  // (「재는 곡선과 그리는 곡선이 같아야 한다」 — `thighOuterAt` 의 주석과 같은 규칙)
+  const calfPts = tune => [
+    [LEG.calfY, kneeX(tune)],
+    [bellyYOf(tune), CALF_GAP + LEG.bellyW * fatOf(tune, 'calf')],
+    [LEG.ankleY, ankleX(tune)],
+  ];
+
   function legs(tune) {
-    const L = LEG, kt = fatOf(tune, 'thigh'), kc = fatOf(tune, 'calf');
-    const kx = kneeX(tune), ax = ankleX(tune);
-    const bellyY = bellyYOf(tune);
+    const L = LEG;
     // 윗머리는 **골반을 따라 들어온다** — 그리는 값도 `thighTop` 한 곳에서 나와야
     // 엉덩이가 재는 폭(`thighOuterAt`)과 어긋나지 않는다
-    const thigh = [[L.hipY, thighTop(tune)], [L.kneeY, kx]];
-    const calf = [[L.calfY, kx], [bellyY, CALF_GAP + L.bellyW * kc], [L.ankleY, ax]];
+    const thigh = [[L.hipY, thighTop(tune)], [L.kneeY, kneeX(tune)]];
+    const calf = calfPts(tune);
     const fy = BODY.footY, fx = footX(tune);
     return `
       <g data-part="calf">
@@ -3107,6 +3140,11 @@
     const hasDress = !isNone(dress);
     const top = hasDress ? null : pick('top', outfit.top);
     const bottom = hasDress ? null : pick('bottom', outfit.bottom);
+    // 다리를 덮는 옷의 밑단 — 부츠 목이 여기보다 위로 안 올라간다.
+    // `hemY` 가 없는 것(공주 드레스)은 바닥까지 오는 옷이라 999 로 친다
+    // (`crouch()` 의 `legHem` 과 같은 규칙이다)
+    const legWear = hasDress ? dress : bottom;
+    const legHemY = isNone(legWear) ? 0 : (Number(legWear.hemY) || 999);
 
     const hairItem = getItem('hair', outfit.hair);
     // 머리색 — 다른 칸과 같은 규칙이다. 염색한 색이 있으면 그것, 없으면 헤어의 원래 색.
@@ -3133,8 +3171,12 @@
       B(hasDress ? '' : renderTop(top, tune, w)),
       B(hasDress ? '' : renderBottom(bottom, tune)),
       // 신발은 **드레스보다 아래** 다 — 위에 그리면 부츠 목이 드레스를 뚫고 나온다.
-      // 하의(바지)보다는 위라서 부츠가 바짓단을 덮는다.
-      B(renderShoes(pick('shoes', outfit.shoes), tune)),
+      // 하의(바지)보다는 위라서 **발끝이 바짓단 밑으로 보인다** — 아래로 내리면
+      // 발목까지 오는 청바지(hemY 332)가 발을 통째로 삼켜 맨발도 구두도 안 보인다.
+      // ⚠️ 대신 **부츠 목은 밑단 위로 안 올라간다** (`legHemY`) — 예전에는 그것까지
+      // 위로 올라와, 바짓단 한가운데에 색이 다른 기둥이 서 있는 꼴이었다
+      // (「롱부츠가 청바지 위로 올라옴」으로 신고받았다)
+      B(renderShoes(pick('shoes', outfit.shoes), tune, legHemY)),
       B(hasDress ? renderDress(dress, tune, w) : ''),
       // 허리 아래의 팔은 **치마보다 앞**이다 — 안 그러면 퍼진 치마가 팔뚝과 손을
       // 통째로 덮어, 소매 끝 언저리에 살색 조각만 남는다 (armsOverSkirt 참고)

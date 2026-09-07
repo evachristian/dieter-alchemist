@@ -404,6 +404,74 @@ function launchOpts() {
     return { rows, bad, dome: domes.long, flat };
   }, BANG_TOP_TOL);
 
+  // ─── 부츠 ────────────────────────────────────────────────────
+  //
+  // ⚠️ **실제로 낸 버그 둘이다** (「롱부츠가 종아리 바깥으로 벗어나네」 ·
+  // 「롱부츠가 청바지 위로 올라옴」).
+  //
+  // ① **목이 종아리를 다 덮는가.** 예전 부츠 목은 폭 18 짜리 네모 기둥이라
+  //    종아리 150%(반폭 25.5)에서는 다리가 부츠 밖으로 삐져나왔다.
+  //    부츠를 신은 구간에 **살색이 한 점도 없어야** 한다.
+  // ② **목이 바짓단 위로 안 올라가는가.** 발목까지 오는 청바지(hemY 332) 위로
+  //    목이 올라와 바짓단 한가운데에 색이 다른 기둥이 섰다.
+  //    밑단보다 «위»에서는 부츠 색이 한 점도 없어야 한다 (발끝은 밑단 아래다).
+  const boots = await page.evaluate(async () => {
+    const D = window.GameData, rows = [], bad = [];
+    const SKIN = [255, 220, 196], BOOT = [80, 40, 60];   // 살색 · 검사용 부츠 색(다른 어디에도 없다)
+    const FY = 334, ANKLE = 331;
+    const cv = document.createElement('canvas'); cv.width = 200; cv.height = 348;
+    const ctx = cv.getContext('2d');
+    const draw = async (outfit, tune) => {
+      const svg = window.Avatar.build(outfit, 0, tune);
+      await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
+        img.onload = () => { ctx.clearRect(0, 0, 200, 348); __drawAvatar(ctx, img, 200, 348); ok(); };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+    };
+    const count = (rgb, y0, y1) => {
+      const d = ctx.getImageData(0, y0, 200, y1 - y0).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] > 250 && Math.abs(d[i] - rgb[0]) <= 2 &&
+            Math.abs(d[i + 1] - rgb[1]) <= 2 && Math.abs(d[i + 2] - rgb[2]) <= 2) n++;
+      }
+      return n;
+    };
+    const hex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+    const wear = (extra) => Object.assign({}, D.DEFAULT_OUTFIT, {
+      top: 'top_none', bottom: 'bottom_none', dress: 'dress_none',
+      colors: { shoes: hex(BOOT) } }, extra);
+    // 목이 있는 구두 전부 × 종아리 배율 (50 · 100 · 150%)
+    const rise = D.WARDROBE.shoes.filter(s => (Number(s.rise) || 0) > 0);
+    let worst = 0, worstAt = '';
+    for (const sh of rise) {
+      for (const k of [0.5, 1, 1.5]) {
+        const tune = { torso: 1, waist: 1, hip: 1, arm: 1, thigh: k, calf: k, face: 1 };
+        await draw(wear({ shoes: sh.id }), tune);
+        // 신은 구간 — 목의 위끝(FY−rise)과 발목 사이. 양 끝은 곡선이 도는 자리라 2px 씩 뺀다
+        const y0 = Math.round(FY - sh.rise) + 2, y1 = ANKLE - 2;
+        if (y1 <= y0) continue;
+        const n = count(SKIN, y0, y1);
+        if (n > worst) { worst = n; worstAt = `${sh.id} 종아리${k * 100}%`; }
+        if (n > 0) bad.push(`${sh.id}: 종아리 ${k * 100}% 에서 부츠 밖으로 살색 ${n}px (y${y0}~${y1})`);
+      }
+    }
+    rows.push(`살이 나온 곳 ${worst}px${worst ? ` (${worstAt})` : ''}`);
+    // ② 바짓단 — 청바지(발목까지)를 입고 제일 긴 부츠를 신는다
+    const tall = rise.reduce((a, b) => (b.rise > a.rise ? b : a));
+    const pants = D.WARDROBE.bottom.find(b => b.id === 'bottom_pants');
+    await draw(wear({ shoes: tall.id, bottom: pants.id }),
+      { torso: 1, waist: 1, hip: 1, arm: 1, thigh: 1.5, calf: 1.5, face: 1 });
+    // 밑단보다 위 — 목이 서 있던 자리. 발끝(타원 위끝 FY−7.6)보다도 위에서 본다
+    const y0 = Math.round(FY - tall.rise) + 2, y1 = Math.min(pants.hemY, Math.round(FY - 8));
+    const over = count(BOOT, y0, y1);
+    rows.push(`바짓단 위로 나온 부츠 ${over}px`);
+    if (over > 0) {
+      bad.push(`${tall.id}: 청바지(밑단 ${pants.hemY}) 위로 부츠가 ${over}px 올라왔다`
+        + ` (y${y0}~${y1}) — 바짓단 한가운데에 기둥이 선다`);
+    }
+    return { rows, bad, n: rise.length };
+  });
+
   // ─── 초상화 — 머리와 얼굴이 붙어 있는가 ──────────────────────
   //
   // 머리 부품은 안쪽을 파 놓은 띠(crescent)라, 얼굴 타원보다 넓은 자리에서는
@@ -2891,6 +2959,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(dye.bad.map(m => ({ id: '염색', body: '-', where: m, n: '-' })))
     .concat(hair.bad.map(m => ({ id: '앞머리', body: '-', where: m, n: '-' })))
     .concat(bangTop.bad.map(m => ({ id: '머리 꼭대기', body: '-', where: m, n: '-' })))
+    .concat(boots.bad.map(m => ({ id: '부츠', body: '-', where: m, n: '-' })))
     .concat(face.bad.map(m => ({ id: '초상화', body: '-', where: m, n: '-' })))
     .concat(crouch.bad.map(m => ({ id: '웅크린 뒷모습', body: '-', where: m, n: '-' })))
     .concat(bowl.bad.map(m => ({ id: '어항', body: '-', where: m, n: '-' })))
@@ -2992,6 +3061,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   console.log(`머리 꼭대기: 뒷머리 여섯 × 앞머리 다섯 — ${bangTop.rows.join(' · ')}`
     + ` (같은 뒷머리 안에서 ${BANG_TOP_TOL}px 까지 · 긴 생머리 ${bangTop.dome} 만 봉긋하고`
     + ` 나머지는 ${bangTop.flat} 로 낮다)`);
+  console.log(`부츠: 목이 있는 구두 ${boots.n}켤레 × 종아리 50·100·150% — ${boots.rows.join(' · ')}`
+    + ` (둘 다 0 이어야 한다 — 목은 종아리 모양을 따라가고, 바짓단 위로는 안 올라간다)`);
   console.log(`턱밑 머리: 목 옆선에서 머리카락까지 — ${chinHair.rows.join(' · ')}`
     + ` (${CHIN_HAIR_MIN}px 이상 · 붙으면 턱과 목 사이에 머리가 낀 것처럼 보인다)`);
   console.log(`어깨↔머리카락: 목 옆의 틈 ${shHair.gap}px (y≈${shHair.at})`
