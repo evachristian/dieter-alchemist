@@ -2005,12 +2005,12 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   // 가닥이 이미 끝나 목 옆에 아무것도 없다.
   const chinHair = await page.evaluate(async (min) => {
     const D = window.GameData, bad = [], rows = [];
-    const LONG = ['long'];
+    const LONG = ['long','bob','twin','ponytail','wave','bun'];
     const cv = document.createElement('canvas'); cv.width = 244; cv.height = 384;
     const ctx = cv.getContext('2d');
     let worst = 99, worstAt = '';
     for (const it of D.WARDROBE.hair) {
-      if (LONG.indexOf(it.back || it.kind) < 0) continue;
+      if (LONG.indexOf(it.back || it.kind) < 0 || it.bang !== 'straight') continue;
       const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, { hair: it.id }), 0);
       await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
         img.onload = () => { const vb = window.Avatar.bodyMetrics(0).vb;
@@ -2047,6 +2047,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
         worst = 0; worstAt = `${it.back}/${it.bang} y≈${ny} (붙음)`;
         continue;
       }
+      rows.push(`${it.back} ${near === 99 ? '없음' : near + 'px'}`);
       if (near < worst) { worst = near; worstAt = `${it.back}/${it.bang} y≈${ny}`; }
       if (near < min) bad.push(`${it.back}/${it.bang}: 턱 밑(y≈${ny})에서 머리카락이 목에서 ${near}px 밖에`
         + ` 안 떨어져 있다 (${min}px 이상) — 턱과 목 사이에 머리가 낀 것처럼 보인다`);
