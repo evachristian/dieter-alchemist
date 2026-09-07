@@ -1508,15 +1508,24 @@ function launchOpts() {
           // 하루에 한 번 — 버튼이 잠긴다
           renderKitchen(); renderActBadges();
           if (!document.querySelector('#kitchenSheet .kt-eat').disabled) return '먹었는데 버튼이 살아 있다';
-          // 점은 **새로 물어볼 것이 있으면 그대로 켜져 있다** — 마을이 전부 잠겨 있을 때
-          // 이야기가 시작되는 자리가 여기뿐이라, 「밥은 먹었다」로 꺼지면 갈 곳이 안 보인다
-          if (document.getElementById('kitchenDot').hidden) return '물어볼 것이 남았는데 점이 꺼졌다';
-          const keep = S.talked.slice();
-          S.talked = D.asksOf('sp_clemen').map(a => 'sp_clemen|' + a.kw);
-          renderActBadges();
-          const off = document.getElementById('kitchenDot').hidden;
-          S.talked = keep; renderKitchen(); renderActBadges();
-          if (!off) return '먹었고 물어볼 것도 다 물었는데 점이 안 꺼진다';
+          // 점은 **밥을 먹으면 꺼진다.** 「새로 물어볼 것」으로도 켜지지만 그것은
+          // **갈 수 있는 마을이 하나도 없을 때뿐**이다 — 겹쳐 두면 물어본 대답이 다음
+          // 키워드를 줘서 밥을 먹어도 점이 영영 안 꺼진다 (실제로 신고받았다).
+          // 마을이 열린 뒤로는 안내를 마을 탭의 점이 맡는다
+          const kdOn = () => { renderActBadges(); return !document.getElementById('kitchenDot').hidden; };
+          const keepV = S.villages.slice();
+          if (kdOn()) return '먹었는데 점이 안 꺼진다 (마을이 열려 있다)';
+          // ⚠️ **개발용 스위치도 같이 꺼야 한다** — `isVillageOpen` 은 `S.villages` 말고
+          // 개발용 플래그도 보므로, 이 쇼케이스처럼 켜 둔 자리에서는 목록을 비워도
+          // 마을이 여전히 열린 것으로 나온다 (여기서 실제로 헛짚었다)
+          const DVK = 'dieter_alchemist_devvillage_v1';
+          const keepD = localStorage.getItem(DVK);
+          S.villages = []; localStorage.removeItem(DVK);
+          const lone = kdOn();
+          S.villages = keepV;
+          if (keepD !== null) localStorage.setItem(DVK, keepD);
+          renderKitchen(); renderActBadges();
+          if (!lone) return '마을이 하나도 없는데 점이 꺼졌다 (갈 곳이 여기뿐이다)';
           // 「물어볼 것」 줄 — 가진 키워드 중 그가 반응하는 것만 뜬다
           const chips = document.querySelectorAll('#kitchenSheet .ask-chip');
           const want = D.asksOf('sp_clemen').length;

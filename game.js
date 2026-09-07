@@ -1394,6 +1394,10 @@ function doAsk(npc, kw) {
     // 다음에 매력이 오를 때까지 칩이 안 뜨고, 그 사이에 사람은 「할 게 없다」고 본다
     refreshQuests();
     renderQuestChip();
+    // 마이 룸 버튼의 점도 여기서 다시 그린다 — 물어본 것이 곧 `asksNew` 를 줄이고
+    // 마을을 여는데, `renderKitchen()`·`renderGather()` 는 **그 시트 안만** 다시 그린다.
+    // 안 부르면 부엌 점이 **켜진 채로 남아** 다음 `render()` 까지 거짓말을 한다
+    renderActBadges();
     save();
   }
   // 부엌이냐 마을이냐에 따라 다시 그릴 화면이 다르다
@@ -1423,8 +1427,23 @@ function villageNews(v) {
   if (!isVillageOpen(v)) return false;
   return (v.spots || []).some(s => s.npc && asksNew(s.npc) > 0);
 }
-// 부엌에 새로 물어볼 것이 있는가 (마이 룸의 🍲 에 점을 찍는다)
-function kitchenNews() { return kitchenOpen() && asksNew('sp_clemen') > 0; }
+// 부엌에 새로 물어볼 것이 있는가 (마이 룸의 🍲 에 점을 찍는다).
+//
+// ⚠️ **갈 수 있는 마을이 하나도 없을 때만 켠다.** 부엌 점의 원래 뜻은 「오늘 밥」인데,
+// 여기에 「물어볼 것」을 늘 겹쳐 두면 **밥을 먹어도 점이 안 꺼져** 고장으로 읽힌다
+// (실제로 신고받았다). 물어보면 그 대답이 다음 키워드를 주므로 「새로 물어볼 것」은
+// 사실상 **늘 하나 남아 있다** — 꺼지지 않는 점은 안내가 아니라 잔소리다.
+//
+// 그래도 지워 버리지 않는 이유는 처음 그대로다: 마을이 전부 잠겨 있으면 이야기가
+// 시작되는 자리가 여기뿐이라, 「밥은 먹었다」로 점이 꺼지면 갈 곳이 아예 안 보인다.
+// 그 상황을 **글자 그대로** 적은 것이 아래 한 줄이다. 마을이 하나라도 열리면
+// 안내는 **마을 탭의 점**(`villageNews`)이 맡는다 — 클레멘이 대답하는 키워드 여섯은
+// **하나도 그만 아는 것이 없어서**(`checktalk` 이 센다) 마을 쪽에서 반드시 다시 걸린다.
+function kitchenNews() {
+  if (!kitchenOpen()) return false;
+  if (D.villagesShown().some(isVillageOpen)) return false;
+  return asksNew('sp_clemen') > 0;
+}
 window.kitchenNews = kitchenNews;
 
 // ═══════════════════════════════════════════════════════════════

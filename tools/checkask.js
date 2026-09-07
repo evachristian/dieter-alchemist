@@ -8,6 +8,7 @@
 //   · 사슬 끝까지 걸어 다섯이 다 열리는가 (도중에 둘로 갈린다)
 //   · 다시 물어도 되고, **주는 것은 한 번뿐인가**
 //   · 새로 물어볼 것이 있는 마을 탭에 점(●)이 뜨는가 — 「길 잃음 방지」
+//   · **부엌 점이 밥을 먹으면 꺼지는가** — 마을이 열린 뒤에는 「오늘 밥」만 뜻한다
 //
 // 사용: node tools/checkask.js      (종료 코드 0 = 통과)
 const path = require('path');
@@ -62,6 +63,16 @@ function ok(cond, msg, extra) {
   ok(st.kw.length === 1 && st.kw[0] === 'kw_hunger', '시작 키워드는 「정신적 허기」 하나', st.kw.join(','));
   ok(st.vl.length === 0, '마을은 전부 잠겨 있다', `열린 곳 ${st.vl.length}`);
 
+  // ── 부엌 버튼의 점(●) — **두 가지를 뜻하는 자리다**
+  //
+  // 원래 뜻은 「오늘 밥」이고, 마을이 **하나도 안 열렸을 때만** 「물어볼 것」도 같이 켠다.
+  // 겹쳐 두면 물어본 대답이 다음 키워드를 줘서 **밥을 먹어도 점이 영영 안 꺼진다** —
+  // 실제로 「다 먹었는데 레드닷이 안 사라진다」로 신고받은 자리다.
+  const kdot = () => page.evaluate(() => !document.getElementById('kitchenDot').hidden);
+  ok(await kdot(), '밥 전에는 점이 켜져 있다');
+  await page.evaluate(() => { eatWithClemen(); });
+  ok(await kdot(), '마을이 하나도 없으면 밥을 먹어도 점이 남는다 (갈 곳이 여기뿐이다)');
+
   // ── 부엌
   await page.evaluate(() => openKitchen());
   await page.waitForSelector('#kitchenSheet.show .ask-chip', { timeout: 4000 });
@@ -76,6 +87,15 @@ function ok(cond, msg, extra) {
   st = await page.evaluate(() => ({ kw: S.keywords.slice(), vl: S.villages.slice() }));
   ok(st.kw.includes('kw_beauty'), '「아름다움」을 얻는다');
   ok(st.vl.includes('vl_chimney'), '일곱 굴뚝이 열린다');
+  // 마을이 열리면 안내는 **마을 탭의 점**이 맡는다 → 부엌 점은 「오늘 밥」만 뜻한다.
+  // ⚠️ **여기서 `render()` 를 부르지 않는다.** `doAsk` 가 스스로 뱃지를 다시 그리는지를
+  // 보는 자리라, 먼저 그려 주면 안 그려도 통과한다 (실제로 켜진 채 남아 있었다)
+  ok(!(await kdot()), '마을이 열리고 밥도 먹었으면 점이 그 자리에서 꺼진다');
+  // 다음 날 — 밥으로만 켜졌다 꺼진다
+  await page.evaluate(() => { S.kitchenDay = 0; render(); });
+  ok(await kdot(), '다음 날 밥 전에는 다시 켜진다');
+  await page.evaluate(() => { eatWithClemen(); });
+  ok(!(await kdot()), '밥을 먹으면 꺼진다');
 
   chips = await page.$$eval('#kitchenSheet .ask-chip', els => els.map(e => e.textContent.trim()));
   ok(chips.length === 2, '칩이 둘로 는다', chips.join(' / '));

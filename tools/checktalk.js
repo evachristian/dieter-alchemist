@@ -257,6 +257,23 @@ D.KEYWORDS.forEach(k => {
   if (!asked.has(k.id)) bad.push(`죽은 키워드: «${k.id}» 에 아무도 반응하지 않는다 — 들고 다닐 데가 없다`);
 });
 
+// **클레멘만 아는 키워드가 있으면 안 된다.**
+//
+// 부엌의 점(`kitchenNews`)은 마을이 하나라도 열리면 「오늘 밥」만 뜻하고, 그때부터
+// 「새로 물어볼 것」의 안내는 **마을 탭의 점**이 맡는다. 그런데 클레멘만 대답하는
+// 키워드가 있으면 그것은 **어느 마을에도 안 걸려** 아무도 가리키지 않는 대답이 된다 —
+// 화면에 오류 하나 없이 「할 게 없다」로 보이는 종류다.
+// (부엌은 마을이 아니라 마이 룸의 버튼이라 `villageNews` 가 못 센다)
+{
+  const answerers = {};
+  D.ASKS.forEach(a => { (answerers[a.kw] = answerers[a.kw] || new Set()).add(a.npc); });
+  D.asksOf('sp_clemen').forEach(a => {
+    if (answerers[a.kw].size === 1) {
+      bad.push(`클레멘만 아는 키워드: «${a.kw}» — 마을 점이 못 가리켜서 갈 곳이 안 보인다`);
+    }
+  });
+}
+
 // **막다른 진행** — 지금 내보이는 마을 중 끝내 못 여는 곳
 D.villagesShown().forEach(v => {
   if (!openV.has(v.id)) bad.push(`막다른 진행: ${v.id} 는 키워드로 열 방법이 없다 (탭에 자물쇠만 남는다)`);
