@@ -1921,7 +1921,8 @@ function launchOpts() {
   // ⚠️ **「어깨 홈」으로는 못 잡는다.** 그건 «위쪽 실루엣이 다시 솟는가»를 보는데,
   // 이 틈은 실루엣이 끊긴 것이 아니라 **가로로 벌어진 것**이라 0px 로 통과했다.
   // 어깨선을 눕히면서 위쪽이 안으로 4px 들어와 7 → 11.2px 이 됐다.
-  const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 때 9.8
+  const CHIN_GAP_MAX = 3;         // 턱 밑에서 머리와 목 사이에 허용하는 배경 (안티에일리어싱 1px)
+const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 때 9.8
   const shHair = await page.evaluate(async (max) => {
     const D = window.GameData, S = 4, W = 200 * S, H = 348 * S;
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -1950,6 +1951,54 @@ function launchOpts() {
       bad: worst > max ? [`목 옆(y≈${at})에서 어깨와 머리카락 사이가 ${worst.toFixed(1)}px 벌어졌다`
         + ` (${max}px 까지) — 어깨와 팔 사이에 배경이 끼어든 것처럼 보인다`] : [] };
   }, SH_HAIR_GAP_MAX);
+
+  // ─── 턱 밑에 배경이 끼지 않는가 (머리카락 ↔ 목) ───────────────
+  //
+  // 위의 「어깨↔머리카락」은 **y 108.5 부터** 잰다 — 그보다 위는 짧은 머리라면
+  // 목과 머리 사이가 정상적으로 비어 있어서다. 그래서 **턱 밑(y 95~106)의 틈은
+  // 아무도 안 보고 있었다.**
+  //
+  // 긴 생머리를 인트로 공주에 맞추면서 실제로 거기에 **7~8px 짜리 배경 쐐기**가
+  // 났다 (턱 밑에서 목이 좁아지는데 옆 가닥은 바깥에 있어, 둘 사이로 배경이 비쳤다).
+  // 공주는 드레스 깃이 높아 그 자리가 덮여 있어서 나란히 놓으면 «머리가 얼굴에서
+  // 떨어진» 것처럼 보였다 — 눈으로는 「뭔가 다른데」로만 읽히던 자리다.
+  //
+  // ⚠️ **긴 생머리만 본다.** 단발·양갈래·웨이브는 그 높이에서 가닥이 이미 끝났거나
+  // 얼굴에서 멀리 떨어져 있어서, 턱 옆이 비어 있는 것이 «맞는» 모양이다
+  // (실측 17~25px — 그걸 defect 로 세면 멀쩡한 머리 열다섯 벌이 빨개진다).
+  // 어깨를 지나 «계속 내려가는» 실루엣은 지금 긴 생머리 하나뿐이고,
+  // 그런 머리에서만 틈이 「떨어져 보인다」로 읽힌다.
+  // **그런 머리를 새로 만들면 여기 목록에 넣는다.**
+  const chinGap = await page.evaluate(async (max) => {
+    const D = window.GameData, bad = [], rows = [];
+    const LONG = ['long'];
+    const cv = document.createElement('canvas'); cv.width = 244; cv.height = 384;
+    const ctx = cv.getContext('2d');
+    let worst = 0, worstAt = '';
+    for (const it of D.WARDROBE.hair) {
+      if (LONG.indexOf(it.back || it.kind) < 0) continue;
+      const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, { hair: it.id }), 0);
+      await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
+        img.onload = () => { const vb = window.Avatar.bodyMetrics(0).vb;
+          ctx.clearRect(0, 0, 244, 384); ctx.drawImage(img, vb.x, vb.y, vb.w, vb.h); ok(); };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      let g = 0, gy = 0;
+      for (let y = 96; y <= 107; y++) {
+        const d = ctx.getImageData(40, y, 60, 1).data;   // 왼쪽 절반만 (좌우 대칭이다)
+        let seen = false, cur = 0;
+        for (let i = 0; i < 60; i++) {
+          const a = d[i * 4 + 3];
+          if (a > 200) { if (cur > g) { g = cur; gy = y; } cur = 0; seen = true; }
+          else if (seen) cur++;
+        }
+      }
+      if (g > worst) { worst = g; worstAt = `${it.back}/${it.bang} y≈${gy}`; }
+      if (g > max) bad.push(`${it.back}/${it.bang}: 턱 밑(y≈${gy})에서 머리와 목 사이가 ${g}px 벌어졌다`
+        + ` (${max}px 까지) — 머리가 얼굴에서 떨어져 보인다`);
+    }
+    rows.push(`가장 벌어진 곳 ${worst}px (${worstAt || '없음'})`);
+    return { bad, rows };
+  }, CHIN_GAP_MAX);
 
   // ─── 팔은 다리보다 가늘다 ────────────────────────────────────
   //
@@ -2787,6 +2836,7 @@ function launchOpts() {
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
     .concat(armSkirt.bad.map(m => ({ id: '팔↔하의', body: '-', where: m, n: '-' })))
     .concat(shHair.bad.map(m => ({ id: '어깨↔머리카락', body: '-', where: m, n: '-' })))
+    .concat(chinGap.bad.map(m => ({ id: '턱밑 틈', body: '-', where: m, n: '-' })))
     .concat(armLeg.bad.map(m => ({ id: '팔↔다리', body: '-', where: m, n: '-' })))
     .concat(fat.bad.map(m => ({ id: '상한 두께', body: '-', where: m, n: '-' })))
     .concat(slider.bad.map(m => ({ id: '슬라이더', body: '-', where: m, n: '-' })))
@@ -2860,6 +2910,8 @@ function launchOpts() {
     + ` (부위마다 정해 둔 값 ±${FAT_TOL} · 100% 는 아무것도 안 바꾼다)`);
   console.log(`팔이 하의 위로 나오는가: 허리선 아래 «팔 자리»의 옷색 점 수 —`
     + ` ${armSkirt.rows.join(' · ')} (${ARM_SKIRT_MAX} 점까지 · 마개가 붙으면 227~238 점이 된다)`);
+  console.log(`턱밑 틈: 어깨를 지나 내려가는 머리 — ${chinGap.rows.join(' · ')}`
+    + ` (${CHIN_GAP_MAX}px 까지 · 턱 밑에서 머리와 목 사이로 배경이 비치면 안 된다)`);
   console.log(`어깨↔머리카락: 목 옆의 틈 ${shHair.gap}px (y≈${shHair.at})`
     + ` (${SH_HAIR_GAP_MAX}px 까지 · 넓어지면 어깨와 팔 사이에 배경이 낀 것처럼 보인다)`);
   console.log(`팔은 다리보다 가는가: ${armLeg.rows.join(' · ')}`
