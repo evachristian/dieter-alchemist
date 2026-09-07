@@ -1588,7 +1588,7 @@
               + `<circle cx="${x + 2.2}" cy="${AV.Y - 3.2}" r="2.4" fill="#fff"/>`
               + `<circle cx="${x - 2.2}" cy="${AV.Y + 3.4}" r="1.2" fill="#fff" opacity="0.85"/>`,
     // 더 크게 — 놀람·궁금. 흰자가 보여 눈을 「부릅뜬」 느낌이 난다
-    big:   x => `<ellipse cx="${x}" cy="${AV.Y}" rx="8" ry="9.6" fill="#fff" stroke="${AV.INK}" stroke-width="1.2"/>`
+    big:   x => `<ellipse cx="${x}" cy="${AV.Y}" rx="8" ry="9.6" fill="#fff"/>`
               + `<ellipse cx="${x}" cy="${AV.Y + 0.6}" rx="5.4" ry="6.6" fill="${AV.INK}"/>`
               + `<circle cx="${x + 2}" cy="${AV.Y - 2.6}" r="2.2" fill="#fff"/>`
               + `<circle cx="${x - 2}" cy="${AV.Y + 4}" r="1.1" fill="#fff" opacity="0.85"/>`,
@@ -1639,16 +1639,21 @@
     slit:  x => `<path d="M${x - 6.4},${AV.Y - 1.8} q6.4,-2.4 12.8,0 q-6.4,5 -12.8,0 Z" fill="${AV.INK}"/>`,
     sharp: x => `<path d="M${x - 6.8},${AV.Y - 3.8} L${x + 6.8},${AV.Y} L${x - 6.8},${AV.Y + 3.8} Z" fill="${AV.INK}"/>`
               + `<circle cx="${x - 3}" cy="${AV.Y - 0.6}" r="1.2" fill="#fff" opacity="0.8"/>`,
-    low:   x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.6" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
+    // ⚠️ **흰자위의 검은 테두리는 «눈꺼풀 선이 있는 셋»에만 남긴다**
+    // (`jito` 토라짐 · `jside` 흘김 · `glare` 노려봄).
+    // 나머지는 테두리를 지웠다 — 눈이 커 보이고 부드러워진다.
+    // 셋에 남긴 이유: 그 눈들은 위에 굵은 눈꺼풀 선이 얹혀 있어서, 테두리를 지우면
+    // **눈 아래쪽 윤곽이 사라져 흰자위가 볼로 번진다** (미리 그려 보고 골랐다)
+    low:   x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.6" fill="#fff"/>`
               + `<ellipse cx="${x}" cy="${AV.Y + 2.6}" rx="4.4" ry="4.8" fill="${AV.INK}"/>`
               + `<circle cx="${x + 1.6}" cy="${AV.Y + 0.8}" r="1.5" fill="#fff"/>`,
-    up:    x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.8" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
+    up:    x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.8" fill="#fff"/>`
               + `<ellipse cx="${x}" cy="${AV.Y - 2.6}" rx="4.4" ry="4.8" fill="${AV.INK}"/>`
               + `<circle cx="${x + 1.6}" cy="${AV.Y - 4.4}" r="1.5" fill="#fff"/>`,
-    side:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.4" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
+    side:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="7.4" fill="#fff"/>`
               + `<ellipse cx="${x + 2.4}" cy="${AV.Y}" rx="4.2" ry="4.8" fill="${AV.INK}"/>`
               + `<circle cx="${x + 3.6}" cy="${AV.Y - 1.8}" r="1.4" fill="#fff"/>`,
-    wide:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="7.4" ry="9" fill="#fff" stroke="${AV.INK}" stroke-width="1.2"/>`
+    wide:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="7.4" ry="9" fill="#fff"/>`
               + `<circle cx="${x}" cy="${AV.Y}" r="4.2" fill="${AV.INK}"/><circle cx="${x + 1.6}" cy="${AV.Y - 2.4}" r="1.6" fill="#fff"/>`,
     glare: x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.6" ry="7.8" fill="#fff" stroke="${AV.INK}" stroke-width="1.1"/>`
               + `<circle cx="${x}" cy="${AV.Y - 2.4}" r="3.6" fill="${AV.INK}"/>`
