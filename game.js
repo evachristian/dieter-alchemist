@@ -5329,6 +5329,21 @@ function resetTune() {
 }
 window.resetTune = resetTune;
 
+// 바디파츠를 전부 상한으로 — **튜토리얼 졸업 때 한 번** 부른다 (`tutorial.js`).
+// 이 게임은 «날씬해지는» 이야기라 출발점이 이미 날씬하면 줄어들 자리가 없다:
+// 100% 로 시작하면 첫 물약부터 «표준보다 마른» 몸으로 가 버린다.
+//
+// ⚠️ **상한은 부위마다 다르다** — `tuneMaxOf` 를 지난다. 여기에 150 을 박아 두면
+// `TUNE_PARTS` 의 상한을 낮췄을 때 조용히 범위를 벗어난다.
+// ⚠️ **`bodyTune` 은 세이브가 아니라 제 열쇠(`TUNE_KEY`)에 따로 산다.** 그래서
+// 마이그레이션이 아니라 «졸업할 때 한 번»이 맞는 자리다 — 이미 졸업한 사람의
+// 몸을 나중에 건드리면 그가 고른 값을 빼앗는 것이 된다
+function maxTune() {
+  TUNE_PARTS.forEach(p => { bodyTune[p.k] = tuneMaxOf(p.k); });
+  try { localStorage.setItem(TUNE_KEY, JSON.stringify(bodyTune)); } catch (e) {}
+}
+window.maxTune = maxTune;
+
 // 누르고 있으면 계속 증감 — 첫 입력 즉시 1회, 400ms 뒤부터 60ms 간격 반복
 let tuneHold = null;
 function startTuneHold(k, dir) {

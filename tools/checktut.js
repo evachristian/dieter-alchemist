@@ -329,6 +329,11 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     creatureOpen: !document.querySelector('.room-tab[data-rtab="creatures"]').classList.contains('locked'),
     wardrobeTabs: document.querySelectorAll('.wr-tab').length,
     brews: S.record.brews, drinks: S.record.drinks, gathered: S.record.gathered,
+    // 바디파츠 — 졸업할 때 «전부 상한»에서 시작해야 한다.
+    // ⚠️ 상한은 부위마다 다를 수 있으므로 `tuneMaxOf` 에게 물어본다 (150 을 안 박는다)
+    tune: (window.GameData && typeof tuneScales === 'function')
+      ? Object.entries(tuneScales()).map(([k, v]) =>
+          [k, Math.round(v * 100), tuneMaxOf(k)]) : null,
   }));
 
   // ── 말풍선에 뜬 이름
@@ -350,6 +355,16 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   // 튜토리얼을 마친 보람이 하나도 없다 (원래 이 문들이 안 열리던 것이 문제였다)
   if (!fin.done) bad.push('튜토리얼이 끝까지 가지 않았다 (' + fin.step + '단계에서 멈춤)');
   if (!fin.tutorialDone) bad.push('tutorialDone 이 안 켜졌다');
+  // **바디파츠가 전부 상한인가** — 이 게임은 날씬해지는 이야기라 출발점이 이미
+  // 날씬하면 줄어들 자리가 없다. 100% 로 시작하면 첫 물약부터 «표준보다 마른» 몸이 된다
+  if (!fin.tune) bad.push('바디파츠 값을 못 읽었다');
+  else {
+    const low = fin.tune.filter(([, v, max]) => v !== max);
+    if (low.length) {
+      bad.push('졸업했는데 바디파츠가 상한이 아니다 — '
+        + low.map(([k, v, max]) => `${k} ${v}/${max}`).join(' · '));
+    }
+  }
   if (fin.layerOn) bad.push('끝났는데 막이 남아 있다');
   if (fin.dress !== 'dress_onepiece') bad.push('선물받은 원피스로 갈아입지 않았다 (' + fin.dress + ')');
   if (!fin.creatureOpen) bad.push('크리처 탭이 안 열렸다');
