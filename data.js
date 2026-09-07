@@ -1728,23 +1728,33 @@ function moodsOf(id) { const sp = speaker(id); return sp && sp.moods ? Object.ke
 // `moods` 는 줄마다의 표정이고 **줄 수와 길이가 같아야 한다.**
 // 없거나 모자라면 기본 표정(`def`)을 쓴다 — 표정 이름은 SPEAKERS 의 `moods` 에 있는 것만.
 // (없는 이름을 적으면 조용히 기본으로 떨어져서 티가 안 난다. checktalk 이 그것을 잡는다)
+// ⚠️ **잡담을 늘리면 `moods` 도 같이 늘린다.** 짧으면 그 줄만 기본 얼굴이 되는데,
+// 화면에는 아무 오류도 안 나서 「이 사람은 원래 표정이 없나」로 읽힌다.
+// 여기 줄 뒤에 **호감도 단계의 한 줄**이 더 붙는다 (`talkLinesOf()` 한 곳에서 센다)
 const TALKS = {
   sp_orix:   { greet: 'tk_orix_greet',   greetMood: 'def',
-               lines: ['tk_orix_1', 'tk_orix_2', 'tk_orix_3'], moods: ['def', 'def', 'wink'] },
+               lines: ['tk_orix_1', 'tk_orix_2', 'tk_orix_3', 'tk_orix_4', 'tk_orix_5'],
+               moods: ['def', 'def', 'wink', 'grit', 'smirk'] },
   sp_kairos: { greet: 'tk_kairos_greet', greetMood: 'def',
-               lines: ['tk_kairos_1', 'tk_kairos_2'],          moods: ['def', 'sing'] },
+               lines: ['tk_kairos_1', 'tk_kairos_2', 'tk_kairos_3', 'tk_kairos_4', 'tk_kairos_5'],
+               moods: ['def', 'sing', 'think', 'sleepy', 'tease'] },
   sp_sylvan: { greet: 'tk_sylvan_greet', greetMood: 'def',
-               lines: ['tk_sylvan_1', 'tk_sylvan_2'],          moods: ['def', 'warm'] },
+               lines: ['tk_sylvan_1', 'tk_sylvan_2', 'tk_sylvan_3', 'tk_sylvan_4', 'tk_sylvan_5'],
+               moods: ['def', 'warm', 'flat', 'doubt', 'sorry'] },
   sp_yutark: { greet: 'tk_yutark_greet', greetMood: 'def',
-               lines: ['tk_yutark_1', 'tk_yutark_2', 'tk_yutark_3'], moods: ['def', 'true', 'def'] },
+               lines: ['tk_yutark_1', 'tk_yutark_2', 'tk_yutark_3', 'tk_yutark_4', 'tk_yutark_5'],
+               moods: ['def', 'true', 'def', 'smile', 'warm'] },
   sp_stark:  { greet: 'tk_stark_greet',  greetMood: 'def',
-               lines: ['tk_stark_1', 'tk_stark_2'],                  moods: ['def', 'warm'] },
+               lines: ['tk_stark_1', 'tk_stark_2', 'tk_stark_3', 'tk_stark_4', 'tk_stark_5'],
+               moods: ['def', 'warm', 'flat', 'think', 'cold'] },
   sp_valen:  { greet: 'tk_valen_greet',  greetMood: 'def',
-               lines: ['tk_valen_1', 'tk_valen_2'],                  moods: ['def', 'soft'] },
+               lines: ['tk_valen_1', 'tk_valen_2', 'tk_valen_3', 'tk_valen_4', 'tk_valen_5'],
+               moods: ['def', 'soft', 'flat', 'shy', 'weary'] },
   // 👑 여왕 — ⚠️ **이름이 한 번도 안 나온다.** 화면에 뜨는 이름은 `speakerName()` 이
   // 「여왕」으로 갈아 끼운다 (STORY.md 「여왕」 항의 ⚠️). 대사에도 안 쓴다
   sp_ygritte: { greet: 'tk_queen_greet', greetMood: 'def',
-               lines: ['tk_queen_1', 'tk_queen_2'],                  moods: ['cold', 'def'] },
+               lines: ['tk_queen_1', 'tk_queen_2', 'tk_queen_3', 'tk_queen_4'],
+               moods: ['cold', 'def', 'glare', 'flat'] },
 };
 
 // ═══════════════════════════════════════════════════════════════
