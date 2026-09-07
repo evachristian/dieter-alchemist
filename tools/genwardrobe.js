@@ -42,7 +42,11 @@ const SLOTS = {
       { k: 'side',     ko: '사이드뱅',  en: 'Side Bangs' },
       { k: 'curtain',  ko: '커튼뱅',    en: 'Curtain Bangs' },
       { k: 'sheer',    ko: '시스루뱅',  en: 'Sheer Bangs' },
-      { k: 'none',     ko: '올 백',     en: 'Swept Back' },
+      // ⚠️ **「올 백」을 뺀 자리다.** 이름과 달리 이마를 드러낸 적이 없어
+      // (헤어라인 y44) 「기본」(y43)과 사실상 같은 그림이었다.
+      // 대신 **처음에 있던 「기본 앞머리」**를 되살렸다 — 밑단이 봉우리 셋으로
+      // 물결지는 앞머리라 한눈에 갈린다 (`avatar.js` 의 `plain`)
+      { k: 'plain',    ko: '기본 앞머리', en: 'Classic Bangs' },
     ],
   },
   circlet: {
