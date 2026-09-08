@@ -491,9 +491,13 @@ function launchOpts() {
     rows.push(`입구 띠 ${bands.join(' · ')}`);
 
     // ③ **굽** — 「유리구두를 하이힐로」 요청으로 붙은 것이다 (`genwardrobe` 의 «광택» 줄).
-    //    둘을 본다: 발보다 아래로 내려가 **보이는가**, 그리고 그림 상자 밑(`VB` 348)에
-    //    **안 닿는가**. 굽을 1px 만 더 늘려도 끝이 잘린 채로 그려지는 자리라, 눈으로는
-    //    구별이 안 된다 — SVG 는 viewBox 밖을 아예 안 그리므로 「잘렸다」가 티가 안 난다
+    //    넷을 본다:
+    //      · 발보다 아래로 내려가 **보이는가**
+    //      · 그림 상자 밑(`VB` 348)에 **안 닿는가** — 굽을 1px 만 더 늘려도 끝이 잘리는데,
+    //        SVG 는 viewBox 밖을 아예 안 그리므로 「잘렸다」가 눈에 티가 안 난다
+    //      · **앞코도 바닥에 닿는가** — 굽만 닿으면 발끝이 떠서 그 발로는 걸을 수가 없다
+    //        (그렇게 그렸다가 신고받았다). 바닥 줄에 «신발 몸통 색»이 있어야 앞코다
+    //      · **굽을 신으면 종아리가 달라지는가** — 장딴지가 당겨져 위로 올라간다
     const bottomRow = () => {
       for (let y = 347; y >= 300; y--) {
         const d = ctx.getImageData(0, y, 200, 1).data;
@@ -501,16 +505,50 @@ function launchOpts() {
       }
       return -1;
     };
-    const flatShoe = D.WARDROBE.shoes.find(s => !s.heel && s.kind !== 'none');
+    // 한 줄에서 어떤 색이 몇 점인가
+    const inRow = (y, rgb) => {
+      const d = ctx.getImageData(0, y, 200, 1).data;
+      let n = 0;
+      for (let i = 0; i < 200; i++) {
+        const o = i * 4;
+        if (d[o + 3] > 250 && Math.abs(d[o] - rgb[0]) <= 2 &&
+            Math.abs(d[o + 1] - rgb[1]) <= 2 && Math.abs(d[o + 2] - rgb[2]) <= 2) n++;
+      }
+      return n;
+    };
+    // 장딴지가 가장 굵은 줄 — 종아리가 맨살일 때만 잴 수 있다 (목이 없는 구두)
+    const bellyRow = () => {
+      let best = -1, wide = -1;
+      for (let y = 262; y <= 320; y++) { const n = inRow(y, SKIN); if (n > wide) { wide = n; best = y; } }
+      return best;
+    };
+    const flatShoe = D.WARDROBE.shoes.find(s => !s.heel && s.kind !== 'none' && !s.rise);
     await draw(wear({ shoes: flatShoe.id }), { torso: 1, waist: 1, hip: 1, arm: 1, thigh: 1, calf: 1, face: 1 });
-    const flatBot = bottomRow();
+    const flatBot = bottomRow(), flatBelly = bellyRow();
     const heels = [];
     for (const sh of D.WARDROBE.shoes.filter(s => Number(s.heel) > 0)) {
       await draw(wear({ shoes: sh.id }), { torso: 1, waist: 1, hip: 1, arm: 1, thigh: 1, calf: 1, face: 1 });
       const bot = bottomRow();
-      heels.push(`${sh.id.replace('shoes_', '')} ${bot - flatBot}px`);
+      // 앞코 — 신발 **몸통 색**이 어디까지 내려오는가. 굽은 어두운 색(shade)이라 안 섞인다.
+      // ⚠️ 맨 밑줄은 반쯤만 칠해져 색이 흐려진다 — 그래서 «몇 줄까지 내려왔나»로 본다
+      let toeBot = -1;
+      for (let y = bot; y >= 320; y--) if (inRow(y, BOOT)) { toeBot = y; break; }
+      heels.push(`${sh.id.replace('shoes_', '')} ${bot - flatBot}px/앞코 ${bot - toeBot}줄`);
       if (bot <= flatBot) bad.push(`${sh.id}: 굽이 발보다 아래로 안 나온다 (둘 다 y${bot}) — 굽이 있는지 알 수가 없다`);
       if (bot > 346) bad.push(`${sh.id}: 굽 끝이 그림 상자 밑(348)에 닿는다 (y${bot}) — 잘린 채로 그려진다`);
+      if (bot - toeBot > 2) {
+        bad.push(`${sh.id}: 앞코가 바닥(y${bot})에서 ${bot - toeBot}px 떠 있다 (y${toeBot} 까지)`
+          + ` — 굽만 닿아 있으면 그 발로는 걸을 수가 없다`);
+      }
+      // 종아리는 목이 없는 구두에서만 잰다 (목이 있으면 장딴지가 부츠에 덮인다)
+      if (!sh.rise) {
+        const belly = bellyRow();
+        heels.push(`장딴지 ${flatBelly}→${belly}`);
+        if (!(belly < flatBelly - 1)) {
+          bad.push(`${sh.id}: 굽을 신어도 장딴지 자리가 그대로다 (${flatBelly}→${belly})`
+            + ` — 하이힐을 신으면 종아리가 당겨져 위로 올라간다`);
+        }
+      }
     }
     // ⚠️ **한 켤레도 없으면 그것이 잘못이다.** 굽을 축 표에서 지우면 목록이 비고,
     // 빈 목록은 아무것도 안 재고 통과한다 — 「로우를 통째로 건너뛰던」 것과 같은 구멍이다

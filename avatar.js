@@ -729,6 +729,9 @@
   // 종아리 150%(반폭 25.5)에서는 **다리가 부츠 밖으로 삐져나왔다** — 신고받은 자리다.
   // 위를 네모로 자르는 것이 곧 부츠 입구라, 자르는 자리만 `rise` 로 정하면 된다
   const BOOT_PAD = 1.6;                    // 다리보다 아주 살짝 넓게 (테두리가 비치지 않게)
+  // 굽 높이(px) — **신발 한 곳에서만 나온다.** 다리(`legs`)와 신발(`renderShoes`)이
+  // 둘 다 이 값을 보므로, 따로 읽으면 종아리와 부츠 목이 서로 다른 곡선을 타게 된다
+  const heelOf = it => (isNone(it) ? 0 : Math.max(0, Number(it.heel) || 0));
   function renderShoes(it, tune, legHemY) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c, 22), rise = Number(it.rise) || 0;
@@ -742,8 +745,9 @@
     // 굽을 신으면 실제로도 그만큼 키가 커지니 결도 맞는다.
     // (앞에서 본 그림이라 굽은 발 뒤에 가려지는 것이 «진짜»지만, 그러면 하이힐인지
     //  알 길이 없다. 발 밑으로 내미는 쪽이 한눈에 읽힌다 — 그려 보고 골랐다)
-    const heel = Number(it.heel) || 0;
-    const FLOOR = FY + 7.6;                       // 발 타원의 밑 — 바닥에 닿는 줄
+    const heel = heelOf(it);
+    const FLOOR = FY + 7.6;                       // 맨발이 바닥에 닿던 줄
+    const GY = FLOOR + heel;                      // 굽을 신었을 때의 바닥 — 앞코도 여기 닿는다
     const BY = FY, FRX = 13, FRY = 7.6;           // 굽이 있어도 몸통은 그대로다
     const k = 1;
     const fin = it.finish || ({ maryjane: 'strap', ballet: 'ribbon', sneaker: 'sole',
@@ -757,7 +761,7 @@
     const topY = Math.max(LEG.calfY, FY - rise, Number(legHemY) || 0);
     const openUp = topY < FY - 8;            // 입구가 발 타원(위 끝 FY−7.6)보다 위인가
     if (rise > 0 && topY < FY - 3) {
-      const pts = calfPts(tune);
+      const pts = calfPts(tune, heel);
       const cut = (id, y0, h, col) =>
         `<clipPath id="${id}"><rect x="0" y="${y0}" width="200" height="${h}"/></clipPath>`
         + `<g clip-path="url(#${id})">`
@@ -775,18 +779,19 @@
     }
     const foot = (cx) => {
       let s = '';
-      // 굽 — **발보다 먼저** 그린다. 발 타원 안에서 시작해 바닥 아래로 내려가므로
-      // 위쪽 이음매는 발이 덮어 준다
+      // 굽과 앞코 — **둘 다 바닥(GY)에 닿는다.** 굽만 닿으면 발끝이 떠 있어서
+      // 그 발로는 걸을 수가 없다 (그렇게 그렸다가 신고받았다).
+      // 앞코는 가운데, 굽은 **안쪽으로** 물린다 — 반대로 두면 안짱다리로 보인다.
+      // 발보다 먼저 그리므로 위쪽 이음매는 발이 덮어 준다
       if (heel) {
-        s += `<path d="M${cx - 3.2},${FY + 1} L${cx - 1.9},${(FLOOR + heel).toFixed(1)}`
-          + ` L${cx + 1.9},${(FLOOR + heel).toFixed(1)} L${cx + 3.2},${FY + 1} Z" fill="${c2}"/>`
-          // ⚠️ 굽 끝은 **기둥보다 아래로 안 나간다** — 그림 상자의 밑(`VB` 348)이 코앞이라,
-          // 조금만 더 내려도 굽 끝이 잘린 채로 그려진다 (재 보고 맞춘 자리다)
-          + `<ellipse cx="${cx}" cy="${(FLOOR + heel - 0.8).toFixed(1)}" rx="2.5" ry="0.8" fill="${c2}"/>`;
+        const sx = cx < 100 ? -1 : 1;                 // 바깥쪽(몸에서 먼 쪽)이 +
+        const hx = cx - sx * 6, tx = cx + sx * 4;     // 굽은 안쪽 · 앞코는 바깥쪽
+        const P = n => n.toFixed(1);
+        s += `<path d="M${P(hx - 2.4)},${FY} L${P(hx - 1.6)},${GY} L${P(hx + 1.6)},${GY} L${P(hx + 2.4)},${FY} Z" fill="${c2}"/>`
+          + `<path d="M${P(tx - 5.5)},${FY} C${P(tx - 5.5)},${P(GY - 1)} ${P(tx - 3.3)},${GY} ${P(tx - 2.5)},${GY}`
+          + ` L${P(tx + 2.5)},${GY} C${P(tx + 3.3)},${GY} ${P(tx + 5.5)},${P(GY - 1)} ${P(tx + 5.5)},${FY} Z" fill="${c}"/>`;
       }
       s += `<ellipse cx="${cx}" cy="${BY}" rx="${FRX}" ry="${FRY}" fill="${c}"/>`;
-      // 밑창 — 굽이 있는 구두에만. 이것이 있어야 발 밑에 막대가 붙은 것이 아니라 «구두»로 읽힌다
-      if (heel) s += `<path d="M${cx - FRX + 1.5},${BY + 2.6} Q${cx},${(BY + FRY + 1.4).toFixed(1)} ${cx + FRX - 1.5},${BY + 2.6} Z" fill="${c2}"/>`;
       // 마감(finish) — 목 높이(rise)와 함께 두 축이다.
       // 옛 세이브는 kind 로만 갈렸다 — finish 가 없으면 그때 규칙으로 떨어진다
       // ⚠️ 자리는 전부 **발 몸통(BY·FRX)에서** 잰다 — FY 를 박아 두면 굽이 붙는 순간
@@ -1417,18 +1422,30 @@
   // 종아리의 마디 — **부츠 목도 이 곡선을 그대로 쓴다.**
   // 두 벌로 두면 다리를 굵게 했을 때 한쪽만 따라와 살이 부츠 밖으로 나온다
   // (「재는 곡선과 그리는 곡선이 같아야 한다」 — `thighOuterAt` 의 주석과 같은 규칙)
-  const calfPts = tune => [
-    [LEG.calfY, kneeX(tune)],
-    [bellyYOf(tune), CALF_GAP + LEG.bellyW * fatOf(tune, 'calf')],
-    [LEG.ankleY, ankleX(tune)],
-  ];
+  //
+  // **굽을 신으면 종아리 모양이 달라진다.** 발끝으로 서는 셈이라 장딴지가 당겨져
+  // **위로 올라가고 조금 더 불룩해진다** — 하이힐을 신은 다리가 예뻐 보이는 이유가
+  // 그것이다. 굽 5px(유리구두)을 1로 잡고 그만큼 태운다.
+  // ⚠️ **발목은 안 건드린다** — 발(`footX`)이 발목에서 나오므로 여기서 좁히면
+  // 신발만 제자리에 남아 발목과 어긋난다
+  const HEEL_UNIT = 5;                     // 「굽 1인분」 (유리구두)
+  const HEEL_BELLY_UP = 5, HEEL_BELLY_W = 1.4;
+  const calfPts = (tune, heel) => {
+    const h = Math.max(0, Number(heel) || 0) / HEEL_UNIT;
+    return [
+      [LEG.calfY, kneeX(tune)],
+      [+(bellyYOf(tune) - HEEL_BELLY_UP * h).toFixed(1),
+       CALF_GAP + LEG.bellyW * fatOf(tune, 'calf') + HEEL_BELLY_W * h],
+      [LEG.ankleY, ankleX(tune)],
+    ];
+  };
 
-  function legs(tune) {
+  function legs(tune, heel) {
     const L = LEG;
     // 윗머리는 **골반을 따라 들어온다** — 그리는 값도 `thighTop` 한 곳에서 나와야
     // 엉덩이가 재는 폭(`thighOuterAt`)과 어긋나지 않는다
     const thigh = [[L.hipY, thighTop(tune)], [L.kneeY, kneeX(tune)]];
-    const calf = calfPts(tune);
+    const calf = calfPts(tune, heel);
     const fy = BODY.footY, fx = footX(tune);
     return `
       <g data-part="calf">
@@ -3181,6 +3198,9 @@
     // (`crouch()` 의 `legHem` 과 같은 규칙이다)
     const legWear = hasDress ? dress : bottom;
     const legHemY = isNone(legWear) ? 0 : (Number(legWear.hemY) || 999);
+    // 신발은 **다리보다 먼저** 정해야 한다 — 굽이 종아리 모양을 바꾸기 때문이다
+    const shoeItem = pick('shoes', outfit.shoes);
+    const shoeHeel = heelOf(shoeItem);
 
     const hairItem = getItem('hair', outfit.hair);
     // 머리색 — 다른 칸과 같은 규칙이다. 염색한 색이 있으면 그것, 없으면 헤어의 원래 색.
@@ -3196,7 +3216,7 @@
 
     const layers = [
       H(hairBack(hairBackKind, hairColor)),
-      B(legs(tune)),
+      B(legs(tune, shoeHeel)),
       B(torsoArms(tune, uid, neck)),
       // 상의 → 하의 순. **상의가 뒤, 하의가 앞이다** — 옷을 넣어 입은 모양이 된다.
       // (반대로 두면 상의 밑단이 치마 허리춤 위에 얹혀 빼 입은 것처럼 보인다)
@@ -3212,7 +3232,7 @@
       // ⚠️ 대신 **부츠 목은 밑단 위로 안 올라간다** (`legHemY`) — 예전에는 그것까지
       // 위로 올라와, 바짓단 한가운데에 색이 다른 기둥이 서 있는 꼴이었다
       // (「롱부츠가 청바지 위로 올라옴」으로 신고받았다)
-      B(renderShoes(pick('shoes', outfit.shoes), tune, legHemY)),
+      B(renderShoes(shoeItem, tune, legHemY)),
       B(hasDress ? renderDress(dress, tune, w) : ''),
       // 허리 아래의 팔은 **치마보다 앞**이다 — 안 그러면 퍼진 치마가 팔뚝과 손을
       // 통째로 덮어, 소매 끝 언저리에 살색 조각만 남는다 (armsOverSkirt 참고)
