@@ -742,6 +742,7 @@
     // 목이 시작되는 높이. **무릎 위로도, 옷 밑단 위로도 안 올라간다.**
     // 밑단을 안 보면 발목까지 오는 청바지 한가운데에 부츠 목이 기둥처럼 선다
     const topY = Math.max(LEG.calfY, FY - rise, Number(legHemY) || 0);
+    const openUp = topY < FY - 8;            // 입구가 발 타원(위 끝 FY−7.6)보다 위인가
     if (rise > 0 && topY < FY - 3) {
       const pts = calfPts(tune);
       const cut = (id, y0, h, col) =>
@@ -752,8 +753,12 @@
         + `</g>`;
       shaft = cut(uid, topY, FY - topY + 12, c);
       // 입구에 띠를 하나 둘러 발목과 경계가 보이게 한다.
-      // ⚠️ **이것도 종아리 폭을 따라야 한다** — 폭을 박아 두면 굵은 다리에서 띠만 짧아진다
-      band = cut(uid + 'b', topY, 2.6, c2);
+      // ⚠️ **종아리 폭을 따르는 것은 입구가 «발 위»에 있을 때뿐이다.**
+      // 목이 5인 「로우」는 입구가 발 타원(위 끝 FY−7.6) 안에 들어가는데, 거기서
+      // 종아리 폭으로 그리면 **발보다 안쪽으로 치우친 덩어리**가 얹힌다 —
+      // 발은 발목 한가운데보다 6px 바깥에 있어서다(`footX`). 그때는 발 위에 곧은 선
+      // 하나로 긋는다. 발 타원은 배율을 안 타므로 거기서는 폭을 박아도 어긋나지 않는다
+      band = openUp ? cut(uid + 'b', topY, 2.6, c2) : '';
     }
     const foot = (cx) => {
       let s = '';
@@ -765,10 +770,15 @@
         + `<circle cx="${cx}" cy="${FY - 5}" r="2" fill="${c2}"/>`;
       else if (fin === 'sole')  s += `<ellipse cx="${cx}" cy="${FY + 3}" rx="13" ry="3.4" fill="${c2}"/>`;
       else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="${FY - 2}" rx="5" ry="2.4" fill="#fff" opacity="0.75"/>`;
+      // 발 안에 든 입구는 곧은 선으로 (위의 `band` 참고)
+      if (rise > 0 && !openUp) s += `<path d="M${cx - 9},${topY} L${cx + 9},${topY}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
       return s;
     };
     const fx = footX(tune);
-    return `<g data-part="shoes">${shaft}${band}${foot(fx)}${foot(200 - fx)}</g>`;
+    // 띠는 **발보다 나중에** 그린다. 목이 5인 「로우」는 입구가 발 타원 안에 들어가서,
+    // 발보다 먼저 그리면 통째로 가려져 **플랫과 구별이 안 된다** (그렇게 만들었다가 되돌렸다).
+    // 띠는 그 높이의 발보다 좁으므로 발 밖으로 삐져나오지 않는다
+    return `<g data-part="shoes">${shaft}${foot(fx)}${foot(200 - fx)}${band}</g>`;
   }
 
   // 몸통 배율이 바뀌면 몸통 옆선이 안팎으로 움직인다. 팔이 제자리면 몸통에서 떨어지므로

@@ -442,21 +442,55 @@ function launchOpts() {
       colors: { shoes: hex(BOOT) } }, extra);
     // 목이 있는 구두 전부 × 종아리 배율 (50 · 100 · 150%)
     const rise = D.WARDROBE.shoes.filter(s => (Number(s.rise) || 0) > 0);
-    let worst = 0, worstAt = '';
+    let worst = 0, worstAt = '', seen = 0;
     for (const sh of rise) {
       for (const k of [0.5, 1, 1.5]) {
         const tune = { torso: 1, waist: 1, hip: 1, arm: 1, thigh: k, calf: k, face: 1 };
         await draw(wear({ shoes: sh.id }), tune);
-        // 신은 구간 — 목의 위끝(FY−rise)과 발목 사이. 양 끝은 곡선이 도는 자리라 2px 씩 뺀다
-        const y0 = Math.round(FY - sh.rise) + 2, y1 = ANKLE - 2;
-        if (y1 <= y0) continue;
+        // 신은 구간 — 목의 위끝(FY−rise)부터 발목까지.
+        // ⚠️ **양 끝을 2px 씩 잘라 내지 않는다.** 그렇게 뒀더니 목이 5인 「로우」 다섯
+        // 켤레는 구간이 거꾸로 뒤집혀(y331~329) **통째로 건너뛰었다** — 0px 이
+        // 「통과」가 아니라 「한 번도 안 쟀다」가 되던 자리다.
+        // 자를 필요도 없다: 입구는 네모로 자른 하드 경계라 그 줄부터 곧바로 부츠이고,
+        // 발목 아래는 발 타원이 덮는다
+        const y0 = Math.ceil(FY - sh.rise), y1 = ANKLE;
         const n = count(SKIN, y0, y1);
+        seen++;
         if (n > worst) { worst = n; worstAt = `${sh.id} 종아리${k * 100}%`; }
         if (n > 0) bad.push(`${sh.id}: 종아리 ${k * 100}% 에서 부츠 밖으로 살색 ${n}px (y${y0}~${y1})`);
       }
     }
+    // **재고 나서 「몇 켤레를 쟀는지」 확인한다.** 0px 이 「통과」인지 「안 쟀다」인지
+    // 갈라 놓지 않으면, 구간이 뒤집힌 신발이 조용히 검사망 밖으로 빠진다 (실제로 그랬다)
+    const want = rise.length * 3;
+    if (seen !== want) bad.push(`부츠 ${want}가지 중 ${seen}가지만 쟀다 — 0px 이 통과가 아니다`);
+    rows.push(`잰 것 ${seen}/${want}`);
     rows.push(`살이 나온 곳 ${worst}px${worst ? ` (${worstAt})` : ''}`);
-    // ② 바짓단 — 청바지(발목까지)를 입고 제일 긴 부츠를 신는다
+
+    // ② **입구 띠가 남아 있는가.** 목이 5인 「로우」는 입구가 발 타원 안이라, 띠를
+    //    발보다 «먼저» 그리는 순간 통째로 가려져 **플랫과 구별이 안 됐다**
+    //    (그렇게 만들었다가 눈으로 보고 되돌렸다 — 살색 검사로는 안 잡힌다).
+    //    장식이 하나도 없는 `plain` 셋만 본다: 거기서 부츠 색 말고 다른 색이 나오면
+    //    그것이 곧 띠다 (`strap`·`sole` 은 마감이 같은 색을 쓰므로 갈라내지 못한다)
+    let bands = [];
+    for (const sh of rise.filter(s => (s.finish || 'plain') === 'plain')) {
+      await draw(wear({ shoes: sh.id }), { torso: 1, waist: 1, hip: 1, arm: 1, thigh: 1, calf: 1, face: 1 });
+      const topY = Math.max(256, FY - sh.rise);
+      // 발 한가운데를 **그림에서 찾는다** — 상수를 베끼면 `footX` 를 고쳤을 때 어긋난다.
+      // 발끝 줄(FY)에서 오른발이 차지한 구간의 한가운데다
+      const row = ctx.getImageData(100, FY, 100, 1).data;
+      let lo = -1, hi = -1;
+      for (let i = 0; i < 100; i++) if (row[i * 4 + 3] > 250) { if (lo < 0) lo = i; hi = i; }
+      const x0 = 100 + Math.round((lo + hi) / 2) - 3;
+      const d = ctx.getImageData(x0, Math.max(0, topY - 1), 7, 5).data;
+      const cols = new Set();
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 250) cols.add(`${d[i]},${d[i + 1]},${d[i + 2]}`);
+      bands.push(`${sh.id.replace('shoes_', '')} ${cols.size}`);
+      if (cols.size < 2) bad.push(`${sh.id}: 입구 띠가 안 보인다 (y${topY} 언저리가 한 색뿐) — 목이 없는 구두와 구별이 안 된다`);
+    }
+    rows.push(`입구 띠 ${bands.join(' · ')}`);
+
+    // ③ 바짓단 — 청바지(발목까지)를 입고 제일 긴 부츠를 신는다
     const tall = rise.reduce((a, b) => (b.rise > a.rise ? b : a));
     const pants = D.WARDROBE.bottom.find(b => b.id === 'bottom_pants');
     await draw(wear({ shoes: tall.id, bottom: pants.id }),
@@ -3062,7 +3096,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (같은 뒷머리 안에서 ${BANG_TOP_TOL}px 까지 · 긴 생머리 ${bangTop.dome} 만 봉긋하고`
     + ` 나머지는 ${bangTop.flat} 로 낮다)`);
   console.log(`부츠: 목이 있는 구두 ${boots.n}켤레 × 종아리 50·100·150% — ${boots.rows.join(' · ')}`
-    + ` (둘 다 0 이어야 한다 — 목은 종아리 모양을 따라가고, 바짓단 위로는 안 올라간다)`);
+    + ` (살·바짓단은 0 · 입구 띠는 2색 이상 — 목은 종아리를 따라가고,`
+    + ` 바짓단 위로는 안 올라가고, 목이 짧아도 입구는 보인다)`);
   console.log(`턱밑 머리: 목 옆선에서 머리카락까지 — ${chinHair.rows.join(' · ')}`
     + ` (${CHIN_HAIR_MIN}px 이상 · 붙으면 턱과 목 사이에 머리가 낀 것처럼 보인다)`);
   console.log(`어깨↔머리카락: 목 옆의 틈 ${shHair.gap}px (y≈${shHair.at})`
