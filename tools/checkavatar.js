@@ -490,7 +490,34 @@ function launchOpts() {
     }
     rows.push(`입구 띠 ${bands.join(' · ')}`);
 
-    // ③ 바짓단 — 청바지(발목까지)를 입고 제일 긴 부츠를 신는다
+    // ③ **굽** — 「유리구두를 하이힐로」 요청으로 붙은 것이다 (`genwardrobe` 의 «광택» 줄).
+    //    둘을 본다: 발보다 아래로 내려가 **보이는가**, 그리고 그림 상자 밑(`VB` 348)에
+    //    **안 닿는가**. 굽을 1px 만 더 늘려도 끝이 잘린 채로 그려지는 자리라, 눈으로는
+    //    구별이 안 된다 — SVG 는 viewBox 밖을 아예 안 그리므로 「잘렸다」가 티가 안 난다
+    const bottomRow = () => {
+      for (let y = 347; y >= 300; y--) {
+        const d = ctx.getImageData(0, y, 200, 1).data;
+        for (let i = 0; i < 200; i++) if (d[i * 4 + 3] > 200) return y;
+      }
+      return -1;
+    };
+    const flatShoe = D.WARDROBE.shoes.find(s => !s.heel && s.kind !== 'none');
+    await draw(wear({ shoes: flatShoe.id }), { torso: 1, waist: 1, hip: 1, arm: 1, thigh: 1, calf: 1, face: 1 });
+    const flatBot = bottomRow();
+    const heels = [];
+    for (const sh of D.WARDROBE.shoes.filter(s => Number(s.heel) > 0)) {
+      await draw(wear({ shoes: sh.id }), { torso: 1, waist: 1, hip: 1, arm: 1, thigh: 1, calf: 1, face: 1 });
+      const bot = bottomRow();
+      heels.push(`${sh.id.replace('shoes_', '')} ${bot - flatBot}px`);
+      if (bot <= flatBot) bad.push(`${sh.id}: 굽이 발보다 아래로 안 나온다 (둘 다 y${bot}) — 굽이 있는지 알 수가 없다`);
+      if (bot > 346) bad.push(`${sh.id}: 굽 끝이 그림 상자 밑(348)에 닿는다 (y${bot}) — 잘린 채로 그려진다`);
+    }
+    // ⚠️ **한 켤레도 없으면 그것이 잘못이다.** 굽을 축 표에서 지우면 목록이 비고,
+    // 빈 목록은 아무것도 안 재고 통과한다 — 「로우를 통째로 건너뛰던」 것과 같은 구멍이다
+    if (!heels.length) bad.push('굽이 있는 구두가 하나도 없다 (유리구두는 굽이 있어야 한다)');
+    rows.push(`굽 ${heels.join(' · ') || '없음'}`);
+
+    // ④ 바짓단 — 청바지(발목까지)를 입고 제일 긴 부츠를 신는다
     const tall = rise.reduce((a, b) => (b.rise > a.rise ? b : a));
     const pants = D.WARDROBE.bottom.find(b => b.id === 'bottom_pants');
     await draw(wear({ shoes: tall.id, bottom: pants.id }),

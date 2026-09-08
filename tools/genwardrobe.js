@@ -132,7 +132,12 @@ const SLOTS = {
       { k: 'strap',  ko: '스트랩', en: 'Strap',  emoji: '👠', color: '#8a5a3c' },
       { k: 'ribbon', ko: '리본',   en: 'Ribbon', emoji: '🩰', color: '#ff9ec4' },
       { k: 'sole',   ko: '밑창',   en: 'Sole',   emoji: '👟', color: '#e6e6ee' },
-      { k: 'gloss',  ko: '광택',   en: 'Gloss',  emoji: '✨', color: '#b8e4ff' },
+      // 광택 = **굽이 있는 구두**다. 유리구두가 이 칸에 있고(`flat/gloss`), 「굽이 있는
+      // 구두인데 하이힐로 보이게 해 달라」는 요청이 그 벌에서 나왔다.
+      // ⚠️ **굽을 한 벌에만 붙이지 않는다** — 축 표가 유일한 원본이라 한 벌짜리 예외를
+      // 두면 그 값이 표에서 안 보인다. 마감을 통째로 「굽 있는 줄」로 잡으면
+      // 로우·앵클·롱부츠 광택도 굽 있는 구두가 되는데, 그것이 오히려 결이 맞는다
+      { k: 'gloss',  ko: '광택',   en: 'Gloss',  emoji: '✨', color: '#b8e4ff', heel: 5 },
     ],
   },
 };
@@ -233,6 +238,7 @@ function build() {
         const it = { id, slot, kind: a.k, name: ko };
         it[ax.aField] = (a.v !== undefined) ? a.v : a.k;
         it[ax.bField] = b.k;
+        if (b.heel) it.heel = b.heel;                           // 굽 높이(px) — 마감이 정한다
         if (ax.icon === 'draw') {
           it.color = ax.color;                                  // 칸 하나에 원래 색 하나
         } else {
@@ -261,7 +267,7 @@ function lit(v) { return typeof v === 'string' ? `'${v}'` : String(v); }
 
 function itemLine(it) {
   const keys = ['id', 'slot', 'kind', 'name', 'back', 'bang', 'band', 'orn', 'form', 'charm',
-                'chain', 'pend', 'len', 'rise', 'finish', 'color', 'emoji', 'starter'];
+                'chain', 'pend', 'len', 'rise', 'heel', 'finish', 'color', 'emoji', 'starter'];
   const parts = keys.filter(k => it[k] !== undefined).map(k => `${k}: ${lit(it[k])}`);
   return `    { ${parts.join(', ')} },`;
 }

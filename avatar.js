@@ -733,6 +733,19 @@
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c, 22), rise = Number(it.rise) || 0;
     const FY = BODY.footY;
+    // 굽(heel) — **마감이 정한다** (`genwardrobe` 의 축 표에서 «광택» 줄이 들고 온다).
+    //
+    // ⚠️ **발을 «띄워서» 굽을 만들지 않는다.** 발 몸통을 위로 올리고 그 밑에 기둥을
+    // 세워 봤더니, `legs()` 가 그려 둔 **맨발(살색 타원 cy=FY)이 신발 밑으로 드러났다**
+    // — 구두를 신었는데 발가락이 밖에 나와 있는 꼴이다. 그림에서 바로 보였다.
+    // 신발은 맨발을 덮는 자리에 그대로 두고, **굽만 바닥 아래로 더 내려 긋는다** —
+    // 굽을 신으면 실제로도 그만큼 키가 커지니 결도 맞는다.
+    // (앞에서 본 그림이라 굽은 발 뒤에 가려지는 것이 «진짜»지만, 그러면 하이힐인지
+    //  알 길이 없다. 발 밑으로 내미는 쪽이 한눈에 읽힌다 — 그려 보고 골랐다)
+    const heel = Number(it.heel) || 0;
+    const FLOOR = FY + 7.6;                       // 발 타원의 밑 — 바닥에 닿는 줄
+    const BY = FY, FRX = 13, FRY = 7.6;           // 굽이 있어도 몸통은 그대로다
+    const k = 1;
     const fin = it.finish || ({ maryjane: 'strap', ballet: 'ribbon', sneaker: 'sole',
       glass: 'gloss', boots: 'plain' }[it.kind] || 'plain');
     // 목 — 종아리를 부츠 색으로 한 벌 더 그리고 입구 위를 잘라 낸다.
@@ -762,16 +775,29 @@
     }
     const foot = (cx) => {
       let s = '';
-      s += `<ellipse cx="${cx}" cy="${FY}" rx="13" ry="7.6" fill="${c}"/>`;
+      // 굽 — **발보다 먼저** 그린다. 발 타원 안에서 시작해 바닥 아래로 내려가므로
+      // 위쪽 이음매는 발이 덮어 준다
+      if (heel) {
+        s += `<path d="M${cx - 3.2},${FY + 1} L${cx - 1.9},${(FLOOR + heel).toFixed(1)}`
+          + ` L${cx + 1.9},${(FLOOR + heel).toFixed(1)} L${cx + 3.2},${FY + 1} Z" fill="${c2}"/>`
+          // ⚠️ 굽 끝은 **기둥보다 아래로 안 나간다** — 그림 상자의 밑(`VB` 348)이 코앞이라,
+          // 조금만 더 내려도 굽 끝이 잘린 채로 그려진다 (재 보고 맞춘 자리다)
+          + `<ellipse cx="${cx}" cy="${(FLOOR + heel - 0.8).toFixed(1)}" rx="2.5" ry="0.8" fill="${c2}"/>`;
+      }
+      s += `<ellipse cx="${cx}" cy="${BY}" rx="${FRX}" ry="${FRY}" fill="${c}"/>`;
+      // 밑창 — 굽이 있는 구두에만. 이것이 있어야 발 밑에 막대가 붙은 것이 아니라 «구두»로 읽힌다
+      if (heel) s += `<path d="M${cx - FRX + 1.5},${BY + 2.6} Q${cx},${(BY + FRY + 1.4).toFixed(1)} ${cx + FRX - 1.5},${BY + 2.6} Z" fill="${c2}"/>`;
       // 마감(finish) — 목 높이(rise)와 함께 두 축이다.
       // 옛 세이브는 kind 로만 갈렸다 — finish 가 없으면 그때 규칙으로 떨어진다
-      if (fin === 'strap')      s += `<path d="M${cx - 9},${FY - 4} L${cx + 9},${FY - 4}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
-      else if (fin === 'ribbon') s += `<path d="M${cx - 7},${FY - 5} Q${cx},${FY - 1} ${cx + 7},${FY - 5}" stroke="${c2}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`
-        + `<circle cx="${cx}" cy="${FY - 5}" r="2" fill="${c2}"/>`;
-      else if (fin === 'sole')  s += `<ellipse cx="${cx}" cy="${FY + 3}" rx="13" ry="3.4" fill="${c2}"/>`;
-      else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="${FY - 2}" rx="5" ry="2.4" fill="#fff" opacity="0.75"/>`;
+      // ⚠️ 자리는 전부 **발 몸통(BY·FRX)에서** 잰다 — FY 를 박아 두면 굽이 붙는 순간
+      // 장식만 발 밑에 남는다 (굽이 없으면 k=1 이라 예전 값과 한 톨도 안 달라진다)
+      if (fin === 'strap')      s += `<path d="M${cx - 9 * k},${BY - 4} L${cx + 9 * k},${BY - 4}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
+      else if (fin === 'ribbon') s += `<path d="M${cx - 7 * k},${BY - 5} Q${cx},${BY - 1} ${cx + 7 * k},${BY - 5}" stroke="${c2}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`
+        + `<circle cx="${cx}" cy="${BY - 5}" r="2" fill="${c2}"/>`;
+      else if (fin === 'sole')  s += `<ellipse cx="${cx}" cy="${BY + 3}" rx="${FRX}" ry="3.4" fill="${c2}"/>`;
+      else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="${BY - 2}" rx="${(5 * k).toFixed(1)}" ry="2.4" fill="#fff" opacity="0.75"/>`;
       // 발 안에 든 입구는 곧은 선으로 (위의 `band` 참고)
-      if (rise > 0 && !openUp) s += `<path d="M${cx - 9},${topY} L${cx + 9},${topY}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
+      if (rise > 0 && !openUp) s += `<path d="M${cx - 9 * k},${topY} L${cx + 9 * k},${topY}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
       return s;
     };
     const fx = footX(tune);
