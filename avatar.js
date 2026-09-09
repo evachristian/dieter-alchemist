@@ -729,6 +729,10 @@
   // 종아리 150%(반폭 25.5)에서는 **다리가 부츠 밖으로 삐져나왔다** — 신고받은 자리다.
   // 위를 네모로 자르는 것이 곧 부츠 입구라, 자르는 자리만 `rise` 로 정하면 된다
   const BOOT_PAD = 1.6;                    // 다리보다 아주 살짝 넓게 (테두리가 비치지 않게)
+  // 발등이 드러나는 입구 — **발목보다 이만큼 넓게**, 신발 꼭대기에서 이만큼 파 내려간다.
+  // ⚠️ 폭을 절대값으로 박지 않는다: 발목은 종아리 배율을 타므로(`ankleHalf`) 박아 두면
+  // 가는 다리에서 입구가 다리보다 넓어져 살색이 배경에 맞닿는다
+  const INSTEP_W = 8.5, INSTEP_D = 4.5;
   // 굽 높이(px) — **신발 한 곳에서만 나온다.** 다리(`legs`)와 신발(`renderShoes`)이
   // 둘 다 이 값을 보므로, 따로 읽으면 종아리와 부츠 목이 서로 다른 곡선을 타게 된다
   const heelOf = it => (isNone(it) ? 0 : Math.max(0, Number(it.heel) || 0));
@@ -750,6 +754,12 @@
     const GY = FLOOR + heel;                      // 굽을 신었을 때의 바닥 — 앞코도 여기 닿는다
     const BY = FY, FRX = 13, FRY = 7.6;           // 굽이 있어도 몸통은 그대로다
     const k = 1;
+    // 입구의 바닥. 목이 있는 구두는 발등을 덮으므로 파지 않는다 (그때는 꼭대기 그대로)
+    const instepBot = BY - FRY + (rise ? 0 : INSTEP_D);
+    // 스트랩이 지나는 자리 — 입구의 «아래쪽 3분의 2». 한가운데에 두면 2px 짜리 선이
+    // 입구를 거의 다 덮어 발등이 안 보인다 (검사기가 「발등이 하나도 안 보인다」로 잡았다)
+    const strapY = BY - FRY + INSTEP_D * 0.66;
+    const P0 = n => (+n).toFixed(1);
     const fin = it.finish || ({ maryjane: 'strap', ballet: 'ribbon', sneaker: 'sole',
       glass: 'gloss', boots: 'plain' }[it.kind] || 'plain');
     // 목 — 종아리를 부츠 색으로 한 벌 더 그리고 입구 위를 잘라 낸다.
@@ -792,15 +802,38 @@
           + ` L${P(tx + 2.5)},${GY} C${P(tx + 3.3)},${GY} ${P(tx + 5.5)},${P(GY - 1)} ${P(tx + 5.5)},${FY} Z" fill="${c}"/>`;
       }
       s += `<ellipse cx="${cx}" cy="${BY}" rx="${FRX}" ry="${FRY}" fill="${c}"/>`;
+      // 발등 — **목이 없는 구두는 발등이 드러난다.**
+      // 타원 하나로 두면 발등 자리까지 통째로 신발이라 「납작한 덩어리」로 보인다.
+      //
+      // ⚠️ **칠하는 색은 `SKIN`(다리)이 아니라 `SKIN_SH`(발)다.** 다리 색으로 칠했더니
+      // 발 위에 «다른 색 띠»를 얹어 놓은 꼴이었다 — 여기 드러나는 것은 다리가 아니라
+      // 발등이고, 맨발도 그 색이라 그래야 한 몸으로 읽힌다.
+      // ⚠️ **구멍으로 뚫지 않고 덮는다.** 신발 타원(rx13)이 발 타원(rx12)보다 늘
+      // 1~1.8px 넓어서, 뚫으면 그 사이로 **배경이 실오라기처럼 비친다**
+      // ⚠️ **입구는 발 한가운데에 대칭으로 판다.** 발목 밑으로 옮겨 봤더니 바깥쪽 윤곽만
+      // 그대로 남아 신발이 기울어 보였다 — 발이 발목보다 6px 바깥에 있어서다(`FOOT_OUT`).
+      // 맨발도 그만큼 나가 있으니(위의 그림) 발을 따르는 쪽이 이 그림의 결이다
+      if (!rise) {
+        const P = n => n.toFixed(1);
+        const edge = BY - FRY * Math.sqrt(1 - (INSTEP_W / FRX) ** 2);   // 입구 양 끝(윤곽 위)
+        s += `<path d="M${cx - INSTEP_W},${P(edge)}`
+          + ` A${FRX},${FRY} 0 0 1 ${cx + INSTEP_W},${P(edge)}`
+          + ` Q${cx},${P(2 * instepBot - edge)} ${cx - INSTEP_W},${P(edge)} Z" fill="${SKIN_SH}"/>`;
+      }
       // 마감(finish) — 목 높이(rise)와 함께 두 축이다.
       // 옛 세이브는 kind 로만 갈렸다 — finish 가 없으면 그때 규칙으로 떨어진다
       // ⚠️ 자리는 전부 **발 몸통(BY·FRX)에서** 잰다 — FY 를 박아 두면 굽이 붙는 순간
       // 장식만 발 밑에 남는다 (굽이 없으면 k=1 이라 예전 값과 한 톨도 안 달라진다)
-      if (fin === 'strap')      s += `<path d="M${cx - 9 * k},${BY - 4} L${cx + 9 * k},${BY - 4}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
+      // 스트랩은 **발등을 가로지른다** (메리제인이 그런 신발이다). 발등을 판 구두에서는
+      // 입구 한가운데로 올린다 — 예전 자리(BY−4)는 입구 «바닥»에서 1px 밑이라
+      // 밑단 선과 붙어 신발 테두리가 두꺼워진 것처럼 보였다
+      if (fin === 'strap')      s += `<path d="M${cx - (rise ? 9 : 7) * k},${P0(rise ? BY - 4 : strapY)} L${cx + (rise ? 9 : 7) * k},${P0(rise ? BY - 4 : strapY)}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
       else if (fin === 'ribbon') s += `<path d="M${cx - 7 * k},${BY - 5} Q${cx},${BY - 1} ${cx + 7 * k},${BY - 5}" stroke="${c2}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`
         + `<circle cx="${cx}" cy="${BY - 5}" r="2" fill="${c2}"/>`;
       else if (fin === 'sole')  s += `<ellipse cx="${cx}" cy="${BY + 3}" rx="${FRX}" ry="3.4" fill="${c2}"/>`;
-      else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="${BY - 2}" rx="${(5 * k).toFixed(1)}" ry="2.4" fill="#fff" opacity="0.75"/>`;
+      // 광택은 **입구 아래**에 앉는다 — 신발에 비친 빛이라 발등(살) 위에 뜨면 안 된다.
+      // 발등을 안 파는 구두(목이 있는 것)는 예전 자리 그대로다
+      else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="${rise ? BY - 2 : (instepBot + 3).toFixed(1)}" rx="${(5 * k).toFixed(1)}" ry="2.4" fill="#fff" opacity="0.75"/>`;
       // 발 안에 든 입구는 곧은 선으로 (위의 `band` 참고)
       if (rise > 0 && !openUp) s += `<path d="M${cx - 9 * k},${topY} L${cx + 9 * k},${topY}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
       return s;
@@ -932,7 +965,10 @@
   // 발목은 배율을 안 타므로 종아리를 굵게 해도 발은 제자리다. 가늘게 하면 같이 들어온다.
   // (발목 한가운데에서 바깥으로 6px — 기본값에서 85.4 / 114.6 이 되는 자리다)
   // 안쪽 변은 발목에서 조금 벌어져 있다(innerX) — 그 자리를 그대로 읽어야 발이 발목 밑에 온다
-  const footX = tune => +(100 - ((innerX(LEG.ankleY) + ankleX(tune)) / 2 + 6)).toFixed(2);
+  const FOOT_OUT = 6;                    // 발목 한가운데에서 발이 나가 있는 거리
+  const footX = tune => +(100 - ((innerX(LEG.ankleY) + ankleX(tune)) / 2 + FOOT_OUT)).toFixed(2);
+  // 발목의 반폭 — 발등 입구가 이만큼이라야 다리 밑에 딱 들어앉는다
+  const ankleHalf = tune => (ankleX(tune) - innerX(LEG.ankleY)) / 2;
   // 엉덩이가 허벅지에 내려꽂는 자리는 **바깥 변보다 1px 안쪽**이다.
   //
   // ⚠️ 딱 맞추거나(122) 밖으로 물리면(123) 그 높이에서 실루엣이 1px 턱을 져

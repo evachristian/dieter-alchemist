@@ -555,7 +555,30 @@ function launchOpts() {
     if (!heels.length) bad.push('굽이 있는 구두가 하나도 없다 (유리구두는 굽이 있어야 한다)');
     rows.push(`굽 ${heels.join(' · ') || '없음'}`);
 
-    // ④ 바짓단 — 청바지(발목까지)를 입고 제일 긴 부츠를 신는다
+    // ④ **발등** — 「발등이 좀 플랫하네」로 신고받은 자리다 (첨부한 발레플랫 그림).
+    //    신발 타원 하나로 두면 발등 자리까지 통째로 신발이라 납작한 덩어리로 보인다.
+    //    목이 «없는» 구두는 입구를 파서 발등(발색 `SKIN_SH`)이 드러나야 하고,
+    //    목이 «있는» 구두는 발등을 덮으므로 한 점도 안 드러나야 한다.
+    //    ⚠️ 재는 색이 `SKIN`(다리)이 아니라 `SKIN_SH`(발)라는 것이 요점이다 —
+    //    다리 색으로 칠했더니 발 위에 다른 색 띠를 얹어 놓은 꼴이었다
+    const FOOT_SKIN = [242, 198, 166];              // avatar.js 의 SKIN_SH
+    const vamps = { 판것: 0, 안판것: 0 };
+    for (const sh of D.WARDROBE.shoes.filter(s => s.kind !== 'none')) {
+      await draw(wear({ shoes: sh.id }), { torso: 1, waist: 1, hip: 1, arm: 1, thigh: 1, calf: 1, face: 1 });
+      let n = 0;
+      for (let y = FY - 7; y <= FY - 3; y++) n += inRow(y, FOOT_SKIN);
+      if (sh.rise) {
+        vamps.안판것++;
+        if (n) bad.push(`${sh.id}: 목이 있는데 발등이 ${n}px 드러났다 (y${FY - 7}~${FY - 3}) — 부츠가 발등을 덮어야 한다`);
+      } else {
+        vamps.판것++;
+        if (!n) bad.push(`${sh.id}: 발등이 하나도 안 보인다 — 신발 타원 하나뿐이라 납작한 덩어리로 보인다`);
+      }
+    }
+    rows.push(`발등 판 것 ${vamps.판것} · 안 판 것 ${vamps.안판것}`);
+    if (!vamps.판것 || !vamps.안판것) bad.push('발등 검사가 한쪽을 아예 못 쟀다 — 0건이 통과가 아니다');
+
+    // ⑤ 바짓단 — 청바지(발목까지)를 입고 제일 긴 부츠를 신는다
     const tall = rise.reduce((a, b) => (b.rise > a.rise ? b : a));
     const pants = D.WARDROBE.bottom.find(b => b.id === 'bottom_pants');
     await draw(wear({ shoes: tall.id, bottom: pants.id }),
