@@ -418,6 +418,9 @@ function launchOpts() {
   const boots = await page.evaluate(async () => {
     const D = window.GameData, rows = [], bad = [];
     const SKIN = [255, 220, 196], BOOT = [80, 40, 60];   // 살색 · 검사용 부츠 색(다른 어디에도 없다)
+    // ⚠️ **쓰는 곳보다 위에 둔다** — 아래에 두면 TDZ 로 터진다 (`BANG_TOP_TOL` 에서 겪었다)
+    const GROUND_MIN = 6;                               // 바닥에 닿는 «한 발»의 최소 폭(px)
+    const FOOT_SKIN = [242, 198, 166];                  // avatar.js 의 SKIN_SH (맨발)
     const FY = 334, ANKLE = 331;
     const cv = document.createElement('canvas'); cv.width = 200; cv.height = 348;
     const ctx = cv.getContext('2d');
@@ -529,16 +532,56 @@ function launchOpts() {
     for (const sh of D.WARDROBE.shoes.filter(s => Number(s.heel) > 0)) {
       await draw(wear({ shoes: sh.id }), { torso: 1, waist: 1, hip: 1, arm: 1, thigh: 1, calf: 1, face: 1 });
       const bot = bottomRow();
-      // 앞코 — 신발 **몸통 색**이 어디까지 내려오는가. 굽은 어두운 색(shade)이라 안 섞인다.
-      // ⚠️ 맨 밑줄은 반쯤만 칠해져 색이 흐려진다 — 그래서 «몇 줄까지 내려왔나»로 본다
-      let toeBot = -1;
-      for (let y = bot; y >= 320; y--) if (inRow(y, BOOT)) { toeBot = y; break; }
-      heels.push(`${sh.id.replace('shoes_', '')} ${bot - flatBot}px/앞코 ${bot - toeBot}줄`);
+      // 앞코 — **바닥 줄에 «발 한가운데»가 칠해져 있는가.**
+      // ⚠️ 색으로 재지 않는다: 굽이 있는 펌프스는 바닥에 닿는 것이 «밑창»이라
+      // 몸통보다 어두운 색이고, 그것을 「앞코가 떴다」로 잡던 자리다.
+      // 굽은 몸 안쪽으로 4px 넘게 물려 있으므로 **가운데가 칠해졌으면 앞코**다
+      // 신발 하나가 차지한 상자 — **살이 아닌 칠**만 따라 잰다 (다리·발은 살색이다)
+      const shoeBox = () => {
+        let x0 = 999, x1 = -1, y0 = 999, y1 = -1;
+        for (let y = 318; y <= 347; y++) {
+          const d = ctx.getImageData(100, y, 100, 1).data;
+          for (let i = 0; i < 100; i++) {
+            const o = i * 4;
+            if (d[o + 3] <= 200) continue;
+            const near = (rgb) => Math.abs(d[o] - rgb[0]) <= 6 && Math.abs(d[o + 1] - rgb[1]) <= 6
+              && Math.abs(d[o + 2] - rgb[2]) <= 6;
+            if (near(SKIN) || near(FOOT_SKIN)) continue;
+            if (100 + i < x0) x0 = 100 + i;
+            if (100 + i > x1) x1 = 100 + i;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+        }
+        return { w: x1 - x0 + 1, h: y1 - y0 + 1 };
+      };
+      // 바닥에서 두 줄 위 — 맨 밑줄은 반 픽셀만 칠해져 투명도가 들쭉날쭉하다
+      const wide = (y) => {
+        const d = ctx.getImageData(100, y, 100, 1).data;
+        let n = 0;
+        for (let i = 0; i < 100; i++) if (d[i * 4 + 3] > 200) n++;
+        return n;
+      };
+      const toe = wide(bot - 2);
+      heels.push(`${sh.id.replace('shoes_', '')} ${bot - flatBot}px/바닥폭 ${toe}px`);
       if (bot <= flatBot) bad.push(`${sh.id}: 굽이 발보다 아래로 안 나온다 (둘 다 y${bot}) — 굽이 있는지 알 수가 없다`);
       if (bot > 346) bad.push(`${sh.id}: 굽 끝이 그림 상자 밑(348)에 닿는다 (y${bot}) — 잘린 채로 그려진다`);
-      if (bot - toeBot > 2) {
-        bad.push(`${sh.id}: 앞코가 바닥(y${bot})에서 ${bot - toeBot}px 떠 있다 (y${toeBot} 까지)`
-          + ` — 굽만 닿아 있으면 그 발로는 걸을 수가 없다`);
+      if (toe < GROUND_MIN) {
+        bad.push(`${sh.id}: 바닥 언저리(y${bot - 2})에 한 발이 ${toe}px 밖에 안 닿았다`
+          + ` (${GROUND_MIN}px 이상) — 굽만 닿아 있으면 그 발로는 걸을 수가 없다`);
+      }
+      // ⚠️ **굽 있는 펌프스는 «세로로 긴» 타원이다.** 하이힐은 발이 앞으로 기울어
+      // 발등이 사선으로 떨어지므로, 앞에서 보면 좌우가 좁고 위아래가 길다.
+      // 「하이힐인데 발등이 여전히 플랫하다」로 신고받은 자리이고, **이 줄이 없으면
+      // 기울임을 통째로 지워도 검사가 통과한다** (사보타주로 확인했다).
+      // 목이 있는 구두는 안 잰다 — 부츠는 목이 발목을 감싸서 발을 못 좁힌다
+      if (!sh.rise) {
+        const box = shoeBox();
+        heels.push(`상자 ${box.w}×${box.h}`);
+        if (!(box.h > box.w)) {
+          bad.push(`${sh.id}: 신발이 ${box.w}×${box.h} 로 «좌우가 더 넓다»`
+            + ` — 하이힐은 발등이 사선으로 떨어져 위아래가 길어야 한다`);
+        }
       }
       // 종아리는 목이 없는 구두에서만 잰다 (목이 있으면 장딴지가 부츠에 덮인다)
       if (!sh.rise) {
@@ -561,7 +604,6 @@ function launchOpts() {
     //    목이 «있는» 구두는 발등을 덮으므로 한 점도 안 드러나야 한다.
     //    ⚠️ 재는 색이 `SKIN`(다리)이 아니라 `SKIN_SH`(발)라는 것이 요점이다 —
     //    다리 색으로 칠했더니 발 위에 다른 색 띠를 얹어 놓은 꼴이었다
-    const FOOT_SKIN = [242, 198, 166];              // avatar.js 의 SKIN_SH
     const vamps = { 판것: 0, 안판것: 0 };
     for (const sh of D.WARDROBE.shoes.filter(s => s.kind !== 'none')) {
       await draw(wear({ shoes: sh.id }), { torso: 1, waist: 1, hip: 1, arm: 1, thigh: 1, calf: 1, face: 1 });

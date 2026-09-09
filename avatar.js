@@ -729,13 +729,37 @@
   // 종아리 150%(반폭 25.5)에서는 **다리가 부츠 밖으로 삐져나왔다** — 신고받은 자리다.
   // 위를 네모로 자르는 것이 곧 부츠 입구라, 자르는 자리만 `rise` 로 정하면 된다
   const BOOT_PAD = 1.6;                    // 다리보다 아주 살짝 넓게 (테두리가 비치지 않게)
-  // 발등이 드러나는 입구 — **발목보다 이만큼 넓게**, 신발 꼭대기에서 이만큼 파 내려간다.
-  // ⚠️ 폭을 절대값으로 박지 않는다: 발목은 종아리 배율을 타므로(`ankleHalf`) 박아 두면
-  // 가는 다리에서 입구가 다리보다 넓어져 살색이 배경에 맞닿는다
-  const INSTEP_W = 8.5, INSTEP_D = 4.5;
+  // 발등이 드러나는 입구 — **신발 타원의 «비율»로 잡는다.** 굽이 있으면 발 모양이
+  // 통째로 달라지므로(아래 `footShape`) px 로 박아 두면 굽 있는 구두에서만 어긋난다.
+  //   W : 반폭의 몇 배 · D : 꼭대기에서 «세로 반지름»의 몇 배만큼 파 내려가는가
+  const INSTEP_W = 0.72, INSTEP_D = 0.6;
+
+  // ─── 발의 겉모양 ──────────────────────────────────────────────
+  //
+  // ⚠️ **굽을 신으면 발이 앞으로 기울어 «세로로 긴» 타원이 된다.**
+  // 굽 없이 선 발은 위에서 내려다보는 각이라 **좌우로 넓은** 타원인데, 하이힐은
+  // 발등이 «사선으로» 떨어져서 앞에서 보면 길이가 그대로 보인다 — 그래서 세로가 길고
+  // 좌우는 좁다 (신고받은 자리다: 「하이힐인데 발등이 여전히 플랫하다」).
+  //
+  // ⚠️ **맨발(`legs`)과 신발(`renderShoes`)이 같은 함수를 지나야 한다.** 한쪽만 바꾸면
+  // 맨발이 신발 밖으로 삐져나온다 — 종아리·부츠 목에서 두 번 겪은 것과 같은 사고다.
+  const FOOT_PAD_X = 1, FOOT_PAD_Y = 0.6;      // 신발은 발보다 이만큼 크다
+  function footShape(heel) {
+    const FY = BODY.footY;
+    if (!heel) return { cy: FY, rx: 12, ry: 7 };
+    const GY = FY + 7.6 + heel;                // 굽 끝이 닿는 바닥
+    const top = FY - 6.4;                      // 발등 위 끝 (발목 바로 밑)
+    const bot = GY - FOOT_PAD_Y;               // 신발이 «바닥에 딱» 닿게 되는 자리
+    return { cy: (top + bot) / 2, rx: 6.8, ry: (bot - top) / 2 };
+  }
   // 굽 높이(px) — **신발 한 곳에서만 나온다.** 다리(`legs`)와 신발(`renderShoes`)이
   // 둘 다 이 값을 보므로, 따로 읽으면 종아리와 부츠 목이 서로 다른 곡선을 타게 된다
   const heelOf = it => (isNone(it) ? 0 : Math.max(0, Number(it.heel) || 0));
+  // 발이 «기울어지는» 것은 **목이 없는 구두에서만**이다.
+  // ⚠️ 부츠는 목이 발목을 감싸는데(반폭 15.6) 발만 펌프스 폭(7.8)으로 좁히면
+  // 목의 «안쪽»을 발이 못 덮어 그 사이로 **배경이 쐐기처럼 비친다** — 그려 보고 알았다.
+  // 굽 자체는 부츠에도 있다 (거기서는 예전처럼 앞코를 따로 대서 바닥에 닿게 한다)
+  const pitchOf = it => ((Number(it && it.rise) || 0) ? 0 : heelOf(it));
   function renderShoes(it, tune, legHemY) {
     if (isNone(it)) return '';
     const c = it.color, c2 = shade(c, 22), rise = Number(it.rise) || 0;
@@ -743,22 +767,23 @@
     // 굽(heel) — **마감이 정한다** (`genwardrobe` 의 축 표에서 «광택» 줄이 들고 온다).
     //
     // ⚠️ **발을 «띄워서» 굽을 만들지 않는다.** 발 몸통을 위로 올리고 그 밑에 기둥을
-    // 세워 봤더니, `legs()` 가 그려 둔 **맨발(살색 타원 cy=FY)이 신발 밑으로 드러났다**
-    // — 구두를 신었는데 발가락이 밖에 나와 있는 꼴이다. 그림에서 바로 보였다.
-    // 신발은 맨발을 덮는 자리에 그대로 두고, **굽만 바닥 아래로 더 내려 긋는다** —
-    // 굽을 신으면 실제로도 그만큼 키가 커지니 결도 맞는다.
-    // (앞에서 본 그림이라 굽은 발 뒤에 가려지는 것이 «진짜»지만, 그러면 하이힐인지
-    //  알 길이 없다. 발 밑으로 내미는 쪽이 한눈에 읽힌다 — 그려 보고 골랐다)
+    // 세워 봤더니, `legs()` 가 그려 둔 **맨발(살색 타원)이 신발 밑으로 드러났다** —
+    // 구두를 신었는데 발가락이 밖에 나와 있는 꼴이다. 그림에서 바로 보였다.
+    // 지금은 발 자체가 기울어(`footShape`) 신발이 그 모양을 그대로 덮는다.
     const heel = heelOf(it);
     const FLOOR = FY + 7.6;                       // 맨발이 바닥에 닿던 줄
-    const GY = FLOOR + heel;                      // 굽을 신었을 때의 바닥 — 앞코도 여기 닿는다
-    const BY = FY, FRX = 13, FRY = 7.6;           // 굽이 있어도 몸통은 그대로다
-    const k = 1;
+    const GY = FLOOR + heel;                      // 굽을 신었을 때의 바닥
+    // 신발 몸통 = 발보다 한 겹 큰 타원. **굽이 있으면 세로로 길어진다** (`footShape`)
+    const pitch = pitchOf(it);
+    const ft = footShape(pitch);
+    const BY = ft.cy, FRX = ft.rx + FOOT_PAD_X, FRY = ft.ry + FOOT_PAD_Y;
+    const k = FRX / 13;                           // 장식 폭도 몸통을 따라 줄어든다
+    const iW = FRX * INSTEP_W;                    // 입구 반폭
     // 입구의 바닥. 목이 있는 구두는 발등을 덮으므로 파지 않는다 (그때는 꼭대기 그대로)
-    const instepBot = BY - FRY + (rise ? 0 : INSTEP_D);
+    const instepBot = BY - FRY + (rise ? 0 : FRY * INSTEP_D);
     // 스트랩이 지나는 자리 — 입구의 «아래쪽 3분의 2». 한가운데에 두면 2px 짜리 선이
     // 입구를 거의 다 덮어 발등이 안 보인다 (검사기가 「발등이 하나도 안 보인다」로 잡았다)
-    const strapY = BY - FRY + INSTEP_D * 0.66;
+    const strapY = BY - FRY + FRY * INSTEP_D * 0.66;
     const P0 = n => (+n).toFixed(1);
     const fin = it.finish || ({ maryjane: 'strap', ballet: 'ribbon', sneaker: 'sole',
       glass: 'gloss', boots: 'plain' }[it.kind] || 'plain');
@@ -789,36 +814,53 @@
     }
     const foot = (cx) => {
       let s = '';
-      // 굽과 앞코 — **둘 다 바닥(GY)에 닿는다.** 굽만 닿으면 발끝이 떠 있어서
-      // 그 발로는 걸을 수가 없다 (그렇게 그렸다가 신고받았다).
-      // 앞코는 가운데, 굽은 **안쪽으로** 물린다 — 반대로 두면 안짱다리로 보인다.
-      // 발보다 먼저 그리므로 위쪽 이음매는 발이 덮어 준다
+      // 굽 — **뒤에 있으니 발보다 먼저** 그린다. **안쪽으로** 물린다 (바깥으로 두면
+      // 안짱다리로 보인다). 앞코는 따로 안 그린다: 기울어진 발 타원이 바닥까지 내려가
+      // **그 자체가 앞코**다 (예전에는 납작한 타원 밑에 앞코를 덧대야 했다)
+      const sx = cx < 100 ? -1 : 1;                   // 바깥쪽(몸에서 먼 쪽)이 +
       if (heel) {
-        const sx = cx < 100 ? -1 : 1;                 // 바깥쪽(몸에서 먼 쪽)이 +
-        const hx = cx - sx * 6, tx = cx + sx * 4;     // 굽은 안쪽 · 앞코는 바깥쪽
-        const P = n => n.toFixed(1);
-        s += `<path d="M${P(hx - 2.4)},${FY} L${P(hx - 1.6)},${GY} L${P(hx + 1.6)},${GY} L${P(hx + 2.4)},${FY} Z" fill="${c2}"/>`
-          + `<path d="M${P(tx - 5.5)},${FY} C${P(tx - 5.5)},${P(GY - 1)} ${P(tx - 3.3)},${GY} ${P(tx - 2.5)},${GY}`
-          + ` L${P(tx + 2.5)},${GY} C${P(tx + 3.3)},${GY} ${P(tx + 5.5)},${P(GY - 1)} ${P(tx + 5.5)},${FY} Z" fill="${c}"/>`;
+        const hx = cx - sx * (pitch ? FRX * 0.72 : 6);
+        s += `<path d="M${P0(hx - 2.0)},${P0(BY)} L${P0(hx - 1.3)},${P0(GY)}`
+          + ` L${P0(hx + 1.3)},${P0(GY)} L${P0(hx + 2.0)},${P0(BY)} Z" fill="${c2}"/>`;
       }
-      s += `<ellipse cx="${cx}" cy="${BY}" rx="${FRX}" ry="${FRY}" fill="${c}"/>`;
+      // 앞코 — **발이 안 기울어지는 구두(부츠)에만 따로 댄다.** 기울어진 발은
+      // 타원 자체가 바닥까지 내려가 그것이 곧 앞코다
+      if (heel && !pitch) {
+        const tx = cx + sx * 4;
+        s += `<path d="M${P0(tx - 5.5)},${P0(BY)} C${P0(tx - 5.5)},${P0(GY - 1)} ${P0(tx - 3.3)},${P0(GY)} ${P0(tx - 2.5)},${P0(GY)}`
+          + ` L${P0(tx + 2.5)},${P0(GY)} C${P0(tx + 3.3)},${P0(GY)} ${P0(tx + 5.5)},${P0(GY - 1)} ${P0(tx + 5.5)},${P0(BY)} Z" fill="${c}"/>`;
+      }
+      s += `<ellipse cx="${cx}" cy="${P0(BY)}" rx="${P0(FRX)}" ry="${P0(FRY)}" fill="${c}"/>`;
+      // 밑창 — 바닥에 닿는 자리. 없으면 앞코가 바늘처럼 뾰족하게 끝난다
+      // ⚠️ **신발로 오려 낸다.** 타원을 하나 더 얹는 식으로는 안 된다 — 아래로 갈수록
+      // 급히 좁아지는 자리라, 폭을 어떻게 잡아도 어느 높이에서는 앞코 옆으로 삐져나온다
+      if (pitch) {
+        const sid = uid + (cx < 100 ? 'sl' : 'sr');
+        s += `<clipPath id="${sid}"><ellipse cx="${cx}" cy="${P0(BY)}" rx="${P0(FRX)}" ry="${P0(FRY)}"/></clipPath>`
+          + `<rect x="${P0(cx - FRX)}" y="${P0(GY - 3)}" width="${P0(FRX * 2)}" height="6"`
+          + ` fill="${c2}" clip-path="url(#${sid})"/>`;
+      }
       // 발등 — **목이 없는 구두는 발등이 드러난다.**
       // 타원 하나로 두면 발등 자리까지 통째로 신발이라 「납작한 덩어리」로 보인다.
       //
       // ⚠️ **칠하는 색은 `SKIN`(다리)이 아니라 `SKIN_SH`(발)다.** 다리 색으로 칠했더니
       // 발 위에 «다른 색 띠»를 얹어 놓은 꼴이었다 — 여기 드러나는 것은 다리가 아니라
       // 발등이고, 맨발도 그 색이라 그래야 한 몸으로 읽힌다.
-      // ⚠️ **구멍으로 뚫지 않고 덮는다.** 신발 타원(rx13)이 발 타원(rx12)보다 늘
-      // 1~1.8px 넓어서, 뚫으면 그 사이로 **배경이 실오라기처럼 비친다**
+      // ⚠️ **구멍으로 뚫지 않고 덮는다.** 신발 타원이 발 타원보다 늘 한 겹 크므로
+      // (`FOOT_PAD_*`) 뚫으면 그 사이로 **배경이 실오라기처럼 비친다**
       // ⚠️ **입구는 발 한가운데에 대칭으로 판다.** 발목 밑으로 옮겨 봤더니 바깥쪽 윤곽만
       // 그대로 남아 신발이 기울어 보였다 — 발이 발목보다 6px 바깥에 있어서다(`FOOT_OUT`).
-      // 맨발도 그만큼 나가 있으니(위의 그림) 발을 따르는 쪽이 이 그림의 결이다
+      // 맨발도 그만큼 나가 있으니 발을 따르는 쪽이 이 그림의 결이다
       if (!rise) {
-        const P = n => n.toFixed(1);
-        const edge = BY - FRY * Math.sqrt(1 - (INSTEP_W / FRX) ** 2);   // 입구 양 끝(윤곽 위)
-        s += `<path d="M${cx - INSTEP_W},${P(edge)}`
-          + ` A${FRX},${FRY} 0 0 1 ${cx + INSTEP_W},${P(edge)}`
-          + ` Q${cx},${P(2 * instepBot - edge)} ${cx - INSTEP_W},${P(edge)} Z" fill="${SKIN_SH}"/>`;
+        const edge = BY - FRY * Math.sqrt(1 - INSTEP_W ** 2);   // 입구 양 끝(윤곽 위)
+        // 밑변은 **3차 곡선**이다. 2차(`Q`)로 두면 가운데만 뾰족하게 처져 입구가
+        // 렌즈 모양이 된다 — 3차는 가운데가 «평평하게» 눌려 신발의 앞코 선처럼 보인다.
+        // 제어점 y 는 곡선의 한가운데가 `instepBot` 에 오도록 역산한 값이다
+        const cbY = (instepBot - 0.25 * edge) / 0.75;
+        s += `<path d="M${P0(cx - iW)},${P0(edge)}`
+          + ` A${P0(FRX)},${P0(FRY)} 0 0 1 ${P0(cx + iW)},${P0(edge)}`
+          + ` C${P0(cx + iW * 0.42)},${P0(cbY)} ${P0(cx - iW * 0.42)},${P0(cbY)} ${P0(cx - iW)},${P0(edge)} Z"`
+          + ` fill="${SKIN_SH}"/>`;
       }
       // 마감(finish) — 목 높이(rise)와 함께 두 축이다.
       // 옛 세이브는 kind 로만 갈렸다 — finish 가 없으면 그때 규칙으로 떨어진다
@@ -833,7 +875,7 @@
       else if (fin === 'sole')  s += `<ellipse cx="${cx}" cy="${BY + 3}" rx="${FRX}" ry="3.4" fill="${c2}"/>`;
       // 광택은 **입구 아래**에 앉는다 — 신발에 비친 빛이라 발등(살) 위에 뜨면 안 된다.
       // 발등을 안 파는 구두(목이 있는 것)는 예전 자리 그대로다
-      else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="${rise ? BY - 2 : (instepBot + 3).toFixed(1)}" rx="${(5 * k).toFixed(1)}" ry="2.4" fill="#fff" opacity="0.75"/>`;
+      else if (fin === 'gloss') s += `<ellipse cx="${cx - 3}" cy="${rise ? BY - 2 : (instepBot + 3).toFixed(1)}" rx="${(5 * k).toFixed(1)}" ry="${(2.4 * k).toFixed(1)}" fill="#fff" opacity="0.75"/>`;
       // 발 안에 든 입구는 곧은 선으로 (위의 `band` 참고)
       if (rise > 0 && !openUp) s += `<path d="M${cx - 9 * k},${topY} L${cx + 9 * k},${topY}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
       return s;
@@ -1476,20 +1518,23 @@
     ];
   };
 
-  function legs(tune, heel) {
+  function legs(tune, heel, pitch) {
     const L = LEG;
     // 윗머리는 **골반을 따라 들어온다** — 그리는 값도 `thighTop` 한 곳에서 나와야
     // 엉덩이가 재는 폭(`thighOuterAt`)과 어긋나지 않는다
     const thigh = [[L.hipY, thighTop(tune)], [L.kneeY, kneeX(tune)]];
     const calf = calfPts(tune, heel);
-    const fy = BODY.footY, fx = footX(tune);
+    const fx = footX(tune);
+    // 맨발 — **모양은 `footShape` 한 곳에서 나온다** (굽을 신으면 세로로 길어진다).
+    // 여기에 12·7 을 박아 두면 신발만 기울고 맨발은 납작한 채로 남아 옆으로 삐져나온다
+    const ft = footShape(pitch);
+    const foot = cx => `<ellipse cx="${cx}" cy="${ft.cy.toFixed(1)}" rx="${ft.rx}" ry="${ft.ry.toFixed(1)}" fill="${SKIN_SH}"/>`;
     return `
       <g data-part="calf">
         ${limbPath(-1, calf)}
         ${limbPath(1, calf)}
       </g>
-      <ellipse cx="${fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
-      <ellipse cx="${200 - fx}" cy="${fy}" rx="12" ry="7" fill="${SKIN_SH}"/>
+      ${foot(fx)}${foot(200 - fx)}
       <g data-part="thigh">
         ${limbPath(-1, thigh, thighC(tune))}
         ${limbPath(1, thigh, thighC(tune))}
@@ -3236,7 +3281,7 @@
     const legHemY = isNone(legWear) ? 0 : (Number(legWear.hemY) || 999);
     // 신발은 **다리보다 먼저** 정해야 한다 — 굽이 종아리 모양을 바꾸기 때문이다
     const shoeItem = pick('shoes', outfit.shoes);
-    const shoeHeel = heelOf(shoeItem);
+    const shoeHeel = heelOf(shoeItem), shoePitch = pitchOf(shoeItem);
 
     const hairItem = getItem('hair', outfit.hair);
     // 머리색 — 다른 칸과 같은 규칙이다. 염색한 색이 있으면 그것, 없으면 헤어의 원래 색.
@@ -3252,7 +3297,7 @@
 
     const layers = [
       H(hairBack(hairBackKind, hairColor)),
-      B(legs(tune, shoeHeel)),
+      B(legs(tune, shoeHeel, shoePitch)),
       B(torsoArms(tune, uid, neck)),
       // 상의 → 하의 순. **상의가 뒤, 하의가 앞이다** — 옷을 넣어 입은 모양이 된다.
       // (반대로 두면 상의 밑단이 치마 허리춤 위에 얹혀 빼 입은 것처럼 보인다)
