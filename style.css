@@ -1752,6 +1752,7 @@ button.tm-slot:active { transform: scale(0.94); }
 .vil-map.locked,
 .ex-item.locked,
 .ex-min.locked,
+.pg-row.locked,
 /* ⚠️ **도감의 미발견 칸은 「잠금」이 아니라 「미발견」이다.**
    흐리게 만드는 값은 여기 한 곳에서 관리하되(화면마다 따로 흐리게 만들지 않는다 — CLAUDE.md 4번),
    `checkLocked` 의 자물쇠 검사 대상에는 **넣지 않는다.** 자물쇠는 「조건을 채우면 열린다」는
@@ -2951,10 +2952,11 @@ button.tm-slot:active { transform: scale(0.94); }
   display: flex; align-items: flex-start; gap: 9px;
   padding: 8px 10px; border-radius: 14px; background: var(--cream);
 }
-/* 아직 못 가는 맵의 재료 — 잠긴 콘텐츠 공통 표현을 쓴다 (CLAUDE.md 4번).
+/* 아직 못 가는 맵의 재료 — 흐리게 만드는 값은 **공통 블록**이 준다 (CLAUDE.md 4번).
+   ⚠️ 예전에는 여기에 `filter`·`opacity` 를 그대로 베껴 뒀는데, 그러면 공통 블록을
+   고쳐도 이 줄만 옛 값에 남는다 — 규칙이 「화면마다 따로 흐리게 만들지 않는다」인 이유다.
    ⚠️ **잠긴 줄의 글자는 `--ink` 로 진하게 잡는다.** `saturate()` 는 명도를 «거의»
    보존할 뿐이라, 채도 높은 색(핑크 4.23:1 · 민트 4.02:1)은 이 밑에서 4.5 를 못 넘긴다 */
-.pg-row.locked { filter: saturate(0.15); opacity: 0.8; }
 .pg-row.locked .pg-n,
 .pg-row.locked .pg-lock,
 .pg-row.locked .pg-have { color: var(--ink); }
