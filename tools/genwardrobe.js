@@ -132,14 +132,25 @@ const SLOTS = {
       { k: 'strap',  ko: '스트랩', en: 'Strap',  emoji: '👠', color: '#8a5a3c' },
       { k: 'ribbon', ko: '리본',   en: 'Ribbon', emoji: '🩰', color: '#ff9ec4' },
       { k: 'sole',   ko: '밑창',   en: 'Sole',   emoji: '👟', color: '#e6e6ee' },
-      // 광택 = **굽이 있는 구두**다. 유리구두가 이 칸에 있고(`flat/gloss`), 「굽이 있는
-      // 구두인데 하이힐로 보이게 해 달라」는 요청이 그 벌에서 나왔다.
-      // ⚠️ **굽을 한 벌에만 붙이지 않는다** — 축 표가 유일한 원본이라 한 벌짜리 예외를
-      // 두면 그 값이 표에서 안 보인다. 마감을 통째로 「굽 있는 줄」로 잡으면
-      // 로우·앵클·롱부츠 광택도 굽 있는 구두가 되는데, 그것이 오히려 결이 맞는다
-      { k: 'gloss',  ko: '광택',   en: 'Gloss',  emoji: '✨', color: '#b8e4ff', heel: 5 },
+      { k: 'gloss',  ko: '광택',   en: 'Gloss',  emoji: '✨', color: '#b8e4ff' },
     ],
   },
+};
+
+// ─── 굽 (하이힐) ──────────────────────────────────────────────────
+//
+// **굽은 축이 아니라 «조합 하나»에 붙는다.** 하이힐인 것은 «유리구두» 하나뿐이라
+// 축(목 높이 · 마감) 어느 쪽에도 걸 수가 없다 — 마감(광택)에 걸었더니
+// 로우·앵클·롱부츠 광택까지 하이힐이 되어 **「그것들은 하이힐이 아니다」로 되돌렸다.**
+//
+// 그래서 조합 키(`a/b`)로 적는 표를 따로 둔다. 축 표는 축 표대로 깨끗하고,
+// 예외는 여기 한 줄로 «보인다» — 축에 숨겨 두는 것보다 낫다.
+//
+// ⚠️ **목이 있는 조합에는 굽을 못 붙인다.** 부츠는 목이 발목을 감싸는데 굽을 신으면
+// 발이 좁아져(`avatar.js` 의 `footShape`) 목 안쪽으로 배경이 비친다.
+// `checkavatar` 가 그것을 잡는다
+const HEEL = {
+  shoes: { 'flat/gloss': 5 },        // 유리구두
 };
 
 // ─── 이미 있던 24벌 ───────────────────────────────────────────────
@@ -238,7 +249,7 @@ function build() {
         const it = { id, slot, kind: a.k, name: ko };
         it[ax.aField] = (a.v !== undefined) ? a.v : a.k;
         it[ax.bField] = b.k;
-        if (b.heel) it.heel = b.heel;                           // 굽 높이(px) — 마감이 정한다
+        if (HEEL[slot] && HEEL[slot][key]) it.heel = HEEL[slot][key];   // 굽 높이(px)
         if (ax.icon === 'draw') {
           it.color = ax.color;                                  // 칸 하나에 원래 색 하나
         } else {
