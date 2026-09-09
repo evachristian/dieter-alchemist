@@ -420,6 +420,7 @@ function launchOpts() {
     const SKIN = [255, 220, 196], BOOT = [80, 40, 60];   // 살색 · 검사용 부츠 색(다른 어디에도 없다)
     // ⚠️ **쓰는 곳보다 위에 둔다** — 아래에 두면 TDZ 로 터진다 (`BANG_TOP_TOL` 에서 겪었다)
     const GROUND_MIN = 6;                               // 바닥에 닿는 «한 발»의 최소 폭(px)
+    const JOIN_STEP = 3;                                // 발목↔발 이음매에서 옆선이 튀어도 되는 폭(px)
     const FOOT_SKIN = [242, 198, 166];                  // avatar.js 의 SKIN_SH (맨발)
     const FY = 334, ANKLE = 331;
     const cv = document.createElement('canvas'); cv.width = 200; cv.height = 348;
@@ -619,6 +620,37 @@ function launchOpts() {
     }
     rows.push(`발등 판 것 ${vamps.판것} · 안 판 것 ${vamps.안판것}`);
     if (!vamps.판것 || !vamps.안판것) bad.push('발등 검사가 한쪽을 아예 못 쟀다 — 0건이 통과가 아니다');
+
+    // ⑤ **발목↔발** — 「발목이랑 발이 끊어져 있다」로 신고받은 자리다.
+    //    다리가 끝나는 y331 언저리에서 **실루엣의 «안쪽» 옆선이 툭 튀면** 발이 따로
+    //    떨어져 붙어 있는 것처럼 보인다 (기울어진 발을 6px 나 바깥에 두었더니
+    //    104 → 109 로 뛰었다).
+    //    ⚠️ **«바깥» 변은 안 잰다** — 발은 발목보다 넓어서 거기서는 원래 확 벌어진다.
+    //    ⚠️ **발끝(밑단)도 안 잰다** — 앞코가 오므라들며 안쪽 변도 같이 들어온다.
+    //    그래서 «이음매 구간»(y324~336)만 본다
+    let worstStep = 0, stepAt = '';
+    for (const sh of D.WARDROBE.shoes.filter(s => s.kind !== 'none')) {
+      for (const k of [1, 1.5]) {
+        await draw(wear({ shoes: sh.id }), { torso: 1, waist: 1, hip: 1, arm: 1, thigh: k, calf: k, face: 1 });
+        let prev = -1;
+        for (let y = 324; y <= 336; y++) {
+          const d = ctx.getImageData(100, y, 100, 1).data;
+          let lo = -1;
+          for (let i = 0; i < 100; i++) if (d[i * 4 + 3] > 200) { lo = 100 + i; break; }
+          if (lo < 0) { bad.push(`${sh.id}: 종아리 ${k * 100}% 에서 y${y} 줄이 통째로 비었다 — 다리와 발이 끊어졌다`); break; }
+          if (prev >= 0) {
+            const step = Math.abs(lo - prev);
+            if (step > worstStep) { worstStep = step; stepAt = `${sh.id.replace('shoes_', '')} 종아리${k * 100}% y${y}`; }
+            if (step > JOIN_STEP) {
+              bad.push(`${sh.id}: 종아리 ${k * 100}% 의 y${y} 에서 안쪽 옆선이 ${step}px 튄다`
+                + ` (${JOIN_STEP}px 까지) — 발목과 발이 끊어져 보인다`);
+            }
+          }
+          prev = lo;
+        }
+      }
+    }
+    rows.push(`발목↔발 옆선 최대 ${worstStep}px (${stepAt})`);
 
     // ⑤ 바짓단 — 청바지(발목까지)를 입고 제일 긴 부츠를 신는다
     const tall = rise.reduce((a, b) => (b.rise > a.rise ? b : a));

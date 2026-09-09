@@ -880,7 +880,7 @@
       if (rise > 0 && !openUp) s += `<path d="M${cx - 9 * k},${topY} L${cx + 9 * k},${topY}" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>`;
       return s;
     };
-    const fx = footX(tune);
+    const fx = footX(tune, pitch);
     // 띠는 **발보다 나중에** 그린다. 목이 5인 「로우」는 입구가 발 타원 안에 들어가서,
     // 발보다 먼저 그리면 통째로 가려져 **플랫과 구별이 안 된다** (그렇게 만들었다가 되돌렸다).
     // 띠는 그 높이의 발보다 좁으므로 발 밖으로 삐져나오지 않는다
@@ -1007,8 +1007,14 @@
   // 발목은 배율을 안 타므로 종아리를 굵게 해도 발은 제자리다. 가늘게 하면 같이 들어온다.
   // (발목 한가운데에서 바깥으로 6px — 기본값에서 85.4 / 114.6 이 되는 자리다)
   // 안쪽 변은 발목에서 조금 벌어져 있다(innerX) — 그 자리를 그대로 읽어야 발이 발목 밑에 온다
-  const FOOT_OUT = 6;                    // 발목 한가운데에서 발이 나가 있는 거리
-  const footX = tune => +(100 - ((innerX(LEG.ankleY) + ankleX(tune)) / 2 + FOOT_OUT)).toFixed(2);
+  // 발목 한가운데에서 발이 나가 있는 거리.
+  // ⚠️ **굽을 신으면 확 줄어든다.** 기울어진 발은 좁아서(반폭 7.8) 6px 이나 나가 있으면
+  // **발목 안쪽 밑에 배경이 쐐기처럼 남는다** — 옆선이 y331 에서 104 → 109 로 툭 튀어
+  // 「발목이랑 발이 끊어져 있다」로 신고받았다. 굽을 신으면 발이 몸 밑으로 모이기도 한다
+  const FOOT_OUT = 6, FOOT_OUT_HEEL = 2;
+  const footOutOf = pitch => (pitch ? FOOT_OUT_HEEL : FOOT_OUT);
+  const footX = (tune, pitch) =>
+    +(100 - ((innerX(LEG.ankleY) + ankleX(tune)) / 2 + footOutOf(pitch))).toFixed(2);
   // 발목의 반폭 — 발등 입구가 이만큼이라야 다리 밑에 딱 들어앉는다
   const ankleHalf = tune => (ankleX(tune) - innerX(LEG.ankleY)) / 2;
   // 엉덩이가 허벅지에 내려꽂는 자리는 **바깥 변보다 1px 안쪽**이다.
@@ -1524,7 +1530,7 @@
     // 엉덩이가 재는 폭(`thighOuterAt`)과 어긋나지 않는다
     const thigh = [[L.hipY, thighTop(tune)], [L.kneeY, kneeX(tune)]];
     const calf = calfPts(tune, heel);
-    const fx = footX(tune);
+    const fx = footX(tune, pitch);
     // 맨발 — **모양은 `footShape` 한 곳에서 나온다** (굽을 신으면 세로로 길어진다).
     // 여기에 12·7 을 박아 두면 신발만 기울고 맨발은 납작한 채로 남아 옆으로 삐져나온다
     const ft = footShape(pitch);
