@@ -629,6 +629,52 @@ function launchOpts() {
     rows.push(`발등 판 것 ${vamps.판것} · 안 판 것 ${vamps.안판것}`);
     if (!vamps.판것 || !vamps.안판것) bad.push('발등 검사가 한쪽을 아예 못 쟀다 — 0건이 통과가 아니다');
 
+    // ④-2 **발등 입구가 얕고 넓지 않은가** — 「발등이 납작한 뚜껑 같다」로 신고받은 자리다.
+    //    위의 ④ 는 발등이 «드러났는지»만 본다. 입구를 도로 얕고 넓게 되돌려도
+    //    드러나기는 하므로 **그 0건은 모양을 한 번도 안 잰 것이다.**
+    //    재는 것은 **입구의 깊이 ÷ 폭** 하나다 — 모서리(`M` 의 y)에서 가운데 밑변까지가
+    //    깊이다. 옛 모양(W .72 · D .60)이 0.120 이고 지금이 0.152 라 그 사이를 끊는다.
+    //    ⚠️ **모서리의 «각»으로 재려다 헛짚었다.** 뿔처럼 보이던 것이 각인 줄 알았는데
+    //    실제로는 지금 쪽이 더 날카롭고(60° → 54°) 눈에는 낫다 — 원인은 각이 아니라
+    //    얕고 넓은 입구였다. 밑변의 «생김새»(INSTEP_G)로 재는 것도 0.50 ↔ 0.58 밖에
+    //    안 갈려서 버렸다. **가르지 못하는 잣대는 무슨 값을 넣어도 통과한다**
+    //    ⚠️ **픽셀이 아니라 곡선에서 잰다.** 깊이가 2~3px 이라 200×348 래스터로는
+    //    반올림에 묻힌다. `isPointInFill` 로 밑변을 직접 더듬으면 크기와 무관하다
+    const VAMP_ASPECT = 0.135;                    // 깊이÷폭이 이보다 커야 한다
+    const asp = [];
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;left:-9999px;top:0;width:200px';
+    document.body.appendChild(host);
+    for (const sh of D.WARDROBE.shoes.filter(s => s.kind !== 'none' && !s.rise)) {
+      host.innerHTML = window.Avatar.build(wear({ shoes: sh.id }),
+        0, { torso: 1, waist: 1, hip: 1, arm: 1, thigh: 1, calf: 1, face: 1 });
+      const vamp = [...host.querySelectorAll('[data-part="shoes"] path')]
+        .find(el => (el.getAttribute('fill') || '').toLowerCase() === hex(FOOT_SKIN));
+      if (!vamp) { bad.push(`${sh.id}: 발등 입구 path 를 못 찾았다 — 검사가 헛돌고 있다`); continue; }
+      const bb = vamp.getBBox(), cx = bb.x + bb.width / 2;
+      // 모서리의 높이 — 입구는 «모서리에서» 시작하므로 `M` 의 y 가 그것이다.
+      // 재는 것보다 정확하고, 거기서는 곡선이 가팔라 더듬으면 반올림에 걸린다
+      const m = /^M\s*(-?[\d.]+)[ ,]+(-?[\d.]+)/.exec(vamp.getAttribute('d') || '');
+      if (!m) { bad.push(`${sh.id}: 발등 입구의 시작점을 못 읽었다 — 검사가 헛돌고 있다`); continue; }
+      const edge = +m[2];
+      // 가운데 밑변 — 칠의 제일 아래를 0.05px 씩 더듬는다
+      let mid = null;
+      for (let t = bb.y; t <= bb.y + bb.height + 0.1; t += 0.05) {
+        if (vamp.isPointInFill(new DOMPoint(cx, t))) mid = t;
+      }
+      if (mid == null) { bad.push(`${sh.id}: 입구 밑변을 못 쟀다`); continue; }
+      const a = (mid - edge) / bb.width;
+      asp.push(`${sh.id} ${a.toFixed(3)}`);
+      if (!(a > VAMP_ASPECT)) {
+        bad.push(`${sh.id}: 발등 입구가 얕고 넓다 — 깊이÷폭 ${a.toFixed(3)}`
+          + ` (${VAMP_ASPECT} 이상). 신발 위에 얹은 «납작한 뚜껑»으로 보인다`
+          + ' (avatar.js 의 INSTEP_W 를 좁히고 INSTEP_D 를 깊게 한다)');
+      }
+    }
+    host.remove();
+    rows.push(`발등 깊이÷폭 ${asp.join(' · ') || '못 잼'}`);
+    if (!asp.length) bad.push('발등 입구를 한 켤레도 못 쟀다 — 0건이 통과가 아니다');
+
     // ⑤ **발목↔발** — 「발목이랑 발이 끊어져 있다」로 신고받은 자리다.
     //    다리가 끝나는 y331 언저리에서 **실루엣의 «안쪽» 옆선이 툭 튀면** 발이 따로
     //    떨어져 붙어 있는 것처럼 보인다 (기울어진 발을 6px 나 바깥에 두었더니
