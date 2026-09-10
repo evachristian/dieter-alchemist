@@ -1082,6 +1082,14 @@ const PLOT_COST = [0, 0, 100, 200, 400];
 // 이제 등급을 등분해서 **맛보기만** 주고, 나머지는 그물이 한 단계 뒤에 채운다
 // (`tools/checkdata.js` 의 「한 퀘스트가 주는 장 수」).
 const QUESTS = [
+  // ⚠️ **맨 앞은 클레멘의 첫 만남이다.** 튜토리얼을 마치자마자 도착해 있어야 한다 —
+  // 졸업 직후에 할 일이 없으면 「이제 뭘 하지」로 시작하게 된다.
+  // 목표가 **한 번**인 이유: 부엌은 하루 한 번이라 n 을 키우면 첫 퀘스트가 며칠짜리가
+  // 된다. 「같이 먹기」를 누르는 그 자리에서 끝나고 다음으로 이어져야 한다
+  // (「세 번 오면 습관」은 뒤의 `q_kitchen` 이 그대로 맡는다)
+  { id: 'q_meet', npc: 'sp_clemen', act: 1, at: 0,
+    goal: { kind: 'kitchen', n: 1 },
+    reward: { crystal: 30, items: { wheat: 4 } }, cut: { in: 'c_meet_in', out: 'c_meet_out' } },
   { id: 'q_first', npc: 'sp_althea', act: 1, at: 0,
     goal: { kind: 'brew', id: 'vitality', n: 2 },
     reward: { pages: ['potion:low#0/4'], crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },
@@ -1247,6 +1255,15 @@ const CUTS = [
   { id: 'c_sip_out',   act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
   { id: 'c_bloom_in',  act: 1, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'soft']] },
   { id: 'c_bloom_out', act: 1, lines: [['sp_althea', 'cross'], ['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
+  // ─ 요리사 클레멘 — 첫 만남 ─
+  // 공주는 그를 모른다. **그가 먼저 이름을 대고, 먼저 차려 놓는다** —
+  // 「온기만이 등가 교환의 밖에 있다」가 첫 장면에서부터 그렇게 나온다.
+  // ⚠️ 공주의 표정은 **인트로 그림에 있는 포즈**만 쓴다 (`def`→puzzled · `shock`→ask).
+  // 없는 포즈를 적으면 조용히 첫 포즈로 떨어진다 (ART_POLICY · checktalk 이 잡는다)
+  { id: 'c_meet_in',  act: 1, lines: [['sp_gwiriel', 'def'], ['sp_clemen', 'smile'],
+                                      ['sp_clemen', 'def'], ['sp_gwiriel', 'shock'],
+                                      ['sp_clemen', 'warm']] },
+  { id: 'c_meet_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_clemen', 'warm']] },
   // ─ 요리사 클레멘 ─
   // **그는 대가 없이 준다** (STORY.md). 폭식해도 안 깎고 다음 날 아침 아무 말 없이
   // 또 차린다. 그래서 대사에 조건이 없다 — 「먹어요」 뿐이다

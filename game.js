@@ -1110,13 +1110,19 @@ window.gatherCost = gatherCost;
 // 열면 「왜 안 열리지」가 두 벌이 된다 (마을 해금의 「점수로 두 번 잠그지 않는다」).
 // ⚠️ **`need` 는 「이미 가진 것」만 본다** — 되돌아가는 값이 하나도 없다.
 // 키워드·마을·본 컷씬은 전부 한 번 얻으면 안 사라지므로, 열렸던 퀘스트가 닫히지 않는다
-function questReady(q) {
-  if (charmPeak() < (q.at || 0)) return false;
+// 이야기 쪽 조건만 — 키워드 · 마을 · 본 컷씬. **되돌아가는 값이 하나도 없다**
+// (`QUEST.md`). 점수(`at`)와 갈라 둔 이유는 아래 `refreshQuests` 참고 —
+// 초반에 손이 비면 점수는 건너뛰어도 **이쪽은 절대 안 건너뛴다**
+function questNeedOk(q) {
   const need = q.need || {};
   if (need.kw && !(S.keywords || []).includes(need.kw)) return false;
   if (need.village && !(S.villages || []).includes(need.village)) return false;
   if (need.cut && !(S.seenCuts || []).includes(need.cut)) return false;
   return true;
+}
+function questReady(q) {
+  if (charmPeak() < (q.at || 0)) return false;
+  return questNeedOk(q);
 }
 
 function questState() {
@@ -1130,13 +1136,28 @@ function activeQuest() { const q = questState(); return q.active ? D.questOf(q.a
 // 조건이 찬 것을 큐에 담고, 하는 것이 없으면 하나를 꺼내 준다.
 // **완료하자마자 다음 것을 바로 내보낸다** — 하루 제한 같은 걸 두지 않는다
 // (한 번에 하나라서 잘 하는 사람에게는 이미 느리다 · `QUEST.md` 8-4)
+// ⚠️ **초반에는 손이 비지 않게 한다.** 1막의 여덟은 매력(`at`)으로 열리는데,
+// 하나를 끝내고 다음 문턱(6 · 10 · 14…)에 못 미치면 **퀘스트가 하나도 없는 구간**이
+// 생긴다. 그 구간이 하필 게임을 막 시작한 자리라 「이제 뭘 하지」가 된다.
+// 그래서 «비었을 때만» 점수 문턱을 건너뛰고 다음 1막 퀘스트를 내보낸다.
+//
+// **`at` 을 지우는 것이 아니다** — 순서는 그대로 지키고(표 순서 = `at` 오름차순),
+// 「기다리게 하지 않는다」만 더한 것이다. 점수가 이미 넘었으면 원래대로 나간다.
+// ⚠️ **`need`(키워드·마을·본 컷씬)는 절대 안 건너뛴다.** 그것은 점수가 아니라
+// 이야기라, 건너뛰면 아직 만나지도 않은 사람이 부탁을 해 온다 (`QUEST.md` 2막 항).
+// ⚠️ **1막만이다.** 2막부터는 `need` 가 순서를 잡으므로 여기서 밀어 줄 것이 없고,
+//    밀면 이야기를 앞질러 간다
+const EARLY_ACT = 1;
 function refreshQuests() {
   const st = questState();
   if (!S.tutorialDone) return;           // 튜토리얼 중에는 안 준다 (막이 겹친다)
-  D.QUESTS.forEach(q => {
-    if (st.done.includes(q.id) || st.active === q.id || st.queue.includes(q.id)) return;
-    if (questReady(q)) st.queue.push(q.id);
-  });
+  const left = q => !(st.done.includes(q.id) || st.active === q.id || st.queue.includes(q.id));
+  D.QUESTS.forEach(q => { if (left(q) && questReady(q)) st.queue.push(q.id); });
+  if (!st.active && !st.queue.length) {
+    // 점수만 모자란 1막 퀘스트가 남아 있으면 **표 순서대로** 하나 꺼내 준다
+    const early = D.QUESTS.find(q => (q.act || 1) === EARLY_ACT && left(q) && questNeedOk(q));
+    if (early) st.queue.push(early.id);
+  }
   if (!st.active && st.queue.length) { st.active = st.queue.shift(); st.n = 0; }
 }
 window.refreshQuests = refreshQuests;
@@ -1885,10 +1906,13 @@ function renderQuestChip() {
   const now = questProgress(q), max = q.goal.n;
   const full = now >= max;
   const fresh = !(S.quest.n || now) && !full;      // 아직 한 걸음도 안 뗀 것
-  // **아직 한 번도 안 열어 본 퀘스트**에 점(●). 인트로 컷씬을 봤는지가 곧 열어 봤는지다 —
-  // 새 칸을 만들 것 없이 `seenCuts` 하나로 판정된다.
-  // 다 찬 것에는 이미 「!」 뱃지가 붙으므로 **점은 안 찍는다** (둘이 겹치면 뭘 뜻하는지 흐려진다)
-  const unseen = !full && !!(q.cut && q.cut.in) && !(S.seenCuts || []).includes(q.cut.in);
+  // ⚠️ **퀘스트가 있으면 점(●)은 늘 붙어 있는다.**
+  // 예전에는 「아직 한 번도 안 열어 본 것」에만 찍었는데, 한 번 열어 본 뒤에는 점이
+  // 꺼져서 **하던 퀘스트가 있다는 것 자체가 눈에 안 들어왔다** — 칩이 화면 구석의
+  // 동그란 얼굴 하나라 더 그렇다. 지금은 「할 일이 남아 있다」는 뜻이다.
+  // 다 찬 것에는 「!」 뱃지가 «대신» 붙는다 — 그건 「가서 받아라」라서 뜻이 다르다.
+  // 둘 다 오른쪽 위 모서리에 앉지만 `!full` 로 갈라서 **동시에 뜨는 일이 없다**
+  const unseen = !full;
   el.classList.toggle('done', full);
   el.classList.toggle('fresh', fresh);
   // 진행도는 **얼굴 둘레의 링**이다 — 숫자를 안 읽어도 얼마나 남았는지 보인다

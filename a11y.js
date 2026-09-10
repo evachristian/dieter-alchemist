@@ -495,6 +495,11 @@
       report.push({ 언어: code, 배율: '1x', 대비위반: text.count,
                     레이아웃위반: layout.count, 잠금표현위반: locked.count,
                     안보여서건너뜀: text.hiddenByOpacity });
+      // ⚠️ **무엇이 걸렸는지도 들고 나간다.** 예전에는 넘침(`stressRows`)만 남기고
+      // 대비·잠금은 «숫자만» 냈다 — 「1건」이라는 것만 알고 무엇인지 몰라서
+      // 브라우저를 따로 띄워 다시 재야 했다 (`checkui --VERBOSE` 가 헛돌던 자리다)
+      if (text.count) report.textRows = (report.textRows || []).concat(text.rows);
+      if (locked.count) report.lockRows = (report.lockRows || []).concat(locked.rows);
 
       const restore = stressLabels(stress);
       await frame();

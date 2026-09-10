@@ -198,7 +198,9 @@ function launchOpts() {
         const res = await window.checkUI();
         const clean = a => (a || []).slice(0, 10).map(({ el, ...r }) => r);
         return JSON.stringify({ 요약: (res.report || []).filter(x => x.대비위반 || x.넘침),
-          줄: clean(res.report && res.report.stressRows) }, null, 1);
+          대비: clean(res.report && res.report.textRows),
+          잠금: clean(res.report && res.report.lockRows),
+          넘침: clean(res.report && res.report.stressRows) }, null, 1);
       });
       console.log(`\n--- ${label} ---\n${rows}`);
     }
@@ -619,8 +621,10 @@ function launchOpts() {
           if (qBad) results.push({ 화면: `${t}/퀘스트칩`, 오류: qBad });
           else { await page.waitForTimeout(200); await run(`${t}/퀘스트칩`); }
 
-          // **아직 안 열어 본 퀘스트에는 점(●)** — 마을 탭·건물과 같은 신호다.
-          // ⚠️ 다 찬 것에는 「!」 뱃지가 붙으므로 **점과 뱃지는 같이 뜨면 안 된다**
+          // **퀘스트가 있으면 점(●)은 늘 붙어 있는다** — 「할 일이 남아 있다」는 뜻이다.
+          // ⚠️ 예전에는 「아직 안 열어 본 것」에만 찍었는데, 한 번 열면 꺼져서
+          // 하던 퀘스트가 있다는 것 자체가 안 보였다 (신고받아 규칙을 바꾼 자리다).
+          // ⚠️ 다 찬 것에는 「!」 뱃지가 «대신» 붙는다 — **둘이 같이 뜨면 안 된다**
           const qdBad = await page.evaluate(() => {
             const q = activeQuest();
             if (!q) return '퀘스트가 없다';
@@ -630,15 +634,18 @@ function launchOpts() {
             S.seenCuts = keep.filter(c => c !== (q.cut && q.cut.in));
             S.quest.n = 0; renderQuestChip();
             if (!dot()) return '안 열어 본 퀘스트인데 점이 없다';
-            // 열어 봤으면(인트로를 봤으면) 꺼진다
+            // **열어 본 뒤에도 그대로 있는다** (예전에는 여기서 꺼졌다)
             S.seenCuts = keep.concat(q.cut && q.cut.in ? [q.cut.in] : []);
             renderQuestChip();
-            if (dot()) return '열어 봤는데 점이 안 꺼진다';
+            if (!dot()) return '열어 봤다고 점이 꺼졌다 — 하는 퀘스트가 있는 동안은 켜져 있어야 한다';
             // 다 차면 「!」 만 뜨고 점은 안 뜬다
-            S.seenCuts = keep.filter(c => c !== (q.cut && q.cut.in));
             S.quest.n = q.goal.n; renderQuestChip();
             if (!bang()) return '다 찼는데 「!」 가 없다';
             if (dot()) return '다 찼는데 점과 「!」 가 같이 뜬다';
+            // **퀘스트가 없으면 칩째로 없다** — 점만 남으면 거짓말이 된다
+            const back = S.quest.active; S.quest.active = null; renderQuestChip();
+            if (dot()) return '퀘스트가 없는데 점이 남아 있다';
+            S.quest.active = back;
             S.seenCuts = keep; S.quest.n = 0; renderQuestChip();
             return null;
           });
@@ -654,10 +661,18 @@ function launchOpts() {
             if (!document.getElementById('questSheet').classList.contains('show')) return '시트가 안 떴다';
             if (!document.querySelector('#questSheet .q-face svg')) return 'NPC 초상이 없다';
             if (!document.querySelector('#questSheet .q-bar span')) return '진행 막대가 없다';
-            // 비법서 부품을 그대로 쓰는가 — 재료 줄이 있어야 한다 (`pageRowsFor`)
-            if (!document.querySelector('#questSheet .pg-row')) return '어디로 가면 되는지가 없다';
             const btn = document.querySelector('#questSheet .q-claim');
             if (!btn || !btn.disabled) return '아직 못 냈는데 「가져가기」가 살아 있다';
+            // 비법서 부품을 그대로 쓰는가 — 재료 줄이 있어야 한다 (`pageRowsFor`).
+            // ⚠️ **재료가 있는 퀘스트로 갈아 끼워서 잰다.** 첫 퀘스트가 부엌처럼
+            // 재료를 안 쓰는 것이면 줄이 없는 것이 맞는데, 그것을 「없다」로 잡으면
+            // 검사가 표 맨 앞이 무엇이냐에 매달린다
+            closeQuest();
+            const qm = D.QUESTS.find(x => x.goal.kind === 'brew' || x.goal.kind === 'deliver');
+            if (!qm) return '재료를 쓰는 퀘스트가 표에 없다';
+            S.quest = { active: qm.id, n: 0, done: [], queue: [] };
+            openQuest();
+            if (!document.querySelector('#questSheet .pg-row')) return '어디로 가면 되는지가 없다';
             return null;
           });
           if (qsBad) results.push({ 화면: `${t}/퀘스트시트`, 오류: qsBad });
@@ -669,8 +684,13 @@ function launchOpts() {
           // ⚠️ 진행도는 **받은 뒤부터** 센다. `record` 를 그대로 보면 이미 마흔 번
           // 조합한 사람에게 「2번 조합」이 즉시 완료되고 이야기가 통째로 스킵된다
           const qcBad = await page.evaluate(() => {
-            const q = D.questOf(S.quest.active);
-            if (!q || q.goal.kind !== 'brew') return `첫 퀘스트가 조합이 아니다 (${q && q.goal.kind})`;
+            // ⚠️ **첫 퀘스트가 조합이라고 기대지 않는다** (지금 첫 퀘스트는 부엌이다).
+            // 여기서 볼 것은 「진행 → 완료 → 보상 → 다음」이라 조합 퀘스트 하나면 된다
+            const q = D.QUESTS.find(x => x.goal.kind === 'brew' && (x.reward || {}).crystal);
+            if (!q) return '조합으로 끝내는 퀘스트가 표에 없다';
+            // ⚠️ **큐도 같이 비운다** — 그냥 active 만 갈아 끼우면 그 id 가 큐에 남아 있어서
+            // 보상을 받은 «직후에 다시» 같은 퀘스트가 나온다 (「마쳤는데 아직 그 퀘스트다」)
+            S.quest = { active: q.id, n: 0, done: [], queue: [] };
             S.seenCuts = D.CUTS.map(c => c.id);      // 컷씬은 따로 잰다
 
             S.record.brews = 999;                      // 이미 많이 해 본 사람
@@ -708,6 +728,10 @@ function launchOpts() {
           // 재생과 지급이 한 함수에 있으면 스토리 다시보기가 보상을 또 준다 —
           // 만들기 전에 `QUEST.md` 8-5 에 함정으로 적어 두었던 자리다
           const cutBad = await page.evaluate(() => {
+            // ⚠️ **앞 검사가 열어 둔 시트를 물려받지 않는다.** 앞이 일찍 return 하면
+            // 시트가 열린 채로 넘어와 「컷씬보다 시트가 먼저 떴다」로 잡힌다 —
+            // 진짜 고장이 아니라 남의 상태를 본 것이다 (이 파일에서 또 겪었다)
+            if (typeof closeQuest === 'function') closeQuest();
             S.quest = { active: null, n: 0, done: [], queue: [] };
             S.seenCuts = []; S.charmPeak = 0;
             refreshQuests(); render();
@@ -784,7 +808,15 @@ function launchOpts() {
             S.quest = { active: null, n: 0, done: [], queue: [] };
             S.seenCuts = []; S.charmPeak = 0; S.crystal = 1000;
             refreshQuests(); render();
-            const q = D.questOf(S.quest.active);
+            if (!S.quest.active) return '퀘스트가 하나도 안 나왔다';
+            // ⚠️ **「첫 퀘스트」가 무엇인지에 기대지 않는다.** 여기서 볼 것은 «조합해서
+            // 끝내는» 퀘스트의 보상 순서인데, 표 맨 앞이 바뀌면(첫 퀘스트가 부엌이 됐다)
+            // `goal.id` 가 없어 레시피 조회가 통째로 터졌다. 조건에 맞는 것을 골라 세운다
+            const q = D.QUESTS.find(x => x.goal.kind === 'brew' && (x.reward || {}).crystal);
+            if (!q) return '조합으로 끝내는 퀘스트가 표에 없다';
+            // ⚠️ **큐도 같이 비운다** — 그냥 active 만 갈아 끼우면 그 id 가 큐에 남아 있어서
+            // 보상을 받은 «직후에 다시» 같은 퀘스트가 나온다 (「마쳤는데 아직 그 퀘스트다」)
+            S.quest = { active: q.id, n: 0, done: [], queue: [] };
             S.seenCuts = [q.cut.in];                 // 인트로만 본 상태 = 완료 컷씬이 남았다
             const r = D.RECIPES.find(x => x.result.id === q.goal.id);
             r.inputs.forEach(id => { S.inventory[id] = 30; });
@@ -819,9 +851,14 @@ function launchOpts() {
             S.charmPeak = 0; S.discovered = ['vitality', 'blush'];
             S.seenCuts = D.CUTS.map(c => c.id);        // 컷씬은 따로 잰다
             refreshQuests(); render();
-            const q = D.questOf(S.quest.active);
+            if (!S.quest.active) return '퀘스트가 하나도 안 나왔다';
+            // 같은 이유로 **장을 주는 퀘스트**를 골라 세운다 (첫 퀘스트가 아닐 수 있다)
+            const q = D.QUESTS.find(x => ((x.reward || {}).pages || []).length);
+            if (!q) return '장을 주는 퀘스트가 표에 하나도 없다';
+            // ⚠️ **큐도 같이 비운다** — 그냥 active 만 갈아 끼우면 그 id 가 큐에 남아 있어서
+            // 보상을 받은 «직후에 다시» 같은 퀘스트가 나온다 (「마쳤는데 아직 그 퀘스트다」)
+            S.quest = { active: q.id, n: 0, done: [], queue: [] };
             const want = (q.reward.pages || []).reduce((a, sp) => a.concat(D.pagesForSpec(sp)), []);
-            if (!want.length) return '첫 퀘스트에 장 보상이 없다';
             // 보상 줄에 장이 적히는가
             S.quest.n = q.goal.n;
             openQuest();

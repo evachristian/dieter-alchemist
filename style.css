@@ -660,10 +660,14 @@ body.has-quest .screen { padding-bottom: 168px; }
 /* 헤더 톱니 위의 점 — 버튼이 작아서 오른쪽 위 모서리에 얹는다 */
 .hdr-dot { position: absolute; top: 4px; right: 4px; margin: 0; }
 .hdr-gear { position: relative; }
+/* 「여기 볼 것이 있다」는 점. ⚠️ **작으면 아무 일도 안 한다** — 8px 짜리 연분홍이라
+   파스텔 UI 위에서 장식처럼 묻혔다(「레드닷이 잘 안 보인다」). 셋을 같이 올렸다:
+   크기(8 → 10) · 색(#e2557f → 더 붉게) · **흰 테두리 밖의 옅은 붉은 무리**.
+   테두리를 두르는 이유는 어떤 배경 위에 얹혀도 점이 배경에 안 녹게 하려는 것이다 */
 .tab-dot {
-  display: inline-block; width: 8px; height: 8px; margin-left: 6px; flex: 0 0 auto;
-  border-radius: 50%; background: #e2557f;
-  box-shadow: 0 0 0 2px rgba(255,255,255,0.85);
+  display: inline-block; width: 10px; height: 10px; margin-left: 6px; flex: 0 0 auto;
+  border-radius: 50%; background: #e11d48;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(225,29,72,0.28);
   vertical-align: 1px;
 }
 /* '채집' 버튼 — 톡 누르면 한 번, 꾹 누르면 계속 채집한다 (startGatherHold).
@@ -3057,6 +3061,10 @@ button.tm-slot:active { transform: scale(0.94); }
   border: none; border-radius: 50%; background: var(--card);
   box-shadow: 0 4px 14px rgba(90,74,85,0.22);
   cursor: pointer;
+  /* ⚠️ **`<button>` 은 글꼴이 자동으로 안 내려온다** — 안 적으면 UA 기본(Arial)이라
+     안에 든 글자가 전부 본문 스택 밖으로 샌다. 「!」 뱃지 한 글자라 눈으로는 티가
+     안 났고, 그 뱃지가 화면에 잘 안 떠서 **검증기도 오래 못 봤다** */
+  font-family: inherit;
 }
 .quest-chip:active { transform: scale(0.95); }
 .qc-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
@@ -3083,11 +3091,21 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 아직 안 열어 본 퀘스트 — 마을 탭·건물의 점과 같은 것. 칩이 둥글어서
    테두리 위에 얹히므로 흰 테를 조금 더 준다 (「!」 뱃지와 같은 자리다 —
    둘은 «절대 같이 안 뜬다»: 다 찬 것에는 점을 안 찍는다) */
-.qc-dot { position: absolute; top: 1px; right: 1px; margin: 0;
-  width: 11px; height: 11px; box-shadow: 0 0 0 2.5px var(--card); }
+/* 퀘스트 칩의 점 — 칩이 화면 구석의 동그란 얼굴 하나뿐이라 **여기서 제일 커야 한다.**
+   숨을 쉬듯 아주 옅게 뛴다: 끝이 없는 애니메이션이라 `settle()` 이 안 건드리고
+   (CLAUDE.md 「무한 반복은 장식」), 자리를 안 밀도록 `transform` 으로만 움직인다 */
+.qc-dot { position: absolute; top: 0; right: 0; margin: 0;
+  width: 14px; height: 14px;
+  box-shadow: 0 0 0 3px var(--card), 0 0 0 5px rgba(225,29,72,0.3);
+  animation: qcDot 1.9s ease-in-out infinite; }
+@keyframes qcDot {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
+}
 .qc-badge {
   position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px;
   border-radius: 999px; background: var(--text-red); color: #fff;
+  font-family: inherit;
   font-size: 0.72rem; font-weight: 900; line-height: 20px; text-align: center;
 }
 /* ─── 퀘스트 시트 ─── */
