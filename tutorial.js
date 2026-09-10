@@ -105,7 +105,8 @@
         if (typeof setRoomTab === 'function') setRoomTab('clothes');
         if (typeof setWardrobeTab === 'function') setWardrobeTab('shoes');
       },
-      talk: [say('gwiriel', 'tut_h3', 'shock'), say('althea', 'tut_h4', 'warm'), say('althea', 'tut_h5')],
+      talk: [say('gwiriel', 'tut_h3', 'shock'), say('gwiriel', 'tut_h3b', 'smile'),
+             say('althea', 'tut_h4', 'warm'), say('althea', 'tut_h5')],
       tab: 'showcase', act: 'tut_act_shoes', hole: '.wr-item[data-item="' + GIFT_SHOES + '"]',
       wait: 'equip:' + GIFT_SHOES },
 
@@ -115,6 +116,10 @@
 
   // 졸업 — 잠겨 있던 문을 연다 (3구 무쇠 솥 · 크리처 탭 · 옷장 열두 칸 · **비법서**)
   function graduate() {
+    // 이 한 줄이 `roomFigure()` 의 그림을 공주에서 아바타로 갈아 끼운다 —
+    // **바뀌는 순간을 「펑!」으로 알린다** (다음 대사가 「어…? 내 모습이…」다).
+    // 여기서 바로 재생하면 안 된다: 아래 render() 전이라 붙을 상자가 아직 없다
+    if (typeof window.queueMorphFx === 'function') window.queueMorphFx();
     S.tutorialDone = true;
     if (!Array.isArray(S.unlocked)) S.unlocked = [];
     if (!S.unlocked.includes(GIFT_SHOES)) S.unlocked.push(GIFT_SHOES);
@@ -255,7 +260,12 @@
       // **새 path 는 d 가 비어 있다.** 자리가 그대로여서 '안 바뀌었다' 고 건너뛰면
       // 막이 통째로 안 그려진다 — 같은 단계의 다음 대사로 넘어갈 때가 그 경우다
       lastD = '';
-      bringIntoView(s);
+      // ⚠️ **대사를 읽는 중에는 화면을 안 옮긴다.** 지시문(`html`)이 마지막 대사
+      // 뒤에야 나오는 것과 같은 규칙이다 — 할 일이 아직 안 나왔는데 화면만 그리로
+      // 끌고 가면, 지금 «말하고 있는 것»이 화면 밖으로 밀린다.
+      // 졸업 직후의 「어…? 내 모습이…」가 그 자리였다: 방금 바뀐 내 모습을 보라는
+      // 대사인데 화면은 옷장으로 내려가 버렸다 (인물이 top −653 까지 밀렸다)
+      if (beat >= s.talk.length - 1) bringIntoView(s);
     }
     el.classList.add('on');
     el.setAttribute('aria-hidden', 'false');

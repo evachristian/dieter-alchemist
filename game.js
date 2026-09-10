@@ -4102,6 +4102,19 @@ function renderShowcase() {
   renderRoomScene();   // 배경은 스탯이 접혔는지에 따라 아래로 더 그려진다
   // 물약을 마신 직후면 살 빠지는 연출을 이어서 재생
   if (pendingSlimFx) { const lv = pendingSlimFx; pendingSlimFx = null; playSlimFx(lv); }
+  // 졸업의 「펑!」 — 그림이 바뀐 바로 그 렌더에서 한 번.
+  // **먼저 인물을 화면 가운데로 끌어온다** — 다음 대사가 「어…? 내 모습이…」인데
+  // 스크롤이 옷장 쪽에 내려가 있으면 정작 바뀐 모습이 화면 밖에 있다
+  if (pendingMorphFx) {
+    pendingMorphFx = false;
+    const body = document.querySelector('#charStage .char-body');
+    // ⚠️ **`behavior:'smooth'` 를 쓰면 안 된다.** 부드러운 스크롤은 «비동기»라
+    // 바로 다음 줄에서 잰 좌표가 아직 옮기기 «전» 자리다 — 화면에 고정으로 얹는
+    // 「펑!」이 통째로 화면 밖(top −502)에 붙었다. 재 보고 알았다
+    if (body) { try { body.scrollIntoView({ block: 'center', behavior: 'auto' }); }
+                catch (e) { body.scrollIntoView(); } }
+    playMorphFx();
+  }
 
   // 옷장
   renderWardrobe();
@@ -5932,6 +5945,9 @@ function renderBodyTune() {
 //   done — 완전히 날씬해짐: 가장 크게
 // ═══════════════════════════════════════════════════════════════
 let pendingSlimFx = null;      // render() 로 아바타가 다시 그려진 뒤 재생하려고 보관
+// 졸업(공주 그림 → 아바타)에서 딱 한 번 도는 「펑!」. 같은 이유로 보관한다 —
+// `graduate()` 는 render() «전»에 도므로 그 자리에서 재생하면 붙을 상자가 아직 없다
+let pendingMorphFx = false;
 
 function playSlimFx(level) {
   const box = document.getElementById('slimFx');
@@ -5961,6 +5977,68 @@ function playSlimFx(level) {
 
   if (window.Sfx) Sfx.play(level === 'sip' ? 'sparkle' : 'success');
 }
+
+// ─── 졸업의 「펑!」 — 공주 그림이 아바타로 바뀌는 그 한 순간 ───────────
+//
+// 튜토리얼 6단계에서 `roomFigure()` 가 돌려주는 그림이 통째로 바뀌는데, 예전에는
+// **아무 신호 없이 조용히 갈렸다** — 다음 대사가 「어…? 내 모습이…」인데 정작
+// 화면에서는 무엇이 일어났는지 안 보였다.
+//
+// ⚠️ **`setTimeout` 으로 조각을 붙이지 않는다** (엔딩 연출·밭 약탈 줄에서 배운 것과 같다).
+// 검증기가 재는 순간에 아직 안 붙은 조각은 «없는 것»으로 세어 통과한다.
+// 전부 CSS 애니메이션 + `animation-delay` 라, `settle()` 이 끝 상태로 보내 준다 —
+// 그래서 **평소 상태가 곧 끝난 상태**여야 한다 (다 퍼진 뒤 사라진 것이 기본).
+// 치우는 `setTimeout` 하나는 남는데, 그건 «없애는» 쪽이라 늦어도 통과가 안 흔들린다.
+// ⚠️ **조각은 `<body>` 에 붙인다** — 마이 룸 안(`#slimFx`)에 두면 **튜토리얼 막에 덮인다.**
+// 막은 `rgba(24,18,30,0.62)` 로 화면을 62% 덮으므로 그 밑에서는 「펑!」이 흐려져서
+// 무슨 일이 났는지 안 보인다 (실제로 그렇게 만들었다가 화면을 재 보고 알았다).
+// 막(40)보다 위, **모달(50)보다는 아래**에 둔다 — 위에 두면 튜토리얼 중에 뜨는
+// 팝업의 「확인」을 가린다 (막을 40 에 둔 것과 똑같은 이유다).
+function playMorphFx() {
+  const body = document.querySelector('#charStage .char-body');
+  if (!body) { pendingMorphFx = true; return; }           // 아직 안 그려졌으면 다음 렌더에
+
+  body.classList.remove('morph-pop');
+  void body.offsetWidth;                                  // 애니메이션 재시작
+  body.classList.add('morph-pop');
+  setTimeout(() => body.classList.remove('morph-pop'), 1400);
+
+  // 인물이 있는 «그 자리»에 얹는다. 화면에 고정(fixed)이라 지금 좌표면 충분하다 —
+  // 1초도 안 되는 연출이고, 이 직전에 인물을 화면 가운데로 끌어와 두었다
+  const r = body.getBoundingClientRect();
+  const old = document.getElementById('morphFx');
+  if (old) old.remove();
+  const box = document.createElement('div');
+  box.id = 'morphFx';
+  box.className = 'morph-fx';
+  box.setAttribute('aria-hidden', 'true');
+  box.style.left = `${Math.round(r.left)}px`;
+  box.style.top = `${Math.round(r.top)}px`;
+  box.style.width = `${Math.round(r.width)}px`;
+  box.style.height = `${Math.round(r.height)}px`;
+
+  // 퍼지는 고리 둘 + 사방으로 튀는 반짝이. 고리를 둘로 둔 이유는 하나면
+  // 「원이 커진다」로 보이고 둘이라야 «퍼진다»로 읽히기 때문이다
+  const stars = Array.from({ length: 18 }, (_, i) => {
+    const ang = (i / 18) * 360 + (i % 3) * 7;             // 고르게 두르되 조금 흩는다
+    const dist = 70 + (i % 4) * 18;
+    const ch = ['✨', '💫', '⭐', '🌟'][i % 4];
+    return `<span class="morph-star" style="--ang:${ang}deg;--dist:${dist}px;
+      animation-delay:${(i * 0.02).toFixed(3)}s">${ch}</span>`;
+  }).join('');
+  box.innerHTML = `<span class="morph-ring"></span>`
+    + `<span class="morph-ring r2"></span>`
+    + `<span class="morph-flash"></span>${stars}`;
+  document.body.appendChild(box);
+  setTimeout(() => { const b = document.getElementById('morphFx'); if (b) b.remove(); }, 2000);
+
+  if (window.Sfx) Sfx.play('success');
+}
+window.playMorphFx = playMorphFx;
+// ⚠️ **밖에서는 이 함수로 예약한다.** `pendingMorphFx` 는 최상위 `let` 이라
+// `window` 의 속성이 아니다 — `window.pendingMorphFx = true` 로는 이 변수에 안 닿는다
+// (모듈이 없는 프로젝트라 헷갈리기 쉬운 자리다)
+window.queueMorphFx = function () { pendingMorphFx = true; };
 
 // 물약 → 아우라 세부 수치 매핑 (레시피를 추가하면 여기도 한 줄 추가)
 const AURA_BY_POTION = {
@@ -6740,19 +6818,38 @@ function needsPlayerName() { return !S.name; }
 let _confirmCb = null;
 // html 을 주면 문구 아래에 붙는다 (보유/지불 같은 표). **문구 자체는 언제나 textContent 다** —
 // 이름처럼 사람이 넣은 값이 들어와도 태그로 해석되지 않게.
-function showConfirm(msg, cb, html, okLabel) {
+function showConfirm(msg, cb, html, okLabel, title) {
   document.getElementById('confirmText').textContent = msg;
   const extra = document.getElementById('confirmExtra');
   extra.innerHTML = html || '';
   extra.style.display = html ? '' : 'none';
+  // 제목 — 있을 때만 띄운다. **이모지는 따로 넣는다**(`aria-hidden`) —
+  // 이름 안에 섞으면 읽어 주는 기계가 「달리는 사람 운동」으로 읽는다
+  const ttl = document.getElementById('confirmTitle');
+  if (ttl) {
+    ttl.textContent = '';
+    if (title) {
+      if (title.emoji) {
+        const em = document.createElement('span');
+        em.setAttribute('aria-hidden', 'true');
+        em.textContent = title.emoji + ' ';
+        ttl.appendChild(em);
+      }
+      ttl.appendChild(document.createTextNode(title.text || ''));
+    }
+    ttl.style.display = title ? '' : 'none';
+  }
   document.getElementById('confirmOk').textContent = okLabel || T('btn_ok');
   _confirmCb = cb;
   document.getElementById('confirmModal').classList.add('show');
 }
 function closeConfirm() {
   document.getElementById('confirmModal').classList.remove('show');
-  // 라벨을 되돌려 놓지 않으면 다음 패널이 남의 가격표를 달고 뜬다
+  // 라벨을 되돌려 놓지 않으면 다음 패널이 남의 가격표를 달고 뜬다.
+  // **제목도 마찬가지다** — 안 지우면 다음 확인 패널에 「🏃 운동」이 그대로 남는다
   document.getElementById('confirmOk').textContent = T('btn_ok');
+  const ttl = document.getElementById('confirmTitle');
+  if (ttl) { ttl.innerHTML = ''; ttl.style.display = 'none'; }
   _confirmCb = null;
 }
 function confirmYes() {
@@ -8227,7 +8324,10 @@ function openExercise() {
   // 시간도 **지금 할 수 있는 것 중 제일 긴 것**으로. 하나도 못 하면 제일 짧은 것을 둔다
   const oks = D.EXERCISE_MINS.filter(m => exMinOk(ex, m));
   exPickMin = oks.length ? oks[oks.length - 1] : D.EXERCISE_MINS[0];
-  showConfirm(T('ex_ask'), doWorkout, exPanel(), T('ex_go'));
+  // 제목은 **이 팝업을 연 버튼과 같은 얼굴**이다 (🏃 + `act_exercise`) —
+  // 문자열을 새로 만들지 않아야 두 자리가 갈릴 일이 없다
+  showConfirm(T('ex_ask'), doWorkout, exPanel(), T('ex_go'),
+    { emoji: '🏃', text: T('act_exercise') });
   exSync();
 }
 window.openExercise = openExercise;
