@@ -948,6 +948,7 @@
       // 개발용 블록의 묶음 제목 — 컨트롤이 두 가지뿐이라 제목도 두 가지다
       dev_g_act: '▶ 실행',
       dev_g_open: '🔓 열기 스위치',
+      dev_g_acts: '🏠 방 안에서 하는 일',
       dev_all_creatures: '🐣 모든 크리처 얻기',
       dev_creatures_done: '크리처 {n}종을 다 얻었어요 (새로 {a}종)',
       dev_creatures_all: '이미 {n}종을 다 갖고 있어요',
@@ -2116,6 +2117,7 @@
       dev_raid_done: 'Raid tokens {n} · cleared {s} shields',
       dev_g_act: '▶ Run',
       dev_g_open: '🔓 Unlock switches',
+      dev_g_acts: '🏠 Room actions',
       dev_all_creatures: '🐣 Get every creature',
       dev_creatures_done: 'Got all {n} creatures ({a} new)',
       dev_creatures_all: 'You already have all {n}',

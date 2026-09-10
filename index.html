@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260906g">
+<link rel="stylesheet" href="style.css?v=20260906h">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260906g" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260906h" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -476,12 +476,15 @@
            나중에 🍽️ 식사 · 🪞 거울이 이 아래로 붙을 자리다.
            **명판이다** — 방 배경 위 흰 글자로 두면 대비를 잴 수 없다 (UI_POLICY 마을 이름표) -->
       <div class="room-acts">
-        <button class="room-act" onclick="openExercise()">
+        <!-- ⚠️ 다섯 버튼은 **처음에는 다 숨어 있다** (`hidden`). 튜토리얼을 막 마친
+             화면에 다섯이 한꺼번에 서 있으면 무엇부터인지 알 수가 없다 —
+             켜는 것은 `renderActBadges()` 한 곳뿐이고, 조건은 `actOpen()` 에 모여 있다 -->
+        <button id="actExercise" class="room-act" onclick="openExercise()" hidden>
           <span aria-hidden="true">🏃</span><span data-i18n="act_exercise">운동</span>
         </button>
         <!-- 혼자 먹은 밤 — 안 본 것이 있으면 붉은 뱃지에 **몇 번인지** 적힌다.
              레드닷 하나로는 「하나 있나 보다」로 읽혀서, 세 밤이 쌓인 것을 못 알린다 -->
-        <button id="actBinge" class="room-act" onclick="openBingeScene()">
+        <button id="actBinge" class="room-act" onclick="openBingeScene()" hidden>
           <span aria-hidden="true">🍗</span><span data-i18n="act_binge">흡입</span>
           <span id="bingeBadge" class="act-badge" hidden>0</span>
         </button>
@@ -493,16 +496,16 @@
              선택 콘텐츠 뒤에 숨기면 안 된다. 하루에 한 번, 오늘 먹었으면 점이 꺼진다 -->
         <button id="actKitchen" class="room-act" onclick="openKitchen()" hidden>
           <span aria-hidden="true">🍲</span><span data-i18n="act_kitchen">부엌</span>
-          <span id="kitchenDot" class="act-dot" hidden></span>
+          <span id="kitchenDot" class="tab-dot act-dot" hidden></span>
         </button>
-        <button id="actProduce" class="room-act" onclick="openProduceLog()">
+        <button id="actProduce" class="room-act" onclick="openProduceLog()" hidden>
           <span aria-hidden="true">🧺</span><span data-i18n="act_produce">수확</span>
           <span id="produceBadge" class="act-badge" hidden>0</span>
         </button>
         <!-- 밭 (CREATURE.md 10장) — 생산과 **별개로** 밖에 내놓은 몫이 쌓이는 자리다.
              안 털리고 거두면 그날 생산이 두 배가 되고, 털리면 그 덤만 잃는다.
              뱃지에는 **안 본 침입 기록 수**를 적는다 (흡입·수확과 같은 규칙) -->
-        <button id="actFarm" class="room-act" onclick="openFarm()">
+        <button id="actFarm" class="room-act" onclick="openFarm()" hidden>
           <span aria-hidden="true">🌾</span><span data-i18n="act_farm">밭</span>
           <span id="farmBadge" class="act-badge" hidden>0</span>
         </button>
@@ -1009,19 +1012,19 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260906g"></script>
-<script src="intro.js?v=20260906g"></script>
-<script src="data.js?v=20260906g"></script>
-<script src="avatar.js?v=20260906g"></script>
-<script src="village.js?v=20260906g"></script>
-<script src="portrait.js?v=20260906g"></script>
-<script src="creature.js?v=20260906g"></script>
-<script src="cauldron.js?v=20260906g"></script>
-<script src="pumpkin.js?v=20260906g"></script>
-<script src="sfx.js?v=20260906g"></script>
-<script src="sync.js?v=20260906g"></script>
-<script src="game.js?v=20260906g"></script>
-<script src="tutorial.js?v=20260906g"></script>
-<script src="a11y.js?v=20260906g"></script>
+<script src="i18n.js?v=20260906h"></script>
+<script src="intro.js?v=20260906h"></script>
+<script src="data.js?v=20260906h"></script>
+<script src="avatar.js?v=20260906h"></script>
+<script src="village.js?v=20260906h"></script>
+<script src="portrait.js?v=20260906h"></script>
+<script src="creature.js?v=20260906h"></script>
+<script src="cauldron.js?v=20260906h"></script>
+<script src="pumpkin.js?v=20260906h"></script>
+<script src="sfx.js?v=20260906h"></script>
+<script src="sync.js?v=20260906h"></script>
+<script src="game.js?v=20260906h"></script>
+<script src="tutorial.js?v=20260906h"></script>
+<script src="a11y.js?v=20260906h"></script>
 </body>
 </html>

@@ -14,10 +14,21 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //  9: '헤어컬러' 칸이 없어지고 머리도 염색으로 색을 정한다
 // 10: 튜토리얼(S.tut)이 생겼다 — 이 버전 이전의 세이브는 튜토리얼을 본 적이 없으므로
 //     다시 보여 주지 않고 **마친 것으로 친다** (그래야 tutorialDone 도 같이 켜진다)
-const SAVE_VER = 13;
+// 14: 방 안에서 하는 일(운동·흡입·부엌·수확·밭)이 **하나씩 열린다.**
+//     ⚠️ 이미 플레이 중인 사람에게서 뺏으면 안 된다 — 옛 세이브는 다섯을 다 열어 준다
+const SAVE_VER = 14;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
+
+// 방 안에서 하는 일 — 다섯 버튼의 id 표.
+// ⚠️ **`load()` 보다 위에 둔다.** `migrate()` 가 이 표를 쓰는데, `load()` 는 game.js 를
+// 끝까지 읽기 전에 불린다 — 아래쪽에 두면 `ReferenceError` 가 나고 `load()` 의 `catch`
+// 가 그것을 삼켜 **세이브가 통째로 기본값으로 되돌아간다** (CLAUDE.md 1번 · 세이브 9에서
+// 실제로 겪은 사고다). 화면에는 오류가 하나도 안 뜬다
+const ROOM_ACTS = ['exercise', 'binge', 'kitchen', 'produce', 'farm'];
+const ROOM_ACT_BTN = { exercise: 'actExercise', binge: 'actBinge',
+  kitchen: 'actKitchen', produce: 'actProduce', farm: 'actFarm' };
 
 // 세이브 8 이전에 '처음부터 갖고 있던' 표정. 예전 세이브에는 그대로 채워 준다
 const OLD_STARTER_FACES = ['exp_smile', 'exp_wink', 'exp_happy'];
@@ -74,6 +85,10 @@ const defaultState = () => ({
   quest: { active: null, n: 0, done: [], queue: [] },
   // 부엌에 마지막으로 간 날 (`STORY.md` 요리사 클레멘). **그날 밤은 혼자가 아니다.**
   kitchenDay: 0,
+  // 방 안에서 하는 일 중 **열린 것**. 처음에는 비어 있고 조건이 차면 늘어난다
+  // (조건은 `actOpen()` 한 곳에 있다). ⚠️ 부엌은 여기 안 넣는다 — 그쪽은
+  // 「클레멘을 만났나」로 «계산»되므로 값이 두 벌이 되면 어긋난다
+  roomActs: [],
   // 본 컷씬 — 스토리 다시보기 목록 (2단계에서 쓴다)
   seenCuts: [],
   // ─── 키워드 (STORY.md 「키워드 시스템」) ─────────────────────
@@ -416,6 +431,12 @@ function adoptState(state) {
 // (저장된 값이 항상 기본값을 덮어쓰기 때문에, 기본값만 바꾸면 기존 플레이어에게는 반영되지 않는다)
 function migrate(st, from) {
   if (from >= SAVE_VER) return;
+  // 방 안에서 하는 일이 하나씩 열리게 됐다. **하던 사람에게서 뺏지 않는다** —
+  // 옛 세이브는 다섯을 다 쓰고 있었으므로 그대로 열어 준다 (흐린 장에서와 같은 규칙)
+  if (from < 14) {
+    if (!Array.isArray(st.roomActs)) st.roomActs = [];
+    ROOM_ACTS.forEach(id => { if (!st.roomActs.includes(id)) st.roomActs.push(id); });
+  }
   if (from < 2) {
     // 시작 외형을 튜토리얼 인트로의 공주로 맞춘다 (옷은 언제든 다시 갈아입을 수 있음)
     st.outfit = { ...D.DEFAULT_OUTFIT };
@@ -1260,7 +1281,36 @@ window.claimQuest = claimQuest;
 //  사람이 없었다), 그 해소를 «선택 콘텐츠»인 퀘스트 뒤에 숨기면 안 된다.
 //  튜토리얼을 마치면 바로 열린다.
 // ═══════════════════════════════════════════════════════════════
-function kitchenOpen() { return !!S.tutorialDone; }
+// ─── 방 안에서 하는 일 — 다섯 버튼은 «하나씩» 열린다 ────────────
+//
+// ⚠️ 튜토리얼을 막 마친 화면에 운동·흡입·부엌·수확·밭이 한꺼번에 서 있으면
+// 무엇부터 눌러야 하는지 알 수가 없다. 그래서 **처음에는 다 숨어 있고**,
+// 조건은 여기 한 곳에 모아 둔다 (`index.html` 은 `hidden` 만 달고 있다).
+//
+// ⚠️ **부엌만 조건이 «이야기»다** — 나머지 넷은 아직 조건이 정해지지 않아서
+// 개발용 스위치로만 켠다 (`S.roomActs`). 조건이 정해지면 여기 한 줄씩 붙인다
+function actOpen(id) {
+  if (!S.tutorialDone) return false;                 // 튜토리얼 중에는 전부 숨는다
+  if ((S.roomActs || []).includes(id)) return true;  // 개발용으로 켠 것
+  return id === 'kitchen' ? metClemen() : false;
+}
+window.actOpen = actOpen;
+
+// 클레멘을 만났는가 — **첫 퀘스트의 첫 만남 컷씬을 봤으면** 만난 것이다.
+// ⚠️ 「퀘스트를 끝내면」이 아니다: 그 퀘스트의 목표가 **부엌에서 같이 먹기**라
+// 끝나야 열리게 두면 깰 방법이 없다 (물어보고 이렇게 정했다)
+function metClemen() {
+  return (S.seenCuts || []).includes('c_meet_in')
+      || (questState().done || []).includes('q_meet');
+}
+// ⚠️ **부엌은 여전히 「퀘스트 뒤에 숨은 선택 콘텐츠」가 아니다.** 「혼자 먹은 밤」을
+// 피할 길을 선택 콘텐츠 뒤에 두면 안 된다는 규칙은 그대로인데, 이제 그 퀘스트가
+// **튜토리얼을 마치자마자 도착하는 첫 퀘스트**라 칩을 한 번 누르면 바로 열린다.
+//
+// ⚠️ **「보이는가」와 「열리는가」를 따로 판정하지 않는다** — `actOpen` 하나를 지난다.
+// 갈라 두었더니 옛 세이브(마이그레이션으로 다섯을 다 받은 사람)에서 **버튼은 보이는데
+// 눌러도 아무 일이 없었다**: 보임은 `roomActs` 를 보고 열림은 `metClemen()` 만 봤다
+function kitchenOpen() { return actOpen('kitchen'); }
 window.kitchenOpen = kitchenOpen;
 
 // 오늘 이미 같이 먹었나
@@ -5655,8 +5705,27 @@ function renderRoomDevTail() {
     ]) +
     devGroup(T('dev_g_open')) +
     devSws([devSw(on, T('dev_tutorial'), 'devToggleTutorial()')]) +
+    // 방 안에서 하는 일 다섯 — 아직 여는 «조건»이 정해진 것은 부엌뿐이라,
+    // 나머지 넷은 여기서 켜 봐야 화면을 볼 수 있다.
+    // ⚠️ 부엌도 넣어 둔다 — 첫 퀘스트를 안 지나고 부엌 화면만 보고 싶을 때가 있다
+    devGroup(T('dev_g_acts')) +
+    devSws(ROOM_ACTS.map(id =>
+      devSw(actOpen(id), T('act_' + id), `devToggleAct('${id}')`))) +
     `<div class="dev-row dev-roomlv"><span class="dev-roomlv-t">🏠 ${T('dev_room_lv')}</span>${bgBtns}</div>`;
 }
+// 개발용: 방 안에서 하는 일을 하나씩 켜고 끈다.
+// ⚠️ **부엌을 끄는 것은 「개발용으로 켠 것」만 끈다** — 첫 퀘스트를 이미 지났으면
+// `actOpen` 이 그쪽으로 계산해서 여전히 열려 있다. 그것이 맞는 동작이다:
+// 만난 사람을 «안 만난 것»으로 되돌리는 스위치가 아니다
+function devToggleAct(id) {
+  if (!Array.isArray(S.roomActs)) S.roomActs = [];
+  const i = S.roomActs.indexOf(id);
+  if (i >= 0) S.roomActs.splice(i, 1); else S.roomActs.push(id);
+  save();
+  render();
+}
+window.devToggleAct = devToggleAct;
+
 // 개발용: **스토리를 통째로 연다.**
 //
 // 컷씬·키워드·마을·퀘스트가 서로 물려 있어서 손으로 하나씩 열면 순서를 틀리기 쉽다 —
@@ -6984,8 +7053,11 @@ function bingeCount() { return (S.binges || []).length; }
 function renderActBadges() {
   // 부엌 — 튜토리얼을 마치면 보이고, **오늘 안 먹었으면 점이 켜진다.**
   // 숫자가 아니라 점인 이유: 하루에 한 번이라 셀 것이 없다
-  const kb = document.getElementById('actKitchen');
-  if (kb) kb.hidden = !kitchenOpen();
+  // 다섯 버튼의 «보임»은 여기 한 줄에서 나온다 (조건은 `actOpen`)
+  ROOM_ACTS.forEach(id => {
+    const b = document.getElementById(ROOM_ACT_BTN[id]);
+    if (b) b.hidden = !actOpen(id);
+  });
   // **새로 물어볼 것이 있어도 켠다** — 마을이 전부 잠겨 있을 때 이야기가 시작되는
   // 자리가 여기뿐이라, 「밥은 먹었다」로 점이 꺼지면 갈 곳이 아예 안 보인다
   // 복구 코드를 아직 안 본 사람에게 톱니에 점. **한 번 보면 다시 안 뜬다** —

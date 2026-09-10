@@ -1522,6 +1522,36 @@ function launchOpts() {
       // ⚠️ 여기서 재는 것의 핵심: **아무것도 안 깎이는가.** 값을 받기 시작하면
       // 「온기만이 등가 교환의 밖에 있다」가 무너진다
       if (process.env.FULL && t === 'showcase') {
+        // **방 안에서 하는 일 다섯은 «처음에는 다 숨어 있다».**
+        // ⚠️ 이 검사가 없으면 새 플레이어의 화면을 한 번도 안 잰다 —
+        // `checkui` 는 **ver 8 짜리 옛 세이브**를 심어 놓고 시작하므로 마이그레이션이
+        // 다섯을 다 열어 준 상태만 본다 (그 자체는 「하던 사람에게서 안 뺏는가」를
+        // 재는 것이라 맞지만, 그 0건을 새 플레이어의 0건으로 착각하면 안 된다)
+        const actBad = await page.evaluate(() => {
+          const keepActs = (S.roomActs || []).slice();
+          const keepCuts = (S.seenCuts || []).slice();
+          const keepQ = JSON.stringify(S.quest);
+          const vis = id => { const e = document.getElementById(ROOM_ACT_BTN[id]); return !!e && !e.hidden; };
+          const back = () => { S.roomActs = keepActs; S.seenCuts = keepCuts;
+                               S.quest = JSON.parse(keepQ); renderActBadges(); };
+          S.roomActs = []; S.seenCuts = [];
+          S.quest = { active: null, n: 0, done: [], queue: [] };
+          renderActBadges();
+          const on = ROOM_ACTS.filter(vis);
+          if (on.length) { back(); return `튜토리얼 직후인데 ${on.join('·')} 가 보인다`; }
+          // **클레멘을 만나면 부엌만** 나타난다 (첫 만남 컷씬을 본 순간이다)
+          S.seenCuts = ['c_meet_in']; renderActBadges();
+          if (!vis('kitchen')) { back(); return '클레멘을 만났는데 부엌이 안 나타난다'; }
+          // ⚠️ **보임과 열림이 갈리면 안 된다** — 버튼은 보이는데 눌러도 아무 일이
+          // 없던 자리다 (옛 세이브에서 실제로 그랬다)
+          if (!kitchenOpen()) { back(); return '부엌이 보이는데 열리지는 않는다'; }
+          const extra = ROOM_ACTS.filter(id => id !== 'kitchen').filter(vis);
+          if (extra.length) { back(); return `부엌만 열려야 하는데 ${extra.join('·')} 도 보인다`; }
+          back();
+          return null;
+        });
+        if (actBad) results.push({ 화면: `${t}/방버튼해금`, 오류: actBad });
+
         const ktBad = await page.evaluate(() => {
           S.seenCuts = ['c_clemen_meet']; S.kitchenDay = 0;
           const btn = document.getElementById('actKitchen');
