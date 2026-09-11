@@ -1016,10 +1016,17 @@ const DAYPARTS = [
 // 초반 맵의 히든이 흔해지는 것은 **일부러 그렇게 한 것**이다. 처음 몇 시간 안에
 // 「히든이라는 것이 있구나」를 한 번은 봐야 조건을 맞출 마음이 생긴다.
 // ⚠️ specials 기록은 행운 아우라로 간다 — 확률을 올린 만큼 행운이 빨리 쌓인다 (CREATURE.md 5장)
+//
+// `pity` — **천장.** 그 맵에서 이만큼 «연달아» 헛걸음이면 다음 채집은 반드시 히든이다.
+// 확률만 두면 꼬리가 너무 길다 — 귀한 맵(0.05%)은 보너스 없이 평균 2,000회이고
+// 1,386회를 채집해도 절반은 아직 못 얻으며 95% 가 얻으려면 5,990회다 (황무지 AP 로
+// 열아홉 날치 — 외부 비평 2.4). 천장은 기대값의 절반(0.5 ÷ rate)에 두어 **불운의
+// 꼬리만 자르고** 평균은 그대로 둔다. `checkbalance` 가 「rate × pity」가 0.3~0.8
+// 안인지 본다 — 너무 낮으면 그냥 지급이고, 1 을 넘으면 천장이 아니다
 const SPECIAL_TIERS = [
-  { need: 300, rate: 0.0005, label: '귀한' },   // 후반
-  { need: 100, rate: 0.002,  label: '보통' },   // 중반
-  { need: 0,   rate: 0.005,  label: '흔한' },   // 초반
+  { need: 300, rate: 0.0005, pity: 1000, label: '귀한' },   // 후반
+  { need: 100, rate: 0.002,  pity: 250,  label: '보통' },   // 중반
+  { need: 0,   rate: 0.005,  pity: 100,  label: '흔한' },   // 초반
 ];
 function specialTier(unlock) {
   return SPECIAL_TIERS.find(t => (unlock || 0) >= t.need) || SPECIAL_TIERS[SPECIAL_TIERS.length - 1];

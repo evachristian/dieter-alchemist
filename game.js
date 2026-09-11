@@ -247,6 +247,9 @@ const defaultState = () => ({
   cauldronId: 'cd_iron_old',  // 사용 중인 마법 솥 (시작은 튜토리얼용 2구)
   firstTs:   Date.now(),    // 첫 플레이 시각 — 키 성장의 기준
   record:    newRecord(),   // 플레이 기록 (누적 통계)
+  // 히든 재료의 «연달아 헛걸음» 수 — 맵 id → 횟수. 천장(`D.SPECIAL_TIERS.pity`)이 이것을
+  // 본다. 없던 칸이라 SAVE_VER 는 안 올린다 (옛 세이브는 0 에서 세기 시작하면 된다)
+  spMiss:    {},
   rev:       0,             // 저장 횟수 — 서버 동기화에서 어느 쪽이 최신인지 판단
   ver:       SAVE_VER,      // 세이브 버전 (마이그레이션용)
 });
@@ -368,6 +371,7 @@ function normalizeState(st) {
   if (!Array.isArray(st.want)) st.want = [];
   // 재료별 누적은 객체여야 한다 — 숫자·null 이 들어오면 `S.gathered[id]` 가 조용히 버려진다
   if (!st.gathered || typeof st.gathered !== 'object') st.gathered = {};
+  if (!st.spMiss || typeof st.spMiss !== 'object') st.spMiss = {};
   // 튜토리얼 진행 — 모양이 깨져 있으면 맞춘다.
   // 값이 통째로 없을 때는 **tutorialDone 을 따라간다** — 졸업한 사람에게 튜토리얼이
   // 처음부터 다시 뜨는 것이 이 값이 틀렸을 때 가장 나쁜 결과다
@@ -981,6 +985,18 @@ function specialRate(map) {
   // 확률에 이미 셋(속성·날씨·시간대)이 붙어 있어서 네 번째다 — 그래서 배수로만 둔다
   return D.specialTier(map.unlock).rate * specialMult(map.id) * bondMult('lore');
 }
+// ─── 천장 (외부 비평 2.4) ───
+// 확률만 두면 꼬리가 너무 길다 — 귀한 맵은 95% 가 얻는 데 5,990회다. 그 맵에서
+// **연달아** `pity` 번 헛걸음이면 다음은 반드시 나온다 (`D.SPECIAL_TIERS`).
+// 헛걸음 수는 **맵마다** 센다(`S.spMiss`) — 히든이 맵마다 다른 것이라서다.
+// 확률로 나왔든 천장으로 나왔든 나온 순간 0 으로 돌아간다.
+// ⚠️ 보너스(12배)는 확률만 올리고 천장은 안 당긴다 — 조건을 맞추면 «대개» 천장에
+// 닿기 전에 나온다. 천장은 운 나쁜 사람을 위한 바닥이지 조건의 대체물이 아니다
+function specialPity(map) { return D.specialTier(map.unlock).pity || Infinity; }
+function specialMiss(mapId) { return (S.spMiss && S.spMiss[mapId]) || 0; }
+function specialLeft(map) { return Math.max(1, specialPity(map) - specialMiss(map.id)); }
+window.specialMiss = specialMiss;
+window.specialLeft = specialLeft;
 
 // ─── 날씨 ────────────────────────────────────────────────────
 // ⚠️ **`Math.random()` 으로 정하면 안 된다.** `render()` 는 아주 자주 불려서
@@ -2738,8 +2754,12 @@ function gather(mapId) {
     return false;
   }
   // 그 맵에서만 나오는 '특별한 재료'. **맵마다 기본 확률이 다르고**(초반 0.5% ~ 후반 0.05%),
-  // 동행의 속성·날씨·시간대가 맞으면 최대 12배까지 곱해진다 (CREATURE.md 5장)
-  const isSpecial = Math.random() < specialRate(map);
+  // 동행의 속성·날씨·시간대가 맞으면 최대 12배까지 곱해진다 (CREATURE.md 5장).
+  // **천장** — 이 맵에서 연달아 `pity` 번 헛걸음이었으면 이번은 반드시다 (`specialPity`)
+  if (!S.spMiss || typeof S.spMiss !== 'object') S.spMiss = {};
+  const miss = specialMiss(mapId);
+  const isSpecial = miss >= specialPity(map) || Math.random() < specialRate(map);
+  S.spMiss[mapId] = isSpecial ? 0 : miss + 1;
   const id = isSpecial ? map.special : weightedPick(map.pool);
   addInv(id, 1);
   rec('gathered'); rec('itemsGot');
@@ -6527,7 +6547,9 @@ function specialHint(mapId, el) {
   if (!map) return;
   const found = devFlag(DEV_SPECIALS_KEY) || invCount(map.special) > 0;
   if (found) { ingHint(map.special, el); return; }
-  toast(T('special_hint'), el, null, 'above');
+  // **천장까지 몇 번인지 같이 말한다.** 규칙을 감추면 「조건을 아는 사람과 모르는 사람의
+  // 차이」만 남는다 — 무엇이 나올지는 안 알려 주고(정체는 여전히 ❔) «언제까지»만 알려 준다
+  toast(T('special_hint') + '\n' + T('special_pity', { n: specialLeft(map) }), el, 3200, 'above');
 }
 window.specialHint = specialHint;
 

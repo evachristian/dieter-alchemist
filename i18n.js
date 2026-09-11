@@ -405,6 +405,8 @@
       got_special: '✨ 특별한 재료! {emoji} {name}{josa} 찾았다!',
       got_special_clue: '✨ 특별한 재료! {emoji} {name}\n{clue}',
       special_hint: '아주 낮은 확률로 나오는 특별한 재료',
+      // 천장 — 이 맵에서 연달아 헛걸음이면 다음은 반드시 (D.SPECIAL_TIERS 의 pity)
+      special_pity: '{n}번 안에는 반드시 나와요',
       special_map: '스페셜 맵',
       potion_why: '이 물약의 효과',
       food_why: '이 음식의 효과',
@@ -1619,6 +1621,7 @@
       got_special: '✨ Special find! You got {emoji} {name}!',
       got_special_clue: '✨ Special find! {emoji} {name}\n{clue}',
       special_hint: 'A rare find with a very low chance',
+      special_pity: 'Guaranteed within {n} more tries',
       special_map: 'Special map',
       potion_why: "This potion's effect",
       food_why: "This food's effect",

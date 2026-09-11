@@ -109,6 +109,22 @@ const numIn = (re, what) => {
     + ` · 비주얼 ${[...new Set(hf.map(r => r.beauty))].join('/')}`);
 }
 
+// ─── ③-2 히든 재료의 천장 — 바닥이지 지급이 아니다 (외부 비평 2.4) ─────
+//
+// `pity` 는 «연달아 헛걸음» 몇 번이면 다음은 반드시인가다. 기대값(1 ÷ rate)보다
+// 짧아야 천장이고(1 을 넘으면 거의 안 닿는 장식이다), 너무 짧으면 확률이 뜻을 잃고
+// 「N 번 누르면 준다」가 된다. 그 사이(0.3 ~ 0.8)에 둔다. 귀할수록 천장도 높아야 한다
+{
+  const tiers = D.SPECIAL_TIERS.slice().sort((a, b) => a.rate - b.rate);   // 귀한 → 흔한
+  tiers.forEach(t => {
+    const k = (t.rate || 0) * (t.pity || 0);
+    ok(`히든 천장 · ${t.label}`, t.pity > 0 && k >= 0.3 && k <= 0.8,
+      `rate ${t.rate} × pity ${t.pity} = ${k.toFixed(2)} (0.3~0.8)`);
+  });
+  const asc = tiers.every((t, i) => i === 0 || t.pity <= tiers[i - 1].pity);
+  ok('히든 천장은 귀할수록 높다', asc, tiers.map(t => `${t.label} ${t.pity}`).join(' ≥ '));
+}
+
 // ─── ④ 리그 — 맨 위가 닿을 수 있는 자리인가 ──────────────────
 //
 // 주간 점수는 **그 주에 오른 매력**이다 (`addWeekScore`). 그러니 한 주에 낼 수 있는
