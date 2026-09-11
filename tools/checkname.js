@@ -12,7 +12,6 @@
 //
 // ①만으로는 부족하다: `N(sp.id, sp.name)` 처럼 **표에서 직접 읽어 그리는 길**이
 // 하나라도 남아 있으면 문구에는 없는데 화면에는 뜬다. 그래서 ②가 있다.
-const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
@@ -54,6 +53,13 @@ function scanStrings() {
 }
 module.exports = { scanStrings };
 if (require.main !== module) return;
+
+// ⚠️ **playwright 는 여기서야 읽는다.** 파일 맨 위에서 읽으면 `checktalk` 이 ①만 쓰려고
+// 이 파일을 require 할 때도 playwright 가 있어야 해서, **`npm test` 가 브라우저 없는
+// 환경에서 통째로 멈췄다** (외부 비평 3.6 — `package.json` 에 없는 의존성이다)
+let chromium;
+try { ({ chromium } = require('playwright')); }
+catch (e) { console.error('playwright 가 없다. NODE_PATH 로 설치 위치를 알려 줄 것.'); process.exit(2); }
 
 scanStrings().forEach(m => bad.push(m));
 rows.push(`문자열 — 허용된 두 곳(설정값) 말고는 없음`);

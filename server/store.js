@@ -60,6 +60,15 @@ function columnsOf(state, meta) {
   };
 }
 
+// 파일·메모리 저장소의 거래(`transact`)는 이것으로 한 줄로 세운다 — 앞의 것이 끝나야
+// 다음이 돈다 (앞 거래가 실패해도 줄은 끊기지 않는다). 파일에는 행 잠금이 없어서다
+let chain = Promise.resolve();
+function serial(fn) {
+  const p = chain.then(fn);
+  chain = p.catch(() => {});
+  return p;
+}
+
 // ─── 1) Postgres ───
 function pgStore(url) {
   const { Pool } = require('pg');
@@ -156,11 +165,16 @@ function pgStore(url) {
         throw e;
       }
     },
+    // ⚠️ **rev 검사는 쓰기 «안»에 있다** (`WHERE saves.rev < EXCLUDED.rev`). API 가 먼저
+    // 읽어서 견주는 것만으로는 부족하다 — 두 요청이 같은 옛 행을 읽으면 둘 다 통과하고,
+    // 큰 rev 가 먼저 쓰인 뒤 작은 rev 가 덮어 **저장이 과거로 돌아간다** (외부 비평 1.4).
+    // 노드가 단일 스레드여도 DB 왕복 사이에 요청은 얼마든지 끼어든다.
+    // 썼으면 true, 서버 것이 같거나 더 새로워 안 썼으면 false — 세 저장소가 같은 약속이다
     async put(playerId, secret, rev, state, meta) {
       await ensure();
       const c = columnsOf(state, meta);
       try {
-        await pool.query(
+        const r = await pool.query(
           `INSERT INTO saves (player_id, secret, rev, saved_at, state, name, name_key, charm, play_sec)
            VALUES ($1, $2, $3, now(), $4, $5, $6, $7, $8)
            ON CONFLICT (player_id) DO UPDATE
@@ -169,19 +183,53 @@ function pgStore(url) {
                  -- 이름은 예약해 둔 것을 정본으로 본다. 저장이 늦게 도착해도
                  -- 남의 이름을 덮어쓰지 않도록, 아직 비어 있을 때만 채운다.
                  name     = COALESCE(saves.name, EXCLUDED.name),
-                 name_key = COALESCE(saves.name_key, EXCLUDED.name_key)`,
+                 name_key = COALESCE(saves.name_key, EXCLUDED.name_key)
+             WHERE saves.rev < EXCLUDED.rev`,
           [playerId, secret, rev, state, c.name, c.name ? nameKey(c.name) : null, c.charm, c.playSec]);
+        return r.rowCount > 0;
       } catch (e) {
         // 이름이 이미 남의 것이면 이름만 빼고 저장한다 — 진행을 잃는 것보다 낫다.
         if (!isDup(e)) throw e;
-        await pool.query(
+        const r = await pool.query(
           `INSERT INTO saves (player_id, secret, rev, saved_at, state, charm, play_sec)
            VALUES ($1, $2, $3, now(), $4, $5, $6)
            ON CONFLICT (player_id) DO UPDATE
              SET rev = EXCLUDED.rev, saved_at = now(), state = EXCLUDED.state,
-                 charm = EXCLUDED.charm, play_sec = EXCLUDED.play_sec`,
+                 charm = EXCLUDED.charm, play_sec = EXCLUDED.play_sec
+             WHERE saves.rev < EXCLUDED.rev`,
           [playerId, secret, rev, state, c.charm, c.playSec]);
+        return r.rowCount > 0;
       }
+    },
+    // 여러 행을 **잠근 채** 한 거래로 처리한다 (밭 작업 · 약탈).
+    // 예전에는 읽고 → 판정하고 → 쓰기가 왕복 셋이라 같은 밭에 두 요청이 겹치면 나중
+    // 쓰기가 앞의 것을 덮었고(갱신 손실), 약탈은 피해자와 공격자를 **따로** 저장해서 둘째
+    // 저장이 실패하면 한쪽만 바뀐 채 남았다 (외부 비평 1.6). `FOR UPDATE` 로 잠그고
+    // 하나의 COMMIT 으로 끝낸다. ⚠️ **정렬한 순서로 잠근다** — 두 요청이 서로 반대
+    // 순서로 잠그면 교착이 난다. `fn(tx)` 의 `tx.get`·`tx.farmSet` 은 이 거래 안의 것이다
+    async transact(ids, fn) {
+      await ensure();
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const want = [...new Set(ids)].sort();
+        const r = await client.query(
+          `SELECT ${COLS} FROM saves WHERE player_id = ANY($1) ORDER BY player_id FOR UPDATE`, [want]);
+        const rows = new Map(r.rows.map(x => [x.player_id, rowOf(x)]));
+        const tx = {
+          get: async id => rows.get(id) || null,
+          farmSet: async (id, farm) => {
+            await client.query('UPDATE saves SET farm = $2 WHERE player_id = $1', [id, farm]);
+            const row = rows.get(id); if (row) row.farm = farm;
+          },
+        };
+        const out = await fn(tx);
+        await client.query('COMMIT');
+        return out;
+      } catch (e) {
+        try { await client.query('ROLLBACK'); } catch (e2) {}
+        throw e;
+      } finally { client.release(); }
     },
     async del(playerId) {
       await ensure();
@@ -267,9 +315,11 @@ function fileStore(dir) {
         : { playerId, secret, rev: 0, savedAt: new Date().toISOString(), state: {}, name, charm: 0, playSec: 0, farm: null });
       return { ok: true };
     },
+    // rev 검사와 쓰기 사이에 await 가 없다 — 그래서 끼어들 수 없다 (pg 는 WHERE 로 한다)
     async put(playerId, secret, rev, state, meta) {
       const c = columnsOf(state, meta);
       const cur = readOne(playerId);
+      if (cur && (cur.rev || 0) >= rev) return false;
       // 예약해 둔 이름이 정본. 비어 있을 때만, 그리고 남의 것이 아닐 때만 채운다.
       let name = (cur && cur.name) || null;
       if (!name && c.name && !takenByOther(c.name, playerId)) name = c.name;
@@ -278,11 +328,20 @@ function fileStore(dir) {
         name, charm: c.charm, playSec: c.playSec,
         farm: (cur && cur.farm) || null,      // 밭은 서버가 정본이다 — 옮겨 담는다
       });
+      return true;
     },
     async farmSet(playerId, farm) {
       const cur = readOne(playerId);
       if (!cur) return;
       writeOne({ ...cur, farm });
+    },
+    // 파일에는 잠금이 없다 — 거래를 **한 줄로 세워서**(`serial`) 겹치지 않게 한다.
+    // `fn` 안의 await 사이에 다른 거래가 끼어들 수 없다
+    async transact(ids, fn) {
+      return serial(() => fn({
+        get: async id => readOne(id),
+        farmSet: async (id, farm) => { const cur = readOne(id); if (cur) writeOne({ ...cur, farm }); },
+      }));
     },
     async peers(playerId, limit) {
       return sample(readAll().filter(r => r.name && r.farm && r.playerId !== playerId), limit);
@@ -331,6 +390,7 @@ function memStore() {
     async put(playerId, secret, rev, state, meta) {
       const c = columnsOf(state, meta);
       const cur = m.get(playerId);
+      if (cur && (cur.rev || 0) >= rev) return false;
       let name = (cur && cur.name) || null;
       if (!name && c.name && !takenByOther(c.name, playerId)) name = c.name;
       m.set(playerId, {
@@ -338,10 +398,17 @@ function memStore() {
         name, charm: c.charm, playSec: c.playSec,
         farm: (cur && cur.farm) || null,      // 밭은 서버가 정본이다 — 옮겨 담는다
       });
+      return true;
     },
     async farmSet(playerId, farm) {
       const cur = m.get(playerId);
       if (cur) m.set(playerId, { ...cur, farm });
+    },
+    async transact(ids, fn) {
+      return serial(() => fn({
+        get: async id => m.get(id) || null,
+        farmSet: async (id, farm) => { const cur = m.get(id); if (cur) m.set(id, { ...cur, farm }); },
+      }));
     },
     async peers(playerId, limit) {
       return sample([...m.values()].filter(r => r.name && r.farm && r.playerId !== playerId), limit);

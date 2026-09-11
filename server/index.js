@@ -47,6 +47,12 @@ function nameProblem(raw) {
   return null;
 }
 
+// 비밀키는 **헤더(`X-Secret`)** 로 받는다. 주소 쿼리(`?secret=`)는 옛 클라이언트를 위해
+// 당분간 같이 본다 — 쿼리에 실으면 프록시·배포 인프라의 접근 로그에 그대로 남는다
+// (외부 비평 3.7). 몸통에 든 것(PUT·POST)이 있으면 그것이 먼저다
+const secretOf = (req, bodySecret) =>
+  String(bodySecret || req.get('x-secret') || (req.query && req.query.secret) || '');
+
 app.disable('x-powered-by');
 app.set('trust proxy', 1);          // Railway 프록시 뒤에서 클라이언트 IP 를 제대로 읽기 위해
 app.use(express.json({ limit: MAX_BODY }));
@@ -57,7 +63,7 @@ app.use(express.json({ limit: MAX_BODY }));
 app.use((req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, X-Secret');
   res.set('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
@@ -166,7 +172,7 @@ app.get('/api/ranking', async (req, res) => {
 //  · 없으면 404 (클라이언트는 '서버에 아직 없음' 으로 보고 로컬 세이브를 올린다)
 app.get('/api/save/:playerId', async (req, res) => {
   const { playerId } = req.params;
-  const secret = String(req.query.secret || '');
+  const secret = secretOf(req);
   if (!ID_RE.test(playerId)) return res.status(400).json({ error: 'bad_player_id' });
 
   try {
@@ -207,7 +213,16 @@ app.put('/api/save/:playerId', async (req, res) => {
         });
       }
     }
-    await store.put(playerId, secret, rev, state, meta);
+    // ⚠️ 위의 `rev <= row.rev` 는 «안내»다 — 두 요청이 같은 옛 행을 읽으면 둘 다 통과한다.
+    // 진짜 판정은 **쓰기 안**(`store.put` 의 rev 조건)이고, 못 썼으면 그때 409 다
+    const wrote = await store.put(playerId, secret, rev, state, meta);
+    if (!wrote) {
+      const cur = await store.get(playerId);
+      return res.status(409).json({
+        error: 'stale_rev', serverRev: cur ? cur.rev : 0,
+        savedAt: cur ? cur.savedAt : null, state: cur ? cur.state : null,
+      });
+    }
     res.json({ ok: true, rev, savedAt: new Date().toISOString() });
   } catch (e) {
     console.error('[PUT /api/save]', e);
@@ -218,7 +233,7 @@ app.put('/api/save/:playerId', async (req, res) => {
 // ─── 세이브 지우기 (게임 초기화) ───
 app.delete('/api/save/:playerId', async (req, res) => {
   const { playerId } = req.params;
-  const secret = String(req.query.secret || '');
+  const secret = secretOf(req);
   if (!ID_RE.test(playerId)) return res.status(400).json({ error: 'bad_player_id' });
 
   try {
@@ -260,16 +275,33 @@ async function authRow(req, res, playerId, secret) {
   return row;
 }
 
-// 밭을 꺼내 자라게 한다. 바뀌었으면 저장까지
-async function freshFarm(row, now, create) {
+// 밭을 꺼내 자라게 한다. 바뀌었으면 저장까지. `tx` 가 있으면 그 거래 안에서 쓴다
+async function freshFarm(row, now, create, tx) {
   const had = row.farm && typeof row.farm === 'object';
   if (!had && !create) return null;
   const farm = had ? row.farm : B.emptyFarm(now);
   if (!Array.isArray(farm.log)) farm.log = [];
   // `grow()` 가 맨 앞에서 옛 모양(`stash` 하나)을 칸으로 옮긴다
   const grew = B.grow(farm, row.state || {}, now);
-  if (!had || grew) await store.farmSet(row.playerId, farm);
+  if (!had || grew) await (tx || store).farmSet(row.playerId, farm);
   return farm;
+}
+
+// 밭을 **바꾸는** 일은 전부 이것을 지난다 — 내 행(과 상대 행)을 잠근 거래 안에서
+// 읽고 · 판정하고 · 쓴다. `fn(tx, row, other)` 는 `{ status, body }` 를 돌려준다.
+//
+// ⚠️ 예전에는 읽기 → 판정 → 쓰기가 왕복 셋이라, 같은 밭에 두 요청이 겹치면 나중 쓰기가
+// 앞의 것을 덮었다 (갱신 손실). 약탈은 피해자를 먼저 저장하고 공격자를 나중에 저장해서
+// 둘째가 실패하면 **피해자는 이미 잃었는데 공격자는 결과를 못 받는** 상태가 남았다
+// (외부 비평 1.6). 지금은 하나의 COMMIT 이다 — 둘 다 바뀌거나 둘 다 안 바뀐다.
+// 인증(`authRow`)은 거래 밖에서 해도 된다 — 비밀키는 요청 사이에 안 바뀐다
+async function withFarm(res, ids, fn) {
+  const out = await store.transact(ids, async tx => {
+    const rows = [];
+    for (const id of ids) rows.push(await tx.get(id));
+    return fn(tx, ...rows);
+  });
+  res.status(out.status || 200).json(out.body);
 }
 
 // 화면에 보여 줄 크리처 한 마리 — **이름은 안 보낸다.** id 만 주면
@@ -279,15 +311,18 @@ const brief = p => (p ? {
   power: B.combatPower(p.c), loyalty: p.loyalty,
 } : null);
 
-//  GET /api/farm/:playerId?secret=...   내 밭
-//  · 밭이 없으면 여기서 만든다. **밭을 한 번도 안 연 사람은 목록에 안 뜬다** —
-//    기능이 있는 줄도 모르는 채로 털리는 일이 없어야 한다
+//  GET /api/farm/:playerId?create=1   내 밭
+//  · **`create=1` 일 때만** 없는 밭을 만든다. 조회만으로 만들면 「밭을 한 번도 안 연
+//    사람은 목록에 안 뜬다」가 글로만 남는다 — 부팅이 조회를 하므로 게임을 켠 사람은
+//    전부 밭이 생겨 (이삭이 쌓이면) 털릴 수 있었다 (외부 비평 1.7).
+//    밭이 없고 만들지도 않으면 `{ ok, none: true }` 다
 app.get('/api/farm/:playerId', async (req, res) => {
   try {
-    const row = await authRow(req, res, req.params.playerId, String(req.query.secret || ''));
+    const row = await authRow(req, res, req.params.playerId, secretOf(req));
     if (!row) return;
     const now = Date.now();
-    const farm = await freshFarm(row, now, true);
+    const farm = await freshFarm(row, now, String(req.query.create || '') === '1');
+    if (!farm) return res.json({ ok: true, none: true, now });
     const st = row.state || {};
     res.json({
       ok: true, now,
@@ -319,18 +354,20 @@ app.post('/api/farm/:playerId/harvest', async (req, res) => {
   const { secret, nonce } = req.body || {};
   if (!NONCE_RE.test(String(nonce || ''))) return res.status(400).json({ error: 'bad_nonce' });
   try {
-    const row = await authRow(req, res, req.params.playerId, secret);
-    if (!row) return;
+    const me = await authRow(req, res, req.params.playerId, secret);
+    if (!me) return;
     const now = Date.now();
-    const farm = await freshFarm(row, now, true);
-    if (farm.lastHarvest && farm.lastHarvest.nonce === nonce) {
-      return res.json({ ok: true, items: farm.lastHarvest.items, repeat: true });
-    }
-    if (!B.countOf(B.harvestable(farm, now))) return res.status(409).json({ error: 'farm_empty' });
-    const items = B.harvestEars(farm, now);
-    farm.lastHarvest = { nonce, items, t: now };
-    await store.farmSet(row.playerId, farm);
-    res.json({ ok: true, items });
+    await withFarm(res, [me.playerId], async (tx, row) => {
+      const farm = await freshFarm(row, now, true, tx);
+      if (farm.lastHarvest && farm.lastHarvest.nonce === nonce) {
+        return { body: { ok: true, items: farm.lastHarvest.items, repeat: true } };
+      }
+      if (!B.countOf(B.harvestable(farm, now))) return { status: 409, body: { error: 'farm_empty' } };
+      const items = B.harvestEars(farm, now);
+      farm.lastHarvest = { nonce, items, t: now };
+      await tx.farmSet(row.playerId, farm);
+      return { body: { ok: true, items } };
+    });
   } catch (e) {
     console.error('[POST /api/farm/harvest]', e);
     res.status(500).json({ error: 'server_error' });
@@ -347,18 +384,20 @@ app.post('/api/farm/:playerId/plant', async (req, res) => {
   const { secret, nonce, index, crop } = req.body || {};
   if (!NONCE_RE.test(String(nonce || ''))) return res.status(400).json({ error: 'bad_nonce' });
   try {
-    const row = await authRow(req, res, req.params.playerId, secret);
-    if (!row) return;
+    const me = await authRow(req, res, req.params.playerId, secret);
+    if (!me) return;
     const now = Date.now();
-    const farm = await freshFarm(row, now, true);
-    if (farm.lastPlant && farm.lastPlant.nonce === nonce) {
-      return res.json({ ok: true, plots: farm.plots, repeat: true });
-    }
-    const bad = B.plant(farm, row.state || {}, index, String(crop || ''), now);
-    if (bad) return res.status(409).json({ error: bad });
-    farm.lastPlant = { nonce, t: now };
-    await store.farmSet(row.playerId, farm);
-    res.json({ ok: true, now, plots: farm.plots });
+    await withFarm(res, [me.playerId], async (tx, row) => {
+      const farm = await freshFarm(row, now, true, tx);
+      if (farm.lastPlant && farm.lastPlant.nonce === nonce) {
+        return { body: { ok: true, plots: farm.plots, repeat: true } };
+      }
+      const bad = B.plant(farm, row.state || {}, index, String(crop || ''), now);
+      if (bad) return { status: 409, body: { error: bad } };
+      farm.lastPlant = { nonce, t: now };
+      await tx.farmSet(row.playerId, farm);
+      return { body: { ok: true, now, plots: farm.plots } };
+    });
   } catch (e) {
     console.error('[POST /api/farm/plant]', e);
     res.status(500).json({ error: 'server_error' });
@@ -371,18 +410,20 @@ app.post('/api/farm/:playerId/plot', async (req, res) => {
   const { secret, nonce } = req.body || {};
   if (!NONCE_RE.test(String(nonce || ''))) return res.status(400).json({ error: 'bad_nonce' });
   try {
-    const row = await authRow(req, res, req.params.playerId, secret);
-    if (!row) return;
+    const me = await authRow(req, res, req.params.playerId, secret);
+    if (!me) return;
     const now = Date.now();
-    const farm = await freshFarm(row, now, true);
-    if (farm.lastPlot && farm.lastPlot.nonce === nonce) {
-      return res.json({ ok: true, plots: farm.plots, repeat: true });
-    }
-    const bad = B.addPlot(farm);
-    if (bad) return res.status(409).json({ error: bad });
-    farm.lastPlot = { nonce, t: now };
-    await store.farmSet(row.playerId, farm);
-    res.json({ ok: true, now, plots: farm.plots });
+    await withFarm(res, [me.playerId], async (tx, row) => {
+      const farm = await freshFarm(row, now, true, tx);
+      if (farm.lastPlot && farm.lastPlot.nonce === nonce) {
+        return { body: { ok: true, plots: farm.plots, repeat: true } };
+      }
+      const bad = B.addPlot(farm);
+      if (bad) return { status: 409, body: { error: bad } };
+      farm.lastPlot = { nonce, t: now };
+      await tx.farmSet(row.playerId, farm);
+      return { body: { ok: true, now, plots: farm.plots } };
+    });
   } catch (e) {
     console.error('[POST /api/farm/plot]', e);
     res.status(500).json({ error: 'server_error' });
@@ -413,18 +454,20 @@ app.post('/api/farm/:playerId/dev', async (req, res) => {
   if (!DEV_TOOLS) return res.status(404).json({ error: 'dev_off' });
   const { secret } = req.body || {};
   try {
-    const row = await authRow(req, res, req.params.playerId, secret);
-    if (!row) return;
+    const me = await authRow(req, res, req.params.playerId, secret);
+    if (!me) return;
     const now = Date.now();
-    const farm = await freshFarm(row, now, true);
-    // 시계를 상한만큼 뒤로 당기면 `grow()` 가 상한까지 채운다 —
-    // **규칙을 여기서 다시 쓰지 않는다** (사본을 만들면 상한이 두 벌이 된다)
-    farm.grownAt = now - B.FARM_DAYS * B.GROW_MS;
-    // 심어 둔 것은 전부 다 자란 것으로 (`ready` 는 서버가 재는 값이다)
-    for (const p of farm.plots) if (p.crop) p.ready = now;
-    B.grow(farm, row.state || {}, now);
-    await store.farmSet(row.playerId, farm);
-    res.json({ ok: true, now, count: B.farmCount(farm), plots: farm.plots });
+    await withFarm(res, [me.playerId], async (tx, row) => {
+      const farm = await freshFarm(row, now, true, tx);
+      // 시계를 상한만큼 뒤로 당기면 `grow()` 가 상한까지 채운다 —
+      // **규칙을 여기서 다시 쓰지 않는다** (사본을 만들면 상한이 두 벌이 된다)
+      farm.grownAt = now - B.FARM_DAYS * B.GROW_MS;
+      // 심어 둔 것은 전부 다 자란 것으로 (`ready` 는 서버가 재는 값이다)
+      for (const p of farm.plots) if (p.crop) p.ready = now;
+      B.grow(farm, row.state || {}, now);
+      await tx.farmSet(row.playerId, farm);
+      return { body: { ok: true, now, count: B.farmCount(farm), plots: farm.plots } };
+    });
   } catch (e) {
     console.error('[POST /api/farm/dev]', e);
     res.status(500).json({ error: 'server_error' });
@@ -439,25 +482,34 @@ app.post('/api/farm/:playerId/devraid', async (req, res) => {
   if (!DEV_TOOLS) return res.status(404).json({ error: 'dev_off' });
   const { secret } = req.body || {};
   try {
-    const row = await authRow(req, res, req.params.playerId, secret);
-    if (!row) return;
+    const me = await authRow(req, res, req.params.playerId, secret);
+    if (!me) return;
     const now = Date.now();
-    const farm = await freshFarm(row, now, true);
-    farm.raids = B.RAID_MAX;
-    farm.raidAt = now;
-    farm.shieldUntil = 0;               // 내 밭의 방패도 푼다 (남이 나를 털어 볼 수 있게)
-    await store.farmSet(row.playerId, farm);
+    let raids = 0;
+    await store.transact([me.playerId], async tx => {
+      const row = await tx.get(me.playerId);
+      const farm = await freshFarm(row, now, true, tx);
+      farm.raids = B.RAID_MAX;
+      farm.raidAt = now;
+      farm.shieldUntil = 0;               // 내 밭의 방패도 푼다 (남이 나를 털어 볼 수 있게)
+      await tx.farmSet(row.playerId, farm);
+      raids = farm.raids;
+    });
     // **남의 방패도 푼다.** 안 그러면 목록이 비어 있어서 「제한을 풀었는데도
-    // 갈 데가 없다」가 된다 — 막는 것이 둘인데 하나만 푼 셈이다
+    // 갈 데가 없다」가 된다 — 막는 것이 둘인데 하나만 푼 셈이다.
+    // (사람마다 제 행을 잠그고 푼다 — 그 사이 그 밭에 온 수확·약탈을 덮지 않게)
     let cleared = 0;
-    for (const p of await store.peers(row.playerId, 50)) {
-      if (p.farm && typeof p.farm === 'object' && (p.farm.shieldUntil || 0) > now) {
-        p.farm.shieldUntil = 0;
-        await store.farmSet(p.playerId, p.farm);
-        cleared++;
-      }
+    for (const p of await store.peers(me.playerId, 50)) {
+      await store.transact([p.playerId], async tx => {
+        const q = await tx.get(p.playerId);
+        if (q && q.farm && typeof q.farm === 'object' && (q.farm.shieldUntil || 0) > now) {
+          q.farm.shieldUntil = 0;
+          await tx.farmSet(q.playerId, q.farm);
+          cleared++;
+        }
+      });
     }
-    res.json({ ok: true, now, raids: farm.raids, cleared });
+    res.json({ ok: true, now, raids, cleared });
   } catch (e) {
     console.error('[POST /api/farm/devraid]', e);
     res.status(500).json({ error: 'server_error' });
@@ -467,10 +519,14 @@ app.post('/api/farm/:playerId/devraid', async (req, res) => {
 //  GET /api/raid/targets/:playerId?secret=...   털러 갈 만한 남의 밭
 app.get('/api/raid/targets/:playerId', async (req, res) => {
   try {
-    const row = await authRow(req, res, req.params.playerId, String(req.query.secret || ''));
+    const row = await authRow(req, res, req.params.playerId, secretOf(req));
     if (!row) return;
     const now = Date.now();
-    await freshFarm(row, now, true);          // 내 밭도 같이 정산해 둔다
+    // 내 밭도 같이 정산해 둔다 (제 행을 잠근 채로 — 그 사이의 수확을 덮지 않게)
+    await store.transact([row.playerId], async tx => {
+      const r0 = await tx.get(row.playerId);
+      if (r0) await freshFarm(r0, now, true, tx);
+    });
     const peers = await store.peers(row.playerId, 12);
     const list = [];
     for (const p of peers) {
@@ -487,7 +543,16 @@ app.get('/api/raid/targets/:playerId', async (req, res) => {
       //     그래서 **저장된 밭은 늘 비어 있고 목록에 아무도 안 뜬다.**
       //     시뮬레이터로 200명을 30일 돌려 약탈이 **한 번도** 일어나지 않았다
       //     (`node tools/simfarm.js`). 안 자라게 둔 것이 약탈을 통째로 죽이고 있었다
-      if (B.grow(farm, p.state || {}, now)) await store.farmSet(p.playerId, farm);
+      // 자란 것을 적을 때는 **그 사람의 행을 잠그고** 다시 읽어서 적는다 — 여기서 든
+      // 사본(`p.farm`)으로 덮으면 그사이 그 밭에 온 수확·약탈이 없던 일이 된다
+      if (B.grow(farm, p.state || {}, now)) {
+        await store.transact([p.playerId], async tx => {
+          const q = await tx.get(p.playerId);
+          if (q && q.farm && typeof q.farm === 'object' && B.grow(q.farm, q.state || {}, now)) {
+            await tx.farmSet(q.playerId, q.farm);
+          }
+        });
+      }
       // `count` 는 **이삭 수** 그대로 둔다 — 화면의 바닥 계산이 이 값을 쓴다.
       // 다만 «목록에 띄울지» 는 **작물까지 세서** 판단한다 (`raidCount`)
       const n = B.farmCount(farm);
@@ -525,64 +590,72 @@ app.post('/api/raid/:playerId', async (req, res) => {
   const bad = nameProblem(target);
   if (bad) return res.status(400).json({ error: bad });
   try {
-    const row = await authRow(req, res, req.params.playerId, secret);
-    if (!row) return;
+    const me0 = await authRow(req, res, req.params.playerId, secret);
+    if (!me0) return;
     const now = Date.now();
-    const farm = await freshFarm(row, now, true);
-    // 재시도는 같은 답을 돌려준다 — 약탈권이 두 번 깎이거나 두 번 털면 안 된다
-    if (farm.lastRaid && farm.lastRaid.nonce === nonce) {
-      return res.json({ ok: true, ...farm.lastRaid.res, repeat: true });
-    }
+    // 상대의 id 는 이름으로 찾는다 (잠그기 전에 — 누구를 잠글지 알아야 한다).
+    // 진짜 판정은 아래 거래 안에서 **다시 읽은** 두 행으로 한다
+    const other0 = await store.getByName(String(target));
+    if (!other0) return res.status(404).json({ error: 'target_gone' });
+    if (other0.playerId === me0.playerId) return res.status(400).json({ error: 'self' });
 
-    const me = B.atkTeam(row.state || {});
-    if (me.every(x => !x)) return res.status(409).json({ error: 'no_companion' });
-    if ((farm.raids || 0) < 1) {
-      return res.status(409).json({ error: 'no_raids', nextRaidAt: farm.raidAt + B.RAID_REGEN_MS });
-    }
+    await withFarm(res, [me0.playerId, other0.playerId], async (tx, row, other) => {
+      if (!row) return { status: 404, body: { error: 'not_found' } };
+      if (!other) return { status: 404, body: { error: 'target_gone' } };
+      const farm = await freshFarm(row, now, true, tx);
+      // 재시도는 같은 답을 돌려준다 — 약탈권이 두 번 깎이거나 두 번 털면 안 된다
+      if (farm.lastRaid && farm.lastRaid.nonce === nonce) {
+        return { body: { ok: true, ...farm.lastRaid.res, repeat: true } };
+      }
 
-    const other = await store.getByName(String(target));
-    if (!other) return res.status(404).json({ error: 'target_gone' });
-    if (other.playerId === row.playerId) return res.status(400).json({ error: 'self' });
-    const theirFarm = other.farm && typeof other.farm === 'object' ? other.farm : null;
-    if (!theirFarm) return res.status(409).json({ error: 'target_empty' });
-    // 옛 모양이면 칸으로 옮기고, **흐른 시간만큼 자라게 한 다음** 센다.
-    // 목록과 같은 눈으로 봐야 한다 — 목록에는 떴는데 들어가면 빈 밭이면
-    // 약탈권만 날리게 된다 (위의 `/api/raid/targets` 주석)
-    B.grow(theirFarm, other.state || {}, now);
-    if (!B.raidCount(theirFarm, now)) return res.status(409).json({ error: 'target_empty' });
-    if ((theirFarm.shieldUntil || 0) > now) return res.status(409).json({ error: 'target_shielded' });
+      const me = B.atkTeam(row.state || {});
+      if (me.every(x => !x)) return { status: 409, body: { error: 'no_companion' } };
+      if ((farm.raids || 0) < 1) {
+        return { status: 409, body: { error: 'no_raids', nextRaidAt: farm.raidAt + B.RAID_REGEN_MS } };
+      }
 
-    const def = B.defTeam(other.state || {});
-    // **자리 대 자리 다섯 판.** 세 판 이상 이겨야 가져간다 — 두 판을 이겨도 빈손이다.
-    // 그래야 다섯을 짜는 일이 「이기는가」 하나로 모인다
-    const r = B.resolveFive(me, def);
-    // **하루치는 남긴다** — 이삭의 바닥이다 (`battle.js` 의 RAID_FLOOR_DAYS).
-    // 그 사람의 하루 생산량으로 재므로 상대의 세이브에서 뽑는다
-    const items = r.win ? B.lootPlots(theirFarm, r.rounds, now, B.earsFloor(other.state || {})) : {};
+      const theirFarm = other.farm && typeof other.farm === 'object' ? other.farm : null;
+      if (!theirFarm) return { status: 409, body: { error: 'target_empty' } };
+      // 옛 모양이면 칸으로 옮기고, **흐른 시간만큼 자라게 한 다음** 센다.
+      // 목록과 같은 눈으로 봐야 한다 — 목록에는 떴는데 들어가면 빈 밭이면
+      // 약탈권만 날리게 된다 (위의 `/api/raid/targets` 주석)
+      B.grow(theirFarm, other.state || {}, now);
+      if (!B.raidCount(theirFarm, now)) return { status: 409, body: { error: 'target_empty' } };
+      if ((theirFarm.shieldUntil || 0) > now) return { status: 409, body: { error: 'target_shielded' } };
 
-    // 약탈권을 쓴다. **가득이었으면 지금부터 회복 시계를 돌린다** —
-    // 안 그러면 오래 안 쓴 사람은 쓰자마자 도로 찬다
-    if ((farm.raids || 0) >= B.RAID_MAX) farm.raidAt = now;
-    farm.raids = (farm.raids || 0) - 1;
+      const def = B.defTeam(other.state || {});
+      // **자리 대 자리 다섯 판.** 세 판 이상 이겨야 가져간다 — 두 판을 이겨도 빈손이다.
+      // 그래야 다섯을 짜는 일이 「이기는가」 하나로 모인다
+      const r = B.resolveFive(me, def);
+      // **이틀치(`RAID_FLOOR_DAYS`)는 남긴다** — 이삭의 바닥이다 (`battle.js`).
+      // 그 사람의 하루 생산량으로 재므로 상대의 세이브에서 뽑는다
+      const items = r.win ? B.lootPlots(theirFarm, r.rounds, now, B.earsFloor(other.state || {})) : {};
 
-    // **털린 뒤에는 잠시 아무도 못 턴다.** 자는 사이에 밭이 열 번 털리면 안 된다.
-    // 이겼을 때만 건다 — 막아 낸 밭까지 잠기면 「지켰는데 왜 벌을 받나」가 된다
-    // (`lootPlots` 가 이미 그 칸들에서 덜어 냈다)
-    if (r.win) theirFarm.shieldUntil = now + B.SHIELD_MS;
-    // 진 쪽도 기록에 남는다 — 「누가 왔다 갔는데 못 털었다」도 알아야 재미가 있다
-    if (!Array.isArray(theirFarm.log)) theirFarm.log = [];
-    theirFarm.log.unshift({ t: now, by: row.name || null, win: r.win, wins: r.wins, items });
-    theirFarm.log = theirFarm.log.slice(0, 10);
-    await store.farmSet(other.playerId, theirFarm);
+      // 약탈권을 쓴다. **가득이었으면 지금부터 회복 시계를 돌린다** —
+      // 안 그러면 오래 안 쓴 사람은 쓰자마자 도로 찬다
+      if ((farm.raids || 0) >= B.RAID_MAX) farm.raidAt = now;
+      farm.raids = (farm.raids || 0) - 1;
 
-    const out = {
-      win: r.win, wins: r.wins, winNeed: B.WIN_NEED, rounds: r.rounds, items,
-      target: other.name, def: def.map(brief), mine: me.map(brief),
-      raids: farm.raids, nextRaidAt: farm.raidAt + B.RAID_REGEN_MS, now,
-    };
-    farm.lastRaid = { nonce, res: out, t: now };
-    await store.farmSet(row.playerId, farm);
-    res.json({ ok: true, ...out });
+      // **털린 뒤에는 잠시 아무도 못 턴다.** 자는 사이에 밭이 열 번 털리면 안 된다.
+      // 이겼을 때만 건다 — 막아 낸 밭까지 잠기면 「지켰는데 왜 벌을 받나」가 된다
+      // (`lootPlots` 가 이미 그 칸들에서 덜어 냈다)
+      if (r.win) theirFarm.shieldUntil = now + B.SHIELD_MS;
+      // 진 쪽도 기록에 남는다 — 「누가 왔다 갔는데 못 털었다」도 알아야 재미가 있다
+      if (!Array.isArray(theirFarm.log)) theirFarm.log = [];
+      theirFarm.log.unshift({ t: now, by: row.name || null, win: r.win, wins: r.wins, items });
+      theirFarm.log = theirFarm.log.slice(0, 10);
+
+      const out = {
+        win: r.win, wins: r.wins, winNeed: B.WIN_NEED, rounds: r.rounds, items,
+        target: other.name, def: def.map(brief), mine: me.map(brief),
+        raids: farm.raids, nextRaidAt: farm.raidAt + B.RAID_REGEN_MS, now,
+      };
+      farm.lastRaid = { nonce, res: out, t: now };
+      // **두 밭이 한 거래로** 적힌다 — 둘 다 바뀌거나 둘 다 안 바뀐다
+      await tx.farmSet(other.playerId, theirFarm);
+      await tx.farmSet(row.playerId, farm);
+      return { body: { ok: true, ...out } };
+    });
   } catch (e) {
     console.error('[POST /api/raid]', e);
     res.status(500).json({ error: 'server_error' });
@@ -600,7 +673,9 @@ const GAME_DIR = path.join(__dirname, '..');
 // `tools` 는 검사기·생성기가 사는 곳이다. 게임은 한 줄도 안 쓰는데 그대로 열려 있었다
 // (`/tools/checkui.js` 가 200 이었다). 공개 저장소라 비밀이 새는 것은 아니지만,
 // 배포에 내보낼 이유가 없다 — 이 규칙의 뜻이 그것이다.
-const HIDDEN = /^\/(server|node_modules|data|tools)(\/|$)|^\/\.|^\/package(-lock)?\.json$|^\/railway\.json$/;
+// 기획·인수인계 문서(`*.md`)도 게임이 안 쓴다 — 공개 저장소라 비밀은 아니지만 배포에
+// 내보낼 이유가 없다 (외부 비평 3.7)
+const HIDDEN = /^\/(server|node_modules|data|tools)(\/|$)|^\/\.|^\/package(-lock)?\.json$|^\/railway\.json$|\.md$/i;
 app.use((req, res, next) => {
   if (HIDDEN.test(decodeURIComponent(req.path))) return res.status(404).send('Not found');
   next();

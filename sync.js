@@ -74,25 +74,43 @@
     listeners.forEach(fn => { try { fn(s); } catch (e) {} });
   }
 
+  // 요청 하나에 두는 시간의 한도. **없으면 느린 회선에서 `sending` 이 영영 안 풀려**
+  // 그 뒤의 저장이 전부 밀린다 (서버 쪽에도 같은 이유로 DB 한도가 있다)
+  const API_TIMEOUT = 15_000;
   async function api(method, path, opts) {
     opts = opts || {};
-    const r = await fetch(apiBase() + path, {
-      method,
-      headers: opts.body ? { 'Content-Type': 'application/json' } : undefined,
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
-      keepalive: !!opts.keepalive,
-    });
-    let json = null;
-    try { json = await r.json(); } catch (e) {}
-    return { status: r.status, body: json };
+    const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+    const tm = ctl ? setTimeout(() => ctl.abort(), API_TIMEOUT) : null;
+    // ⚠️ **비밀키는 헤더로 보낸다.** 예전에는 GET·DELETE 의 주소 쿼리에 실어서
+    // 프록시·배포 인프라의 접근 로그에 그대로 남았다 (외부 비평 3.7).
+    // 몸통에 넣는 요청(PUT·POST)은 몸통의 것을 서버가 먼저 본다 — 헤더는 겸사겸사
+    const headers = { 'X-Secret': opts.secret || me.secret };   // peek 만 남의 비밀키를 쓴다
+    if (opts.body) headers['Content-Type'] = 'application/json';
+    try {
+      const r = await fetch(apiBase() + path, {
+        method, headers,
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+        keepalive: !!opts.keepalive,
+        signal: ctl ? ctl.signal : undefined,
+      });
+      let json = null;
+      try { json = await r.json(); } catch (e) {}
+      return { status: r.status, body: json };
+    } finally {
+      if (tm) clearTimeout(tm);
+    }
   }
 
   // ─── 올리기 ───
+  // 돌려주는 값: 'ok'(올렸다) · 'adopted'(서버가 더 새로워 그쪽을 받았다) ·
+  // 'retry'(못 올려서 나중에) · 'off'(올릴 것이 없거나 동기화가 꺼져 있다)
   async function flush() {
-    if (!enabled() || sending || !pending || wiped) return;
+    if (!enabled() || sending || !pending || wiped) return 'off';
     sending = true;
+    timer = null;
     setStatus('saving');
     const snap = pending;
+    let result = 'retry';
     try {
       const r = await api('PUT', `/api/save/${me.playerId}`, {
         body: { secret: me.secret, rev: snap.rev || 0, state: snap, meta: metaOf(snap) },
@@ -101,29 +119,49 @@
         if (pending === snap) pending = null;      // 그 사이 새 저장이 있었으면 남겨 둔다
         backoff = 1000;
         setStatus(pending ? 'pending' : 'saved');
+        result = 'ok';
       } else if (r.status === 409) {
-        // 다른 기기가 더 최신을 올려 둔 경우 — 서버 쪽을 따른다
-        pending = null;
+        // 서버에 더 큰 rev 가 있다. ⚠️ **그렇다고 로컬을 무조건 버리지 않는다.**
+        // 409 는 「서버가 더 새롭다」뿐 아니라 응답을 잃은 재전송(같은 rev)에서도 온다.
+        // 보내는 사이에 로컬이 더 나아갔으면(`pending` 이 스냅샷보다 새 rev) 그 진행은
+        // 서버보다 새로운 것이라 **그대로 두고 다시 보낸다** — 예전에는 여기서
+        // `pending = null` 로 지워 방금 한 것을 잃었다 (외부 비평 1.2 가 재현했다)
+        const serverRev = (r.body && r.body.serverRev) || 0;
+        const newest = pending ? (pending.rev || 0) : (snap.rev || 0);
         backoff = 1000;
-        if (r.body && r.body.state && window.adoptState) {
-          window.adoptState(r.body.state);
-          if (window.toast) toast(T('sync_pulled'), null, 2600);
+        if (serverRev >= newest) {
+          pending = null;
+          if (r.body && r.body.state && window.adoptState) {
+            window.adoptState(r.body.state);     // 덮이는 로컬은 `_prev` 에 남는다
+            if (window.toast) toast(T('sync_pulled'), null, 2600);
+          }
+          setStatus('saved');
+          result = 'adopted';
+        } else {
+          setStatus('pending');                  // finally 가 남은 것을 이어 보낸다
+          result = 'retry';
         }
-        setStatus('saved');
       } else if (r.status === 403) {
         // 같은 아이디에 다른 비밀키 — 정상적으로는 일어나지 않는다.
         // 덮어쓰기를 시도하지 않고 동기화를 멈춘다 (로컬 플레이는 그대로).
         pending = null;
         setStatus('off');
         console.warn('[sync] 이 아이디는 다른 기기가 쓰고 있습니다. 동기화를 멈춥니다.');
+        result = 'off';
       } else {
         retryLater();
       }
     } catch (e) {
-      retryLater();                                 // 네트워크 끊김 등
+      retryLater();                                 // 네트워크 끊김 · 시간 초과 등
     } finally {
       sending = false;
+      // ⚠️ **날아가는 동안 쌓인 것을 이어 보낸다.** 요청 A 가 가는 사이에 저장 B 의
+      // 타이머가 울리면 `sending` 때문에 그냥 돌아왔는데, A 가 끝나도 B 를 다시
+      // 예약하는 곳이 없어서 다음 자동 저장(30초)까지 밀렸다 (외부 비평 1.13).
+      // 재시도가 이미 잡혀 있으면(`retryLater`) 그것을 따른다
+      if (pending && !wiped && timer === null) timer = setTimeout(flush, PUSH_DELAY);
     }
+    return result;
   }
 
   function retryLater() {
@@ -173,14 +211,18 @@
   // **지금 당장 올린다** (기다리지 않고).
   // 밭 5단계에서 필요해졌다 — 출정대를 바꾸고 바로 쳐들어가면, 서버는 아직 3초
   // 디바운스에 걸려 있는 **옛 부대**로 판정한다. 판정을 서버가 갖는 대가다.
+  // **올라갔는지를 돌려준다** (true = 서버가 지금 이 상태를 안다). 예전에는 아무것도
+  // 안 돌려줘서 `doRaid` 가 실패한 줄도 모르고 곧바로 출정했다 — 서버는 옛 부대로 판정했다
   async function pushNow(state) {
-    if (!enabled() || wiped) return;
+    if (!enabled() || wiped) return false;
     // 날아가고 있는 요청이 있으면 끝난 뒤에 보낸다 (`flush` 는 sending 이면 그냥 돌아온다)
     for (let i = 0; i < 60 && sending; i++) await new Promise(r => setTimeout(r, 50));
+    if (sending) return false;
     pending = JSON.parse(JSON.stringify(state));
     setStatus('pending');
-    clearTimeout(timer);
-    await flush();
+    clearTimeout(timer); timer = null;
+    const r = await flush();
+    return r === 'ok' || r === 'adopted';
   }
 
   // 탭을 닫거나 숨길 때 — 모아 둔 것을 지금 올린다
@@ -198,7 +240,7 @@
   async function pull(localState) {
     if (!enabled()) return { action: 'off' };
     try {
-      const r = await api('GET', `/api/save/${me.playerId}?secret=${encodeURIComponent(me.secret)}`);
+      const r = await api('GET', `/api/save/${me.playerId}`);
       if (r.status === 404) {
         // 서버에 아직 없다 — 지금 로컬 세이브를 올려 둔다
         if (localState) push(localState);
@@ -232,7 +274,7 @@
     // (먼저 지우면 그 요청이 나중에 도착해 세이브를 되살린다)
     for (let i = 0; i < 60 && sending; i++) await new Promise(r => setTimeout(r, 50));
     try {
-      const r = await api('DELETE', `/api/save/${me.playerId}?secret=${encodeURIComponent(me.secret)}`);
+      const r = await api('DELETE', `/api/save/${me.playerId}`);
       return r.status === 200;
     } catch (e) { return false; }
   }
@@ -277,7 +319,7 @@
       return { ok: false, why: 'bad' };
     if (!enabled()) return { ok: false, why: 'net' };
     try {
-      const r = await api('GET', `/api/save/${playerId}?secret=${encodeURIComponent(secret)}`);
+      const r = await api('GET', `/api/save/${playerId}`, { secret });
       if (r.status === 404) return { ok: false, why: 'none' };
       if (r.status === 403) return { ok: false, why: 'wrong' };
       if (r.status !== 200 || !r.body) return { ok: false, why: 'net' };
@@ -296,10 +338,13 @@
   // 재시도했을 때 거둔 것이 사라지거나 약탈권이 두 번 깎이면 안 된다. 그래서
   // 요청마다 nonce 를 붙이고 서버가 같은 nonce 를 기억한다.
   const nonce = () => rand(8);
-  async function farmGet() {
+  // `create` 가 참일 때만 서버가 없는 밭을 **만든다.** ⚠️ 부팅의 조회는 만들지 않는다 —
+  // 예전에는 조회만으로 밭이 생겨서, 밭 화면을 한 번도 안 연 사람도 목록에 올라
+  // 털릴 수 있었다 (외부 비평 1.7). 밭이 없으면 `{ ok, none: true }` 가 온다
+  async function farmGet(create) {
     if (!enabled()) return { status: 0, body: null };
     try {
-      return await api('GET', `/api/farm/${me.playerId}?secret=${encodeURIComponent(me.secret)}`);
+      return await api('GET', `/api/farm/${me.playerId}${create ? '?create=1' : ''}`);
     } catch (e) { return { status: 0, body: null }; }
   }
   async function harvest(n) {
@@ -326,8 +371,9 @@
       });
     } catch (e) { return { status: 0, body: null }; }
   }
-  // ⚠️ 개발용 — 밭을 상한까지 채운다. **서버가 `DEV_TOOLS=1` 일 때만 살아 있고**
-  // 아니면 404 다. 밭은 서버가 정본이라 화면에서 흉내 낼 수가 없어서 여기 있다
+  // ⚠️ 개발용 — 밭을 상한까지 채운다. **서버가 `DEV_TOOLS=0` 이면 404 다** (기본은 켜져
+  // 있다 — `server/index.js` 의 `DEV_TOOLS` 주석). 밭은 서버가 정본이라 화면에서 흉내
+  // 낼 수가 없어서 여기 있다
   async function farmDev() {
     if (!enabled()) return { status: 0, body: null };
     try {
@@ -344,7 +390,7 @@
   async function raidTargets() {
     if (!enabled()) return { status: 0, body: null };
     try {
-      return await api('GET', `/api/raid/targets/${me.playerId}?secret=${encodeURIComponent(me.secret)}`);
+      return await api('GET', `/api/raid/targets/${me.playerId}`);
     } catch (e) { return { status: 0, body: null }; }
   }
   async function raid(target, n) {

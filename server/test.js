@@ -67,6 +67,30 @@ async function run(label, env) {
   ok(r.status === 409 && r.body.serverRev === 2 && r.body.state.gathered === 9,
     `오래된 rev 거부 → ${r.status}, 서버 상태 함께 반환: ${JSON.stringify(r.body.state)}`);
 
+  // 6b) 비밀키는 **헤더**로도 받는다 — 주소에 실으면 접근 로그에 남는다 (외부 비평 3.7)
+  {
+    const H = async (sec) => { const r2 = await fetch(base + `/api/save/${ID}`, { headers: { 'X-Secret': sec } });
+      let j2 = null; try { j2 = await r2.json(); } catch (e) {} return { status: r2.status, body: j2 }; };
+    const h1 = await H(SEC), h2 = await H(OTHER);
+    ok(h1.status === 200 && h1.body.rev === 2, `X-Secret 헤더로 조회 → ${h1.status}`);
+    ok(h2.status === 403, `틀린 X-Secret 헤더 → ${h2.status} (403 기대)`);
+  }
+  // 6c) ⚠️ **rev 검사는 쓰기 «안»에 있다.** API 의 읽고-견주기를 건너뛰고 저장소에
+  // 직접 옛 rev 를 써 본다 — 두 요청이 같은 옛 행을 읽고 둘 다 통과했을 때의 둘째 쓰기다.
+  // 여기서 막지 못하면 저장이 과거로 돌아간다 (외부 비평 1.4)
+  {
+    const w = await store.put(ID, SEC, 1, { gathered: -1 }, undefined);
+    const cur = await store.get(ID);
+    ok(w === false && cur.rev === 2 && cur.state.gathered === 9,
+      `저장소에 직접 옛 rev(1) 쓰기 → ${w} · 남은 rev ${cur.rev} · gathered ${cur.state.gathered} (안 써야 한다)`);
+    const w2 = await store.put(ID, SEC, 3, { gathered: 11 }, undefined);
+    ok(w2 === true && (await store.get(ID)).rev === 3, `새 rev(3) 쓰기 → ${w2}`);
+    // 아래 검사들이 기대하는 값으로 되돌린다
+    await store.put(ID, SEC, 4, { name: '연금술사', gathered: 9 }, undefined);
+    r = await J('PUT', `/api/save/${ID}`, { secret: SEC, rev: 2, state: { gathered: 0 } });
+    ok(r.status === 409 && r.body.serverRev === 4, `쓰기에서 막힌 옛 rev 도 409 로 돌아온다 (serverRev ${r.body && r.body.serverRev})`);
+  }
+
   // 7) 남의 세이브는 못 읽고 못 쓰고 못 지운다
   r = await J('GET', `/api/save/${ID}?secret=${OTHER}`);
   ok(r.status === 403, `틀린 secret 으로 조회 → ${r.status} (403 기대)`);
@@ -229,7 +253,12 @@ async function run(label, env) {
     });
 
     // 밭은 열어야 생긴다 — **한 번도 안 연 사람은 털리지 않는다**
+    // ⚠️ **조회만으로는 안 생긴다** (`create=1` 이 있어야 한다). 부팅이 조회를 하므로
+    // 조회가 곧 참여면 게임을 켠 사람이 전부 목록에 올랐다 (외부 비평 1.7)
     let f = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
+    ok(f.status === 200 && f.body.none === true, `조회만 → ${f.status} none=${f.body && f.body.none} (밭을 안 만든다)`);
+    ok((await store.get(V)).farm === null, '   …서버에도 밭이 안 생겼다');
+    f = await J('GET', `/api/farm/${V}?secret=${SEC_V}&create=1`);
     ok(f.status === 200 && f.body.count === 0, `밭 열기 → ${f.status}, 이삭 ${f.body && f.body.count}`);
     ok(f.body.daily && f.body.daily.firefly === 3, `하루치 = ${JSON.stringify(f.body.daily)}`);
     ok(f.body.raids === 3, `약탈권 ${f.body.raids} (3 기대)`);
@@ -246,12 +275,12 @@ async function run(label, env) {
 
     // 사흘 지나면 사흘치
     { const g = await farmOf(V); g.grownAt = Date.now() - 3 * DAY; await setFarm(V, g); }
-    f = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
+    f = await J('GET', `/api/farm/${V}?secret=${SEC_V}&create=1`);
     ok(f.body.count === 9, `사흘 뒤 이삭 ${f.body.count} (9 기대)`);
 
     // 한 달을 비워도 5일치까지만 (`FARM_DAYS`)
     { const g = await farmOf(V); g.stash = {}; g.grownAt = Date.now() - 30 * DAY; await setFarm(V, g); }
-    f = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
+    f = await J('GET', `/api/farm/${V}?secret=${SEC_V}&create=1`);
     ok(f.body.count === 15, `한 달 비운 뒤 이삭 ${f.body.count} (5일치 15 기대)`);
 
     // 수확 — 밭이 비고, **같은 nonce 로 다시 오면 같은 답**
@@ -264,7 +293,7 @@ async function run(label, env) {
     ok(h.status === 409 && h.body.error === 'farm_empty', `빈 밭 수확 → ${h.status} (409 기대)`);
 
     // 남의 밭은 못 본다
-    h = await J('GET', `/api/farm/${V}?secret=${OTHER}`);
+    h = await J('GET', `/api/farm/${V}?secret=${OTHER}&create=1`);
     ok(h.status === 403, `남의 밭 조회 → ${h.status} (403 기대)`);
 
     // **세이브를 저장해도 밭은 그대로다.** 파일·메모리 저장소는 레코드를 통째로
@@ -274,7 +303,7 @@ async function run(label, env) {
       secret: SEC_V, rev: 2,
       state: { name: '밭주인', creatures: ['unicorn'], petRoom: 'unicorn', pets: {} },
     });
-    f = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
+    f = await J('GET', `/api/farm/${V}?secret=${SEC_V}&create=1`);
     ok(f.body.count === 9, `세이브 저장 뒤에도 이삭 ${f.body.count} (9 기대)`);
 
     // ── 심기 · 자람 · 칸 늘리기 (3단계) ──
@@ -311,7 +340,7 @@ async function run(label, env) {
 
       // 시계를 앞으로 돌리면 여문다
       { const g = await farmOf(V); g.plots[1].ready = Date.now() - 1000; await setFarm(V, g); }
-      const gf = await J('GET', `/api/farm/${V}?secret=${SEC_V}`);
+      const gf = await J('GET', `/api/farm/${V}?secret=${SEC_V}&create=1`);
       ok(gf.body.count === 3, `여물면 거둘 것이 ${gf.body.count}개 (3 기대)`);
       h2 = await J('POST', `/api/farm/${V}/harvest`, { secret: SEC_V, nonce: 'harv11' });
       ok(h2.body.items.ember_chili === 3, `여문 작물을 거뒀다 — ${JSON.stringify(h2.body.items)}`);
@@ -434,7 +463,7 @@ async function run(label, env) {
     ok(d.status === 409 && d.body.error === 'no_raids', `약탈권 0 → ${d.status}`);
     // 여덟 시간마다 하나씩 찬다
     { const g = await farmOf(R); g.raidAt = Date.now() - 9 * 3600e3; await setFarm(R, g); }
-    f = await J('GET', `/api/farm/${R}?secret=${SEC_R}`);
+    f = await J('GET', `/api/farm/${R}?secret=${SEC_R}&create=1`);
     ok(f.body.raids === 1, `9시간 뒤 약탈권 ${f.body.raids} (1 기대)`);
 
     // 동행 크리처가 없으면 못 나간다 · 내 밭은 못 턴다
@@ -603,7 +632,7 @@ async function run(label, env) {
                    '/node_modules/express/package.json',
                    '/package.json', '/package-lock.json', '/railway.json', '/.gitignore',
                    // 검사기·생성기도 게임이 안 쓴다. 예전에는 /tools/checkui.js 가 200 이었다
-                   '/tools/checkui.js', '/tools/hooks/post-commit',
+                   '/tools/checkui.js', '/tools/hooks/post-commit', '/README.md', '/CLAUDE.md',
                    '/server/../server/store.js', '/%2Eenv']) {
     const r = await fetch(base + p);
     const body = await r.text();

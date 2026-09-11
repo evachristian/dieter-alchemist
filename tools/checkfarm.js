@@ -209,6 +209,60 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   ok(out.harvestHidden, '못 닿으면 「거두기」를 안 내놓는다 (눌러도 아무 일 없는 버튼을 두지 않는다)');
   await page.unroute('**/api/farm/**');
 
+  // ⑥b 응답을 «잃은» 수확 — 서버는 거뒀는데 클라이언트는 못 받았다 (외부 비평 1.5).
+  //
+  // 「nonce 를 붙였다」와 「정확히 한 번 들어온다」는 다른 말이었다. 예전에는 누를 때마다
+  // 새 번호를 만들어서, 이 순간이 오면 밭은 비고 가방은 그대로였다 — 다시 눌러도 새
+  // 요청이라 빈 밭(409)이었다. **요청은 서버까지 보내고 응답만 끊어** 그 순간을 만든다
+  await store.farmSet(RID, freshFarm({ walnut: 3 }));
+  await page.evaluate(async () => { await refreshFarm(); renderFarm(); });
+  await page.route('**/api/farm/**/harvest', async route => { await route.fetch(); await route.abort(); });
+  out = await page.evaluate(async () => {
+    const b0 = S.inventory.walnut || 0;
+    await harvestFarm();
+    return { b0, b1: S.inventory.walnut || 0, pending: !!opPending('harvest') };
+  });
+  ok(out.b1 === out.b0, `응답을 잃으면 가방은 아직 그대로다 (${out.b0} → ${out.b1})`);
+  ok(out.pending, '작업 번호가 로컬에 남는다 (확인될 때까지)');
+  ok(ears((await store.get(RID)).farm) === 0, '서버는 이미 거뒀다 (밭이 비었다)');
+  await page.unroute('**/api/farm/**/harvest');
+  out = await page.evaluate(async () => {
+    const b0 = S.inventory.walnut || 0;
+    await refreshFarm();                       // 다음에 밭을 볼 때 — 같은 번호로 다시 묻는다
+    const b1 = S.inventory.walnut || 0;
+    await refreshFarm();                       // 한 번 더 봐도
+    return { got: b1 - b0, again: (S.inventory.walnut || 0) - b1, pending: !!opPending('harvest') };
+  });
+  ok(out.got === 3, `다음에 밭을 보면 잃었던 수확이 «한 번» 들어온다 (+${out.got} · 3 기대)`);
+  ok(out.again === 0, `두 번 들어오지 않는다 (+${out.again})`);
+  ok(!out.pending, '확인됐으면 번호를 지운다');
+
+  // ⑥c 409 가 «더 새로운 로컬»을 버리지 않는다 (외부 비평 1.2).
+  //
+  // 409 는 「서버가 더 새롭다」뿐 아니라 응답을 잃은 재전송(같은 rev)에서도 온다. 보내는
+  // 사이에 로컬이 더 나아갔으면 그 진행은 서버보다 새로운 것이다 — 예전에는 무조건
+  // 서버 것을 받아 방금 한 것을 잃었다. 서버가 «보낸 rev 그대로» 409 를 주게 해서 본다
+  await page.route('**/api/save/**', async route => {
+    if (route.request().method() !== 'PUT') return route.continue();
+    const body = JSON.parse(route.request().postData() || '{}');
+    await new Promise(r => setTimeout(r, 400));
+    await route.fulfill({ status: 409, contentType: 'application/json',
+      body: JSON.stringify({ error: 'stale_rev', serverRev: body.rev,
+                             state: Object.assign({}, body.state, { marker: 'server' }) }) });
+  });
+  out = await page.evaluate(async () => {
+    S.marker = 'local1'; save();
+    const p = Sync.pushNow(S);                 // 지금 보낸다 (400ms 걸린다)
+    await new Promise(r => setTimeout(r, 120));
+    S.marker = 'local2'; save();               // 보내는 사이에 더 나아갔다
+    const up = await p;
+    return { up, marker: S.marker };
+  });
+  ok(out.marker === 'local2', `보내는 사이에 한 진행이 남는다 (marker=${out.marker} · local2 기대)`);
+  ok(out.up === false, 'pushNow 는 「안 올라갔다」고 답한다 (출정이 이것을 본다)');
+  await page.unroute('**/api/save/**');
+  await page.evaluate(() => { delete S.marker; save(); });
+
   // ⑦ 심기 (3단계) — **가방에서 값이 나가고, 시간은 서버가 잰다**
   {
     // 심을 수 있게 재료를 채우고 밭을 비운다

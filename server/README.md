@@ -156,19 +156,22 @@ npm test           # 서버 API 검사
 ## 4. API
 
 모든 요청은 `secret` 을 함께 보내야 한다. 아이디만으로는 남의 세이브를 읽거나 쓸 수 없다.
+**비밀키는 `X-Secret` 헤더로 보낸다.** 몸통이 있는 요청(PUT·POST)은 몸통의 `secret` 이
+먼저다. 주소 쿼리(`?secret=…`)는 옛 클라이언트를 위해 당분간 같이 받지만 **새로 쓰지
+않는다** — 주소에 실으면 프록시·배포 인프라의 접근 로그에 그대로 남는다.
 
 | 메서드 | 경로 | 하는 일 |
 |---|---|---|
 | `GET` | `/api/health` | 서버 상태 · 저장소 종류 · 세이브 개수 |
-| `GET` | `/api/save/:playerId?secret=…` | 세이브 조회 (없으면 404) |
+| `GET` | `/api/save/:playerId` | 세이브 조회 (없으면 404) — 비밀키는 `X-Secret` 헤더 |
 | `PUT` | `/api/save/:playerId` | 세이브 저장 — 본문 `{ secret, rev, state, meta }` |
-| `DELETE` | `/api/save/:playerId?secret=…` | 세이브 삭제 (게임 초기화) |
+| `DELETE` | `/api/save/:playerId` | 세이브 삭제 (게임 초기화) |
 | `GET` | `/api/name/:name` | 쓸 수 있는 이름인지 (`{ available }`) |
 | `POST` | `/api/name` | 이름 예약 — 본문 `{ playerId, secret, name }` |
 | `GET` | `/api/ranking?limit=20` | 매력 총합 순위 (이름 있는 플레이어만) |
-| `GET` | `/api/farm/:playerId?secret=…` | 내 밭 — 이삭 · 약탈권 · 털린 기록 (없으면 만든다) |
+| `GET` | `/api/farm/:playerId?create=1` | 내 밭 — 이삭 · 약탈권 · 털린 기록. **`create=1` 일 때만** 없는 밭을 만든다 (조회만이면 `{ none: true }`) — 부팅의 조회가 참여가 되면 안 연 사람이 털린다 |
 | `POST` | `/api/farm/:playerId/harvest` | 이삭 거두기 — 본문 `{ secret, nonce }` |
-| `GET` | `/api/raid/targets/:playerId?secret=…` | 털러 갈 만한 남의 밭 (최대 5) |
+| `GET` | `/api/raid/targets/:playerId` | 털러 갈 만한 남의 밭 (최대 5) |
 | `POST` | `/api/raid/:playerId` | 약탈 — 본문 `{ secret, target, nonce }` (`target` 은 **이름**) |
 | `POST` | `/api/farm/:playerId/dev` | **개발용** — 밭을 상한까지 채운다. `DEV_TOOLS=0` 으로 끄면 **404 `dev_off`** |
 
@@ -258,7 +261,16 @@ DEV_TOOLS=0 npm start      # 서버 쪽만 먼저 잠그고 싶을 때
 `409` 와 함께 서버 쪽 세이브를 돌려준다. 클라이언트는 그걸 받아 자기 상태를 맞춘다.
 
 즉 **두 기기에서 동시에 플레이하면 먼저 저장한 쪽이 이긴다.** 진행이 섞이거나
-깨지지는 않지만, 나중 기기의 마지막 몇 초는 서버 쪽 내용으로 대체된다.
+깨지지는 않지만, 나중 기기의 마지막 몇 초는 서버 쪽 내용으로 대체된다
+(그 기기는 덮인 로컬을 `…_prev` 칸에 남긴다 — `game.js` 의 `adoptState`).
+
+⚠️ **rev 검사는 쓰기 «안»에 있다** (`store.put` — pg 는 `WHERE saves.rev < EXCLUDED.rev`,
+파일·메모리는 검사와 쓰기 사이에 `await` 가 없다). API 가 먼저 읽어 견주는 것은 안내일
+뿐이다 — 두 요청이 같은 옛 행을 읽으면 둘 다 통과하고, 큰 rev 가 먼저 쓰인 뒤 작은
+rev 가 덮어 **저장이 과거로 돌아간다.** `put` 은 썼는지(`true/false`)를 돌려주고
+못 썼으면 그때 409 다. **밭을 바꾸는 요청**(수확·심기·칸·약탈·dev)은 `store.transact`
+로 제 행(약탈은 두 행)을 잠근 한 거래 안에서 읽고·판정하고·쓴다 — 두 밭이 둘 다
+바뀌거나 둘 다 안 바뀐다. 잠그는 순서는 `player_id` 정렬순이다 (교착 방지).
 
 ### 응답 코드
 

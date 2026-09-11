@@ -1024,6 +1024,8 @@
       // 모달
       confirm_reset_look: '정말로 나의 외형을 초기화 하시겠습니까?',
       confirm_reset_game: '게임을 초기화 하시겠습니까?',
+      // 서버 사본을 못 지웠을 때 — 이대로 진행하면 서버의 옛 사본과 이름은 남는다
+      confirm_reset_offline: '서버에 저장된 사본을 지우지 못했어요. 지금 초기화하면 서버의 옛 사본과 이름은 남습니다. 그래도 초기화할까요?',
       confirm_restart: '정말로 처음부터 다시 시작할까요? 모든 진행이 사라집니다.',
       btn_ok: '확인', btn_cancel: '취소',
       // ═══ 호감도 단계마다 달라지는 인사말·잡담 ═══════════════
@@ -1134,6 +1136,10 @@
       sync_help_offline: '지금은 서버에 닿지 않아요. 진행은 이 기기에 저장되고, 연결되면 자동으로 올릴게요.',
       sync_help_off: '지금은 이 기기에만 저장돼요. 브라우저 데이터를 지우면 사라집니다.',
       sync_pulled: '다른 기기에서 하던 내용을 불러왔어요!',
+      // 로컬 저장이 막혔을 때 (용량 · 시크릿 모드 등) — 서버 사본은 계속 올린다
+      save_fail: '이 기기에 저장하지 못했어요. 저장 공간을 확인해 주세요. (서버에는 계속 저장할게요)',
+      // 출정 전에 부대를 서버에 못 올렸을 때 — 옛 부대로 싸우게 두지 않는다
+      raid_unsynced: '부대를 서버에 올리지 못해 출정을 미뤘어요. 연결을 확인해 주세요.',
       sync_copy: '복사',
       sync_copied: '복구 코드를 복사했어요.',
       sync_help: '이 코드를 적어 두면 다른 기기나 브라우저에서 이어서 할 수 있어요.',
@@ -2191,6 +2197,7 @@
       brew_creature: '🌟 Display Charm +{n}',
       confirm_reset_look: 'Reset your appearance?',
       confirm_reset_game: 'Reset the game and start over?',
+      confirm_reset_offline: 'Could not delete the copy saved on the server. If you reset now, the old server copy and your name will remain. Reset anyway?',
       confirm_restart: 'Start over from the beginning? All progress will be lost.',
       btn_ok: 'OK', btn_cancel: 'Cancel',
       // ═══ 호감도 단계마다 달라지는 인사말·잡담 ═══
@@ -2296,6 +2303,8 @@
       sync_help_offline: "Can't reach the server right now. Progress is kept on this device and will upload once you're back online.",
       sync_help_off: 'Saved on this device only. Clearing browser data will erase it.',
       sync_pulled: 'Loaded your progress from another device!',
+      save_fail: 'Could not save on this device. Please check its storage. (Still saving to the server.)',
+      raid_unsynced: 'Could not send your party to the server, so the raid was put off. Please check your connection.',
       sync_copy: 'Copy',
       sync_copied: 'Recovery code copied.',
       sync_help: 'Write this code down to continue on another device or browser.',

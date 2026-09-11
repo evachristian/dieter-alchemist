@@ -318,6 +318,37 @@ function launchOpts() {
       off = 0;
     }
 
+    // ── ⚠️ 정산의 «순서» — 어제 배부른 채로 저장하고 하루 뒤에 들어온다 ──
+    //
+    // 위의 밤 검사들은 전부 `tickBody()` → `checkBinge()` 를 **손으로 그 순서대로** 불렀다.
+    // 그런데 부팅과 자정이 지나는 `refreshEnergy()` 는 예전에 `checkBinge()` 를 먼저
+    // 불렀다 — 아직 안 줄어든 포만감 100 을 보고 밤을 지나치고, 그 뒤 `tickBody()` 가
+    // 0 으로 내려도 오늘 판정은 끝난 뒤였다. **같은 시간을 비웠는데 마지막 저장값에
+    // 따라 밤이 오기도 안 오기도 했다** (외부 비평이 재현한 것). 그 함수를 그대로 부른다
+    {
+      S.aura.happy = 500; S.fit = 0; S.binges = [];
+      S.fullness = 100; S.bodyTs = Date.now();
+      S.bingeDay = dayKey(); S.energyDay = dayKey(); S.kitchenDay = 0;
+      S.lastWorkoutTs = Date.now(); S.decayTs = Date.now();
+      jumpH(26); refreshEnergy();
+      ok(S.binges.length === 1,
+        `배부른 채 저장 → 26시간 뒤 첫 정산(refreshEnergy)에서 혼자 먹은 밤 ${S.binges.length} (1 기대 — 포만감을 먼저 줄이고 판정해야 한다)`);
+      S.binges = [];
+    }
+
+    // ── 주가 바뀐 뒤 랭킹 탭을 «안 열고» 마신 물약은 이번 주 점수다 ──
+    //
+    // 정산이 `renderLeague()` 에만 있으면 탭을 열기 전의 점수가 지난주에 적립되고,
+    // 탭을 여는 순간 그것까지 지난주 성적으로 정산한 뒤 이번 주가 0 이 된다
+    {
+      S.week = { key: 'old-week', score: 5 }; S.leagueLast = null; S.league = 0;
+      addWeekScore(10);
+      ok(S.week.key === weekKey() && S.week.score === 10,
+        `주가 바뀐 뒤 탭을 안 열고 +10 → ${S.week.key} · ${S.week.score}점 (이번 주 10 기대)`);
+      ok(!!S.leagueLast && S.leagueLast.key === 'old-week', '지난주는 지난주 점수(5)로 따로 정산됐다');
+      S.leagueLast = null;
+    }
+
     // ── 단련이 몸을 움직이는가 ──
     S.stats.beauty = 30; S.fit = 0;
     const w0 = weightKg(), f0 = bodyFatPct();
@@ -330,10 +361,44 @@ function launchOpts() {
     return out.join('\n');
   });
 
+  // \u2500\u2500 \uc9c4\uc9dc \ubd80\ud305 \uacbd\ub85c \u2014 \uc138\uc774\ube0c\uc5d0 \u300c\uc5b4\uc81c \ubc30\ubd80\ub978 \ucc44\u300d\ub97c \uc2ec\uc5b4 \ub193\uace0 \ud398\uc774\uc9c0\ub97c \uc0c8\ub85c \uc5f0\ub2e4 \u2500\u2500
+  //
+  // \uc704\uc758 \uac80\uc0ac\ub294 `refreshEnergy()` \ub97c \ubd80\ub978 \uac83\uc774\uace0, \uc5ec\uae30\ub294 **DOMContentLoaded \uc758 \uc21c\uc11c**
+  // \uadf8 \uc790\uccb4\ub97c \ubcf8\ub2e4. \uc2dc\uacc4\ub294 \ubabb \uc62e\uae30\ubbc0\ub85c \uc2dc\uac01\uc744 \uc2e4\uc81c\ub85c 26\uc2dc\uac04 \uc804\uc73c\ub85c \uc801\uc5b4 \ub454\ub2e4
+  let bootLine = '';
+  {
+    const y = new Date(Date.now() - 26 * 3600000);
+    // ⚠️ 날짜 키는 «어제»여야 한다 — 26시간 전은 새벽에 돌리면 그저께가 되어 밤이 둘이 된다
+    const yd = new Date(Date.now() - 24 * 3600000);
+    const yKey = yd.getFullYear() * 10000 + (yd.getMonth() + 1) * 100 + yd.getDate();
+    const ctx = await browser.newContext();
+    const p = await ctx.newPage();
+    const perr = [];
+    p.on('pageerror', e => perr.push(e.message));
+    await p.addInitScript(({ ts, key }) => {
+      localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+      localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify({
+        ver: 15, name: 'Tester', nameClaimed: true, tutorialDone: true,
+        tut: { step: 0, beat: 0, done: true, did: { gift: true } },
+        aura: { happy: 500, grace: 100, unique: 100, grit: 500, luck: 100 },
+        fullness: 100, bodyTs: ts, bingeDay: key, energyDay: key, kitchenDay: 0,
+        lastWorkoutTs: ts, decayTs: ts, binges: [],
+      }));
+    }, { ts: y.getTime(), key: yKey });
+    await p.goto(BASE, { waitUntil: 'load' });
+    await p.waitForTimeout(2200);
+    const n = await p.evaluate(() => (S.binges || []).length);
+    const good = n === 1 && !perr.length;
+    bootLine = (good ? '\u2705 ' : '\u274c ') + `\uc9c4\uc9dc \ubd80\ud305: \uc5b4\uc81c \ubc30\ubd80\ub978 \ucc44 \uc800\uc7a5 \u2192 26\uc2dc\uac04 \ub4a4 \ucf1c\uba74 \ud63c\uc790 \uba39\uc740 \ubc24 ${n} (1 \uae30\ub300)`
+      + (perr.length ? ` \u00b7 \uc624\ub958 ${perr[0]}` : '');
+    await ctx.close();
+  }
+
   await browser.close();
   console.log(lines);
+  console.log(bootLine);
   errs.forEach(e => console.log(e));
-  const bad = lines.split('\n').filter(l => l.startsWith('\u274c')).length + errs.length;
+  const bad = lines.split('\n').concat([bootLine]).filter(l => l.startsWith('\u274c')).length + errs.length;
   console.log(bad ? `\n\u274c ${bad}건` : '\n\u2705 시간이 흐르는 값 전부 통과');
   process.exit(bad ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

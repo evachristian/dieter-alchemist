@@ -34,7 +34,10 @@ const CASES = [
     save: { name: '올드원', nameClaimed: true, gathered: 42, inventory: { herb: 7 } },
     expect: (S) => [
       S.name === '올드원' || `이름이 사라졌다 (${S.name})`,
-      S.gathered === 42 || `채집 횟수가 사라졌다 (${S.gathered})`,
+      // 세이브 15 — 옛 총 횟수(숫자)는 **재료별 누적(객체)** 로 바뀐다. 숫자가 남아 있으면
+      // `S.gathered[id]` 가 조용히 버려져 숙련이 영영 안 붙는다 (외부 비평이 재현한 것)
+      (S.gathered && typeof S.gathered === 'object') || `gathered 가 객체가 아니다 (${S.gathered})`,
+      (S.gathered || {}).herb === 7 || `가진 만큼은 모아 본 것으로 쳐야 한다 (${(S.gathered || {}).herb})`,
       (S.inventory || {}).herb === 7 || '가방이 비었다',
       S.tutorialDone === true || '이미 플레이 중이던 사람은 튜토리얼을 마친 것으로 쳐야 한다',
       (S.tut || {}).done === true || '옛 세이브에 튜토리얼이 처음부터 다시 뜬다',

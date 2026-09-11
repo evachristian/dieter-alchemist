@@ -16,7 +16,11 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //     다시 보여 주지 않고 **마친 것으로 친다** (그래야 tutorialDone 도 같이 켜진다)
 // 14: 방 안에서 하는 일(운동·흡입·부엌·수확·밭)이 **하나씩 열린다.**
 //     ⚠️ 이미 플레이 중인 사람에게서 뺏으면 안 된다 — 옛 세이브는 다섯을 다 열어 준다
-const SAVE_VER = 14;
+// 15: `gathered` 가 **재료별 누적(객체) 하나**로 정리됐다. 예전에는 같은 이름이
+//     `defaultState` 에 두 번 있어서(객체 · 숫자) 뒤의 숫자가 이겼고, 채집할 때마다
+//     `S.gathered++` 가 객체를 NaN 으로 만들어 **숙련이 한 세션도 못 살아남았다**
+//     (외부 비평에서 재현됐다). 총 채집 횟수는 `record.gathered` 가 맡는다
+const SAVE_VER = 15;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -107,6 +111,10 @@ const defaultState = () => ({
   // `known`    — 레시피 id → 그 장에서 «밝혀낸» 재료 id 들
   // `gathered` — 재료 id → 여태 모아 본 누적 수. **`inventory` 를 쓰면 안 된다**
   //              (그건 «지금 가진 것»이라 쓰면 줄어들어서, 숙련이 도로 사라진다)
+  //   ⚠️ **이 이름은 여기 한 번만 있다.** 아래에 `gathered: 0`(총 채집 횟수)이 하나 더
+  //   있었는데, 같은 키가 두 번이면 **뒤의 것이 이긴다** — 숫자가 되어 `S.gathered[id]`
+  //   가 조용히 버려졌고, 채집의 `S.gathered++` 는 객체를 NaN 으로 만들었다.
+  //   총 횟수는 `record.gathered` 가 이미 세고 있다 (세이브 15)
   known: {},
   gathered: {},
   // 지금 «무엇을 만들려는 중»인가 (비법서에서 고른 장). 모르는 칸을 채워 볼 때
@@ -146,7 +154,6 @@ const defaultState = () => ({
   stats:     { beauty: 0, charm: 0 },
   discovered: [...STARTER_RECIPES],   // 처음부터 알고 있는 하급 물약 2종
   cauldron:  [],          // 현재 마법 솥에 넣은 재료 id (솥의 구멍 수만큼)
-  gathered:  0,           // 총 채집 횟수 (통계)
   outfit:    { ...D.DEFAULT_OUTFIT },  // 아바타 착장 (슬롯 → 아이템 id)
   // 옷 색 (**아이템 id** → COLORS 의 id). 비어 있으면 그 옷은 원래 색을 쓴다.
   //
@@ -359,6 +366,8 @@ function normalizeState(st) {
   // 옛 값은 색을 알 수 없으니 버린다 (개발용으로만 있던 값이다)
   if (!st.dyeEver || typeof st.dyeEver !== 'object') st.dyeEver = {};
   if (!Array.isArray(st.want)) st.want = [];
+  // 재료별 누적은 객체여야 한다 — 숫자·null 이 들어오면 `S.gathered[id]` 가 조용히 버려진다
+  if (!st.gathered || typeof st.gathered !== 'object') st.gathered = {};
   // 튜토리얼 진행 — 모양이 깨져 있으면 맞춘다.
   // 값이 통째로 없을 때는 **tutorialDone 을 따라간다** — 졸업한 사람에게 튜토리얼이
   // 처음부터 다시 뜨는 것이 이 값이 틀렸을 때 가장 나쁜 결과다
@@ -403,26 +412,54 @@ function load() {
       migrate(st, parsed.ver || 1);
       return st;
     }
-  } catch (e) { console.warn('load failed', e); }
+  } catch (e) {
+    console.warn('load failed', e);
+    // ⚠️ **깨진 원문을 버리지 않는다.** 예전에는 여기서 그냥 기본값으로 떨어져서, 다음
+    // 저장이 원래 자리를 덮는 순간 손실이 굳었다 (마이그레이션 오류 하나로 새 게임이
+    // 조용히 시작됐다 — 세이브 9 사고). 원문을 옆 칸에 남겨 두면 나중에 되찾을 수 있다
+    try { const raw = localStorage.getItem(SAVE_KEY); if (raw) localStorage.setItem(SAVE_KEY + '_broken', raw); }
+    catch (e2) {}
+  }
   return defaultState();
 }
 // 저장 — 로컬에 쓰고, 서버 동기화가 붙어 있으면 올려 보낸다.
 // rev 는 저장할 때마다 1씩 오르는 번호로, 어느 쪽 세이브가 최신인지 판단하는 기준이다.
+//
+// ⚠️ **로컬에 못 써도 행동을 끊지 않는다.** `setItem` 은 용량이 차거나 저장이 막힌
+// 브라우저에서 던진다 — 예전에는 그 예외가 행동 도중에 터져 화면과 저장이 갈라졌고,
+// 바로 뒤의 서버 전송까지 안 갔다. 지금은 실패를 **알리고**, 서버에는 그대로 올린다
+// (로컬이 진짜지만 로컬이 못 쓸 때는 서버 사본이 유일한 사본이다)
+let saveFailedAt = 0;
 function save() {
   S.rev = (S.rev || 0) + 1;
   if (S.record) S.record.lastTs = Date.now();
-  localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+    saveFailedAt = 0;
+  } catch (e) {
+    console.warn('save failed', e);
+    // 한 번만 알린다 — 매 저장마다 토스트가 뜨면 그것이 화면을 막는다
+    if (!saveFailedAt && typeof toast === 'function') toast(T('save_fail'), null, 4200);
+    saveFailedAt = Date.now();
+  }
   if (window.Sync) Sync.push(S);
 }
 // 서버에서 더 최신 세이브를 받아 왔을 때 (sync.js 가 호출)
 function adoptState(state) {
+  // ⚠️ **덮이는 로컬을 옆 칸에 남긴다** (`_prev`). 서버 rev 가 더 크다는 것이 언제나
+  // 「더 나중에 한 진행」이라는 뜻은 아니다 — rev 는 30초 자동 저장으로도 오르므로,
+  // 오래 켜 둔 기기가 짧게 하고 끈 기기를 이길 수 있다 (외부 비평 1.3). 정책은
+  // 「먼저 저장한 쪽이 이긴다」 그대로 두되, **진 쪽이 조용히 사라지지는 않게** 한다.
+  // 진행이 있는 로컬(rev > 0)만 남기고, 되찾는 길은 아직 개발용 콘솔뿐이다
+  try { if (S && (S.rev || 0) > 0) localStorage.setItem(SAVE_KEY + '_prev', JSON.stringify(S)); }
+  catch (e) {}
   S = normalizeState(Object.assign(defaultState(), state));
   S.record = Object.assign(newRecord(), S.record || {});
   // **받아온 세이브도 마이그레이션을 지난다.** 불러오기와 같은 손질을 하지 않으면
   // 기기를 바꾼 사람만 새 기본값을 못 받는다 — 튜토리얼을 마친 사람에게
   // 튜토리얼이 처음부터 다시 뜨는 식으로 드러난다. 버전은 **받아온 값**에서 읽는다
   migrate(S, (state && state.ver) || 1);
-  localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { console.warn('save failed', e); }
   if (typeof render === 'function') render();
   if (window.Tut) Tut.refresh();
 }
@@ -564,6 +601,17 @@ function migrate(st, from) {
     // 여태 모아 본 누적은 알 길이 없다 — **지금 가진 것만큼은 모아 본 것이 맞다.**
     // 0 에서 시작하면 이미 재료를 잔뜩 쌓아 둔 사람이 숙련만 0 인 이상한 상태가 된다
     st.gathered = st.gathered || {};
+    Object.keys(st.inventory || {}).forEach(id => {
+      st.gathered[id] = Math.max(st.gathered[id] || 0, st.inventory[id] || 0);
+    });
+  }
+
+  if (from < 15) {
+    // ⚠️ 위(13)의 `st.gathered || {}` 는 **숫자를 못 걸렀다** — 실제 세이브에는 옛
+    // 총 채집 횟수(`gathered: 42`)가 들어 있어서 42 가 그대로 남았고, 그 위에
+    // `S.gathered[id] = …` 는 조용히 버려졌다. NaN(→ null)으로 저장된 것도 있다.
+    // **객체가 아니면 새로 만들고, 가진 것만큼은 모아 본 것으로 친다** (13 과 같은 규칙)
+    if (!st.gathered || typeof st.gathered !== 'object') st.gathered = {};
     Object.keys(st.inventory || {}).forEach(id => {
       st.gathered[id] = Math.max(st.gathered[id] || 0, st.inventory[id] || 0);
     });
@@ -2200,10 +2248,15 @@ const produceUnseen = () => (S.produced || []).filter(p => !p.seen).length;
 function refreshEnergy() {
   const today = dayKey();
   if (S.energyDay === today) return false;
-  // 날짜가 넘어갔으니 방치 감소·밤 판정도 여기서 한 번 본다 (창을 며칠 열어 둔 경우)
-  decayIdle();
+  // 날짜가 넘어갔으니 몸의 정산(포만감 → 방치 감소 → 밤 판정)도 여기서 한 번 본다
+  // (창을 며칠 열어 둔 경우). ⚠️ **순서가 있는 정산이라 `settleBody()` 하나를 지난다** —
+  // 예전에는 여기서 `checkBinge()` 를 `tickBody()` «앞»에 불렀다. 부팅이 이 함수를
+  // 먼저 부르므로, 어제 배부른 채로 저장하고 하루 뒤에 들어오면 **아직 안 줄어든
+  // 포만감 100 을 보고 밤을 지나쳤고**, 그 뒤 `tickBody()` 가 0 으로 내려도 오늘 판정은
+  // 이미 끝난 뒤였다. 같은 시간을 비웠는데 마지막 저장값에 따라 결과가 달랐다
+  const alone = settleBody().alone;
   settleProduce();                       // 크리처 생산도 같은 자리에서 (8단계)
-  if (checkBinge()) renderActBadges();   // 뱃지만 켠다 (토스트로 안 알린다)
+  if (alone) renderActBadges();          // 뱃지만 켠다 (토스트로 안 알린다)
   // (여러 날 지났어도) **상한까지** 충전한다.
   // ⚠️ 예전에는 `energy + dailyFill`(고정 1000)을 상한으로 잘랐다. 상한이 매력
   // 단계로 늘어나게 되면서 그 식은 **늘어난 몫을 영영 안 채운다** — 여신(1800)이
@@ -2267,6 +2320,21 @@ function tickBody() {
   const fedH = drop > 0 ? Math.min(h, f0 / drop) : h;
   S.stamina = Math.min(staminaMax(), st0 + STAMINA.perHour * fedH);
   return Math.abs(fullness() - f0) > 0.01 || Math.abs(stamina() - st0) > 0.01;
+}
+
+// ─── 몸의 시간 정산은 «한 곳»을 지난다 ──────────────────────
+//
+// 흐른 시간 → 포만감·스태미나(`tickBody`) → 방치 감소(`decayIdle`) → 혼자 먹은 밤
+// (`checkBinge`). **셋의 순서가 결과를 바꾼다** — 밤 판정은 비운 사이에 «줄어든»
+// 포만감을 봐야 한다. 부팅 · 자정 롤오버(`refreshEnergy`) · 백그라운드 복귀가
+// 전부 이 함수를 부른다. 저마다 따로 부르면 한 곳만 순서가 어긋나도 (실제로 그랬다)
+// **같은 시간을 비웠는데 실행 경로에 따라 밤이 오기도 안 오기도 한다.**
+// 깎인 것(`lost`)과 밤(`alone`)을 돌려준다 — 알릴지는 부르는 쪽이 정한다
+function settleBody() {
+  tickBody();
+  const lost = decayIdle();
+  const alone = checkBinge();
+  return { lost, alone };
 }
 
 // ─── 방치하면 되돌아간다 ────────────────────────────────────
@@ -2638,8 +2706,7 @@ function startPumpkinRun(map) {
   window.Pumpkin.start(map, (res) => {
     const got = (res && res.picked) || [];
     got.forEach(id => addInv(id, 1));
-    S.gathered++;
-    rec('gathered');
+    rec('gathered');                     // 총 횟수는 기록에만 (재료별 누적은 addInv 가)
     got.forEach(() => rec('itemsGot'));
     const specials = got.filter(id => id === map.special).length;
     for (let i = 0; i < specials; i++) rec('specials');
@@ -2675,7 +2742,6 @@ function gather(mapId) {
   const isSpecial = Math.random() < specialRate(map);
   const id = isSpecial ? map.special : weightedPick(map.pool);
   addInv(id, 1);
-  S.gathered++;
   rec('gathered'); rec('itemsGot');
   // 퀘스트 — **한 번 채집한 것을 한 걸음으로 센다** (재료 개수가 아니라).
   // 동행이 덤을 주면 두 걸음이 되어 「여덟 번」이 네 번이 될 수 있다
@@ -2954,6 +3020,11 @@ function leagueOpen() { return charmPeak() >= D.LEAGUE.openAt; }
 // 물약을 마셔 매력이 올랐을 때 이번 주 점수에 더한다
 function addWeekScore(n) {
   if (!(n > 0)) return;
+  // ⚠️ **더하기 전에 주를 정산한다.** 예전에는 정산이 `renderLeague()`(랭킹 탭을 열 때)
+  // 에만 있어서, 주가 바뀐 뒤 탭을 안 열고 물약부터 마시면 **새 점수가 지난주에
+  // 적립됐고**, 나중에 탭을 열면 그것까지 지난주 성적으로 정산한 뒤 이번 주를 0 으로
+  // 시작했다 (외부 비평이 잡은 것). 경계 처리는 탭을 열었는지와 무관해야 한다
+  settleLeague();
   if (!S.week.key) S.week.key = weekKey();
   S.week.score = (S.week.score || 0) + n;
 }
@@ -7396,10 +7467,16 @@ let FARM = null;
 let farmBusy = false;
 
 // 서버에서 밭을 받아 온다. 못 받으면 FARM 을 null 로 둔다 (= 「모른다」)
-async function refreshFarm() {
+// `create` — 서버에 밭이 없으면 **만들지**. ⚠️ 부팅의 조회는 `false` 다.
+// 예전에는 조회만으로 밭이 생겨서, 밭 화면을 한 번도 안 연 사람도 서버 목록에 올라
+// (이삭이 쌓이면) 털릴 수 있었다 — 「밭을 안 연 사람은 안 뜬다」가 글로만 있었다
+// (외부 비평 1.7). 밭을 «여는» 자리(`pullFarm`)와 밭 안에서 하는 일만 만든다.
+// 먼저 **미확인 작업을 되살린다**(`opRecover`) — 응답을 잃은 수확이 있으면 여기서 들어온다
+async function refreshFarm(create) {
   if (!window.Sync || !Sync.enabled()) { FARM = null; return null; }
-  const r = await Sync.farmGet();
-  FARM = r.status === 200 && r.body ? r.body : null;
+  await opRecover();
+  const r = await Sync.farmGet(create !== false);
+  FARM = r.status === 200 && r.body && !r.body.none ? r.body : null;
   diaryFromFarm();
   renderActBadges();
   return FARM;
@@ -7665,23 +7742,113 @@ function farmHtml() {
   return rows.join('');
 }
 
+// ─── 밭 요청의 «작업 번호»는 확인될 때까지 남는다 ────────────────
+//
+// 서버는 같은 nonce 가 다시 오면 같은 답을 돌려준다 (멱등). 그런데 예전에는 클라이언트가
+// **누를 때마다 새 nonce 를 만들었다** — 서버가 수확을 끝냈는데 응답만 잃으면 밭은
+// 비었고 가방에는 안 들어왔으며, 다시 눌러도 새 요청이라 빈 밭(409)이었다. 새로고침하면
+// 되찾을 번호도 없었다 (외부 비평 1.5). 「nonce 를 붙였다」와 「정확히 한 번 들어온다」는
+// 다른 말이었다.
+//
+// 그래서 **보내기 전에 번호를 로컬에 적어 두고**, 확정 응답(성공이든 거절이든)을 받을
+// 때까지 같은 번호로만 보낸다. 못 닿은 채 남은 것은 다음에 밭을 볼 때(`opRecover`)
+// 먼저 다시 보내서 서버가 이미 처리한 결과를 받아 적용한다.
+//   harvest → 들어온 재료   · plant → 낸 재료   · plot → 낸 결정   · raid → 전리품·기록
+const OP_KEY = 'dieter_alchemist_farmop_v1';
+function opLoad() { try { return JSON.parse(localStorage.getItem(OP_KEY)) || {}; } catch (e) { return {}; } }
+function opSave(o) { try { localStorage.setItem(OP_KEY, JSON.stringify(o)); } catch (e) {} }
+function opPending(kind) { return opLoad()[kind] || null; }
+// 같은 종류의 미확인 작업이 «같은 내용»이면 그 번호를 그대로, 아니면 새 번호를 적어 둔다
+// (내용이 다른 미확인 작업은 부르기 전에 `opRecover` 가 이미 정리했다)
+function opNonce(kind, extra) {
+  const ops = opLoad();
+  const cur = ops[kind];
+  const same = cur && JSON.stringify(cur.extra || null) === JSON.stringify(extra || null);
+  if (same) return cur.nonce;
+  const n = Sync.nonce();
+  ops[kind] = { nonce: n, extra: extra || null, t: Date.now() };
+  opSave(ops);
+  return n;
+}
+function opDone(kind) { const ops = opLoad(); delete ops[kind]; opSave(ops); }
+window.opPending = opPending;
+
+// 서버가 준 결과를 세이브에 적용한다 — 버튼을 눌러서 받았든 되살려서 받았든 같은 길이다
+function applyHarvest(items) {
+  Object.keys(items).forEach(id => addInv(id, items[id]));
+  rec('harvested', Object.values(items).reduce((a, b) => a + b, 0));
+  save();
+  toast(T('farm_got', { items: stashText(items) }), null, 2600);
+}
+function applyPlant(cropId) {
+  const c = D.farmCrop(cropId);
+  if (c) Object.keys(c.cost).forEach(id => removeInv(id, c.cost[id]));
+  rec('planted');
+  save();
+}
+function applyPlot(cost) {
+  S.crystal = Math.max(0, (S.crystal || 0) - (cost || 0));
+  save();
+}
+function applyRaid(name, body) {
+  rec('raids');
+  const items = body.items || {};
+  if (body.win) {
+    Object.keys(items).forEach(id => addInv(id, items[id]));
+    rec('raidWon');
+  }
+  // 일지 — **이겨서 빈손인 경우를 따로 적는다.** 바닥 규칙(`RAID_FLOOR_DAYS`)이
+  // 만든 진짜 상태라, 나중에 읽을 때 「왜 빈손이었지?」가 남으면 안 된다
+  diaryAdd(body.win ? (Object.keys(items).length ? 'di_raid_win' : 'di_raid_empty') : 'di_raid_lose',
+    { who: name, items, wins: body.wins || 0 });
+  save();
+}
+
+// 미확인 작업을 같은 번호로 다시 보내 본다. 서버에 못 닿으면 그대로 두고(다음에 또),
+// 확정 응답이면 지운다 — 200 이면 결과를 적용한다 (서버가 «이미» 처리한 것일 수도,
+// 이제야 처리한 것일 수도 있다. 어느 쪽이든 사람이 누른 것이다)
+let opRecovering = false;
+async function opRecover() {
+  if (opRecovering || !window.Sync || !Sync.enabled()) return;
+  opRecovering = true;
+  try {
+    for (const kind of ['harvest', 'plant', 'plot', 'raid']) {
+      const op = opPending(kind);
+      if (!op || !op.nonce) continue;
+      const x = op.extra || {};
+      let r;
+      if (kind === 'harvest') r = await Sync.harvest(op.nonce);
+      else if (kind === 'plant') r = await Sync.plant(x.index, x.crop, op.nonce);
+      else if (kind === 'plot') r = await Sync.addPlot(op.nonce);
+      else r = await Sync.raid(x.target, op.nonce);
+      if (!r || r.status === 0) continue;               // 못 닿았다 — 번호는 남긴다
+      if (r.status === 200 && r.body) {
+        if (kind === 'harvest' && r.body.items) applyHarvest(r.body.items);
+        else if (kind === 'plant') applyPlant(x.crop);
+        else if (kind === 'plot') applyPlot(x.cost);
+        else if (kind === 'raid') applyRaid(x.target, r.body);
+      }
+      opDone(kind);
+    }
+  } finally { opRecovering = false; }
+}
+window.opRecover = opRecover;
+
 // 거두기 — 서버가 밭을 비우고 목록을 돌려주면 그것을 가방에 넣는다.
 // **nonce 로 멱등이다** — 응답을 못 받고 다시 눌러도 두 번 들어오지 않는다
 async function harvestFarm() {
   if (farmBusy || !FARM || !FARM.count) return;
   farmBusy = true;
-  const r = await Sync.harvest(Sync.nonce());
+  const r = await Sync.harvest(opNonce('harvest'));
   farmBusy = false;
+  if (r.status === 0) { toast(T('farm_err')); return; }   // 못 닿았다 — 번호는 남긴다
+  opDone('harvest');
   if (r.status !== 200 || !r.body || !r.body.items) {
     toast(T(r.status === 409 ? 'farm_empty' : 'farm_err'));
     await refreshFarm(); renderFarm();
     return;
   }
-  const items = r.body.items;
-  Object.keys(items).forEach(id => addInv(id, items[id]));
-  rec('harvested', Object.values(items).reduce((a, b) => a + b, 0));
-  save();
-  toast(T('farm_got', { items: stashText(items) }), null, 2600);
+  applyHarvest(r.body.items);
   if (window.Sfx) Sfx.play('pick');
   await refreshFarm();
   renderFarm();
@@ -7735,8 +7902,10 @@ async function doPlant(cropId) {
   if (!c || farmBusy || plantAt < 0) return;
   if (!costOk(c)) { toast(T('mat_short')); return; }
   farmBusy = true;
-  const r = await Sync.plant(plantAt, cropId, Sync.nonce());
+  const r = await Sync.plant(plantAt, cropId, opNonce('plant', { index: plantAt, crop: cropId }));
   farmBusy = false;
+  if (r.status === 0) { toast(T('farm_err')); return; }   // 못 닿았다 — 번호는 남긴다
+  opDone('plant');
   if (r.status !== 200 || !r.body) {
     const e = (r.body && r.body.error) || '';
     toast(T(e === 'plot_ears' ? 'plot_ears_first' : e === 'plot_busy' ? 'plant_busy' : 'farm_err'));
@@ -7744,10 +7913,10 @@ async function doPlant(cropId) {
     return;
   }
   // **값은 심은 것이 확인된 다음에 낸다.** 먼저 깎으면 서버에 못 닿았을 때
-  // 재료만 사라진다 (재료는 세이브 안에 있어 서버가 대신 돌려줄 수 없다)
-  Object.keys(c.cost).forEach(id => removeInv(id, c.cost[id]));
-  rec('planted');
-  save();
+  // 재료만 사라진다 (재료는 세이브 안에 있어 서버가 대신 돌려줄 수 없다).
+  // 반대(서버는 심었는데 응답을 잃어 값을 안 낸 경우)는 `opRecover` 가 같은 번호로
+  // 다시 물어 `repeat` 답을 받고 여기와 같은 `applyPlant` 를 지난다
+  applyPlant(cropId);
   closePlant();
   const nm = itemName(cropId);
   toast(T('plant_done', { name: nm, josa: josa(nm, '을를') }), null, 2600);
@@ -7765,11 +7934,12 @@ async function buyPlot() {
   if (n >= (FARM.plotMax || D.PLOT_COST.length)) { toast(T('farm_plot_max')); return; }
   if ((S.crystal || 0) < cost) { openDiamondShop(); return; }
   farmBusy = true;
-  const r = await Sync.addPlot(Sync.nonce());
+  const r = await Sync.addPlot(opNonce('plot', { cost }));
   farmBusy = false;
+  if (r.status === 0) { toast(T('farm_err')); return; }   // 못 닿았다 — 번호는 남긴다
+  opDone('plot');
   if (r.status !== 200 || !r.body) { toast(T('farm_err')); return; }
-  S.crystal = Math.max(0, (S.crystal || 0) - cost);
-  save();
+  applyPlot(cost);
   toast(T('farm_plot_got', { n: n + 1 }), null, 2400);
   if (window.Sfx) Sfx.play('success');
   await refreshFarm();
@@ -8099,11 +8269,18 @@ async function doRaid(i) {
   const name = t.name;
   farmBusy = true;
   // ⚠️ **부대를 먼저 올린다.** 판정은 서버가 **서버에 있는 세이브**로 한다 —
-  // 방금 바꾼 출정대가 아직 3초 디바운스에 걸려 있으면 옛 부대로 싸운다
-  await Sync.pushNow(S);
-  const r = await Sync.raid(name, Sync.nonce());
+  // 방금 바꾼 출정대가 아직 3초 디바운스에 걸려 있으면 옛 부대로 싸운다.
+  // **올라간 것이 확인돼야 나간다** — 예전에는 결과를 안 보고 곧바로 출정해서,
+  // 못 올렸을 때(느린 회선·시간 초과) 서버가 옛 부대로 판정했다 (외부 비평 1.13)
+  const up = await Sync.pushNow(S);
+  if (!up) { farmBusy = false; toast(T('raid_unsynced'), null, 3200); return; }
+  // ⚠️ nonce 는 **확인될 때까지 같은 것**을 쓴다 (`opNonce`) — 응답을 잃고 다시 누르면
+  // 서버가 같은 답을 돌려준다. 새로 만들면 약탈권이 한 번 더 깎인다
+  const r = await Sync.raid(name, opNonce('raid', { target: name }));
   farmBusy = false;
   closeRaidPick();
+  if (r.status === 0) { toast(T('farm_err'), null, 2600); return; }   // 못 닿았다 — nonce 는 남긴다
+  opDone('raid');
   if (r.status !== 200 || !r.body) {
     const e = (r.body && r.body.error) || '';
     toast(T(e === 'target_shielded' ? 'raid_shielded'
@@ -8113,17 +8290,7 @@ async function doRaid(i) {
     await refreshFarm(); renderFarm();
     return;
   }
-  rec('raids');
-  const items = r.body.items || {};
-  if (r.body.win) {
-    Object.keys(items).forEach(id => addInv(id, items[id]));
-    rec('raidWon');
-  }
-  // 일지 — **이겨서 빈손인 경우를 따로 적는다.** 바닥 규칙(`RAID_FLOOR_DAYS`)이
-  // 만든 진짜 상태라, 나중에 읽을 때 「왜 빈손이었지?」가 남으면 안 된다
-  diaryAdd(r.body.win ? (Object.keys(items).length ? 'di_raid_win' : 'di_raid_empty') : 'di_raid_lose',
-    { who: name, items, wins: r.body.wins || 0 });
-  save();
+  applyRaid(name, r.body);
   if (window.Sfx) Sfx.play(r.body.win ? 'success' : 'fail');
   showRaidResult(name, r.body);
   await refreshFarm();
@@ -8631,13 +8798,20 @@ function wipeLocalAll() {
   return doomed;
 }
 function askResetGame() {
-  showConfirm(T('confirm_reset_game'), async () => {
-    // 서버 사본을 먼저 지운다. 로컬만 지우면 다음 접속 때 서버에서 되살아난다.
-    // (서버가 죽어 있어도 초기화 자체는 진행한다 — 로컬이 진짜이므로)
-    if (window.Sync) { try { await Sync.wipe(); } catch (e) {} }
+  const proceed = () => {
     wipeLocalAll();
     if (window.Sync) { try { Sync.forget(); } catch (e) {} }
     location.reload();
+  };
+  showConfirm(T('confirm_reset_game'), async () => {
+    // 서버 사본을 먼저 지운다. 로컬만 지우면 다음 접속 때 서버에서 되살아난다.
+    // ⚠️ **못 지웠으면 그냥 넘어가지 않는다.** 예전에는 서버가 죽어 있어도 그대로
+    // 진행해서 신원(복구 코드)을 버렸는데, 그러면 서버에는 옛 사본과 이름 예약이
+    // 남고 그것을 지울 열쇠는 사라진다 (외부 비평 3.7). 한 번 더 묻고 나서야 진행한다
+    let wiped = false;
+    if (window.Sync) { try { wiped = await Sync.wipe(); } catch (e) {} }
+    if (window.Sync && Sync.enabled() && !wiped) { showConfirm(T('confirm_reset_offline'), proceed); return; }
+    proceed();
   });
 }
 
@@ -8790,14 +8964,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.I18N) I18N.apply();
   document.querySelectorAll('.tab-btn').forEach(b =>
     b.addEventListener('click', () => switchTab(b.dataset.tab)));
-  refreshEnergy();          // 접속 시 자정 롤오버 반영
-  tickBody();               // 창을 닫아 둔 사이에 흐른 포만감·스태미나
-  // 쉬는 동안 되돌아간 만큼. **조용히 줄어 있으면 안 된다** — 알려 준다
-  const lost = decayIdle();
-  // 혼자 먹은 밤. **tickBody 다음이라야** 비운 사이에 줄어든 포만감을 보고 판정한다.
-  // **토스트로 알리지 않는다** — 마이 룸의 「흡입」 버튼에 뱃지가 붙고, 눌러서 본다.
-  // 흘러가는 토스트로 때우기에는 그날 밤이 이 게임에서 너무 중요한 장면이다
-  const alone = checkBinge();
+  // 창을 닫아 둔 사이에 흐른 것 — 포만감·스태미나 → 방치 감소 → 혼자 먹은 밤.
+  // ⚠️ **`refreshEnergy()` 보다 먼저다.** 그쪽도 같은 `settleBody()` 를 부르지만
+  // 여기서 먼저 불러야 깎인 것(`lost`)을 손에 쥐고 알릴 수 있다 (두 번 불려도
+  // 두 번째는 아무것도 안 깎는다 — `decayTs` · `bingeDay` 가 이미 오늘이다).
+  // 밤은 **토스트로 알리지 않는다** — 마이 룸의 「흡입」 버튼에 뱃지가 붙고, 눌러서 본다.
+  // 흘러가는 토스트로 때우기에는 그날 밤이 이 게임에서 너무 중요한 장면이다.
+  // 쉬는 동안 되돌아간 만큼은 **조용히 줄어 있으면 안 된다** — 알려 준다
+  const { lost, alone } = settleBody();
+  refreshEnergy();          // 접속 시 자정 롤오버 반영 (AP 충전 · 생산 정산)
   if (lost || alone) save();
   if (lost) {
     setTimeout(() => toast(T('decay_back', {
@@ -8823,8 +8998,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (r && r.action === 'adopt') toast(T('sync_pulled'), null, 2800);
       ensureNameClaimed();
       // 밭을 한 번 받아 온다 — **자는 사이에 털렸는지**를 알려면 이 한 번이 필요하다.
-      // 세이브를 먼저 맞춘 뒤에 부른다 (adopt 로 `farmSeenAt` 이 바뀔 수 있다)
-      refreshFarm();
+      // 세이브를 먼저 맞춘 뒤에 부른다 (adopt 로 `farmSeenAt` 이 바뀔 수 있다).
+      // ⚠️ **만들지는 않는다**(`false`) — 조회가 참여가 되면 안 연 사람이 털린다
+      refreshFarm(false);
     });
   } else {
     renderSyncChip('off');

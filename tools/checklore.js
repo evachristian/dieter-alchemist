@@ -249,6 +249,10 @@ function ok(cond, msg, extra) {
         ver: 12, name: '옛사람', nameClaimed: true, tutorialDone: true,
         discovered: ['vitality', 'blush'].concat(ids),
         inventory: { herb: 44, berry: 7 },
+        // ⚠️ **옛 세이브에는 `gathered` 가 «숫자»로 들어 있다** (옛 총 채집 횟수).
+        // 이것을 안 심으면 마이그레이션의 `st.gathered || {}` 가 통과해 버려서,
+        // 실제 플레이어(전부 숫자를 갖고 있다)에게 숙련이 영영 안 붙던 것을 못 잡는다
+        gathered: 42,
         // 튜토리얼을 마친 상태로 둔다 — 안 그러면 첫 재료 주머니가 한 번 더 들어와
         // 누적이 44 가 아니라 45 가 된다 (게임이 아니라 심어 둔 세이브의 문제다)
         tut: { step: 0, beat: 0, done: true, did: { gift: true } },
@@ -279,6 +283,55 @@ function ok(cond, msg, extra) {
     });
     ok(fresh === 2, '   …그 뒤에 새로 오는 장부터 흐리다', `모르는 칸 ${fresh}`);
     await old.close();
+  }
+
+  // ── 숙련은 «진짜 채집»으로 쌓이고, 새로고침을 넘어 살아남는다 ──
+  //
+  // ⚠️ 위의 검사들은 전부 `S.gathered[id] = 30` 처럼 **값을 손으로 심는다.** 그래서
+  // 채집 자체가 누적을 망가뜨리던 것(`S.gathered++` 가 객체를 NaN 으로 → 저장하면
+  // null)을 한 번도 못 잡았다 — 외부 비평이 재현해서 알려 준 자리다.
+  // 여기서는 `gather()` 를 실제로 부르고, 저장하고, 페이지를 다시 열어 본다
+  {
+    const ctx2 = await browser.newContext();
+    const p2 = await ctx2.newPage();
+    await p2.addInitScript(() => {
+      localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+      // ⚠️ 새로고침에도 이 스크립트가 다시 돈다 — 이미 있으면 덮지 않는다.
+      // (덮으면 「새로고침해도 그대로인가」가 검사기가 지운 것을 재게 된다)
+      if (localStorage.getItem('dieter_alchemist_save_v1')) return;
+      localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify({
+        ver: 15, name: '채집꾼', nameClaimed: true, tutorialDone: true,
+        tut: { step: 0, beat: 0, done: true, did: { gift: true } },
+      }));
+    });
+    await p2.goto('file://' + path.join(ROOT, 'index.html'), { waitUntil: 'load' });
+    await p2.waitForTimeout(2200);
+    const got = await p2.evaluate(() => {
+      const map = D.MAPS.find(m => !m.mini && m.unlock === 0) || D.MAPS[0];
+      S.energy = 9999; S.gathered = {}; S.inventory = {};
+      const N = D.LORE.masteryAt;
+      for (let i = 0; i < N; i++) gather(map.id);
+      const sum = Object.values(S.gathered || {}).reduce((a, b) => a + b, 0);
+      save();
+      const raw = JSON.parse(localStorage.getItem('dieter_alchemist_save_v1'));
+      return { type: typeof S.gathered, sum, n: N, saved: raw.gathered,
+               total: S.record.gathered };
+    });
+    ok(got.type === 'object' && got.sum >= got.n,
+       `⚠️ 채집 ${got.n}번이 재료별 누적으로 쌓인다`, `${got.type} · 합 ${got.sum}`);
+    ok(got.saved && typeof got.saved === 'object',
+       '   …저장에도 객체로 남는다 (NaN → null 이 아니다)', JSON.stringify(got.saved).slice(0, 40));
+    ok(got.total === got.n, '   …총 횟수는 record.gathered 가 센다', `${got.total}`);
+    await p2.reload({ waitUntil: 'load' });
+    await p2.waitForTimeout(2200);
+    const back = await p2.evaluate(() => {
+      const g = S.gathered || {};
+      return { type: typeof S.gathered, sum: Object.values(g).reduce((a, b) => a + b, 0),
+               any: Object.keys(g).some(id => ingMastered(id) || g[id] > 0) };
+    });
+    ok(back.type === 'object' && back.sum === got.sum,
+       '   …새로고침해도 그대로다', `${back.type} · 합 ${back.sum} (${got.sum} 기대)`);
+    await ctx2.close();
   }
 
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));
