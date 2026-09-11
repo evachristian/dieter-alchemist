@@ -5632,12 +5632,37 @@ function bumpTune(k, dir) {
 }
 window.bumpTune = bumpTune;
 
+// 「되돌리기」 — 모든 바디파츠를 100% 로
 function resetTune() {
   bodyTune = defaultTune();
   try { localStorage.setItem(TUNE_KEY, JSON.stringify(bodyTune)); } catch (e) {}
   renderShowcase();
 }
 window.resetTune = resetTune;
+// 「최대 150%」 · 「최소 50%」 — 모든 바디파츠를 한꺼번에 상한 / 50 으로.
+// ⚠️ 값을 박지 않는다 — 상한은 부위마다 `tuneMaxOf` 다 (`maxTune` 과 같은 이유).
+// 50 은 하한(`TUNE_MIN`)이고, 엉덩이만 하한이 더 낮지만(20) 버튼은 50 에 맞춘다
+function setAllTune(v) {
+  TUNE_PARTS.forEach(p => { bodyTune[p.k] = Math.max(tuneMinOf(p.k), Math.min(tuneMaxOf(p.k), v)); });
+  try { localStorage.setItem(TUNE_KEY, JSON.stringify(bodyTune)); } catch (e) {}
+  renderShowcase();
+}
+window.setAllTune = setAllTune;
+// 「원래 체형 복귀」 — 게임이 정한 몸으로. 슬라이더는 개발용 배율이라 이리저리 만지고 나면
+// 「지금 이 캐릭터의 진짜 몸」이 무엇이었는지 알 수 없다. 그 값은 한 곳에서 나온다:
+// 졸업하면 전부 상한(`maxTune` — 「날씬해지는 이야기라 출발점은 통통」), 졸업 전에는 100%.
+// 몸무게(비주얼)는 슬라이더가 아니라 `bodyLevel()` 이라 여기서 건드릴 것이 없다
+function originTune() {
+  const o = {};
+  TUNE_PARTS.forEach(p => { o[p.k] = S.tutorialDone ? tuneMaxOf(p.k) : 100; });
+  return o;
+}
+function restoreTune() {
+  bodyTune = originTune();
+  try { localStorage.setItem(TUNE_KEY, JSON.stringify(bodyTune)); } catch (e) {}
+  renderShowcase();
+}
+window.restoreTune = restoreTune;
 
 // 바디파츠를 전부 상한으로 — **튜토리얼 졸업 때 한 번** 부른다 (`tutorial.js`).
 // 이 게임은 «날씬해지는» 이야기라 출발점이 이미 날씬하면 줄어들 자리가 없다:
@@ -6227,8 +6252,14 @@ function renderBodyTune() {
       ${btn(1, '+')}
     </div>`;
   }).join('');
+  // 한꺼번에 움직이는 버튼 넷 — 최대 · 최소 · 원래 체형 · 되돌리기(100%).
+  // 숫자는 표에서 읽는다 (`tuneMaxOf` · `TUNE_MIN`) — 문자열에 박으면 상한을 바꿀 때 거짓말이 된다
+  const maxAll = Math.max(...TUNE_PARTS.map(p => tuneMaxOf(p.k)));
   el.innerHTML = `<div class="tune-head">
-      <button class="tune-reset" onclick="resetTune()">${T('tune_reset')}</button></div>${rows}`;
+      <button class="tune-reset" onclick="setAllTune(${maxAll})">${T('tune_all_max', { n: maxAll })}</button>
+      <button class="tune-reset" onclick="setAllTune(${TUNE_MIN})">${T('tune_all_min', { n: TUNE_MIN })}</button>
+      <button class="tune-reset" onclick="restoreTune()">${T('tune_origin')}</button>
+      <button class="tune-reset tune-reset-end" onclick="resetTune()">${T('tune_reset')}</button></div>${rows}`;
 }
 
 // 카테고리 탭 줄(.cat-tabs)은 **줄바꿈**한다 — UI_POLICY.md 참고.

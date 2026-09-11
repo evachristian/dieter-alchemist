@@ -1221,8 +1221,10 @@ button.tm-slot:active { transform: scale(0.94); }
   margin-top: 0; padding: 10px 12px 12px;
   background: var(--card); border: 1px dashed rgba(180,120,40,0.5); border-radius: 14px;
 }
-/* 제목은 바깥 .dev-group 이 맡는다 — 여기 남는 건 되돌리기 버튼뿐이라 오른쪽으로 민다 */
-.tune-head { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+/* 제목은 바깥 .dev-group 이 맡는다. 한꺼번에 움직이는 버튼 넷이 한 줄에 서고,
+   좁은 화면·영어에서는 줄바꿈한다 — 되돌리기만 오른쪽 끝으로 민다 */
+.tune-head { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.tune-reset-end { margin-left: auto; }
 .tune-reset {
   flex: 0 0 auto; border: none; background: var(--cream); color: var(--ink-soft);
   font-family: inherit; font-weight: 800; font-size: 0.7rem;

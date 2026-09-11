@@ -406,9 +406,11 @@
   //
   // ⚠️ 식을 밖에서 다시 쓰지 않는다 — 살의 양은 `fatOf`(부위마다 얹히는 정도가
   // 다르다), 몸무게는 `bodyScaleX` 다. 옮겨 적으면 패널이 그림과 다른 말을 한다
+  // ⚠️ 분모에도 「슬라이더 100%」의 살을 넣는다 (`gainOf(null, k)`). 눈금을 접은 부위
+  // (`TUNE_SCALE.hip`)는 100% 가 1 이 아니라서, 1 로 두면 엉덩이 100% 가 「▼ 50%」로 찍힌다
   function partRatio(k, tune, w) {
     const now = gainOf(tune, k) * weightK({ w: w }, k) * bodyScaleX(w);
-    return now / (weightK({ w: 1 }, k) * bodyScaleX(1));
+    return now / (gainOf(null, k) * weightK({ w: 1 }, k) * bodyScaleX(1));
   }
 
   // 가로(굵기)만 늘리는 변환 — ax 를 축으로
