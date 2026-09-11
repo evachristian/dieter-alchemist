@@ -259,9 +259,21 @@
   // 팔·허벅지·종아리는 좌우가 각자 제자리에서 굵어지도록 **자기 중심**을 축으로 늘린다.
   // (x=100 을 축으로 하면 굵어지는 대신 바깥으로 벌어져 어깨에서 떨어져 보인다)
   const TUNE_KEYS = ['torso', 'waist', 'hip', 'arm', 'thigh', 'calf', 'face'];
+  // ─── 슬라이더 눈금을 다시 매긴 부위 ──────────────────────────
+  //
+  // ⚠️ **엉덩이는 눈금의 절반이 몸에 들어간다** — 「지금 엉덩이 50% 를 100% 라고
+  // 맞춰 달라」(2026-09-11). 100% 이하의 엉덩이 폭은 `BODY.hipHalf` 가 아니라
+  // **허벅지 윗머리가 골반을 따라 들어오는 몫**(`HIP_PULL`)과 그것을 덮는 폭에서
+  // 나오므로, 상수 하나를 반으로 줄여서는 아무것도 안 바뀐다 (실제로 재 봤다 —
+  // `hipHalf` 를 19 로 내려도 20~100% 가 25.5 → 31 → 36 → 40.5 그대로였다).
+  // 그래서 **눈금 자체를 여기서 접는다.** `fatOf` · `HIP_PULL` · `hipSolve` 의 열쇠 ·
+  // `partRatio` 가 전부 이 함수를 지나므로 한 줄로 다 따라온다.
+  // 화면·세이브의 % 는 사람이 고른 값 그대로다 (`game.js` 의 `bodyTune`).
+  // 150% 는 옛 75% 다 — 눈금을 접었으니 위쪽도 같이 접힌다 (옛 100% 이상은 이제 없다)
+  const TUNE_SCALE = { hip: 0.5 };
   function tuneOf(tune, k) {
     const v = tune && Number(tune[k]);
-    return Number.isFinite(v) && v > 0 ? v : 1;
+    return (Number.isFinite(v) && v > 0 ? v : 1) * (TUNE_SCALE[k] || 1);
   }
   // ─── 배율이 살에 얹히는 정도는 부위마다 다르다 ────────────────
   //
@@ -483,8 +495,14 @@
     // ⚠️ **관절이 마디를 너무 안 따라가면 이음매가 튄다.** 팔에 몫이 붙어
     // 어깨가 3.2배가 되는데 팔꿈치는 1.9배뿐이라, 윗팔이 팔꿈치로 급하게 좁아져
     // 굽힘 자리에서 옆선이 1.5px 튀었다 (팔꿈치 0.6+0.4k → 0.15+0.85k · 손목 0.7+0.3k → 0.45+0.55k)
-    const E = Math.min(ARM_W.elbow * (0.15 + 0.85 * k), S * 0.9);
-    const W = Math.min(ARM_W.wrist * (0.45 + 0.55 * k), E * 0.9);
+    // ⚠️ **그 「덜 붙는다」는 100% «위»에서만이다.** 100% 아래에도 같은 식을 쓰면
+    // 관절이 마디보다 «덜 빠져서» 팔 50% 에서 어깨 5.7 · 팔꿈치 5.2 · 손목 4.7 의
+    // **막대**가 된다 — 「팔을 낮추면 윗팔만 가늘어지고 아랫팔은 안 가늘어진다」로
+    // 신고받은 자리다 (소매 여유까지 얹히면 아랫팔이 윗팔과 같은 폭으로 보인다).
+    // 100% 아래에서는 관절도 마디와 «같이» 가늘어진다. 100% 에서는 두 식이 같다
+    const jk = (f0, f1) => k < 1 ? k : f0 + f1 * k;
+    const E = Math.min(ARM_W.elbow * jk(0.15, 0.85), S * 0.9);
+    const W = Math.min(ARM_W.wrist * jk(0.45, 0.55), E * 0.9);
     return { S: S, E: E, W: W };
   }
   // 팔 위 끝(armY)에서 dist 만큼 내려간 곳의 **반폭** (pad = 소매가 팔보다 넓은 만큼)
@@ -534,11 +552,16 @@
     return d + ' Z';
   }
 
+  // 소매가 팔보다 넓은 여유(pad)는 **팔이 가늘어지면 같이 줄어든다** (100% 아래에서만 ·
+  // 바닥 절반). 3px 붙박이면 팔 50% 의 손목(반폭 2.2)에 3 이 얹혀 소매가 팔의 2.4배가
+  // 되고, 그 «상수»가 윗팔·아랫팔의 차이를 다 먹어 아랫팔이 안 가늘어져 보였다
+  const padOf = (pad, k) => pad * Math.min(1, Math.max(0.5, k));
   function armShape(side, fill, pad, h, tune, opts) {
     const B = BODY, left = side === 'L', o = opts || {};
     const d = armShift(tune) * (left ? 1 : -1);       // 어깨선을 따라 팔을 옮긴다
     const x0 = (left ? B.armX_L : B.armX_R) + d;
     const ka = armK(tune);
+    pad = padOf(pad, ka);
     // **안쪽 변은 고정이다** — 굵기가 어떻든 팔이 몸통에서 안 떨어진다.
     // sgn 은 안쪽에서 바깥쪽으로 가는 방향
     const sgn = left ? -1 : 1;
@@ -1021,9 +1044,14 @@
   // **무릎 쪽으로는 저절로 사라진다** — 아래의 `thighOuterAt` 이 무릎(`kneeX`)까지
   // 보간하므로, 골반이 건드리는 것은 윗머리 하나뿐이다.
   const HIP_PULL = 0.5;
+  // 골반이 좁은 만큼 들어오는 몫 (1 = 안 들어온다). 허벅지 윗머리와 **무릎이 같은 값을 본다**
+  // ⚠️ 엉덩이 눈금을 접으면서(`TUNE_SCALE.hip`) 이 몫이 **기본 몸에도** 걸리게 됐다
+  // (100% 가 옛 50% 라 0.75). 무릎이 이것을 안 보면 윗머리만 들어오고 무릎은 남아,
+  // 허벅지 배율에 따라 «윗머리 대비 무릎» 비가 49~59% 로 흔들렸다 — `checkavatar` 의
+  // 「무릎이 허벅지를 따라가는가」가 잡았다. 둘이 같이 들어오면 다리의 결이 그대로다
+  const hipPullK = tune => 1 - HIP_PULL * (1 - Math.min(1, fatOf(tune, 'hip')));
   const thighTop = tune => Math.max(innerX(LEG.hipY) + 2,
-    (THIGH_GAP + LEG.hipW * fatOf(tune, 'thigh'))
-      * (1 - HIP_PULL * (1 - Math.min(1, fatOf(tune, 'hip')))));
+    (THIGH_GAP + LEG.hipW * fatOf(tune, 'thigh')) * hipPullK(tune));
   // 허벅지 바깥 변 — **높이에 따라 다르다.** 위(엉덩이 밑)가 가장 굵고 무릎으로 가늘어진다.
   // 엉덩이가 붙을 자리를 잡으려면 「그 높이의」 허벅지 폭을 알아야 한다
   // ⚠️ **재는 곡선과 그리는 곡선이 같아야 한다.**
@@ -1420,7 +1448,8 @@
              thighTop(tune) * KNEE_THIGH));                             // 허벅지가 크면 거기까지
   const kneeX = tune => Math.min(
     Math.max(
-      LEG.kneeX * (1 - KNEE_K + KNEE_K * Math.max(fatOf(tune, 'thigh'), fatOf(tune, 'calf'))),
+      LEG.kneeX * (1 - KNEE_K + KNEE_K * Math.max(fatOf(tune, 'thigh'), fatOf(tune, 'calf')))
+        * hipPullK(tune),             // 골반이 좁으면 무릎도 같은 몫만큼 들어온다 (위 참고)
       thighTop(tune) * KNEE_THIGH),
     thighTop(tune) * 0.85,          // 골반이 좁아 윗머리가 들어오면 무릎도 따라 들어온다
     kneeCalfCap(tune));

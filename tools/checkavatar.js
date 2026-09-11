@@ -2067,7 +2067,10 @@ function launchOpts() {
   // 통과**라는, 예전에 엉덩이에서 겪은 그 함정이다.
   // ⚠️ 허벅지가 1.45 → **1.50** 이 됐다 — 옆선을 둥글게 하려고 `THIGH_BULGE` 를
   // 0.8 → 1.4 로 올렸고, 불룩해진 만큼 «가장 굵은 곳»도 같이 굵어진 것이다.
-  const FAT_MAX = { 허벅지: [1.5, 1.50], 엉덩이: [1.5, 1.12], 종아리: [1.5, 1.45] };
+  // ⚠️ 엉덩이가 1.12 → **1.16** 이 됐다 — 「지금 엉덩이 50% 를 100% 라고」 (`avatar.js` 의
+  // `TUNE_SCALE.hip` 0.5). 눈금을 반으로 접어 150% 가 옛 75% 라, 옛 50%→75% 의 비
+  // (31 → 36)가 곧 새 100%→150% 의 비다. `TUNE_GAIN.hip` 은 이제 닿지 않는다
+  const FAT_MAX = { 허벅지: [1.5, 1.50], 엉덩이: [1.5, 1.16], 종아리: [1.5, 1.45] };
   const FAT_TOL = 0.06;
   const fat = await page.evaluate(async (o) => {
     const D = window.GameData, bad = [], S = 4, W = 200 * S;
@@ -2658,13 +2661,18 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     };
     const base = share(1);
     const shares = {};
+    // ⚠️ **떨어지는 쪽만 잡는다.** 깔때기는 무릎의 몫이 «줄어드는» 것이다. 올라가는 쪽은
+    // 골반이 좁은 몸(`HIP_PULL` — 엉덩이 눈금을 접은 뒤로는 기본 몸도 0.75)에서 구조적으로
+    // 생긴다: 허벅지 윗머리는 골반을 따라 들어오는데 무릎은 **장딴지보다 가늘어질 수 없어서**
+    // (`kneeCalfCap`) 허벅지·종아리 50% 에서 무릎의 몫이 44 → 59% 로 오른다. 그것을 막으려면
+    // 종아리까지 골반을 따라 줄여야 하는데 그건 골반이 할 일이 아니다
     [0.5, 0.75, 1, 1.5].forEach(k => {
       const s = share(k);
       shares[k] = s == null ? null : +s.toFixed(3);
-      if (s != null && base != null && Math.abs(s - base) > o.ratio) {
+      if (s != null && base != null && base - s > o.ratio) {
         bad.push(`허벅지·종아리 ${k * 100}%: 무릎이 허벅지 윗머리의 ${(s * 100).toFixed(1)}% 다`
-          + ` — 기본은 ${(base * 100).toFixed(1)}% (±${o.ratio * 100}%p). 허벅지가 무릎으로`
-          + ` 쏟아지는 깔때기가 된다`);
+          + ` — 기본은 ${(base * 100).toFixed(1)}% (${o.ratio * 100}%p 까지 떨어져도 된다).`
+          + ` 허벅지가 무릎으로 쏟아지는 깔때기가 된다`);
       }
     });
     return { bad: bad, n: n, worst: +worst.toFixed(2), at: at, grow: +grow.toFixed(2),
@@ -3417,7 +3425,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` · 둘 다 150% 일 때 무릎이 ${legLine.grow}px 굵어진다 (${KNEE_GROW_MIN}px 이상)`);
   console.log(`무릎이 허벅지를 따라가는가: 허벅지 윗머리 대비 무릎 — 기본 ${legLine.base}`
     + ` · 50% ${legLine.shares[0.5]} · 75% ${legLine.shares[0.75]} · 150% ${legLine.shares[1.5]}`
-    + ` (±${KNEE_RATIO_TOL} · 비율이 떨어지면 허벅지가 무릎으로 쏟아지는 깔때기가 된다)`);
+    + ` (${KNEE_RATIO_TOL} 까지 떨어져도 된다 · 비율이 떨어지면 허벅지가 무릎으로 쏟아지는 깔때기가 된다`
+    + ` · 오르는 쪽은 골반이 좁을 때 장딴지에 막힌 무릎이라 안 잡는다)`);
   console.log(`허벅지 윗머리: 허벅지×엉덩이×허리 ${hipBulge.n}조합 — 엉덩이 밖으로 가장 나온 곳`
     + ` ${hipBulge.worst}px${hipBulge.worst ? ' · ' + hipBulge.at : ''} (${HIP_BULGE_MAX}px 까지)`);
   console.log(`다리 안쪽 변: 꺾임 ${legInner.kink}px (${INNER_KINK_MAX}px 까지)`
