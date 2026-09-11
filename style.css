@@ -3128,7 +3128,11 @@ button.tm-slot:active { transform: scale(0.94); }
 .q-where { display: flex; flex-direction: column; gap: 6px; }
 .q-reward { font-size: 0.8rem; font-weight: 700; color: var(--text-lav); }
 .q-claim { width: 100%; margin-top: 2px; }
-.q-claim:disabled { filter: saturate(0.15); opacity: 0.8; cursor: default; }
+/* ⚠️ 「아직이에요」에 **잠긴 표현을 쓰지 않는다.** 예전에는 `disabled` 라
+   `filter: saturate(0.15); opacity: 0.8` 을 «값으로 베껴» 두고 있었는데
+   (`.pg-row.locked` 과 같은 사고다), 지금 이 버튼은 눌리는 버튼이다 —
+   누르면 목표를 토스트로 말해 준다(`questNotYet`). 잠긴 것처럼 흐려 두면
+   눌러 볼 생각 자체를 안 하게 된다. 보조 버튼의 결은 `.btn-ghost` 가 이미 맡는다 */
 
 /* ═══ 컷씬 (QUEST.md 2-2) ═══════════════════════════════════
    초상화 + 말풍선. 아무 데나 눌러 넘긴다.

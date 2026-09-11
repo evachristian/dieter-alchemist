@@ -645,6 +645,18 @@ function launchOpts() {
             // **퀘스트가 없으면 칩째로 없다** — 점만 남으면 거짓말이 된다
             const back = S.quest.active; S.quest.active = null; renderQuestChip();
             if (dot()) return '퀘스트가 없는데 점이 남아 있다';
+            // ⚠️ **내보낸 퀘스트는 «칩까지» 나와야 한다.** 예전에는 부르는 쪽이 따로
+            // `renderQuestChip()` 을 붙였는데, 켤 때는 `render()` 가 먼저 지나가서
+            // **새로고침하면 하던 퀘스트의 칩이 사라졌다** (퀘스트는 멀쩡히 살아 있는데)
+            const keepQ = JSON.stringify(S.quest);
+            S.quest = { active: null, n: 0, done: [], queue: [] };
+            refreshQuests();
+            if (!S.quest.active) return '조건이 찬 퀘스트가 하나도 안 나왔다';
+            if (document.getElementById('questChip').hidden) {
+              S.quest = JSON.parse(keepQ); renderQuestChip();
+              return '퀘스트를 내보냈는데 칩이 안 떴다 (그리기를 부르는 쪽에 맡기고 있다)';
+            }
+            S.quest = JSON.parse(keepQ);
             S.quest.active = back;
             S.seenCuts = keep; S.quest.n = 0; renderQuestChip();
             return null;
@@ -662,7 +674,22 @@ function launchOpts() {
             if (!document.querySelector('#questSheet .q-face svg')) return 'NPC 초상이 없다';
             if (!document.querySelector('#questSheet .q-bar span')) return '진행 막대가 없다';
             const btn = document.querySelector('#questSheet .q-claim');
-            if (!btn || !btn.disabled) return '아직 못 냈는데 「가져가기」가 살아 있다';
+            if (!btn) return '아래 버튼이 없다';
+            if (btn.dataset.act !== 'later') return '아직 못 냈는데 「가져가기」가 살아 있다';
+            // 「아직이에요」는 **눌리는 버튼**이다 — 누르면 목표를 토스트로 말해 준다.
+            // ⚠️ 눌러 보고 «보상이 안 나갔는지»까지 같이 본다. 토스트만 재면
+            // 「가져가기」로 잘못 붙여 놓아도 통과한다 (그쪽도 토스트를 띄운다)
+            const done0 = S.quest.done.length, act0 = S.quest.active;
+            btn.click();
+            if (S.quest.done.length !== done0 || S.quest.active !== act0) {
+              return '「아직이에요」를 눌렀는데 퀘스트가 끝났다';
+            }
+            const tt = document.getElementById('toast');
+            if (!tt.classList.contains('show')) return '「아직이에요」를 눌렀는데 아무 말이 없다';
+            if (tt.textContent !== T(q0.id + '_desc')) {
+              return `토스트가 목표가 아니다 (${tt.textContent})`;
+            }
+            tt.classList.remove('show');   // 재는 동안 시트 위에 떠 있지 않게 (측정 조건)
             // 비법서 부품을 그대로 쓰는가 — 재료 줄이 있어야 한다 (`pageRowsFor`).
             // ⚠️ **재료가 있는 퀘스트로 갈아 끼워서 잰다.** 첫 퀘스트가 부엌처럼
             // 재료를 안 쓰는 것이면 줄이 없는 것이 맞는데, 그것을 「없다」로 잡으면
@@ -1531,8 +1558,9 @@ function launchOpts() {
           const keepActs = (S.roomActs || []).slice();
           const keepCuts = (S.seenCuts || []).slice();
           const keepQ = JSON.stringify(S.quest);
+          const keepKd = S.kitchenDay;
           const vis = id => { const e = document.getElementById(ROOM_ACT_BTN[id]); return !!e && !e.hidden; };
-          const back = () => { S.roomActs = keepActs; S.seenCuts = keepCuts;
+          const back = () => { S.roomActs = keepActs; S.seenCuts = keepCuts; S.kitchenDay = keepKd;
                                S.quest = JSON.parse(keepQ); renderActBadges(); };
           S.roomActs = []; S.seenCuts = [];
           S.quest = { active: null, n: 0, done: [], queue: [] };
@@ -1547,6 +1575,17 @@ function launchOpts() {
           if (!kitchenOpen()) { back(); return '부엌이 보이는데 열리지는 않는다'; }
           const extra = ROOM_ACTS.filter(id => id !== 'kitchen').filter(vis);
           if (extra.length) { back(); return `부엌만 열려야 하는데 ${extra.join('·')} 도 보인다`; }
+          // ⚠️ **컷씬을 진짜로 «끝까지 넘겨» 본다.** 위처럼 `renderActBadges()` 를 손으로
+          // 불러 주고 재면 「그리기가 빠진」 버그를 통째로 못 본다 — 실제로 컷씬이 끝나도
+          // 부엌은 안 나타났고, 다음에 무엇이든 화면을 다시 그려야 그제야 나왔다.
+          // **레드닷까지 같이 본다**: 버튼만 나오고 점이 없으면 갈 곳이 안 보인다
+          S.roomActs = []; S.seenCuts = []; S.kitchenDay = 0;
+          S.quest = { active: 'q_meet', n: 0, done: [], queue: [] };
+          renderActBadges();
+          playCut('c_meet_in', null);
+          for (let i = 0; i < 40 && !document.getElementById('cutScene').hidden; i++) cutNext();
+          if (!vis('kitchen')) { back(); return '컷씬이 끝났는데 부엌이 안 나타난다 (다시 안 그렸다)'; }
+          if (document.getElementById('kitchenDot').hidden) { back(); return '부엌이 나타났는데 레드닷이 없다'; }
           back();
           return null;
         });

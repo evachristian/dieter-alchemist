@@ -689,8 +689,8 @@ const fix1 = v => v.toFixed(1);   // 소수 둘째 자리 반올림 → 첫째 �
 let lastCharmSeen = null;
 function checkUnlocks() {
   // 매력이 오르는 자리가 곧 퀘스트가 열리는 자리다 — 판정을 두 곳에 두지 않는다
+  // (칩은 `refreshQuests()` 가 스스로 그린다)
   refreshQuests();
-  renderQuestChip();
   const now = totalCharm();
   if (lastCharmSeen === null) { lastCharmSeen = now; return; }
   if (now <= lastCharmSeen) { lastCharmSeen = now; return; }
@@ -1180,6 +1180,12 @@ function refreshQuests() {
     if (early) st.queue.push(early.id);
   }
   if (!st.active && st.queue.length) { st.active = st.queue.shift(); st.n = 0; }
+  // ⚠️ **내보냈으면 칩까지 여기서 그린다.** 예전에는 부르는 쪽이 따로 `renderQuestChip()`
+  // 을 붙였는데, 켤 때(`init`)는 `render()` 가 **이 함수보다 먼저** 지나가서
+  // **새로고침하면 하던 퀘스트의 칩이 사라졌다** — 퀘스트는 멀쩡히 살아 있는데
+  // 화면에서만 없어지는 종류라 「퀘스트가 날아갔다」로 읽힌다.
+  // 내보내는 자리와 보여 주는 자리를 갈라 두면 부르는 쪽마다 빠뜨릴 수 있다
+  renderQuestChip();
 }
 window.refreshQuests = refreshQuests;
 
@@ -1844,6 +1850,11 @@ function cutNext() {
   cutNow = null; cutThen = null;
   const el = document.getElementById('cutScene');
   if (el) el.hidden = true;
+  // ⚠️ **본 컷씬이 화면을 연다.** 클레멘의 첫 만남(`c_meet_in`)이 부엌 버튼을 여는데,
+  // 여기서 다시 안 그리면 **아무것이나 화면을 다시 그릴 때까지 버튼이 안 나타난다** —
+  // 레드닷도 같이 안 나온다. 판정(`seenCuts`)은 `playCut` 이 시작할 때 이미 끝나 있어서
+  // 빠진 것은 「그리기」 하나였다. `then()` «앞»이다: 이어지는 시트가 위에 얹힌다
+  render();
   if (then) then();
 }
 window.cutNext = cutNext;
@@ -2036,10 +2047,31 @@ function renderQuestSheet() {
     ${where ? `<div class="q-where">${where}</div>` : ''}
     <div class="q-reward">${T('q_reward')} ${rewardText(q.reward)}</div>
     <button class="btn ${full ? 'btn-primary' : 'btn-ghost'} q-claim"
-      onclick="claimQuest()"${full ? '' : ' disabled'}>
+      data-act="${full ? 'claim' : 'later'}"
+      onclick="${full ? 'claimQuest()' : 'questNotYet()'}">
       ${T(full ? 'q_claim' : 'q_not_yet')}</button>`;
 }
 window.renderQuestSheet = renderQuestSheet;
+
+// ─── 「아직이에요」 — 퀘스트 UI 공통 규칙 ─────────────────────
+//
+// **누르면 목표를 그 자리에서 다시 말해 준다.**
+// 예전에는 `disabled` 라 눌러도 아무 일이 없었다. 그런데 못 냈다는 것은 이미 막대와
+// 「0 / 1」로 적혀 있고, 그런데도 사람이 이 버튼을 누르는 이유는 하나뿐이다 —
+// **「그래서 뭘 하면 되는데」**. 거기에 아무 반응이 없으면 고장으로 읽힌다.
+//
+// ⚠️ **시트를 닫지 않는다.** 닫으면 방금 읽던 목표 줄이 같이 사라져서, 토스트 한 줄이
+// 「어디서 나온 말인지」를 잃는다. 토스트는 **누른 버튼 바로 위**에 뜬다(`above`) —
+// 아래로 두면 그 자리에 있는 「닫기」를 가려 다음 손짓을 막는다.
+// ⚠️ 요소가 아니라 **선택자**를 넘긴다 — 시트를 다시 그리면 눌렀던 버튼은 이미
+// 문서에서 떨어져 나가 토스트가 화면 왼쪽 위 구석에 뜬다 (`toast()` 주석과 같은 함정)
+function questNotYet() {
+  const q = activeQuest();
+  if (!q) return;
+  toast(T(q.id + '_desc'), '#questSheet .q-claim', 2600, 'above');
+  if (window.Sfx) Sfx.play('pick');
+}
+window.questNotYet = questNotYet;
 
 const rewardText = r => [
   // **장을 맨 앞에.** 결정보다 이쪽이 크다.
