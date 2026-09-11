@@ -4381,8 +4381,9 @@ function renderShowcase() {
   renderBodyState();
   renderActBadges();
 
-  // 스탯을 접었는지 펼쳤는지 (이 기기의 화면 설정)
+  // 스탯을 접었는지 펼쳤는지 · 인벤토리를 접었는지 (이 기기의 화면 설정)
   applyStatsView();
+  applyInvView();
 
   // 개발용 도구 (임시 · 테스트용) — 접힘 상태는 render() 끝에서 한 번에 맞춘다
   renderRoomDevGift();
@@ -4756,6 +4757,34 @@ function toggleStats() {
   renderRoomScene();
 }
 window.toggleStats = toggleStats;
+
+// ─── 인벤토리 접기 / 열기 ─────────────────────────────────────
+//
+// 마이 룸의 인벤토리(옷·잡화·크리처)는 화면의 절반을 먹는다. 방과 스탯만 보고 싶을 때
+// 통째로 접는다 — 접히면 탭·목록이 숨고 **버튼 한 줄만 남은 카드**가 「인벤토리 열기」다.
+// 스탯 접기와 같은 자리다: **세이브가 아니라 이 기기의 화면 상태**라 localStorage 에 둔다.
+// ⚠️ **튜토리얼 중에는 늘 열려 있다.** 막이 옷장·잡화 탭에 구멍을 내는데(`tutorial.js`)
+// 접혀 있으면 대상이 없어 안내가 헛돈다 — 졸업 전에는 접힘 값을 안 본다
+const INV_FOLD_KEY = 'dieter_alchemist_invfold_v1';
+function invFolded() {
+  if (!S.tutorialDone) return false;
+  try { return localStorage.getItem(INV_FOLD_KEY) === '1'; } catch (e) { return false; }
+}
+function applyInvView() {
+  const box = document.getElementById('roomInv');
+  const btn = document.getElementById('invToggle');
+  if (!box || !btn) return;
+  const fold = invFolded();
+  box.classList.toggle('folded', fold);
+  // 화살표는 **여는 쪽**을 가리킨다 — 접혀 있으면 아래(펼침), 펼쳐져 있으면 위(접힘)
+  btn.textContent = (fold ? '▾ ' : '▴ ') + T(fold ? 'inv_open' : 'inv_close');
+  btn.setAttribute('aria-expanded', fold ? 'false' : 'true');
+}
+function toggleInv() {
+  try { localStorage.setItem(INV_FOLD_KEY, invFolded() ? '0' : '1'); } catch (e) {}
+  applyInvView();
+}
+window.toggleInv = toggleInv;
 
 // ─── 나의 방 하위 탭 (옷 / 물약 / 크리처) ───
 let roomTab = 'clothes';

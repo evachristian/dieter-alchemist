@@ -1738,6 +1738,20 @@ button.tm-slot:active { transform: scale(0.94); }
   cursor: pointer;
 }
 .stats-toggle:active { transform: scale(0.99); }
+/* ─── 인벤토리 접기 / 열기 ───
+   스탯 접기와 같은 「조용한 줄 하나」. 카드 맨 아래에 앉고, 접히면 탭·목록이 숨어
+   **버튼만 남은 카드**가 된다 — 글자는 applyInvView() 가 넣는다 */
+.inv-toggle {
+  display: block; width: 100%; margin: 6px 0 0; padding: 8px 10px;
+  font-family: inherit; font-size: 0.8rem; font-weight: 700;
+  color: var(--ink-soft); background: none; border: none; border-radius: 12px;
+  cursor: pointer;
+}
+.inv-toggle:active { transform: scale(0.99); }
+.room-inv.folded .room-tabs, .room-inv.folded .room-panel { display: none; }
+.room-inv.folded { padding: 4px 10px; }
+.room-inv.folded .inv-toggle { margin-top: 0; }
+
 /* 접었을 때는 위로 바짝 붙인다. 카드가 없어서 버튼이 매력 총합에서 멀어 보인다 —
    둘이 한 덩어리로 읽혀야 「이 수치를 펼친다」로 읽힌다.
    **이 값을 바꾸면 game.js 의 ROOM_BLEED 도 같이 바꿔야 한다** — 스탯 덩어리가

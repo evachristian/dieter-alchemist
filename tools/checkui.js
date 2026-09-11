@@ -1667,6 +1667,27 @@ function launchOpts() {
           const box = document.getElementById('roomStats');
           if (box.classList.contains('lite')) toggleStats();
         });
+        // 인벤토리도 접힌 화면이 따로 있다 — 카드에 버튼 한 줄만 남는다. 접어서 재고 도로 편다.
+        // ⚠️ 접힌 채로 두면 아래 하위 탭 검사가 숨은 목록을 재게 된다
+        {
+          const bad = await page.evaluate(() => {
+            if (typeof toggleInv !== 'function') return 'toggleInv 가 없다';
+            const box = document.getElementById('roomInv');
+            if (!box.classList.contains('folded')) toggleInv();
+            if (!box.classList.contains('folded')) return '인벤토리가 안 접힌다';
+            const tabs = box.querySelector('.room-tabs');
+            if (tabs && tabs.getBoundingClientRect().height > 0) return '접혔는데 탭이 보인다';
+            return null;
+          });
+          if (bad) results.push({ 화면: `${t}/인벤토리접음`, 오류: bad });
+          else { await page.waitForTimeout(200); await run(`${t}/인벤토리접음`); }
+          const bad2 = await page.evaluate(() => {
+            const box = document.getElementById('roomInv');
+            if (box.classList.contains('folded')) toggleInv();
+            return box.classList.contains('folded') ? '인벤토리가 안 펴진다' : null;
+          });
+          if (bad2) results.push({ 화면: `${t}/인벤토리펼침`, 오류: bad2 });
+        }
         // 잡화는 그 안에 또 하위 탭이 둘이다 (물약 / 음식) — 둘 다 재야 한다.
         // 한쪽만 재면 다른 쪽 목록이 통째로 검사에서 빠진다
         const SUBS = [['clothes'], ['stuff', 'potions'], ['stuff', 'foods'], ['stuff', 'feeds'], ['creatures']];
