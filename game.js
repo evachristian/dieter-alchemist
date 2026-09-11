@@ -4266,6 +4266,57 @@ function petStage(pet) {
     + `${Creature.draw(pet, { flat: true })}</span>`;
 }
 
+// ─── 크리처는 «화면에 찍힌» 치마 옆선 옆에 선다 ──────────────
+//
+// 예전에는 CSS 에 `right: calc(50% + 66.1px)` 로 박아 두었다 — 날씬한 몸의 롱스커트
+// 밑단(28.6)에서 역산한 값이다. 그런데 **통통한 몸은 치마가 훨씬 넓다** (살이 부위마다
+// 붙으면서 더 그렇다). 그래서 새 플레이어(통통)의 방에서는 크리처가 롱스커트 위에
+// **19px 이나 올라앉아 있었다** — 「방에 있는 짐승」이 아니라 「치마에 붙은 무늬」다.
+// ⚠️ `checkavatar` 의 「크리처 자리」는 `getBBox` 로 재서 몸의 변환(가로 배율)을
+// 못 보고 있었다 — 그래서 한 번도 안 잡혔다. 지금은 화면 좌표로 잰다.
+//
+// 값을 다시 박아 두는 대신 **그려진 것을 재서** 세운다: 크리처 높이와 겹치는
+// 그림 조각들의 가장 왼쪽을 찾아 그 옆 5px 에 오른쪽 끝을 맞춘다.
+// 좁은 화면에서는 왼쪽으로 나가지 않게 크기(`--pet`)도 같이 줄인다 — CSS 의
+// `50vw − 67px` 규칙을 잰 값으로 다시 쓴 것이다.
+// 잴 수 없으면(탭이 숨겨져 폭이 0) CSS 기본값이 그대로 남는다
+//
+// ⚠️ **크기가 바뀌면 다시 잰다.** 겹치는 «높이 띠»가 크리처의 키로 정해지는데, 좁은
+// 화면에서는 자리를 옮기면 `--pet` 도 같이 바뀌어 키가 달라진다 — 265px 의 어항이
+// 기본 65px 로 잰 뒤 96px 로 커지면서 띠가 엉덩이까지 올라가 반바지의 엉덩이와
+// 1.1px 겹쳤다 (`checkavatar` 가 잡았다). 값이 그대로일 때까지 두세 번 돈다
+const PET_GAP = 5;
+function placePet() {
+  const cre = document.querySelector('.stage-creature');
+  const svg = document.querySelector('.char-body svg');
+  const aura = document.querySelector('.char-aura');
+  if (!cre || !svg || !aura) return;
+  const ar = aura.getBoundingClientRect();
+  if (!ar.width) return;
+  const mid = ar.left + ar.width / 2;
+  const max = cre.classList.contains('cr-water') ? 96 : 76;
+  const parts = svg.querySelectorAll('path,ellipse,circle,rect');
+  let last = -1;
+  for (let pass = 0; pass < 4; pass++) {
+    const cr = cre.getBoundingClientRect();
+    if (!cr.height) return;
+    let left = Infinity;
+    parts.forEach(n => {
+      const r = n.getBoundingClientRect();
+      if (!r.width || r.bottom < cr.top || r.top > cr.bottom) return;
+      left = Math.min(left, r.left);
+    });
+    if (!isFinite(left)) return;
+    // 가운데에서 치마 옆선 옆까지. ⚠️ 줄이지는 않는다 — 커졌다 작아졌다 하면 두 값 사이를
+    // 오가며 끝이 안 난다. 더 물러나기만 하면 띠는 좁아질 뿐이라 반드시 멎는다
+    const need = Math.max(last, mid - left + PET_GAP, 0);
+    if (need - last < 0.25) return;
+    last = need;
+    cre.style.right = `calc(50% + ${need.toFixed(1)}px)`;
+    cre.style.setProperty('--pet', `min(${max}px, calc(50vw - ${(need + 6).toFixed(1)}px))`);
+  }
+}
+
 function renderRoomScene() {
   const scene = document.querySelector('.room-scene');
   if (!scene || !window.Avatar || !window.Avatar.roomScene) return;
@@ -4297,6 +4348,7 @@ function renderShowcase() {
       <div class="stage-creatures">${petArt}</div>
     </div>`;
   renderRoomScene();   // 배경은 스탯이 접혔는지에 따라 아래로 더 그려진다
+  placePet();          // 크리처를 «지금 그려진» 치마 옆선에 맞춘다
   // 물약을 마신 직후면 살 빠지는 연출을 이어서 재생
   if (pendingSlimFx) { const lv = pendingSlimFx; pendingSlimFx = null; playSlimFx(lv); }
   // 졸업의 「펑!」 — 그림이 바뀐 바로 그 렌더에서 한 번.

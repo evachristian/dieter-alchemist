@@ -3145,6 +3145,10 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
       const wear = (D.WARDROBE.bottom || []).filter(i => i.kind !== 'none').map(i => ['bottom', i])
         .concat((D.WARDROBE.dress || []).filter(i => i.kind !== 'none').map(i => ['dress', i]));
       const worst = { over: -Infinity, outL: -Infinity };
+      // ⚠️ **체형을 둘 다 본다.** 새 플레이어는 통통(1)이고 치마는 거기서 제일 넓다.
+      // 이 검사는 오래 통통만 재면서도 몸의 가로 변환을 못 봐서(아래) 통과였다
+      for (const bw of [1, 0]) {
+      S.stats.beauty = bw ? 0 : 999; S.fit = 0;
       for (const pet of pets) {
         S.petRoom = pet.id;
         for (const [slot, it] of wear) {
@@ -3154,27 +3158,23 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
           const cre = document.querySelector('.stage-creature');
           const svg = document.querySelector('.char-body svg');
           if (!cre || !svg || !app) return { err: '크리처나 아바타가 안 그려졌다' };
-          const cr = cre.getBoundingClientRect(), sr = svg.getBoundingClientRect();
-          // ⚠️ **viewBox 의 «시작점»을 빼야 한다.** 아바타 상자는 이제 x 가 −14 에서
-          // 시작한다(`avatar.js` 의 `VB`) — `bb.x * k` 로만 재면 그림이 12.6px 왼쪽에
-          // 있다고 착각해 멀쩡한 크리처가 「치마와 10.1px 겹친다」로 잡혔다
-          const vb = svg.viewBox.baseVal, k = sr.width / vb.width;
-          const px = x => sr.left + (x - vb.x) * k;
-          // 세로도 마찬가지다 — 상자가 위로 36 열려서 y=0 이 상자의 위가 아니다
-          const py = y => sr.top + (y - vb.y) * k;
-          // 크리처 높이와 겹치는 그림 조각들의 **가장 왼쪽** (넉넉하게 — bbox 로 잡는다)
+          const cr = cre.getBoundingClientRect();
+          // ⚠️ **화면 좌표로 잰다** (`getBoundingClientRect`). 예전에는 `getBBox` 를
+          // viewBox 로 환산했는데, 그것은 조각 «제» 좌표라 **몸을 통째로 늘리는
+          // 변환(`bodyT`)을 못 본다** — 통통한 몸의 치마가 실제보다 좁게 잡혀,
+          // 크리처가 19px 올라앉아 있는데도 「3.5px 떨어져 있다」로 통과였다
           let left = Infinity;
           svg.querySelectorAll('path,ellipse,circle,rect').forEach(n => {
-            let bb; try { bb = n.getBBox(); } catch (e) { return; }
-            if (!bb.width) return;
-            if (py(bb.y + bb.height) < cr.top || py(bb.y) > cr.bottom) return;
-            left = Math.min(left, px(bb.x));
+            const r = n.getBoundingClientRect();
+            if (!r.width || r.bottom < cr.top || r.top > cr.bottom) return;
+            left = Math.min(left, r.left);
           });
           const over = cr.right - left;                             // + 면 겹쳤다
           const outL = app.getBoundingClientRect().left - cr.left;  // + 면 화면 밖으로 나갔다
-          if (over > worst.over) Object.assign(worst, { over, name: it.name, move: pet.move });
-          if (outL > worst.outL) Object.assign(worst, { outL, outMove: pet.move });
+          if (over > worst.over) Object.assign(worst, { over, name: `${it.name} · 체형 ${bw}`, move: pet.move });
+          if (outL > worst.outL) Object.assign(worst, { outL, outMove: `${pet.move} · 체형 ${bw}` });
         }
+      }
       }
       return worst;
     });
