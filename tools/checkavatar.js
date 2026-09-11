@@ -148,11 +148,16 @@ function launchOpts() {
                    ['허벅지 150', { thigh: 1.5 }], ['종아리 150', { calf: 1.5 }],
                    ['몸통 50 팔 50', { torso: 0.5, arm: 0.5 }],
                    ['허리 50', { waist: 0.5 }], ['엉덩이 20', { hip: 0.2 }]];
+    // ⚠️ **양 끝 체형에서는 «전부 150»도 돈다.** 졸업 직후의 몸이 슬라이더 전부 150 ×
+    // 통통이라 그것이 곧 새 플레이어의 몸인데, 배율을 중간 체형에서만 돌면 **제일 넓은
+    // 몸을 한 번도 안 잰다** — 살이 부위마다 찌게 되면서(FAT_W) 그 차이가 더 벌어졌다
+    const ALL150 = { torso: 1.5, waist: 1.5, hip: 1.5, arm: 1.5, thigh: 1.5, calf: 1.5 };
+    const EDGE_TUNES = [TUNES[0], ['전부 150', ALL150]];
     const bad = [];
     for (const c of cases) {
       for (const w of STEPS) {
         // 체형은 5단계를 다 돌고, 배율은 **중간 체형에서만** 돈다 (조합이 곱으로 는다)
-        const tunes = w === 0.5 ? TUNES : [TUNES[0]];
+        const tunes = w === 0.5 ? TUNES : (w === 0 || w === 1) ? EDGE_TUNES : [TUNES[0]];
         for (const [tn, t] of tunes) {
         const outfit = Object.assign({}, D.DEFAULT_OUTFIT, {
           top: 'top_none', bottom: 'bottom_none', dress: 'dress_none',
@@ -246,14 +251,21 @@ function launchOpts() {
       }
       return n;
     };
+    // 양 끝 체형에서는 «전부 150»도 같이 본다 (위의 EDGE_TUNES 와 같은 이유).
+    // ⚠️ 허리 창에서는 **팔·손을 지우고** 잰다 — 몸통을 줄이면 팔이 창 안으로 들어오는데
+    // 그것은 옷이 못 덮은 살이 아니라 원래 밖에 있는 맨팔이다 (몸통 창과 같은 규칙)
     for (const t of tops) for (const bo of bots) for (const w of STEPS) {
+      for (const [tn, tu] of ((w === 0 || w === 1) ? EDGE_TUNES : [TUNES[0]])) {
       const outfit = Object.assign({}, D.DEFAULT_OUTFIT,
         { top: t.id, bottom: bo.id, dress: 'dress_none', shoes: 'shoes_none' });
-      const n = await skinIn(window.Avatar.build(outfit, w, null), ...bodyBox(w, 72, 128, 148, 184));
-      if (n > 0) pairBad.push({ id: t.id + ' + ' + bo.id, body: w, where: '허리 살색', n });
-      const marked = window.Avatar.build(Object.assign({}, outfit, { colors: { top: MARK } }), w, null);
+      const lbl = tu ? `${w} · ${tn}` : w;
+      const n = await skinIn(strip(window.Avatar.build(outfit, w, tu), '[data-part="arm"],[data-part="hand"]'),
+        ...bodyBox(w, 72, 128, 148, 184));
+      if (n > 0) pairBad.push({ id: t.id + ' + ' + bo.id, body: lbl, where: '허리 살색', n });
+      const marked = window.Avatar.build(Object.assign({}, outfit, { colors: { top: MARK } }), w, tu);
       const m = await countMark(marked, bodyBox(w, 88, 112, 171, 189));
-      if (m > 0) pairBad.push({ id: t.id + ' + ' + bo.id, body: w, where: '겹침에 상의가 앞', n: m });
+      if (m > 0) pairBad.push({ id: t.id + ' + ' + bo.id, body: lbl, where: '겹침에 상의가 앞', n: m });
+      }
     }
     // ── 과시 카드 — PNG 가 실제로 나오는가, 방·아바타가 그려졌는가
     // (SVG 래스터화는 조용히 실패하기 쉽다. 실패하면 빈 카드가 나가도 아무도 모른다)
@@ -2870,6 +2882,80 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     return { bad, worst: +(worst * 100).toFixed(1), maskN, n: tunes.length * bots.length };
   }, HIP_OUT_MAX);
 
+  // ─── 엉덩이·허벅지가 하의·원피스 «옆»으로 나오지 않는가 (체형 둘 다) ──────
+  //
+  // 위의 「엉덩이가 하의 밖으로」는 **하의만 · 날씬한 몸에서만** 본다. 원피스는 아무도
+  // 안 봤고, 통통한 몸도 안 봤다 — 살이 부위마다 찌게 되면서(FAT_W) **졸업 직후의 몸
+  // (슬라이더 150 × 통통)에서 공주 드레스 옆으로 엉덩이가 2px 나왔는데** 모든 검사가
+  // 통과였다. 새 플레이어가 처음 서는 그 화면이다.
+  //
+  // 재는 법: 맨몸(팔·손을 뺀)의 살색을 찍어 두고, 옷을 입힌 그림에서 **옷의 밑단 위**
+  // (엉덩이 위 끝 ~ 밑단 3px 위)에 아직 살색으로 남은 몫을 센다. 밑단은 맨몸과 다른
+  // 픽셀이 있는 가장 아래 줄이다 — 옷 조각에 표시가 없는 하의도 같은 식으로 잰다.
+  // ⚠️ 창의 위 끝은 몸의 세로 변환(ky)을 지난다 — 고정 y 로 두면 통통한 몸에서
+  // 허리춤 위의 맨살 띠가 「하의 밖」으로 잡힌다 (실제로 그랬다)
+  const HIPSIDE_MAX = 0.003;    // 살색 비율. 경계는 4방 이웃으로 뺐으니 사실상 0이어야 한다
+  const hipSide = await page.evaluate(async (MAX) => {
+    const D = window.GameData, SKIN = [255, 220, 196], bad = [], S = 2, W = 200 * S, H = 348 * S;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    async function px(svg) {
+      const img = new Image();
+      await new Promise((ok, no) => {
+        img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      });
+      ctx.clearRect(0, 0, W, H);
+      __drawAvatar(ctx, img, W, H);
+      return ctx.getImageData(0, 0, W, H).data;
+    }
+    const isSkin = (d, i) => d[i + 3] > 250 && Math.abs(d[i] - SKIN[0]) <= 2
+      && Math.abs(d[i + 1] - SKIN[1]) <= 2 && Math.abs(d[i + 2] - SKIN[2]) <= 2;
+    const bare = { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', shoes: 'shoes_none', hair: 'hair_none' };
+    function build(t, w, o) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare, o || {}), w, t);
+      const root = wrap.firstElementChild;
+      root.querySelectorAll('[data-part="arm"],[data-part="hand"]').forEach(e => e.remove());
+      return root.outerHTML;
+    }
+    const ALL150 = { torso: 1.5, waist: 1.5, hip: 1.5, arm: 1.5, thigh: 1.5, calf: 1.5 };
+    const tunes = [['기본', null], ['전부 150', ALL150]];
+    const items = [];
+    (D.WARDROBE.bottom || []).filter(x => x.kind !== 'none').forEach(it => items.push(['bottom', it]));
+    (D.WARDROBE.dress || []).filter(x => x.kind !== 'none').forEach(it => items.push(['dress', it]));
+    let worst = 0, worstAt = '', n = 0;
+    for (const w of [0, 1]) for (const [tn, t] of tunes) {
+      const body = await px(build(t, w, null));
+      const m = window.Avatar.bodyMetrics(w);
+      const y0 = Math.round(m.floorY + (168 - m.floorY) * m.ky) * S;
+      for (const [slot, it] of items) {
+        const dressed = await px(build(t, w, { [slot]: it.id }));
+        let hem = 0;
+        for (let y = H - 1; y >= 0 && !hem; y--) for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4;
+          if (Math.abs(body[i] - dressed[i]) + Math.abs(body[i + 1] - dressed[i + 1])
+            + Math.abs(body[i + 2] - dressed[i + 2]) + Math.abs(body[i + 3] - dressed[i + 3]) > 8) { hem = y; break; }
+        }
+        const y1 = Math.min(hem - 3 * S, 300 * S);
+        let mask = 0, out = 0, yA = 1e9, yB = 0;
+        for (let y = y0; y <= y1; y++) for (let x = 1; x < W - 1; x++) {
+          const i = (y * W + x) * 4;
+          if (!isSkin(body, i)) continue;
+          if (!isSkin(body, i - 4) || !isSkin(body, i + 4) || !isSkin(body, i - W * 4) || !isSkin(body, i + W * 4)) continue;
+          mask++;
+          if (isSkin(dressed, i)) { out++; yA = Math.min(yA, y); yB = Math.max(yB, y); }
+        }
+        n++;
+        const r = mask ? out / mask : 0;
+        if (r > worst) { worst = r; worstAt = `${it.id} · 체형 ${w} · ${tn}`; }
+        if (r > MAX) bad.push(`${it.id} · 체형 ${w} · ${tn}: 엉덩이·허벅지 살 ${out}px(${(r * 100).toFixed(1)}%)가`
+          + ` 옷 옆으로 나왔다 (y${Math.round(yA / S)}~${Math.round(yB / S)})`);
+      }
+    }
+    return { bad, n, worst: +(worst * 100).toFixed(2), worstAt };
+  }, HIPSIDE_MAX);
+
   // ─── 가랑이 홈에 살이 보이는가 (바지·반바지) ────────────────
   //
   // **가랑이 V 를 구멍으로 파면 안 된다.** 예전에는 폭 14(x 93~107) 고정 V 였는데
@@ -3226,6 +3312,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(armCover.bad.map(m => ({ id: '치마가 팔을 덮음', body: '-', where: m, n: '-' })))
     .concat(kink.bad.map(m => ({ id: '허리↔엉덩이↔허벅지', body: '-', where: m, n: '-' })))
     .concat(hipOut.bad.map(m => ({ id: '엉덩이가 하의 밖으로', body: '-', where: m, n: '-' })))
+    .concat(hipSide.bad.map(m => ({ id: '엉덩이·허벅지가 옷 옆으로', body: '-', where: m, n: '-' })))
     .concat(crotch.bad.map(m => ({ id: '가랑이 홈에 살', body: '-', where: m, n: '-' })))
     .concat(legGap.bad.map(m => ({ id: '다리 사이 틈', body: '-', where: m, n: '-' })))
     .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
@@ -3276,6 +3363,9 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (${KINK_MAX} 까지 · 접선이 이어져야 한다)`);
   console.log(`엉덩이가 하의 밖으로: 배율×하의 ${hipOut.n}조합 × 엉덩이 ${hipOut.maskN}픽셀`
     + ` — 가장 많이 나온 곳 ${hipOut.worst}% (${HIP_OUT_MAX * 100}% 까지)`);
+  console.log(`엉덩이·허벅지가 옷 옆으로: 하의·원피스 ${hipSide.n}조합(체형 0·1 × 기본·전부 150)`
+    + ` — 가장 많이 나온 곳 ${hipSide.worst}%${hipSide.worst ? ' (' + hipSide.worstAt + ')' : ''}`
+    + ` (${HIPSIDE_MAX * 100}% 까지 · 졸업 직후의 몸에서 공주 드레스 옆으로 엉덩이가 나왔던 자리다)`);
   console.log(`가랑이 홈에 살: 배율×바지 ${crotch.n}조합`
     + ` — 가장 많은 곳 ${crotch.worst}픽셀${crotch.worstAt ? ` (${crotch.worstAt})` : ''}`
     + ` (${CROTCH_SKIN_MAX}까지)`);

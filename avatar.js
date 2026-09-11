@@ -2813,6 +2813,31 @@
     const kLeg = tuneMax(tune, ['thigh', 'calf']);
     const flare = 21 * kLeg;                              // 밑단이 퍼지는 정도
     const hemL = L - flare, hemR = R + flare;
+    // ─── 종의 옆선이 엉덩이 «안»으로 들어가면 안 된다 ────────────
+    //
+    // 옆선은 어깨(R)에서 밑단(hemR)까지 한 곡선이고 엉덩이를 안 본다. 살이 부위마다
+    // 찌게 되면서(FAT_W) **졸업 직후의 몸(슬라이더 150 × 통통)에서 엉덩이 봉우리가
+    // 종보다 2px 넓어져** 양옆으로 살이 비쳤다 — 새 플레이어가 처음 서는 그 화면이다
+    // (`checkavatar` 「엉덩이·허벅지가 옷 옆으로」가 잡는다).
+    // 허리·엉덩이 봉우리 높이에서 종의 폭을 재서 **모자란 만큼만** 제어점 둘을 바깥으로
+    // 민다. 곡선 위의 점은 제어점을 d 만큼 밀면 3t(1−t)·d 만큼 따라오므로 그 역수로 민다.
+    // 안 모자라면 0 — 날씬한 몸의 종은 한 점도 안 바뀐다 (공주의 선이 그대로다).
+    // ⚠️ **허리도 같이 잰다.** 살이 허리에 제일 많이 붙어서(FAT_W.waist .36) 통통 최대에서는
+    // 허리(y164)가 엉덩이 봉우리보다 넓고, 종은 위로 갈수록 좁다 — 봉우리만 재면 5px 남는다.
+    // 몸의 옆선은 허리(`wRa`)와 봉우리(`hRa`) 사이를 단조롭게 잇고 그 아래는 좁아지므로
+    // 세 높이(허리 · 봉우리 위·아래 끝)에서 밖에 있으면 구간 전체가 밖이다
+    const bez = (a, b, c2_, d, t) => { const u = 1 - t; return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c2_ + t * t * t * d; };
+    const yOf = t => bez(B.shoulderY + 11, B.waistY - 18, hemY - 62, hemY + 5, t);
+    let push = 0;
+    for (const [yy, half] of [[B.waistY, clothWaistHalf(tune)],
+                              [hipApexTop(tune), clothHipHalf(tune)], [hipApexBot(tune), clothHipHalf(tune)]]) {
+      let tLo = 0, tHi = 1;
+      for (let i = 0; i < 24; i++) { const m = (tLo + tHi) / 2; if (yOf(m) < yy) tLo = m; else tHi = m; }
+      const th = (tLo + tHi) / 2;
+      const lack = 100 + half + 1 - bez(R, R + 6, hemR - 5, hemR, th);
+      if (lack > 0) push = Math.max(push, lack / (3 * th * (1 - th)));
+    }
+    push = +push.toFixed(2);
     const cut = neck && neckCut(neck, tune, bw).w ? neckMid(neck, tune, bw) : null;
     const top = cut
       ? `C${L},${B.shoulderY} ${cut.EL - 14},${cut.K} ${cut.EL},${cut.K}
@@ -2843,9 +2868,9 @@
       <!-- 몸통 → 밑단까지 퍼지는 치마 (어깨 폭은 몸통 기준 + 여유) -->
       <path data-part="cloth" d="M${L},${B.shoulderY + 11}
         ${top}
-        C${R + 6},${B.waistY - 18} ${hemR - 5},${hemY - 62} ${hemR},${hemY + 5}
+        C${R + 6 + push},${B.waistY - 18} ${hemR - 5 + push},${hemY - 62} ${hemR},${hemY + 5}
         C${R - 18},${hemY + 15} ${L + 18},${hemY + 15} ${hemL},${hemY + 5}
-        C${hemL + 5},${hemY - 62} ${L - 6},${B.waistY - 18} ${L},${B.shoulderY + 11} Z" fill="${c}"/>
+        C${hemL + 5 - push},${hemY - 62} ${L - 6 - push},${B.waistY - 18} ${L},${B.shoulderY + 11} Z" fill="${c}"/>
       <!-- 허리 라인 -->
       <path d="M${L + 8},${B.waistY} L${R - 8},${B.waistY}" stroke="${c2}" stroke-width="4.5" stroke-linecap="round"/>
       <!-- 밑단 -->
