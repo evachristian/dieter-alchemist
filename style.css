@@ -2763,23 +2763,23 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 뚫을 자리를 못 찾았을 때 — 안내는 두되 막지는 않는다 (갇히면 안 된다) */
 .tut.loose .tut-hole { pointer-events: none; fill: rgba(24,18,30,0.42); }
 
-/* 가리키는 손 — 구멍의 빈 쪽에 붙는다 (자리는 JS 가 잡는다 · 크기는 tutorial.js 의 HAND 와 같다).
-   흰 장갑 SVG 라 글자가 아니다 — 예전 「▾」는 막 위에 글자를 띄우느라 검은 알약을 깔아야
-   대비가 나왔는데(추정 흰 배경 1.38), 그림에는 그 문제가 없다. 대신 **막이 얇은 자리에서도
-   보이게** 그림자를 짙게 준다.
+/* 가리키는 손 — 구멍의 빈 쪽에 붙는다 (자리는 JS 가 잡는다 · 크기는 tutorial.js 의 HAND_W/H 와 같다).
+   흰 장갑 그림 파일(`tut-hand.png` · 세로로 긴 비율)이라 글자가 아니다 — 예전 「▾」는 막 위에
+   글자를 띄우느라 검은 알약을 깔아야 대비가 나왔는데(추정 흰 배경 1.38), 그림에는 그 문제가 없다.
+   대신 **막이 얇은 자리에서도 보이게** 그림자를 짙게 준다.
    집게손가락은 «위»를 가리키는 그림 하나다 — 아래를 가리킬 때(`.down`)는 뒤집는다.
    움직임은 「두드리기」다: 손끝이 구멍 쪽으로 12px 내려찍고 살짝 기울어 되돌아온다.
    ⚠️ 위치 잡기(가로 가운데)에 transform 을 쓰지 않는다 — 애니메이션이 transform 을
    통째로 덮어써서 손이 옆으로 튄다. margin 으로 가운데를 맞춘다 */
 .tut-hand {
-  --tut-hand: 44px;
-  position: absolute; width: var(--tut-hand); height: var(--tut-hand);
-  margin-left: calc(var(--tut-hand) / -2);
+  --tut-hand-w: 40px; --tut-hand-h: 60px;
+  position: absolute; width: var(--tut-hand-w); height: var(--tut-hand-h);
+  margin-left: calc(var(--tut-hand-w) / -2);
   filter: drop-shadow(0 3px 5px rgba(0,0,0,0.55));
   transform-origin: 50% 100%;
 }
-.tut-hand svg { display: block; width: 100%; height: 100%; }
-.tut-hand.down svg { transform: rotate(180deg); }
+.tut-hand-img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.tut-hand.down .tut-hand-img { transform: rotate(180deg); }
 .tut-hand.down { transform-origin: 50% 0%; animation: tutTapDown 0.9s ease-in-out infinite; }
 .tut-hand.up   { animation: tutTapUp 0.9s ease-in-out infinite; }
 @keyframes tutTapDown {
@@ -2801,8 +2801,8 @@ button.tm-slot:active { transform: scale(0.94); }
   opacity: 0; pointer-events: none;
   animation: tutRing 0.9s ease-out infinite;
 }
-.tut-hand.down::after { bottom: -14px; }
-.tut-hand.up::after   { top: -14px; }
+.tut-hand.down::after { bottom: -12px; }
+.tut-hand.up::after   { top: -12px; }
 @keyframes tutRing {
   0%, 30% { transform: scale(0.4); opacity: 0; }
   40%     { transform: scale(0.6); opacity: 0.9; }
@@ -2843,19 +2843,19 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 .tut-dot.on { background: var(--text-pink); border-color: var(--text-pink); }
 /* 「눌러서 넘기는」 손 — 말풍선의 오른쪽 아래 모서리에 걸쳐 앉아 대사를 두드린다.
-   구멍 위의 손과 같은 그림이다 (tutorial.js 의 HAND_SVG). 손가락이 말풍선 «안»을 가리키게
+   구멍 위의 손과 같은 그림이다 (tutorial.js 의 HAND_IMG · tut-hand.png). 손가락이 말풍선 «안»을 가리키게
    왼쪽 위로 기울이고, 두드리는 움직임도 그 방향이다. 글자가 없으므로 대비 검사와 무관하고,
    이름은 aria-label 이 맡는다. **말풍선 전체가 눌리므로** 이 손은 신호이지 유일한 버튼이 아니다 */
 .tut-bubble { position: relative; }
 .tut-more {
-  position: absolute; right: -4px; bottom: -8px;
-  width: 44px; height: 44px; padding: 0;
+  position: absolute; right: -4px; bottom: -14px;
+  width: 40px; height: 58px; padding: 0;
   border: none; background: none; cursor: pointer; font-family: inherit;
   filter: drop-shadow(0 3px 5px rgba(0,0,0,0.45));
   transform-origin: 50% 100%;
   animation: tutMore 0.9s ease-in-out infinite;
 }
-.tut-more svg { display: block; width: 100%; height: 100%; transform: rotate(-28deg); }
+.tut-more .tut-hand-img { transform: rotate(-38deg); }
 /* **불투명도를 건드리지 않는다** — 무한 반복 애니메이션은 settle() 이 끝 상태로 못 보내서
    재는 순간마다 값이 달라진다. 움직임만으로 '누르면 넘어간다' 는 신호는 충분하다 */
 @keyframes tutMore {

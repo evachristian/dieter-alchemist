@@ -27,23 +27,20 @@
   const say = (sp, key, mood) => ({ sp: 'sp_' + sp, key, mood: mood || 'def' });
 
   // ─── 가리키는 손 ───────────────────────────────────────────
-  // 흰 장갑에 검은 테두리 — 집게손가락이 «위»를 가리키는 그림 하나다 (64×64).
-  // 아래를 가리킬 때는 CSS 가 뒤집는다 (`.tut-hand.down`). 글자가 아니라 SVG 라
-  // 대비 검사의 대상이 아니고, 그래서 예전 「▾」처럼 알약 배경을 깔 일도 없다.
+  // 흰 장갑에 검은 테두리 — 집게손가락이 «위»를 가리키는 그림 파일 하나다 (`tut-hand.png`
+  // · 155×233 · 바깥 배경만 투명하게 걷어 낸 것). 아래를 가리킬 때는 CSS 가 뒤집는다
+  // (`.tut-hand.down`). 글자가 아니라 그림이라 대비 검사의 대상이 아니고, 그래서 예전
+  // 「▾」처럼 알약 배경을 깔 일도 없다.
   // ⚠️ 두 자리에서 같은 그림을 쓴다 — 구멍 위의 손(`.tut-hand`)과 «눌러서 넘기는»
-  // 말풍선 모서리의 손(`.tut-more`). 한쪽만 바꾸면 손이 두 가지가 된다
-  const HAND_SVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <g stroke="#111" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-      <path d="M19 40 C8 35 4 46 10 52 C14 56 21 55 23 49" fill="#fff"/>
-      <path d="M33 31 L40 30 C50 29 57 33 57 38 C57 41 54 43 50 43 C56 44 57 49 54 51 C52 53 49 53 46 53 C51 54 50 59 45 59 L26 59 C17 59 13 52 14 45 C14 40 16 36 20 34 Z" fill="#fff" stroke="none"/>
-      <path d="M33 31 L40 30 C50 29 57 33 57 38 C57 41 54 43 50 43 C56 44 57 49 54 51 C52 53 49 53 46 53 C51 54 50 59 45 59 L26 59 C17 59 13 52 14 45 C14 40 16 36 20 34" fill="none"/>
-      <path d="M46 43 C48 42 49 42 50 43 M43 53 C45 52 46 52 46 53" fill="none"/>
-      <rect x="21" y="55" width="26" height="9" rx="4" fill="#fff"/>
-      <path d="M20 38 L20 9 C20 3 33 3 33 9 L33 36 Z" fill="#fff" stroke="none"/>
-      <path d="M20 36 L20 9 C20 3 33 3 33 9 L33 31" fill="none"/>
-    </g></svg>`;
-  // 구멍 위에 놓는 손의 한 변(px) — CSS 의 `--tut-hand` 와 같은 값이다
-  const HAND = 44;
+  // 말풍선 모서리의 손(`.tut-more`). 한쪽만 바꾸면 손이 두 가지가 된다.
+  // 캐시 버스터는 이 스크립트 태그의 `?v=` 를 그대로 물려받는다 — index.html 의 일괄 치환
+  // 한 번으로 그림도 같이 새로 받는다 (따로 적어 두면 그것만 잊는다)
+  const ASSET_Q = (document.currentScript && document.currentScript.src.includes('?'))
+    ? '?' + document.currentScript.src.split('?')[1] : '';
+  const HAND_IMG = `<img class="tut-hand-img" src="tut-hand.png${ASSET_Q}" alt="" draggable="false">`;
+  // 구멍 위에 놓는 손의 크기(px) — CSS 의 `--tut-hand-w` · `--tut-hand-h` 와 같은 값이다
+  // (그림이 세로로 긴 비율이라 둘이다)
+  const HAND_W = 40, HAND_H = 60;
 
   // ─── 단계표 ───────────────────────────────────────────────
   // talk   : 말풍선 대사 (닷 개수가 곧 이 길이)
@@ -310,12 +307,12 @@
     // 두드리는 모양이라, 화면 어디를 눌러야 다음 대사가 나오는지가 손 하나로 보인다
     const more = (last && s.wait) ? ''
       : `<button class="tut-more" onclick="event.stopPropagation();Tut.tap()"
-           aria-label="${T('tut_next')}">${HAND_SVG}</button>`;
+           aria-label="${T('tut_next')}">${HAND_IMG}</button>`;
     return `
       <svg class="tut-mask" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path class="tut-hole" fill-rule="evenodd"></path>
       </svg>
-      <div class="tut-hand" aria-hidden="true">${HAND_SVG}</div>
+      <div class="tut-hand" aria-hidden="true">${HAND_IMG}</div>
       <div class="tut-talk" onclick="Tut.tap()">
         <div class="tut-face">${window.Portrait
           ? Portrait.bust(Object.assign({}, sp, { name: speakerName(line.sp) }), line.mood, { bare: true })
@@ -413,8 +410,8 @@
     hand.style.display = '';
     hand.classList.toggle('down', below);
     hand.classList.toggle('up', !below);
-    hand.style.left = Math.round(Math.max(HAND / 2, Math.min(W - HAND / 2, r.left + r.width / 2))) + 'px';
-    hand.style.top = Math.round(below ? r.top - PAD - HAND - 6 : r.bottom + PAD + 6) + 'px';
+    hand.style.left = Math.round(Math.max(HAND_W / 2, Math.min(W - HAND_W / 2, r.left + r.width / 2))) + 'px';
+    hand.style.top = Math.round(below ? r.top - PAD - HAND_H - 6 : r.bottom + PAD + 6) + 'px';
     // 말풍선은 구멍의 반대쪽에 — 가리키는 곳을 자기가 덮으면 안 된다
     talk.classList.toggle('top', below);
     talk.classList.toggle('bot', !below);
