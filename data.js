@@ -1275,7 +1275,13 @@ const CUTS = [
   { id: 'c_meet_in',  act: 1, lines: [['sp_gwiriel', 'dizzy'], ['sp_althea', 'scold'],
                                       ['sp_althea', 'proud'], ['sp_gwiriel', 'shock'],
                                       ['sp_althea', 'warm']] },
-  { id: 'c_meet_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_clemen', 'warm']] },
+  // ⚠️ **준 사람이 돌아와야 닫힌다.** 1막의 아홉은 전부 「주는 이」가 `in` 과 `out` 에
+  // 같이 나오는데, 여기만 요정 대모가 부탁해 놓고 **다시 안 나왔다** — 퀘스트를 준
+  // 얼굴과 보상을 주는 얼굴이 다르면 누가 시킨 일이었는지가 흐려진다.
+  // 밥상의 끝(공주·클레멘)은 그대로 두고 **마지막 한 줄만** 그녀가 받는다 —
+  // 「식? 단?」을 여기서 받아 주므로 첫 컷씬의 농담도 같이 닫힌다
+  { id: 'c_meet_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_clemen', 'warm'],
+                                      ['sp_althea', 'wink']] },
   // ─ 요리사 클레멘 — 부엌에서의 첫 만남 ─
   // **그가 먼저 이름을 대고, 먼저 차려 놓는다** —
   // 「온기만이 등가 교환의 밖에 있다」가 첫 장면에서부터 그렇게 나온다.

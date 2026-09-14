@@ -67,7 +67,7 @@ n 을 키우면 첫 퀘스트가 며칠짜리가 되기 때문이다 — 「같�
 | `c_sip_in` / `c_sip_out` | 만드는 것과 마시는 것 / 헐렁해진 소매 | 2 · 2 | q_sip |
 | `c_bloom_in` / `c_bloom_out` | 거울 앞에서 / 피어나는 중 | 2 · 3 | q_bloom |
 | **`c_clemen_meet`** | 부엌의 불빛 | 6 | 부엌에 처음 갈 때 (**클레멘을 만나는 자리**) |
-| `c_meet_in` / `c_meet_out` | 고용된 셰프 / 아직 뜨거워요 | 5 · 2 | q_meet |
+| `c_meet_in` / `c_meet_out` | 고용된 셰프 / 아직 뜨거워요 | 5 · 3 | q_meet |
 | `c_kitchen_in` / `c_kitchen_out` | 세 번만 / 습관이 됐다 | 2 · 2 | q_kitchen |
 | `c_soup_in` / `c_soup_out` | 밀 열두 단 / 전부의 몫 | 2 · 3 | q_soup |
 

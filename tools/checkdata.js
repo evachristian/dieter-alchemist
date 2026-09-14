@@ -284,13 +284,29 @@ add('id 가 겹친다', dupId);
     if (!looked) bad.push('컷씬 대사를 한 줄도 못 읽었다');
     else if (!marked) bad.push('강조 표시가 있는 줄이 하나도 없다 — 표시를 읽는 자리가 죽었는가');
   }
-  // 퀘스트가 가리키는 컷씬이 실제로 있는가
+  // 퀘스트가 가리키는 컷씬이 실제로 있는가 ·
+  // **주는 이가 그 컷씬에 나오는가** — 부탁한 얼굴과 보상을 주는 얼굴이 다르면
+  // 누가 시킨 일이었는지가 흐려진다. 퀘스트 칩·시트에 뜨는 초상화가 `npc` 라
+  // 컷씬에 그가 없으면 **눌렀더니 다른 사람이 나온다.**
+  // ⚠️ 첫 퀘스트를 클레멘 → 요정 대모로 옮겼을 때 `c_meet_out` 이 실제로 이렇게
+  // 어긋났다 (in 은 요정 대모인데 out 은 공주·클레멘뿐이었다)
+  let cutPairs = 0;
   D.QUESTS.forEach(q => {
     ['in', 'out'].forEach(w => {
       const id = q.cut && q.cut[w];
-      if (id && !D.cutOf(id)) bad.push(`${q.id} — 없는 컷씬 ${id} (${w})`);
+      if (!id) return;
+      const c = D.cutOf(id);
+      if (!c) { bad.push(`${q.id} — 없는 컷씬 ${id} (${w})`); return; }
+      cutPairs++;
+      if (!(c.lines || []).some(([sp]) => sp === q.npc)) {
+        const who = (D.speaker(q.npc) || {}).name || q.npc;
+        const there = [...new Set((c.lines || []).map(l => (D.speaker(l[0]) || {}).name || l[0]))];
+        bad.push(`${q.id} — 주는 이(${who})가 ${w} 컷씬 ${id} 에 한 줄도 없다 (나오는 사람: ${there.join(' · ')})`);
+      }
     });
   });
+  // 아무것도 안 잰 0건은 통과가 아니다
+  if (!cutPairs) bad.push('퀘스트에 붙은 컷씬이 하나도 없다 — 주는 이를 한 번도 안 봤다');
   add('컷씬 표가 어긋난다', bad);
 }
 
