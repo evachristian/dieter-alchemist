@@ -163,40 +163,50 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
       tab: window.currentTab,
       id: window.Tut && Tut.stepId ? Tut.stepId() : null,
       handShown: !!(el && el.querySelector('.tut-hand') && el.querySelector('.tut-hand').style.display !== 'none'),
+      // 뚫린 구멍의 수 — 막의 `d` 는 「바깥 사각형 + 구멍마다 하나」다
+      holes: Math.max(0, ((((el && el.querySelector('.tut-hole')) || {}).getAttribute
+        ? el.querySelector('.tut-hole').getAttribute('d') || '' : '').match(/M/g) || []).length - 1),
+      // 팝업이 떠 있는 동안은 막이 통째로 숨는다 — 그때 잰 0은 「없는 것」이 아니다
+      modal: !!document.querySelector('.modal.show, #brewModal.show'),
+      // 지시를 «따라야» 넘어가는 단계인가 (`wait`) — 손이 어디에 있어야 하는지를 가른다
+      wait: !!((window.Tut && Tut.stepList()[S.tut.step] || {}).wait),
     };
   });
 
-  // ── «보기만 하는» 구멍(위쪽 줄) — 손이 둘 뜨는 자리다
+  // ── 손은 **한 화면에 하나** ────────────────────────────────
   //
-  // 구멍 위의 손과 말풍선의 「눌러서 넘기는」 손이 같이 뜬다. 그 자리를 한 번 만지면
-  // 구멍 위의 손은 접히고 말풍선의 손만 남아야 한다 — 진짜 마우스로 AP 줄을 눌러 본다.
-  // ⚠️ 이 단계는 `wait` 가 없어 readAll 이 그냥 지나간다 — 그래서 readAll 안에서 부른다
-  let touchSeen = false;
-  async function touchCheck(st) {
-    touchSeen = true;
-    if (!st.handShown) bad.push('위쪽 줄: 만지기 전인데 구멍 위의 손이 없다');
-    if (!st.more) bad.push('위쪽 줄: 말풍선의 「눌러서 넘기는」 손이 없다');
-    const ap = await page.evaluate(() => {
-      const r = document.querySelector('.ap-wrap').getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-    });
-    await page.mouse.click(ap.x, ap.y);
-    await page.waitForTimeout(260);
-    const t = await info();
-    if (t.handShown) bad.push('위쪽 줄: AP 줄을 만졌는데 구멍 위의 손이 그대로다 — 손이 둘이다');
-    if (!t.more) bad.push('위쪽 줄: AP 줄을 만졌더니 말풍선의 손까지 사라졌다');
-    // 세이브에 남는가 — 새로고침 대신 막을 다시 그려 본다
-    await page.evaluate(() => { document.querySelectorAll('.modal.show').forEach(m => m.classList.remove('show')); Tut.refresh(); });
-    await page.waitForTimeout(120);
-    if ((await info()).handShown) bad.push('위쪽 줄: 다시 그리자 구멍 위의 손이 돌아왔다 (표시가 안 남는다)');
+  // 말풍선의 「눌러서 넘기는」 손과 구멍 위의 손이 같이 뜨면, 새 플레이어는 어디를
+  // 눌러야 하는지 두 곳을 놓고 고르게 된다 — 「넣기만 하면 되는 거야?」를 읽는 중인데
+  // 「조합하기」 버튼에도 손이 얹혀 있던 자리가 그것이다 (신고받았다).
+  //
+  // 가르는 줄은 하나다 (`tutorial.js` 의 `tapHandOn`):
+  // **아직 읽을 대사가 남았으면 말풍선**, 마지막 대사까지 읽고 지시문이 뜨면 **그 자리**.
+  // ⚠️ **「둘이 아닌가」만 보면 안 된다** — 둘 다 숨겨도 통과한다. 하나도 없는 경우와
+  //    «어느 쪽»이 떴는지까지 본다. 몇 번 쟀는지도 낸다 (0건은 통과가 아니다)
+  const handSeen = { beats: 0, steps: new Set(), hole: 0, bubble: 0 };
+  function handCheck(st) {
+    if (!st.on || st.loose || st.modal || st.done) return;   // 잴 수 없는 상태
+    handSeen.beats++;
+    handSeen.steps.add(st.step);
+    if (st.handShown) handSeen.hole++;
+    if (st.more) handSeen.bubble++;
+    const at = `${st.id || st.step}단계 ${st.beat + 1}번째 대사`;
+    if (st.handShown && st.more) bad.push(`${at}: 손이 둘이다 (구멍 위 · 말풍선)`);
+    if (!st.handShown && !st.more && st.holes) bad.push(`${at}: 손이 하나도 없다`);
+    // 「어딜 눌러」라고 가르쳐 주는 자리 — 그 UI 에 손이 있어야 한다
+    if (st.act && st.wait && st.holes && !st.handShown)
+      bad.push(`${at}: 지시문이 떴는데 그 자리에 손이 없다 (${st.act.slice(0, 20)})`);
+    // 아직 읽을 대사가 남았는데 구멍 위에 손이 있으면 그것이 신고받은 자리다
+    if (!(st.act && st.wait) && st.handShown)
+      bad.push(`${at}: 지시문이 없는데 구멍 위에 손이 있다 — 말풍선에도 손이 있어 둘이 된다`);
   }
 
   // 말풍선의 '다음' 을 진짜로 눌러 대사를 끝까지 넘긴다
   async function readAll(log) {
     for (let i = 0; i < 16; i++) {
       const a = await info();
+      handCheck(a);
       if (!a.on || !a.more) return a;
-      if (a.id === 'header' && !touchSeen && a.dots && !a.act) await touchCheck(a);
       if (log && !log.seen.has(a.step)) { log.seen.add(a.step); log.push(a); }
       if (a.name) names.add(a.name);
       const box = await page.evaluate(() => {
@@ -498,7 +508,6 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   // 튜토리얼을 마친 보람이 하나도 없다 (원래 이 문들이 안 열리던 것이 문제였다)
   if (!fin.done) bad.push('튜토리얼이 끝까지 가지 않았다 (' + fin.step + '단계에서 멈춤)');
   if (!fin.tutorialDone) bad.push('tutorialDone 이 안 켜졌다');
-  if (!touchSeen) bad.push('위쪽 줄 단계를 한 번도 못 봤다 — 손이 둘인지 안 쟀다');
   // 두 번째 조합(주워 온 둘을 솥에)도 성공해야 한다 — 채집이 비법서의 재료만 주면 반드시 찬다
   if (fin.brews < 2) bad.push(`튜토리얼의 조합이 ${fin.brews}번만 성공했다 — 주워 온 둘이 장을 못 이뤘다`);
   // **바디파츠가 전부 상한인가** — 이 게임은 날씬해지는 이야기라 출발점이 이미
@@ -517,6 +526,12 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   if (actChecked.steps < actSteps)
     bad.push(`지시문↔대상을 ${actChecked.steps}단계만 쟀다 (지시문이 있는 단계는 ${actSteps})`);
   if (actChecked.langs.size < 2) bad.push(`지시문↔대상을 두 언어로 못 쟀다 (${[...actChecked.langs].join('·') || '없음'})`);
+  // 손을 **몇 번 쟀는지** — 0건은 통과가 아니다. 두 갈래(구멍 위 · 말풍선)를
+  // 둘 다 본 적이 있어야 한다: 한쪽이 0이면 그 방향은 아예 안 잰 것이다
+  if (handSeen.steps.size < 10)
+    bad.push(`손을 ${handSeen.steps.size}단계에서만 쟀다 — 한 화면에 하나인지 거의 안 봤다`);
+  if (!handSeen.hole) bad.push('구멍 위의 손을 한 번도 못 봤다 — 「어딜 눌러」를 가리키는 손이 없다');
+  if (!handSeen.bubble) bad.push('말풍선의 손을 한 번도 못 봤다');
   if (fin.layerOn) bad.push('끝났는데 막이 남아 있다');
   // 졸업 선물은 **신발**이다 — 아바타가 맨발(`shoes_none`)로 서 있던 자리를 채운다
   if (fin.shoes !== 'shoes_maryjane') bad.push('선물받은 구두를 신지 않았다 (' + fin.shoes + ')');
@@ -530,6 +545,7 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   if (process.env.V) console.log(lines.join('\n'));
   console.log(`  조합 ${fin.brews} · 마심 ${fin.drinks} · 채집 ${fin.gathered}`);
   console.log(`  지시문↔대상 ${actChecked.steps}단계 × ${[...actChecked.langs].join('·') || '없음'}`);
+  console.log(`  손 ${handSeen.beats}번 잼 (${handSeen.steps.size}단계 · 구멍 위 ${handSeen.hole} · 말풍선 ${handSeen.bubble})`);
   if (!bad.length) { console.log('✅ 튜토리얼을 끝까지 통과함'); process.exit(0); }
   console.log(`❌ ${bad.length}건`);
   bad.forEach(m => console.log('   ' + m));

@@ -26,6 +26,18 @@
 
   const say = (sp, key, mood) => ({ sp: 'sp_' + sp, key, mood: mood || 'def' });
 
+  // ─── 손은 **한 화면에 하나**다 ─────────────────────────────
+  //
+  // 말풍선의 「눌러서 넘기는」 손과 구멍 위의 손이 같이 뜨면, 새 플레이어는 **어디를
+  // 눌러야 하는지 두 곳을 놓고 고르게 된다** — 「넣기만 하면 되는 거야?」를 읽는 중인데
+  // 「조합하기」 버튼에도 손이 얹혀 있던 자리가 그것이다 (신고받았다).
+  //
+  // 가르는 줄은 하나다: **아직 읽을 대사가 남았으면 말풍선의 손**, 마지막 대사까지
+  // 읽고 «지시를 따라야» 넘어가면(`wait`) **구멍 위의 손**.
+  // ⚠️ **두 곳에서 따로 판정하지 않는다** — `html()` 의 화살표와 `place()` 의 손이
+  // 각자 셈하면 어긋나는 순간 손이 둘이 되거나 하나도 없어진다. 이 함수 하나를 본다
+  const tapHandOn = (s, beat) => !(beat >= s.talk.length - 1 && s.wait);
+
   // 대사에 끼워 넣는 값 — 지금은 **플레이어가 지은 이름** 하나다 (`{name}`).
   // 졸업하는 자리에서 요정 대모가 그 이름을 부르므로 **강조해서** 넣는다.
   // ⚠️ **사람이 지은 글자라 그대로 HTML 에 안 넣는다** — `escHtml` 을 지난다
@@ -317,12 +329,14 @@
     // 지시문은 **마지막 대사까지 읽은 뒤**에만 남긴다. 대사를 읽는 중에 같이 띄우면
     // 지금 무엇을 하라는 것인지 두 줄이 서로 다툰다
     const act = (last && s.act) ? `<div class="tut-act">${T(s.act)}</div>` : '';
-    // 「눌러서 넘기는」 손은 **누르면 넘어갈 때만** 보인다. 지시를 따라야 넘어가는 자리에
-    // 손이 있으면 눌러서 건너뛸 수 있는 것처럼 보인다. 말풍선 모서리에서 대사를
-    // 두드리는 모양이라, 화면 어디를 눌러야 다음 대사가 나오는지가 손 하나로 보인다
-    const more = (last && s.wait) ? ''
-      : `<button class="tut-more" onclick="event.stopPropagation();Tut.tap()"
-           aria-label="${T('tut_next')}">${HAND_IMG}</button>`;
+    // 「눌러서 넘기는」 손은 **누르면 넘어갈 때만** 보인다 (위 `tapHandOn`). 지시를
+    // 따라야 넘어가는 자리에 손이 있으면 눌러서 건너뛸 수 있는 것처럼 보인다.
+    // 말풍선 모서리에서 대사를 두드리는 모양이라, 화면 어디를 눌러야 다음 대사가
+    // 나오는지가 손 하나로 보인다
+    const more = tapHandOn(s, beat)
+      ? `<button class="tut-more" onclick="event.stopPropagation();Tut.tap()"
+           aria-label="${T('tut_next')}">${HAND_IMG}</button>`
+      : '';
     return `
       <svg class="tut-mask" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path class="tut-hole" fill-rule="evenodd"></path>
@@ -422,10 +436,10 @@
     // 그 사이를 오가므로 그만큼(6px) 띄운다
     const r = rects[0];
     const below = (r.top + r.height / 2) > H * 0.5;
-    // «보기만 하는» 구멍(누를 것이 없어 `wait` 가 없는 단계)은 손이 둘이 된다 —
-    // 구멍 위의 손과 말풍선의 「눌러서 넘기는」 손. 그 자리를 한 번 만져 봤으면 구멍 위의
-    // 손은 접고 말풍선의 손만 남긴다 (아래 pointerdown · `did['touch:<id>']` 에 남는다)
-    if (!s.wait && state().did['touch:' + s.id]) {
+    // **손은 한 화면에 하나다** (위 `tapHandOn`) — 아직 읽을 대사가 남아 말풍선에 손이
+    // 떠 있으면 구멍 위에는 안 띄운다. 말풍선은 그래도 구멍의 반대쪽에 둔다:
+    // 가리키는 자리를 자기가 덮으면 다음에 무엇을 누를지가 안 보인다
+    if (tapHandOn(s, state().beat)) {
       hand.style.display = 'none';
       talk.classList.toggle('top', below);
       talk.classList.toggle('bot', !below);
@@ -539,23 +553,6 @@
   // 창이 숨으면 rAF 가 멈춘다 — 돌아왔을 때 다시 깨운다
   document.addEventListener('visibilitychange', () => { if (!document.hidden && running()) refresh(); });
 
-  // «보기만 하는» 구멍(`wait` 없는 단계)을 한 번 만졌는가 — 그 뒤로는 구멍 위의 손을 접는다.
-  // 구멍은 진짜 구멍이라 그 안의 터치는 아래 버튼(AP 안내)으로 그대로 가고, 여기서는
-  // 보기만 한다(capture). 표시는 세이브에 남긴다 — 새로고침해도 손이 다시 안 나온다
-  document.addEventListener('pointerdown', (e) => {
-    if (!running()) return;
-    const s = step();
-    if (!s || s.wait || !s.hole) return;
-    const key = 'touch:' + s.id;
-    if (state().did[key]) return;
-    const hit = holeRects(s).some(r =>
-      e.clientX >= r.left - PAD && e.clientX <= r.right + PAD && e.clientY >= r.top - PAD && e.clientY <= r.bottom + PAD);
-    if (!hit) return;
-    state().did[key] = true;
-    if (typeof save === 'function') save();
-    refresh();
-  }, true);
-
   // 검사용 — 지금 단계가 어디를 뚫으려 하는지 (checkui·checktut 이 구멍의 자리를 잰다)
   function targets() { const s = step(); return s ? holeSels(s) : []; }
   function stepId() { const s = step(); return s ? s.id : null; }
@@ -564,7 +561,7 @@
   // 함수(before/after/until)는 안 내보낸다 — 그것은 화면이 있어야 도는 것들이다
   function stepList() {
     return STEPS.map(s => ({ id: s.id, act: s.act || null, hole: holeSels(s),
-                             talk: s.talk.map(l => l.key) }));
+                             wait: !!s.wait, talk: s.talk.map(l => l.key) }));
   }
 
   window.Tut = { maybeStart, refresh, fire, tap, replay, goto, targets, stepList, stepId,
