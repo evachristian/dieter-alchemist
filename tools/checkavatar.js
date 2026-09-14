@@ -1602,6 +1602,75 @@ function launchOpts() {
   }, { drop: HAND_DROP_MIN, bulge: HAND_BULGE_MIN, bulgeMax: HAND_BULGE_MAX,
        keep: HAND_KEEP, touch: HAND_TOUCH, lines: SLEEVE_OUTLINE_MIN });
 
+  // ─── 목이 «몸 전체»를 따라가는가 ─────────────────────────────
+  //
+  // 위의 「목과 머리」는 **얼굴만** 움직인다 (나머지는 1 고정). 그래서 바디파츠를
+  // «다 같이» 내린 몸은 한 번도 안 쟀고, 거기서 **목이 굵어 보였다**:
+  // 맨몸에서는 옷깃 받침(`neckGusset`)도 살색이라 목과 한 덩어리로 보이는데,
+  // 그 조각의 높이가 5px **붙박이**여서 머리가 작아질수록 상대적으로 넓어졌다
+  // (턱은 타원의 맨 아래라, 5px 위의 현 폭이 얼굴 반폭의 0.52 → 0.71 배로 커진다).
+  //
+  // **비를 본다** — 목 반폭 그 자체는 디자인이 정할 일이고, 지켜야 하는 것은
+  // 「몸을 줄이면 목도 같이 줄어드는가」다. 사람이 보는 것과 같게 **맨몸**으로 잰다.
+  const NECK_ALL_TOL = 0.12;
+  const neckAll = await page.evaluate(async (TOL) => {
+    const D = window.GameData, bad = [], rows = [], K = 3, CW = 200 * K, CH = 348 * K;
+    const SKIN = [255, 220, 196], SKTOL = 26;
+    const cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
+    const ctx = cv.getContext('2d');
+    const draw = async (tune) => {
+      const bare = Object.assign({}, D.DEFAULT_OUTFIT,
+        { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', shoes: 'shoes_none' });
+      const svg = window.Avatar.build(bare, 0, tune);
+      await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
+        img.onload = () => { ctx.clearRect(0, 0, CW, CH); window.__drawAvatar(ctx, img, CW, CH); ok(); };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+    };
+    // 그 줄에서 «살색»의 반폭 (머리카락·눈·볼터치는 색이 달라 안 걸린다)
+    const skinHalf = (y) => {
+      const d = ctx.getImageData(0, y, CW, 1).data; let m = null;
+      for (let x = 0; x < CW; x++) { const i = x * 4;
+        if (d[i + 3] > 200 && Math.abs(d[i] - SKIN[0]) <= SKTOL &&
+            Math.abs(d[i + 1] - SKIN[1]) <= SKTOL && Math.abs(d[i + 2] - SKIN[2]) <= SKTOL)
+          m = Math.max(m == null ? 0 : m, Math.abs(x / K - 99.5)); }
+      return m;
+    };
+    const out = [];
+    for (const k of [0.5, 0.6, 0.75, 1, 1.25, 1.5]) {
+      const tune = {}; window.Avatar.TUNE_KEYS.forEach(t => { tune[t] = k; });
+      await draw(tune);
+      // 얼굴 반폭 — 볼 높이에서 제일 넓은 살색
+      let face = 0, faceY = 0;
+      for (let y = 50 * K; y <= 100 * K; y++) { const h = skinHalf(y); if (h != null && h > face) { face = h; faceY = y / K; } }
+      // 목 반폭 — 턱 밑의 «평평한 구간» 중 제일 좁은 곳.
+      // ⚠️ 한 줄만 보면 턱과 목이 만나는 **안티에일리어싱 한 줄**을 집어 실제보다
+      // 얇게 나온다 (작은 몸에서 7.5 대신 5.5). 값이 이어지는 자리만 본다
+      let neck = 999, run = 0, prev = null;
+      for (let yy = faceY + 8; yy <= faceY + 62; yy += 1 / K) {
+        const h = skinHalf(Math.round(yy * K)); if (h == null) { run = 0; prev = null; continue; }
+        run = (prev != null && Math.abs(h - prev) <= 0.02) ? run + 1 : 1;
+        prev = h;
+        if (run >= 4 && h < neck) neck = h;
+      }
+      if (!face || neck > 900) { bad.push(`바디파츠 ${Math.round(k * 100)}%: 얼굴·목을 못 쟀다`); continue; }
+      out.push({ k, face, neck, r: neck / face });
+    }
+    const base = out.find(o => o.k === 1);
+    if (!base) bad.push('100% 를 못 쟀다 — 기준이 없다');
+    else out.forEach(o => {
+      const off = o.r / base.r - 1;
+      rows.push(`${Math.round(o.k * 100)}% 얼굴 ${o.face.toFixed(2)} · 목 ${o.neck.toFixed(2)}`
+        + ` · 비 ${o.r.toFixed(3)}${o.k === 1 ? '' : ` (${off >= 0 ? '+' : ''}${(off * 100).toFixed(0)}%)`}`);
+      if (Math.abs(off) > TOL)
+        bad.push(`바디파츠 ${Math.round(o.k * 100)}%: 목/얼굴 비가 ${o.r.toFixed(3)} 로`
+          + ` 100%(${base.r.toFixed(3)})에서 ${(off * 100).toFixed(0)}% 벗어난다`
+          + ` — ${off > 0 ? '목이 굵어 보인다' : '목이 가늘어 보인다'}`);
+    });
+    // **몇 단계를 쟀는지도 낸다** — 0건이 「한 번도 안 쟀다」일 수 있다
+    if (out.length < 6) bad.push(`바디파츠 ${out.length}단계만 쟀다 (6단계여야 한다)`);
+    return { bad, rows };
+  }, NECK_ALL_TOL);
+
   // ─── 옷깃이 목에 맞는가 ──────────────────────────────────────
   //
   // 파는 반폭이 13·13·18 로 **박혀** 있었다. 목의 반폭은 얼굴·몸통 배율을 타서
@@ -1833,7 +1902,9 @@ function launchOpts() {
         for (let x = 100 * K; x < 170 * K; x++) if (nr(at(x, y), CL)) { gTop = yy; break; }
       }
       if (gTop == null) { bad.push(`얼굴${Math.round(f * 100)}: 옷을 못 찾았다`); continue; }
-      const yNeck = gTop + window.Avatar.GUSSET_RISE + 2;   // 턱선 바로 아래 (반올림·안티앨리어싱 몫 1px)
+      // ⚠️ 받침의 높이는 이제 **얼굴을 따라간다**(`GUSSET_RISE_K`) — 5px 을 그대로
+      // 더하면 작은 얼굴에서 턱보다 한참 아래를 잰다. 배율만큼 곱해 준다
+      const yNeck = gTop + window.Avatar.GUSSET_RISE * f + 2;   // 턱선 바로 아래 (안티앨리어싱 몫 1px)
       if (yNeck > window.Avatar.CLOTH_TOP_Y - 1) { skipped.push(Math.round(f * 100)); continue; }
       let hair = 0, neck = null;
       for (let yy = 0; yy < yNeck; yy += 0.5) {
@@ -3442,6 +3513,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(hipRound.bad.map(m => ({ id: '옆선', body: '-', where: m, n: '-' })))
     .concat(collar.bad.map(m => ({ id: '옷깃', body: '-', where: m, n: '-' })))
     .concat(gusset.bad.map(m => ({ id: '옷깃 받침', body: '-', where: m, n: '-' })))
+    .concat(neckAll.bad.map(m => ({ id: '목과 몸', body: '-', where: m, n: '-' })))
     .concat(neckHead.bad.map(m => ({ id: '목과 머리', body: '-', where: m, n: '-' })))
     .concat(backHair.bad.map(m => ({ id: '뒷머리', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })))
@@ -3494,6 +3566,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (±${COLLAR_STEP}px · 어긋나면 목에 턱이 진다)`);
   console.log(`옷깃 받침: 몸통%/체형 — 턱 밑의 옷이 어깨 밖으로 나온 몫 — ${gusset.rows.join(' · ')}`
     + ` (0 이어야 한다 · 나오면 턱 밑에 «날개»가 생긴다)`);
+  console.log(`목과 몸: 바디파츠를 «다 같이» 움직이며 «목/얼굴» 비 — ${neckAll.rows.join(' · ')}`
+    + ` (100% 의 비에서 ±${Math.round(NECK_ALL_TOL * 100)}% · 벗어나면 몸만 줄고 목은 그대로다)`);
   console.log(`옆선: 허리 밑 오목이 이어지는 길이 — ${hipRound.rows.join(' · ')}`
     + ` (${HIP_DIP_MAX}줄까지 · 허리가 있는 한 몇 줄은 오목한 것이 맞다)`);
   console.log(`목 길이: 체형 0 — ${neckLen.rows.join(' · ')}`
