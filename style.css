@@ -2841,6 +2841,10 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 .tut-name { font-size: 0.78rem; font-weight: 800; color: var(--text-pink); margin-bottom: 3px; }
 .tut-line { font-size: 0.88rem; font-weight: 700; line-height: 1.5; color: var(--ink); }
+/* 대사 안의 **플레이어 이름** — 졸업하는 자리에서 요정 대모가 그 이름을 부른다.
+   말풍선의 이름표(`.tut-name`)와 같은 분홍이라 「나를 부르는 말」로 한눈에 읽힌다.
+   ⚠️ 굵기와 색만 바꾼다 — 크기를 키우면 줄 높이가 들쭉날쭉해진다 */
+.tut-hi { font-weight: 900; color: var(--text-pink); }
 /* 지시문 — 대사와 섞이면 안 된다. 한 칸 띄우고 배경까지 다르게 준다 */
 .tut-act {
   margin-top: 9px; padding: 7px 10px; border-radius: 11px;

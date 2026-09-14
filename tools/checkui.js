@@ -224,6 +224,9 @@ function launchOpts() {
       { step: 11, beat: 0, tab: 'atelier',  label: '11 가방에서 넣기(긴 지시문)' },
       { step: 13, beat: 3, tab: 'atelier',  label: '13 실패도 정보(긴 대사)' },
       { step: 14, beat: 1, tab: 'showcase', label: '14 위쪽 줄(구멍 둘)' },
+      // 15 — 대사 안에 **플레이어 이름이 강조로** 들어가는 유일한 줄이다.
+      // 여기를 안 재면 그 분홍 글자의 대비를 아무도 안 본 것이 된다
+      { step: 15, beat: 1, tab: 'showcase', label: '15 졸업(이름 강조)' },
       { step: 16, beat: 2, tab: 'showcase', label: '16 신어 보기' },
     ];
     for (const c of CASES) {
@@ -255,6 +258,32 @@ function launchOpts() {
       });
       if (over) results.push({ 화면: `튜토리얼/${c.label}`, 오류: over });
     }
+
+    // ── 대사 안의 **플레이어 이름**은 사람이 지은 글자다 (졸업 대사의 `{name}`)
+    //
+    // 말풍선은 innerHTML 로 그려지므로 **접지 않으면 그대로 태그가 된다.**
+    // `NAME_ALLOW` 가 지금은 `<` 를 막지만 그건 «지금 규칙»이고, 화면에 글자를 넣는
+    // 자리는 한 번 접어 두는 것이 이 저장소의 규칙이다.
+    // ⚠️ 실제로 `window.escHtml` 로 찾아 쓰고 있었는데 그것은 늘 `undefined` 였다 —
+    // 최상위 `const` 는 `window` 에 안 붙는다. 그래서 **접는지를 눈이 아니라 여기서 잰다**
+    const nameBad = await page.evaluate(() => {
+      const keep = S.name;
+      S.name = '<b id="tutXss">도토리</b>';
+      switchTab('showcase'); Tut.goto(15, 1);
+      const line = document.querySelector('#tut .tut-line');
+      const out = (() => {
+        if (!line) return '졸업 대사를 못 찾았다';
+        if (document.getElementById('tutXss')) return '이름 안의 태그가 그대로 살아났다 (안 접었다)';
+        if (!line.textContent.includes('<b id="tutXss">')) return '이름이 글자 그대로 안 나온다';
+        const hi = line.querySelector('.tut-hi');
+        if (!hi) return '이름을 강조하는 칸(.tut-hi)이 없다';
+        if (!hi.textContent.includes('도토리')) return `강조 칸에 이름이 없다 (${hi.textContent})`;
+        return null;
+      })();
+      S.name = keep; Tut.refresh();
+      return out;
+    });
+    if (nameBad) results.push({ 화면: '튜토리얼/15 졸업(이름 강조)', 오류: nameBad });
   }
 
   if (process.env.TUT) {

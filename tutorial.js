@@ -26,6 +26,21 @@
 
   const say = (sp, key, mood) => ({ sp: 'sp_' + sp, key, mood: mood || 'def' });
 
+  // 대사에 끼워 넣는 값 — 지금은 **플레이어가 지은 이름** 하나다 (`{name}`).
+  // 졸업하는 자리에서 요정 대모가 그 이름을 부르므로 **강조해서** 넣는다.
+  // ⚠️ **사람이 지은 글자라 그대로 HTML 에 안 넣는다** — `escHtml` 을 지난다
+  // (`NAME_ALLOW` 가 막고는 있지만, 화면에 글자를 넣는 자리는 늘 한 번 접는다).
+  // ⚠️ `{name}` 이 없는 대사에 넘겨도 아무 일도 안 일어난다 — 그래서 **한 곳에서
+  // 전부에 넘긴다**: 줄마다 골라 넘기게 하면 새 대사를 쓸 때마다 빠뜨린다
+  // ⚠️ **`game.js` 의 `escHtml` 은 최상위 `const` 라 `window` 에 안 붙는다.**
+  // `window.escHtml` 로 찾으면 늘 `undefined` 이고, `|| String` 같은 보조 길을 두면
+  // **한 글자도 안 접은 채 조용히 지나간다** (실제로 그렇게 써 놨다가 잡았다).
+  // 전역은 «이름»으로 찾는다 — 스크립트 순서와 무관하다 (부를 때는 다 읽힌 뒤다)
+  const escName = s => (typeof escHtml === 'function' ? escHtml(s) : String(s));
+  const TALK_VARS = () => ({
+    name: `<b class="tut-hi">${escName(speakerName('sp_gwiriel'))}</b>`,
+  });
+
   // ─── 가리키는 손 ───────────────────────────────────────────
   // 흰 장갑에 검은 테두리 — 집게손가락이 «위»를 가리키는 그림 파일 하나다 (`tut-hand.png`
   // · 155×233 · 바깥 배경만 투명하게 걷어 낸 것). 아래를 가리킬 때는 CSS 가 뒤집는다
@@ -319,7 +334,7 @@
           : ''}</div>
         <div class="tut-bubble">
           <div class="tut-name">${speakerName(line.sp)}</div>
-          <div class="tut-line">${T(line.key)}</div>
+          <div class="tut-line">${T(line.key, TALK_VARS())}</div>
           ${act}
           <div class="tut-foot"><div class="tut-dots">${dots}</div></div>
           ${more}
