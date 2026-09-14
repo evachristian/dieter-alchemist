@@ -26,6 +26,25 @@
 
   const say = (sp, key, mood) => ({ sp: 'sp_' + sp, key, mood: mood || 'def' });
 
+  // ─── 가리키는 손 ───────────────────────────────────────────
+  // 흰 장갑에 검은 테두리 — 집게손가락이 «위»를 가리키는 그림 하나다 (64×64).
+  // 아래를 가리킬 때는 CSS 가 뒤집는다 (`.tut-hand.down`). 글자가 아니라 SVG 라
+  // 대비 검사의 대상이 아니고, 그래서 예전 「▾」처럼 알약 배경을 깔 일도 없다.
+  // ⚠️ 두 자리에서 같은 그림을 쓴다 — 구멍 위의 손(`.tut-hand`)과 «눌러서 넘기는»
+  // 말풍선 모서리의 손(`.tut-more`). 한쪽만 바꾸면 손이 두 가지가 된다
+  const HAND_SVG = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <g stroke="#111" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M19 40 C8 35 4 46 10 52 C14 56 21 55 23 49" fill="#fff"/>
+      <path d="M33 31 L40 30 C50 29 57 33 57 38 C57 41 54 43 50 43 C56 44 57 49 54 51 C52 53 49 53 46 53 C51 54 50 59 45 59 L26 59 C17 59 13 52 14 45 C14 40 16 36 20 34 Z" fill="#fff" stroke="none"/>
+      <path d="M33 31 L40 30 C50 29 57 33 57 38 C57 41 54 43 50 43 C56 44 57 49 54 51 C52 53 49 53 46 53 C51 54 50 59 45 59 L26 59 C17 59 13 52 14 45 C14 40 16 36 20 34" fill="none"/>
+      <path d="M46 43 C48 42 49 42 50 43 M43 53 C45 52 46 52 46 53" fill="none"/>
+      <rect x="21" y="55" width="26" height="9" rx="4" fill="#fff"/>
+      <path d="M20 38 L20 9 C20 3 33 3 33 9 L33 36 Z" fill="#fff" stroke="none"/>
+      <path d="M20 36 L20 9 C20 3 33 3 33 9 L33 31" fill="none"/>
+    </g></svg>`;
+  // 구멍 위에 놓는 손의 한 변(px) — CSS 의 `--tut-hand` 와 같은 값이다
+  const HAND = 44;
+
   // ─── 단계표 ───────────────────────────────────────────────
   // talk   : 말풍선 대사 (닷 개수가 곧 이 길이)
   // tab    : 그 구멍이 있는 화면. 단계에 들어설 때 그 화면으로 옮겨 놓는다 —
@@ -286,16 +305,17 @@
     // 지시문은 **마지막 대사까지 읽은 뒤**에만 남긴다. 대사를 읽는 중에 같이 띄우면
     // 지금 무엇을 하라는 것인지 두 줄이 서로 다툰다
     const act = (last && s.act) ? `<div class="tut-act">${T(s.act)}</div>` : '';
-    // 다음 화살표는 **누르면 넘어갈 때만** 보인다. 지시를 따라야 넘어가는 자리에
-    // 화살표가 있으면 눌러서 건너뛸 수 있는 것처럼 보인다
+    // 「눌러서 넘기는」 손은 **누르면 넘어갈 때만** 보인다. 지시를 따라야 넘어가는 자리에
+    // 손이 있으면 눌러서 건너뛸 수 있는 것처럼 보인다. 말풍선 모서리에서 대사를
+    // 두드리는 모양이라, 화면 어디를 눌러야 다음 대사가 나오는지가 손 하나로 보인다
     const more = (last && s.wait) ? ''
       : `<button class="tut-more" onclick="event.stopPropagation();Tut.tap()"
-           aria-label="${T('tut_next')}">▾</button>`;
+           aria-label="${T('tut_next')}">${HAND_SVG}</button>`;
     return `
       <svg class="tut-mask" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path class="tut-hole" fill-rule="evenodd"></path>
       </svg>
-      <div class="tut-arrow" aria-hidden="true">▾</div>
+      <div class="tut-hand" aria-hidden="true">${HAND_SVG}</div>
       <div class="tut-talk" onclick="Tut.tap()">
         <div class="tut-face">${window.Portrait
           ? Portrait.bust(Object.assign({}, sp, { name: speakerName(line.sp) }), line.mood, { bare: true })
@@ -304,7 +324,8 @@
           <div class="tut-name">${speakerName(line.sp)}</div>
           <div class="tut-line">${T(line.key)}</div>
           ${act}
-          <div class="tut-foot"><div class="tut-dots">${dots}</div>${more}</div>
+          <div class="tut-foot"><div class="tut-dots">${dots}</div></div>
+          ${more}
         </div>
       </div>`;
   }
@@ -352,13 +373,13 @@
     const el = layer();
     const svg = el.querySelector('.tut-mask');
     const path = el.querySelector('.tut-hole');
-    const arrow = el.querySelector('.tut-arrow');
+    const hand = el.querySelector('.tut-hand');
     const talk = el.querySelector('.tut-talk');
-    if (!svg || !path || !arrow || !talk) return;
+    if (!svg || !path || !hand || !talk) return;
     // **좌표계는 이 층의 제 상자다.** documentElement.clientHeight 로 viewBox 를 잡으면
     // 그 값과 층의 실제 높이가 어긋나는 순간(주소창이 접히는 모바일, 스크롤바가 있는
     // 데스크톱) viewBox 가 그림을 통째로 늘려 구멍이 엉뚱한 데로 간다.
-    // 화살표도 이 층 안의 absolute 라 같은 기준을 써야 한다.
+    // 손도 이 층 안의 absolute 라 같은 기준을 써야 한다.
     const box = el.getBoundingClientRect();
     const W = box.width, H = box.height;
     if (W < 1 || H < 1) return;      // 잴 수 없는 상태 (화면이 접혀 있다)
@@ -378,19 +399,22 @@
     if (d !== lastD) { lastD = d; path.setAttribute('d', d); }
 
     if (!rects.length) {
-      arrow.style.display = 'none';
+      hand.style.display = 'none';
       talk.classList.remove('top');
       talk.classList.add('bot');
       return;
     }
-    // 화살표는 구멍의 **빈 쪽**에 붙인다. 구멍이 화면 아래쪽이면 위에서 아래를 가리키고,
-    // 위쪽이면 아래에서 위를 가리킨다 (하단 탭 바가 대상인 경우가 잦다)
+    // 손은 구멍의 **빈 쪽**에 붙인다. 구멍이 화면 아래쪽이면 위에서 아래를 가리키고
+    // (`.down` — 그림을 뒤집는다), 위쪽이면 아래에서 위를 가리킨다 (하단 탭 바가
+    // 대상인 경우가 잦다). 손끝이 구멍 가장자리에 닿는 자리에 둔다 — 두드리는 애니메이션이
+    // 그 사이를 오가므로 그만큼(6px) 띄운다
     const r = rects[0];
     const below = (r.top + r.height / 2) > H * 0.5;
-    arrow.style.display = '';
-    arrow.textContent = below ? '▾' : '▴';
-    arrow.style.left = Math.round(Math.max(24, Math.min(W - 24, r.left + r.width / 2))) + 'px';
-    arrow.style.top = Math.round(below ? r.top - PAD - 32 : r.bottom + PAD + 6) + 'px';
+    hand.style.display = '';
+    hand.classList.toggle('down', below);
+    hand.classList.toggle('up', !below);
+    hand.style.left = Math.round(Math.max(HAND / 2, Math.min(W - HAND / 2, r.left + r.width / 2))) + 'px';
+    hand.style.top = Math.round(below ? r.top - PAD - HAND - 6 : r.bottom + PAD + 6) + 'px';
     // 말풍선은 구멍의 반대쪽에 — 가리키는 곳을 자기가 덮으면 안 된다
     talk.classList.toggle('top', below);
     talk.classList.toggle('bot', !below);

@@ -244,14 +244,14 @@ function launchOpts() {
       if (bad) { results.push({ 화면: `튜토리얼/${c.label}`, 오류: bad }); continue; }
       await page.waitForTimeout(220);
       await run(`튜토리얼/${c.label}`);
-      // 말풍선이 자기가 가리키는 구멍을 덮으면 안 된다 (덮으면 무엇을 누르라는지 안 보인다)
+      // 말풍선이 자기가 가리키는 손을 덮으면 안 된다 (덮으면 무엇을 누르라는지 안 보인다)
       const over = await page.evaluate(() => {
         const talk = document.querySelector('#tut .tut-talk');
-        const holes = [...document.querySelectorAll('#tut .tut-arrow')];
+        const holes = [...document.querySelectorAll('#tut .tut-hand')];
         if (!talk || !holes.length || holes[0].style.display === 'none') return null;
         const a = talk.getBoundingClientRect(), b = holes[0].getBoundingClientRect();
         return (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom)
-          ? '말풍선이 화살표를 덮는다' : null;
+          ? '말풍선이 가리키는 손을 덮는다' : null;
       });
       if (over) results.push({ 화면: `튜토리얼/${c.label}`, 오류: over });
     }
