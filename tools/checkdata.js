@@ -253,6 +253,37 @@ add('id 가 겹친다', dupId);
       if (I.t(k) === k) bad.push(`${c.id} — 대사가 없다 (${k})`);
     });
   });
+  // ─ 강조 표시는 **두 언어에 같은 수**가 있어야 한다 ─
+  //
+  // 대사 안에서 낱말 하나를 강조하는 표시다 — 한국어 `«…»` · 영어 `*…*`
+  // (「저는 공주님의 요리사 «클레멘» 입니다」 · 「It was *cut*.」).
+  // 한쪽에만 넣으면 **그 언어에서만 금색으로 뜨고** 다른 쪽은 밋밋해지는데,
+  // 영어로 바꿔 그 컷씬까지 들어가 보기 전에는 아무도 모른다
+  // (실제로 `c_spire_in_3` 이 한국어에만 있었다).
+  // ⚠️ 짝이 안 맞는 쪽 «수»만 본다 — 어느 낱말을 강조할지는 번역의 몫이다
+  {
+    const hi = (s) => (String(s).match(/«[^»]+»|\*[^*\s][^*]*\*/g) || []).length;
+    const was = I.getLang();
+    let looked = 0, marked = 0;
+    const per = { ko: {}, en: {} };
+    ['ko', 'en'].forEach(l => {
+      I.setLang(l);
+      D.CUTS.forEach(c => (c.lines || []).forEach((_, i) => {
+        const k = `${c.id}_${i + 1}`;
+        per[l][k] = hi(I.t(k));
+      }));
+    });
+    I.setLang(was);
+    Object.keys(per.ko).forEach(k => {
+      looked++;
+      if (per.ko[k]) marked++;
+      if (per.ko[k] !== per.en[k])
+        bad.push(`${k} — 강조 표시가 ko ${per.ko[k]}개 · en ${per.en[k]}개 (한 언어에서만 강조된다)`);
+    });
+    // 아무것도 안 잰 0건은 통과가 아니다 — 표시를 통째로 지우면 여기서 걸린다
+    if (!looked) bad.push('컷씬 대사를 한 줄도 못 읽었다');
+    else if (!marked) bad.push('강조 표시가 있는 줄이 하나도 없다 — 표시를 읽는 자리가 죽었는가');
+  }
   // 퀘스트가 가리키는 컷씬이 실제로 있는가
   D.QUESTS.forEach(q => {
     ['in', 'out'].forEach(w => {

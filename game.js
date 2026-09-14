@@ -1362,14 +1362,16 @@ window.claimQuest = claimQuest;
 function actOpen(id) {
   if (!S.tutorialDone) return false;                 // 튜토리얼 중에는 전부 숨는다
   if ((S.roomActs || []).includes(id)) return true;  // 개발용으로 켠 것
-  return id === 'kitchen' ? metClemen() : false;
+  return id === 'kitchen' ? chefHired() : false;
 }
 window.actOpen = actOpen;
 
-// 클레멘을 만났는가 — **첫 퀘스트의 첫 만남 컷씬을 봤으면** 만난 것이다.
+// 셰프가 왔는가 — **첫 퀘스트를 받으면**(`c_meet_in`) 온 것이다.
+// 그 컷씬에서 요정 대모가 「식단을 위해 셰프를 고용했다」고 말하고, 부엌 문은
+// 거기서 열린다 — 클레멘을 «만나는» 것은 그 뒤 부엌에서다 (`c_clemen_meet`).
 // ⚠️ 「퀘스트를 끝내면」이 아니다: 그 퀘스트의 목표가 **부엌에서 같이 먹기**라
 // 끝나야 열리게 두면 깰 방법이 없다 (물어보고 이렇게 정했다)
-function metClemen() {
+function chefHired() {
   return (S.seenCuts || []).includes('c_meet_in')
       || (questState().done || []).includes('q_meet');
 }
@@ -1379,7 +1381,7 @@ function metClemen() {
 //
 // ⚠️ **「보이는가」와 「열리는가」를 따로 판정하지 않는다** — `actOpen` 하나를 지난다.
 // 갈라 두었더니 옛 세이브(마이그레이션으로 다섯을 다 받은 사람)에서 **버튼은 보이는데
-// 눌러도 아무 일이 없었다**: 보임은 `roomActs` 를 보고 열림은 `metClemen()` 만 봤다
+// 눌러도 아무 일이 없었다**: 보임은 `roomActs` 를 보고 열림은 `chefHired()` 만 봤다
 function kitchenOpen() { return actOpen('kitchen'); }
 window.kitchenOpen = kitchenOpen;
 
@@ -1874,6 +1876,22 @@ function cutFxHtml(kind) {
   return '';
 }
 
+// 대사 한 줄을 HTML 로 — **강조할 낱말만** 표시를 두른다.
+// 처음으로 제 이름을 대는 줄(`«클레멘»`)처럼 한 낱말이 그 장면의 전부인 자리가 있다.
+//
+// ⚠️ **표시는 이미 대사 안에 있었다** — 한국어는 `«…»`, 영어는 `*…*` 로 네 줄이
+// 그렇게 써 있었는데 **그리는 쪽이 그냥 글자로 뱉고 있었다** (「성 사람들 «전부»요?」).
+// 그래서 새 표시를 만들지 않고 **쓰이던 둘을 다 읽는다** — 언어마다 따옴표가 다른 것은
+// 글의 결이지 다른 뜻이 아니다. 두 언어에 «같은 수»가 있는지는 `checkdata` 가 본다.
+// ⚠️ **표를 그대로 `innerHTML` 에 넣지 않는다** — 먼저 통째로 접고(`escHtml`),
+// 그다음에 표시만 태그로 바꾼다. 그래야 대사에 `<` 가 들어와도 태그가 안 된다
+// (튜토리얼의 `{name}` 에서 배운 것과 같다). 사람이 친 글자는 여기 안 들어오지만,
+// 접는 자리를 «조건부»로 두면 언젠가 들어온다
+const CUT_HI = /«([^»]+)»|\*([^*\s][^*]*)\*/g;
+function cutLineHtml(text) {
+  return escHtml(text).replace(CUT_HI, (_, a, b) => `<b class="cut-hi">${a || b}</b>`);
+}
+
 function drawCut() {
   if (!cutNow) return;
   const [spId, mood, fx] = cutNow.lines[cutAt];
@@ -1900,7 +1918,7 @@ function drawCut() {
   // **「부르는 말」로 뜬다** — 공주는 플레이어가 지은 이름으로, 요정 대모는
   // 「요정 대모」로 (설정상의 이름 「알테이아」는 본인도 안 쓴다 · STORY.md 「호칭 규칙」)
   if (who) who.textContent = speakerName(spId);
-  if (txt) txt.textContent = T(`${cutNow.id}_${cutAt + 1}`);
+  if (txt) txt.innerHTML = cutLineHtml(T(`${cutNow.id}_${cutAt + 1}`));
   if (dots) {
     dots.innerHTML = cutNow.lines
       .map((_, i) => `<i class="${i === cutAt ? 'on' : ''}"></i>`).join('');
@@ -1914,7 +1932,7 @@ function cutNext() {
   cutNow = null; cutThen = null;
   const el = document.getElementById('cutScene');
   if (el) el.hidden = true;
-  // ⚠️ **본 컷씬이 화면을 연다.** 클레멘의 첫 만남(`c_meet_in`)이 부엌 버튼을 여는데,
+  // ⚠️ **본 컷씬이 화면을 연다.** 첫 퀘스트의 컷씬(`c_meet_in`)이 부엌 버튼을 여는데,
   // 여기서 다시 안 그리면 **아무것이나 화면을 다시 그릴 때까지 버튼이 안 나타난다** —
   // 레드닷도 같이 안 나온다. 판정(`seenCuts`)은 `playCut` 이 시작할 때 이미 끝나 있어서
   // 빠진 것은 「그리기」 하나였다. `then()` «앞»이다: 이어지는 시트가 위에 얹힌다

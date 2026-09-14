@@ -3330,6 +3330,9 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 .cut-who { margin: 0 0 7px; font-size: 0.9rem; font-weight: 800; color: #ffd076; }
 .cut-line { margin: 0; font-size: 0.98rem; font-weight: 500; line-height: 1.55; color: #fff; min-height: 3em; }
+/* 대사 안에서 강조하는 낱말 (`*클레멘*`) — 이름표(`.cut-who`)와 «같은 금색»이다.
+   이 판에서 이미 쓰고 있는 색이라 새 색을 하나 더 들이지 않는다 */
+.cut-hi { color: #ffd076; font-weight: 800; }
 .cut-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
 /* 몇 줄 남았는지 — 인트로의 닷과 같은 뜻 */
 .cut-dots { display: flex; gap: 5px; }
