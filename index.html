@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260906q">
+<link rel="stylesheet" href="style.css?v=20260906r">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260906q" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260906r" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -790,7 +790,7 @@
   <div class="modal-card pal-card">
     <div id="produceTitle" class="confirm-text"></div>
     <div id="produceList" class="pal-list"></div>
-    <button class="btn btn-ghost" onclick="closeProduceLog()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeProduceLog()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -800,7 +800,7 @@
   <div class="modal-card farm-card">
     <div id="kitchenTitle" class="confirm-text"></div>
     <div id="kitchenBody" class="q-body"></div>
-    <button class="btn btn-ghost" onclick="closeKitchen()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeKitchen()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -817,7 +817,7 @@
       <span data-i18n="sync_check">확인</span>
     </button>
     <div id="restoreFound"></div>
-    <button class="btn btn-ghost" onclick="closeRestore()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeRestore()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -835,7 +835,7 @@
       <span data-i18n="dev_acct_new">담고 새 캐릭터로 시작</span>
     </button>
     <div id="devAcctList"></div>
-    <button class="btn btn-ghost" onclick="closeDevAccounts()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeDevAccounts()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -847,7 +847,7 @@
   <div class="modal-card farm-card">
     <div id="giftTitle" class="confirm-text"></div>
     <div id="giftBody"></div>
-    <button class="btn btn-ghost" onclick="closeGift()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeGift()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -875,7 +875,7 @@
   <div class="modal-card farm-card">
     <div id="storyTitle" class="confirm-text"></div>
     <div id="storyBody" class="st-body"></div>
-    <button class="btn btn-ghost" onclick="closeStory()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeStory()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -889,7 +889,7 @@
   <div class="modal-card farm-card">
     <div id="questTitle" class="confirm-text"></div>
     <div id="questBody" class="q-body"></div>
-    <button class="btn btn-ghost" onclick="closeQuest()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeQuest()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -900,7 +900,7 @@
   <div class="modal-card farm-card">
     <div id="pageTitle" class="confirm-text"></div>
     <div id="pageBody" class="pg-body"></div>
-    <button class="btn btn-ghost" onclick="closePage()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closePage()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -915,7 +915,7 @@
     <div id="diaryBody" class="di-body"></div>
     <!-- 쪽 넘기기 — **한 날이 한 쪽이다.** 왼쪽(◀)이 과거, 오른쪽(▶)이 최근 -->
     <div id="diaryNav" class="di-nav"></div>
-    <button class="btn btn-ghost" onclick="closeDiary()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeDiary()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -926,7 +926,7 @@
   <div class="modal-card farm-card">
     <div id="farmTitle" class="confirm-text"></div>
     <div id="farmBody" class="farm-body"></div>
-    <button class="btn btn-ghost" onclick="closeFarm()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeFarm()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -935,7 +935,7 @@
   <div class="modal-card farm-card">
     <div id="plantTitle" class="confirm-text"></div>
     <div id="plantList" class="pal-list"></div>
-    <button class="btn btn-ghost" onclick="closePlant()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closePlant()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -945,7 +945,7 @@
     <div id="teamTitle" class="confirm-text"></div>
     <div id="teamSlots" class="tm-row big"></div>
     <div id="teamList" class="pal-list"></div>
-    <button class="btn btn-ghost" onclick="closeTeam()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeTeam()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -955,7 +955,7 @@
   <div class="modal-card farm-card">
     <div id="raidResTitle" class="confirm-text"></div>
     <div id="raidResBody" class="farm-body"></div>
-    <button class="btn btn-ghost" onclick="closeRaidResult()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeRaidResult()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -966,7 +966,7 @@
     <!-- 내 출정대를 여기서 바꾼다 — 상대를 보고 순서를 짜는 자리이기 때문이다 -->
     <div id="raidMine"></div>
     <div id="raidList" class="pal-list"></div>
-    <button class="btn btn-ghost" onclick="closeRaidPick()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closeRaidPick()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -974,7 +974,7 @@
   <div class="modal-card pal-card">
     <div id="palPickTitle" class="confirm-text"></div>
     <div id="palPickList" class="pal-list"></div>
-    <button class="btn btn-ghost" onclick="closePalPick()" data-i18n="pal_close">닫기</button>
+    <button class="sheet-exit" onclick="closePalPick()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -988,10 +988,9 @@
     <div id="feedPetName" class="feed-petname"></div>
     <div id="feedList" class="feed-list"></div>
     <div id="feedQty" class="feed-qty"></div>
-    <div class="confirm-actions">
-      <button class="btn btn-ghost" onclick="closeFeed()" data-i18n="feed_close">닫기</button>
-      <button id="feedGo" class="btn btn-primary" onclick="doFeed()"></button>
-    </div>
+    <!-- 주 버튼은 전폭 알약, 나가기는 그 아래 글자 한 줄 (UI_POLICY.md 3-2) -->
+    <button id="feedGo" class="btn btn-primary" onclick="doFeed()"></button>
+    <button class="sheet-exit" onclick="closeFeed()" data-i18n="sheet_exit">나가기</button>
   </div>
 </div>
 
@@ -1017,19 +1016,19 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260906q"></script>
-<script src="intro.js?v=20260906q"></script>
-<script src="data.js?v=20260906q"></script>
-<script src="avatar.js?v=20260906q"></script>
-<script src="village.js?v=20260906q"></script>
-<script src="portrait.js?v=20260906q"></script>
-<script src="creature.js?v=20260906q"></script>
-<script src="cauldron.js?v=20260906q"></script>
-<script src="pumpkin.js?v=20260906q"></script>
-<script src="sfx.js?v=20260906q"></script>
-<script src="sync.js?v=20260906q"></script>
-<script src="game.js?v=20260906q"></script>
-<script src="tutorial.js?v=20260906q"></script>
-<script src="a11y.js?v=20260906q"></script>
+<script src="i18n.js?v=20260906r"></script>
+<script src="intro.js?v=20260906r"></script>
+<script src="data.js?v=20260906r"></script>
+<script src="avatar.js?v=20260906r"></script>
+<script src="village.js?v=20260906r"></script>
+<script src="portrait.js?v=20260906r"></script>
+<script src="creature.js?v=20260906r"></script>
+<script src="cauldron.js?v=20260906r"></script>
+<script src="pumpkin.js?v=20260906r"></script>
+<script src="sfx.js?v=20260906r"></script>
+<script src="sync.js?v=20260906r"></script>
+<script src="game.js?v=20260906r"></script>
+<script src="tutorial.js?v=20260906r"></script>
+<script src="a11y.js?v=20260906r"></script>
 </body>
 </html>

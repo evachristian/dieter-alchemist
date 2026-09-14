@@ -2087,29 +2087,32 @@ function renderQuestSheet() {
 
   // **어디로 가면 되는지까지 말한다.** 비법서에서 만든 부품을 그대로 쓴다 —
   // 무엇을 해야 할지 알아도 어디로 갈지 모르면 게임이 그 자리에서 멈춘다
-  let where = '';
+  let where = '', whereLabel = '';
   const targetId = q.goal.id;
   if (targetId && (q.goal.kind === 'deliver')) {
     where = pageRowsFor([targetId]);
+    whereLabel = T('q_where', { name: N(targetId, (itemOf(targetId) || {}).name || targetId) });
   } else if (targetId && (q.goal.kind === 'brew' || q.goal.kind === 'creature')) {
     const r = D.RECIPES.find(x => x.result.id === targetId);
-    if (r) where = pageRowsFor(r.inputs);
+    if (r) { where = pageRowsFor(r.inputs); whereLabel = T('q_mats', { name: N(r.result.id, r.result.name) }); }
   }
 
+  // 말하는 사람은 **얼굴로만** 보인다 — 이름 줄을 붙이면 시트 위에 줄이 하나 더 서고,
+  // 퀘스트를 주는 사람은 어차피 제목(퀘스트 이름)과 얼굴로 이미 안다 (UI_POLICY.md 3-2)
   body.innerHTML = `
     <div class="q-say">
       <span class="q-face" aria-hidden="true">${
         window.Portrait ? Portrait.bust(D.speaker(q.npc), 'def', { bare: true }) : ''}</span>
       <span class="q-line">
-        <b class="q-who">${speakerName(q.npc)}</b>
         <span class="q-text">${T(q.id + '_in')}</span>
       </span>
     </div>
     <div class="q-goal">${T(q.id + '_desc')}</div>
     <div class="q-bar"><span style="width:${Math.round(now / max * 100)}%"></span></div>
     <div class="q-num ${full ? 'ok' : ''}">${now} / ${max}</div>
-    ${where ? `<div class="q-where">${where}</div>` : ''}
-    <div class="q-reward">${T('q_reward')} ${rewardText(q.reward)}</div>
+    ${where ? `<div class="q-sec">${whereLabel}</div><div class="q-where">${where}</div>` : ''}
+    <div class="q-sec">${T('q_reward')}</div>
+    <div class="q-reward">${rewardText(q.reward)}</div>
     <button class="btn ${full ? 'btn-primary' : 'btn-ghost'} q-claim"
       data-act="${full ? 'claim' : 'later'}"
       onclick="${full ? 'claimQuest()' : 'questNotYet()'}">

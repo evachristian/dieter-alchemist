@@ -329,7 +329,7 @@
       pal_row_none: '🐾 동행 없음',
       pal_row: '🐾 {name}{josa} 함께',
       pal_pick_title: '누구와 함께 갈까요?',
-      pal_close: '닫기',
+      pal_close: '닫기', sheet_exit: '나가기',
       pal_set: '{name}{josa} 데리고 나갑니다.',
       pal_off: '이번에는 혼자 갑니다.',
       pal_hint: '속성 · 날씨 · 시간대가 맞으면 더 잘 찾아요',
@@ -737,10 +737,10 @@
       // ─── 퀘스트 (QUEST.md) ───
       // 대사는 **요정 대모의 말투**다 — 수십 년을 곁에서 지킨 사람이라
       // 잔소리도 애정이다 (`STORY.md` 알테이아).
-      q_reward: '받을 것',
+      q_reward: '보상', q_mats: '{name} 재료', q_where: '{name} 구하는 곳',
       q_pages: '비법서 {n}장',
       q_claim: '가져가기',
-      q_not_yet: '아직이에요',
+      q_not_yet: '아직 진행중이에요',
       q_done_toast: '「{name}」{nj} 마쳤어요!',
       q_first_name: '어머니의 솥',
       q_first_desc: '생기 물약을 2개 만들어 보세요.',
@@ -1554,7 +1554,7 @@
       pal_row_none: '🐾 No companion',
       pal_row: '🐾 With {name}',
       pal_pick_title: 'Who comes along?',
-      pal_close: 'Close',
+      pal_close: 'Close', sheet_exit: 'Leave',
       pal_set: '{name} comes along.',
       pal_off: 'Going alone this time.',
       pal_hint: 'Finds more when element, weather and time all match',
@@ -1932,10 +1932,10 @@
       c_bloom_out_2: 'Why are you crying?',
       c_bloom_out_3: 'I am not. Something got in my eye. Come — on to the next story.',
       // ─── 퀘스트 (QUEST.md) ───
-      q_reward: 'Reward',
+      q_reward: 'Reward', q_mats: '{name} ingredients', q_where: 'Where to find {name}',
       q_pages: '{n} pages',
       q_claim: 'Take it',
-      q_not_yet: 'Not yet',
+      q_not_yet: 'Still in progress',
       q_done_toast: 'Finished "{name}"!',
       q_first_name: "Mother's Cauldron",
       q_first_desc: 'Brew 2 Vitality Potions.',
