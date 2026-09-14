@@ -496,7 +496,14 @@
 
   // 검사용 — 지금 단계가 어디를 뚫으려 하는지 (checkui·checktut 이 구멍의 자리를 잰다)
   function targets() { const s = step(); return s ? holeSels(s) : []; }
+  // 검사용 — 단계표의 «글자 부분»만 (id · 대사 키 · 지시문 키 · 구멍 선택자).
+  // `checktuttext` 가 브라우저 없이 «지시문이 있는 이름을 부르는가»를 볼 때 쓴다.
+  // 함수(before/after/until)는 안 내보낸다 — 그것은 화면이 있어야 도는 것들이다
+  function stepList() {
+    return STEPS.map(s => ({ id: s.id, act: s.act || null, hole: holeSels(s),
+                             talk: s.talk.map(l => l.key) }));
+  }
 
-  window.Tut = { maybeStart, refresh, fire, tap, replay, goto, targets,
+  window.Tut = { maybeStart, refresh, fire, tap, replay, goto, targets, stepList,
                  isOn: running, steps: () => STEPS.length, PAD };
 })();

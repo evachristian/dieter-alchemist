@@ -234,6 +234,82 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     }, EDGE_TOL);
   }
 
+  // 지시문이 **구멍 대상의 이름**을 부르는가 — 두 언어로.
+  //
+  // 구멍이 맞아도 글이 다른 이름을 부르면 새 플레이어는 있지도 않은 칸을 찾는다.
+  // 실제로 마이 룸 탭이 「🧴 물약」에서 「🎒 잡화」로 바뀐 뒤에도 지시문은
+  // 「🧴 물약 칸을 누르세요」로 남아 있었고, 눌러 보는 검사는 통과였다 (구멍은 맞았으니까).
+  //
+  // 대상의 «이름»은 화면에서 직접 읽는다 — aria-label · 이름 칸(.recipe-out /
+  // .potion-name / .spot-name) · 제 글자 · 감싸는 카드의 이름 · 감싸는 블록의 제목 ·
+  // (옷장 칸이면) 지금 펼쳐진 옷장 탭. 그 낱말(2자 이상 · 숫자 붙은 것 제외) 하나라도
+  // 지시문에 들어 있어야 하고, 지시문의 이모지는 대상에 있는 것이어야 한다
+  // (「🧴 잡화 칸」처럼 낱말만 맞고 그림이 다른 것도 잡는다).
+  // 영어는 언어를 실제로 바꿔서 잰다 — 라벨과 이름이 모두 en 으로 다시 그려진 뒤에.
+  const actChecked = { steps: 0, langs: new Set() };
+  async function actCheck(step) {
+    const out = [];
+    let measured = false;
+    for (const lang of ['ko', 'en']) {
+      await page.evaluate((l) => I18N.setLang(l), lang);
+      await page.waitForTimeout(lang === 'ko' ? 60 : 260);
+      const r = await page.evaluate(() => {
+        const layer = document.getElementById('tut');
+        const actEl = layer && layer.querySelector('.tut-act');
+        if (!actEl) return null;
+        const EMOJI = /[\p{Extended_Pictographic}]/gu;
+        const strip = (s) => String(s || '').replace(/[\p{Extended_Pictographic}️‍]/gu, '').replace(/\s+/g, ' ').trim();
+        const act = strip(actEl.textContent).toLowerCase();
+        const actEmoji = [...(actEl.textContent.match(EMOJI) || [])];
+        const txt = (el) => (el && el.textContent) || '';
+        const labelsOf = (el) => {
+          const out = [];
+          const add = (t) => { t = (t || '').replace(/\s+/g, ' ').trim(); if (t) out.push(t); };
+          add(el.getAttribute('aria-label'));
+          const named = el.querySelector('.recipe-out, .potion-name, .spot-name');
+          add(named ? txt(named) : txt(el));
+          const card = el.closest('.spot-card'); if (card) add(txt(card.querySelector('.spot-name')));
+          const block = el.closest('.at-block'); if (block) add(txt(block.querySelector('.mini-title')));
+          if (el.classList.contains('wr-item')) {
+            const t = document.querySelector('.wr-tab.active');
+            if (t) add(t.getAttribute('aria-label') || txt(t));
+          }
+          return out;
+        };
+        const words = (label) => strip(label).split(/\s+/)
+          .filter(w => !/[\d⚡×]/.test(w))
+          .map(w => w.replace(/[^\p{L}]/gu, '').toLowerCase())
+          .filter(w => w.length >= 2);
+        const res = [];
+        for (const sel of Tut.targets()) {
+          const el = document.querySelector(sel);
+          if (!el) continue;
+          const labels = labelsOf(el);
+          const ws = [...new Set(labels.flatMap(words))];
+          const hit = ws.filter(w => act.includes(w));
+          const emo = [...new Set(labels.join(' ').match(EMOJI) || [])];
+          const wrongEmoji = actEmoji.filter(e => !emo.includes(e));
+          res.push({ sel, labels, words: ws, hit, wrongEmoji, act: actEl.textContent.trim() });
+        }
+        return res;
+      });
+      if (r === null) continue;   // 지시문이 없는 단계
+      measured = true;
+      actChecked.langs.add(lang);
+      for (const t of r) {
+        if (!t.words.length) { out.push(`[${lang}] ${t.sel}: 대상에서 이름을 한 낱말도 못 읽었다`); continue; }
+        if (!t.hit.length)
+          out.push(`[${lang}] 지시문 「${t.act}」 이 대상(${t.sel})의 이름을 안 부른다 — 대상: ${t.labels.join(' / ')}`);
+        if (t.wrongEmoji.length)
+          out.push(`[${lang}] 지시문 「${t.act}」 의 ${t.wrongEmoji.join('')} 은 대상(${t.sel})에 없는 그림이다`);
+      }
+    }
+    await page.evaluate(() => I18N.setLang('ko'));
+    await page.waitForTimeout(260);
+    if (measured) actChecked.steps++;
+    return out.length ? out : null;
+  }
+
   // 구멍 안의 눌러야 할 것을 진짜 마우스로 누른다
   async function doAct() {
     const target = await page.evaluate((sel) => {
@@ -262,6 +338,7 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   const log = { seen: new Set(), push: (st) => lines.push(
     `  ${String(st.step).padStart(2)} · 닷${st.dots} · ${st.line.slice(0, 22)}${st.act ? ' → ' + st.act : ''}`) };
 
+  const actSeen = new Set();
   let guard = 0, lastSig = '', same = 0;
   while (guard++ < 80) {
     const st = await readAll(log);
@@ -280,6 +357,13 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
 
     const mis = await alignCheck();
     if (mis) mis.forEach(m => bad.push(`${st.step}단계: ${m}`));
+
+    // 지시문이 남아 있는 단계(대사를 다 읽은 뒤)에서만 — 같은 단계를 되풀이할 때는 한 번만
+    if (st.act && !actSeen.has(st.step)) {
+      actSeen.add(st.step);
+      const am = await actCheck(st.step);
+      if (am) am.forEach(m => bad.push(`${st.step}단계: ${m}`));
+    }
 
     const did = await doAct();
 
@@ -365,6 +449,12 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
         + low.map(([k, v, max]) => `${k} ${v}/${max}`).join(' · '));
     }
   }
+  // 지시문↔대상을 **몇 단계나 쟀는지**도 본다 — 언어를 못 바꿨거나 지시문을 못 읽었으면
+  // 0건이 「통과」가 아니라 「한 번도 안 쟀다」다 (단계표의 지시문 수와 견준다)
+  const actSteps = await page.evaluate(() => Tut.stepList().filter(s => s.act).length).catch(() => -1);
+  if (actChecked.steps < actSteps)
+    bad.push(`지시문↔대상을 ${actChecked.steps}단계만 쟀다 (지시문이 있는 단계는 ${actSteps})`);
+  if (actChecked.langs.size < 2) bad.push(`지시문↔대상을 두 언어로 못 쟀다 (${[...actChecked.langs].join('·') || '없음'})`);
   if (fin.layerOn) bad.push('끝났는데 막이 남아 있다');
   // 졸업 선물은 **신발**이다 — 아바타가 맨발(`shoes_none`)로 서 있던 자리를 채운다
   if (fin.shoes !== 'shoes_maryjane') bad.push('선물받은 구두를 신지 않았다 (' + fin.shoes + ')');
@@ -377,6 +467,7 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   console.log(`튜토리얼 ${log.seen.size}단계를 눌러 봄 (${W}×${H})`);
   if (process.env.V) console.log(lines.join('\n'));
   console.log(`  조합 ${fin.brews} · 마심 ${fin.drinks} · 채집 ${fin.gathered}`);
+  console.log(`  지시문↔대상 ${actChecked.steps}단계 × ${[...actChecked.langs].join('·') || '없음'}`);
   if (!bad.length) { console.log('✅ 튜토리얼을 끝까지 통과함'); process.exit(0); }
   console.log(`❌ ${bad.length}건`);
   bad.forEach(m => console.log('   ' + m));

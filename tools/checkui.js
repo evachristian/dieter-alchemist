@@ -217,8 +217,11 @@ function launchOpts() {
       { step: 0,  beat: 2, tab: 'showcase', label: '0 첫 주머니(구멍없음)' },
       { step: 1,  beat: 0, tab: 'showcase', label: '1 공방으로(탭 구멍)' },
       { step: 2,  beat: 0, tab: 'atelier',  label: '2 레시피 고르기' },
+      // 5 · 11 — 지시문이 대상의 «이름»을 부르는 단계라 글이 길다 (「🎒 잡화 칸」 · 「가방에서 …」)
+      { step: 5,  beat: 0, tab: 'showcase', label: '5 잡화 칸(이름 부르는 지시문)' },
       { step: 6,  beat: 0, tab: 'showcase', label: '6 물약 마시기', pre: 'potion' },
       { step: 8,  beat: 0, tab: 'gather',   label: '8 채집' },
+      { step: 11, beat: 0, tab: 'atelier',  label: '11 가방에서 넣기(긴 지시문)' },
       { step: 13, beat: 3, tab: 'atelier',  label: '13 실패도 정보(긴 대사)' },
       { step: 14, beat: 1, tab: 'showcase', label: '14 위쪽 줄(구멍 둘)' },
       { step: 16, beat: 2, tab: 'showcase', label: '16 신어 보기' },
