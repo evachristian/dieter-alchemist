@@ -1623,6 +1623,7 @@ function launchOpts() {
   const collar = await page.evaluate(async (STEP) => {
     const D = window.GameData, bad = [], rows = [];
     const K = 4, CW = 200 * K, CH = 348 * K;
+    const skipped = [];
     const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
     const SK = hex('#ffdcc4'), SH = hex('#f2c6a6');       // SKIN · SKIN_SH (avatar.js)
     const W = D.WARDROBE;
@@ -1669,8 +1670,23 @@ function launchOpts() {
           }
           return { skin: skin, cloth: cloth };
         };
+        // ⚠️ **어깨선 바로 위에서부터 찾는다.** 턱 밑·목 양옆의 빈 자리를 옷 색으로
+        // 메우면서(`avatar.js` 의 `neckGusset`) 옷이 어깨선보다 위에서도 보이게 됐다 —
+        // 90 부터 찾으면 그 조각의 맨 윗줄(턱 옆)을 「옷깃」으로 잡아 엉뚱한 것을 잰다.
+        // 여기서 볼 것은 **목 기둥이 옷깃으로 이어지는 자리**이고, 그 자리는 어깨선이다.
+        //
+        // ⚠️ **머리가 아주 크면 턱이 어깨선 밑으로 내려가 목이 한 줄도 안 보인다**
+        // (얼굴 150 · 통통). 그때 재면 목이 아니라 «볼»을 재게 되므로 건너뛰고,
+        // 건너뛴 수를 같이 낸다 — 0건을 통과로 착각하지 않기 위한 것이다
+        let gTop = null;
+        for (let yy = 60; yy <= 220 && gTop == null; yy += 0.5) {
+          const r = scan(yy); if (r && r.cloth != null) gTop = yy;
+        }
+        if (gTop != null && gTop + window.Avatar.GUSSET_RISE + 2 > window.Avatar.CLOTH_TOP_Y - 1) {
+          skipped.push(`${kind}/${pname}`); continue;
+        }
         let top = null;
-        for (let yy = 90; yy <= 220 && top == null; yy += 0.5) {
+        for (let yy = window.Avatar.CLOTH_TOP_Y - 1; yy <= 220 && top == null; yy += 0.5) {
           const r = scan(yy); if (r && r.cloth != null) top = yy;
         }
         if (top == null) { bad.push(`${kind} · ${pname}: 옷깃을 못 찾았다`); continue; }
@@ -1687,6 +1703,8 @@ function launchOpts() {
         }
       }
     }
+    if (skipped.length) rows.push(`목이 안 보여 건너뜀 ${skipped.join(' · ')}`);
+    if (rows.length - (skipped.length ? 1 : 0) < 6) bad.push(`잰 조합이 너무 적다 (${rows.length}개)`);
     return { bad: bad, rows: rows };
   }, COLLAR_STEP);
 
@@ -1706,7 +1724,7 @@ function launchOpts() {
     const bad = [], rows = [], K = 4, CW = 200 * K, CH = 348 * K;
     const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
     const SK = hex('#ffdcc4'), SH = hex('#f2c6a6'), CL = hex('#ffb8d9');
-    const out = [];
+    const out = [], skipped = [];
     for (const f of [0.5, 0.75, 1, 1.15, 1.3, 1.5]) {
       const tune = {}; window.Avatar.TUNE_KEYS.forEach(k => { tune[k] = 1; });
       tune.face = f;
@@ -1728,24 +1746,37 @@ function launchOpts() {
       const tw = (v, a, b) => v >= Math.min(a, b) - 6 && v <= Math.max(a, b) + 6;
       const isSk = c => c[3] > 250 && !nr(c, CL)
         && tw(c[0], SK[0], SH[0]) && tw(c[1], SK[1], SH[1]) && tw(c[2], SK[2], SH[2]);
-      let collar = null;
-      for (let yy = 60; yy <= 240 && collar == null; yy += 0.5) {
+      // ── 재는 자리는 **턱 바로 아래** 한 줄이다
+      //
+      // ⚠️ 예전에는 「옷이 처음 보이는 줄」의 한 줄 위에서 쟀는데, 그 줄이 얼굴 배율마다
+      // 105.5 · 126.5 · 153.5 로 널뛰었다 — 머리가 커지면 어깨를 통째로 덮어 옷이
+      // 한참 아래에서야 나오기 때문이다. 지금은 턱을 **그림에서 찾는다**: 턱 밑의 빈
+      // 자리를 메우는 조각(`avatar.js` 의 `neckGusset`)이 턱보다 `GUSSET_RISE` 만큼
+      // 위에서 시작하므로, 그 맨 윗줄에 그만큼 더하면 턱이다.
+      // ⚠️ **머리가 아주 크면 턱이 어깨선 밑으로 내려가 목이 한 줄도 안 보인다** —
+      // 그때는 잴 것이 없으므로 «건너뛴 수»로 알린다 (0건을 통과로 착각하지 않게)
+      let gTop = null;
+      for (let yy = 60; yy <= 240 && gTop == null; yy += 0.5) {
         const y = Math.round(yy * K); if (y >= CH) break;
-        for (let x = 100 * K; x < 170 * K; x++) if (nr(at(x, y), CL)) { collar = yy; break; }
+        for (let x = 100 * K; x < 170 * K; x++) if (nr(at(x, y), CL)) { gTop = yy; break; }
       }
-      if (collar == null) { bad.push(`얼굴${Math.round(f * 100)}: 옷깃을 못 찾았다`); continue; }
+      if (gTop == null) { bad.push(`얼굴${Math.round(f * 100)}: 옷을 못 찾았다`); continue; }
+      const yNeck = gTop + window.Avatar.GUSSET_RISE + 2;   // 턱선 바로 아래 (반올림·안티앨리어싱 몫 1px)
+      if (yNeck > window.Avatar.CLOTH_TOP_Y - 1) { skipped.push(Math.round(f * 100)); continue; }
       let hair = 0, neck = null;
-      for (let yy = 0; yy < collar; yy += 0.5) {
+      for (let yy = 0; yy < yNeck; yy += 0.5) {
         const y = Math.round(yy * K); if (y >= CH) break;
         let s = null;
         for (let x = 100 * K; x < 200 * K; x++) if (at(x, y)[3] > 250) s = x / K - 100;
         if (s != null) hair = Math.max(hair, s);
       }
-      const y = Math.round((collar - 1) * K);
+      const y = Math.round(yNeck * K);
       for (let x = 100 * K; x < 200 * K; x++) { if (!isSk(at(x, y))) break; neck = x / K - 100; }
       if (!hair || neck == null) { bad.push(`얼굴${Math.round(f * 100)}: 목·머리를 못 쟀다`); continue; }
       out.push({ f: f, hair: hair, neck: neck, r: neck / hair });
     }
+    if (skipped.length) rows.push(`목이 안 보여 건너뜀 ${skipped.join('·')}%`);
+    if (out.length < 4) bad.push(`잰 배율이 ${out.length}개뿐이다 (4개 이상이어야 한다)`);
     const base = out.find(o => o.f === 1);
     if (!base) bad.push('100% 를 못 쟀다');
     else {

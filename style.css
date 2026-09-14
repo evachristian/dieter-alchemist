@@ -2335,6 +2335,20 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 올라오는 움직임 — 끝이 있는 애니메이션이라 검증기의 settle() 이 끝 상태로 보낸다 */
 .modal.show .modal-card { animation: sheetup 0.28s cubic-bezier(.2,.9,.3,1); }
 @keyframes sheetup { from { transform: translateY(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ─── 「예 / 아니오」만 묻는 패널은 «가운데»에 뜬다 (UI_POLICY.md 3-2) ───
+   바닥 시트는 **읽을 것이 있는 팝업**의 모양이다. 한 문장을 묻고 마는 자리까지
+   화면 폭을 다 쓰는 판으로 올리면, 고를 것이 많다는 신호가 먼저 와 닿는다.
+   가운데 뜨는 작은 카드는 «묻고 끝나는 것»으로 읽힌다 — 그래서 둘을 갈랐다.
+   가르는 기준은 `showConfirm` 의 `html`(붙는 내용)이 있느냐 하나다 */
+.modal.center { align-items: center; padding: 0 20px; }
+.modal.center .modal-card {
+  border-radius: 24px; max-width: 340px;
+  padding: 22px 20px 18px;
+  box-shadow: 0 12px 40px rgba(120,90,110,0.35);
+}
+.modal.center.show .modal-card { animation: popin 0.18s cubic-bezier(.2,.9,.3,1); }
+@keyframes popin { from { transform: scale(0.94); opacity: 0; } to { transform: none; opacity: 1; } }
 /* 시트의 «나가기» — 테두리도 배경도 없는 글자 한 줄. 시트의 맨 아래에 온다.
    주 버튼(크림색 알약)과 결이 갈려야 「하는 것」과 「그만두는 것」이 한눈에 갈린다 */
 .sheet-exit {

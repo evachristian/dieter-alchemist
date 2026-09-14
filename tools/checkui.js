@@ -1668,6 +1668,37 @@ function launchOpts() {
         if (!ktLong.text) results.push({ 화면: `${t}/부엌(제일 긴 한 마디)`, 오류: '한 마디가 비어 있다 — 아무것도 안 쟀다' });
         await page.evaluate(() => { closeKitchen(); S.kitchenDay = 0; renderActBadges(); });
         await page.waitForTimeout(150);
+
+        // ── 확인 패널 — 「예 / 아니오」만 묻는 것은 «가운데», 읽을 것이 있는 것은 «바닥 시트»
+        //
+        // 둘을 가르는 것은 `showConfirm` 의 `html`(붙는 내용) 하나다 (UI_POLICY.md 3-2).
+        // ⚠️ **두 갈래를 다 잰다.** 한쪽만 재면 나머지 갈래는 대비·넘침을 한 번도
+        // 안 본 것이고, 「가운데로 떴는가」도 그 자리에서만 참인 말이 된다
+        for (const [name, extra, wantCenter] of [
+          ['확인패널/가운데', null, true],
+          ['확인패널/시트', '<div class="ex-now"><b>읽을 것이 있는 팝업</b></div>', false],
+        ]) {
+          const cbad = await page.evaluate(([ex, want]) => {
+            showConfirm('정말로 진행할까요?', () => {}, ex || undefined);
+            const m = document.getElementById('confirmModal');
+            if (!m.classList.contains('show')) return '확인 패널이 안 떴다';
+            const mid = m.classList.contains('center');
+            if (mid !== want) return `${want ? '가운데로 떠야 하는데 바닥 시트다' : '바닥 시트여야 하는데 가운데로 떴다'}`;
+            const r = m.querySelector('.modal-card').getBoundingClientRect();
+            const H = window.innerHeight;
+            // 가운데 카드는 **바닥에 안 붙는다** · 시트는 **바닥에 붙는다**
+            const stuck = r.bottom >= H - 0.5;
+            if (want && stuck) return '가운데라면서 카드가 바닥에 붙어 있다';
+            if (!want && !stuck) return `시트인데 카드가 바닥에서 ${(H - r.bottom).toFixed(1)}px 떠 있다`;
+            return null;
+          }, [extra, wantCenter]);
+          if (cbad) results.push({ 화면: `${t}/${name}`, 오류: cbad });
+          else { await page.waitForTimeout(240); await run(`${t}/${name}`); }
+          const cbad2 = await page.evaluate(() => window.__cardFits('#confirmModal'));
+          if (cbad2) results.push({ 화면: `${t}/${name}`, 오류: cbad2 });
+          await page.evaluate(() => closeConfirm());
+          await page.waitForTimeout(120);
+        }
       }
 
       // 마이 룸은 하위 탭마다 내용이 통째로 다르다 — FULL 이면 셋을 다 돌아본다

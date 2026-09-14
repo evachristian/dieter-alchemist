@@ -1678,6 +1678,59 @@
         C${L - F},${mid + 3} ${L - 3},${mid + 1} ${L},${mid} Z" fill="url(#neckG_${uid})"/>`;
   }
 
+  // ─── 턱 밑 · 목 양옆의 «빈 자리» (옷깃 받침) ─────────────────
+  //
+  // 몸통 윗선(`torsoTopY` 108)은 **평평하고**, 머리는 그보다 위에 있다. 그래서 목의
+  // 양옆 — 턱과 어깨 사이 — 에 **몸도 옷도 없는 띠**가 남는다. 배경이 그대로 비치는데,
+  // 마이 룸의 벽이 베이지라 **살색 얼룩**처럼 보였다
+  // (「공주 옷 어깨 선이 살짝 어긋난다」로 신고받은 자리다).
+  //
+  // 사람으로 치면 목에서 어깨로 내려오는 자리다 — 옷을 입었으면 **옷이 덮고 있어야 할
+  // 자리**이므로 옷 색으로, 맨몸이면 살색으로 메운다.
+  //
+  // ⚠️ **위쪽을 머리·머리카락이 덮어 준다.** 이 조각은 옷보다 뒤, 얼굴·머리카락보다
+  // «앞»에 그려진다 — 턱선 위로 삐져나오는 부분은 얼굴 타원이 가린다. 순서를 바꾸면
+  // 턱 위에 색 덩어리가 얹힌다.
+  // ⚠️ **목을 덮지 않는다.** 목은 이보다 먼저 그려지므로 `fill-rule="evenodd"` 로
+  // 가운데(목 기둥)를 도로 파낸다. 안 파면 목이 통째로 옷 색이 되어 «폴라»가 된다.
+  //   neck.top = 턱(몸통 좌표계) · neck.half = 목 반폭
+  function neckGusset(color, neck) {
+    const half = Math.max(0, Number(neck.half) || 0);
+    const rx = Number(neck.faceRx) || 0, ry = Number(neck.faceRy) || 0;
+    const chin = neck.top + 2;                 // `neck.top` 은 2px 겹치라고 올려 둔 값이다
+    if (!(rx > half) || !(ry > GUSSET_RISE)) return '';
+    // ── 윗변은 **턱선**(얼굴 타원의 아래 호)이다. 턱보다 `GUSSET_RISE` 위에서 자른다 —
+    // 끝까지 따라가면 옷깃이 볼 옆까지 기어올라 «얼굴을 감싼 깃»이 된다
+    const cy = chin - ry;
+    const cut = chin - GUSSET_RISE;
+    const xc = rx * Math.sqrt(Math.max(0, 1 - ((ry - GUSSET_RISE) / ry) ** 2));
+    // ── 옆변은 **어깨로 흘러내리는 선**이다.
+    //
+    // ⚠️ 네모로 잘라 내리면 어깨 위에 **각진 선반**이 얹힌다 (그려 보고 되돌렸다).
+    // 몸통 윗선은 평평한데 옷깃은 그보다 위에 있으니, 옆변을 수직으로 떨구면
+    // 실루엣이 「어깨 → 수직 점프 → 턱」으로 꺾인다. 목에서 어깨로 흘러내리는
+    // 곡선으로 이으면 인트로 공주의 깃처럼 읽힌다.
+    // 끝점은 **옷 안쪽**이다 — 몸통 윗선보다 아래라 옷이 이미 덮고 있는 자리다
+    const sy = CLOTH_TOP_Y + GUSSET_DROP;
+    let lo = 0, hi = BODY.torsoR - 100;
+    for (let i = 0; i < 20; i++) { const m = (lo + hi) / 2; if (torsoTopAtX(100 + m) < sy) lo = m; else hi = m; }
+    const sx = Math.max(xc, (lo + hi) / 2 - 2);
+    const f = n => (+n).toFixed(2);
+    // 가운데(목 기둥)는 evenodd 로 도로 파낸다 — 안 파면 폴라가 된다
+    return `<path fill-rule="evenodd" fill="${color}" d="`
+      + `M${f(100 - xc)},${f(cut)} A${f(rx)},${f(ry)} 0 0 0 ${f(100 + xc)},${f(cut)}`
+      + ` Q${f(100 + xc)},${f(sy)} ${f(100 + sx)},${f(sy)}`
+      + ` H${f(100 - sx)} Q${f(100 - xc)},${f(sy)} ${f(100 - xc)},${f(cut)} Z`
+      + `M${f(100 - half)},${f(cy)} H${f(100 + half)} V${f(sy)} H${f(100 - half)} Z"/>`;
+  }
+  // 옷깃이 어깨로 흘러내려 옷 안으로 들어가는 깊이 — 몸통 윗선보다 이만큼 아래에서 만난다
+  const GUSSET_DROP = 10;
+  // 빈 자리를 메우는 폭 — 목 반폭의 몇 배까지. 얼굴 반폭(33)이 목 반폭(8.65)의 약 3.8배다
+  const GUSSET_OUT = 2.6;
+  // 턱보다 얼마나 위까지 올라가는가. 턱은 타원의 «맨 아래»라 목에서 멀어질수록
+  // 위로 달아나는데, 그 차이가 곧 배경이 비치던 띠였다 (목 옆에서 4.5px)
+  const GUSSET_RISE = 5;
+
   // 몸통 윗선(오른쪽 반)의 x 에서의 y.
   // **넥라인은 이 선보다 위를 팔 수 없다** — 파면 옷도 몸도 없는 자리가 되어 배경이 비친다.
   // x 는 t 에 대해 단조증가하므로 이분법으로 찾는다.
@@ -3373,6 +3426,12 @@
       // ⚠️ `hx / kx` 를 여기서 다시 적지 않는다 — `headRatio(tune, w)` 가 같은 값이고,
       // 옷깃도 그것을 쓴다. 두 벌로 두면 한쪽만 고쳤을 때 옷깃이 목에서 어긋난다
       half: neckHalfOf(tune, w),
+      // **얼굴 타원을 몸통 좌표계로 옮긴 것** (`neckGusset` 이 턱선을 따라 메운다).
+      // 턱은 타원의 «맨 아래»라, 옆으로 갈수록 턱이 위로 올라간다 — 평평한 선으로
+      // 메우면 목에서 멀어질수록 배경이 다시 비친다 (실제로 4.5px 남았다).
+      // 세로 배율은 머리 변환을 몸통 변환으로 나눈 값이다 (위 `top` 과 같은 환산이다)
+      faceRx: 33 * headRatio(tune, w),
+      faceRy: 35 * (headK * kFace) / (bodyKy * kBody),
     };
     // 고른 색이 있으면 아이템의 원래 색을 덮어쓴다.
     // outfit.colors = { top: '#ffffff', ... } — 없는 칸은 아이템 색 그대로.
@@ -3395,6 +3454,11 @@
     // 신발은 **다리보다 먼저** 정해야 한다 — 굽이 종아리 모양을 바꾸기 때문이다
     const shoeItem = pick('shoes', outfit.shoes);
     const shoeHeel = heelOf(shoeItem), shoePitch = pitchOf(shoeItem);
+
+    // 빈 자리를 메울 색 — 원피스가 있으면 그것, 없으면 상의, 아무것도 없으면 살색
+    // (`crouchBack` 의 `cloth` 와 같은 규칙이다)
+    const clothColor = (hasDress && dress.color)
+      || (!isNone(top) && top.color) || SKIN;
 
     const hairItem = getItem('hair', outfit.hair);
     // 머리색 — 다른 칸과 같은 규칙이다. 염색한 색이 있으면 그것, 없으면 헤어의 원래 색.
@@ -3428,6 +3492,10 @@
       // (「롱부츠가 청바지 위로 올라옴」으로 신고받았다)
       B(renderShoes(shoeItem, tune, legHemY)),
       B(hasDress ? renderDress(dress, tune, w) : ''),
+      // 턱 밑 · 목 양옆의 빈 자리를 «입은 옷» 색으로 메운다 (위 `neckGusset`).
+      // 옷보다 뒤에 두면 소매·어깨가 이것을 덮어 버리고, 얼굴보다 앞에 두면
+      // 턱 위에 색 덩어리가 얹힌다 — 이 자리가 유일하게 맞는 자리다
+      B(neckGusset(clothColor, neck)),
       // 허리 아래의 팔은 **치마보다 앞**이다 — 안 그러면 퍼진 치마가 팔뚝과 손을
       // 통째로 덮어, 소매 끝 언저리에 살색 조각만 남는다 (armsOverSkirt 참고)
       B(armsOverSkirt(tune, hasDress ? dress : top)),
@@ -3796,7 +3864,7 @@
     return { w: w, kx: bodyScaleX(w), ky: ky, head: head, floorY: FLOOR_Y,
              dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
-  window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y,
+  window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     partRatio, bodyScaleX, bodyMetrics, TUNE_MAX,
     ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
 })();

@@ -7198,10 +7198,18 @@ function showConfirm(msg, cb, html, okLabel, title) {
   }
   document.getElementById('confirmOk').textContent = okLabel || T('btn_ok');
   _confirmCb = cb;
+  // ── 「예 / 아니오」만 묻는 패널은 **가운데에 뜬다** (UI_POLICY.md 3-2)
+  //
+  // 읽을 것이 한 문장뿐인데 바닥 시트로 올리면, 화면 폭을 다 쓰는 큰 판이 올라와
+  // 「무언가 많은 것을 고르라」는 신호를 준다 — 실제로는 예/아니오 둘뿐이다.
+  // 읽을 것이 많은 팝업(운동 · AP 충전처럼 `html` 이 붙는 것)만 시트로 둔다.
+  // ⚠️ 판정은 **붙는 내용**으로 한다: 부르는 쪽에서 따로 골라 넘기게 하면
+  // 새 패널을 만들 때마다 빠뜨린다 (제목·라벨과 같은 함정이다)
+  document.getElementById('confirmModal').classList.toggle('center', !html);
   document.getElementById('confirmModal').classList.add('show');
 }
 function closeConfirm() {
-  document.getElementById('confirmModal').classList.remove('show');
+  document.getElementById('confirmModal').classList.remove('show', 'center');
   // 라벨을 되돌려 놓지 않으면 다음 패널이 남의 가격표를 달고 뜬다.
   // **제목도 마찬가지다** — 안 지우면 다음 확인 패널에 「🏃 운동」이 그대로 남는다
   document.getElementById('confirmOk').textContent = T('btn_ok');
