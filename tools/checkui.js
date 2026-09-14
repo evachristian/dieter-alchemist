@@ -1644,8 +1644,28 @@ function launchOpts() {
         });
         if (ktBad) results.push({ 화면: `${t}/부엌`, 오류: ktBad });
         else { await page.waitForTimeout(280); await run(`${t}/부엌`); }
+        // ⚠️ **오늘의 한 마디는 날짜로 골라진다** (`diaryHash`) — 그냥 재면 다섯 줄 중
+        // 그날 걸린 하나만 재는 것이고, 제일 긴 줄은 영영 안 재는 날이 생긴다.
+        // 폭 검사는 **제일 긴 줄**에서 해야 뜻이 있으므로 그 줄로 못 박고 잰다
+        // (「재 본 적 없다」를 0건으로 착각하지 않기 위한 것 — 언어마다 제일 긴 줄이 다르다)
+        const ktLong = await page.evaluate(() => {
+          const keep = window.diaryHash;
+          let at = 0, len = -1;
+          for (let i = 0; i < KITCHEN_LINES; i++) {
+            const n = T(`kt_say_${i + 1}`).length;
+            if (n > len) { len = n; at = i; }
+          }
+          S.kitchenDay = 0;
+          window.diaryHash = () => at;
+          renderKitchen();
+          window.diaryHash = keep;
+          return { at: at + 1, text: document.querySelector('#kitchenSheet .q-text').textContent.trim() };
+        });
+        await page.waitForTimeout(160);
+        await run(`${t}/부엌(제일 긴 한 마디)`);
         const ktBad2 = await page.evaluate(() => window.__cardFits('#kitchenSheet'));
-        if (ktBad2) results.push({ 화면: `${t}/부엌`, 오류: ktBad2 });
+        if (ktBad2) results.push({ 화면: `${t}/부엌(제일 긴 한 마디)`, 오류: ktBad2 });
+        if (!ktLong.text) results.push({ 화면: `${t}/부엌(제일 긴 한 마디)`, 오류: '한 마디가 비어 있다 — 아무것도 안 쟀다' });
         await page.evaluate(() => { closeKitchen(); S.kitchenDay = 0; renderActBadges(); });
         await page.waitForTimeout(150);
       }
