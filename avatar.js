@@ -1016,6 +1016,16 @@
   // 옷이 종아리까지 덮는지 판정하는 기준이다. **다리를 옮기면 여기도 같이 옮긴다**
   const KNEE_LINE = 259;
 
+  // ─── 어깨 끝의 «절대» x — 몸통 그룹 «밖»에 그리는 것들이 보는 한계 ───
+  //
+  // 몸통은 제 그룹에서 `tuneOf(tune,'torso')` 로 눌리는데 **목과 옷깃 받침
+  // (`neckGusset`)은 그 그룹 밖**이라, 어깨가 어디까지인지를 직접 환산해 알아야 한다.
+  // ⚠️ **이 값을 두 곳에 따로 적지 않는다.** 목만 이것을 쓰고 옷깃 받침은 배율 안 걸린
+  // 곡선을 그대로 재고 있어서, 바디파츠 최소에서 **턱 밑에 좌우 10px 짜리 날개**가
+  // 남았다 (어깨는 114 인데 받침은 124 까지). 한 함수에서 나와야 같이 움직인다
+  const shoulderTipAbs = tune =>
+    100 + (sqx(BODY.torsoR, shoulderSquash(tune)) - 100) * tuneOf(tune, 'torso');
+
   // 허리 반폭 — 몸과 옷이 **같은 값**을 본다. 옷은 CLOTH_PAD 만큼 넉넉하게.
   // ⚠️ **`tuneOf` 가 아니라 `fatOf` 다.** 「지금 130% 인 허리가 150% 가 되도록」이라
   // 몫(`TUNE_GAIN.waist` 0.6)을 붙였다 — 100% 를 넘는 만큼만 0.6배로 얹으므로
@@ -1693,7 +1703,7 @@
   // 턱 위에 색 덩어리가 얹힌다.
   // ⚠️ **목을 덮지 않는다.** 목은 이보다 먼저 그려지므로 `fill-rule="evenodd"` 로
   // 가운데(목 기둥)를 도로 파낸다. 안 파면 목이 통째로 옷 색이 되어 «폴라»가 된다.
-  //   neck.top = 턱(몸통 좌표계) · neck.half = 목 반폭
+  //   neck.top = 턱(몸통 좌표계) · neck.half = 목 반폭 · neck.tip = 어깨 끝(절대 좌표)
   function neckGusset(color, neck) {
     const half = Math.max(0, Number(neck.half) || 0);
     const rx = Number(neck.faceRx) || 0, ry = Number(neck.faceRy) || 0;
@@ -1711,10 +1721,20 @@
     // 실루엣이 「어깨 → 수직 점프 → 턱」으로 꺾인다. 목에서 어깨로 흘러내리는
     // 곡선으로 이으면 인트로 공주의 깃처럼 읽힌다.
     // 끝점은 **옷 안쪽**이다 — 몸통 윗선보다 아래라 옷이 이미 덮고 있는 자리다
+    //
+    // ⚠️ **어깨 끝을 넘지 않는다** (`neck.tip`). 이 조각은 목과 마찬가지로 **몸통
+    // 배율 그룹 «밖»**에 그려진다 — 아래 이분법은 `BODY.shoulderC`(배율 안 걸린 곡선)를
+    // 재므로 몸통을 어떻게 줄여도 **늘 같은 32.57** 이 나온다. 그래서 바디파츠를
+    // 최소로 내리면 어깨는 114 로 좁아지는데 이 조각만 124 까지 남아, **턱 밑에
+    // 좌우로 10px 씩 뻗은 «날개»**가 생겼다 (「어깨 목 부분 오류」로 신고받았다).
+    // 목이 `tipAbs` 로 이미 푼 문제라, **같은 값을 같은 함수에서** 받아 쓴다
+    // (두 벌로 두면 한쪽만 고쳤을 때 또 갈린다 — 이 파일이 여러 번 겪은 일이다)
     const sy = CLOTH_TOP_Y + GUSSET_DROP;
     let lo = 0, hi = BODY.torsoR - 100;
     for (let i = 0; i < 20; i++) { const m = (lo + hi) / 2; if (torsoTopAtX(100 + m) < sy) lo = m; else hi = m; }
-    const sx = Math.max(xc, (lo + hi) / 2 - 2);
+    const tip = Number(neck.tip);
+    const cap = Number.isFinite(tip) ? tip - 100 : Infinity;
+    const sx = Math.max(xc, Math.min(cap, (lo + hi) / 2 - 2));
     const f = n => (+n).toFixed(2);
     // 가운데(목 기둥)는 evenodd 로 도로 파낸다 — 안 파면 폴라가 된다
     return `<path fill-rule="evenodd" fill="${color}" d="`
@@ -1806,8 +1826,9 @@
     const cy1 = +(133 + (B.waistY - 133) * 0.46).toFixed(1);
     const cy2 = +(133 + (B.waistY - 133) * 0.68).toFixed(1);
     // 목이 벌어져도 좋은 한계 = 몸통의 어깨 끝(절대 좌표).
-    // 몸통은 kb 로 늘어나지만 목은 그 그룹 밖이라 여기서 직접 환산해 넘긴다
-    const tipAbs = 100 + (shR - 100) * kb;
+    // 몸통은 kb 로 늘어나지만 목은 그 그룹 밖이라 환산해 넘긴다 — **옷깃 받침
+    // (`neckGusset`)도 같은 한계를 보므로 값은 `shoulderTipAbs` 한 곳에서 나온다**
+    const tipAbs = shoulderTipAbs(tune);
     return `
       ${neckShape(uid, neck.top, neck.half, tipAbs)}
       <g data-part="hip">
@@ -3432,6 +3453,8 @@
       // 세로 배율은 머리 변환을 몸통 변환으로 나눈 값이다 (위 `top` 과 같은 환산이다)
       faceRx: 33 * headRatio(tune, w),
       faceRy: 35 * (headK * kFace) / (bodyKy * kBody),
+      // 옷깃 받침이 넘으면 안 되는 어깨 끝 — 목이 보는 것과 **같은 값**이다
+      tip: shoulderTipAbs(tune),
     };
     // 고른 색이 있으면 아이템의 원래 색을 덮어쓴다.
     // outfit.colors = { top: '#ffffff', ... } — 없는 칸은 아이템 색 그대로.

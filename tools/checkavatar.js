@@ -1708,6 +1708,78 @@ function launchOpts() {
     return { bad: bad, rows: rows };
   }, COLLAR_STEP);
 
+  // ─── 옷깃 받침이 «어깨 밖»으로 안 나오는가 ────────────────────
+  //
+  // `neckGusset` 은 턱과 어깨 사이의 빈 자리를 메우는 조각인데, **목과 마찬가지로
+  // 몸통 배율 그룹 «밖»**에 그려진다. 그런데 그 바깥 끝을 `BODY.shoulderC`(배율이
+  // 안 걸린 곡선)에서 바로 재고 있어서 **몸통을 어떻게 줄여도 늘 같은 자리**에 섰다 —
+  // 바디파츠를 최소로 내리면 어깨는 반폭 15 로 좁아지는데 이 조각만 24.5 까지 남아,
+  // **턱 밑에 좌우로 10px 씩 뻗은 «날개»**가 생겼다 (「어깨 목 부분 오류」로 신고받았다).
+  //
+  // ⚠️ **실루엣으로 재면 머리카락에 가려 못 잡는다.** 기본 체형에서는 머리 반폭이
+  // 36.5 라 32.57 짜리 날개가 통째로 숨는다 — 좁은 몸에서만 삐져나온다.
+  // 그래서 **옷 색만 따라 잰다**(색 하나만 세면 머리카락은 아예 안 걸린다):
+  // 받침도 옷과 같은 색이므로, 턱 밑 구간의 옷 반폭이 **그 아래 몸통의 옷 반폭**을
+  // 넘으면 그것이 곧 어깨 밖으로 나온 것이다.
+  const gusset = await page.evaluate(async () => {
+    const D = window.GameData, bad = [], rows = [];
+    const MARK = [0, 200, 60];          // 다른 어디에도 없는 색 (옷 = 받침)
+    const OUT_TOL = 1.5;                // 어깨보다 이만큼까지는 봐준다 (안티에일리어싱)
+    const BAND = 26;                    // 받침 꼭대기부터 몇 줄을 보는가 (어깨 아래까지)
+    const cv = document.createElement('canvas'); cv.width = 200; cv.height = 348;
+    const ctx = cv.getContext('2d');
+    const hex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+    // 그 줄에서 «옷 색»의 반폭 (없으면 null)
+    const markHalf = (y) => {
+      const d = ctx.getImageData(0, y, 200, 1).data; let m = null;
+      for (let x = 0; x < 200; x++) { const i = x * 4;
+        if (d[i + 3] > 200 && Math.abs(d[i] - MARK[0]) <= 6 &&
+            Math.abs(d[i + 1] - MARK[1]) <= 6 && Math.abs(d[i + 2] - MARK[2]) <= 6) {
+          m = Math.max(m == null ? 0 : m, Math.abs(x - 99.5)); } }
+      return m;
+    };
+    let seen = 0;
+    for (const k of [0.5, 0.6, 0.75, 1, 1.25, 1.5]) {
+      for (const w of [0, 1]) {
+        const tune = {}; window.Avatar.TUNE_KEYS.forEach(t => { tune[t] = k; });
+        const outfit = Object.assign({}, D.DEFAULT_OUTFIT, {
+          top: 'top_none', bottom: 'bottom_none', dress: 'dress_onepiece',
+          shoes: 'shoes_none', colors: { dress: hex(MARK) } });
+        const svg = window.Avatar.build(outfit, w, tune);
+        await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
+          img.onload = () => { ctx.clearRect(0, 0, 200, 348); __drawAvatar(ctx, img, 200, 348); ok(); };
+          img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+        // ⚠️ **줄 번호를 박지 않는다.** 몸통·체형을 바꾸면 어깨가 위아래로 옮겨 다녀서,
+        // 고정 줄로 재면 큰 몸에서는 «턱 밑»도 «몸통»도 아닌 데를 재게 된다
+        // (실제로 150% 에서 「옷을 못 찾았다」가 났다). **옷이 처음 보이는 줄**이
+        // 곧 받침의 꼭대기이므로 거기서부터 센다.
+        let top = null;
+        for (let y = 60; y < 200 && top == null; y++) if (markHalf(y) != null) top = y;
+        if (top == null) { bad.push(`몸통 ${Math.round(k * 100)}% · 체형 ${w}: 옷을 한 줄도 못 찾았다`); continue; }
+        // 받침이 사는 구간 — 꼭대기부터 어깨 아래까지. 여기서는 옷이 **아래로 갈수록
+        // 넓어지기만** 해야 한다: 받침 → 어깨 → 가슴. 어느 줄이 «제 바로 밑»보다
+        // 넓으면 그만큼이 어깨 밖으로 나온 것이다 (허리로 좁아지는 것은 한참 아래다)
+        let worst = 0, worstY = 0, band = 0;
+        for (let y = top; y <= top + BAND; y++) {
+          const a = markHalf(y), b = markHalf(y + 1);
+          if (a == null || b == null) continue;
+          band++;
+          if (a - b > worst) { worst = a - b; worstY = y; }
+        }
+        if (band < 10) { bad.push(`몸통 ${Math.round(k * 100)}% · 체형 ${w}: 잰 줄이 ${band}개뿐이다`); continue; }
+        seen++;
+        rows.push(`${Math.round(k * 100)}%/${w} ${worst > 0 ? '+' + worst.toFixed(1) : '0'}`);
+        if (worst > OUT_TOL) {
+          bad.push(`몸통 ${Math.round(k * 100)}% · 체형 ${w}: 턱 밑의 옷깃 받침이 제 밑의 어깨보다`
+            + ` ${worst.toFixed(1)}px 바깥으로 나온다 (y${worstY})`);
+        }
+      }
+    }
+    // **몇 조합을 쟀는지도 낸다** — 0건이 「통과」가 아니라 「한 번도 안 쟀다」일 수 있다
+    if (seen < 12) bad.push(`잰 조합이 ${seen}개뿐이다 (12개여야 한다)`);
+    return { bad, rows };
+  });
+
   // ─── 목이 머리를 따라가는가 ──────────────────────────────────
   //
   // `neckHalfOf` 의 어깨 몫이 얼굴 배율을 안 타서 **바닥** 노릇을 했다 —
@@ -3369,6 +3441,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(neckLen.bad.map(m => ({ id: '목 길이', body: '-', where: m, n: '-' })))
     .concat(hipRound.bad.map(m => ({ id: '옆선', body: '-', where: m, n: '-' })))
     .concat(collar.bad.map(m => ({ id: '옷깃', body: '-', where: m, n: '-' })))
+    .concat(gusset.bad.map(m => ({ id: '옷깃 받침', body: '-', where: m, n: '-' })))
     .concat(neckHead.bad.map(m => ({ id: '목과 머리', body: '-', where: m, n: '-' })))
     .concat(backHair.bad.map(m => ({ id: '뒷머리', body: '-', where: m, n: '-' })))
     .concat(hipSeam.bad.map(m => ({ id: '엉덩이↔허벅지 틈', body: '-', where: m, n: '-' })))
@@ -3419,6 +3492,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (100% 의 비에서 ±${NECK_HEAD_TOL} · 벗어나면 머리만 줄고 목은 그대로다)`);
   console.log(`옷깃: 옷깃 «바로 위»의 목 반폭 ↔ 옷깃의 입 — ${collar.rows.join(' · ')}`
     + ` (±${COLLAR_STEP}px · 어긋나면 목에 턱이 진다)`);
+  console.log(`옷깃 받침: 몸통%/체형 — 턱 밑의 옷이 어깨 밖으로 나온 몫 — ${gusset.rows.join(' · ')}`
+    + ` (0 이어야 한다 · 나오면 턱 밑에 «날개»가 생긴다)`);
   console.log(`옆선: 허리 밑 오목이 이어지는 길이 — ${hipRound.rows.join(' · ')}`
     + ` (${HIP_DIP_MAX}줄까지 · 허리가 있는 한 몇 줄은 오목한 것이 맞다)`);
   console.log(`목 길이: 체형 0 — ${neckLen.rows.join(' · ')}`
