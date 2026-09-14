@@ -32,11 +32,14 @@
   // 눌러야 하는지 두 곳을 놓고 고르게 된다** — 「넣기만 하면 되는 거야?」를 읽는 중인데
   // 「조합하기」 버튼에도 손이 얹혀 있던 자리가 그것이다 (신고받았다).
   //
-  // 가르는 줄은 하나다: **아직 읽을 대사가 남았으면 말풍선의 손**, 마지막 대사까지
-  // 읽고 «지시를 따라야» 넘어가면(`wait`) **구멍 위의 손**.
-  // ⚠️ **두 곳에서 따로 판정하지 않는다** — `html()` 의 화살표와 `place()` 의 손이
-  // 각자 셈하면 어긋나는 순간 손이 둘이 되거나 하나도 없어진다. 이 함수 하나를 본다
-  const tapHandOn = (s, beat) => !(beat >= s.talk.length - 1 && s.wait);
+  // 구멍 위에 손이 서는 자리는 둘이다:
+  //   ① 마지막 대사까지 읽고 «지시를 따라야» 넘어갈 때 (`wait`) — 「어딜 눌러」
+  //   ② **대사마다 가리키는 것이 다른 단계** (`holes`) — 「여길 봐」
+  // 그 밖에는 말풍선의 「눌러서 넘기는」 손이다.
+  // ⚠️ **두 곳에서 따로 판정하지 않는다** — `html()` 의 말풍선 손과 `place()` 의 구멍
+  // 손이 각자 셈하면 어긋나는 순간 손이 둘이 되거나 하나도 없어진다. 이 함수 하나를 본다
+  const pointing = s => Array.isArray(s.holes) && s.holes.length > 0;
+  const tapHandOn = (s, beat) => !pointing(s) && !(beat >= s.talk.length - 1 && s.wait);
 
   // 대사에 끼워 넣는 값 — 지금은 **플레이어가 지은 이름** 하나다 (`{name}`).
   // 졸업하는 자리에서 요정 대모가 그 이름을 부르므로 **강조해서** 넣는다.
@@ -130,9 +133,12 @@
              say('gwiriel', 'tut_e3', 'smile'), say('althea', 'tut_e4', 'warm')] },
 
     // ── 5단계. 위쪽 줄 (행동력 · 매력 총합) ──
-    // 누를 것이 없는 단계다 — 구멍은 '여기를 보라' 는 뜻으로만 뚫는다
+    // 누를 것이 없는 단계다 — 구멍은 '여기를 보라' 는 뜻으로만 뚫는다.
+    // ⚠️ **대사마다 가리키는 것이 다르다**(`holes`) — 첫 줄은 ⚡ 행동력, 둘째 줄은
+    // 🌱 매력 총합. 예전에는 `hole` 에 둘을 같이 적어 **두 곳을 한꺼번에** 뚫어
+    // 놓았는데, 그러면 지금 말하는 것이 어느 쪽인지 알 수가 없다
     { id: 'header', talk: [say('althea', 'tut_f1'), say('althea', 'tut_f2')],
-      hole: ['.ap-wrap', '.header-charm'] },
+      holes: ['.ap-wrap', '.header-charm'] },
 
     // ── 6단계. 졸업 — **여기서 tutorialDone 이 켜진다** ──
     { id: 'graduate', tab: 'showcase',
@@ -337,8 +343,13 @@
       ? `<button class="tut-more" onclick="event.stopPropagation();Tut.tap()"
            aria-label="${T('tut_next')}">${HAND_IMG}</button>`
       : '';
+    // ⚠️ **가리키는 단계는 막을 눌러도 넘어간다.** 손이 구멍 위에 가 있어서 말풍선에는
+    // 손이 없는데, 넘기는 길이 말풍선 하나뿐이면 **어디를 눌러야 다음으로 가는지가
+    // 화면에 없다** — 「막다른 길을 만들지 않는다」에 걸린다. 지시를 따라야 넘어가는
+    // 단계(`wait`)에는 절대 안 붙인다: 거기서 막이 넘어가면 막이 막는 뜻이 없어진다
+    const skim = pointing(s) && !s.wait ? ' onclick="Tut.tap()"' : '';
     return `
-      <svg class="tut-mask" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <svg class="tut-mask" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"${skim}>
         <path class="tut-hole" fill-rule="evenodd"></path>
       </svg>
       <div class="tut-hand" aria-hidden="true">${HAND_IMG}</div>
@@ -356,14 +367,25 @@
       </div>`;
   }
 
-  function holeSels(s) {
+  // ─── 구멍은 «대사마다» 다를 수 있다 (`holes`) ────────────────
+  //
+  // 위쪽 줄 단계처럼 **한 단계에서 두 가지를 차례로 가리키는** 자리가 있다 —
+  // 첫 줄은 ⚡ 행동력, 둘째 줄은 🌱 매력 총합. 예전에는 `hole` 에 둘을 같이 적어
+  // **두 곳을 한꺼번에** 뚫어 놓았는데, 그러면 「지금 말하는 것」이 어느 쪽인지
+  // 알 수가 없다 (손도 첫 번째 것에만 선다). `holes` 는 **대사 하나에 하나**다.
+  // 대사보다 짧으면 마지막 것이 그대로 남는다
+  function holeSels(s, beat) {
+    if (Array.isArray(s.holes) && s.holes.length) {
+      const i = Math.max(0, Math.min(s.holes.length - 1, beat == null ? state().beat : beat));
+      return s.holes[i] ? [s.holes[i]] : [];
+    }
     if (!s.hole) return [];
     return Array.isArray(s.hole) ? s.hole : [s.hole];
   }
   // 구멍 대상의 실제 자리. 못 찾으면 빈 배열 — 그때는 막이 클릭을 먹지 않는다
-  function holeRects(s) {
+  function holeRects(s, beat) {
     const out = [];
-    for (const sel of holeSels(s)) {
+    for (const sel of holeSels(s, beat)) {
       const el = document.querySelector(sel);
       if (!el) continue;
       const r = el.getBoundingClientRect();
@@ -374,8 +396,8 @@
   }
 
   // 대상이 화면 밖이면 보이는 자리로 끌어온다 (레시피 줄은 한참 아래에 있다)
-  function bringIntoView(s) {
-    const sel = holeSels(s)[0];
+  function bringIntoView(s, beat) {
+    const sel = holeSels(s, beat)[0];
     if (!sel) return;
     const el = document.querySelector(sel);
     if (!el) return;
@@ -411,7 +433,8 @@
     if (W < 1 || H < 1) return;      // 잴 수 없는 상태 (화면이 접혀 있다)
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
-    const rects = holeRects(s).map(r => ({
+    const beat = state().beat;
+    const rects = holeRects(s, beat).map(r => ({
       left: r.left - box.left, top: r.top - box.top, width: r.width, height: r.height,
       right: r.right - box.left, bottom: r.bottom - box.top,
     }));
@@ -439,7 +462,7 @@
     // **손은 한 화면에 하나다** (위 `tapHandOn`) — 아직 읽을 대사가 남아 말풍선에 손이
     // 떠 있으면 구멍 위에는 안 띄운다. 말풍선은 그래도 구멍의 반대쪽에 둔다:
     // 가리키는 자리를 자기가 덮으면 다음에 무엇을 누를지가 안 보인다
-    if (tapHandOn(s, state().beat)) {
+    if (tapHandOn(s, beat)) {
       hand.style.display = 'none';
       talk.classList.toggle('top', below);
       talk.classList.toggle('bot', !below);
@@ -554,14 +577,17 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden && running()) refresh(); });
 
   // 검사용 — 지금 단계가 어디를 뚫으려 하는지 (checkui·checktut 이 구멍의 자리를 잰다)
-  function targets() { const s = step(); return s ? holeSels(s) : []; }
+  // 지금 대사가 가리키는 구멍 (검사용) — `holes` 면 그 대사의 것 하나다
+  function targets() { const s = step(); return s ? holeSels(s, state().beat) : []; }
   function stepId() { const s = step(); return s ? s.id : null; }
   // 검사용 — 단계표의 «글자 부분»만 (id · 대사 키 · 지시문 키 · 구멍 선택자).
   // `checktuttext` 가 브라우저 없이 «지시문이 있는 이름을 부르는가»를 볼 때 쓴다.
   // 함수(before/after/until)는 안 내보낸다 — 그것은 화면이 있어야 도는 것들이다
   function stepList() {
-    return STEPS.map(s => ({ id: s.id, act: s.act || null, hole: holeSels(s),
-                             wait: !!s.wait, talk: s.talk.map(l => l.key) }));
+    return STEPS.map(s => ({ id: s.id, act: s.act || null,
+                             hole: Array.isArray(s.holes) ? s.holes.slice() : holeSels(s, 0),
+                             // `point` = 대사마다 가리키는 것이 다른 단계 (손이 구멍 위에 선다)
+                             wait: !!s.wait, point: pointing(s), talk: s.talk.map(l => l.key) }));
   }
 
   window.Tut = { maybeStart, refresh, fire, tap, replay, goto, targets, stepList, stepId,

@@ -170,6 +170,8 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
       modal: !!document.querySelector('.modal.show, #brewModal.show'),
       // 지시를 «따라야» 넘어가는 단계인가 (`wait`) — 손이 어디에 있어야 하는지를 가른다
       wait: !!((window.Tut && Tut.stepList()[S.tut.step] || {}).wait),
+      // 대사마다 가리키는 것이 다른 단계인가 (`holes`) — 거기서는 손이 구멍 위에 선다
+      point: !!((window.Tut && Tut.stepList()[S.tut.step] || {}).point),
     };
   });
 
@@ -193,12 +195,14 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     const at = `${st.id || st.step}단계 ${st.beat + 1}번째 대사`;
     if (st.handShown && st.more) bad.push(`${at}: 손이 둘이다 (구멍 위 · 말풍선)`);
     if (!st.handShown && !st.more && st.holes) bad.push(`${at}: 손이 하나도 없다`);
-    // 「어딜 눌러」라고 가르쳐 주는 자리 — 그 UI 에 손이 있어야 한다
-    if (st.act && st.wait && st.holes && !st.handShown)
-      bad.push(`${at}: 지시문이 떴는데 그 자리에 손이 없다 (${st.act.slice(0, 20)})`);
-    // 아직 읽을 대사가 남았는데 구멍 위에 손이 있으면 그것이 신고받은 자리다
-    if (!(st.act && st.wait) && st.handShown)
-      bad.push(`${at}: 지시문이 없는데 구멍 위에 손이 있다 — 말풍선에도 손이 있어 둘이 된다`);
+    // 손이 구멍 위에 서야 하는 자리는 둘이다 —
+    //   ① 「어딜 눌러」라고 가르쳐 주는 자리 (지시문 + `wait`)
+    //   ② 대사마다 가리키는 것이 다른 «보여 주는» 단계 (`holes`)
+    const onHole = st.point || (!!st.act && st.wait);
+    if (onHole && st.holes && !st.handShown)
+      bad.push(`${at}: 가리켜야 하는 자리인데 구멍 위에 손이 없다${st.act ? ' (' + st.act.slice(0, 20) + ')' : ''}`);
+    if (!onHole && st.handShown)
+      bad.push(`${at}: 가리킬 자리가 아닌데 구멍 위에 손이 있다 — 말풍선에도 손이 있어 둘이 된다`);
   }
 
   // 말풍선의 '다음' 을 진짜로 눌러 대사를 끝까지 넘긴다
@@ -206,6 +210,31 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     for (let i = 0; i < 16; i++) {
       const a = await info();
       handCheck(a);
+      // 「가리키는 단계」는 말풍선에 손이 없다 — 넘기는 길은 **막**이다.
+      // 그것이 진짜로 되는지까지 여기서 같이 본다 (안 되면 아래 루프가 막다른 자리로 잡는다)
+      if (a.on && !a.more && a.point) {
+        const m = await page.evaluate(() => {
+          const path = document.querySelector('#tut .tut-hole');
+          const box = document.getElementById('tut').getBoundingClientRect();
+          // 칠해진 자리(= 구멍이 아닌 곳)를 하나 찾는다
+          for (let y = box.top + 24; y < box.bottom - 24; y += 9)
+            for (let x = box.left + 14; x < box.right - 14; x += 11)
+              if (path.isPointInFill(new DOMPoint(x, y))) return { x, y };
+          return null;
+        });
+        if (!m) { bad.push(`${a.id}단계: 막에 칠해진 자리가 없다 — 눌러서 넘길 데가 없다`); return a; }
+        await pointCheck(a);
+        await page.mouse.click(m.x, m.y);
+        await page.waitForTimeout(150);
+        const c = await info();
+        if (c.step === a.step && c.beat === a.beat) {
+          bad.push(`${a.id}단계 ${a.beat + 1}번째 대사: 말풍선에 손이 없는데 막을 눌러도 안 넘어간다 — 갇힌다`);
+          return c;
+        }
+        if (log && !log.seen.has(a.step)) { log.seen.add(a.step); log.push(a); }
+        if (a.name) names.add(a.name);
+        continue;
+      }
       if (!a.on || !a.more) return a;
       if (log && !log.seen.has(a.step)) { log.seen.add(a.step); log.push(a); }
       if (a.name) names.add(a.name);
@@ -219,6 +248,38 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
       if (b.step === a.step && b.beat === a.beat) return b;
     }
     return info();
+  }
+
+  // ── 「가리키는 단계」가 **대사마다 제 것을** 가리키는가
+  //
+  // 위쪽 줄 단계는 첫 줄이 ⚡ 행동력, 둘째 줄이 🌱 매력 총합을 가리킨다.
+  // ⚠️ **`Tut.targets()` 로 견주면 안 된다** — 구멍을 뚫는 쪽과 대상을 알려 주는 쪽이
+  // 같은 함수라, 대사 번호를 통째로 무시해도 «둘 다 같이» 틀려서 통과한다
+  // (「스스로 맞는 검사」다). 그래서 **단계표에 적힌 선택자**를 직접 읽어 견준다.
+  let pointSeen = 0;
+  async function pointCheck(st) {
+    const r = await page.evaluate(({ id, beat }) => {
+      const step = Tut.stepList().find(x => x.id === id);
+      const sel = step && step.hole && step.hole[beat];
+      if (!sel) return { err: `단계표에 ${beat + 1}번째 대사의 구멍이 없다` };
+      const t = document.querySelector(sel);
+      if (!t) return { err: `${sel} 을 화면에서 못 찾았다` };
+      const el = document.getElementById('tut');
+      const hand = el.querySelector('.tut-hand');
+      if (!hand || hand.style.display === 'none') return { err: '구멍 위에 손이 없다' };
+      const tr = t.getBoundingClientRect(), hr = hand.getBoundingClientRect();
+      const path = el.querySelector('.tut-hole');
+      // 구멍이 그 대상 위에 뚫려 있는가 — 한가운데가 «칠이 빠진» 자리여야 한다
+      const cx = tr.left + tr.width / 2, cy = tr.top + tr.height / 2;
+      return { sel, holed: !path.isPointInFill(new DOMPoint(cx, cy)),
+               dx: Math.abs((hr.left + hr.width / 2) - cx) };
+    }, { id: st.id, beat: st.beat });
+    const at = `${st.id}단계 ${st.beat + 1}번째 대사`;
+    if (r.err) { bad.push(`${at}: ${r.err}`); return; }
+    pointSeen++;
+    if (!r.holed) bad.push(`${at}: 구멍이 ${r.sel} 위에 안 뚫려 있다`);
+    // 손끝은 대상의 한가운데를 가리켜야 한다 (자리는 place() 가 잡는다)
+    if (r.dx > 6) bad.push(`${at}: 손이 ${r.sel} 에서 ${r.dx.toFixed(0)}px 옆을 가리킨다`);
   }
 
   // 막이 정말 막는가 — 막의 칠해진 자리에 있는 탭 버튼을 진짜로 눌러 본다
@@ -241,8 +302,13 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     const before = st.tab;
     await page.mouse.click(target.x, target.y);
     await page.waitForTimeout(160);
-    const after = (await info()).tab;
-    return after !== before ? `막힌 자리(${target.tab})가 눌렸다 — ${before} → ${after}` : null;
+    const now = await info();
+    // ⚠️ **「가리키는 단계」의 막은 눌러서 넘기는 길이다** — 그때는 막이 클릭을 먹고
+    // 튜토리얼이 한 칸 나아간다. 단계·대사가 같이 움직였으면 아래 버튼으로 «샌» 것이
+    // 아니다 (탭이 바뀐 것은 다음 단계가 화면을 옮겼기 때문이다)
+    const moved = now.step !== st.step || now.beat !== st.beat;
+    if (now.tab !== before && !moved) return `막힌 자리(${target.tab})가 눌렸다 — ${before} → ${now.tab}`;
+    return null;
   }
 
   // 구멍이 대상 위에 **정확히** 뚫려 있는가.
@@ -531,6 +597,12 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   if (handSeen.steps.size < 10)
     bad.push(`손을 ${handSeen.steps.size}단계에서만 쟀다 — 한 화면에 하나인지 거의 안 봤다`);
   if (!handSeen.hole) bad.push('구멍 위의 손을 한 번도 못 봤다 — 「어딜 눌러」를 가리키는 손이 없다');
+  // 「가리키는 단계」의 대사 수만큼은 재야 한다 (지금은 위쪽 줄 두 줄)
+  {
+    const want = await page.evaluate(() =>
+      Tut.stepList().filter(s => s.point).reduce((n, s) => n + s.talk.length, 0)).catch(() => -1);
+    if (pointSeen < want) bad.push(`가리키는 단계를 ${pointSeen}줄만 쟀다 (${want}줄이어야 한다)`);
+  }
   if (!handSeen.bubble) bad.push('말풍선의 손을 한 번도 못 봤다');
   if (fin.layerOn) bad.push('끝났는데 막이 남아 있다');
   // 졸업 선물은 **신발**이다 — 아바타가 맨발(`shoes_none`)로 서 있던 자리를 채운다
@@ -545,6 +617,7 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   if (process.env.V) console.log(lines.join('\n'));
   console.log(`  조합 ${fin.brews} · 마심 ${fin.drinks} · 채집 ${fin.gathered}`);
   console.log(`  지시문↔대상 ${actChecked.steps}단계 × ${[...actChecked.langs].join('·') || '없음'}`);
+  console.log(`  가리키는 단계 ${pointSeen}줄 — 대사마다 제 것을 가리킨다`);
   console.log(`  손 ${handSeen.beats}번 잼 (${handSeen.steps.size}단계 · 구멍 위 ${handSeen.hole} · 말풍선 ${handSeen.bubble})`);
   if (!bad.length) { console.log('✅ 튜토리얼을 끝까지 통과함'); process.exit(0); }
   console.log(`❌ ${bad.length}건`);
