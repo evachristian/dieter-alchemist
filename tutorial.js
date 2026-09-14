@@ -407,6 +407,15 @@
     // 그 사이를 오가므로 그만큼(6px) 띄운다
     const r = rects[0];
     const below = (r.top + r.height / 2) > H * 0.5;
+    // «보기만 하는» 구멍(누를 것이 없어 `wait` 가 없는 단계)은 손이 둘이 된다 —
+    // 구멍 위의 손과 말풍선의 「눌러서 넘기는」 손. 그 자리를 한 번 만져 봤으면 구멍 위의
+    // 손은 접고 말풍선의 손만 남긴다 (아래 pointerdown · `did['touch:<id>']` 에 남는다)
+    if (!s.wait && state().did['touch:' + s.id]) {
+      hand.style.display = 'none';
+      talk.classList.toggle('top', below);
+      talk.classList.toggle('bot', !below);
+      return;
+    }
     hand.style.display = '';
     hand.classList.toggle('down', below);
     hand.classList.toggle('up', !below);
@@ -515,8 +524,26 @@
   // 창이 숨으면 rAF 가 멈춘다 — 돌아왔을 때 다시 깨운다
   document.addEventListener('visibilitychange', () => { if (!document.hidden && running()) refresh(); });
 
+  // «보기만 하는» 구멍(`wait` 없는 단계)을 한 번 만졌는가 — 그 뒤로는 구멍 위의 손을 접는다.
+  // 구멍은 진짜 구멍이라 그 안의 터치는 아래 버튼(AP 안내)으로 그대로 가고, 여기서는
+  // 보기만 한다(capture). 표시는 세이브에 남긴다 — 새로고침해도 손이 다시 안 나온다
+  document.addEventListener('pointerdown', (e) => {
+    if (!running()) return;
+    const s = step();
+    if (!s || s.wait || !s.hole) return;
+    const key = 'touch:' + s.id;
+    if (state().did[key]) return;
+    const hit = holeRects(s).some(r =>
+      e.clientX >= r.left - PAD && e.clientX <= r.right + PAD && e.clientY >= r.top - PAD && e.clientY <= r.bottom + PAD);
+    if (!hit) return;
+    state().did[key] = true;
+    if (typeof save === 'function') save();
+    refresh();
+  }, true);
+
   // 검사용 — 지금 단계가 어디를 뚫으려 하는지 (checkui·checktut 이 구멍의 자리를 잰다)
   function targets() { const s = step(); return s ? holeSels(s) : []; }
+  function stepId() { const s = step(); return s ? s.id : null; }
   // 검사용 — 단계표의 «글자 부분»만 (id · 대사 키 · 지시문 키 · 구멍 선택자).
   // `checktuttext` 가 브라우저 없이 «지시문이 있는 이름을 부르는가»를 볼 때 쓴다.
   // 함수(before/after/until)는 안 내보낸다 — 그것은 화면이 있어야 도는 것들이다
@@ -525,6 +552,6 @@
                              talk: s.talk.map(l => l.key) }));
   }
 
-  window.Tut = { maybeStart, refresh, fire, tap, replay, goto, targets, stepList,
+  window.Tut = { maybeStart, refresh, fire, tap, replay, goto, targets, stepList, stepId,
                  isOn: running, steps: () => STEPS.length, PAD };
 })();

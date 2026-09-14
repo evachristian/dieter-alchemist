@@ -2742,6 +2742,28 @@ function startPumpkinRun(map) {
 // 한 번 채집한다. **계속해도 되는지**를 돌려준다 —
 // 꾹 누르기 자동 채집(startGatherHold)이 이 값을 보고 멈춘다.
 // AP 가 떨어졌거나 미니게임으로 들어갔으면 false 다.
+// ─── 튜토리얼 중의 채집은 «비법서에 있는 것»만 나온다 ───
+//
+// 튜토리얼은 「두 개 주워 와서 솥에 넣어 본다」로 가르치는데, 아무거나 주우면 그 둘이
+// 가진 장(생기 물약 = 산딸기 + 약초)을 못 이루어 **첫 실습이 「없는 장」으로 끝난다.**
+// 그래서 졸업 전에는 이 맵에서 «지금 가진 장으로 만들 수 있는» 레시피의 재료만 주고,
+// 그중에서도 **아직 없는 칸**을 먼저 준다 — 두 번 주우면 반드시 한 장이 찬다.
+// 히든 재료도 안 나온다 (비법서에 없다). 이 맵에서 만들 수 있는 장이 하나도 없으면
+// 비법서의 아무 재료라도 주고, 그것도 없으면 평소대로다 (막다른 길을 만들지 않는다).
+// 졸업하면 한 글자도 안 건드린다 — `checktut` 이 서른 번 주워 보고 잰다
+function tutorialGatherPick(map) {
+  if (S.tutorialDone) return null;
+  const pool = map.pool || [];
+  const inv = S.inventory || {};
+  const mine = D.RECIPES.filter(r => hasPage(r.result.id));
+  const here = mine.filter(r => r.inputs.every(i => pool.includes(i)));
+  const inputsOf = rs => [...new Set(rs.flatMap(r => r.inputs))].filter(i => pool.includes(i));
+  const lacking = inputsOf(here).filter(i => !(inv[i] > 0));
+  const cands = lacking.length ? lacking : (inputsOf(here).length ? inputsOf(here) : inputsOf(mine));
+  if (!cands.length) return null;
+  return cands[Math.floor(Math.random() * cands.length)];
+}
+
 function gather(mapId) {
   const map = D.MAPS.find(m => m.id === mapId);
   if (!map) return false;
@@ -2760,10 +2782,12 @@ function gather(mapId) {
   // 동행의 속성·날씨·시간대가 맞으면 최대 12배까지 곱해진다 (CREATURE.md 5장).
   // **천장** — 이 맵에서 연달아 `pity` 번 헛걸음이었으면 이번은 반드시다 (`specialPity`)
   if (!S.spMiss || typeof S.spMiss !== 'object') S.spMiss = {};
+  // 튜토리얼 중에는 비법서의 재료만 (위 `tutorialGatherPick`) — 히든도 천장 셈도 안 한다
+  const tutPick = tutorialGatherPick(map);
   const miss = specialMiss(mapId);
-  const isSpecial = miss >= specialPity(map) || Math.random() < specialRate(map);
-  S.spMiss[mapId] = isSpecial ? 0 : miss + 1;
-  const id = isSpecial ? map.special : weightedPick(map.pool);
+  const isSpecial = !tutPick && (miss >= specialPity(map) || Math.random() < specialRate(map));
+  if (!tutPick) S.spMiss[mapId] = isSpecial ? 0 : miss + 1;
+  const id = tutPick || (isSpecial ? map.special : weightedPick(map.pool));
   addInv(id, 1);
   rec('gathered'); rec('itemsGot');
   // 퀘스트 — **한 번 채집한 것을 한 걸음으로 센다** (재료 개수가 아니라).

@@ -118,6 +118,37 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     }
   }
 
+  // ── 튜토리얼 중의 채집은 «비법서에 있는 것»만 나오는가
+  //
+  // 「두 개 주워 와서 솥에 넣는다」가 첫 실습인데, 아무거나 주우면 그 둘이 가진 장을
+  // 못 이루어 첫 실습이 「없는 장」으로 끝난다. 졸업 전에 서른 번 주워 보고
+  // ① 전부 가진 장의 재료인가 ② 히든이 안 섞이는가 ③ 두 재료가 «다» 나오는가
+  // (하나만 주면 장이 영영 안 찬다)를 본다. 주운 것은 되돌려 놓는다 — 아래 걸음이
+  // 첫 주머니(산딸기 1 · 약초 1)에서 시작해야 한다
+  {
+    const r = await page.evaluate(() => {
+      const snap = { inv: JSON.stringify(S.inventory), energy: S.energy, rec: JSON.stringify(S.record), spMiss: JSON.stringify(S.spMiss || {}) };
+      const book = new Set(D.RECIPES.filter(r => hasPage(r.result.id)).flatMap(r => r.inputs));
+      const got = [];
+      for (let i = 0; i < 30; i++) { if (!gather('p_hill')) break; }
+      const inv = S.inventory;
+      Object.keys(inv).forEach(id => { for (let k = 0; k < inv[id]; k++) got.push(id); });
+      const gift = JSON.parse(snap.inv);
+      // 첫 주머니 몫을 뺀 나머지가 이번에 주운 것이다
+      Object.keys(gift).forEach(id => { for (let k = 0; k < gift[id]; k++) got.splice(got.indexOf(id), 1); });
+      S.inventory = gift; S.energy = snap.energy; S.record = JSON.parse(snap.rec); S.spMiss = JSON.parse(snap.spMiss);
+      save(); render();
+      return { got, book: [...book], tutorialDone: !!S.tutorialDone };
+    });
+    if (r.tutorialDone) bad.push('채집 검사인데 이미 졸업한 상태다');
+    if (r.got.length < 30) bad.push(`튜토리얼 채집을 ${r.got.length}번밖에 못 했다`);
+    const out = r.got.filter(id => !r.book.includes(id));
+    if (out.length) bad.push(`튜토리얼 중의 채집이 비법서 밖의 재료를 줬다: ${[...new Set(out)].join(', ')} (${out.length}/${r.got.length})`);
+    const kinds = new Set(r.got);
+    if (kinds.size < 2) bad.push(`튜토리얼 채집이 한 가지만 준다 (${[...kinds].join(', ')}) — 두 재료짜리 장이 영영 안 찬다`);
+    console.log(`  튜토리얼 채집 ${r.got.length}번 → ${[...kinds].join(' · ')}`);
+  }
+
   const info = () => page.evaluate(() => {
     const el = document.getElementById('tut');
     return {
@@ -130,14 +161,42 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
       more: !!(el && el.querySelector('.tut-more')),
       name: ((el && el.querySelector('.tut-name')) || {}).textContent || '',
       tab: window.currentTab,
+      id: window.Tut && Tut.stepId ? Tut.stepId() : null,
+      handShown: !!(el && el.querySelector('.tut-hand') && el.querySelector('.tut-hand').style.display !== 'none'),
     };
   });
+
+  // ── «보기만 하는» 구멍(위쪽 줄) — 손이 둘 뜨는 자리다
+  //
+  // 구멍 위의 손과 말풍선의 「눌러서 넘기는」 손이 같이 뜬다. 그 자리를 한 번 만지면
+  // 구멍 위의 손은 접히고 말풍선의 손만 남아야 한다 — 진짜 마우스로 AP 줄을 눌러 본다.
+  // ⚠️ 이 단계는 `wait` 가 없어 readAll 이 그냥 지나간다 — 그래서 readAll 안에서 부른다
+  let touchSeen = false;
+  async function touchCheck(st) {
+    touchSeen = true;
+    if (!st.handShown) bad.push('위쪽 줄: 만지기 전인데 구멍 위의 손이 없다');
+    if (!st.more) bad.push('위쪽 줄: 말풍선의 「눌러서 넘기는」 손이 없다');
+    const ap = await page.evaluate(() => {
+      const r = document.querySelector('.ap-wrap').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    await page.mouse.click(ap.x, ap.y);
+    await page.waitForTimeout(260);
+    const t = await info();
+    if (t.handShown) bad.push('위쪽 줄: AP 줄을 만졌는데 구멍 위의 손이 그대로다 — 손이 둘이다');
+    if (!t.more) bad.push('위쪽 줄: AP 줄을 만졌더니 말풍선의 손까지 사라졌다');
+    // 세이브에 남는가 — 새로고침 대신 막을 다시 그려 본다
+    await page.evaluate(() => { document.querySelectorAll('.modal.show').forEach(m => m.classList.remove('show')); Tut.refresh(); });
+    await page.waitForTimeout(120);
+    if ((await info()).handShown) bad.push('위쪽 줄: 다시 그리자 구멍 위의 손이 돌아왔다 (표시가 안 남는다)');
+  }
 
   // 말풍선의 '다음' 을 진짜로 눌러 대사를 끝까지 넘긴다
   async function readAll(log) {
     for (let i = 0; i < 16; i++) {
       const a = await info();
       if (!a.on || !a.more) return a;
+      if (a.id === 'header' && !touchSeen && a.dots && !a.act) await touchCheck(a);
       if (log && !log.seen.has(a.step)) { log.seen.add(a.step); log.push(a); }
       if (a.name) names.add(a.name);
       const box = await page.evaluate(() => {
@@ -439,6 +498,9 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   // 튜토리얼을 마친 보람이 하나도 없다 (원래 이 문들이 안 열리던 것이 문제였다)
   if (!fin.done) bad.push('튜토리얼이 끝까지 가지 않았다 (' + fin.step + '단계에서 멈춤)');
   if (!fin.tutorialDone) bad.push('tutorialDone 이 안 켜졌다');
+  if (!touchSeen) bad.push('위쪽 줄 단계를 한 번도 못 봤다 — 손이 둘인지 안 쟀다');
+  // 두 번째 조합(주워 온 둘을 솥에)도 성공해야 한다 — 채집이 비법서의 재료만 주면 반드시 찬다
+  if (fin.brews < 2) bad.push(`튜토리얼의 조합이 ${fin.brews}번만 성공했다 — 주워 온 둘이 장을 못 이뤘다`);
   // **바디파츠가 전부 상한인가** — 이 게임은 날씬해지는 이야기라 출발점이 이미
   // 날씬하면 줄어들 자리가 없다. 100% 로 시작하면 첫 물약부터 «표준보다 마른» 몸이 된다
   if (!fin.tune) bad.push('바디파츠 값을 못 읽었다');
