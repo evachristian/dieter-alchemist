@@ -120,10 +120,10 @@ const defaultState = () => ({
   // 지금 «무엇을 만들려는 중»인가 (비법서에서 고른 장). 모르는 칸을 채워 볼 때
   // 무엇과 맞춰 볼지가 이것으로 정해진다. **손으로 담기 시작하면 놓는다**
   guess: null,
-  // 복구 코드를 한 번이라도 봤는가 (복사했거나 시트에서 확인했거나).
-  // **세이브에 둔다** — 「이 기기에서 봤나」가 아니라 「이 캐릭터의 코드를 아는가」라서,
-  // 기기를 옮기면 그 사실도 따라가야 한다. 없던 칸이라 SAVE_VER 는 안 올린다
-  codeSeen: false,
+  // (`codeSeen` 이 여기 있었다 — 톱니의 점을 끄는 깃발이었다. 점을 없애면서 같이
+  //  지웠다: 읽는 곳이 하나도 없는 칸은 다음 사람이 「무엇을 뜻하나」부터 헤맨다.
+  //  옛 세이브에 남아 있는 값은 그냥 따라다니다 사라진다 — 지우는 것이라 마이그레이션은
+  //  필요 없고, SAVE_VER 도 안 올린다)
   // 키워드로 연 마을 (`ASKS` 의 `opens`). **점수로 두 번 잠그지 않는다**
   villages: [],
   // ─── 호감도 (STORY.md 「남자 NPC 여섯 › 공통 규칙」) ────────
@@ -6982,10 +6982,6 @@ function openSettings() {
   renderSettings();
   renderSyncSettings();
   document.getElementById('settingsModal').classList.add('show');
-  // ⚠️ **열어서 «본» 순간 점을 끈다.** 예전에는 복구 코드를 «복사»해야만 꺼져서,
-  // 열어 보고 눈으로 적어 둔 사람에게는 **영영 안 꺼졌다** (그렇게 신고받았다).
-  // 점의 뜻은 「아직 안 본 것이 있다」이지 「아직 복사 안 했다」가 아니다.
-  if (!S.codeSeen) { S.codeSeen = true; save(); renderActBadges(); }
 }
 function closeSettings() {
   document.getElementById('settingsModal').classList.remove('show');
@@ -7351,10 +7347,10 @@ function renderActBadges() {
   });
   // **새로 물어볼 것이 있어도 켠다** — 마을이 전부 잠겨 있을 때 이야기가 시작되는
   // 자리가 여기뿐이라, 「밥은 먹었다」로 점이 꺼지면 갈 곳이 아예 안 보인다
-  // 복구 코드를 아직 안 본 사람에게 톱니에 점. **한 번 보면 다시 안 뜬다** —
-  // 계속 떠 있으면 그것도 잔소리가 된다
-  const gd = document.getElementById('gearDot');
-  if (gd) gd.hidden = !!S.codeSeen;
+  // ⚠️ **톱니에는 점이 없다.** 「복구 코드를 아직 안 봤다」로 찍어 봤는데, 설정을 한 번
+  // 열기 전까지 늘 켜져 있어서 **튜토리얼 첫 화면부터** 붉었다 — 잃을 진행이 아직
+  // 없는 사람에게 백업을 채근하는 꼴이라 길잡이가 아니라 잔소리다 (신고받았다).
+  // 점은 **누르면 할 일이 있는 자리**에만 찍는다 (index.html 의 그 자리에도 적어 뒀다)
   const kd = document.getElementById('kitchenDot');
   if (kd) kd.hidden = !kitchenOpen() || (ateToday() && !kitchenNews());
   const el = document.getElementById('bingeBadge');
@@ -9035,11 +9031,7 @@ function renderSyncSettings() {
 function copyRecoveryCode(el) {
   const code = window.Sync ? Sync.code() : '';
   if (!code) return;
-  const done = () => {
-    // 복사했으면 **본 것으로 친다** — 톱니의 점이 꺼진다
-    if (!S.codeSeen) { S.codeSeen = true; save(); renderActBadges(); }
-    toast(T('sync_copied'), el, 2400);
-  };
+  const done = () => { toast(T('sync_copied'), el, 2400); };
   if (navigator.clipboard) navigator.clipboard.writeText(code).then(done, () => {
     const i = document.getElementById('syncCode'); if (i) { i.select(); done(); }
   });

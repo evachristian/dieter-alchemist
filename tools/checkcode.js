@@ -11,7 +11,7 @@
 //   · 잘린 코드(403) · 없는 아이디(404) · 형식 오류를 **갈라서** 말하는가
 //   · 실패했을 때 **이 기기의 신원과 세이브가 그대로인가** ← 제일 중요한 줄
 //   · 갈아타면 그 캐릭터로 «진짜» 이어지는가 (이름·매력이 따라오는가)
-//   · 코드를 복사하면 톱니의 점이 꺼지는가
+//   · **톱니에 레드닷이 안 뜨는가** (한때 「코드를 아직 안 봤다」로 켜 두던 자리다)
 //
 // 서버가 있어야 한다 — **이 스크립트가 스스로 띄운다** (checkfarm 과 같은 방식).
 // 사용: node tools/checkcode.js      (종료 코드 0 = 통과)
@@ -71,37 +71,25 @@ async function boot(page) {
   ok(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(code), '기기 A 가 복구 코드를 낸다',
      code.slice(0, 14) + '…');
 
-  // 코드를 복사하면 톱니의 점이 꺼진다
-  // ⚠️ 복사는 **비동기다** (`navigator.clipboard` 가 프라미스라, 막히면 폴백으로 떨어진다).
-  // 바로 재면 아직 안 꺼져 있어서 「안 꺼진다」로 잘못 잡힌다
-  const dotBefore = await a.evaluate(() => {
-    S.codeSeen = false; renderActBadges();
+  // ⚠️ **톱니에는 점이 없다.** 예전에는 「복구 코드를 아직 안 봤다」는 뜻으로 켜 두었는데,
+  // 설정을 한 번 열기 전까지 안 꺼져서 **튜토리얼 첫 화면부터** 붉었다 — 잃을 진행이
+  // 아직 없는 사람에게 백업을 채근하는 꼴이라 길잡이가 아니라 잔소리다 (신고받았다).
+  // 복사는 그대로 되고, 꺼야 할 점이 애초에 없다.
+  // ⚠️ 복사는 **비동기다** (`navigator.clipboard` 가 프라미스라, 막히면 폴백으로 떨어진다)
+  const copied = await a.evaluate(() => {
     copyRecoveryCode(document.getElementById('btnSettings'));
-    return !document.getElementById('gearDot').hidden;
+    openSettings(); closeSettings();
+    // 「점이 없다」를 `getElementById` 로만 재면 **이름만 바꿔 되살려도 통과한다** —
+    // 톱니 버튼 «안»에 점 종류가 하나라도 있는지를 본다
+    const g = document.getElementById('btnSettings');
+    return { dots: g ? g.querySelectorAll('.tab-dot, .qc-dot, .act-dot, .ask-dot').length : -1,
+             gear: !!g };
   });
   await a.waitForTimeout(400);
-  const dot = await a.evaluate(() => {
-    renderActBadges();
-    return { after: !document.getElementById('gearDot').hidden, seen: S.codeSeen };
-  });
-  const dotOk = { before: dotBefore, after: dot.after, seen: dot.seen };
-  ok(dotOk.before && !dotOk.after && dotOk.seen, '코드를 복사하면 톱니의 점이 꺼진다',
-     `${dotOk.before ? '켜짐' : '꺼짐'} → ${dotOk.after ? '켜짐' : '꺼짐'}`);
-
-  // ⚠️ **열어서 «본» 것만으로도 꺼져야 한다.** 예전에는 «복사»해야만 꺼져서,
-  // 설정을 열어 코드를 눈으로 적어 둔 사람에게는 점이 **영영 안 꺼졌다**
-  // (「왜인지 사라지질 않아」로 신고받았다). 점의 뜻은 「아직 안 본 것이 있다」이지
-  // 「아직 복사 안 했다」가 아니다
-  const dotOpen = await a.evaluate(() => {
-    S.codeSeen = false; renderActBadges();
-    const on = !document.getElementById('gearDot').hidden;
-    openSettings(); closeSettings();
-    renderActBadges();
-    return { before: on, after: !document.getElementById('gearDot').hidden, seen: S.codeSeen };
-  });
-  ok(dotOpen.before && !dotOpen.after && dotOpen.seen,
-     '설정을 «열기만» 해도 톱니의 점이 꺼진다',
-     `${dotOpen.before ? '켜짐' : '꺼짐'} → ${dotOpen.after ? '켜짐' : '꺼짐'}`);
+  ok(copied.gear && copied.dots === 0, '톱니에 레드닷이 없다 (복사·설정 열기 뒤에도)',
+     `점 ${copied.dots}개`);
+  ok(!(await a.evaluate(() => document.getElementById('toast').textContent.trim() === '')),
+     '복사는 그대로 된다 (토스트가 뜬다)');
 
   // ── 기기 B — 다른 브라우저 컨텍스트 (localStorage 가 따로다)
   const B = await browser.newContext();
