@@ -742,7 +742,7 @@
       // 잔소리도 애정이다 (`STORY.md` 알테이아).
       q_reward: '보상', q_mats: '{name} 재료', q_where: '{name} 구하는 곳',
       q_pages: '비법서 {n}장',
-      q_claim: '가져가기',
+      q_claim: '보상 가져가요!',
       q_not_yet: '아직 진행중이에요',
       q_done_toast: '「{name}」{nj} 마쳤어요!',
       q_first_name: '어머니의 솥',
@@ -1940,7 +1940,7 @@
       // ─── 퀘스트 (QUEST.md) ───
       q_reward: 'Reward', q_mats: '{name} ingredients', q_where: 'Where to find {name}',
       q_pages: '{n} pages',
-      q_claim: 'Take it',
+      q_claim: 'Claim reward!',
       q_not_yet: 'Still in progress',
       q_done_toast: 'Finished "{name}"!',
       q_first_name: "Mother's Cauldron",

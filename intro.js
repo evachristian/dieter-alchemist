@@ -241,7 +241,14 @@
     worry:   { e: 'wide',  m: 'wavy',  b: 'sad' },
     grit:    { e: 'sharp', m: 'grit',  b: 'angry' },
     cold:    { e: 'sharp', m: 'flat',  b: 'flat' },
-    star:    { e: 'star',  m: 'grin',  b: 'up' },
+    // ⚠️ **「기대」에는 눈썹을 안 붙인다.** `b: 'up'` 을 달아 두었더니 눈썹의 각이 커서
+    // (`pBrow('up')` 은 안쪽 끝을 4px 꺾는다) **「미심쩍음」(`doubt`)과 똑같은 눈썹**이
+    // 됐고, 반짝이는 눈 위에 얹히니 기대가 아니라 «능글맞은» 얼굴로 읽혔다
+    // (「우와! 맛있겠다!」 하는 줄에서 신고받았다).
+    // 반짝이는 눈 + 활짝 웃는 입만으로 읽히고, 홍조가 «신남»을 더한다 —
+    // **아바타의 「기대」(`exp_star`)가 이미 그 얼굴**이다 (눈썹 없이 반짝임과 홍조).
+    // ⚠️ 공주와 요정 대모의 표가 **나란한 한 벌**이라 둘을 같이 고친다
+    star:    { e: 'star',  m: 'grin',  blush: 0.45 },
     ohh:     { e: 'wide',  m: 'ohh' },
     haha:    { e: 'shut',  m: 'haha',  b: 'up', blush: 0.5 },
     tease:   { e: 'shut',  m: 'tongue' },
@@ -608,7 +615,14 @@
     cold:    { e: 'sharp', m: 'flat',  b: 'flat' },
     shy:     { e: 'shut',  m: 'small', b: 'sad', blush: 0.6 },
     ohh:     { e: 'wide',  m: 'ohh' },
-    star:    { e: 'star',  m: 'grin',  b: 'up' },
+    // ⚠️ **「기대」에는 눈썹을 안 붙인다.** `b: 'up'` 을 달아 두었더니 눈썹의 각이 커서
+    // (`pBrow('up')` 은 안쪽 끝을 4px 꺾는다) **「미심쩍음」(`doubt`)과 똑같은 눈썹**이
+    // 됐고, 반짝이는 눈 위에 얹히니 기대가 아니라 «능글맞은» 얼굴로 읽혔다
+    // (「우와! 맛있겠다!」 하는 줄에서 신고받았다).
+    // 반짝이는 눈 + 활짝 웃는 입만으로 읽히고, 홍조가 «신남»을 더한다 —
+    // **아바타의 「기대」(`exp_star`)가 이미 그 얼굴**이다 (눈썹 없이 반짝임과 홍조).
+    // ⚠️ 공주와 요정 대모의 표가 **나란한 한 벌**이라 둘을 같이 고친다
+    star:    { e: 'star',  m: 'grin',  blush: 0.45 },
     love:    { e: 'heart', m: 'grin',  blush: 0.5 },
     faint:   { e: 'cross', m: 'ohh' },
     haha:    { e: 'shut',  m: 'haha',  b: 'up', blush: 0.5 },
