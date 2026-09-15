@@ -1698,7 +1698,6 @@ function launchOpts() {
   const collar = await page.evaluate(async (STEP) => {
     const D = window.GameData, bad = [], rows = [];
     const K = 4, CW = 200 * K, CH = 348 * K;
-    const skipped = [];
     const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
     const SK = hex('#ffdcc4'), SH = hex('#f2c6a6');       // SKIN · SKIN_SH (avatar.js)
     const W = D.WARDROBE;
@@ -1735,51 +1734,38 @@ function launchOpts() {
         const isCloth = c => near(c, CLOTH);
         const isSkin = c => c[3] > 250 && !isCloth(c)
           && tw(c[0], SK[0], SH[0]) && tw(c[1], SK[1], SH[1]) && tw(c[2], SK[2], SH[2]);
-        const scan = yy => {
-          const y = Math.round(yy * K);
-          if (y < 0 || y >= CH) return null;
-          let skin = null, cloth = null;
-          for (let x = 100 * K; x < 170 * K; x++) {
-            if (skin == null && !isSkin(at(x, y))) skin = x / K - 100;
-            if (skin != null && isCloth(at(x, y))) { cloth = x / K - 100; break; }
-          }
-          return { skin: skin, cloth: cloth };
-        };
-        // ⚠️ **어깨선 바로 위에서부터 찾는다.** 턱 밑·목 양옆의 빈 자리를 옷 색으로
-        // 메우면서(`avatar.js` 의 `neckGusset`) 옷이 어깨선보다 위에서도 보이게 됐다 —
-        // 90 부터 찾으면 그 조각의 맨 윗줄(턱 옆)을 「옷깃」으로 잡아 엉뚱한 것을 잰다.
-        // 여기서 볼 것은 **목 기둥이 옷깃으로 이어지는 자리**이고, 그 자리는 어깨선이다.
+        // ── **옷이 목에 닿지 않는가** (2026-09-15 · 「예전처럼 목깃이 없었으면」)
         //
-        // ⚠️ **머리가 아주 크면 턱이 어깨선 밑으로 내려가 목이 한 줄도 안 보인다**
-        // (얼굴 150 · 통통). 그때 재면 목이 아니라 «볼»을 재게 되므로 건너뛰고,
-        // 건너뛴 수를 같이 낸다 — 0건을 통과로 착각하지 않기 위한 것이다
-        let gTop = null;
-        for (let yy = 60; yy <= 220 && gTop == null; yy += 0.5) {
-          const r = scan(yy); if (r && r.cloth != null) gTop = yy;
+        // 어깨선 «바로 위» 세 줄에서, 가운데부터 밖으로 걸어 **살이 끝나는 바로 그
+        // 픽셀**이 무엇인지 본다. 목깃이 있으면 옷이고(옷이 목에 붙어 기둥이 선다),
+        // 없으면 머리카락이나 배경이다 (살받침이 옷보다 멀리까지 덮는다).
+        //
+        // ⚠️ **「옷이 처음 보이는 줄」에서 시작하면 안 된다** — 목깃을 없애면 그 줄이
+        // 곧 어깨선이라 볼 구간이 **통째로 비어** 「잰 줄 0 · 닿음 0」이 나온다.
+        // 0 이 「안 닿는다」가 아니라 「한 번도 안 쟀다」가 되는 자리다. 그래서 자리를
+        // **어깨선에서 되짚는다** — 그림이 어떻게 바뀌어도 늘 세 줄을 잰다
+        // (지금 10조합 × 3줄 = 30줄을 다 재고 닿음 0 · 옛 그림에서는 16줄이 닿았다).
+        // ⚠️ 얼굴 150·통통에서는 턱이 어깨선 밑이라 그 줄의 살이 «볼»인데, 그때도
+        // 답은 「옷이 아니다」로 같아서 거짓 통과가 아니다 — 두 판이 같은 값을 낸다
+        const m = window.Avatar.bodyMetrics(bw);
+        const shoulder = Math.round(m.floorY + (window.Avatar.CLOTH_TOP_Y - m.floorY) * m.ky);
+        let seen = 0, touch = 0;
+        for (let yy = shoulder - 4; yy <= shoulder - 2; yy++) {
+          const y = Math.round(yy * K); if (y < 0 || y >= CH) continue;
+          let x = 100 * K; while (x < 199 * K && isSkin(at(x, y))) x++;
+          if (x >= 199 * K || x === 100 * K) continue;     // 살이 없거나 끝까지 살이다
+          seen++;
+          if (isCloth(at(x, y)) || isCloth(at(x + K, y))) touch++;
         }
-        if (gTop != null && gTop + window.Avatar.GUSSET_RISE + 2 > window.Avatar.CLOTH_TOP_Y - 1) {
-          skipped.push(`${kind}/${pname}`); continue;
-        }
-        let top = null;
-        for (let yy = window.Avatar.CLOTH_TOP_Y - 1; yy <= 220 && top == null; yy += 0.5) {
-          const r = scan(yy); if (r && r.cloth != null) top = yy;
-        }
-        if (top == null) { bad.push(`${kind} · ${pname}: 옷깃을 못 찾았다`); continue; }
-        const above = scan(top - 1), atTop = scan(top);
-        if (!above || above.skin == null || !atTop || atTop.cloth == null) {
-          bad.push(`${kind} · ${pname}: 목을 못 쟀다`); continue;
-        }
-        const step = +(atTop.cloth - above.skin).toFixed(2);
-        rows.push(`${kind}/${pname} 목 ${above.skin.toFixed(2)}→옷깃 ${atTop.cloth.toFixed(2)}`);
-        if (Math.abs(step) > STEP) {
-          bad.push(`${kind} · ${pname}: 옷깃(${atTop.cloth.toFixed(2)})이 그 위 목`
-            + `(${above.skin.toFixed(2)})과 ${step > 0 ? '+' : ''}${step}px 어긋난다`
-            + ` (±${STEP}px) — 목둘레와 옷 목둘레가 안 맞아 턱이 진다`);
+        if (seen < 3) { bad.push(`${kind} · ${pname}: 어깨선 위 세 줄 중 ${seen}줄만 쟀다`); continue; }
+        rows.push(`${kind}/${pname} ${touch}/${seen}`);
+        if (touch) {
+          bad.push(`${kind} · ${pname}: 어깨선 바로 위 ${touch}줄에서 **옷이 목에 닿는다**`
+            + ` — 목깃이 턱까지 올라와 목 양옆에 «기둥»으로 선다`);
         }
       }
     }
-    if (skipped.length) rows.push(`목이 안 보여 건너뜀 ${skipped.join(' · ')}`);
-    if (rows.length - (skipped.length ? 1 : 0) < 6) bad.push(`잰 조합이 너무 적다 (${rows.length}개)`);
+    if (rows.length < 10) bad.push(`잰 조합이 ${rows.length}개뿐이다 (10개여야 한다)`);
     return { bad: bad, rows: rows };
   }, COLLAR_STEP);
 
@@ -3677,7 +3663,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(sleeveStep.bad.map(m => ({ id: '소매 밑 팔', body: '-', where: m, n: '-' })))
     .concat(neckLen.bad.map(m => ({ id: '목 길이', body: '-', where: m, n: '-' })))
     .concat(hipRound.bad.map(m => ({ id: '옆선', body: '-', where: m, n: '-' })))
-    .concat(collar.bad.map(m => ({ id: '옷깃', body: '-', where: m, n: '-' })))
+    .concat(collar.bad.map(m => ({ id: '목깃', body: '-', where: m, n: '-' })))
     .concat(gusset.bad.map(m => ({ id: '옷깃 받침', body: '-', where: m, n: '-' })))
     .concat(neckHole.bad.map(m => ({ id: '턱 밑 빈 자리', body: '-', where: m, n: '-' })))
     .concat(neckAll.bad.map(m => ({ id: '목과 몸', body: '-', where: m, n: '-' })))
@@ -3729,8 +3715,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (공주와 ±${BACKHAIR_TOL}px)`);
   console.log(`목과 머리: 얼굴 배율마다 «목/머리» 비 — ${neckHead.rows.join(' · ')}`
     + ` (100% 의 비에서 ±${NECK_HEAD_TOL} · 벗어나면 머리만 줄고 목은 그대로다)`);
-  console.log(`옷깃: 옷깃 «바로 위»의 목 반폭 ↔ 옷깃의 입 — ${collar.rows.join(' · ')}`
-    + ` (±${COLLAR_STEP}px · 어긋나면 목에 턱이 진다)`);
+  console.log(`목깃: 어깨선 바로 위 세 줄에서 «살이 끝나는 픽셀이 옷인가» —`
+    + ` ${collar.rows.join(' · ')} (전부 0/3 이어야 한다 · 닿으면 목깃이 목 양옆에 기둥으로 선다)`);
   console.log(`옷깃 받침: 몸통%/체형 — 턱 밑의 옷이 어깨 밖으로 나온 몫 — ${gusset.rows.join(' · ')}`
     + ` (0 이어야 한다 · 나오면 턱 밑에 «날개»가 생긴다)`);
   console.log(`옷깃 띠: 목 옆 띠(좌우 합)가 11줄 내려가며 늘어나는 배수 — ${gusset.spread.join(' · ')}`
