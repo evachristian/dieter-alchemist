@@ -1849,6 +1849,66 @@ function launchOpts() {
     return { bad, rows };
   });
 
+  // ─── 턱 밑에 «갇힌 빈 자리»가 없는가 (옷을 입었을 때) ──────────
+  //
+  // `neckGusset` 이 애초에 생긴 이유가 이것이다 — 턱과 어깨 사이에 몸도 옷도 없는
+  // 띠가 남아 **방 벽(베이지)이 살색 얼룩처럼 비쳤다** (「공주 옷 어깨 선이 살짝
+  // 어긋난다」로 신고받은 자리다).
+  //
+  // ⚠️ **위의 「옷깃 받침」은 이것을 못 잡는다.** 그쪽은 받침이 어깨 «밖»으로
+  // 나왔는지만 보므로, 받침을 «좁히는» 쪽으로 틀리면 한 줄도 안 걸린다 —
+  // 실제로 받침의 윗변을 목에 붙여 놓았더니 얼굴 125·150% 에서 좌우 5~6px 이
+  // 비치는데도 `checkavatar` 가 통째로 통과했다.
+  //
+  // 그래서 **빈 자리를 직접 센다**: 턱 언저리에서 «양옆이 막힌» 투명 구간.
+  // 바깥 배경은 한쪽이 그림 끝이라 저절로 빠지고, 얼굴·머리·옷 사이에 갇힌
+  // 구멍만 남는다.
+  //   ⚠️ **맨몸은 안 잰다.** 입은 것이 없으면 그 자리는 덮을 것이 없는 «빈 자리»가
+  //   맞다 — 「턱밑 머리」가 오히려 그 틈을 4px 이상 요구한다
+  const NECK_HOLE_MAX = 1;             // 이 폭까지는 안티에일리어싱으로 본다 (px)
+  const neckHole = await page.evaluate(async (MAXW) => {
+    const D = window.GameData, bad = [], rows = [];
+    const K = 3, W = 200 * K, H = 348 * K;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    let seen = 0;
+    const WEAR = [
+      ['공주 드레스', { top: 'top_none', bottom: 'bottom_none', dress: 'dress_princess' }],
+      ['티셔츠', { top: 'top_tee', bottom: 'bottom_skirt', dress: 'dress_none' }],
+    ];
+    for (const [wname, wear] of WEAR) {
+      for (const k of [0.5, 0.6, 0.75, 1, 1.25, 1.5]) {
+        const tune = {}; window.Avatar.TUNE_KEYS.forEach(t => { tune[t] = k; });
+        const outfit = Object.assign({}, D.DEFAULT_OUTFIT, wear);
+        const svg = window.Avatar.build(outfit, 0, tune);
+        await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
+          img.onload = () => { ctx.clearRect(0, 0, W, H); __drawAvatar(ctx, img, W, H); ok(); };
+          img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+        // 턱 언저리 — 얼굴이 아무리 커져도 이 안에 든다
+        let worst = 0, worstAt = '';
+        for (let y = 60 * K; y <= 130 * K; y++) {
+          const d = ctx.getImageData(0, y, W, 1).data;
+          let x = 0;
+          while (x < W) {
+            if (d[x * 4 + 3] > 200) { x++; continue; }
+            const s = x; while (x < W && d[x * 4 + 3] <= 200) x++;
+            // 양옆이 막힌 것만 — 그림 끝에 닿은 구간은 바깥 배경이다
+            if (s > 0 && x < W && (x - s) / K > worst) { worst = (x - s) / K; worstAt = `y${(y / K).toFixed(1)} x${(s / K).toFixed(1)}~${((x - 1) / K).toFixed(1)}`; }
+          }
+        }
+        seen++;
+        rows.push(`${wname} ${Math.round(k * 100)}% ${worst ? worst.toFixed(1) + 'px' : '0'}`);
+        if (worst > MAXW) {
+          bad.push(`${wname} · 바디파츠 ${Math.round(k * 100)}%: 턱 밑에 몸도 옷도 없는 자리가`
+            + ` ${worst.toFixed(1)}px 남았다 (${worstAt}) — 방 벽이 살색 얼룩처럼 비친다`);
+        }
+      }
+    }
+    // **몇 조합을 쟀는지도 낸다** — 0건이 「통과」가 아니라 「한 번도 안 쟀다」일 수 있다
+    if (seen < 12) bad.push(`잰 조합이 ${seen}개뿐이다 (12개여야 한다)`);
+    return { bad, rows };
+  }, NECK_HOLE_MAX);
+
   // ─── 목이 머리를 따라가는가 ──────────────────────────────────
   //
   // `neckHalfOf` 의 어깨 몫이 얼굴 배율을 안 타서 **바닥** 노릇을 했다 —
@@ -3513,6 +3573,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(hipRound.bad.map(m => ({ id: '옆선', body: '-', where: m, n: '-' })))
     .concat(collar.bad.map(m => ({ id: '옷깃', body: '-', where: m, n: '-' })))
     .concat(gusset.bad.map(m => ({ id: '옷깃 받침', body: '-', where: m, n: '-' })))
+    .concat(neckHole.bad.map(m => ({ id: '턱 밑 빈 자리', body: '-', where: m, n: '-' })))
     .concat(neckAll.bad.map(m => ({ id: '목과 몸', body: '-', where: m, n: '-' })))
     .concat(neckHead.bad.map(m => ({ id: '목과 머리', body: '-', where: m, n: '-' })))
     .concat(backHair.bad.map(m => ({ id: '뒷머리', body: '-', where: m, n: '-' })))
@@ -3566,6 +3627,9 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (±${COLLAR_STEP}px · 어긋나면 목에 턱이 진다)`);
   console.log(`옷깃 받침: 몸통%/체형 — 턱 밑의 옷이 어깨 밖으로 나온 몫 — ${gusset.rows.join(' · ')}`
     + ` (0 이어야 한다 · 나오면 턱 밑에 «날개»가 생긴다)`);
+  console.log(`턱 밑 빈 자리: 옷 2벌 × 바디파츠 6단계 — 양옆이 막힌 «투명한» 구간의 폭`
+    + ` — ${neckHole.rows.join(' · ')}`
+    + ` (${NECK_HOLE_MAX}px 까지 · 남으면 방 벽이 살색 얼룩처럼 비친다)`);
   console.log(`목과 몸: 바디파츠를 «다 같이» 움직이며 «목/얼굴» 비 — ${neckAll.rows.join(' · ')}`
     + ` (100% 의 비에서 ±${Math.round(NECK_ALL_TOL * 100)}% · 벗어나면 몸만 줄고 목은 그대로다)`);
   console.log(`옆선: 허리 밑 오목이 이어지는 길이 — ${hipRound.rows.join(' · ')}`
