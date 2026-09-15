@@ -1505,7 +1505,8 @@ function askRowHtml(npc) {
       askNpc === npc && askKw === a.kw ? 'on' : ''}"
       data-ask="${a.kw}"${lock ? ` title="${T('ask_locked', { tier: N(tn.id, tn.name) })}"` : ''}
       onclick="doAsk('${npc}','${a.kw}')">${lock ? '🔒 ' : (fresh ? '🆕 ' : '')}${
-      N(a.kw, k ? k.name : a.kw)}</button>`;
+      N(a.kw, k ? k.name : a.kw)}${
+      fresh ? '<span class="tab-dot ask-dot" aria-hidden="true"></span>' : ''}</button>`;
   }).join('');
   return `<div class="ask-box">
       <div class="ask-title">${T('ask_title')}</div>

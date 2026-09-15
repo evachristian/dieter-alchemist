@@ -8,6 +8,7 @@
 //   · 사슬 끝까지 걸어 다섯이 다 열리는가 (도중에 둘로 갈린다)
 //   · 다시 물어도 되고, **주는 것은 한 번뿐인가**
 //   · 새로 물어볼 것이 있는 마을 탭에 점(●)이 뜨는가 — 「길 잃음 방지」
+//   · **아직 안 물어본 칩의 우상단에 점이 뜨는가** (이미 물어본 것·잠긴 것에는 안 뜬다)
 //   · **부엌 점이 밥을 먹으면 꺼지는가** — 마을이 열린 뒤에는 「오늘 밥」만 뜻한다
 //
 // 사용: node tools/checkask.js      (종료 코드 0 = 통과)
@@ -101,6 +102,21 @@ function ok(cond, msg, extra) {
   ok(chips.length === 2, '칩이 둘로 는다', chips.join(' / '));
   ok(!chips.find(c => c.includes('허기')).includes('🆕'), '물어본 것은 🆕 가 사라진다 (칩은 남는다)');
 
+  // **칩 우상단의 레드닷** — 마을 탭·건물·부엌 버튼의 점과 같은 뜻이다.
+  // ⚠️ **양쪽을 몇 개 쟀는지도 같이 낸다.** 한쪽이 0이면 그 방향은 아예 안 잰 것이라
+  // 「0건」이 통과가 아니라 「재 본 적 없다」가 된다 (checkavatar 의 발등·부츠와 같은 규칙)
+  const chipDots = await page.$$eval('#kitchenSheet .ask-chip', els => els.map(e => ({
+    fresh: e.classList.contains('fresh'),
+    dot: !!e.querySelector('.ask-dot'),
+    // 절대 배치라도 **가로로 삐져나오면** 칩이 줄 끝에 설 때 넘친다 (`__cardFits` 가 잡는다)
+    over: e.scrollWidth - e.clientWidth,
+  })));
+  const chipFreshN = chipDots.filter(d => d.fresh).length, chipOldN = chipDots.length - chipFreshN;
+  ok(chipFreshN > 0 && chipOldN > 0, '새 칩과 이미 물어본 칩을 «둘 다» 쟀다', `새 ${chipFreshN} · 물어본 것 ${chipOldN}`);
+  ok(chipDots.filter(d => d.fresh).every(d => d.dot), '아직 안 물어본 칩에는 우상단에 점이 붙는다');
+  ok(chipDots.filter(d => !d.fresh).every(d => !d.dot), '이미 물어본 칩에는 점이 없다');
+  ok(chipDots.every(d => d.over <= 1), '점이 칩 밖으로 삐져나오지 않는다', `최대 ${Math.max(...chipDots.map(d => d.over))}px`);
+
   // **다시 물어도 되지만 주는 것은 한 번뿐이다**
   const before = await page.evaluate(() => S.keywords.length);
   await page.click('#kitchenSheet .ask-chip');
@@ -183,6 +199,10 @@ function ok(cond, msg, extra) {
   const dimmed = lockTxt.length ? await page.$eval('#villageBody .ask-chip.locked',
     e => getComputedStyle(e).filter.includes('saturate')) : false;
   ok(dimmed, '잠긴 콘텐츠 공통 표현(saturate)을 쓴다');
+  // ⚠️ **잠긴 칩에는 점이 없다** — 길잡이 점이 「못 여는 것」을 가리키면 거짓말이 된다
+  // (바로 아래 `asksNew` 가 안 센다는 것과 같은 규칙이고, 화면 쪽이 이것이다)
+  ok(lockTxt.length ? await page.$eval('#villageBody .ask-chip.locked',
+       e => !e.querySelector('.ask-dot')) : false, '잠긴 칩에는 점이 안 붙는다');
 
   let kwN = await page.evaluate(() => S.keywords.length);
   // 자물쇠가 없으면 그 자리의 칩을 그냥 누른다 — 「막혔는가」는 그래도 재야 한다
