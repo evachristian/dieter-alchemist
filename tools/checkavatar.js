@@ -1893,6 +1893,12 @@ function launchOpts() {
   // 그래서 **빈 자리를 직접 센다**: 턱 언저리에서 «양옆이 막힌» 투명 구간.
   // 바깥 배경은 한쪽이 그림 끝이라 저절로 빠지고, 얼굴·머리·옷 사이에 갇힌
   // 구멍만 남는다.
+  //
+  // ⚠️ **깃이 높은 옷(터틀넥·폴로)에서만 잰다 — 2026-09-15 에 뜻이 바뀌었다.**
+  // 예전에는 모든 옷에서 이 자리를 메우게 했는데, 목 옆에 «무엇을 그리든 목이
+  // 굵어 보인다»는 신고를 세 번 받고 **깃이 낮은 옷에서는 안 메우기로** 정했다
+  // (`avatar.js` 의 `neckGusset` 맨 앞 주석 · 86a649a 와 같은 모양이다).
+  // 그쪽은 아래 「맨몸↔옷」이 대신 지킨다 — **옷을 입어도 턱 밑이 안 달라져야 한다.**
   //   ⚠️ **맨몸은 안 잰다.** 입은 것이 없으면 그 자리는 덮을 것이 없는 «빈 자리»가
   //   맞다 — 「턱밑 머리」가 오히려 그 틈을 4px 이상 요구한다
   const NECK_HOLE_MAX = 1;             // 이 폭까지는 안티에일리어싱으로 본다 (px)
@@ -1902,15 +1908,19 @@ function launchOpts() {
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
     let seen = 0;
+    // 깃이 높은 옷 둘 — 여기서는 옷이 목까지 올라오는 것이 맞는 모양이라
+    // 안 메우면 옷과 목 사이로 배경이 비친다 (깃이 낮은 옷은 「맨몸↔옷」이 본다)
+    // 깃이 높은 옷은 지금 `top_turtle`(neck: 'polo') 하나뿐이다 — 여기서는 옷이
+    // 목까지 올라오는 것이 맞는 모양이라, 안 메우면 옷과 목 사이로 배경이 비친다
+    // (깃이 낮은 옷은 아래 「맨몸↔옷」이 본다). 체형 둘을 같이 돌아 12조합을 채운다
     const WEAR = [
-      ['공주 드레스', { top: 'top_none', bottom: 'bottom_none', dress: 'dress_princess' }],
-      ['티셔츠', { top: 'top_tee', bottom: 'bottom_skirt', dress: 'dress_none' }],
+      ['터틀넥', { top: 'top_turtle', bottom: 'bottom_skirt', dress: 'dress_none' }],
     ];
     for (const [wname, wear] of WEAR) {
-      for (const k of [0.5, 0.6, 0.75, 1, 1.25, 1.5]) {
+      for (const k of [0.5, 0.6, 0.75, 1, 1.25, 1.5]) for (const bw of [0, 1]) {
         const tune = {}; window.Avatar.TUNE_KEYS.forEach(t => { tune[t] = k; });
         const outfit = Object.assign({}, D.DEFAULT_OUTFIT, wear);
-        const svg = window.Avatar.build(outfit, 0, tune);
+        const svg = window.Avatar.build(outfit, bw, tune);
         await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
           img.onload = () => { ctx.clearRect(0, 0, W, H); __drawAvatar(ctx, img, W, H); ok(); };
           img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
@@ -1927,9 +1937,9 @@ function launchOpts() {
           }
         }
         seen++;
-        rows.push(`${wname} ${Math.round(k * 100)}% ${worst ? worst.toFixed(1) + 'px' : '0'}`);
+        rows.push(`${wname} ${Math.round(k * 100)}%/${bw} ${worst ? worst.toFixed(1) + 'px' : '0'}`);
         if (worst > MAXW) {
-          bad.push(`${wname} · 바디파츠 ${Math.round(k * 100)}%: 턱 밑에 몸도 옷도 없는 자리가`
+          bad.push(`${wname} · 바디파츠 ${Math.round(k * 100)}%/체형${bw}: 턱 밑에 몸도 옷도 없는 자리가`
             + ` ${worst.toFixed(1)}px 남았다 (${worstAt}) — 방 벽이 살색 얼룩처럼 비친다`);
         }
       }
@@ -1938,6 +1948,82 @@ function launchOpts() {
     if (seen < 12) bad.push(`잰 조합이 ${seen}개뿐이다 (12개여야 한다)`);
     return { bad, rows };
   }, NECK_HOLE_MAX);
+
+  // ─── 옷을 입어도 «턱 밑»이 안 달라지는가 (맨몸↔옷) ───────────
+  //
+  // 2026-09-15. 목 양옆의 빈 자리를 메우려고 세 판을 그렸는데 전부 같은 신고를 받았다:
+  //   · 옷 색으로 메움 → 「초록 기둥이 얼굴까지 이어져 올라온다」
+  //   · 위를 살색으로 덮음 → 「목 두께에 비해 동그랗게 파인 부분이 너무 작다」
+  //   · 턱 밑 그늘색 → 「옷을 입으면 양옆으로 목이 더 생긴다」
+  // **목 옆에 무엇을 그리든 목이 굵어 보인다.** 그래서 깃이 낮은 옷에서는 아예
+  // 안 메우기로 했고(`avatar.js` 의 `neckGusset` 맨 앞), 그 약속이 이것이다:
+  // **옷을 입는다고 턱 밑의 살이 달라지면 안 된다.**
+  //
+  // 재는 법 — 맨몸과 옷 입은 몸을 같은 배율로 그려 **어깨선 위의 살 반폭을 줄마다**
+  // 견준다. 턱 위쪽은 두 판이 어차피 같으니 턱을 따로 찾을 필요가 없다
+  // (「턱을 되짚는 잣대는 반드시 또 깨진다」 — 이 파일에서 세 번 겪었다).
+  // 그늘색(`SKIN_SH`)도 살로 세는 것이 핵심이다 — 그늘로 덮는 판을 놓치지 않으려는 것
+  const BARE_DIFF_MAX = 1;             // px
+  const bareVsWear = await page.evaluate(async (MAX) => {
+    const D = window.GameData, bad = [], rows = [];
+    const K = 3, W = 200 * K, H = 348 * K;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    const SK = hex('#ffdcc4'), SH = hex('#f2c6a6');
+    const tw = (v, a, b) => v >= Math.min(a, b) - 6 && v <= Math.max(a, b) + 6;
+    const draw = async (outfit, bw, tune) => {
+      const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, outfit), bw, tune);
+      await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
+        img.onload = () => { ctx.clearRect(0, 0, W, H); __drawAvatar(ctx, img, W, H); ok(); };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+    };
+    // 그 줄에서 «살빛»(살 + 턱 그늘)의 반폭
+    const prof = (top) => {
+      const out = [];
+      for (let y = 60 * K; y < top * K; y++) {
+        const d = ctx.getImageData(0, y, W, 1).data; let m = 0;
+        for (let x = 0; x < W; x++) { const i = x * 4;
+          if (d[i + 3] > 200 && tw(d[i], SK[0], SH[0]) && tw(d[i + 1], SK[1], SH[1])
+              && tw(d[i + 2], SK[2], SH[2])) m = Math.max(m, Math.abs(x / K - 99.5)); }
+        out.push(m);
+      }
+      return out;
+    };
+    const BARE = { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', shoes: 'shoes_none' };
+    const WEAR = [['공주 드레스', { top: 'top_none', bottom: 'bottom_none', dress: 'dress_princess' }],
+                  ['티셔츠', { top: 'top_tee', bottom: 'bottom_skirt', dress: 'dress_none' }]];
+    let seen = 0;
+    for (const k of [0.5, 0.75, 1, 1.25, 1.5]) for (const bw of [0, 1]) {
+      const tune = {}; window.Avatar.TUNE_KEYS.forEach(t => { tune[t] = k; });
+      const m = window.Avatar.bodyMetrics(bw);
+      const top = m.floorY + (window.Avatar.CLOTH_TOP_Y - m.floorY) * m.ky;   // 어깨선
+      await draw(BARE, bw, tune);
+      const base = prof(top);
+      for (const [wname, wear] of WEAR) {
+        await draw(wear, bw, tune);
+        const got = prof(top);
+        // ⚠️ **한쪽만 본다 — «더 생기는» 쪽이다.** 맨몸에는 받침이 살색으로 남아
+        // 있어(`NECK_HUG`) 옷 입은 쪽이 오히려 조금 «가는» 것이 지금 모양인데,
+        // 신고받은 것은 늘 「옷을 입으면 목이 **더** 생긴다」였다. 양쪽을 다 막으면
+        // 맨몸 받침까지 같이 지워야 하고, 그것은 신고받은 적이 없는 자리다
+        let worst = 0, at = 0;
+        for (let i = 0; i < Math.min(base.length, got.length); i++) {
+          const dd = got[i] - base[i];
+          if (dd > worst) { worst = dd; at = 60 + i / K; }
+        }
+        seen++;
+        rows.push(`${wname} ${Math.round(k * 100)}%/${bw} ${worst.toFixed(1)}px`);
+        if (worst > MAX) {
+          bad.push(`${wname} · 바디파츠 ${Math.round(k * 100)}% · 체형 ${bw}: 옷을 입으니`
+            + ` 턱 밑의 살이 ${worst.toFixed(1)}px **더 생긴다** (y≈${at.toFixed(1)} · ${MAX}px 까지)`
+            + ` — 옷을 입으면 목이 양옆으로 굵어 보인다`);
+        }
+      }
+    }
+    if (seen < 20) bad.push(`잰 조합이 ${seen}개뿐이다 (20개여야 한다)`);
+    return { bad, rows };
+  }, BARE_DIFF_MAX);
 
   // ─── 목이 머리를 따라가는가 ──────────────────────────────────
   //
@@ -3666,6 +3752,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(collar.bad.map(m => ({ id: '목깃', body: '-', where: m, n: '-' })))
     .concat(gusset.bad.map(m => ({ id: '옷깃 받침', body: '-', where: m, n: '-' })))
     .concat(neckHole.bad.map(m => ({ id: '턱 밑 빈 자리', body: '-', where: m, n: '-' })))
+    .concat(bareVsWear.bad.map(m => ({ id: '맨몸↔옷', body: '-', where: m, n: '-' })))
     .concat(neckAll.bad.map(m => ({ id: '목과 몸', body: '-', where: m, n: '-' })))
     .concat(neckHead.bad.map(m => ({ id: '목과 머리', body: '-', where: m, n: '-' })))
     .concat(backHair.bad.map(m => ({ id: '뒷머리', body: '-', where: m, n: '-' })))
@@ -3721,7 +3808,9 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (0 이어야 한다 · 나오면 턱 밑에 «날개»가 생긴다)`);
   console.log(`옷깃 띠: 목 옆 띠(좌우 합)가 11줄 내려가며 늘어나는 배수 — ${gusset.spread.join(' · ')}`
     + ` (×1.5 이상 · 끝에서만 꺾이면 작은 몸에서 띠가 «끈»이 된다)`);
-  console.log(`턱 밑 빈 자리: 옷 2벌 × 바디파츠 6단계 — 양옆이 막힌 «투명한» 구간의 폭`
+  console.log(`맨몸↔옷: 어깨선 위에서 «옷을 입으면 턱 밑 살이 얼마나 달라지나» —`
+    + ` ${bareVsWear.rows.join(' · ')} («더 생기는» 쪽만 · ${BARE_DIFF_MAX}px 까지)`);
+  console.log(`턱 밑 빈 자리: **깃이 높은 옷** × 바디파츠 6단계 × 체형 2 — 양옆이 막힌 «투명한» 구간의 폭`
     + ` — ${neckHole.rows.join(' · ')}`
     + ` (${NECK_HOLE_MAX}px 까지 · 남으면 방 벽이 살색 얼룩처럼 비친다)`);
   console.log(`목과 몸: 바디파츠를 «다 같이» 움직이며 «목/얼굴» 비 — ${neckAll.rows.join(' · ')}`
