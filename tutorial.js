@@ -295,6 +295,7 @@
     el.setAttribute('aria-hidden', 'true');
     lastKey = '';
     lastD = '';
+    lastTap = '';
   }
 
   // ─── 그리기 ───────────────────────────────────────────────
@@ -312,8 +313,10 @@
       lastKey = key;
       el.innerHTML = html(s, beat);
       // **새 path 는 d 가 비어 있다.** 자리가 그대로여서 '안 바뀌었다' 고 건너뛰면
-      // 막이 통째로 안 그려진다 — 같은 단계의 다음 대사로 넘어갈 때가 그 경우다
+      // 막이 통째로 안 그려진다 — 같은 단계의 다음 대사로 넘어갈 때가 그 경우다.
+      // 구멍 위의 «안 보이는 판»도 새로 그려지므로 같이 비운다
       lastD = '';
+      lastTap = '';
       // ⚠️ **대사를 읽는 중에는 화면을 안 옮긴다.** 지시문(`html`)이 마지막 대사
       // 뒤에야 나오는 것과 같은 규칙이다 — 할 일이 아직 안 나왔는데 화면만 그리로
       // 끌고 가면, 지금 «말하고 있는 것»이 화면 밖으로 밀린다.
@@ -347,10 +350,22 @@
     // 손이 없는데, 넘기는 길이 말풍선 하나뿐이면 **어디를 눌러야 다음으로 가는지가
     // 화면에 없다** — 「막다른 길을 만들지 않는다」에 걸린다. 지시를 따라야 넘어가는
     // 단계(`wait`)에는 절대 안 붙인다: 거기서 막이 넘어가면 막이 막는 뜻이 없어진다
-    const skim = pointing(s) && !s.wait ? ' onclick="Tut.tap()"' : '';
+    // ⚠️ **구멍 «안»도 같이 눌려야 한다.** 막은 칠해진 자리에서만 클릭을 먹는데
+    // (`visiblePainted`), 손이 가리키는 곳은 «진짜 구멍»이라 클릭이 그대로 통과해
+    // 아래 요소로 간다. 「가리켜 보여 주는」 단계의 대상(⚡ 행동력 · 🌱 매력)은
+    // 눌러도 아무 일이 없는 표시라, **손끝을 눌렀는데 아무 반응이 없었다**
+    // (「손가락이 가리키는 곳을 눌러도 진행이 안 된다」로 신고받았다).
+    // 구멍 위에 «안 보이는 판»을 덮어 클릭을 받아 주고, 그대로 막의 `onclick` 으로
+    // 거품처럼 올려 보낸다 — 판에 따로 `onclick` 을 달면 막의 것과 **두 번 불려
+    // 대사가 둘씩 넘어간다.**
+    // ⚠️ **`wait` 단계에는 절대 안 덮는다** — 거기서는 구멍 안의 «진짜 버튼»을
+    // 눌러야 진행되므로, 판이 덮이면 튜토리얼이 그 자리에서 통째로 막힌다
+    const skim = pointing(s) && !s.wait;
     return `
-      <svg class="tut-mask" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"${skim}>
+      <svg class="tut-mask" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"${
+        skim ? ' onclick="Tut.tap()"' : ''}>
         <path class="tut-hole" fill-rule="evenodd"></path>
+        ${skim ? '<g class="tut-holetap"></g>' : ''}
       </svg>
       <div class="tut-hand" aria-hidden="true">${HAND_IMG}</div>
       <div class="tut-talk" onclick="Tut.tap()">
@@ -416,6 +431,7 @@
   }
 
   let lastD = '';   // 같은 자리면 다시 쓰지 않는다 (매 프레임 도는 함수다)
+  let lastTap = ''; // 구멍 위의 «안 보이는 판»도 같은 이유로 캐시한다
 
   function place(s) {
     const el = layer();
@@ -446,6 +462,17 @@
       d += ' ' + roundRect(r.left - PAD, r.top - PAD, r.width + PAD * 2, r.height + PAD * 2, RAD);
     });
     if (d !== lastD) { lastD = d; path.setAttribute('d', d); }
+
+    // 구멍 위의 «안 보이는 판» — 「가리켜 보여 주는」 단계에만 있다 (위 `skim`).
+    // `pointer-events="all"` 이라 칠이 없어도 클릭을 받고, 그 클릭은 막의 `onclick`
+    // 으로 올라가 한 번만 넘어간다. 구멍과 **같은 자리·같은 모서리**를 쓴다
+    const tap = el.querySelector('.tut-holetap');
+    if (tap) {
+      const t = rects.map(r => `<rect x="${(r.left - PAD).toFixed(1)}" y="${(r.top - PAD).toFixed(1)}"`
+        + ` width="${(r.width + PAD * 2).toFixed(1)}" height="${(r.height + PAD * 2).toFixed(1)}"`
+        + ` rx="${RAD}" fill="none" pointer-events="all"></rect>`).join('');
+      if (t !== lastTap) { lastTap = t; tap.innerHTML = t; }
+    }
 
     if (!rects.length) {
       hand.style.display = 'none';

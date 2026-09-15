@@ -172,6 +172,8 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
       wait: !!((window.Tut && Tut.stepList()[S.tut.step] || {}).wait),
       // 대사마다 가리키는 것이 다른 단계인가 (`holes`) — 거기서는 손이 구멍 위에 선다
       point: !!((window.Tut && Tut.stepList()[S.tut.step] || {}).point),
+      // 이 단계의 대사 수 — 한 번 눌렀을 때 «한 칸만» 갔는지 보는 데 쓴다
+      beats: (((window.Tut && Tut.stepList()[S.tut.step] || {}).talk) || []).length,
     };
   });
 
@@ -186,6 +188,8 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   // ⚠️ **「둘이 아닌가」만 보면 안 된다** — 둘 다 숨겨도 통과한다. 하나도 없는 경우와
   //    «어느 쪽»이 떴는지까지 본다. 몇 번 쟀는지도 낸다 (0건은 통과가 아니다)
   const handSeen = { beats: 0, steps: new Set(), hole: 0, bubble: 0 };
+  // 「가리키는 단계」를 넘기는 두 길 — 막의 칠 · 손이 가리키는 구멍 «안»
+  const skimSeen = { mask: 0, hole: 0 };
   function handCheck(st) {
     if (!st.on || st.loose || st.modal || st.done) return;   // 잴 수 없는 상태
     handSeen.beats++;
@@ -213,24 +217,54 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
       // 「가리키는 단계」는 말풍선에 손이 없다 — 넘기는 길은 **막**이다.
       // 그것이 진짜로 되는지까지 여기서 같이 본다 (안 되면 아래 루프가 막다른 자리로 잡는다)
       if (a.on && !a.more && a.point) {
-        const m = await page.evaluate(() => {
+        // 넘기는 길이 둘이다 — **막의 칠해진 자리**와 **손이 가리키는 구멍 «안»**.
+        // ⚠️ 구멍 안은 오래 안 먹혔다: 막은 칠해진 자리에서만 클릭을 받는데
+        // (`visiblePainted`) 구멍은 «진짜 구멍»이라 클릭이 그대로 통과했고,
+        // 대상(⚡ 행동력 · 🌱 매력)은 눌러도 아무 일이 없는 표시라 **손끝을
+        // 눌렀는데 반응이 없었다** (신고받았다). 둘을 **대사마다 번갈아** 눌러
+        // 양쪽을 다 재고, 각각 몇 번 눌러 봤는지도 낸다 — 한쪽이 0이면 그 길은
+        // 아예 안 재 본 것이다
+        const useHole = a.beat % 2 === 0;
+        const m = await page.evaluate((hole) => {
           const path = document.querySelector('#tut .tut-hole');
           const box = document.getElementById('tut').getBoundingClientRect();
+          if (hole) {
+            const sel = window.Tut && Tut.targets()[0];
+            const el = sel && document.querySelector(sel);
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            if (r.width < 2 || r.height < 2) return null;
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+          }
           // 칠해진 자리(= 구멍이 아닌 곳)를 하나 찾는다
           for (let y = box.top + 24; y < box.bottom - 24; y += 9)
             for (let x = box.left + 14; x < box.right - 14; x += 11)
               if (path.isPointInFill(new DOMPoint(x, y))) return { x, y };
           return null;
-        });
-        if (!m) { bad.push(`${a.id}단계: 막에 칠해진 자리가 없다 — 눌러서 넘길 데가 없다`); return a; }
+        }, useHole);
+        if (!m) {
+          bad.push(`${a.id}단계: ${useHole ? '가리키는 대상을 못 찾았다' : '막에 칠해진 자리가 없다'}`
+            + ` — 눌러서 넘길 데가 없다`);
+          return a;
+        }
         await pointCheck(a);
+        skimSeen[useHole ? 'hole' : 'mask']++;
         await page.mouse.click(m.x, m.y);
         await page.waitForTimeout(150);
         const c = await info();
         if (c.step === a.step && c.beat === a.beat) {
-          bad.push(`${a.id}단계 ${a.beat + 1}번째 대사: 말풍선에 손이 없는데 막을 눌러도 안 넘어간다 — 갇힌다`);
+          bad.push(`${a.id}단계 ${a.beat + 1}번째 대사: 말풍선에 손이 없는데`
+            + ` ${useHole ? '**손이 가리키는 구멍 안**' : '막'}을 눌러도 안 넘어간다 — 갇힌다`);
           return c;
         }
+        // ⚠️ **한 번 눌렀는데 두 칸 넘어가면 안 된다** — 구멍 위의 판에 `onclick` 을
+        // 따로 달면 막의 것과 겹쳐 두 번 불린다 (대사 하나가 통째로 안 읽힌다).
+        // 같은 단계 안에서 건너뛰는 것도, 대사가 남았는데 단계째 넘어가는 것도 본다
+        const jumped = c.step === a.step ? c.beat - a.beat
+          : (a.beats && a.beat + 1 < a.beats ? a.beats - a.beat : 1);
+        if (jumped > 1)
+          bad.push(`${a.id}단계 ${a.beat + 1}번째 대사: 한 번 눌렀는데 ${jumped}칸 넘어갔다`
+            + ` — 넘기는 손잡이가 둘이라 두 번 불린다`);
         if (log && !log.seen.has(a.step)) { log.seen.add(a.step); log.push(a); }
         if (a.name) names.add(a.name);
         continue;
@@ -619,6 +653,10 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   console.log(`  지시문↔대상 ${actChecked.steps}단계 × ${[...actChecked.langs].join('·') || '없음'}`);
   console.log(`  가리키는 단계 ${pointSeen}줄 — 대사마다 제 것을 가리킨다`);
   console.log(`  손 ${handSeen.beats}번 잼 (${handSeen.steps.size}단계 · 구멍 위 ${handSeen.hole} · 말풍선 ${handSeen.bubble})`);
+  console.log(`  넘기는 길 — 막의 칠 ${skimSeen.mask}번 · 손이 가리키는 구멍 안 ${skimSeen.hole}번`);
+  // **양쪽을 다 눌러 봤는지 본다** — 한쪽이 0이면 그 길은 아예 안 재 본 것이다
+  if (!skimSeen.mask) bad.push('막의 칠해진 자리를 한 번도 안 눌러 봤다');
+  if (!skimSeen.hole) bad.push('손이 가리키는 구멍 «안»을 한 번도 안 눌러 봤다');
   if (!bad.length) { console.log('✅ 튜토리얼을 끝까지 통과함'); process.exit(0); }
   console.log(`❌ ${bad.length}건`);
   bad.forEach(m => console.log('   ' + m));
