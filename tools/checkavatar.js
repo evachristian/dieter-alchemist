@@ -2592,15 +2592,24 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   //
   // ⚠️ 어깨를 지나 계속 내려가는 실루엣만 본다 — 단발·양갈래는 그 높이에서
   // 가닥이 이미 끝나 목 옆에 아무것도 없다.
+  //
+  // ⚠️ **맨몸에서 잰다.** 오래 `DEFAULT_OUTFIT`(공주 드레스) 그대로 재고 있었는데,
+  // 옷을 입으면 **목 양옆의 받침(`neckGusset`)이 옷 색**이라 「머리색이 아닌 칠」을
+  // 따라 걷는 순간 목·받침·어깨가 **한 덩어리**가 된다 (반폭 18~35px). 그러면
+  // 아래의 「목만 할 때(15px 이내)만 본다」에 다 걸려 **열다섯 줄이 전부 건너뛰어졌고**,
+  // 여섯 머리가 모두 「없음」으로 나온 채 **한 번도 안 재고 통과**했다.
+  // 맨몸이면 받침이 목에 붙어(`NECK_HUG`) 덩어리가 10~14px 이라 제대로 잰다 —
+  // 그리고 **사람이 이 현상을 보는 조건도 맨몸이다** (「목과 몸」과 같은 이유다).
   const chinHair = await page.evaluate(async (min) => {
     const D = window.GameData, bad = [], rows = [];
     const LONG = ['long','bob','twin','ponytail','wave','bun'];
+    const BARE = { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', shoes: 'shoes_none' };
     const cv = document.createElement('canvas'); cv.width = 244; cv.height = 384;
     const ctx = cv.getContext('2d');
-    let worst = 99, worstAt = '';
+    let worst = 99, worstAt = '', seen = 0;
     for (const it of D.WARDROBE.hair) {
       if (LONG.indexOf(it.back || it.kind) < 0 || it.bang !== 'straight') continue;
-      const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, { hair: it.id }), 0);
+      const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, BARE, { hair: it.id }), 0);
       await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
         img.onload = () => { const vb = window.Avatar.bodyMetrics(0).vb;
           ctx.clearRect(0, 0, 244, 384); ctx.drawImage(img, vb.x, vb.y, vb.w, vb.h); ok(); };
@@ -2617,14 +2626,33 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
       //      걸렸다 — 볼에서 머리가 얼굴에 닿는 것도, 어깨에서 옷이 머리에 닿는 것도
       //      «맞는» 모양이다.
       // 지금은 **가운데에서 «머리색이 아닌 칠»만 따라 걸어** 목의 옆선을 찾고,
-      // 그 덩어리가 목만 할 때(반폭 15px 이내)만 본다. 얼굴·어깨는 저절로 빠진다.
-      let near = 99, ny = 0, stuck = 0;
-      for (let y = 96; y <= 110; y++) {
+      // 그 덩어리가 **목일 때만** 본다. 얼굴·어깨는 저절로 빠진다.
+      //
+      // ⚠️ **«목»의 경계를 px 상수로 박지 않는다** (예전에는 반폭 15px 이었다).
+      // 턱 밑은 목에서 어깨로 **퍼져 나가는** 구간이라, 상수를 넉넉히 잡으면
+      // 어깨로 이미 퍼진 줄까지 「목」으로 세게 된다 — 거기서는 어깨가 머리카락에
+      // «닿는 것이 맞는데»(다음 줄에서 실제로 닿는다) 틈이 좁다고 잡혔다
+      // (반폭 10 → 14 로 퍼지는 동안 틈이 6 → 3px 로 줄어든다).
+      // 창 안에서 **제일 가는 줄**이 곧 목이므로, 거기서 `NECK_SPREAD` 안에
+      // 드는 줄만 본다 — 그림에서 바로 뽑으니 몸이 바뀌어도 따라온다.
+      const NECK_SPREAD = 2;
+      const half = [];
+      for (let y = 94; y <= 110; y++) {
         const d = ctx.getImageData(0, y, 244, 1).data;
-        if (d[100 * 4 + 3] <= 200 || isHair(d, 100 * 4)) continue;
+        if (d[100 * 4 + 3] <= 200 || isHair(d, 100 * 4)) { half.push(null); continue; }
         let xs = 100;
         while (xs > 0 && d[(xs - 1) * 4 + 3] > 200 && !isHair(d, (xs - 1) * 4)) xs--;
-        if (100 - xs > 15) continue;                 // 얼굴이나 어깨다 (목이 아니다)
+        half.push(100 - xs);
+      }
+      const thin = half.filter(v => v != null);
+      const neckMax = (thin.length ? Math.min.apply(null, thin) : 0) + NECK_SPREAD;
+      let near = 99, ny = 0, stuck = 0, rowsSeen = 0;
+      for (let y = 94; y <= 110; y++) {
+        const h = half[y - 94];
+        if (h == null || h > neckMax) continue;      // 얼굴이거나, 이미 어깨로 퍼진 줄이다
+        const d = ctx.getImageData(0, y, 244, 1).data;
+        const xs = 100 - h;
+        rowsSeen++;                                  // **여기까지 온 줄만 «잰» 것이다**
         if (d[(xs - 1) * 4 + 3] > 200) { stuck++; if (!ny) ny = y; continue; }
         let gap = 0, x = xs - 1;
         while (x > 0 && d[x * 4 + 3] <= 200) { gap++; x--; }
@@ -2636,12 +2664,22 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
         worst = 0; worstAt = `${it.back}/${it.bang} y≈${ny} (붙음)`;
         continue;
       }
-      rows.push(`${it.back} ${near === 99 ? '없음' : near + 'px'}`);
+      seen += rowsSeen;
+      rows.push(`${it.back} ${near === 99 ? '없음' : near + 'px'}(${rowsSeen}줄)`);
+      // ⚠️ **한 줄도 못 잰 머리는 「통과」가 아니라 「안 쟀다」이다.** 이 한 줄이 없어서
+      // 여섯이 전부 「없음」인 채로 오래 통과했다 (옷 때문에 목을 못 찾고 있었다)
+      if (!rowsSeen) { bad.push(`${it.back}/${it.bang}: 목을 한 줄도 못 찾았다 — 아무것도 안 쟀다`); continue; }
+      // 「없음」 자체는 잘못이 아니다 — 올림머리·포니테일은 머리를 뒤로 넘겨서
+      // 목 옆에 가닥이 «원래» 없다. 잘못은 위의 「한 줄도 못 찾았다」 쪽이다
+      if (near === 99) continue;
       if (near < worst) { worst = near; worstAt = `${it.back}/${it.bang} y≈${ny}`; }
       if (near < min) bad.push(`${it.back}/${it.bang}: 턱 밑(y≈${ny})에서 머리카락이 목에서 ${near}px 밖에`
         + ` 안 떨어져 있다 (${min}px 이상) — 턱과 목 사이에 머리가 낀 것처럼 보인다`);
     }
+    // **몇 줄을 쟀는지도 낸다** — 0건이 「통과」가 아니라 「한 번도 안 쟀다」일 수 있다
+    rows.push(`잰 줄 ${seen}`);
     rows.push(worst === 99 ? '목 옆에 머리카락이 아예 없다' : `가장 가까운 곳 ${worst}px (${worstAt})`);
+    if (seen < 30) bad.push(`잰 줄이 ${seen}개뿐이다 (머리 여섯 × 목이 보이는 줄)`);
     return { bad, rows };
   }, CHIN_HAIR_MIN);
 
