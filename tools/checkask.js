@@ -45,6 +45,13 @@ function ok(cond, msg, extra) {
         JSON.stringify({ ver: 8, name: '테스트', nameClaimed: true, tutorialDone: true }));
   });
   await page.goto('file://' + path.join(ROOT, 'index.html'), { waitUntil: 'load' });
+  // ⚠️ **부팅을 «기다려서» 본다** — 고정 시간만 두면 느린 날 `S` 가 아직 없어
+  // 바로 아래 `page.evaluate` 가 `ReferenceError` 로 통째로 터진다.
+  // `S` 는 최상위 `let` 이라 `window.S` 로는 안 보인다 — **이름으로 찾는다**
+  // (아래 새로고침 자리와 같은 규칙이다)
+  await page.waitForFunction(
+    () => typeof S !== 'undefined' && typeof render === 'function',
+    null, { timeout: 20000 });
   await page.waitForTimeout(2200);
   await page.evaluate(() => {
     const s = document.getElementById('splash'); if (s) s.classList.add('done');
@@ -263,19 +270,41 @@ function ok(cond, msg, extra) {
   // (kw 1 · talked 0)로 읽었다 — 게임이 아니라 검사기가 거짓으로 빨개지는 자리다.
   // `.catch` 를 붙여 **진짜로 안 살아났을 때는 기다리다 죽지 말고** 아래에서
   // 제대로 실패하게 둔다 (그래야 무엇이 몇 개인지가 결과에 찍힌다)
-  await page.waitForFunction(
-    () => window.S && Array.isArray(S.villages) && S.villages.length > 0,
-    { timeout: 10000 }).catch(() => {});
-  st = await page.evaluate(() => ({ kw: S.keywords.length, vl: S.villages.slice(),
-    tk: S.talked.length, sl: S.keywords.includes('kw_seal') }));
+  //
+  // ⚠️ **`window.S` 로 기다리면 안 된다 — 영영 안 온다.** `game.js` 의 `S` 는 최상위
+  // `let` 이라 **`window` 에 안 붙는다** (`escHtml` 에서 배운 것과 같고, `checksave.js`
+  // 에도 같은 주석이 있다). 그렇게 써 놓고 「막아 뒀다」고 적어 두었더니 이 기다림은
+  // **10초를 그냥 흘려보내는 죽은 코드**였고, 그 10초가 넉넉한 날만 통과했다 —
+  // 「네 번에 한 번쯤 거짓으로 빨개진다」로 신고받은 자리다. **전역은 «이름»으로 찾는다.**
+  //
+  // ⚠️ **볼 값 «그대로» 기다린다.** 옛 조건(`S.villages.length > 0`)은 부팅 도중
+  // 잠깐 서 있는 «덜 찬 상태»도 통과시켜, 막았다 해도 같은 순간을 읽을 수 있었다
+  const revived = await page.waitForFunction(
+    () => typeof S !== 'undefined'
+       && (S.villages || []).length >= 8 && (S.talked || []).length >= 40,
+    null, { timeout: 15000 }).then(() => true).catch(() => false);
+  // 실패했을 때 **게임이 잃은 것인지 검사기가 일찍 읽은 것인지**를 가르려고
+  // 그 순간의 localStorage 도 같이 낸다 (「무엇이 몇 개인지가 결과에 찍힌다」)
+  st = await page.evaluate(() => {
+    const has = typeof S !== 'undefined';
+    let ls;
+    try {
+      const p = JSON.parse(localStorage.getItem('dieter_alchemist_save_v1') || 'null');
+      ls = p ? `ver ${p.ver} · 마을 ${(p.villages || []).length} · 물어본 것 ${(p.talked || []).length}`
+             : '세이브 없음';
+    } catch (e) { ls = '세이브가 깨졌다'; }
+    return { has, ls, kw: has ? S.keywords.length : -1, vl: has ? S.villages.slice() : [],
+      tk: has ? S.talked.length : -1, sl: has && S.keywords.includes('kw_seal') };
+  });
+  const why = revived ? '' : ` · 15초를 기다려도 안 살아났다 (S ${st.has ? '있음' : '없음'} · localStorage ${st.ls})`;
   // 다섯 → 일곱(2막) → **여덟**(3막). 「유리관」 하나가 문을 둘 열고
   // (실반은 «어디», 오릭스는 «누가»), 「불로장생」을 슈타르크에게 가져가면 첨탑이 열린다 —
   // 그는 원래 그녀가 고용한 암살자라 성 안을 아는 유일한 사람이다
-  ok(st.vl.length === 8, '연 마을 여덟이 세이브에 남는다', st.vl.join(','));
+  ok(st.vl.length === 8, '연 마을 여덟이 세이브에 남는다', st.vl.join(',') + why);
   // 열넷 중 열셋 — **못 얻는 것은 「엄마의 봉인」 하나뿐**이고, 그것이 맞는 상태다.
   // 카이로스·발렌의 호감도가 있어야 나오는데 여기서 올린 것은 오릭스 하나다.
   // 「불로장생」은 오릭스의 유리관 대답이, 「진짜 나」는 첨탑에서 여왕이 바로 준다
-  ok(st.kw === 13 && st.tk === 40, '키워드 13 · 물어본 것 40 이 남는다', `kw ${st.kw} · talked ${st.tk}`);
+  ok(st.kw === 13 && st.tk === 40, '키워드 13 · 물어본 것 40 이 남는다', `kw ${st.kw} · talked ${st.tk}${why}`);
   ok(!st.sl, '호감도를 안 올린 사람의 말은 아직 안 들었다 (봉인)');
 
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));
