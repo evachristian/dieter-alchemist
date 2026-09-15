@@ -1709,7 +1709,7 @@
   // ⚠️ **목을 덮지 않는다.** 목은 이보다 먼저 그려지므로 `fill-rule="evenodd"` 로
   // 가운데(목 기둥)를 도로 파낸다. 안 파면 목이 통째로 옷 색이 되어 «폴라»가 된다.
   //   neck.top = 턱(몸통 좌표계) · neck.half = 목 반폭 · neck.tip = 어깨 끝(절대 좌표)
-  function neckGusset(color, neck) {
+  function neckGusset(color, neck, neckKind) {
     const half = Math.max(0, Number(neck.half) || 0);
     const rx = Number(neck.faceRx) || 0, ry = Number(neck.faceRy) || 0;
     const chin = neck.top + 2;                 // `neck.top` 은 2px 겹치라고 올려 둔 값이다
@@ -1777,12 +1777,47 @@
     // 안 바뀌고, x 는 세 점의 볼록껍질 안이라 **어깨 끝(`sx`)을 넘을 수가 없다**
     const cx = xc + (sx - xc) * GUSSET_FLOW;
     const f = n => (+n).toFixed(2);
+    // ── 턱 밑은 **살**이 덮는다 — 옷깃은 «목 밑동»에서 시작한다 (`COLLAR_K`).
+    //
+    // ⚠️ 이 조각의 폭(`xc` = 턱선의 현)은 **줄일 수가 없다** — 목과 머리카락 사이를
+    // 끝까지 메워야 그 사이에 «갇힌» 배경이 안 남는다 (`checkavatar` 의 「턱 밑 빈
+    // 자리」가 4~10px 로 잡는다). 그래서 좁히는 대신 **위쪽을 살색으로 덮는다**:
+    // 덮는 자리는 그대로고 «보이는 옷의 위 끝»만 목 밑동으로 내려온다.
+    // 옆변이 목으로 모여서 옷의 위 끝이 «목에서 낮고 어깨로 갈수록 높은» 곡선이 된다
+    // — 그것이 곧 네크라인이다. 안 모으면 턱 밑이 넓은 살 사다리꼴이 되어
+    // 「목이 굵다」가 된다 (그려 보고 골랐다).
+    // ⚠️ **맨몸에는 안 붙인다** — 이미 통째로 살색이라 아무것도 안 바뀌고,
+    // 그 판정은 `color === SKIN` 하나다 (위 `xc` 와 같은 줄을 본다)
+    const neckHole = `M${f(100 - half)},${f(cy)} H${f(100 + half)} V${f(sy)} H${f(100 - half)} Z`;
+    // ⚠️ **깃이 높은 옷에는 안 붙인다** (터틀넥·폴로). 그 옷들은 옷깃이 «목까지
+    // 올라오는 것»이 맞는 모양이라, 덮어 버리면 목에 살색 기둥이 선다
+    // (`checkavatar` 가 `top_turtle` 에서 「몸통 살색 108px」로 잡았다).
+    // 판정은 **`NECK_CUT` 표 하나**를 그대로 본다 — 「안 판다」(`pad == null`)가 곧
+    // 「목까지 올라온다」이다. 목록을 따로 적으면 옷을 늘릴 때 한쪽만 고치게 된다
+    const nc = NECK_CUT[neckKind];
+    const lowNeck = !nc || nc.pad != null;
+    let skinCap = '';
+    if (color !== SKIN && lowNeck) {
+      const hug = Math.min(xc, half * NECK_HUG);
+      // 살이 내려오는 끝 — **옷의 제 어깨선**(`CLOTH_TOP_Y`)이다. 그보다 내려가면
+      // 옷 위에 살이 얹혀 커버리지 검사가 「몸통 살색 68~78px」로 잡는다
+      // (`sy` 까지 내려 봤다가 212건이 났다). 턱선보다 위로는 안 올라간다
+      const cyl = Math.max(cut + 1, CLOTH_TOP_Y);
+      // ⚠️ **가운데(목)를 파내지 않는다.** 본 조각과 달리 여기는 파면 목의 옆선이
+      // «날카로운 세로 모서리»로 드러나 턱 밑에 막대가 선 것처럼 보인다 —
+      // 파낸 판과 안 파낸 판을 나란히 그려 보고 골랐다. 어차피 같은 살색이라
+      // 덮어도 실루엣은 안 바뀌고, 목의 가운데 그림자는 옷깃 아래에서 이어진다
+      skinCap = `<path fill="${SKIN}" d="M${f(100 - xc)},${f(cut)}`
+        + ` A${f(rx)},${f(ry)} 0 0 0 ${f(100 + xc)},${f(cut)}`
+        + ` Q${f(100 + xc)},${f(cyl)} ${f(100 + hug)},${f(cyl)}`
+        + ` H${f(100 - hug)} Q${f(100 - xc)},${f(cyl)} ${f(100 - xc)},${f(cut)} Z"/>`;
+    }
     // 가운데(목 기둥)는 evenodd 로 도로 파낸다 — 안 파면 폴라가 된다
     return `<path fill-rule="evenodd" fill="${color}" d="`
       + `M${f(100 - xc)},${f(cut)} A${f(rx)},${f(ry)} 0 0 0 ${f(100 + xc)},${f(cut)}`
       + ` Q${f(100 + cx)},${f(sy)} ${f(100 + sx)},${f(sy)}`
       + ` H${f(100 - sx)} Q${f(100 - cx)},${f(sy)} ${f(100 - xc)},${f(cut)} Z`
-      + `M${f(100 - half)},${f(cy)} H${f(100 + half)} V${f(sy)} H${f(100 - half)} Z"/>`;
+      + neckHole + `"/>` + skinCap;
   }
   // 옷깃이 어깨로 흘러내려 옷 안으로 들어가는 깊이 — 몸통 윗선보다 이만큼 아래에서 만난다
   const GUSSET_DROP = 10;
@@ -3543,6 +3578,10 @@
     // (`crouchBack` 의 `cloth` 와 같은 규칙이다)
     const clothColor = (hasDress && dress.color)
       || (!isNone(top) && top.color) || SKIN;
+    // 그 옷의 **넥라인 종류** — 옷깃을 목 밑동까지 내릴지(`COLLAR_K`) 가른다.
+    // 색과 **같은 옷에서** 뽑는다: 둘이 다른 옷을 보면 터틀넥 색에 라운드넥 깃이 선다
+    const clothNeck = (hasDress && dress.neck)
+      || (!isNone(top) && top.neck) || null;
 
     const hairItem = getItem('hair', outfit.hair);
     // 머리색 — 다른 칸과 같은 규칙이다. 염색한 색이 있으면 그것, 없으면 헤어의 원래 색.
@@ -3579,7 +3618,7 @@
       // 턱 밑 · 목 양옆의 빈 자리를 «입은 옷» 색으로 메운다 (위 `neckGusset`).
       // 옷보다 뒤에 두면 소매·어깨가 이것을 덮어 버리고, 얼굴보다 앞에 두면
       // 턱 위에 색 덩어리가 얹힌다 — 이 자리가 유일하게 맞는 자리다
-      B(neckGusset(clothColor, neck)),
+      B(neckGusset(clothColor, neck, clothNeck)),
       // 허리 아래의 팔은 **치마보다 앞**이다 — 안 그러면 퍼진 치마가 팔뚝과 손을
       // 통째로 덮어, 소매 끝 언저리에 살색 조각만 남는다 (armsOverSkirt 참고)
       B(armsOverSkirt(tune, hasDress ? dress : top)),

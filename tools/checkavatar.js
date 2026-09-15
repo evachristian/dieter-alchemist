@@ -1973,6 +1973,9 @@ function launchOpts() {
     for (const f of [0.5, 0.75, 1, 1.15, 1.3, 1.5]) {
       const tune = {}; window.Avatar.TUNE_KEYS.forEach(k => { tune[k] = 1; });
       tune.face = f;
+      // ⚠️ **옷을 입혀서 잰다.** 맨몸으로 바꿔 봤더니 **몸통도 살색**이라, 얼굴을
+      // 줄이면 «가슴»이 얼굴보다 넓어져 그쪽을 얼굴로 잡았다 (50·75% 가 통째로
+      // 건너뛰어졌다). 옷이 몸통을 덮어야 어깨선 위의 살이 «머리와 목»뿐이다
       const svg = window.Avatar.build(
         { top: 'top_tee', bottom: 'bottom_skirt', dress: 'dress_none', hair: 'hair_bob' }, 0, tune);
       const img = new Image();
@@ -1993,33 +1996,54 @@ function launchOpts() {
         && tw(c[0], SK[0], SH[0]) && tw(c[1], SK[1], SH[1]) && tw(c[2], SK[2], SH[2]);
       // ── 재는 자리는 **턱 바로 아래** 한 줄이다
       //
-      // ⚠️ 예전에는 「옷이 처음 보이는 줄」의 한 줄 위에서 쟀는데, 그 줄이 얼굴 배율마다
-      // 105.5 · 126.5 · 153.5 로 널뛰었다 — 머리가 커지면 어깨를 통째로 덮어 옷이
-      // 한참 아래에서야 나오기 때문이다. 지금은 턱을 **그림에서 찾는다**: 턱 밑의 빈
-      // 자리를 메우는 조각(`avatar.js` 의 `neckGusset`)이 턱보다 `GUSSET_RISE` 만큼
-      // 위에서 시작하므로, 그 맨 윗줄에 그만큼 더하면 턱이다.
-      // ⚠️ **머리가 아주 크면 턱이 어깨선 밑으로 내려가 목이 한 줄도 안 보인다** —
-      // 그때는 잴 것이 없으므로 «건너뛴 수»로 알린다 (0건을 통과로 착각하지 않게)
-      let gTop = null;
-      for (let yy = 60; yy <= 240 && gTop == null; yy += 0.5) {
-        const y = Math.round(yy * K); if (y >= CH) break;
-        for (let x = 100 * K; x < 170 * K; x++) if (nr(at(x, y), CL)) { gTop = yy; break; }
-      }
-      if (gTop == null) { bad.push(`얼굴${Math.round(f * 100)}: 옷을 못 찾았다`); continue; }
-      // ⚠️ 받침의 높이는 이제 **얼굴을 따라간다**(`GUSSET_RISE_K`) — 5px 을 그대로
-      // 더하면 작은 얼굴에서 턱보다 한참 아래를 잰다. 배율만큼 곱해 준다
-      const yNeck = gTop + window.Avatar.GUSSET_RISE * f + 2;   // 턱선 바로 아래 (안티앨리어싱 몫 1px)
-      if (yNeck > window.Avatar.CLOTH_TOP_Y - 1) { skipped.push(Math.round(f * 100)); continue; }
-      let hair = 0, neck = null;
-      for (let yy = 0; yy < yNeck; yy += 0.5) {
+      // ── 목을 찾는 법 — **「목과 몸」과 같은 방법이다** (턱을 어림하지 않는다)
+      //
+      // ⚠️ 예전에는 「옷이 처음 보이는 줄」에서 턱을 되짚었다. 그 줄이 얼굴 배율마다
+      // 널뛰어서 한 번 고쳤고(105.5 · 126.5 · 153.5), 그 뒤로는 「받침이 턱보다
+      // `GUSSET_RISE` 위에서 시작한다」로 되짚었는데 **목깃을 없애면서 그 전제가
+      // 깨졌다** — 옷의 맨 윗줄이 이제 턱이 아니라 «옷의 제 어깨선»이다. 되짚은
+      // 자리가 살받침 한가운데로 내려가 **목 대신 받침을 쟀고**(목 6.25 → 15.50),
+      // 배율마다 고르게 틀려서 **통과로 찍혔다** — 0건이 통과가 아니던 자리다.
+      //
+      // 그림에서 턱을 되짚는 잣대는 **모양을 바꾸면 반드시 또 깨진다.** 그래서
+      // 되짚기를 버리고 「목과 몸」이 쓰는 것을 그대로 쓴다: 턱 밑에서 **제일 좁은
+      // 줄**이 곧 목이다. 세 줄의 가운뎃값으로 훑어 안티에일리어싱 한 줄을 거른다
+      const skHalf = (yy) => {
+        const y = Math.round(yy * K); if (y >= CH) return null;
+        let m = null;
+        for (let x = 100 * K; x < 200 * K; x++) if (isSk(at(x, y))) m = Math.max(m == null ? 0 : m, x / K - 100);
+        return m;
+      };
+      // 얼굴 반폭이 제일 넓은 줄 = 볼 높이. 목은 그 아래에서 찾는다
+      // 머리 반폭 — **실루엣**(머리카락까지)의 제일 넓은 곳. 어깨선 위만 보므로
+      // 옷·몸통이 안 걸린다 (옷이 y108 부터라 그 위는 머리와 목뿐이다)
+      let faceY = 0, faceW = 0, hair = 0;
+      for (let yy = 0; yy <= window.Avatar.CLOTH_TOP_Y - 1; yy += 0.5) {
         const y = Math.round(yy * K); if (y >= CH) break;
         let s = null;
         for (let x = 100 * K; x < 200 * K; x++) if (at(x, y)[3] > 250) s = x / K - 100;
-        if (s != null) hair = Math.max(hair, s);
+        if (s != null && s > hair) hair = s;
+        const h = skHalf(yy);
+        if (h != null && h > faceW) { faceW = h; faceY = yy; }
       }
-      const y = Math.round(yNeck * K);
-      for (let x = 100 * K; x < 200 * K; x++) { if (!isSk(at(x, y))) break; neck = x / K - 100; }
-      if (!hair || neck == null) { bad.push(`얼굴${Math.round(f * 100)}: 목·머리를 못 쟀다`); continue; }
+      if (!hair || !faceW) { bad.push(`얼굴${Math.round(f * 100)}: 머리·얼굴을 못 찾았다`); continue; }
+      // ⚠️ **아래 끝은 어깨선(`CLOTH_TOP_Y`)이다.** 여기서는 «얼굴만» 움직이므로
+      // 몸은 제자리에 있고, 그 밑은 목이 아니라 어깨다 — 안 막으면 어깨 반폭(≈36)을
+      // 목이라고 내놓는다 (「목과 몸」은 여섯이 같이 움직여서 이 문제가 없다).
+      // ⚠️ 목깃을 없앤 뒤로 제일 좁은 줄은 목 자체가 아니라 **목을 감싼 살받침**
+      // (`NECK_HUG` · 목의 1.15배)이다. 배율에 그대로 비례하므로 「따라 주는가」는
+      // 그대로 잴 수 있고, 견주는 것도 제 100% 라 상수배는 상쇄된다
+      let neck = null;
+      for (let yy = faceY + 1; yy <= window.Avatar.CLOTH_TOP_Y - 1; yy += 0.5) {
+        const a = skHalf(yy - 0.5), c = skHalf(yy), e = skHalf(yy + 0.5);
+        if (a == null || c == null || e == null) continue;
+        const m = [a, c, e].sort((x, y) => x - y)[1];
+        if (neck == null || m < neck) neck = m;
+      }
+      // ⚠️ **얼굴이 너무 크면 턱이 어깨선 밑으로 내려가 목이 한 줄도 안 보인다** —
+      // 그때 제일 좁은 줄은 목이 아니라 «턱»이다. 목은 얼굴의 1/4쯤이므로 절반이
+      // 넘으면 못 잰 것으로 치고 «건너뛴 수»로 알린다 (0건을 통과로 착각하지 않게)
+      if (neck == null || neck > faceW * 0.45) { skipped.push(Math.round(f * 100)); continue; }
       out.push({ f: f, hair: hair, neck: neck, r: neck / hair });
     }
     if (skipped.length) rows.push(`목이 안 보여 건너뜀 ${skipped.join('·')}%`);
