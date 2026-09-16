@@ -653,30 +653,45 @@ function launchOpts() {
           if (qBad) results.push({ 화면: `${t}/퀘스트칩`, 오류: qBad });
           else { await page.waitForTimeout(200); await run(`${t}/퀘스트칩`); }
 
-          // **퀘스트가 있으면 점(●)은 늘 붙어 있는다** — 「할 일이 남아 있다」는 뜻이다.
+          // **퀘스트가 있으면 오른쪽 위 표시는 늘 붙어 있는다** — 「할 일이 남아 있다」.
           // ⚠️ 예전에는 「아직 안 열어 본 것」에만 찍었는데, 한 번 열면 꺼져서
           // 하던 퀘스트가 있다는 것 자체가 안 보였다 (신고받아 규칙을 바꾼 자리다).
-          // ⚠️ 다 찬 것에는 「!」 뱃지가 «대신» 붙는다 — **둘이 같이 뜨면 안 된다**
+          // ⚠️ **표시는 둘이고 뜻이 다르다 — 절대 같이 뜨면 안 된다:**
+          //   · 아직 못 냄 → **정적인 「!」**  · 다 참 → **숨 쉬는 붉은 점**
+          // 한때 이 둘이 «반대»였다 (뛰는 점이 「아직 못 냈다」를 가리켜 재촉으로 읽혔다).
+          // ⚠️ **어느 쪽이 «뛰는지»까지 본다** — 종류만 세면 둘을 맞바꿔 놓아도 통과한다
           const qdBad = await page.evaluate(() => {
             const q = activeQuest();
             if (!q) return '퀘스트가 없다';
-            const dot = () => !!document.querySelector('#questChip .qc-dot');
-            const bang = () => !!document.querySelector('#questChip .qc-badge');
+            const dot = () => document.querySelector('#questChip .qc-dot');
+            const bang = () => document.querySelector('#questChip .qc-badge');
+            const anim = (el) => el && getComputedStyle(el).animationName !== 'none';
             const keep = (S.seenCuts || []).slice();
             S.seenCuts = keep.filter(c => c !== (q.cut && q.cut.in));
             S.quest.n = 0; renderQuestChip();
-            if (!dot()) return '안 열어 본 퀘스트인데 점이 없다';
+            if (!bang()) return '아직 못 낸 퀘스트인데 「!」 가 없다';
+            if (dot()) return '아직 못 냈는데 점이 뜬다 — 그건 「받아 가라」는 자리다';
+            if (anim(bang())) return '아직 못 낸 「!」 가 움직인다 — 그건 재촉이다';
             // **열어 본 뒤에도 그대로 있는다** (예전에는 여기서 꺼졌다)
             S.seenCuts = keep.concat(q.cut && q.cut.in ? [q.cut.in] : []);
             renderQuestChip();
-            if (!dot()) return '열어 봤다고 점이 꺼졌다 — 하는 퀘스트가 있는 동안은 켜져 있어야 한다';
-            // 다 차면 「!」 만 뜨고 점은 안 뜬다
+            if (!bang()) return '열어 봤다고 「!」 가 꺼졌다 — 하는 퀘스트가 있는 동안은 켜져 있어야 한다';
+            // 다 차면 **점만** 뜨고 「!」 는 안 뜬다 — 그리고 그 점은 «뛴다»
             S.quest.n = q.goal.n; renderQuestChip();
-            if (!bang()) return '다 찼는데 「!」 가 없다';
-            if (dot()) return '다 찼는데 점과 「!」 가 같이 뜬다';
-            // **퀘스트가 없으면 칩째로 없다** — 점만 남으면 거짓말이 된다
+            if (!dot()) return '다 찼는데 점이 없다';
+            if (bang()) return '다 찼는데 점과 「!」 가 같이 뜬다';
+            if (!anim(dot())) return '다 찬 점이 안 움직인다 — 받아 갈 것이 있는 자리는 눈을 끌어야 한다';
+            // **퀘스트가 없으면 칩째로 없다** — 표시만 남으면 거짓말이 된다.
+            // ⚠️ **«마크업이 있는가»로 재면 안 된다.** `renderQuestChip` 은 퀘스트가
+            // 없으면 `hidden` 만 걸고 «그대로 돌아간다» — 앞 단계의 표시가 DOM 에
+            // 남아 있다. 그래서 옛 검사는 「점이 있나」만 보고, 앞 단계가 남긴 것이
+            // 마침 「!」 라서 **늘 통과했다** (스스로 맞는 검사였다).
+            // 볼 것은 「눈에 보이는가」다 — 칩이 `hidden` 이면 안에 무엇이 남았든 안 보인다
             const back = S.quest.active; S.quest.active = null; renderQuestChip();
-            if (dot()) return '퀘스트가 없는데 점이 남아 있다';
+            if (!document.getElementById('questChip').hidden) return '퀘스트가 없는데 칩이 남아 있다';
+            if ([dot(), bang()].some(e => e && e.offsetParent !== null)) {
+              return '퀘스트가 없는데 표시가 눈에 보인다';
+            }
             // ⚠️ **내보낸 퀘스트는 «칩까지» 나와야 한다.** 예전에는 부르는 쪽이 따로
             // `renderQuestChip()` 을 붙였는데, 켤 때는 `render()` 가 먼저 지나가서
             // **새로고침하면 하던 퀘스트의 칩이 사라졌다** (퀘스트는 멀쩡히 살아 있는데)

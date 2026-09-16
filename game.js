@@ -2050,13 +2050,17 @@ function renderQuestChip() {
   const now = questProgress(q), max = q.goal.n;
   const full = now >= max;
   const fresh = !(S.quest.n || now) && !full;      // 아직 한 걸음도 안 뗀 것
-  // ⚠️ **퀘스트가 있으면 점(●)은 늘 붙어 있는다.**
-  // 예전에는 「아직 한 번도 안 열어 본 것」에만 찍었는데, 한 번 열어 본 뒤에는 점이
-  // 꺼져서 **하던 퀘스트가 있다는 것 자체가 눈에 안 들어왔다** — 칩이 화면 구석의
+  // ⚠️ **퀘스트가 있으면 오른쪽 위에 표시가 «늘» 붙어 있는다.**
+  // 예전에는 「아직 한 번도 안 열어 본 것」에만 찍었는데, 한 번 열어 본 뒤에는 꺼져서
+  // **하던 퀘스트가 있다는 것 자체가 눈에 안 들어왔다** — 칩이 화면 구석의
   // 동그란 얼굴 하나라 더 그렇다. 지금은 「할 일이 남아 있다」는 뜻이다.
-  // 다 찬 것에는 「!」 뱃지가 «대신» 붙는다 — 그건 「가서 받아라」라서 뜻이 다르다.
-  // 둘 다 오른쪽 위 모서리에 앉지만 `!full` 로 갈라서 **동시에 뜨는 일이 없다**
-  const unseen = !full;
+  //
+  // ⚠️ **표시는 둘이고, 뜻이 다르다** — `full` 로 갈라서 **절대 같이 안 뜬다**:
+  //   · 아직 못 냄 → **정적인 「!」**. 「하던 것이 있다」는 알림이라 가만히 있어야 한다
+  //   · 다 참 → **숨 쉬는 붉은 점**. 여기가 «지금 누르면 보상이 나오는» 자리다
+  // 예전에는 이 둘이 «반대»였다 — 늘 뛰는 점이 「아직 못 냈다」를 가리켜 재촉으로
+  // 읽혔고, 정작 받아 갈 것이 생긴 순간에는 조용한 「!」 로 바뀌어 **더 얌전해졌다.**
+  // 움직이는 것은 «누르면 지금 무슨 일이 일어나는» 자리에만 준다
   el.classList.toggle('done', full);
   el.classList.toggle('fresh', fresh);
   // 진행도는 **얼굴 둘레의 링**이다 — 숫자를 안 읽어도 얼마나 남았는지 보인다
@@ -2069,8 +2073,8 @@ function renderQuestChip() {
         stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - now / max)}"/>
     </svg>
     <span class="qc-face">${sp && window.Portrait ? Portrait.bust(sp, 'def', { bare: true }) : '🧚'}</span>
-    ${full ? `<span class="qc-badge">!</span>` : ''}
-    ${unseen ? '<span class="tab-dot qc-dot" aria-hidden="true"></span>' : ''}`;
+    ${full ? '<span class="tab-dot qc-dot" aria-hidden="true"></span>'
+           : '<span class="qc-badge">!</span>'}`;
   el.setAttribute('aria-label', T(q.id + '_name'));
 }
 window.renderQuestChip = renderQuestChip;
