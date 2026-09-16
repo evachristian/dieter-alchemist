@@ -222,16 +222,23 @@
   const pBlush = (o) => `<g fill="#ff9db4" opacity="${o}"><ellipse cx="127" cy="186" rx="8.5" ry="5.2"/>`
                       + `<ellipse cx="173" cy="186" rx="8.5" ry="5.2"/></g>`;
   // 볼의 세로 빗금 — **홍조 «위»에 얹혀야 부끄러움이 된다** (아바타의 `FX.blush` 와 같은 것).
-  // ⚠️ **수치는 아바타에서 «비율로» 옮긴다** — 아바타는 볼 rx 8.25 에 빗금 셋을 4.4 간격으로
-  // 두고, 그 가운데를 볼 중심보다 **4 만큼 바깥**에 둔다 (안쪽 빗금이 볼 한가운데에 선다).
-  // 공주의 볼은 rx 8 이라 0.97배 — 간격 4.3 · 바깥으로 3.9. 그냥 볼 한가운데에 맞추면
-  // 아바타와 다른 얼굴이 된다. `cx` 는 손그림 볼터치(128/172)를 따른다
-  const pBlushLines = (cx) => `<g stroke="#ff8fb0" stroke-width="1" stroke-linecap="round" opacity="0.8">`
-    + [-4.3, 0, 4.3].map(d => {
-        const x = cx + (cx < 150 ? -3.9 : 3.9) + d;
-        return `<path d="M${x},183.6 L${x},188.4"/>`;
-      }).join('')
-    + `</g>`;
+  // ⚠️ **수치를 px 로 박지 않는다 — 볼의 «반지름에 대한 비율»이다.** 홍조가 두 가지
+  // 크기로 그려지기 때문이다: 손그림은 rx 8 · ry 5, 부품 표(`pBlush`)는 rx 8.5 · ry 5.2.
+  // px 로 두면 큰 볼에서만 안쪽으로 몰린다.
+  // ⚠️ **바깥 몫(`OUT`)이 크면 제일 바깥 빗금이 볼 밖으로 나간다.** 아바타는 0.48 인데
+  // 그대로 옮겼더니 컷씬 크기에서 볼 밖의 «흘린 자국»처럼 보였다 (신고받았다) —
+  // 셋이 다 볼 «안»에 들어오는 한계가 0.34 라 그 안쪽인 **0.325** 로 당겼다.
+  // (한계: 빗금 반높이 `H·ry` 가 그 x 에서의 타원 높이보다 작아야 한다)
+  const BL = { OUT: 0.325, GAP: 0.5375, H: 0.48, COLOR: '#ff8fb0' };
+  const pBlushLines = (cx, cy, rx, ry) => {
+    const out = (cx < 150 ? -1 : 1) * rx * BL.OUT, gap = rx * BL.GAP, h = ry * BL.H;
+    return `<g stroke="${BL.COLOR}" stroke-width="1" stroke-linecap="round" opacity="0.8">`
+      + [-gap, 0, gap].map(d => {
+          const x = +(cx + out + d).toFixed(2);
+          return `<path d="M${x},${+(cy - h).toFixed(2)} L${x},${+(cy + h).toFixed(2)}"/>`;
+        }).join('')
+      + `</g>`;
+  };
   // 눈썹 — 안쪽 끝을 올리거나 내려 각을 만든다 (f 는 좌우 반전)
   const pBrow = (kind) => (x, f) => kind === 'up'
     ? `<path d="M${x - 8},${164 - f * 2} q8,-4 16,${f * 3}" stroke="${PZ.INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
@@ -273,7 +280,8 @@
     relief:  { e: 'shut',  m: 'calm',  b: 'droop' },
     sorry:   { e: 'low',   m: 'small', b: 'beg' },
     plead:   { e: 'wide',  m: 'small', b: 'beg' },
-    blush:   { e: 'shut',  m: 'bite',  b: 'beg', blush: 0.6 },
+    // 볼의 세로 빗금 — 아바타의 「부끄러움」(`exp_blush`)도 `fx: 'blush'` 를 갖는다
+    blush:   { e: 'shut',  m: 'bite',  b: 'beg', blush: 0.6, lines: true },
     resolve: { e: 'sharp', m: 'grit',  b: 'flat' },
     awe:     { e: 'star',  m: 'ohh',   blush: 0.35 },
     // 한쪽 눈썹만 올린다 — 「그래서?」 하는 얼굴
@@ -298,7 +306,7 @@
       extra = `<g class="i-blush" fill="#ff9db4" opacity="0.55"><ellipse cx="128" cy="186" rx="8" ry="5"/><ellipse cx="172" cy="186" rx="8" ry="5"/></g>`
         // ⚠️ **빗금도 「수줍음」에만 얹는다** — 아바타의 「수줍음」에 있는 것이고,
         // `soft`(인트로 3·4)에 붙이면 그 장면의 그림이 바뀐다
-        + (mood === 'shy' ? pBlushLines(128) + pBlushLines(172) : '');
+        + (mood === 'shy' ? pBlushLines(128, 186, 8, 5) + pBlushLines(172, 186, 8, 5) : '');
       // 이마(관자놀이)에서 흘러내리는 왕 땀 — 두 방울을 시차를 두고 반복
       if (sweat) over = sweatDrop(178, 158, 0.45, '') + sweatDrop(122, 162, 0.33, 'd2');
     } else if (mood === 'smile') {
@@ -389,8 +397,12 @@
       eyes = pEye[p.e](PZ.L) + pEye[p.e](PZ.R);
       mouth = pMouth[p.m];
       const bL = p.bL || p.b, bR = p.bR || p.b;
+      // ⚠️ **빗금(`lines`)은 아바타에서 `fx: 'blush'` 가 붙은 이름에만 얹는다** —
+      // 지금은 「수줍음」(손그림 쪽)과 「부끄러움」 둘뿐이다. 홍조가 있다고 다 붙이면
+      // 「다정」·「기대」·「박장대소」까지 부끄러워한다
       extra = (bL ? pBrow(bL)(PZ.L, 1) : '') + (bR ? pBrow(bR)(PZ.R, -1) : '')
-            + (p.blush ? pBlush(p.blush) : '');
+            + (p.blush ? pBlush(p.blush) : '')
+            + (p.lines ? pBlushLines(127, 186, 8.5, 5.2) + pBlushLines(173, 186, 8.5, 5.2) : '');
     } else { // scream
       eyes = `<path d="M132,178 L144,172 M132,172 L144,178" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>
               <path d="M156,172 L168,178 M156,178 L168,172" stroke="#4a3a42" stroke-width="2.6" stroke-linecap="round"/>`;
