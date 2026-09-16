@@ -221,6 +221,17 @@
   // 볼 홍조 — 여러 표정이 같이 쓴다
   const pBlush = (o) => `<g fill="#ff9db4" opacity="${o}"><ellipse cx="127" cy="186" rx="8.5" ry="5.2"/>`
                       + `<ellipse cx="173" cy="186" rx="8.5" ry="5.2"/></g>`;
+  // 볼의 세로 빗금 — **홍조 «위»에 얹혀야 부끄러움이 된다** (아바타의 `FX.blush` 와 같은 것).
+  // ⚠️ **수치는 아바타에서 «비율로» 옮긴다** — 아바타는 볼 rx 8.25 에 빗금 셋을 4.4 간격으로
+  // 두고, 그 가운데를 볼 중심보다 **4 만큼 바깥**에 둔다 (안쪽 빗금이 볼 한가운데에 선다).
+  // 공주의 볼은 rx 8 이라 0.97배 — 간격 4.3 · 바깥으로 3.9. 그냥 볼 한가운데에 맞추면
+  // 아바타와 다른 얼굴이 된다. `cx` 는 손그림 볼터치(128/172)를 따른다
+  const pBlushLines = (cx) => `<g stroke="#ff8fb0" stroke-width="1" stroke-linecap="round" opacity="0.8">`
+    + [-4.3, 0, 4.3].map(d => {
+        const x = cx + (cx < 150 ? -3.9 : 3.9) + d;
+        return `<path d="M${x},183.6 L${x},188.4"/>`;
+      }).join('')
+    + `</g>`;
   // 눈썹 — 안쪽 끝을 올리거나 내려 각을 만든다 (f 는 좌우 반전)
   const pBrow = (kind) => (x, f) => kind === 'up'
     ? `<path d="M${x - 8},${164 - f * 2} q8,-4 16,${f * 3}" stroke="${PZ.INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
@@ -284,7 +295,10 @@
               <path d="M156,176 Q162,170 168,176" stroke="#4a3a42" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
       mouth = mood === 'shy' ? pMouth.w
         : `<path d="M144,190 Q150,186 156,190" stroke="#c97b86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
-      extra = `<g class="i-blush" fill="#ff9db4" opacity="0.55"><ellipse cx="128" cy="186" rx="8" ry="5"/><ellipse cx="172" cy="186" rx="8" ry="5"/></g>`;
+      extra = `<g class="i-blush" fill="#ff9db4" opacity="0.55"><ellipse cx="128" cy="186" rx="8" ry="5"/><ellipse cx="172" cy="186" rx="8" ry="5"/></g>`
+        // ⚠️ **빗금도 「수줍음」에만 얹는다** — 아바타의 「수줍음」에 있는 것이고,
+        // `soft`(인트로 3·4)에 붙이면 그 장면의 그림이 바뀐다
+        + (mood === 'shy' ? pBlushLines(128) + pBlushLines(172) : '');
       // 이마(관자놀이)에서 흘러내리는 왕 땀 — 두 방울을 시차를 두고 반복
       if (sweat) over = sweatDrop(178, 158, 0.45, '') + sweatDrop(122, 162, 0.33, 'd2');
     } else if (mood === 'smile') {
