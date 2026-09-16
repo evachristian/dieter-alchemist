@@ -1715,7 +1715,9 @@ const SPEAKERS = [
              laugh:  { art: 'laugh' },
              wink:   { art: 'wink' },
              proud:  { art: 'proud' },
-             soft:   { art: 'shy' },
+             // ⚠️ **둘은 «입만» 다르다** (`intro.js` 의 `princessFace`) — 눈·홍조는 한 벌.
+             // 예전에는 한 그림이라 「수줍음」에도 처진 입이 나와 시무룩해 보였다
+             soft:   { art: 'soft' },
              shy:    { art: 'shy' },
              love:   { art: 'love' },
              shock:  { art: 'ask' },

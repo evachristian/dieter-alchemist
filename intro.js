@@ -202,6 +202,9 @@
     flat:  `<path d="M${PZ.MX - 7},${PZ.MY} L${PZ.MX + 7},${PZ.MY}" stroke="#c97b86" stroke-width="2.4" stroke-linecap="round"/>`,
     frown: `<path d="M${PZ.MX - 8},${PZ.MY + 3} q8,-7 16,0" stroke="#c97b86" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
     small: `<ellipse cx="${PZ.MX}" cy="${PZ.MY}" rx="3.4" ry="3.8" fill="${PZ.LIP}"/>`,
+    // 작은 ω — 수줍게 다문 입. **아바타의 「수줍음」(`exp_shy`)과 «같은 식»이다**
+    // (`avatar.js` 의 `MOUTH.w`) — 같은 이름이 두 얼굴이 되지 않게 수치를 그대로 옮겼다
+    w:     `<path d="M${PZ.MX - 6},${PZ.MY - 1.5} q3,4 6,0 q3,4 6,0" stroke="#c97b86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
     ohh:   `<ellipse cx="${PZ.MX}" cy="${PZ.MY}" rx="4.4" ry="5.6" fill="${PZ.LIP}"/>`,
     smirk: `<path d="M${PZ.MX - 8},${PZ.MY + 1} q9,4 16,-4" stroke="#c97b86" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
     meh:   `<path d="M${PZ.MX - 7},${PZ.MY} q4,-3 7,0 q3,3 7,0" stroke="#c97b86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
@@ -268,10 +271,19 @@
 
   function princessFace(mood, sweat) {
     let eyes, mouth, extra = '', over = '';
-    if (mood === 'shy') {
+    // ⚠️ **「수줍음」(`shy`)과 「부드러움」(`soft`)은 «입만» 다르다.**
+    // 눈(감은 호)·홍조·땀은 한 벌이고, 입이 갈린다:
+    //   · `shy`  → 작은 ω (`pMouth.w`) — **아바타의 「수줍음」(`exp_shy`)이 그 입이다**
+    //   · `soft` → 아래로 처진 한 줄 — 인트로 3·4(민망해하는 장면)가 쓰는 입이다
+    // 예전에는 둘이 «한 그림»이라 컷씬의 「하지만 저는 드릴 수 있는 게 없는데…요…」에
+    // 처진 입이 나와 **시무룩해 보였다** (「수줍음 표정은 이거야」로 이미지를 받았다).
+    // ⚠️ **눈썹을 붙이지 않는다** — 아바타의 「수줍음」에는 눈썹이 안 보인다.
+    // 팔자 눈썹을 달았다가 되돌린 자리다 (`CLAUDE.md` 의 그 항)
+    if (mood === 'shy' || mood === 'soft') {
       eyes = `<path d="M132,176 Q138,170 144,176" stroke="#4a3a42" stroke-width="2.6" fill="none" stroke-linecap="round"/>
               <path d="M156,176 Q162,170 168,176" stroke="#4a3a42" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
-      mouth = `<path d="M144,190 Q150,186 156,190" stroke="#c97b86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+      mouth = mood === 'shy' ? pMouth.w
+        : `<path d="M144,190 Q150,186 156,190" stroke="#c97b86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
       extra = `<g class="i-blush" fill="#ff9db4" opacity="0.55"><ellipse cx="128" cy="186" rx="8" ry="5"/><ellipse cx="172" cy="186" rx="8" ry="5"/></g>`;
       // 이마(관자놀이)에서 흘러내리는 왕 땀 — 두 방울을 시차를 두고 반복
       if (sweat) over = sweatDrop(178, 158, 0.45, '') + sweatDrop(122, 162, 0.33, 'd2');
@@ -829,8 +841,10 @@
     { art: () => bg() + P(princessEating()), sp: 'sp_narrator', key: 'intro_1', sfx: 'chew' },
     { art: () => bg() + P(princessEating()) + F(fairy('idle')) + sparkles(7, 300, 370, 130), sp: 'sp_fairy', key: 'intro_2', sfx: 'sparkle' },
     // 이마에 왕 땀 — "뚝…"
-    { art: () => bg() + P(princessFront('shy', false, true)) + F(fairy('glance')), sp: 'sp_princess', key: 'intro_3', sfx: 'sweat', sfx2: ['sweat', 950] },
-    { art: () => bg() + P(princessFront('shy')) + F(fairy('idle')) + sparkles(6, 300, 380, 120), sp: 'sp_fairy', key: 'intro_4', sfx: 'sparkle' },
+    // ⚠️ **`soft` 다 — 인트로의 이 두 장은 «처진 입»이 맞는 얼굴이다** (민망해하는 장면).
+    // 「수줍음」(`shy`)은 이제 ω 입이라 여기 쓰면 웃는 얼굴이 된다
+    { art: () => bg() + P(princessFront('soft', false, true)) + F(fairy('glance')), sp: 'sp_princess', key: 'intro_3', sfx: 'sweat', sfx2: ['sweat', 950] },
+    { art: () => bg() + P(princessFront('soft')) + F(fairy('idle')) + sparkles(6, 300, 380, 120), sp: 'sp_fairy', key: 'intro_4', sfx: 'sparkle' },
     // "?!" — 놀라는 소리 "허억?"
     { art: () => bg() + P(princessFront('ask', true)) + F(fairy('idle')), sp: 'sp_princess', key: 'intro_5', sfx: 'gasp' },
     { art: () => bg() + P(princessFront('ask')) + F(fairy('cast')) + sparkles(9, 285, 340, 150), sp: 'sp_fairy', key: 'intro_6', sfx: 'magic' },
@@ -1212,7 +1226,7 @@
       // ⚠️ **손으로 그린 열셋 + 부품 표(`PZ_FACE`)의 스물다섯.**
       // 목록을 손으로 적어 두면 부품 표를 늘렸을 때 검사기만 옛 목록으로 돈다 —
       // 그래서 표에서 «직접» 이어 붙인다
-      poses: ['puzzled', 'shy', 'smile', 'ask', 'dizzy',
+      poses: ['puzzled', 'shy', 'soft', 'smile', 'ask', 'dizzy',
               'laugh', 'wink', 'sad', 'cry', 'angry', 'sleepy', 'love', 'proud']
              .concat(Object.keys(PZ_FACE)),
       draw: mood => {
