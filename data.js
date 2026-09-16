@@ -1288,7 +1288,10 @@ const CUTS = [
   // 이름을 대는 줄에서만 그 이름을 강조한다 (`*클레멘*` — `cutLineHtml`)
   // ⚠️ 4번째 줄(「우와! 맛있겠다!」)은 **「감탄」(`awe`)**이다 — 차려 놓은 것을 보고
   // 「우와」 하는 얼굴이라 입이 벌어져야 한다. 「기대」(`star`)는 활짝 웃는 입이라
-  // 아직 안 본 것을 기다리는 얼굴에 가깝다 (둘 다 눈은 반짝인다)
+  // 아직 «안 본» 것을 기다리는 얼굴에 가깝다 (둘 다 눈은 반짝인다).
+  // 기준은 **아바타의 표정 목록**이다 — 「감탄」(`exp_awe`) · 「수줍음」(`exp_shy`).
+  // ⚠️ 5번째 줄의 「수줍음」에 **눈썹을 붙이지 않는다** — 아바타의 「수줍음」이
+  // 감은 눈 · 작은 입 · 홍조 «뿐»이라서다. 팔자 눈썹을 달았다가 되돌렸다
   { id: 'c_clemen_meet', act: 1, lines: [['sp_gwiriel', 'def'], ['sp_clemen', 'smile'],
                                          ['sp_clemen', 'warm'], ['sp_gwiriel', 'awe'],
                                          ['sp_gwiriel', 'shy'], ['sp_clemen', 'warm']] },
@@ -1712,9 +1715,7 @@ const SPEAKERS = [
              laugh:  { art: 'laugh' },
              wink:   { art: 'wink' },
              proud:  { art: 'proud' },
-             // ⚠️ **둘이 한 그림을 나눠 쓰고 있었다** — 그래서 「수줍음」에 눈썹이
-             // 없었다 (`intro.js` 의 `PZ_FACE.shy` 항). 지금은 이름마다 그림 하나다
-             soft:   { art: 'soft' },
+             soft:   { art: 'shy' },
              shy:    { art: 'shy' },
              love:   { art: 'love' },
              shock:  { art: 'ask' },

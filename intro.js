@@ -223,15 +223,8 @@
     ? `<path d="M${x - 8},${164 - f * 2} q8,-4 16,${f * 3}" stroke="${PZ.INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
     : kind === 'angry'
     ? `<path d="M${x - 8},${160 + f * 4} L${x + 8},${166 - f * 1}" stroke="${PZ.INK}" stroke-width="2.6" stroke-linecap="round"/>`
-    // ⚠️ **팔자(八) 눈썹은 «좌우 대칭»이어야 한다** — 안쪽 끝이 높고 바깥이 낮다.
-    // 예전 식(`166 - f*1` → `160 + f*4`)은 좌우가 서로의 거울이 아니어서,
-    // **왼쪽은 거의 평평하고 오른쪽만 가파른 빗금**이 됐다 (안쪽이 «낮아» 오히려
-    // 화난 눈썹이다). 그래서 「수줍음」·「걱정」·「서운함」이 전부 「째려보는」 얼굴로
-    // 읽혔다. 지금은 `flat` 과 같은 높이(163)를 가운데로 두고 ±3 을 «f 로 뒤집는다» —
-    // f 는 왼쪽 +1 · 오른쪽 −1 이므로 이 꼴이라야 두 짝이 거울이 된다.
-    // ⚠️ `angry` · `droop` 도 같은 식으로 어긋나 있다 (거긴 아직 안 고쳤다)
     : kind === 'sad'
-    ? `<path d="M${x - 8},${163 + f * 3} L${x + 8},${163 - f * 3}" stroke="${PZ.INK}" stroke-width="2.6" stroke-linecap="round"/>`
+    ? `<path d="M${x - 8},${166 - f * 1} L${x + 8},${160 + f * 4}" stroke="${PZ.INK}" stroke-width="2.6" stroke-linecap="round"/>`
     : kind === 'beg'
     ? `<path d="M${x - 8},${168 - f * 3} q8,-5 16,${f * 6}" stroke="${PZ.INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`
     : kind === 'droop'
@@ -269,25 +262,13 @@
     blush:   { e: 'shut',  m: 'bite',  b: 'beg', blush: 0.6 },
     resolve: { e: 'sharp', m: 'grit',  b: 'flat' },
     awe:     { e: 'star',  m: 'ohh',   blush: 0.35 },
-    // ⚠️ **「수줍음」에는 팔자 눈썹이 있어야 한다.** 예전에는 손그림 하나
-    // (감은 눈 + 살짝 웃는 입 + 홍조)를 `soft`(부드러움)와 «같이» 쓰고 있었는데,
-    // 눈썹이 없어서 「기분 좋게 눈 감은 얼굴」로 읽혔다 — 「하지만 저는 드릴 수
-    // 있는 게 없는데…요…」 하는 줄에서 신고받았다. 그 손그림은 `soft` 가 그대로
-    // 물려받고(인트로 3·4도 거기 걸려 있다), 「수줍음」은 **요정 대모의 같은 이름
-    // (`FZ_FACE.shy`)과 한 글자도 다르지 않게** 여기서 나온다 — 아바타의
-    // 「수줍음」(`exp_shy`)도 같은 짜임이다 (감은 눈 · 팔자 눈썹 · 홍조).
-    // ⚠️ **한 이름에 그림 하나다** — 두 이름이 한 그림을 다시 나눠 쓰지 말 것
-    shy:     { e: 'shut',  m: 'small', b: 'sad', blush: 0.6 },
     // 한쪽 눈썹만 올린다 — 「그래서?」 하는 얼굴
     curious: { e: 'open',  m: 'ohh',   bL: 'up', bR: 'flat' },
   };
 
   function princessFace(mood, sweat) {
     let eyes, mouth, extra = '', over = '';
-    // ⚠️ **이 손그림의 이름은 `soft`(부드러움)다 — 예전 이름은 `shy` 였다.**
-    // 눈썹이 없어 「수줍음」으로는 안 읽혔고, 그쪽은 위의 `PZ_FACE.shy` 가 맡는다.
-    // 인트로 3·4가 이 그림(+ 땀)을 쓰므로 **한 픽셀도 안 바꾼다**
-    if (mood === 'soft') {
+    if (mood === 'shy') {
       eyes = `<path d="M132,176 Q138,170 144,176" stroke="#4a3a42" stroke-width="2.6" fill="none" stroke-linecap="round"/>
               <path d="M156,176 Q162,170 168,176" stroke="#4a3a42" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
       mouth = `<path d="M144,190 Q150,186 156,190" stroke="#c97b86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
@@ -612,9 +593,8 @@
     ? `<path d="M${x - 6},${174 - f * 1.6} q6,-3 12,${f * 2.4}" stroke="#8a7a86" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
     : kind === 'angry'
     ? `<path d="M${x - 6},${171 + f * 3} L${x + 6},${176 - f * 1}" stroke="#8a7a86" stroke-width="2.4" stroke-linecap="round"/>`
-    // ⚠️ **공주와 나란한 한 벌이다** — 좌우 대칭으로 고친 이유는 `pBrow('sad')` 항에 적었다
     : kind === 'sad'
-    ? `<path d="M${x - 6},${174 + f * 2.4} L${x + 6},${174 - f * 2.4}" stroke="#8a7a86" stroke-width="2.4" stroke-linecap="round"/>`
+    ? `<path d="M${x - 6},${176 - f * 1} L${x + 6},${171 + f * 3}" stroke="#8a7a86" stroke-width="2.4" stroke-linecap="round"/>`
     : kind === 'beg'
     ? `<path d="M${x - 6},${178 - f * 2.4} q6,-4 12,${f * 5}" stroke="#8a7a86" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
     : kind === 'droop'
@@ -849,8 +829,8 @@
     { art: () => bg() + P(princessEating()), sp: 'sp_narrator', key: 'intro_1', sfx: 'chew' },
     { art: () => bg() + P(princessEating()) + F(fairy('idle')) + sparkles(7, 300, 370, 130), sp: 'sp_fairy', key: 'intro_2', sfx: 'sparkle' },
     // 이마에 왕 땀 — "뚝…"
-    { art: () => bg() + P(princessFront('soft', false, true)) + F(fairy('glance')), sp: 'sp_princess', key: 'intro_3', sfx: 'sweat', sfx2: ['sweat', 950] },
-    { art: () => bg() + P(princessFront('soft')) + F(fairy('idle')) + sparkles(6, 300, 380, 120), sp: 'sp_fairy', key: 'intro_4', sfx: 'sparkle' },
+    { art: () => bg() + P(princessFront('shy', false, true)) + F(fairy('glance')), sp: 'sp_princess', key: 'intro_3', sfx: 'sweat', sfx2: ['sweat', 950] },
+    { art: () => bg() + P(princessFront('shy')) + F(fairy('idle')) + sparkles(6, 300, 380, 120), sp: 'sp_fairy', key: 'intro_4', sfx: 'sparkle' },
     // "?!" — 놀라는 소리 "허억?"
     { art: () => bg() + P(princessFront('ask', true)) + F(fairy('idle')), sp: 'sp_princess', key: 'intro_5', sfx: 'gasp' },
     { art: () => bg() + P(princessFront('ask')) + F(fairy('cast')) + sparkles(9, 285, 340, 150), sp: 'sp_fairy', key: 'intro_6', sfx: 'magic' },
@@ -1232,7 +1212,7 @@
       // ⚠️ **손으로 그린 열셋 + 부품 표(`PZ_FACE`)의 스물다섯.**
       // 목록을 손으로 적어 두면 부품 표를 늘렸을 때 검사기만 옛 목록으로 돈다 —
       // 그래서 표에서 «직접» 이어 붙인다
-      poses: ['puzzled', 'soft', 'smile', 'ask', 'dizzy',
+      poses: ['puzzled', 'shy', 'smile', 'ask', 'dizzy',
               'laugh', 'wink', 'sad', 'cry', 'angry', 'sleepy', 'love', 'proud']
              .concat(Object.keys(PZ_FACE)),
       draw: mood => {
