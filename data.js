@@ -1126,6 +1126,23 @@ const QUESTS = [
     goal: { kind: 'charm', n: 60 },
     reward: { pages: ['potion:high#0/2', 'creature:high#0/2'], crystal: 200 }, cut: { in: 'c_bloom_in', out: 'c_bloom_out' } },
 
+  // ⚠️ **1막과 2막 사이의 다리다.** `q_bloom`(매력 60)을 끝내도 `q_glass` 는 호감도
+  // 「친함」이 있어야 열려서, 그 사이에 **퀘스트가 하나도 없는 구간**이 있었다
+  // (`PLAYFLOW.md` 8장). 매력은 물약을 «마셔서» 오르고 호감도는 «선물»해야 오르므로
+  // **둘이 서로 다른 동작**인데, 그 연결이 화면 어디에도 안 적혀 있었다.
+  //
+  // · **목표가 곧 2막의 문이다** — 「아무하고나 친함(2단계)」. `checkbalance` 가
+  //   그 둘이 같은 단계인지 본다 (문턱을 옮기면 이 퀘스트도 따라와야 한다)
+  // · **상태형이다** — 「선물 n회」로 두면 여섯 명에게 흩어 줬을 때 목표는 찼는데
+  //   아무도 친함이 안 되어 2막이 잠긴 채로 남는다 (`questProgress` 의 `bond`)
+  // · **주는 이는 클레멘이다.** 「그냥 주는 것」이 이 인물의 전부이고
+  //   (「온기만이 등가 교환의 밖에 있다」 · STORY.md), 그가 성 사람들에게 매일 하는
+  //   일을 그대로 건네는 자리다 — `q_soup`(성 사람들 몫)의 짝이 된다
+  { id: 'q_gift', npc: 'sp_clemen', act: 1, at: 50,
+    goal: { kind: 'bond', n: 2 },
+    reward: { pages: ['potion:mid#2/4'], crystal: 180, items: { honey: 8 } },
+    cut: { in: 'c_gift_in', out: 'c_gift_out' } },
+
   // ═══ 2막부터 — **여는 조건이 매력이 아니라 «이야기»다** ══════════
   //
   // 1막은 여덟 퀘스트가 전부 매력(`at`)으로 열린다. 2막부터는 그러면 안 된다:
@@ -1299,6 +1316,10 @@ const CUTS = [
   { id: 'c_kitchen_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_clemen', 'smile']] },
   { id: 'c_soup_in',     act: 1, lines: [['sp_clemen', 'def'], ['sp_gwiriel', 'smile']] },
   { id: 'c_soup_out',    act: 1, lines: [['sp_clemen', 'smile'], ['sp_gwiriel', 'soft'], ['sp_clemen', 'def']] },
+  // 1막과 2막 사이의 다리(`q_gift`). **그가 매일 하는 일을 그대로 건넨다** —
+  // 끝을 그의 말이 아니라 **그녀가 알아차리는 줄**로 닫는다
+  { id: 'c_gift_in',     act: 1, lines: [['sp_clemen', 'def'], ['sp_gwiriel', 'doubt'], ['sp_clemen', 'smile']] },
+  { id: 'c_gift_out',    act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_clemen', 'smile'], ['sp_gwiriel', 'soft']] },
 
   // ═══ 2막 — 되찾기 ═══════════════════════════════════════════
   //

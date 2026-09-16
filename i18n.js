@@ -560,6 +560,14 @@
       c_soup_out_1: '고마워요. 오늘 저녁은 다들 배부르겠네요.',
       c_soup_out_2: '아저씨 몫도 챙기셨어요?',
       c_soup_out_3: '…아, 그건 깜빡했네요.',
+      c_gift_in_title: '그냥 하나씩',
+      c_gift_in_1: '요즘 마을에 자주 가시죠? 가실 때 하나씩 들고 가 보세요.',
+      c_gift_in_2: '물약을요? 팔라는 말씀이세요?',
+      c_gift_in_3: '아뇨, «그냥»요. 값을 안 매긴 것만 사람한테 남더라고요.',
+      c_gift_out_title: '남는 것',
+      c_gift_out_1: '하나 줬을 뿐인데, 다음에 갔더니 먼저 말을 걸어 줬어요.',
+      c_gift_out_2: '그게 다예요. 대단한 걸 준 게 아니라 «먼저» 준 거니까요.',
+      c_gift_out_3: '…아저씨가 매일 하시는 게 그거네요.',
 
       // ═══ 2막 ═══
       c_glass_in_title: '물밑의 것',
@@ -763,6 +771,11 @@
       q_bloom_name: '피어나는 중',
       q_bloom_desc: '매력 총합 60에 닿아 보세요.',
       q_bloom_in: '요즘 거울을 오래 보죠? 알아요. 예순까지 가 봐요, 프린세스.',
+      // 1막과 2막 사이의 다리. **설명이 「무엇을」과 「어떻게」를 같이 말한다** —
+      // 호감도는 물약을 «선물»해야 오르는데 그 연결이 화면 어디에도 안 적혀 있었다
+      q_gift_name: '그냥 하나씩',
+      q_gift_desc: '누구든 한 사람과 「친함」이 되어 보세요. 마을에서 만난 사람에게 물약을 선물하면 올라가요.',
+      q_gift_in: '마을 가실 때 하나씩 들고 가 보세요. 파는 거 말고요, 그냥요.',
       // ─ 2막부터 ─ **여는 조건이 매력이 아니라 이야기다.**
       // 설명(`_desc`)은 「무엇을」만 말하지 않고 **「어디서」**까지 말한다 (QUEST.md 1장)
       q_glass_name: '물밑의 관',
@@ -1771,6 +1784,14 @@
       c_soup_out_1: 'Thank you. Everyone will go to bed full tonight.',
       c_soup_out_2: 'Did you set aside a share for yourself?',
       c_soup_out_3: '...Ah. I forgot about that.',
+      c_gift_in_title: 'Just One Each',
+      c_gift_in_1: 'You go down to the villages often now. Take one with you next time.',
+      c_gift_in_2: 'A potion? You mean sell it?',
+      c_gift_in_3: 'No - *give* it. Only the things you put no price on seem to stay with people.',
+      c_gift_out_title: 'What Stays',
+      c_gift_out_1: 'I gave one away, and the next time I came they spoke to me first.',
+      c_gift_out_2: "That's all it is. You did not give them something grand. You gave *first*.",
+      c_gift_out_3: "...That is what you do every day, is it not.",
 
       // ═══ 2막 ═══
       c_glass_in_title: 'What Lies Beneath',
@@ -1961,6 +1982,9 @@
       q_bloom_name: 'Blooming',
       q_bloom_desc: 'Reach 60 total charm.',
       q_bloom_in: "You've been looking in the mirror a while lately. I know. Let us get to sixty, Princess.",
+      q_gift_name: 'Just One Each',
+      q_gift_desc: 'Become Close with anyone. Gifting a potion to someone you met in a village raises it.',
+      q_gift_in: 'Take one with you next time you go to a village. Not to sell. Just to give.',
       // ─ Act 2 onward ─
       q_glass_name: 'The Coffin Below',
       q_glass_desc: 'Find the lake where the glass coffin lies. Ask someone who knows of the glass coffin.',

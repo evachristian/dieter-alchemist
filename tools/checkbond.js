@@ -268,9 +268,17 @@ function ok(cond, msg, extra) {
   // ── 새로고침해도 남는가
   await page.evaluate(() => { S.bond = { sp_stark: 24 }; S.gifted = { sp_stark: ['vitality'] }; save(); });
   await page.reload({ waitUntil: 'load' });
-  await page.waitForTimeout(1200);
+  // ⚠️ **고정 시간으로 기다리지 않는다.** 1.2초로 두었더니 느린 날 부팅이 아직
+  // 안 끝나 `S` 가 기본값인 채로 읽혀 **가끔 거짓으로 빨개졌다** (`checkask` 에서
+  // 겪은 것과 같은 자리다). **볼 값 «그대로»** 기다린다 — 헐거운 조건으로 두면
+  // 부팅 도중 잠깐 서 있는 덜 찬 상태를 통과시킨다.
+  // `S` 는 최상위 `let` 이라 `window.S` 로는 안 보인다 — **이름으로 찾는다**
+  const back = await page.waitForFunction(
+    () => typeof S !== 'undefined' && bondOf('sp_stark') === 24
+       && (S.gifted.sp_stark || []).length === 1,
+    null, { timeout: 15000 }).then(() => true).catch(() => false);
   const kept = await page.evaluate(() => ({ n: bondOf('sp_stark'), g: (S.gifted.sp_stark || []).length }));
-  ok(kept.n === 24 && kept.g === 1, '세이브에 남는다', `${kept.n} · 준 종류 ${kept.g}`);
+  ok(back && kept.n === 24 && kept.g === 1, '세이브에 남는다', `${kept.n} · 준 종류 ${kept.g}`);
 
   // ─── 단계마다 말이 달라지는가 ───────────────────────────────
   //
@@ -322,6 +330,59 @@ function ok(cond, msg, extra) {
   });
   ok(!look.length, '⚠️ 외모를 칭찬하는 말이 한 줄도 없다 (끌리는 것은 «연금술사로서의 그녀»다)',
      look.slice(0, 2).join(' | '));
+
+  // ── 1막과 2막 사이의 다리 (`q_gift`)
+  //
+  // **손이 비던 구간이다.** `q_bloom`(매력 60)을 끝내도 `q_glass` 는 호감도가 있어야
+  // 열려서, 그 사이에 퀘스트가 하나도 없었다 (`PLAYFLOW.md` 8장).
+  // ⚠️ `checkstory` 는 이것을 못 잰다 — 거기서는 **1막을 통째로 끝낸 것으로 심고**
+  // 시작하므로 이 퀘스트도 `done` 에 들어가 한 번도 안 지난다
+  const bridge = await page.evaluate(() => {
+    // 1막을 «막» 끝낸 자리 — 다리 퀘스트만 남기고 나머지를 끝낸 것으로 심는다
+    S.charmPeak = 60; S.bond = {}; S.gifted = {}; S.potions = {};
+    S.seenCuts = D.CUTS.filter(c => c.act === 1).map(c => c.id);
+    S.quest = { active: null, n: 0, queue: [],
+      done: D.QUESTS.filter(q => q.act === 1 && q.id !== 'q_gift').map(q => q.id) };
+    refreshQuests();
+    const q0 = activeQuest();
+    return { id: q0 && q0.id, at: q0 ? questProgress(q0) : -1, max: q0 ? q0.goal.n : -1 };
+  });
+  ok(bridge.id === 'q_gift', '1막을 끝낸 자리에 다리 퀘스트가 저절로 온다 (손이 안 빈다)',
+     `${bridge.id}`);
+  ok(bridge.at === 0 && bridge.max > 0, '받은 자리에서는 아직 안 찼다',
+     `${bridge.at} / ${bridge.max}`);
+
+  // **진짜로 선물해서 깬다.** 값을 심어 놓고 재면 「선물이 목표를 미는가」를 안 본 것이다.
+  // ⚠️ `render()` 를 안 부른다 — `giveGift` 가 스스로 칩을 다시 그리는지도 같이 보는
+  // 자리라, 먼저 그려 주면 안 그려도 통과하는 「스스로 맞는」 검사가 된다
+  const walk = await page.evaluate(() => {
+    const npc = 'sp_stark';                       // 저등급을 좋아한다 — 제일 짧은 길이다
+    const low = D.RECIPES.filter(r => r.result && r.result.kind === 'potion'
+      && r.result.grade === D.BONDS[npc].like).map(r => r.result.id);
+    const steps = [];
+    for (const id of low) {
+      if (questFull(activeQuest())) break;
+      S.potions[id] = 1;
+      giveGift(npc, id);
+      steps.push({ tier: bondTier(npc), at: questProgress(activeQuest()) });
+    }
+    const chip = document.getElementById('questChip');
+    return {
+      gave: steps.length, full: questFull(activeQuest()),
+      at: questProgress(activeQuest()), max: activeQuest().goal.n,
+      // 다 찼으면 칩은 **숨 쉬는 점**이어야 한다 (「!」 는 아직 못 냈다는 뜻이다)
+      dot: !!chip.querySelector('.qc-dot'), bang: !!chip.querySelector('.qc-badge'),
+      // **그 순간 2막의 문도 같이 열려 있어야 한다** — 목표와 문이 같은 단계다
+      door: !askLocked(D.ASKS.find(a => a.npc === npc && (a.gives || []).includes('kw_glass'))),
+    };
+  });
+  ok(walk.full, '물약을 선물하면 목표가 찬다', `${walk.gave}종 주고 ${walk.at} / ${walk.max}`);
+  ok(walk.gave <= 6, '기초 등급 종류 수(6) 안에서 깬다', `${walk.gave}종`);
+  // ⚠️ **`render()` 없이** 바뀌어야 한다 — `giveGift` 안의 `refreshQuests()` 가 하는 일이다
+  ok(walk.dot && !walk.bang, '다 찬 그 자리에서 칩이 «받아 가라»로 바뀐다 (render 없이)',
+     `점 ${walk.dot} · 느낌표 ${walk.bang}`);
+  // 이것이 이 퀘스트의 전부다 — **깨는 순간 2막이 열린다**
+  ok(walk.door, '목표를 채운 그 순간 2막의 문(🔒 유리관)도 열린다');
 
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));
 

@@ -1273,6 +1273,13 @@ function questProgress(q) {
   // 영영 안 오른다. 화면에 오류 하나 없이 막히는 종류라 상태형으로 둔다
   if (g.kind === 'village') return (S.villages || []).includes(g.id) ? g.n : 0;
   if (g.kind === 'keyword') return (S.keywords || []).includes(g.id) ? g.n : 0;
+  // **호감도 — 「몇 번 선물했나」가 아니라 «지금 몇 단계인가»다** (상태형).
+  //
+  // ⚠️ 이벤트형(선물 n회)으로 두면 여섯 명에게 하나씩 흩어 줬을 때 **목표는 찼는데
+  // 아무도 「친함」이 안 되어** 2막이 그대로 잠겨 있다 — 다리 퀘스트를 깼는데
+  // 다음이 안 열리는 것은 손이 비는 것보다 나쁘다. 단계로 재면 목표가 곧 그 문이다.
+  // 호감도는 **내려가지 않으므로**(코지 게임에서 관리 압박은 독이다) 뒤로도 안 간다
+  if (g.kind === 'bond')    return Math.min(g.n, bondBest());
   return Math.min(g.n, st.n || 0);
 }
 function questFull(q) { return questProgress(q) >= (q.goal ? q.goal.n : 0); }
@@ -1618,6 +1625,9 @@ window.kitchenNews = kitchenNews;
 // (매력을 999 로 올려 놓고 호감도가 한 톨도 안 움직이는지 본다).
 function bondOf(npc) { return (S.bond && S.bond[npc]) || 0; }
 function bondTier(npc) { return D.bondTierOf(bondOf(npc)); }
+// **제일 친한 한 사람의 단계.** 다리 퀘스트(`q_gift`)의 목표가 이것이다 —
+// 「아무하고나 친해지면 된다」라서 여섯 중 누구를 고르든 막히지 않는다
+function bondBest() { return Math.max(0, ...D.bondNpcs().map(bondTier)); }
 function hasBond(npc) { return !!D.BONDS[npc]; }
 function giftedTo(npc) { return (S.gifted && S.gifted[npc]) || []; }
 
@@ -1655,6 +1665,11 @@ function giveGift(npc, potionId) {
   if (window.Sfx) Sfx.play('pick');
   // **단계가 올랐으면 답례.** 토스트를 겹치지 않게 뒤에 세운다
   if (after > before) for (let t = before + 1; t <= after; t++) bondReward(npc, t);
+  // ⚠️ **퀘스트 칩을 여기서 다시 그린다.** 다리 퀘스트(`q_gift`)의 목표가 호감도라,
+  // 안 부르면 막대가 찬 뒤에도 칩이 **「!」 인 채로 남아** 다음 `render()` 까지
+  // 거짓말을 한다 — `doAsk` 에서 배운 것과 같은 자리다 (`renderGift()` 는 그 시트
+  // 안만 다시 그린다). 호감도로 열리는 퀘스트가 나중에 생겨도 따라오게 `refreshQuests()` 다
+  refreshQuests();
 }
 window.giveGift = giveGift;
 

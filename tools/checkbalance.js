@@ -256,6 +256,17 @@ const numIn = (re, what) => {
   const gate = Math.min(...opener.filter(a => (a.gives || []).includes('kw_glass')).map(costOf));
   ok('2막의 문이 비법서 안에서 열린다', gate <= gradeKinds('basic'),
      `물약 ${gate}종을 선물하면 열린다 (기초 등급이 ${gradeKinds('basic')}종 — 그 안이어야 한다)`);
+  // **다리 퀘스트의 목표가 곧 그 문이어야 한다.** 둘이 갈리면 둘 다 나쁘다 —
+  // 목표가 더 낮으면 깼는데 2막이 안 열리고(「다 했는데 왜 안 되지」),
+  // 더 높으면 2막이 이미 열린 뒤에도 퀘스트가 안 끝난다
+  const bridge = D.QUESTS.filter(q => (q.goal || {}).kind === 'bond');
+  const gateTier = Math.min(...opener.filter(a => (a.gives || []).includes('kw_glass'))
+    .map(a => a.need.bond));
+  ok('다리 퀘스트의 목표가 곧 2막의 문이다',
+     bridge.length === 1 && bridge[0].goal.n === gateTier,
+     bridge.length
+       ? `${bridge[0].id} 목표 ${T[bridge[0].goal.n].name}(${bridge[0].goal.n}) · 문 ${T[gateTier].name}(${gateTier})`
+       : '호감도를 목표로 하는 퀘스트가 없다');
   // **막는 줄은 안 막는 줄보다 낮다.** 「신뢰에서야 털어놓는 말」은 아무것도 안 주므로
   // 깊은 자리에 둬도 아무도 안 갇히지만, 키워드를 «주는» 줄이 거기 있으면 진행이 멎는다
   const blocking = Math.max(...opener.map(a => a.need.bond));
