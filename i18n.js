@@ -191,7 +191,7 @@
       tk_queen_4: '무엇을 하고 다니는지는 모르겠다만, 방해만 되지 않으면 상관없다.',
       // 아직 못 여는 대답
       ask_locked: '더 친해지면 들려줄 것 같아요 ({tier})',
-      ask_locked_toast: '{who}{nj} 아직 이 이야기를 안 해요. 물약을 만들어 주며 더 친해져 보세요.',
+      ask_locked_toast: '{who}{nj} 아직 이 이야기를 안 해요. 물약을 선물해 「{tier}」 단계가 되면 들려줄 거예요.',
       dev_all_story: '📖 모든 스토리 오픈',
       dev_kitchen: '🍲 부엌 다녀왔다고 치기',
       dev_acct: '🧪 계정 보관함',
@@ -1437,7 +1437,7 @@
       tk_queen_3: 'Do not come closer. I can barely make out your face as it is.',
       tk_queen_4: 'Whatever it is you busy yourself with, it is no concern of mine so long as you stay out of the way.',
       ask_locked: 'Perhaps once you are closer ({tier})',
-      ask_locked_toast: '{who} will not tell you this yet. Brew potions for them and grow closer.',
+      ask_locked_toast: '{who} will not tell you this yet. Gift potions until you reach "{tier}".',
       dev_all_story: '📖 Open all story',
       dev_kitchen: '🍲 Mark kitchen as visited',
       dev_acct: '🧪 Account vault',

@@ -1518,11 +1518,28 @@ function askRowHtml(npc) {
 function doAsk(npc, kw) {
   const a = D.ASKS.find(x => x.npc === npc && x.kw === kw);
   if (!a || !hasKw(kw)) return;
-  // 아직 못 여는 대답 — **무엇을 하면 되는지** 말해 준다 (막기만 하면 버그로 읽힌다)
+  // 아직 못 여는 대답 — **무엇을 하면 되는지** 말해 주고 **그 자리로 데려간다.**
+  //
+  // ⚠️ 막기만 하면 버그로 읽히는데, 예전에는 「더 친해져 보세요」 한 줄이 전부였다.
+  // 그 한 줄로는 부족했다 — 모자란 것은 호감도이고 호감도는 **물약을 «선물»해야**
+  // 오르는데, 매력은 물약을 «마셔서» 오르므로 **둘이 서로 다른 동작**이다.
+  // 그 연결이 화면 어디에도 안 적혀 있어서, 1막을 끝낸 사람이 「선물하기」를
+  // 스스로 찾아내야 2막이 시작됐다 (`PLAYFLOW.md` 8장 「1막 → 2막에서 손이 빈다」).
+  //
+  // 그래서 **그 사람의 선물 시트를 바로 연다.** 새 화면을 만들지 않아도 되는 이유는
+  // 그 시트에 이미 다 적혀 있기 때문이다 — ♥ 진행 · **다음 단계까지 남은 점수** ·
+  // 좋아하는 등급 · 줄 수 있는 물약이 오를 점수 순으로.
   if (askLocked(a)) {
     const who = speakerName(npc);
-    toast(T('ask_locked_toast', { who, nj: josa(who, '은는') }), `.ask-chip[data-ask="${kw}"]`, 3400, 'above');
-    if (window.Sfx) Sfx.play('fail');
+    const tn = D.BOND_TIERS[D.askNeedBond(a)];
+    const opened = hasBond(npc);
+    if (opened) openGift(npc);
+    // ⚠️ **토스트에 앵커를 안 준다.** 누른 칩은 이제 시트에 덮여 있어서, 거기 붙이면
+    // **안 보이는 것을 가리킨다** (토스트의 z-index 는 시트보다 위라 글자는 보인다).
+    // 기본 자리에 뜨면 방금 열린 시트의 «머리말»처럼 읽힌다
+    toast(T('ask_locked_toast', { who, nj: josa(who, '은는'), tier: N(tn.id, tn.name) }), null, 3400);
+    // 시트가 열렸으면 `openGift` 가 이미 소리를 냈다 — 두 번 겹쳐 내지 않는다
+    if (!opened && window.Sfx) Sfx.play('fail');
     return;
   }
   askNpc = npc; askKw = kw;

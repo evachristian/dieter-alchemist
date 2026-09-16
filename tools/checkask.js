@@ -212,15 +212,57 @@ function ok(cond, msg, extra) {
        e => !e.querySelector('.ask-dot')) : false, '잠긴 칩에는 점이 안 붙는다');
 
   let kwN = await page.evaluate(() => S.keywords.length);
+  // ⚠️ **앞 단계가 «예약해 둔» 토스트를 먼저 흘려보낸다.** `doAsk` 는 새 키워드·새 마을
+  // 알림을 `setTimeout(…, 900 + i*700)` 으로 미뤄 두는데(대답을 읽기 전에 덮지 않으려는
+  // 것이다), 그것이 지금 누를 칩의 토스트를 **나중에 덮어쓴다** — 실제로 여기서 읽히던
+  // 것은 몇 단계 전의 「거울 골짜기로 가는 길이 열렸어요!」였다.
+  // 옛 검사가 `tst.length > 0` 으로 통과하고 있던 이유가 그것이다 (아무 글자나 있으면 됐다).
+  // 토스트는 3초를 머무르고 사이 간격은 0.7초라, **1.2초 동안 한 번도 안 떴으면** 다 흘러간 것이다
+  const drained = await (async () => {
+    for (let t = 0, quiet = 0; t < 100; t++) {
+      quiet = (await page.evaluate(() => document.getElementById('toast').classList.contains('show'))) ? 0 : quiet + 1;
+      if (quiet >= 10) return true;
+      await page.waitForTimeout(120);
+    }
+    return false;
+  })();
+  ok(drained, '앞 단계의 예약 토스트가 다 흘러갔다 (안 그러면 남의 말을 읽는다)');
   // 자물쇠가 없으면 그 자리의 칩을 그냥 누른다 — 「막혔는가」는 그래도 재야 한다
   await page.$$eval('#villageBody .ask-chip',
     els => (els.find(e => e.classList.contains('locked')) ||
             els.find(e => e.textContent.includes('독사과')) || els[0]).click());
+  // ⚠️ **기다리지 않고 바로 읽는다.** 잠긴 갈래는 동기라 이미 떠 있고, 기다리면
+  // 다음 예약 토스트가 들어올 틈만 준다
+  const tst = await page.$eval('#toast', e => e.classList.contains('show') ? e.textContent.trim() : '');
   await page.waitForTimeout(80);
   ok(await page.evaluate(() => S.keywords.length) === kwN, '눌러도 키워드가 안 들어온다');
   ok(!(await page.evaluate(() => S.keywords.includes('kw_glass'))), '「유리관」은 아직 없다');
-  const tst = await page.$eval('#toast', e => e.classList.contains('show') ? e.textContent.trim() : '');
-  ok(tst.includes('친해') || tst.length > 0, '왜 안 되는지 말해 준다 (막기만 하면 버그로 읽힌다)', tst.slice(0, 30));
+  // ⚠️ **「무슨 말이든 떴는가」로 재면 안 된다.** 예전에는 `tst.length > 0` 이 뒤에
+  // 붙어 있어서 **무슨 글자가 떠도 통과**했다 — 「스스로 맞는 검사」다.
+  // 모자란 것은 호감도이고 **몇 단계**가 모자란지가 그 문장의 알맹이라, 그 이름을 본다
+  const tierNm = await page.evaluate(() => {
+    const a = D.ASKS.find(x => x.npc === 'sp_orix' && x.kw === 'kw_apple');
+    const t = D.BOND_TIERS[D.askNeedBond(a)];
+    return N(t.id, t.name);
+  });
+  ok(tst.includes(tierNm), '왜 안 되는지 말해 준다 — 몇 단계가 모자란지까지',
+     `${tierNm} · ${tst.slice(0, 40)}`);
+  // ⚠️ **말해 주는 것만으로는 부족하다.** 호감도는 물약을 «선물»해야 오르는데
+  // 매력은 물약을 «마셔서» 오르므로 **둘이 서로 다른 동작**이고, 그 연결이 화면
+  // 어디에도 안 적혀 있었다 (`PLAYFLOW.md` 8장). 그래서 **그 사람의 선물 시트를 연다**
+  const gift = await page.evaluate(() => {
+    const m = document.getElementById('giftSheet');
+    return { show: !!(m && m.classList.contains('show')),
+             npc: typeof giftNpc === 'undefined' ? null : giftNpc,
+             need: (document.querySelector('#giftBody .gift-need') || {}).textContent || '' };
+  });
+  ok(gift.show && gift.npc === 'sp_orix', '잠긴 칩을 누르면 그 사람의 선물 시트가 열린다',
+     `show ${gift.show} · ${gift.npc}`);
+  ok(gift.need.trim().length > 0, '시트가 다음 단계까지 남은 점수를 적어 준다',
+     gift.need.trim().slice(0, 30));
+  // 열어 둔 채로 두면 뒤의 단계가 시트에 막힌다
+  await page.evaluate(() => closeGift());
+  await page.waitForTimeout(60);
   // 길잡이 점은 잠긴 것을 안 센다
   ok(await page.evaluate(() => asksNew('sp_orix')) === 0, '잠긴 것은 길잡이 점에 안 센다');
 
