@@ -189,7 +189,7 @@ function ok(cond, msg, extra) {
   line = await askIn('vl_thorn', 'vs_thorn_barrack', '아름다움');
   ok(line && line.includes('나 같은'), '발렌은 「나 같은 거지」라고 답한다', (line || '').slice(0, 20));
 
-  // ── 신뢰에서야 털어놓는 말 (호감도 3단계)
+  // ── 가까워져야 나오는 말 (호감도)
   //
   // ⚠️ **자물쇠는 감추지 않고 보여 준다.** 안 보이면 「없는 것」이고, 보이면
   // 「아직 못 여는 것」이다 — 코지 게임에서 갈 곳을 알려 주는 쪽이 낫다.
@@ -266,12 +266,28 @@ function ok(cond, msg, extra) {
   // 길잡이 점은 잠긴 것을 안 센다
   ok(await page.evaluate(() => asksNew('sp_orix')) === 0, '잠긴 것은 길잡이 점에 안 센다');
 
-  // 호감도를 3단계까지 올린다 (물약을 선물해 오르는 값이다 — 여기서는 값만 심는다)
-  await page.evaluate(() => { S.bond.sp_orix = D.BOND_TIERS[3].at; save();
-    tapVillageSpot('vl_chimney', 'vs_chimney_forge'); });
+  // 호감도를 올린다 (물약을 선물해 오르는 값이다 — 여기서는 값만 심는다).
+  //
+  // ⚠️ **단계를 «3» 으로 박아 두지 않는다.** 예전에는 그렇게 써 있었는데, 표를
+  // 어느 값으로 내려도 3 이면 늘 풀려서 **문턱을 아무 데나 옮겨도 통과했다.**
+  // 표에서 읽어 **바로 한 칸 아래에서는 잠겨 있고, 그 단계에서 풀리는지**를 본다 —
+  // 문턱 «그 자리»를 재야 표를 고쳤을 때 이 검사가 따라온다
+  const need = await page.evaluate(() =>
+    D.askNeedBond(D.ASKS.find(a => a.npc === 'sp_orix' && a.kw === 'kw_apple')));
+  ok(need >= 1, '「독사과」에 호감도 문턱이 걸려 있다', `${need}단계`);
+  // 한 칸 아래 — **문턱의 바로 앞**까지 올려도 아직 잠겨 있어야 한다
+  await page.evaluate((n) => { S.bond.sp_orix = D.BOND_TIERS[n].at - 1; save();
+    tapVillageSpot('vl_chimney', 'vs_chimney_forge'); }, need);
+  await page.waitForTimeout(80);
+  ok(await page.$$eval('#villageBody .ask-chip.locked', els => els.length) === 1,
+     '문턱 한 점 앞까지는 아직 잠겨 있다',
+     `${await page.evaluate(() => bondOf('sp_orix'))}점`);
+  await page.evaluate((n) => { S.bond.sp_orix = D.BOND_TIERS[n].at; save();
+    tapVillageSpot('vl_chimney', 'vs_chimney_forge'); }, need);
   await page.waitForTimeout(80);
   ok(await page.$$eval('#villageBody .ask-chip.locked', els => els.length) === 0,
-     '3단계가 되면 자물쇠가 풀린다');
+     '그 단계가 되면 자물쇠가 풀린다',
+     await page.evaluate((n) => D.BOND_TIERS[n].name, need));
   ok(await page.evaluate(() => asksNew('sp_orix')) === 1, '풀린 순간 길잡이 점이 켜진다');
   line = await askIn('vl_chimney', 'vs_chimney_forge', '독사과');
   ok(line && line.includes('유리'), '오릭스가 유리관 이야기를 꺼낸다', (line || '').slice(0, 24));

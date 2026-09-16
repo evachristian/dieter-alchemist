@@ -1902,23 +1902,34 @@ const ASKS = [
   { npc: 'sp_valen', kw: 'kw_queen',  line: 'ak_valen_queen',  mood: 'def' },
   { npc: 'sp_valen', kw: 'kw_mother', line: 'ak_valen_mother', mood: 'soft' },
 
-  // ─── 신뢰(3단계)에서야 털어놓는 말 ──────────────────────────
+  // ─── 가까워져야 나오는 말 ───────────────────────────────────
   //
   // **호감도가 이야기를 민다.** 물약을 만들어 주고 → 가까워지고 → 그제야 하는 말이
   // 있고 → 그 말이 새 키워드를 준다. 「주는 쪽에서 오른다」(STORY.md)가
   // 이야기의 동력이 되는 자리다.
   //
+  // ⚠️ **막는 줄과 안 막는 줄의 단계가 다르다.**
+  //   · **키워드를 «주는» 넷은 「친함」(2)** — 이 넷이 곧 2막의 문이다.
+  //     신뢰(50)에 걸어 두었더니 1막을 끝낸 사람이 **저등급 물약을 열 종**
+  //     선물해야 2막이 시작됐다 — 그 사이에 퀘스트도 없어서 손이 통째로 비었다
+  //     (`PLAYFLOW.md` 8장). 친함(24)이면 다섯 종이다.
+  //   · **아무것도 안 주는 둘은 「신뢰」(3) 그대로** — 「신뢰의 값이 정보만이면
+  //     호감도는 다시 상점이 된다」(STORY.md)가 이 둘의 자리이고,
+  //     **진행을 막지 않으니 깊은 자리에 둬도 아무도 안 갇힌다.**
+  // 한 줄로: **막는 문은 낮추고, 사람을 보여 주는 말은 깊은 자리에 남긴다.**
+  // `checkbalance` 가 그 관계를 못 박는다 (막는 쪽 ≤ 안 막는 쪽).
+  //
   // ⚠️ **클레멘에게는 `need.bond` 를 걸 수 없다.** 그에게는 호감도가 없어서
   // (대가 없이 주는 쪽이라 눈금을 안 붙였다) 조건이 영영 안 채워진다 —
   // `checktalk` 이 그것을 잡는다.
   { npc: 'sp_orix',   kw: 'kw_apple',  line: 'ak_orix_apple',   mood: 'def',
-    need: { bond: 3 }, gives: ['kw_glass'] },
+    need: { bond: 2 }, gives: ['kw_glass'] },
   { npc: 'sp_stark',  kw: 'kw_curse',  line: 'ak_stark_curse',  mood: 'def',
-    need: { bond: 3 }, gives: ['kw_glass'] },
+    need: { bond: 2 }, gives: ['kw_glass'] },
   { npc: 'sp_kairos', kw: 'kw_mother', line: 'ak_kairos_mother', mood: 'def',
-    need: { bond: 3 }, gives: ['kw_seal'] },
+    need: { bond: 2 }, gives: ['kw_seal'] },
   { npc: 'sp_valen',  kw: 'kw_curse',  line: 'ak_valen_curse',  mood: 'soft',
-    need: { bond: 3 }, gives: ['kw_seal'] },
+    need: { bond: 2 }, gives: ['kw_seal'] },
   // 이 둘은 «주는 것 없이» 인물을 보여 주는 줄이다 — 신뢰의 값이 정보만은 아니다
   { npc: 'sp_yutark', kw: 'kw_hunger', line: 'ak_yutark_hunger', mood: 'true',
     need: { bond: 3 } },

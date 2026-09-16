@@ -233,6 +233,38 @@ const numIn = (re, what) => {
   ok('담당 이름이 모두 표에 있다', kinds.every(k => D.BOND_GIVES[k]),
      Object.keys(D.BOND_GIVES).join(' · '));
 
+  // ─── 호감도가 «막는» 문 — 2막이 얼마나 멀리 있는가 ──────────
+  //
+  // 2막은 「유리관」에서 열리는데 그 키워드가 **호감도 뒤에** 있다. 매력은 물약을
+  // «마셔서» 오르고 호감도는 «선물»해야 오르므로 **둘이 서로 다른 동작**이라,
+  // 이 문이 멀면 1막을 끝낸 사람의 손이 통째로 빈다 (`PLAYFLOW.md` 8장).
+  //
+  // ⚠️ **AP 로 재지 않는다.** 여기서 드는 것은 시간이 아니라 **물약의 «종류»**다 —
+  // 같은 것을 스무 개 줘도 `again`(1) 이라 거의 안 오른다. 그러니 재야 할 것은
+  // 「비법서가 얼마나 넓어야 이 문이 열리는가」이고, 그 잣대가 **기초 등급의 종류 수**다
+  // (제일 좁은 비법서가 곧 그것이다 — 첫 퀘스트가 주는 몫도 같은 크기다).
+  const opener = D.ASKS.filter(a => a.need && a.need.bond && (a.gives || []).length);
+  const gradeKinds = g => D.RECIPES.filter(r => r.result
+    && r.result.kind === 'potion' && r.result.grade === g).length;
+  // 한 줄을 여는 데 드는 «종류» 수 — 좋아하는 등급을 줄 수 있으면 `fresh+like`, 아니면 `fresh`
+  const costOf = a => {
+    const at = T[a.need.bond].at, like = (D.BONDS[a.npc] || {}).like;
+    return Math.min(Math.ceil(at / (G.fresh + G.like)) + (gradeKinds(like) ? 0 : 99),
+                    Math.ceil(at / G.fresh));
+  };
+  // 2막의 문은 **둘 중 하나만** 열면 된다 (오릭스 · 슈타르크) — 제일 싼 쪽으로 잰다
+  const gate = Math.min(...opener.filter(a => (a.gives || []).includes('kw_glass')).map(costOf));
+  ok('2막의 문이 비법서 안에서 열린다', gate <= gradeKinds('basic'),
+     `물약 ${gate}종을 선물하면 열린다 (기초 등급이 ${gradeKinds('basic')}종 — 그 안이어야 한다)`);
+  // **막는 줄은 안 막는 줄보다 낮다.** 「신뢰에서야 털어놓는 말」은 아무것도 안 주므로
+  // 깊은 자리에 둬도 아무도 안 갇히지만, 키워드를 «주는» 줄이 거기 있으면 진행이 멎는다
+  const blocking = Math.max(...opener.map(a => a.need.bond));
+  const telling = D.ASKS.filter(a => a.need && a.need.bond && !(a.gives || []).length);
+  ok('진행을 막는 문이 더 낮다', !telling.length
+      || blocking <= Math.min(...telling.map(a => a.need.bond)),
+     `주는 줄 최대 ${T[blocking].name}(${blocking}) ≤ 안 주는 줄 최소 `
+     + (telling.length ? T[Math.min(...telling.map(a => a.need.bond))].name : '없음'));
+
   // 답례가 단계마다 커지는가 — 뒤 단계가 더 싸면 올릴 이유가 없다
   const gs = GF.filter(Boolean);
   ok('답례가 단계마다 커진다', gs.every((g, i) => !i || (g.n > gs[i - 1].n && g.crystal > gs[i - 1].crystal)),
