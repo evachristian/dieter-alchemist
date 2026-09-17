@@ -14,7 +14,11 @@
 //   · 제 발로 날아간 참새는 놓친 것으로만 세는가 (**쫓은 수는 안 줄어드는가**)
 //   · 놀란 자리에 **깃털**이 흩어지고 사라지는가 (연출을 «상태 수»로 잰다)
 //   · 화면이 **노을빛**인가 · 참새가 정말 **그려지는가** (캔버스 픽셀을 읽는다)
-//   · 쫓은 수만큼 재료가 가방에 들어오는가 (`REWARD_PER` 마리마다 하나)
+//   · 맞은 자리에 **«팡» 이펙트**가 터지고 참새가 **그 자리에서 사라지는가**
+//   · **플로터**가 `+1` / `Double Kill` … 로 뜨는가 · **콤보**가 세어지고 끊기는가
+//   · 멀티킬이 **제곱**으로 들어오는가 (둘이면 4점 · 셋이면 9점)
+//   · **떼**가 뒤로 갈수록 자주 · 크게 오는가 (그래야 제곱 보상에 닿을 수 있다)
+//   · 점수만큼 재료가 가방에 들어오는가 (`REWARD_PER` 점마다 하나)
 //
 // 사용: node tools/checksparrow.js      (종료 코드 0 = 통과)
 const path = require('path');
@@ -123,8 +127,11 @@ function ok(cond, msg, extra) {
   // 판을 비우고 시작한다 — 저절로 날아든 참새가 섞이면 무엇을 쟀는지 흐려진다
   const clear = () => page.evaluate(() => {
     const st = Sparrow._state();
-    st.birds = []; st.feathers = []; st.arrows = [];
+    st.birds = []; st.feathers = []; st.arrows = []; st.pops = []; st.floats = [];
     st.scared = 0; st.missed = 0; st.shots = 0; st.lastShot = -9999;
+    // ⚠️ **점수·콤보도 같이 비운다** — 안 비우면 앞 검사의 값이 넘어와
+    // 「한 마리는 1점」이 2점으로 나온다 (게임이 아니라 검사기가 틀린 것이다)
+    st.points = 0; st.combo = 0; st.comboAt = 0; st.comboBest = 0; st.multi = {};
     st.nextSpawn = 9e9;                       // 재는 동안은 새로 안 날아들게
   });
 
@@ -172,6 +179,85 @@ function ok(cond, msg, extra) {
   ok(miss.shots === 1 && miss.scared === 0 && miss.missed === 0 && miss.birds.length === 1,
      '빗나가도 잃는 것이 없다 (그냥 밭에 꽂힐 뿐이다)',
      `쏨 ${miss.shots} · 쫓음 ${miss.scared} · 놓침 ${miss.missed}`);
+
+  // ── 「팡!」 · 플로터 · 콤보 · 제곱 점수 ───────────────────
+  // ⚠️ **점수만 보면 참새가 «그냥 사라져도» 통과한다** (돌깨기의 파편에서 배운 자리다)
+  await clear();
+  const one = { x: box.w * 0.45, y: box.h * 0.62 };
+  await page.evaluate(p => Sparrow._perch(p.x, p.y), one);
+  await clickAt(one.x, one.y);
+  await page.waitForTimeout(220);
+  const h1 = await page.evaluate(() => Sparrow.boardState());
+  ok(h1.pops > 0, '맞은 자리에 «팡» 이펙트가 터진다', `${h1.pops}개`);
+  ok(h1.birds.length === 0, '맞은 참새는 그 자리에서 사라진다 (날아가지 않는다)',
+     `남은 참새 ${h1.birds.length}`);
+  ok(h1.floats.includes('+1'), '한 마리면 «+1» 이 뜬다', h1.floats.join(',') || '없음');
+  ok(h1.points === 1, '한 마리는 1점이다', `${h1.points}점`);
+
+  // 둘 · 셋 — **제곱**과 멀티킬 이름
+  const hitN = async (n) => {
+    await clear();
+    const c = { x: box.w * 0.5, y: box.h * 0.62 };
+    await page.evaluate(p => {
+      for (let i = 0; i < p.n; i++) {
+        const ang = (i / p.n) * 6.283;
+        const r = i ? Sparrow.HIT_R * 0.45 : 0;
+        Sparrow._perch(p.x + Math.cos(ang) * r, p.y + Math.sin(ang) * r * 0.7);
+      }
+    }, { x: c.x, y: c.y, n });
+    await clickAt(c.x, c.y);
+    await page.waitForTimeout(220);
+    return page.evaluate(() => Sparrow.boardState());
+  };
+  const h2 = await hitN(2);
+  ok(h2.scared === 2 && h2.points === 4, '둘을 같이 맞히면 «제곱»으로 4점이다',
+     `${h2.scared}마리 · ${h2.points}점`);
+  ok(h2.floats.some(t => /Double/.test(t)), '둘이면 «Double Kill» 이 뜬다',
+     h2.floats.join(',') || '없음');
+  const h3 = await hitN(3);
+  ok(h3.scared === 3 && h3.points === 9, '셋이면 9점이다', `${h3.scared}마리 · ${h3.points}점`);
+  ok(h3.floats.some(t => /Triple/.test(t)), '셋이면 «Triple Kill» 이 뜬다',
+     h3.floats.join(',') || '없음');
+  const h5 = await hitN(5);
+  ok(h5.scared === 5 && h5.points === 25, '다섯이면 25점이다', `${h5.scared}마리 · ${h5.points}점`);
+  ok(h5.floats.some(t => /Penta/.test(t)), '다섯이면 «Penta Kill» 이 뜬다',
+     h5.floats.join(',') || '없음');
+  // 콤보 — 이어 맞히면 쌓이고, **빗맞히면 끊긴다**
+  ok(h5.combo >= 5, '콤보가 쌓인다', `×${h5.combo}`);
+  await page.evaluate(() => { const st = Sparrow._state(); st.lastShot = -9999; });
+  await clickAt(box.w * 0.85, box.h * 0.72);      // 아무것도 없는 자리
+  await page.waitForTimeout(400);
+  const cb = await page.evaluate(() => Sparrow.boardState());
+  ok(cb.combo === 0, '빗맞히면 콤보가 끊긴다', `×${cb.combo}`);
+
+  // ── 떼 — **뒤로 갈수록 자주 · 크게 온다** ────────────────
+  // ⚠️ 떼가 없으면 제곱 보상은 아무도 못 닿는 장식이 된다. 시계를 옮겨 놓고
+  // «처음»과 «끝»에서 각각 여러 번 스폰시켜 **한 번에 몇 마리가 오는지**를 센다
+  const flock = await page.evaluate(() => {
+    const st = Sparrow._state();
+    const at = (prog) => {
+      let total = 0, events = 0, big = 0;
+      for (let i = 0; i < 160; i++) {
+        st.birds = []; st.nextSpawn = 0;
+        st.t0 = st.now - prog * Sparrow.DUR_MS;      // «지금이 그 시점»으로 옮긴다
+        Sparrow._tick(16);                            // 한 프레임만 돌린다
+        const n = st.birds.length;
+        if (n) { total += n; events++; if (n >= 2) big++; }
+      }
+      st.birds = []; st.nextSpawn = 9e9;
+      return { avg: total / Math.max(1, events), flockRate: big / Math.max(1, events) };
+    };
+    const early = at(0.02), late = at(0.98);
+    st.t0 = st.now;                                   // 되돌린다
+    return { early, late };
+  });
+  ok(flock.late.flockRate > flock.early.flockRate * 1.8,
+     '뒤로 갈수록 «떼로» 올 확률이 오른다',
+     `처음 ${(flock.early.flockRate * 100).toFixed(0)}% → 끝 ${(flock.late.flockRate * 100).toFixed(0)}%`);
+  ok(flock.late.avg > flock.early.avg * 1.3, '뒤로 갈수록 떼가 «커진다»',
+     `처음 ${flock.early.avg.toFixed(2)}마리 → 끝 ${flock.late.avg.toFixed(2)}마리`);
+  ok(flock.early.flockRate > 0.01, '처음에도 떼가 아주 없지는 않다',
+     `${(flock.early.flockRate * 100).toFixed(0)}%`);
 
   // ── 활을 당기는 시간이 연사를 막는다 ─────────────────────
   await clear();
@@ -256,11 +342,15 @@ function ok(cond, msg, extra) {
     const invBefore = Object.values(S.inventory || {}).reduce((a, b) => a + b, 0);
     // ⚠️ **수치를 여기 옮겨 적지 않는다** — 「재료 다섯 개가 나오는 수」를 게임에서 셈한다
     // (`REWARD_PER` 를 올렸을 때 이 줄이 «0개짜리 보상»으로 조용히 내려앉지 않게)
-    const scared = Sparrow.REWARD_PER * 5;
+    // ⚠️ **보상은 «마릿수»가 아니라 «점»에서 나온다** (멀티킬이 제곱으로 들어와 있다).
+    // 마릿수만 심어 두면 0개가 나오는데, 그건 고장이 아니라 안 심은 것이다
+    const scared = 17;                       // 결과 글이 말할 마릿수
+    const points = Sparrow.REWARD_PER * 5;   // 재료 다섯 개가 나오는 점수
     Sparrow._state().scared = scared;
+    Sparrow._state().points = points;
     Sparrow._finish();
-    return { scared, invBefore, per: Sparrow.REWARD_PER,
-             want: Math.min(Sparrow.REWARD_MAX, Math.floor(scared / Sparrow.REWARD_PER)) };
+    return { scared, points, invBefore, per: Sparrow.REWARD_PER,
+             want: Math.min(Sparrow.REWARD_MAX, Math.floor(points / Sparrow.REWARD_PER)) };
   });
   await page.waitForTimeout(120);
   const shown = await page.evaluate(() => {
@@ -282,7 +372,7 @@ function ok(cond, msg, extra) {
   ok(!after.host && !after.playing, '나가면 화면이 걷힌다');
   // ⚠️ 히든 재료가 확률로 하나 더 붙을 수 있다 — 그래서 «이상»으로 본다
   ok(after.inv - res.invBefore >= res.want,
-     `${res.scared}마리 → 재료 ${res.want}개 이상이 가방에 들어온다 (${res.per}마리에 하나)`,
+     `${res.points}점 → 재료 ${res.want}개 이상이 가방에 들어온다 (${res.per}점에 하나)`,
      `+${after.inv - res.invBefore}`);
   ok(res.want >= 4, '잰 것이 «0개짜리 보상»이 아니다', `${res.want}개 기대`);
 

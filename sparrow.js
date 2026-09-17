@@ -16,15 +16,22 @@
   const T = (k, p) => (window.I18N ? I18N.t(k, p) : k);
   const N = (id, ko) => (window.I18N ? I18N.n(id, ko) : ko);   // 데이터 이름 (game.js 와 같은 규칙)
 
-  const DUR_MS = 120000;     // 2분 — 다른 미니게임과 같은 길이로 맞춘다
+  // ⚠️ **다섯 중 이것만 30초다.** 「2분은 길다」고 해서 줄인 자리인데, 그러면
+  // **한 판 최대를 같이 내려야 한다** — 같은 AP 를 내고 4분의 1 시간에 같은 것을 받으면
+  // 나머지 넷은 아무도 안 가는 죽은 콘텐츠가 된다. `checkbalance` 가 이제
+  // 「같은 시간」이 아니라 **「분당 같은 자리」**로 다섯을 견준다
+  const DUR_MS = 30000;      // 30초
 
   // ─── 보상 ───
   // **참새 `REWARD_PER` 마리마다 재료 하나** (호두밭·바위산과 같은 방향이다 —
-  // 낚시만 반대로 「한 번에 두 개」다). 상한 18개는 **일흔두 마리**이고,
-  // 2분에 나오는 것이 여든 마리쯤이라 **거의 다 쫓아야** 닿는다.
+  // 낚시만 반대로 「한 번에 두 개」다). 상한 6개 = **48점**이다.
   // `checkbalance` 가 넷과 견준다 (호박 17 · 바위산 18 · 낚시터 18 · 호두밭 20)
-  const REWARD_PER = 4;
-  const REWARD_MAX = 18;
+  // ⚠️ **멀티킬은 «제곱»으로 들어온다** — 한 발에 n 마리면 `n²` 점이다
+  // (1 · 4 · 9 · 16 · 25). 그래서 상한은 **단발로는 못 닿고**, 떼를 노려야 닿는다:
+  // 30초에 나오는 참새가 (떼까지 세면) 쉰 마리쯤인데 상한은 72점이라, 다 단발로 맞혀도 못 닿는다.
+  // 「많이 쏘기」가 아니라 **「몰려 있을 때를 노리기」**가 이 게임의 실력이 된다
+  const REWARD_PER = 12;     // 이만큼의 «점»마다 재료 하나
+  const REWARD_MAX = 6;      // 30초 몫 — 분당으로는 2분짜리 넷과 같은 자리다
   // 히든 재료 — 많이 쫓을수록 오른다 (다른 셋과 같은 식: 바닥 5% ~ 꼭대기 25%)
   const SP_BASE = 0.05, SP_TOP = 0.20;
 
@@ -32,9 +39,18 @@
   // ⚠️ **스폰 간격이 곧 상한이다.** 촘촘하게 두면 아무나 상한에 닿아 「2분을 내는」
   // 거래가 의미를 잃고, 성기게 두면 잘해도 못 닿는다. `checkbalance` 가
   // **「상한에 닿으려면 스폰되는 것의 절반은 쫓아야 한다」**로 이 관계를 못 박는다
-  const SPAWN_START = 1700, SPAWN_MIN = 1200;   // 갈수록 조금 촘촘해진다
-  const MAX_BIRDS = 4;       // 한 화면에 이만큼까지 (390px 에서 넷이면 꽉 찬다).
-                             // ⚠️ 다섯이면 판이 포화되어 «아무 데나»가 통한다 (HIT_R 항을 볼 것)
+  // ⚠️ **판이 짧아지면 밭도 그만큼 북적여야 한다.** 1700~1200 을 그대로 두면 30초에
+  // 열아홉 마리뿐이라 상한(24마리)에 **아무리 잘해도 못 닿는다**
+  const SPAWN_START = 1200, SPAWN_MIN = 800;    // 갈수록 조금 촘촘해진다
+  const MAX_BIRDS = 8;       // 한 화면에 이만큼까지 (떼가 내려앉을 자리가 있어야 한다)
+  // ─── 떼 ───
+  // **뒤로 갈수록 떼지어 내려앉는다.** ⚠️ 떼가 없으면 멀티킬이 «운»이 되고, 제곱 보상은
+  // 아무도 못 닿는 장식이 된다 — 둘은 한 벌이다.
+  // ⚠️ **떼는 «한 발에 들어오도록» 모여 앉는다**(`FLOCK_R` ≤ `HIT_R`) — 흩어 놓으면
+  // 보기에만 떼고 한 마리씩 맞히게 된다. 대신 앉자마자 저마다 폴짝 뛰어 흩어지므로
+  // **내려앉는 그 순간**이 노릴 자리다
+  const FLOCK_BASE = 0.10, FLOCK_TOP = 0.60;   // 떼로 올 확률 (처음 → 끝)
+  const FLOCK_R = 17;        // 떼가 모여 앉는 반경
   const FLY_MS = 760;        // 화면 밖에서 이삭까지 날아드는 시간
   // 앉아 있는 시간 — 갈수록 짧아진다. ⚠️ **너무 줄이지 않는다**: 끝에 가서
   // 손이 못 따라갈 만큼 짧아지면 그건 벌이다 (돌깨기의 낙하 속도와 같은 규칙)
@@ -63,7 +79,17 @@
   // 마구 눌러도 되는 게임이 되고, 길면 노려 놓고도 못 쏜다.
   // 300 일 때는 2분에 400발이라 참새 여든 마리를 통째로 쓸어 버렸다 — 600 이면 200발이다
   const SHOT_MS = 600;
-  const FEATHER_MS = 900, FEATHER_PER = 5;   // 놀란 자리에 흩어지는 깃털
+  const FEATHER_MS = 900, FEATHER_PER = 7;   // 맞은 자리에 흩어지는 깃털
+
+  // ─── 타격 연출 ───
+  // ⚠️ **「점수가 올랐다」만으로는 «맞았다»가 안 읽힌다** (돌깨기의 파편·먼지·흔들림에서
+  // 배운 것과 같다). 셋이 같이 있어야 «팡!» 으로 보인다 — 퍼지는 고리 · 튀는 불똥 · 섬광
+  const POP_MS = 420, SPARK_PER = 9;
+  // 플로터 — 맞힌 수를 그 자리에서 띄운다. 하나면 `+1`, 둘 이상이면 멀티킬 이름
+  const FLOAT_MS = 1050;
+  // 콤보 — 빗맞히거나 이만큼 쉬면 끊긴다. **×2 부터만 보여 준다** (×1 은 뜻이 없다)
+  const COMBO_MS = 3200;
+  const HURRY_MS = 10000;    // 마지막 이만큼은 시계가 붉게 뛴다
 
   const PAD = 6;
   // ⚠️ **참새가 앉는 띠는 «이삭의 높이»여야 한다.** 처음에는 0.40~0.78 에 두고 밀은
@@ -95,7 +121,8 @@
   function newState(pool, specialId) {
     return {
       t0: 0, now: 0, last: 0,
-      birds: [], arrows: [], feathers: [],
+      birds: [], arrows: [], feathers: [], pops: [], floats: [],
+      combo: 0, comboAt: 0, comboBest: 0, multi: {}, points: 0,
       nextSpawn: 700, seq: 0,
       lastShot: -9999, shots: 0,
       scared: 0, missed: 0,
@@ -202,33 +229,70 @@
     return true;
   }
 
-  // 화살이 꽂혔다 — **곁에 있는 참새가 «다 같이» 놀란다**
+  // 화살이 꽂혔다 — **곁에 있는 참새가 «다 같이» 맞는다**
+  // ⚠️ 맞은 참새는 **그 자리에서 «팡» 하고 사라진다** (날아가는 연출이 아니다) —
+  // 타격감은 「없어지는 순간」에서 나온다. 제 발로 가는 참새(`leave`)만 날아간다
   function land(a) {
     a.hit = true;
-    let n = 0;
+    a.shake = S.now;                     // 꽂히고 잠깐 떨린다
+    let n = 0, lx = a.tx, ly = a.ty;
     for (const b of S.birds) {
-      if (b.state === 'flee' || b.state === 'leave') continue;
+      if (b.state === 'flee' || b.state === 'leave' || b.dead) continue;
       if (Math.hypot(b.x - a.tx, b.y - a.ty) > HIT_R) continue;
-      b.state = 'flee'; b.gone = S.now;
-      b.vx = (b.x < a.tx ? -1 : 1) * rnd(0.10, 0.18);
-      b.vy = -rnd(0.16, 0.26);
+      b.dead = true;                     // 바로 치운다 (아래 필터가 걷어낸다)
       S.scared++; n++;
-      burst(b.x, b.y);
+      lx = b.x; ly = b.y;
+      pop(b.x, b.y);                     // 팡!
+      burst(b.x, b.y);                   // 깃털
+    }
+    S.birds = S.birds.filter(b => !b.dead);
+    // ─── 콤보 ───
+    // ⚠️ **빗맞히면 끊긴다** — 안 끊으면 2분 내내 숫자만 오르는 장식이 된다
+    if (n) {
+      if (S.now - S.comboAt > COMBO_MS) S.combo = 0;
+      S.combo += n;
+      S.comboAt = S.now;
+      if (S.combo > S.comboBest) S.comboBest = S.combo;
+      if (n > 1) S.multi[n] = (S.multi[n] || 0) + 1;
+      S.points += n * n;                 // ⚠️ **제곱** — 한 발에 다섯이면 25점이다
+      floater(lx, ly, n);
+    } else {
+      S.combo = 0;
     }
     if (window.Sfx && n) Sfx.play(n > 1 ? 'success' : 'tap');
     return n;
   }
 
   // 깃털 — ⚠️ **연출은 «상태 수»로 잰다** (돌깨기의 파편과 같다). 그냥 사라지면
-  // 「쫓았다」가 안 읽히고, 검사도 점수만 보면 연출을 통째로 지워도 통과한다
+  // 「맞혔다」가 안 읽히고, 검사도 점수만 보면 연출을 통째로 지워도 통과한다
   function burst(x, y) {
     for (let i = 0; i < FEATHER_PER; i++) {
       S.feathers.push({
         x, y, born: S.now,
-        vx: rnd(-0.11, 0.11), vy: rnd(-0.14, -0.02),
-        rot: Math.random() * 6.28, spin: rnd(-0.006, 0.006),
+        vx: rnd(-0.16, 0.16), vy: rnd(-0.20, -0.02),
+        rot: Math.random() * 6.28, spin: rnd(-0.008, 0.008),
       });
     }
+  }
+
+  // 「팡!」 — 퍼지는 고리 하나 + 사방으로 튀는 불똥
+  function pop(x, y) {
+    const sparks = [];
+    for (let i = 0; i < SPARK_PER; i++) {
+      const ang = (i / SPARK_PER) * 6.283 + rnd(-0.25, 0.25);
+      const sp = rnd(0.10, 0.22);
+      sparks.push({ ang, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, len: rnd(5, 11) });
+    }
+    S.pops.push({ x, y, born: S.now, sparks });
+  }
+
+  // 맞힌 수를 그 자리에 띄운다 — 하나면 `+1`, 둘 이상이면 멀티킬 이름
+  function floater(x, y, n) {
+    S.floats.push({
+      x, y: y - 6, born: S.now, n,
+      text: n > 1 ? T('sw_multi_' + Math.min(n, 5)) : '+1',
+      big: n > 1,
+    });
   }
 
   // ─── 한 프레임 ───
@@ -250,11 +314,29 @@
     const { w, h } = S;
     const prog = clamp(elapsed / DUR_MS, 0, 1);
 
-    // 스폰
+    // 스폰 — **뒤로 갈수록 떼로 온다**
     S.nextSpawn -= dt;
     if (S.nextSpawn <= 0) {
-      if (S.birds.filter(b => b.state === 'in' || b.state === 'perch').length < MAX_BIRDS) {
-        S.birds.push(spawnBird(elapsed));
+      const live = S.birds.filter(b => b.state === 'in' || b.state === 'perch').length;
+      if (live < MAX_BIRDS) {
+        const flockP = FLOCK_BASE + (FLOCK_TOP - FLOCK_BASE) * prog;
+        // 떼의 크기도 «뒤로 갈수록» 커진다 — 끝에는 다섯까지
+        const maxK = 2 + Math.floor(prog * 3.99);
+        const k = Math.random() < flockP ? 2 + Math.floor(Math.random() * (maxK - 1)) : 1;
+        const room = Math.min(k, MAX_BIRDS - live);
+        const lead = spawnBird(elapsed);
+        S.birds.push(lead);
+        // ⚠️ **한 발에 들어오게 모은다** — 앉을 자리를 대장 둘레로 돌려 놓는다
+        for (let i = 1; i < room; i++) {
+          const b = spawnBird(elapsed);
+          const ang = (i / room) * 6.283 + Math.random() * 0.7;
+          const r = FLOCK_R * (0.55 + Math.random() * 0.45);
+          b.px = clamp(lead.px + Math.cos(ang) * r, PAD + BIRD_R, w - PAD - BIRD_R);
+          b.py = clamp(lead.py + Math.sin(ang) * r * 0.72, h * FIELD_TOP, h * FIELD_BOT);
+          b.x = lead.x; b.y = lead.y - rnd(6, 22);      // 같은 쪽에서 같이 날아든다
+          b.flip = lead.flip;
+          S.birds.push(b);
+        }
       }
       S.nextSpawn = SPAWN_START - (SPAWN_START - SPAWN_MIN) * prog;
     }
@@ -307,6 +389,13 @@
       f.rot += f.spin * dt;
     }
     S.feathers = S.feathers.filter(f => S.now - f.born < FEATHER_MS);
+
+    // 팡 · 플로터 — 시간이 지나면 걷어낸다
+    S.pops = S.pops.filter(p => S.now - p.born < POP_MS);
+    for (const f of S.floats) f.y -= 0.032 * dt;          // 떠오른다
+    S.floats = S.floats.filter(f => S.now - f.born < FLOAT_MS);
+    // 콤보는 **쉬어도** 끊긴다 (빗맞히는 것과 같은 규칙이다)
+    if (S.combo && S.now - S.comboAt > COMBO_MS) S.combo = 0;
   }
 
   // ─── 그리기 ─────────────────────────────────────────────────
@@ -426,22 +515,144 @@
     ctx.restore();
   }
 
+  // 화살 — ⚠️ **선 하나에 삼각형을 붙이면 «힘»이 하나도 안 보인다** (신고받은 자리다).
+  // 셋을 같이 줘야 «꽂힌다»로 읽힌다:
+  //   ① **날아가는 쪽에 속도선** — 정지 그림이 아니라 «지금 가고 있는 것»이 된다
+  //   ② **촉이 길고 «미늘»이 있다** — 끝이 뾰족한 것이 아니라 «파고드는» 모양이다
+  //   ③ **화살대가 앞으로 갈수록 굵다** — 균일한 선은 이쑤시개로 보인다
   function arrow(a) {
+    const ang = Math.atan2(a.vy, a.vx);
     ctx.save();
     ctx.translate(a.x, a.y);
-    ctx.rotate(Math.atan2(a.vy, a.vx));
     if (a.hit) {
-      // 꽂힌 화살 — 밭에 서서 천천히 사라진다
+      // 꽂힌 화살 — 밭에 «떨며» 서고 천천히 사라진다.
+      // ⚠️ 떨림이 없으면 그냥 «놓인» 것으로 보인다 — 박히는 맛이 여기서 난다
+      const t = S.now - (a.shake || 0);
+      const wob = t < 260 ? Math.sin(t / 22) * (1 - t / 260) * 0.16 : 0;
       ctx.globalAlpha = Math.max(0, 1 - a.gone / 1400);
-      ctx.rotate(-Math.atan2(a.vy, a.vx) - Math.PI / 2 + 0.25);
+      ctx.rotate(ang - Math.PI / 2 + 0.22 + wob);
+    } else {
+      ctx.rotate(ang);
+      // ① 속도선 — 뒤로 흐른다
+      ctx.strokeStyle = 'rgba(255,241,218,0.45)'; ctx.lineCap = 'round';
+      for (let i = -1; i <= 1; i++) {
+        ctx.lineWidth = i ? 1.1 : 1.8;
+        ctx.beginPath();
+        ctx.moveTo(-20 - Math.abs(i) * 6, i * 3.2);
+        ctx.lineTo(-38 - Math.abs(i) * 10, i * 4.6);
+        ctx.stroke();
+      }
     }
-    ctx.strokeStyle = SHAFT; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(9, 0); ctx.stroke();
+    // ③ 화살대 — 앞이 굵은 사다리꼴
+    ctx.fillStyle = SHAFT;
+    ctx.beginPath();
+    ctx.moveTo(-17, -1.1); ctx.lineTo(9, -1.9); ctx.lineTo(9, 1.9); ctx.lineTo(-17, 1.1);
+    ctx.closePath(); ctx.fill();
+    // ② 촉 — 길고 «미늘»이 있다
     ctx.fillStyle = HEAD_M;
-    ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(8, -3.4); ctx.lineTo(8, 3.4); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(22, 0);                       // 끝
+    ctx.lineTo(7.5, -4.6);                   // 어깨
+    ctx.lineTo(10.5, 0);                     // 미늘이 파고드는 자리
+    ctx.lineTo(7.5, 4.6);
+    ctx.closePath(); ctx.fill();
+    // 촉의 «날» — 위쪽만 밝게 하면 쇠붙이로 읽힌다 (플랫 2D 의 두 톤)
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha *= 0.55;
+    ctx.beginPath();
+    ctx.moveTo(22, 0); ctx.lineTo(7.5, -4.6); ctx.lineTo(10.2, -1.4);
+    ctx.closePath(); ctx.fill();
+    ctx.globalAlpha /= 0.55;
+    // 깃 — 뒤로 «누운» 셋
     ctx.fillStyle = FLETCH;
-    ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(-9, -4); ctx.lineTo(-6, 0); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(-9, 4); ctx.lineTo(-6, 0); ctx.closePath(); ctx.fill();
+    for (const sgn of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(-17, sgn * 1.1);
+      ctx.quadraticCurveTo(-13, sgn * 6.4, -6.5, sgn * 5.2);
+      ctx.lineTo(-8.5, sgn * 0.8);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#c4522f';               // 가운데 깃은 한 톤 어둡게 (부피)
+    ctx.beginPath();
+    ctx.moveTo(-17, 0); ctx.lineTo(-9.5, -1.5); ctx.lineTo(-9.5, 1.5);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // 「팡!」 — 퍼지는 고리 + 튀는 불똥 + 한 순간의 섬광
+  function popFx(p) {
+    const k = (S.now - p.born) / POP_MS;
+    if (k > 1) return;
+    const e = 1 - Math.pow(1 - k, 3);              // 빠르게 퍼지고 천천히 멎는다
+    ctx.save();
+    // 섬광 — 맨 처음 한 순간만. ⚠️ **밭이 밝아서 옅게 두면 아무것도 안 터진 것처럼 보인다**
+    if (k < 0.42) {
+      const fk = 1 - k / 0.42;
+      ctx.globalAlpha = fk;
+      ctx.fillStyle = '#fff6e6';
+      ctx.beginPath(); ctx.arc(p.x, p.y, 17 * fk + 7, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = fk * 0.7;
+      ctx.fillStyle = '#ffd76a';
+      ctx.beginPath(); ctx.arc(p.x, p.y, 25 * fk + 10, 0, Math.PI * 2); ctx.fill();
+    }
+    // 고리 — **두 겹**이라야 «퍼지는 것»으로 읽힌다 (한 겹은 그냥 동그라미다)
+    ctx.globalAlpha = Math.max(0, 1 - k);
+    ctx.strokeStyle = '#fff6e6'; ctx.lineWidth = 5 * (1 - k) + 1;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 6 + e * 32, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = Math.max(0, 1 - k) * 0.55;
+    ctx.strokeStyle = '#ff9a4d'; ctx.lineWidth = 3 * (1 - k) + 0.8;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3 + e * 20, 0, Math.PI * 2); ctx.stroke();
+    // 불똥
+    ctx.globalAlpha = Math.max(0, 1 - k);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#fff1da'; ctx.lineWidth = 3.2 * (1 - k) + 0.8;
+    for (const s of p.sparks) {
+      const d = e * 34, x = p.x + s.vx * d * 4.4, y = p.y + s.vy * d * 4.4;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.cos(s.ang) * s.len * (1 - k), y + Math.sin(s.ang) * s.len * (1 - k));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 플로터 — ⚠️ **캔버스 글자는 대비 검사가 못 본다.** 밭이 밝아서 흰 글자만 두면
+  // 통째로 묻힌다 (호두 게임의 「어두운 알약 위에 얹는다」와 같은 자리다) — 굵은 테두리를 두른다
+  function floatFx(f) {
+    const k = (S.now - f.born) / FLOAT_MS;
+    if (k > 1) return;
+    ctx.save();
+    ctx.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
+    const pop = k < 0.16 ? 1 + (0.16 - k) * 2.4 : 1;    // 뜨는 순간 «툭» 커진다
+    ctx.translate(f.x, f.y);
+    ctx.scale(pop, pop);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `900 ${f.big ? 21 : 17}px system-ui, -apple-system, sans-serif`;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(48,22,8,0.92)'; ctx.lineWidth = f.big ? 5.5 : 4.5;
+    ctx.strokeText(f.text, 0, 0);
+    ctx.fillStyle = f.big ? '#ffd76a' : '#fff6e6';
+    ctx.fillText(f.text, 0, 0);
+    ctx.restore();
+  }
+
+  // 콤보 — **×2 부터만** 뜬다 (×1 은 뜻이 없다). 오를 때마다 «툭» 커진다
+  function comboFx() {
+    if (S.combo < 2) return;
+    const since = S.now - S.comboAt;
+    const k = clamp(since / COMBO_MS, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = k > 0.75 ? (1 - k) / 0.25 : 1;     // 끊기기 직전에 옅어진다
+    const pop = since < 180 ? 1 + (1 - since / 180) * 0.45 : 1;
+    ctx.translate(S.w - 18, S.h * HORIZON - 26);
+    ctx.scale(pop, pop);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.font = '900 30px system-ui, -apple-system, sans-serif';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(48,22,8,0.92)'; ctx.lineWidth = 6;
+    ctx.strokeText(`×${S.combo}`, 0, 0);
+    ctx.fillStyle = '#ffd76a';
+    ctx.fillText(`×${S.combo}`, 0, 0);
     ctx.restore();
   }
 
@@ -454,22 +665,55 @@
     ctx.save();
     ctx.translate(x, y);
     // 활 — ⚠️ **작으면 안 보인다.** 밭이 밝아서 가는 선은 통째로 묻힌다 (찍어 보고 키웠다)
-    ctx.strokeStyle = BOW_W; ctx.lineWidth = 6; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-34, 20);
-    ctx.quadraticCurveTo(0, -34 - pull, 34, 20);
-    ctx.stroke();
+    // 활채 — **리커브**다. 끝이 바깥으로 젖혀져야 «당겨진 힘»이 보인다 (곧은 활은 막대다).
+    // ⚠️ **테두리를 먼저 깔지 않으면 밝은 밭에 묻힌다** (찍어 보고 알았다) — 세 겹이다:
+    // 짙은 테두리 → 활채 → 볕 드는 쪽 하이라이트
+    const limb = (wd, col, dy) => {
+      ctx.strokeStyle = col; ctx.lineWidth = wd;
+      ctx.beginPath();
+      ctx.moveTo(-42, 30);
+      ctx.bezierCurveTo(-36, -16 - pull + dy, -17, -36 - pull + dy, 0, -36 - pull + dy);
+      ctx.bezierCurveTo(17, -36 - pull + dy, 36, -16 - pull + dy, 42, 30);
+      ctx.stroke();
+    };
+    ctx.lineCap = 'round';
+    limb(11, 'rgba(48,22,8,0.55)', 0);                      // 테두리
+    limb(7.5, '#8c5a28', 0);                                // 활채
+    limb(3, '#e8b45c', -1.6);                               // 볕 드는 쪽
+    // 손잡이 — 가죽을 «감은» 자리라 띠 둘이다 (덩어리 하나면 혹으로 보인다)
+    ctx.strokeStyle = '#4a2c12'; ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.moveTo(-7, -35 - pull); ctx.lineTo(7, -35 - pull); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,214,150,0.5)'; ctx.lineWidth = 1.4;
+    for (const gx of [-3.5, 0.5]) {
+      ctx.beginPath(); ctx.moveTo(gx, -40 - pull); ctx.lineTo(gx + 2, -30 - pull); ctx.stroke();
+    }
+    // 시위 — 당길수록 «뾰족하게» 접힌다 (곡선으로 두면 늘어진 줄로 보인다)
     ctx.strokeStyle = BOW_STR; ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.moveTo(-34, 20);
-    ctx.quadraticCurveTo(0, 2 + pull * 2.2, 34, 20);
+    ctx.moveTo(-42, 30); ctx.lineTo(0, 2 + pull * 2.8); ctx.lineTo(42, 30);
     ctx.stroke();
     // 시위에 걸린 화살 — **다 당겨졌을 때만** 보인다. 「지금 쏠 수 있다」를 그림이 말한다
     if (k >= 1) {
-      ctx.strokeStyle = SHAFT; ctx.lineWidth = 2.2;
-      ctx.beginPath(); ctx.moveTo(0, 16); ctx.lineTo(0, -16); ctx.stroke();
+      ctx.fillStyle = SHAFT;
+      ctx.beginPath();
+      ctx.moveTo(-1.6, 18); ctx.lineTo(1.6, 18); ctx.lineTo(2.2, -18); ctx.lineTo(-2.2, -18);
+      ctx.closePath(); ctx.fill();
       ctx.fillStyle = HEAD_M;
-      ctx.beginPath(); ctx.moveTo(0, -23); ctx.lineTo(-3.4, -15); ctx.lineTo(3.4, -15); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(0, -30); ctx.lineTo(-4.6, -15.5); ctx.lineTo(0, -18.5); ctx.lineTo(4.6, -15.5);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = FLETCH;
+      for (const sgn of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(sgn * 1.4, 18);
+        ctx.quadraticCurveTo(sgn * 6.4, 14, sgn * 5.2, 7.5);
+        ctx.lineTo(sgn * 1, 9.5);
+        ctx.closePath(); ctx.fill();
+      }
+    } else if (k > 0.86) {
+      // 막 쏜 직후의 «시위 튕김» — 한 순간만 번쩍인다
+      ctx.strokeStyle = 'rgba(255,246,230,0.9)'; ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(-42, 30); ctx.lineTo(0, -6); ctx.lineTo(42, 30); ctx.stroke();
     }
     ctx.restore();
   }
@@ -495,7 +739,11 @@
     wheat(1);                                   // 앞쪽 밀
     for (const a of S.arrows) arrow(a);
     for (const f of S.feathers) feather(f);
+    for (const p of S.pops) popFx(p);
     bow();
+    // ⚠️ **글자는 제일 위에 그린다** — 밀·활 밑에 깔리면 못 읽는다
+    for (const f of S.floats) floatFx(f);
+    comboFx();
     const el = host && host.querySelector('.sw-n');
     if (el) el.textContent = String(S.scared);
   }
@@ -506,8 +754,8 @@
     S.over = true;
     cancelAnimationFrame(raf);
     clearTimeout(timerT);
-    // **쫓은 수를 재료로 바꾼다** — `REWARD_PER` 마리마다 하나
-    const n = Math.min(REWARD_MAX, Math.floor(S.scared / REWARD_PER));
+    // **«점»을 재료로 바꾼다** — 멀티킬이 제곱으로 들어와 있다
+    const n = Math.min(REWARD_MAX, Math.floor(S.points / REWARD_PER));
     for (let i = 0; i < n; i++) S.picked.push(pickItem());
     if (S.specialId) {
       const prog = Math.min(1, n / REWARD_MAX);
@@ -573,8 +821,9 @@
         <div class="sw-hud">
           <span class="sw-name">${title}</span>
           <span class="sw-score">🐦 <b class="sw-n">0</b></span>
-          <span class="sw-timer">2:00</span>
+          <span class="sw-timer">0:30</span>
         </div>
+        <div class="sw-tbar"><i></i></div>
         <div class="sw-hint">${T('sw_hint')}</div>
         <div class="sw-result"></div>
       </div>`;
@@ -598,13 +847,21 @@
     cv.style.touchAction = 'none';
 
     // 남은 시간
+    // 남은 시간 — ⚠️ **30초짜리에서는 숫자만으로 부족하다.** 크게 띄우고, 줄어드는
+    // **막대**를 같이 두고, 마지막 10초는 붉게 뛴다 (「잘 보이게」로 신고받은 자리다)
     const timerEl = host.querySelector('.sw-timer');
+    const barEl = host.querySelector('.sw-tbar');
+    const fillEl = host.querySelector('.sw-tbar > i');
     const tickUI = () => {
       if (!S || S.over) return;
       const left = Math.max(0, DUR_MS - (S.now && S.t0 ? S.now - S.t0 : 0));
       const sec = Math.ceil(left / 1000);
       timerEl.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
-      timerT = setTimeout(tickUI, 200);
+      fillEl.style.width = (left / DUR_MS * 100).toFixed(1) + '%';
+      const hurry = left <= HURRY_MS;
+      timerEl.classList.toggle('hurry', hurry);
+      barEl.classList.toggle('hurry', hurry);
+      timerT = setTimeout(tickUI, 100);
     };
     tickUI();
 
@@ -617,6 +874,8 @@
     return {
       scared: S.scared, missed: S.missed, shots: S.shots, over: S.over,
       arrows: S.arrows.length, feathers: S.feathers.length,
+      pops: S.pops.length, floats: S.floats.map(f => f.text), points: S.points,
+      combo: S.combo, comboBest: S.comboBest, multi: S.multi,
       w: S.w, h: S.h,
       birds: S.birds.map(b => ({ id: b.id, x: b.x, y: b.y, state: b.state })),
     };
@@ -635,10 +894,11 @@
       return b.id;
     },
     _shoot: (x, y) => shoot(x, y),
+    _tick: dt => { if (S && !S.over) tick(dt, S.now - S.t0); },   // 한 프레임만 (떼 검사용)
     _finish: () => finish(),
     _state: () => S,
     isPlaying: () => !!S,
-    REWARD_PER, REWARD_MAX, DUR_MS, SHOT_MS, HIT_R, ARROW_SPD,
+    REWARD_PER, REWARD_MAX, DUR_MS, SHOT_MS, HIT_R, ARROW_SPD, FLOCK_R,
     SPAWN_START, SPAWN_MIN, STAY_START, STAY_MIN, MAX_BIRDS, FLY_MS,
   };
 })();

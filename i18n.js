@@ -461,6 +461,12 @@
       sw_title: '참새 쫓기',
       // ⚠️ 「쏜다」가 아니라 «쫓는다»다 — 화살은 밭에 꽂히고 참새는 놀라서 날아간다
       sw_hint: '👆 참새 옆을 눌러 화살로 쫓는다',
+      // 멀티킬 — ⚠️ **두 언어를 같은 낱말로 둔다.** 게임에서 굳은 말이라 옮기면
+      // 오히려 못 알아본다 (「더블 킬」은 화면 폭도 두 배다)
+      sw_multi_2: 'Double Kill',
+      sw_multi_3: 'Triple Kill',
+      sw_multi_4: 'Quadra Kill',
+      sw_multi_5: 'Penta Kill',
       sw_done: '참새 {n}마리를 쫓았다!',
       sw_none: '한 마리도 쫓지 못했다',
       sw_close: '나가기',
@@ -1734,6 +1740,10 @@
       fs_close: 'Leave',
       sw_title: 'Scare the Sparrows',
       sw_hint: '👆 Tap beside a sparrow to scare it off',
+      sw_multi_2: 'Double Kill',
+      sw_multi_3: 'Triple Kill',
+      sw_multi_4: 'Quadra Kill',
+      sw_multi_5: 'Penta Kill',
       sw_done: 'You scared off {n} sparrows!',
       sw_none: 'You scared off nothing',
       sw_close: 'Leave',

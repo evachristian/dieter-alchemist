@@ -2834,7 +2834,24 @@ button.tm-slot:active { transform: scale(0.94); }
 /* ⚠️ 맵 이름이 길면 점수·시계를 밀어낸다 — 이름만 줄이고 숫자 둘은 제 폭을 지킨다 */
 .sw-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sw-score, .sw-timer { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
-.sw-timer { font-size: 1rem; }
+.sw-timer {
+  /* ⚠️ **30초짜리에서는 작은 숫자로 부족하다** — 크게 띄우고 어두운 알약 위에 얹는다
+     (밭이 밝아서 흰 글자만 두면 묻힌다 · 호두 게임에서 배운 자리다) */
+  font-size: 1.45rem; font-weight: 900;
+  background: rgba(40,24,10,0.55); border-radius: 999px; padding: 1px 12px;
+}
+.sw-timer.hurry { color: #fff0ee; background: rgba(196,52,40,0.85); animation: swHurry .7s ease-in-out infinite; }
+@keyframes swHurry { 0%,100% { transform: scale(1); } 50% { transform: scale(1.11); } }
+/* 남은 시간 막대 — 숫자를 안 읽어도 «얼마나 남았는지»가 한눈에 보인다 */
+.sw-tbar {
+  position: absolute; left: 14px; right: 14px;
+  top: calc(52px + env(safe-area-inset-top, 0px));
+  height: 6px; border-radius: 999px; overflow: hidden;
+  background: rgba(40,24,10,0.38);
+  pointer-events: none;
+}
+.sw-tbar > i { display: block; height: 100%; width: 100%; background: #ffd76a; border-radius: 999px; }
+.sw-tbar.hurry > i { background: #ff7a6a; }
 .sw-hint {
   /* ⚠️ **활이 아래 한가운데를 차지한다** — 다른 미니게임처럼 16px 에 두면 시위와 겹친다
      (찍어 보고 올렸다). 밭 위에 떠도 글자가 읽히도록 그림자를 준다 */

@@ -242,8 +242,18 @@ const numIn = (re, what) => {
       const cap = num(f, /const REWARD_MAX\s*=\s*(\d+)/, 'REWARD_MAX');
       const spawn = num(f, /SPAWN_MIN\s*=\s*(\d+)/, 'SPAWN_MIN');
       const d = dur(f);
-      const birds = Math.floor(d / spawn);
-      return { name: '밀밭', dur: d, max: Math.min(cap, Math.floor(birds / per)), per, cap, spawn, birds };
+      // ⚠️ **떼를 안 세면 마릿수가 통째로 틀린다** — 한 번 스폰에 한 마리가 아니다.
+      // 뒤로 갈수록 떼로 오므로 «평균 떼 크기»를 곱한다 (넉넉한 쪽으로 센다 —
+      // 그래야 「단발로는 못 닿는다」를 헐겁게 통과시키지 않는다)
+      const fb = num(f, /FLOCK_BASE\s*=\s*([\d.]+)/, 'FLOCK_BASE');
+      const ft = num(f, /FLOCK_TOP\s*=\s*([\d.]+)/, 'FLOCK_TOP');
+      const AVG_K = 2.75;                       // 떼 하나의 평균 마릿수 (2~5)
+      const perSpawn = 1 + ((fb + ft) / 2) * (AVG_K - 1);
+      const birds = Math.floor(d / spawn * perSpawn);
+      // ⚠️ **멀티킬이 «제곱»으로 들어온다** — 한 발에 다섯이면 25점이다.
+      // 그래서 한 판 최대는 «점»으로 세야 한다 (마릿수로 세면 상한을 못 넘는 것처럼 보인다)
+      const best = Math.floor(Math.floor(birds / 5) * 25 / per);   // 다 펜타로 맞혔을 때
+      return { name: '밀밭', dur: d, max: Math.min(cap, best), per, cap, spawn, birds };
     },
   };
 
@@ -258,14 +268,35 @@ const numIn = (re, what) => {
   minis.filter(k => GAMES[k]).forEach(k => { G[k] = GAMES[k](); });
   const all = Object.values(G);
 
-  // **같은 시간을 쓴다** — 다르면 짧은 쪽이 시간당 이득이다
-  const durs = [...new Set(all.map(g => g.dur))];
-  ok('미니게임이 다 같은 시간을 쓴다', durs.length === 1,
-     all.map(g => `${g.name} ${g.dur / 1000}초`).join(' · '));
-  // **같은 자리에서 준다** — 제일 후한 쪽이 제일 박한 쪽의 1.5배 안
-  const hi = Math.max(...all.map(g => g.max)), lo = Math.min(...all.map(g => g.max));
-  ok('미니게임이 다 같은 자리에서 준다', hi <= lo * 1.5,
-     all.map(g => `${g.name} 최대 ${g.max}개`).join(' · ') + ' (1.5배 안이어야 한다)');
+  // **«분당» 같은 자리에서 준다** — 제일 후한 쪽이 제일 박한 쪽의 1.5배 안.
+  // ⚠️ 예전에는 「다 같은 시간을 쓴다」 + 「한 판 최대가 1.5배 안」 두 줄이었는데,
+  // 밀밭이 30초가 되면서 그 짝이 깨졌다. **길이가 다르면 한 판 최대로는 못 견준다** —
+  // 4분의 1 시간에 같은 것을 주면 나머지는 죽은 콘텐츠가 되고, 시간에 딱 비례해서
+  // 깎으면 「AP 한 번」의 값이 4분의 1 이 된다. 지킬 것은 **분당 수확**이다
+  const rate = g => g.max / (g.dur / 60000);
+  const hi = Math.max(...all.map(rate)), lo = Math.min(...all.map(rate));
+  ok('미니게임이 다 «분당» 같은 자리에서 준다', hi <= lo * 1.5,
+     all.map(g => `${g.name} ${g.dur / 1000}초에 ${g.max}개(분당 ${rate(g).toFixed(1)})`).join(' · ')
+     + ' (1.5배 안이어야 한다)');
+  // ⚠️ **분당만 보면 「30초에 18개」도 통과한다** — 그건 같은 AP 를 내고 4분의 1 시간에
+  // 같은 것을 받는 것이라, 나머지 넷이 통째로 죽는다. 그렇다고 「한 판 최대도 1.5배 안」을
+  // 같이 걸 수는 없다: 길이가 4배 다르면 두 줄이 **동시에 참일 수가 없다**.
+  //
+  // 지킬 것은 **「어느 하나가 다른 것을 «두 축 모두»에서 덮지 않는다」**이다 —
+  // 분당도 훨씬 낫고 한 판 수확도 안 밀리면 그건 나머지를 죽이는 것이고,
+  // 한쪽만 나으면 「빨리 끝나는 쪽 / 한 번에 많이 받는 쪽」이라는 **고를 거리**가 된다.
+  // ⚠️ 문턱(1.25배)은 «값이 통과하도록» 고른 것이 아니다 — 지금도 호두밭이 낚시터보다
+  // 분당 1.11배 · 한 판 1.11배로 조금씩 나은데, 그 정도는 「덮는다」가 아니다
+  const dom = [];
+  for (const a2 of all) for (const b2 of all) {
+    if (a2 === b2) continue;
+    if (rate(a2) > rate(b2) * 1.25 && a2.max >= b2.max) {
+      dom.push(`${a2.name}(분당 ${rate(a2).toFixed(1)} · 한 판 ${a2.max}) 가 `
+             + `${b2.name}(분당 ${rate(b2).toFixed(1)} · 한 판 ${b2.max}) 를 둘 다에서 덮는다`);
+    }
+  }
+  ok('어느 미니게임도 다른 것을 «두 축 모두»에서 덮지 않는다', !dom.length,
+     dom.join(' / ') || all.map(g => `${g.name} ${rate(g).toFixed(1)}/분 · ${g.max}개`).join(' · '));
   // 미니게임 한 판이 **평범한 채집 한 번보다는** 나아야 2분을 낼 이유가 생긴다
   ok('미니게임이 그냥 줍는 것보다 낫다', all.every(g => g.max > 1),
      `평범한 채집은 한 번에 1개다 · ${all.map(g => g.name + ' ' + g.max).join(' · ')}`);
@@ -305,10 +336,15 @@ const numIn = (re, what) => {
   // 「2분을 내는」 거래가 아니라 그냥 기다리는 시간이 된다
   if (G.sparrow) {
     const s2 = G.sparrow, need = s2.cap * s2.per;
-    const share = need / s2.birds;
-    ok('밀밭 상한이 «거의 다 쫓은 사람»의 것이다', share >= 0.5 && share <= 1,
-       `상한에 닿으려면 ${need}마리 · 2분에 제일 촘촘해도 ${s2.birds}마리가 나온다`
-       + ` (${Math.round(share * 100)}% · 50~100% 여야 한다)`);
+    // ① **단발로는 못 닿는다** — 이것이 「떼를 노린다」를 규칙으로 못 박는 자리다.
+    // 다 단발로 맞혀도 나오는 마릿수만큼(1점씩)이라 상한에 못 미쳐야 한다
+    ok('밀밭 상한은 «단발로는» 못 닿는다 (떼를 노려야 한다)', need > s2.birds,
+       `상한 ${need}점 · 30초에 제일 촘촘해도 ${s2.birds}마리(단발이면 ${s2.birds}점)`);
+    // ② **그래도 닿을 수는 있어야 한다** — 제곱으로도 못 닿으면 상한이 장식이다.
+    // 제일 좋은 길(다 펜타)로 몇 마리가 드는지를 보고, 나오는 것의 절반 안이면 된다
+    const bestBirds = Math.ceil(need / 25) * 5;
+    ok('밀밭 상한이 «떼를 노리면» 닿는다', bestBirds <= s2.birds * 0.6,
+       `펜타로 가면 ${bestBirds}마리면 닿는다 · 나오는 것은 ${s2.birds}마리`);
   }
 }
 
