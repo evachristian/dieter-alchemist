@@ -42,8 +42,11 @@ function launchOpts() {
     const out = [];
     const ok = (c, m) => out.push((c ? '✅ ' : '❌ ') + m);
     const REAL = Math.random;
-    // 미니게임 맵은 제 길로 간다 — 보통 맵 중 제일 흔한 등급 하나
-    const map = D.MAPS.find(m => !m.mini && m.unlock === 0);
+    // 미니게임 맵은 제 길로 간다 — 보통 맵 중 제일 흔한 등급 하나.
+    // ⚠️ **형으로 고른다** (`fieldMini`). 예전에는 `!m.mini` 였는데 그 칸을 없앤 뒤로는
+    // **늘 참이라 아무것도 안 거르는 죽은 조건**이었다 — 과수원을 골랐으면
+    // `gather()` 가 미니게임으로 빠져 재료가 한 톨도 안 들어왔을 것이다
+    const map = D.MAPS.find(m => !D.fieldMini(m.id) && m.unlock === 0);
     const pity = D.specialTier(map.unlock).pity;
     const sp = map.special;
     const setup = () => { S.energy = 99999; S.inventory = {}; S.spMiss = {}; S.petField = null; S.charmPeak = 999; };
@@ -72,7 +75,7 @@ function launchOpts() {
 
     // ③ 맵마다 따로 센다 — 한 맵의 헛걸음이 다른 맵의 천장을 당기면 안 된다
     setup();
-    const other = D.MAPS.find(m => !m.mini && m.id !== map.id && m.unlock === 0);
+    const other = D.MAPS.find(m => !D.fieldMini(m.id) && m.id !== map.id && m.unlock === 0);
     Math.random = () => 0.999999;
     for (let i = 0; i < pity; i++) gather(map.id);
     gather(other.id);

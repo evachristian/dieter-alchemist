@@ -307,7 +307,8 @@ function ok(cond, msg, extra) {
     await p2.goto('file://' + path.join(ROOT, 'index.html'), { waitUntil: 'load' });
     await p2.waitForTimeout(2200);
     const got = await p2.evaluate(() => {
-      const map = D.MAPS.find(m => !m.mini && m.unlock === 0) || D.MAPS[0];
+      // ⚠️ **형으로 고른다** — `!m.mini` 는 그 칸을 없앤 뒤로 늘 참인 죽은 조건이다
+      const map = D.MAPS.find(m => !D.fieldMini(m.id) && m.unlock === 0) || D.MAPS[0];
       S.energy = 9999; S.gathered = {}; S.inventory = {};
       const N = D.LORE.masteryAt;
       for (let i = 0; i < N; i++) gather(map.id);

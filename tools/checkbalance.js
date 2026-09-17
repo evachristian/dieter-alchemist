@@ -173,6 +173,57 @@ const numIn = (re, what) => {
     `맨 위 목표가 상한의 ${Math.round(paceTop / ceiling * 100)}% (40% 이상이어야 한다)`);
 }
 
+// ─── ④-2 채집 미니게임 — **둘이 같은 자리에 있는가** ─────────
+//
+// 미니게임은 「AP 한 번에 2분을 내고 재료를 많이 받는」 거래다. 그러니 둘의 «한 판
+// 최대»가 크게 다르면 **후한 쪽 맵만 돌게 되고** 나머지 맵은 죽은 콘텐츠가 된다
+// (밭 물약 여섯을 같은 값으로 둔 것과 같은 이유다).
+//
+// ⚠️ **수치를 여기에 옮겨 적지 않는다** — 두 파일에 써진 상수를 그대로 읽는다.
+{
+  const src = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  const num = (s, re, what) => {
+    const m = s.match(re);
+    if (!m) throw new Error(`${what} 를 못 찾았다 — 이름이 바뀌었으면 여기도 고칠 것`);
+    return Number(m[1]);
+  };
+  const PK = src('pumpkin.js'), AP = src('apple.js');
+  // 호박 밭 — 2분을 `REWARD_EVERY` 마다 하나씩, 끝까지 버티면 2개 더
+  const pkDur = num(PK, /const DUR_MS\s*=\s*(\d+)/, '호박 DUR_MS');
+  const pkEvery = num(PK, /const REWARD_EVERY\s*=\s*(\d+)/, 'REWARD_EVERY');
+  const pkMax = Math.floor(pkDur / pkEvery) + 2;
+  // 과수원 — 사과 `REWARD_PER` 개마다 하나씩, 판을 다 지워도 `REWARD_MAX` 까지
+  const apDur = num(AP, /const DUR_MS\s*=\s*(\d+)/, '사과 DUR_MS');
+  const apPer = num(AP, /const REWARD_PER\s*=\s*(\d+)/, 'REWARD_PER');
+  const apCap = num(AP, /const REWARD_MAX\s*=\s*(\d+)/, 'REWARD_MAX');
+  const cols = num(AP, /const COLS\s*=\s*(\d+)/, 'COLS');
+  const rows = num(AP, /const ROWS\s*=\s*(\d+)/, 'ROWS');
+  const apMax = Math.min(apCap, Math.floor(cols * rows / apPer));
+
+  ok('미니게임 둘이 같은 시간을 쓴다', pkDur === apDur,
+     `호박 ${pkDur / 1000}초 · 과수원 ${apDur / 1000}초 — 다르면 짧은 쪽이 시간당 이득이다`);
+  const hi = Math.max(pkMax, apMax), lo = Math.min(pkMax, apMax);
+  ok('미니게임 둘이 같은 자리에서 준다', hi <= lo * 1.5,
+     `호박 최대 ${pkMax}개 · 과수원 최대 ${apMax}개 (1.5배 안이어야 한다)`);
+  // **상한이 실제로 걸려야 한다.** 판을 다 지웠을 때가 상한보다 적으면 `REWARD_MAX` 는
+  // 아무 일도 안 하는 장식이고, 판을 늘리는 순간 조용히 후해진다
+  ok('과수원 상한이 장식이 아니다', Math.floor(cols * rows / apPer) >= apCap,
+     `판을 다 지우면 ${Math.floor(cols * rows / apPer)}개 · 상한 ${apCap}개`);
+  // ⚠️ **상한만 보면 요율이 안 보인다.** `REWARD_PER` 를 5 → 2 로 후하게 바꿔도
+  // 상한(20)이 그대로라 위의 「같은 자리」 검사가 **통과했다** — 실제로는 사과를
+  // 40개만 지워도 꼭대기라 절반도 안 한 사람이 다 받는다.
+  // **상한은 «거의 다 지운 사람»의 것**이어야 한다: 판의 절반은 지워야 닿는다
+  const needFrac = (apCap * apPer) / (cols * rows);
+  ok('과수원 상한이 «거의 다 지운 사람»의 것이다', needFrac >= 0.5,
+     `상한에 닿으려면 사과 ${apCap * apPer}개 = 판의 ${Math.round(needFrac * 100)}% (50% 이상)`);
+  // 미니게임 한 판이 **평범한 채집 한 번보다는** 나아야 2분을 낼 이유가 생긴다
+  ok('미니게임이 그냥 줍는 것보다 낫다', apMax > 1 && pkMax > 1,
+     `평범한 채집은 한 번에 1개다`);
+  // **형 표와 파일이 같은 것을 가리키는가** — 미니게임이 붙은 형이 실제로 둘인가
+  const minis = D.FIELD_TYPES.filter(t => t.mini).map(t => t.mini).sort();
+  ok('미니게임이 둘 다 형에 붙어 있다', minis.join() === 'apple,pumpkin', minis.join(' · '));
+}
+
 // ─── ⑤ 시뮬레이터의 목표를 지나는가 ──────────────────────────
 //
 // 위의 넷은 **한 줄짜리 약속**이고, 이것은 **돌려 봐야 아는 것**이다.

@@ -2774,24 +2774,35 @@ function switchTab(tab) {
 // ═══════════════════════════════════════════════════════════════
 //  채집 (Gather)
 // ═══════════════════════════════════════════════════════════════
-// 파수꾼의 호박 밭 — 미니게임을 띄우고, 끝나면 주운 것을 가방에 넣는다.
-// AP 는 들어갈 때 이미 냈으므로 여기서 또 빼지 않는다.
-function startPumpkinRun(map) {
-  window.Pumpkin.start(map, (res) => {
-    const got = (res && res.picked) || [];
-    got.forEach(id => addInv(id, 1));
-    rec('gathered');                     // 총 횟수는 기록에만 (재료별 누적은 addInv 가)
-    got.forEach(() => rec('itemsGot'));
-    const specials = got.filter(id => id === map.special).length;
-    for (let i = 0; i < specials; i++) rec('specials');
-    save();
-    if (specials) {
-      const sp = D.INGREDIENTS[map.special];
-      toast(T('got_special', { emoji: sp.emoji, name: N(sp.id, sp.name) }), null, 3200);
-      if (window.Sfx) Sfx.play('success');
-    }
-    render();
-  });
+// ─── 채집 미니게임 ───────────────────────────────────────────
+//
+// 형(`D.fieldMini`)이 「여기는 그냥 줍는 곳이 아니다」라고 하면 그 화면으로 들어간다.
+// **미니게임 이름 → 전역 모듈**은 여기 한 줄이고, 끝난 뒤 처리도 한 함수다 —
+// 게임이 늘 때마다 `gather()` 에 `if` 를 붙이면 곧 갈래가 다섯이 된다.
+const MINIS = { pumpkin: 'Pumpkin', apple: 'Apple' };
+
+// 미니게임이 끝났다. 주운 것을 가방에 넣는다.
+// **AP 는 들어갈 때 이미 냈으므로 여기서 또 빼지 않는다.**
+function finishMiniRun(map, res) {
+  const got = (res && res.picked) || [];
+  got.forEach(id => addInv(id, 1));
+  rec('gathered');                     // 총 횟수는 기록에만 (재료별 누적은 addInv 가)
+  got.forEach(() => rec('itemsGot'));
+  // ⚠️ **퀘스트의 「채집 n번」을 한 걸음으로 센다.** 평범한 채집과 같은 자리다 —
+  // 안 세면 과수원만 도는 사람은 `q_walk`(채집 8번)에서 영영 안 나아간다
+  questBump('visit', map.id);
+  const specials = got.filter(id => id === map.special).length;
+  for (let i = 0; i < specials; i++) rec('specials');
+  save();
+  if (specials) {
+    const sp = D.INGREDIENTS[map.special];
+    // 히든 재료는 어쩌다 한 번이라 **일지에 적는다** (평범한 채집과 같은 규칙)
+    diaryAdd('di_rare', { id: sp.id, map: map.id });
+    toast(T('got_special', { emoji: sp.emoji, name: N(sp.id, sp.name) }), null, 3200);
+    if (window.Sfx) Sfx.play('success');
+  }
+  render();
+  if (window.Tut) Tut.fire('gather');
 }
 
 // 한 번 채집한다. **계속해도 되는지**를 돌려준다 —
@@ -2828,9 +2839,13 @@ function gather(mapId) {
     toast(T('no_energy'));
     return false;
   }
-  // 특별한 맵 — 바로 줍지 않고 미니게임으로 들어간다. 보상은 끝난 뒤 받는다.
-  if (map.mini === 'pumpkin' && window.Pumpkin) {
-    startPumpkinRun(map);
+  // **형이 미니게임을 정한다** — 바로 줍지 않고 그 화면으로 들어간다.
+  // 보상은 끝난 뒤 `finishMiniRun()` 이 받는다. AP 는 위에서 이미 냈다.
+  // ⚠️ **맵 줄에 `mini` 를 적지 않는다** — 형 표(`MAP_TYPES`)가 유일한 원본이다.
+  // 두 벌이면 한쪽만 고치게 된다 (지대별 AP 에서 배운 것과 같다)
+  const mini = D.fieldMini(mapId);
+  if (mini && MINIS[mini] && window[MINIS[mini]]) {
+    window[MINIS[mini]].start(map, res => finishMiniRun(map, res));
     return false;
   }
   // 그 맵에서만 나오는 '특별한 재료'. **맵마다 기본 확률이 다르고**(초반 0.5% ~ 후반 0.05%),
@@ -3798,8 +3813,12 @@ function renderGather() {
     const spChip = poolChip(spot.special, `spot-special ${found ? 'found' : ''}`,
       found ? N(sp.id, sp.name) : T('special_hint'), `specialHint('${spot.id}',this)`)
       + (found ? sp.emoji : '❔') + '</button>';
-    // 특별한 맵(미니게임이 있는 맵)은 카드 왼쪽 위에 배지를 단다 — UI_POLICY.md 참고
-    const badge = spot.mini ? `<span class="spot-badge">${T('special_map')}</span>` : '';
+    // 미니게임이 있는 맵은 카드 왼쪽 위에 배지를 단다 — UI_POLICY.md 참고.
+    // ⚠️ **어느 게임인지까지 적는다.** 예전에는 「스페셜 맵」 한 마디라 무엇이 특별한지를
+    // **AP 를 내고 들어가 봐야** 알았다 — 2분짜리 게임이 갑자기 뜨는 것은 안내가 아니다.
+    // 딱지 글자는 형 표(`FIELD_TYPES.tag`)에 있다: 게임이 늘어도 여기는 안 고친다
+    const ftag = D.fieldType(D.mapType(spot.id)).tag;
+    const badge = ftag ? `<span class="spot-badge">${T(ftag)}</span>` : '';
     // 속성은 **글자로** 적는다 (이모지 아님 — CREATURE.md 2장). 오른쪽 위 배지.
     // 재료 칩(둥근 알약)과 자리·모양이 달라야 무엇이 무엇인지 헷갈리지 않는다
     const at = D.creatureAttr(D.mapAttr(spot.id));
@@ -3820,7 +3839,7 @@ function renderGather() {
     const cost = gatherCost(spot.id);
     const canGather = (S.energy || 0) >= cost;
     return `
-      <div class="spot-card ${canGather ? '' : 'low-energy'}${spot.mini ? ' special' : ''}"
+      <div class="spot-card ${canGather ? '' : 'low-energy'}${ftag ? ' special' : ''}"
            data-spot="${spot.id}">
         ${badge}${attrBadge}
         <div class="spot-emoji">${spot.emoji}</div>

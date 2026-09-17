@@ -195,7 +195,7 @@ const MAPS = [
   { id: 'p_pumpkin', zone: 'plain', emoji: '🎃', name: '파수꾼의 호박 밭',
     desc: '함부로 들어가면 파수꾼이 호박을 굴려 혼쭐 내준다는 소문의 호박 밭.',
     pool: ['zucchini', 'old_pumpkin', 'sweet_pumpkin', 'chestnut_pumpkin'], unlock: 20,
-    special: 'sp_pumpkinseed', mini: 'pumpkin' },
+    special: 'sp_pumpkinseed' },
   // ── 울창 숲 지대 ── (해금 38~102점)
   { id: 'f_mist', zone: 'forest', emoji: '🌫️', name: '안개 숲 외곽',
     desc: '늘 옅은 안개가 낀 숲의 가장자리.',
@@ -968,6 +968,51 @@ const MAP_ATTRS = {
 };
 // GEN:mapattr>>>
 function mapAttr(id) { return MAP_ATTRS[id] || null; }
+
+// ─── 채집지의 «형» (field type) ──────────────────────────────
+//
+// **속성과 다른 축이다.** 속성(`MAP_ATTRS`)은 「이 땅의 기운」이라 동행 크리처가 맞는지를
+// 정하고, 형은 「여기서 채집이 «어떤 모양»인가」를 정한다 — 그냥 줍는지, 미니게임인지.
+//
+// ⚠️ **미니게임을 여기 «한 표»에서만 정한다.** 예전에는 맵 줄에 `mini: 'pumpkin'` 을
+// 손으로 적어 두었는데, 형이 생기면 그것이 **두 번째 경로**가 되어 한쪽만 고치게 된다
+// (지대별 AP·잠금 표현에서 이미 겪은 사고다). 그래서 `mini` 칸은 없앴다.
+//
+// ⚠️ **미니게임이 없는 형(`field`)이 대다수여야 한다.** 매번 2분짜리를 시키면
+// 「꾹 누르기 자동 채집」이 사실상 사라지고, 코지 게임이 숙제가 된다 —
+// `genmaptype.js` 가 **30% 를 넘으면 실패시킨다.**
+// `tag` 는 **맵 카드에 붙는 딱지**다 — 「여기는 미니게임이다」를 **들어가기 «전»에**
+// 알려 준다. 예전에는 「특별한 맵」 한 마디뿐이라 무엇이 특별한지는 AP 를 내고
+// 들어가 봐야 알았다
+const FIELD_TYPES = [
+  // k        미니게임          이름 열쇠       카드 딱지
+  { k: 'field',   mini: null,      name: 'ft_field',   tag: null },           // 평범하게 줍는 곳 (기본값)
+  { k: 'orchard', mini: 'apple',   name: 'ft_orchard', tag: 'mini_tag' },     // 과수원 — 사과 게임
+  { k: 'pumpkin', mini: 'pumpkin', name: 'ft_pumpkin', tag: 'mini_tag_pk' },  // 호박 밭 — 호박 피하기
+];
+// <<<GEN:maptype
+const MAP_TYPES = {
+  // 포근 평야 지대
+  p_gourmet: 'orchard',       // 미식가의 들
+  p_walnut: 'orchard',        // 호두 마루
+  p_picnic: 'orchard',        // 소풍 바위
+  p_pumpkin: 'pumpkin',       // 파수꾼의 호박 밭
+  // 울창 숲 지대
+  f_mushroom: 'orchard',      // 버섯 마을
+  f_owl: 'orchard',           // 부엉이 고목
+  f_bush: 'orchard',          // 속삭이는 덤불
+  f_door: 'orchard',          // 오래된 나무문
+  // 황량 황무지
+  w_thorn: 'orchard',         // 가시덤불 협곡
+};
+// GEN:maptype>>>
+// 없는 것은 **평범한 곳**이다 — 마흔 줄을 `'field'` 로 적어 두면 표에서
+// 「어디가 특별한가」가 안 보인다
+function mapType(id) { return MAP_TYPES[id] || 'field'; }
+function fieldType(k) { return FIELD_TYPES.find(t => t.k === k) || FIELD_TYPES[0]; }
+// 이 맵의 채집이 어느 미니게임으로 들어가는가 (없으면 `null` — 그냥 줍는다).
+// **`gather()` 가 이 한 곳만 본다**
+function fieldMini(id) { return fieldType(mapType(id)).mini; }
 
 // ─── 날씨 여섯 ───
 //
@@ -2851,6 +2896,7 @@ window.GameData = {
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   CREATURE_ATTRS, creatureAttr, MAP_ATTRS, mapAttr,
+  FIELD_TYPES, MAP_TYPES, mapType, fieldType, fieldMini,
   FARM_CROPS, farmCrop, PLOT_COST, QUESTS, questOf, CUTS, cutOf, PAGE_TIERS, pagesForSpec,
   WEATHERS, WEATHER_HOURS, DAYPARTS, SPECIAL_TIERS, specialTier,
   getTier, recipeKey,

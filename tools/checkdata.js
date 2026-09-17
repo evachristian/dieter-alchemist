@@ -6,6 +6,7 @@
 // 크리처를 서른 종으로 늘리면서 새 조합이 서른 개 생기므로 이 검사가 먼저 필요했다.
 //
 // 사용: node tools/checkdata.js      (종료 코드 0 = 이상 없음)
+const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 
@@ -95,6 +96,65 @@ add('맵이 없는 재료를 가리킨다', badPool);
 const zoneIds = new Set(D.ZONES.map(z => z.id));
 add('맵의 지대가 ZONES 에 없다',
   D.MAPS.filter(m => !zoneIds.has(m.zone)).map(m => `${m.id} → ${m.zone}`));
+
+// ─── 채집지의 «형» (field type) ───────────────────────────────
+//
+// 형이 미니게임을 정한다. 여기서 어긋나면 **화면에 오류 하나 없이** 그 맵의 채집이
+// 통째로 바뀌거나(엉뚱한 게임) 아무 일도 안 일어난다 — 사람 눈으로는 못 찾는다.
+{
+  const bad = [];
+  const mapIds = new Set(D.MAPS.map(m => m.id));
+  const typeKeys = new Set(D.FIELD_TYPES.map(t => t.k));
+  // 표가 **없는 맵**을 가리키면 그 줄은 영영 안 읽힌다 (맵 id 를 바꿨을 때 생긴다)
+  Object.keys(D.MAP_TYPES).forEach(id => {
+    if (!mapIds.has(id)) bad.push(`형 표가 없는 맵을 가리킨다 — ${id}`);
+    if (!typeKeys.has(D.MAP_TYPES[id])) bad.push(`${id}: 없는 형 ${D.MAP_TYPES[id]}`);
+  });
+  // 형마다 **이름 문구**가 두 언어에 있는가 (없으면 카드에 열쇠가 그대로 뜬다)
+  D.FIELD_TYPES.forEach(t => {
+    [t.name, t.tag].filter(Boolean).forEach(k => {
+      if (I.t(k) === k) bad.push(`형 ${t.k}: 문구가 없다 (${k})`);
+    });
+  });
+  // ⚠️ **미니게임이 있는 형에는 딱지가 있어야 한다.** 없으면 2분짜리 게임이
+  // 카드에 아무 표시 없이 숨어 있다가 AP 를 내고 들어가야 드러난다
+  D.FIELD_TYPES.filter(t => t.mini && !t.tag)
+    .forEach(t => bad.push(`형 ${t.k}: 미니게임인데 카드 딱지가 없다`));
+  // **쓰이는 형만 둔다** — 표에만 있고 아무 맵에도 안 붙은 형은 만들다 만 것이다
+  const used = new Set(D.MAPS.map(m => D.mapType(m.id)));
+  D.FIELD_TYPES.forEach(t => {
+    if (!used.has(t.k)) bad.push(`형 ${t.k}: 쓰는 맵이 하나도 없다`);
+  });
+  // **미니게임 파일이 실제로 있는가.** `fieldMini` 가 돌려준 이름으로 `window.<X>` 를
+  // 찾는데, 파일이 없으면 `gather()` 가 조용히 «그냥 줍기»로 떨어진다 —
+  // 미니게임 맵인데 미니게임이 안 뜨는 상태가 오류 없이 만들어진다
+  const MINI_FILE = { pumpkin: 'pumpkin.js', apple: 'apple.js' };
+  D.FIELD_TYPES.filter(t => t.mini).forEach(t => {
+    const f = MINI_FILE[t.mini];
+    if (!f) bad.push(`형 ${t.k}: 미니게임 «${t.mini}» 의 파일을 모른다`);
+    else if (!fs.existsSync(path.join(ROOT, f))) bad.push(`형 ${t.k}: ${f} 가 없다`);
+    else if (!fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').includes(f)) {
+      bad.push(`형 ${t.k}: index.html 이 ${f} 를 안 읽는다`);
+    }
+  });
+  // ⚠️⚠️ **튜토리얼이 가리키는 맵은 반드시 «평범한 곳»이어야 한다.**
+  // 튜토리얼 9단계는 「가서 두 개 주워 오세요」인데, 그 맵이 미니게임 맵이 되면
+  // 버튼을 눌러도 **2분짜리 게임이 뜨고 튜토리얼은 그 자리에서 멈춘다** —
+  // 새 플레이어가 게임을 시작조차 못 하는 종류다. 규칙을 고치다 `p_hill` 이
+  // 과수원으로 걸리는 순간 조용히 그렇게 된다.
+  // 단계표는 `tutorial.js` 에 **써진 것**을 그대로 읽는다 (`checktuttext` 와 같은 방식)
+  {
+    const tut = fs.readFileSync(path.join(ROOT, 'tutorial.js'), 'utf8');
+    const spots = [...tut.matchAll(/data-spot="([a-z0-9_]+)"/g)].map(m => m[1]);
+    if (!spots.length) bad.push('튜토리얼이 가리키는 채집 맵을 못 찾았다 — 선택자가 바뀌었으면 여기도 고칠 것');
+    [...new Set(spots)].forEach(id => {
+      if (D.fieldMini(id)) {
+        bad.push(`튜토리얼이 미니게임 맵을 가리킨다 — ${id} (${D.mapType(id)}) · 새 플레이어가 거기서 갇힌다`);
+      }
+    });
+  }
+  add('채집지의 형이 어긋난다', bad);
+}
 
 // ─── 2-2. 특수 작물 (밭 · FARM.md) ────────────────────────────
 // **채집으로는 절대 안 나오고, 밭 물약에는 반드시 들어간다.** 이 둘이 밭의 존재

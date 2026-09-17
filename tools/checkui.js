@@ -1225,7 +1225,9 @@ function launchOpts() {
         // ⚠️ 못 구워도 게임은 돌아야 한다 — 그때는 예전 동그라미로 떨어진다
         {
           const pkBad = await page.evaluate(async () => {
-            const m = D.MAPS.find(x => x.mini === 'pumpkin');
+            // ⚠️ **형 표에서 찾는다.** 예전에는 맵 줄의 `mini` 칸을 봤는데 그 칸을
+            // 없앴다 — 형(`MAP_TYPES`)이 유일한 원본이다
+            const m = D.MAPS.find(x => D.fieldMini(x.id) === 'pumpkin');
             if (!m) return '호박 밭 맵이 없다';
             Pumpkin.start(m, () => {});
             for (let i = 0; i < 40 && !Pumpkin.faceState().baked.length; i++)
@@ -1238,6 +1240,36 @@ function launchOpts() {
           });
           if (pkBad) results.push({ 화면: `${t}/호박밭`, 오류: pkBad });
           await page.evaluate(() => { const h = document.getElementById('pumpkinGame'); if (h) h.remove(); });
+          await page.waitForTimeout(150);
+        }
+
+        // **과수원 · 사과 게임** — 판은 캔버스라 못 보지만 **HUD 와 결과 화면은 DOM 이다.**
+        // 맵 이름이 길면(영어는 더 길다) 점수·시계를 밀어내므로 넘침을 여기서 잰다.
+        // ⚠️ **결과 화면까지 열어 놓고 잰다** — 게임 중 화면만 재면 결과의 「나가기」와
+        // 재료 알약은 한 번도 안 잰 것이 된다 (밭 시트에서 배운 것과 같다)
+        {
+          await page.evaluate(() => {
+            // 이름이 제일 긴 과수원으로 잰다 — 짧은 것으로 재면 넘침이 안 드러난다
+            const ms = D.MAPS.filter(x => D.fieldMini(x.id) === 'apple');
+            const m = ms.sort((a, b) => N(b.id, b.name).length - N(a.id, a.name).length)[0];
+            Apple.start(m, () => {});
+          });
+          await page.waitForTimeout(120);
+          await run(`${t}/사과게임`);
+          const apFit = await page.evaluate(() => __cardFits('#appleGame .ap-hud, #appleGame .ap-hint'));
+          if (apFit && apFit.length) results.push({ 화면: `${t}/사과게임`, 넘침: apFit });
+          // 결과 화면 — 재료 알약이 여럿일 때를 본다 (한 종류만 넣으면 줄바꿈을 못 잰다)
+          await page.evaluate(() => {
+            const st = Apple._state();
+            st.score = 60;
+            st.picked = (st.pool || []).slice(0, 4).concat((st.pool || []).slice(0, 2));
+            Apple._finish();
+          });
+          await page.waitForTimeout(120);
+          await run(`${t}/사과게임결과`);
+          const apRes = await page.evaluate(() => __cardFits('#appleGame .ap-result, #appleGame .ap-item'));
+          if (apRes && apRes.length) results.push({ 화면: `${t}/사과게임결과`, 넘침: apRes });
+          await page.evaluate(() => { const h = document.getElementById('appleGame'); if (h) h.remove(); });
           await page.waitForTimeout(150);
         }
 

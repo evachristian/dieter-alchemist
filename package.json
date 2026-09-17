@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "node server/index.js",
-    "test": "node tools/genwardrobe.js --check && node tools/gencreature.js --check && node tools/genfarm.js --check && node tools/genmapattr.js --check && node tools/checkdata.js && node tools/checkglobals.js && node tools/checki18n.js && node tools/checktalk.js && node tools/checktuttext.js && node tools/checkbalance.js && node server/test.js",
+    "test": "node tools/genwardrobe.js --check && node tools/gencreature.js --check && node tools/genfarm.js --check && node tools/genmapattr.js --check && node tools/genmaptype.js --check && node tools/checkdata.js && node tools/checkglobals.js && node tools/checki18n.js && node tools/checktalk.js && node tools/checktuttext.js && node tools/checkbalance.js && node server/test.js",
     "test:name": "node tools/checkname.js",
     "test:talk": "node tools/checktalk.js",
     "test:ask": "node tools/checkask.js",
@@ -33,6 +33,8 @@
     "gen:creature": "node tools/gencreature.js",
     "gen:farm": "node tools/genfarm.js",
     "gen:mapattr": "node tools/genmapattr.js",
+    "gen:maptype": "node tools/genmaptype.js",
+    "test:apple": "node tools/checkapple.js",
     "test:time": "node tools/checktime.js",
     "test:farm": "node tools/checkfarm.js",
     "test:balance": "node tools/checkbalance.js",
