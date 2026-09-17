@@ -2701,6 +2701,59 @@ button.tm-slot:active { transform: scale(0.94); }
   box-shadow: 0 4px 10px rgba(255,150,190,0.35);
 }
 
+/* ─── 바위산 — 돌깨기 게임 (미니게임) ───
+   전체 화면 오버레이. 호박 밭과 **같은 뼈대**를 쓴다 (`#pumpkinGame`) —
+   미니게임마다 폭·모서리·나가기를 따로 정하면 두 화면이 다른 게임처럼 보인다. */
+#rockGame {
+  position: fixed; inset: 0; z-index: 9500;
+  background: #2b2a33;                    /* 돌그늘 — 호박 밭의 흙빛·호두밭의 저녁과 짝이다 */
+  display: flex; align-items: center; justify-content: center;
+}
+.rk-stage {
+  position: relative; width: 100%; height: 100%;
+  max-width: min(100vw, calc(100dvh * 9 / 16));
+  max-height: min(100dvh, calc(100vw * 16 / 9));
+  overflow: hidden;
+}
+.rk-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.rk-hud {
+  position: absolute; left: 0; right: 0; top: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+  background: linear-gradient(180deg, rgba(14,24,10,0.72), rgba(14,24,10,0));
+  font-size: 0.86rem; font-weight: 800; color: #f6fbef;
+  pointer-events: none;
+}
+/* ⚠️ 맵 이름이 길면 점수·시계를 밀어낸다 — 이름만 줄이고 숫자 둘은 제 폭을 지킨다 */
+.rk-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rk-score, .rk-timer { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.rk-timer { font-size: 1rem; }
+.rk-hint {
+  position: absolute; left: 0; right: 0; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  text-align: center; font-size: 0.78rem; font-weight: 700; color: rgba(246,251,239,0.85);
+  pointer-events: none;
+}
+/* 결과 — 끝났을 때만 뜬다 */
+.rk-result {
+  position: absolute; inset: 0; display: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; text-align: center; background: rgba(14,24,10,0.85);
+}
+.rk-result.show { display: flex; }
+.rk-res-title { font-size: 1rem; font-weight: 800; color: #f6fbef; line-height: 1.5; }
+.rk-res-items { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.rk-item {
+  font-size: 0.8rem; font-weight: 800; color: var(--ink);
+  background: var(--cream); border-radius: 999px; padding: 5px 11px;
+}
+/* .btn 은 flex:1 이라 세로 flex 안에서 높이까지 늘어난다 (호박 밭의 그 자리와 같다) */
+.rk-result > * { flex: 0 0 auto; }
+.rk-close {
+  flex: 0 0 auto; width: auto; min-width: 150px;
+  background: var(--pink-2); color: var(--ink);
+  box-shadow: 0 4px 10px rgba(255,150,190,0.35);
+}
+
 /* 물약 카드의 '?' — 이름 옆에 붙인다.
    모서리(오른쪽 위)에 두면 개수 표기(.potion-count)와 자리가 겹친다. */
 .potion-card { position: relative; }

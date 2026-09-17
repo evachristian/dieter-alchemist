@@ -1273,6 +1273,34 @@ function launchOpts() {
           await page.waitForTimeout(150);
         }
 
+        // **바위산 · 돌깨기 게임** — 판은 캔버스라 못 보지만 **HUD 와 결과 화면은 DOM 이다.**
+        // ⚠️ 여기는 **안내 줄이 제일 길다**(「끌어서 옮기고 · 톡 치면 돌린다 · 아래로 쓸면
+        // 떨어진다」) — 좁은 화면·영어에서 넘치는지는 이 화면에서만 잡힌다
+        {
+          await page.evaluate(() => {
+            const ms = D.MAPS.filter(x => D.fieldMini(x.id) === 'rock');
+            const m = ms.sort((a, b) => N(b.id, b.name).length - N(a.id, a.name).length)[0];
+            Rock.start(m, () => {});
+          });
+          await page.waitForTimeout(120);
+          await run(`${t}/돌깨기게임`);
+          const rkFit = await page.evaluate(() => __cardFits('#rockGame .rk-hud, #rockGame .rk-hint'));
+          if (rkFit && rkFit.length) results.push({ 화면: `${t}/돌깨기게임`, 넘침: rkFit });
+          // 결과 화면 — 재료 알약이 여럿일 때를 본다 (한 종류만 넣으면 줄바꿈을 못 잰다)
+          await page.evaluate(() => {
+            const st = Rock._state();
+            st.lines = 12;
+            st.picked = (st.pool || []).slice(0, 4).concat((st.pool || []).slice(0, 2));
+            Rock._finish();
+          });
+          await page.waitForTimeout(120);
+          await run(`${t}/돌깨기게임결과`);
+          const rkRes = await page.evaluate(() => __cardFits('#rockGame .rk-result, #rockGame .rk-item'));
+          if (rkRes && rkRes.length) results.push({ 화면: `${t}/돌깨기게임결과`, 넘침: rkRes });
+          await page.evaluate(() => { const h = document.getElementById('rockGame'); if (h) h.remove(); });
+          await page.waitForTimeout(150);
+        }
+
         // 마을은 다섯이고 **건물 수가 다르다.** 일곱인 마을과 넷인 마을을 다 본다 —
         // 그림 높이가 건물 수를 따라가므로 명판이 겹치는지는 일곱짜리로만 잡힌다.
         // 색은 마을마다 다른 팔레트라(`village.js` 의 SKIN) 새 마을도 한 곳은 재야 한다 —

@@ -989,12 +989,15 @@ const FIELD_TYPES = [
   { k: 'field',   mini: null,      name: 'ft_field',   tag: null },           // 평범하게 줍는 곳 (기본값)
   { k: 'walnut',  mini: 'walnut',  name: 'ft_walnut',  tag: 'mini_tag' },     // 호두밭 — 호두 게임
   { k: 'pumpkin', mini: 'pumpkin', name: 'ft_pumpkin', tag: 'mini_tag_pk' },  // 호박 밭 — 호박 피하기
+  { k: 'rock',    mini: 'rock',    name: 'ft_rock',    tag: 'mini_tag_rk' },  // 바위산 — 돌깨기 게임
 ];
 // <<<GEN:maptype
 const MAP_TYPES = {
   // 포근 평야 지대
   p_walnut: 'walnut',         // 호두 마루
   p_pumpkin: 'pumpkin',       // 파수꾼의 호박 밭
+  // 뾰족 산악 지대
+  m_rock: 'rock',             // 흔들 바위산
 };
 // GEN:maptype>>>
 // 없는 것은 **평범한 곳**이다 — 마흔 줄을 `'field'` 로 적어 두면 표에서

@@ -2779,7 +2779,7 @@ function switchTab(tab) {
 // 형(`D.fieldMini`)이 「여기는 그냥 줍는 곳이 아니다」라고 하면 그 화면으로 들어간다.
 // **미니게임 이름 → 전역 모듈**은 여기 한 줄이고, 끝난 뒤 처리도 한 함수다 —
 // 게임이 늘 때마다 `gather()` 에 `if` 를 붙이면 곧 갈래가 다섯이 된다.
-const MINIS = { pumpkin: 'Pumpkin', walnut: 'Walnut' };
+const MINIS = { pumpkin: 'Pumpkin', walnut: 'Walnut', rock: 'Rock' };
 
 // 미니게임이 끝났다. 주운 것을 가방에 넣는다.
 // **AP 는 들어갈 때 이미 냈으므로 여기서 또 빼지 않는다.**

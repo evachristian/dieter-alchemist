@@ -44,6 +44,10 @@ const NAME_RULES = [
   [/호박/, 'pumpkin'],
   // 호두밭 — 합이 10이면 줍는다 (`walnut.js`)
   [/호두/, 'walnut'],
+  // 바위산 — 돌조각을 쌓아 줄을 깬다 (`rock.js`).
+  // ⚠️ `바위` 로 잡으면 「소풍 바위」·「파도 바위」·「도마뱀 바위굴」까지 딸려 온다 —
+  // 규칙은 **그 맵 하나를 가리킬 만큼** 좁아야 한다
+  [/바위산/, 'rock'],
 ];
 
 function typeOf(m) {
@@ -63,9 +67,9 @@ for (const o of OUT) {
   (byZone[o.zone] = byZone[o.zone] || {})[o.type] = (byZone[o.zone][o.type] || 0) + 1;
 }
 // ⚠️ **옛 배정을 새로 뽑지 않는다** (genwardrobe 의 `LEGACY` 와 같은 규칙).
-// 호박 밭은 이미 미니게임이 붙어 나간 맵이라, 규칙을 고치다 형이 바뀌면
+// 셋 다 이미 미니게임이 붙어 나간 맵이라, 규칙을 고치다 형이 바뀌면
 // **그 맵의 채집이 조용히 다른 게임으로 바뀐다.** 여기서 못 박는다
-const PINNED = { p_pumpkin: 'pumpkin', p_walnut: 'walnut' };
+const PINNED = { p_pumpkin: 'pumpkin', p_walnut: 'walnut', m_rock: 'rock' };
 for (const [id, want] of Object.entries(PINNED)) {
   const got = (OUT.find(o => o.id === id) || {}).type;
   if (got !== want) problems.push(`${id}: 형이 ${got} 다 — ${want} 로 못 박혀 있다`);
@@ -88,9 +92,9 @@ for (const [z, m] of Object.entries(byZone)) {
 for (const t of D.FIELD_TYPES) {
   if (t.mini && !total[t.k]) problems.push(`${t.k} 형인 맵이 하나도 없다 — ${t.mini} 게임에 닿을 길이 없다`);
 }
-// **미니게임 하나는 «처음부터» 열려 있어야 한다.** 미니게임 맵이 둘뿐이라, 둘 다
-// 매력을 모아야 열리는 곳이면 새 플레이어는 한참 동안 미니게임을 한 번도 못 본다
-// (지금 호두 마루가 `unlock: 0` 이다)
+// **미니게임 하나는 «처음부터» 열려 있어야 한다.** 미니게임 맵이 몇 곳 안 되니,
+// 전부 매력을 모아야 열리는 곳이면 새 플레이어는 한참 동안 미니게임을 한 번도 못 본다
+// (지금 호두 마루만 `unlock: 0` 이다 — 호박 밭 20 · 흔들 바위산 132)
 const miniMaps = OUT.filter(o => o.type !== 'field')
   .map(o => D.MAPS.find(m => m.id === o.id));
 if (miniMaps.length && !miniMaps.some(m => !m.unlock)) {

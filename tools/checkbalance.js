@@ -173,13 +173,16 @@ const numIn = (re, what) => {
     `맨 위 목표가 상한의 ${Math.round(paceTop / ceiling * 100)}% (40% 이상이어야 한다)`);
 }
 
-// ─── ④-2 채집 미니게임 — **둘이 같은 자리에 있는가** ─────────
+// ─── ④-2 채집 미니게임 — **셋이 같은 자리에 있는가** ───────
 //
-// 미니게임은 「AP 한 번에 2분을 내고 재료를 많이 받는」 거래다. 그러니 둘의 «한 판
-// 최대»가 크게 다르면 **후한 쪽 맵만 돌게 되고** 나머지 맵은 죽은 콘텐츠가 된다
+// 미니게임은 「AP 한 번에 2분을 내고 재료를 많이 받는」 거래다. 그러니 «한 판 최대»가
+// 크게 다르면 **후한 쪽 맵만 돌게 되고** 나머지 맵은 죽은 콘텐츠가 된다
 // (밭 물약 여섯을 같은 값으로 둔 것과 같은 이유다).
 //
-// ⚠️ **수치를 여기에 옮겨 적지 않는다** — 두 파일에 써진 상수를 그대로 읽는다.
+// ⚠️ **수치를 여기에 옮겨 적지 않는다** — 게임 파일에 써진 상수를 그대로 읽는다.
+// ⚠️ **「한 판 최대」를 내는 식은 게임마다 다르다** (버틴 시간 · 판의 크기 · 상한).
+// 그래서 게임마다 한 줄씩 여기 적고, **형 표와 이 목록이 어긋나면 실패시킨다** —
+// 새 미니게임을 붙이면서 밸런스를 안 보고 지나갈 수 없게 하는 자리다.
 {
   const src = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
   const num = (s, re, what) => {
@@ -187,41 +190,80 @@ const numIn = (re, what) => {
     if (!m) throw new Error(`${what} 를 못 찾았다 — 이름이 바뀌었으면 여기도 고칠 것`);
     return Number(m[1]);
   };
-  const PK = src('pumpkin.js'), WN = src('walnut.js');
-  // 호박 밭 — 2분을 `REWARD_EVERY` 마다 하나씩, 끝까지 버티면 2개 더
-  const pkDur = num(PK, /const DUR_MS\s*=\s*(\d+)/, '호박 DUR_MS');
-  const pkEvery = num(PK, /const REWARD_EVERY\s*=\s*(\d+)/, 'REWARD_EVERY');
-  const pkMax = Math.floor(pkDur / pkEvery) + 2;
-  // 호두밭 — 호두 `REWARD_PER` 개마다 하나씩, 판을 다 지워도 `REWARD_MAX` 까지
-  const wnDur = num(WN, /const DUR_MS\s*=\s*(\d+)/, '호두 DUR_MS');
-  const wnPer = num(WN, /const REWARD_PER\s*=\s*(\d+)/, 'REWARD_PER');
-  const wnCap = num(WN, /const REWARD_MAX\s*=\s*(\d+)/, 'REWARD_MAX');
-  const cols = num(WN, /const COLS\s*=\s*(\d+)/, 'COLS');
-  const rows = num(WN, /const ROWS\s*=\s*(\d+)/, 'ROWS');
-  const wnMax = Math.min(wnCap, Math.floor(cols * rows / wnPer));
+  const dur = s => num(s, /const DUR_MS\s*=\s*(\d+)/, 'DUR_MS');
 
-  ok('미니게임 둘이 같은 시간을 쓴다', pkDur === wnDur,
-     `호박 ${pkDur / 1000}초 · 호두밭 ${wnDur / 1000}초 — 다르면 짧은 쪽이 시간당 이득이다`);
-  const hi = Math.max(pkMax, wnMax), lo = Math.min(pkMax, wnMax);
-  ok('미니게임 둘이 같은 자리에서 준다', hi <= lo * 1.5,
-     `호박 최대 ${pkMax}개 · 호두밭 최대 ${wnMax}개 (1.5배 안이어야 한다)`);
-  // **상한이 실제로 걸려야 한다.** 판을 다 지웠을 때가 상한보다 적으면 `REWARD_MAX` 는
-  // 아무 일도 안 하는 장식이고, 판을 늘리는 순간 조용히 후해진다
-  ok('호두밭 상한이 장식이 아니다', Math.floor(cols * rows / wnPer) >= wnCap,
-     `판을 다 지우면 ${Math.floor(cols * rows / wnPer)}개 · 상한 ${wnCap}개`);
-  // ⚠️ **상한만 보면 요율이 안 보인다.** `REWARD_PER` 를 5 → 2 로 후하게 바꿔도
-  // 상한(20)이 그대로라 위의 「같은 자리」 검사가 **통과했다** — 실제로는 호두를
-  // 40개만 지워도 꼭대기라 절반도 안 한 사람이 다 받는다.
-  // **상한은 «거의 다 지운 사람»의 것**이어야 한다: 판의 절반은 지워야 닿는다
-  const needFrac = (wnCap * wnPer) / (cols * rows);
-  ok('호두밭 상한이 «거의 다 지운 사람»의 것이다', needFrac >= 0.5,
-     `상한에 닿으려면 호두 ${wnCap * wnPer}개 = 판의 ${Math.round(needFrac * 100)}% (50% 이상)`);
-  // 미니게임 한 판이 **평범한 채집 한 번보다는** 나아야 2분을 낼 이유가 생긴다
-  ok('미니게임이 그냥 줍는 것보다 낫다', wnMax > 1 && pkMax > 1,
-     `평범한 채집은 한 번에 1개다`);
-  // **형 표와 파일이 같은 것을 가리키는가** — 미니게임이 붙은 형이 실제로 둘인가
+  const GAMES = {
+    // 호박 밭 — 2분을 `REWARD_EVERY` 마다 하나씩, 끝까지 버티면 2개 더
+    pumpkin: () => {
+      const f = src('pumpkin.js');
+      const every = num(f, /const REWARD_EVERY\s*=\s*(\d+)/, 'REWARD_EVERY');
+      return { name: '호박 밭', dur: dur(f), max: Math.floor(dur(f) / every) + 2 };
+    },
+    // 호두밭 — 호두 `REWARD_PER` 개마다 하나씩, 판을 다 지워도 `REWARD_MAX` 까지
+    walnut: () => {
+      const f = src('walnut.js');
+      const per = num(f, /const REWARD_PER\s*=\s*(\d+)/, 'REWARD_PER');
+      const cap = num(f, /const REWARD_MAX\s*=\s*(\d+)/, 'REWARD_MAX');
+      const cols = num(f, /const COLS\s*=\s*(\d+)/, 'COLS');
+      const rows = num(f, /const ROWS\s*=\s*(\d+)/, 'ROWS');
+      return { name: '호두밭', dur: dur(f), max: Math.min(cap, Math.floor(cols * rows / per)), per, cap, cols, rows };
+    },
+    // 바위산 — 깬 줄 `REWARD_PER` 줄마다 하나씩, `REWARD_MAX` 까지.
+    // ⚠️ 여기는 **판 크기가 상한을 안 잡는다** (줄을 깨면 판이 비어 또 쌓을 수 있다) —
+    // 상한 자체가 곧 한 판 최대이므로, 그 상한이 «진짜 일»인지는 아래에서 따로 본다
+    rock: () => {
+      const f = src('rock.js');
+      const per = num(f, /const REWARD_PER\s*=\s*(\d+)/, 'REWARD_PER');
+      const cap = num(f, /const REWARD_MAX\s*=\s*(\d+)/, 'REWARD_MAX');
+      const rows = num(f, /const ROWS\s*=\s*(\d+)/, 'ROWS');
+      return { name: '바위산', dur: dur(f), max: cap, per, cap, rows };
+    },
+  };
+
+  // **형 표와 이 목록이 같은 것을 가리키는가.** 형에만 있으면 밸런스를 아무도 안 본
+  // 게임이 하나 늘어난 것이고, 여기에만 있으면 붙은 맵이 없는 게임이다
   const minis = D.FIELD_TYPES.filter(t => t.mini).map(t => t.mini).sort();
-  ok('미니게임이 둘 다 형에 붙어 있다', minis.join() === 'pumpkin,walnut', minis.join(' · '));
+  const known = Object.keys(GAMES).sort();
+  ok('미니게임 목록이 형 표와 같다', minis.join() === known.join(),
+     `형 ${minis.join(' · ')} / 여기 ${known.join(' · ')}`);
+
+  const G = {};
+  minis.filter(k => GAMES[k]).forEach(k => { G[k] = GAMES[k](); });
+  const all = Object.values(G);
+
+  // **같은 시간을 쓴다** — 다르면 짧은 쪽이 시간당 이득이다
+  const durs = [...new Set(all.map(g => g.dur))];
+  ok('미니게임이 다 같은 시간을 쓴다', durs.length === 1,
+     all.map(g => `${g.name} ${g.dur / 1000}초`).join(' · '));
+  // **같은 자리에서 준다** — 제일 후한 쪽이 제일 박한 쪽의 1.5배 안
+  const hi = Math.max(...all.map(g => g.max)), lo = Math.min(...all.map(g => g.max));
+  ok('미니게임이 다 같은 자리에서 준다', hi <= lo * 1.5,
+     all.map(g => `${g.name} 최대 ${g.max}개`).join(' · ') + ' (1.5배 안이어야 한다)');
+  // 미니게임 한 판이 **평범한 채집 한 번보다는** 나아야 2분을 낼 이유가 생긴다
+  ok('미니게임이 그냥 줍는 것보다 낫다', all.every(g => g.max > 1),
+     `평범한 채집은 한 번에 1개다 · ${all.map(g => g.name + ' ' + g.max).join(' · ')}`);
+
+  // ── 호두밭 — **상한이 실제로 걸려야 한다.** 판을 다 지웠을 때가 상한보다 적으면
+  // `REWARD_MAX` 는 아무 일도 안 하는 장식이고, 판을 늘리는 순간 조용히 후해진다
+  if (G.walnut) {
+    const w = G.walnut, full = Math.floor(w.cols * w.rows / w.per);
+    ok('호두밭 상한이 장식이 아니다', full >= w.cap, `판을 다 지우면 ${full}개 · 상한 ${w.cap}개`);
+    // ⚠️ **상한만 보면 요율이 안 보인다.** `REWARD_PER` 를 5 → 2 로 후하게 바꿔도
+    // 상한(20)이 그대로라 위의 「같은 자리」 검사가 **통과했다** — 실제로는 호두를
+    // 40개만 지워도 꼭대기라 절반도 안 한 사람이 다 받는다.
+    // **상한은 «거의 다 지운 사람»의 것**이어야 한다: 판의 절반은 지워야 닿는다
+    const frac = (w.cap * w.per) / (w.cols * w.rows);
+    ok('호두밭 상한이 «거의 다 지운 사람»의 것이다', frac >= 0.5,
+       `상한에 닿으려면 호두 ${w.cap * w.per}개 = 판의 ${Math.round(frac * 100)}% (50% 이상)`);
+  }
+  // ── 바위산 — 같은 이유를 **줄 수**로 잰다. 판 크기가 상한을 안 잡으니
+  // 상한이 헐거우면 「몇 줄 깨고 꼭대기」가 된다: **판 하나를 통째로 비우는 것보다는
+  // 많이 깨야** 상한에 닿아야 한다
+  if (G.rock) {
+    const r = G.rock, need = r.cap * r.per;
+    ok('바위산 상한이 «판을 비우고도 더 깬 사람»의 것이다', need >= r.rows,
+       `상한에 닿으려면 ${need}줄 · 판은 ${r.rows}줄짜리다 (판 하나보다 많아야 한다)`);
+  }
 }
 
 // ─── ⑤ 시뮬레이터의 목표를 지나는가 ──────────────────────────
