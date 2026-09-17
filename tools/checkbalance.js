@@ -218,6 +218,20 @@ const numIn = (re, what) => {
       const rows = num(f, /const ROWS\s*=\s*(\d+)/, 'ROWS');
       return { name: '바위산', dur: dur(f), max: cap, per, cap, rows };
     },
+    // 낚시터 — 한 번 건질 때마다 `REWARD_PER` 개, `REWARD_MAX` 까지.
+    // 한 바퀴의 **최소**가 「입질까지 + 그물에 붙들고 있는 시간 + 건져 올리는 연출」이라
+    // 2분에 몇 번인지가 거기서 나온다
+    fish: () => {
+      const f = src('fish.js');
+      const per = num(f, /const REWARD_PER\s*=\s*(\d+)/, 'REWARD_PER');
+      const cap = num(f, /const REWARD_MAX\s*=\s*(\d+)/, 'REWARD_MAX');
+      const bite = num(f, /const BITE_MIN\s*=\s*(\d+)/, 'BITE_MIN');
+      const ctc = num(f, /const CATCH_MS\s*=\s*(\d+)/, 'CATCH_MS');
+      const land = num(f, /const LAND_MS\s*=\s*(\d+)/, 'LAND_MS');
+      const cycle = bite + ctc + land;
+      const d = dur(f);
+      return { name: '낚시터', dur: d, max: Math.min(cap, Math.floor(d / cycle) * per), per, cap, cycle };
+    },
   };
 
   // **형 표와 이 목록이 같은 것을 가리키는가.** 형에만 있으면 밸런스를 아무도 안 본
@@ -255,6 +269,15 @@ const numIn = (re, what) => {
     const frac = (w.cap * w.per) / (w.cols * w.rows);
     ok('호두밭 상한이 «거의 다 지운 사람»의 것이다', frac >= 0.5,
        `상한에 닿으려면 호두 ${w.cap * w.per}개 = 판의 ${Math.round(frac * 100)}% (50% 이상)`);
+  }
+  // ── 낚시터 — 여기도 판 크기가 아니라 **시간**이 상한을 잡는다.
+  // 상한이 헐거우면 「두어 번 건지고 꼭대기」가 된다: **2분의 절반 가까이는
+  // 쉬지 않고 건져야** 상한에 닿아야 한다
+  if (G.fish) {
+    const f = G.fish, need = Math.ceil(f.cap / f.per) * f.cycle;
+    ok('낚시터 상한이 «쉬지 않고 건진 사람»의 것이다', need >= f.dur * 0.4,
+       `상한에 닿으려면 ${Math.ceil(f.cap / f.per)}번 × ${f.cycle / 1000}초 = ${Math.round(need / 1000)}초`
+       + ` (2분의 40% = ${Math.round(f.dur * 0.4 / 1000)}초 이상)`);
   }
   // ── 바위산 — 같은 이유를 **줄 수**로 잰다. 판 크기가 상한을 안 잡으니
   // 상한이 헐거우면 「몇 줄 깨고 꼭대기」가 된다: **판 하나를 통째로 비우는 것보다는

@@ -18,7 +18,7 @@ const ROOT = path.join(__dirname, '..');
 const FILES = ['data.js', 'i18n.js', 'sync.js', 'avatar.js', 'creature.js',
   'portrait.js', 'village.js', 'sfx.js', 'intro.js', 'tutorial.js', 'game.js', 'a11y.js',
   // 미니게임 둘은 IIFE 라 최상위 이름이 없다 — **없다는 것을 여기서 지킨다**
-  'pumpkin.js', 'walnut.js', 'rock.js'];
+  'pumpkin.js', 'walnut.js', 'rock.js', 'fish.js'];
 
 // 최상위 선언만 뽑는다. **중괄호 깊이 0** 인 줄의 `const|let|var|function|class` 다.
 // (IIFE 로 감싼 파일은 안쪽이 깊이 1 이상이라 저절로 빠진다 — 그쪽은 안 겹친다)

@@ -143,7 +143,7 @@ function pick(id) { cur = id; render(); }
 ## 1-2. 스페셜 맵 배지 (`.spot-badge`)
 
 미니게임이 있는 맵은 카드 **왼쪽 위 모서리**에 **«어느 게임인지»**를 배지로 단다
-(「🌰 호두 게임」·「🎃 호박 피하기」·「🪨 돌깨기 게임」).
+(「🌰 호두 게임」·「🎃 호박 피하기」·「🪨 돌깨기 게임」·「🎣 낚시」).
 
 - 배지를 다는 카드는 `.spot-card.special` 이 붙어 `position: relative` 가 된다
 - 배지는 `position: absolute; left:-4px; top:-8px` — 카드 모서리에 걸치게 얹는다

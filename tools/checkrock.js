@@ -220,6 +220,13 @@ function ok(cond, msg, extra) {
   // ⚠️ **띠가 판을 덮으면 안 된다** — 미리보기가 쌓인 돌 위에 겹치면 둘 다 안 읽힌다
   // 위에서 «뜬» 띠(판 꼭대기에서 1.4칸)가 HUD 아래에 통째로 들어가야 한다 —
   // 판을 그냥 가운데 두면 그 띠가 HUD 를 파고들어 조각이 맵 이름 위에 겹친다
+  // ⚠️ **다음 검사를 위해 판을 비운다.** 위에서 다섯 번을 떨궜더니 가운데 기둥이
+  // 천장까지 차서 **게임이 끝나 버렸고**, 뒤의 「벽 밖으로 안 나간다」가 없는 조각을
+  // 읽다 터졌다 (검사끼리 발을 밟은 것이지 게임이 틀린 것이 아니다)
+  await page.evaluate(() => {
+    const st = Rock._state();
+    for (let r = 0; r < 16; r++) { st.grid[r].fill(0); st.seed[r].fill(0); }
+  });
   ok(band.oy >= 46 + band.cell * 1.4, '미리보기 띠가 HUD 와 판 «사이»에 따로 있다',
      `판 꼭대기 ${band.oy}px · 칸 ${band.cell}px · 띠는 ${Math.round(band.oy - band.cell * 1.4)}px 부터`);
 
@@ -270,6 +277,12 @@ function ok(cond, msg, extra) {
   }
   // 벽 밖으로는 안 나간다
   {
+    // ⚠️ **조각이 없으면 «거기서 죽지 말고» 알린다** — 없는 조각의 칸을 읽다 터지면
+    // 그때까지 잰 스무 줄이 통째로 사라진다 (이 파일에서 두 번째로 겪은 자리다)
+    if (!(await page.evaluate(() => Rock.boardState().piece))) {
+      ok(false, '벽 검사를 할 조각이 판에 있다', '조각이 없다 — 이미 끝난 판이다');
+      return done(browser, page, errs);
+    }
     const B = await box();
     await drag(-B.cell * 20, 0);
     const c = (await page.evaluate(() => Rock.boardState().piece)).c;

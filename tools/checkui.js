@@ -1301,6 +1301,35 @@ function launchOpts() {
           await page.waitForTimeout(150);
         }
 
+        // **낚시터 · 낚시** — HUD 와 결과 화면은 DOM 이다.
+        // ⚠️ **안내 줄이 «걸음마다» 바뀐다** — 그냥 재면 그때 서 있는 걸음의 문구만
+        // 재는 것이라 **제일 긴 줄은 영영 안 재는** 수가 있다 (부엌의 「오늘의 한 마디」와
+        // 같은 구멍이다). 제일 긴 씨름 문구로 못 박고 잰다
+        {
+          await page.evaluate(() => {
+            const m = D.MAPS.filter(x => D.fieldMini(x.id) === 'fish')[0];
+            Fish.start(m, () => {});
+            Fish._bite(); Fish._hook();          // 씨름 — 안내 줄이 제일 길다
+          });
+          await page.waitForTimeout(220);
+          await run(`${t}/낚시`);
+          const fsFit = await page.evaluate(() => __cardFits('#fishGame .fs-hud, #fishGame .fs-hint'));
+          if (fsFit && fsFit.length) results.push({ 화면: `${t}/낚시`, 넘침: fsFit });
+          // 결과 화면 — 재료 알약이 여럿일 때를 본다
+          await page.evaluate(() => {
+            const st = Fish._state();
+            st.got = 6;
+            st.picked = (st.pool || []).slice(0, 4).concat((st.pool || []).slice(0, 2));
+            Fish._finish();
+          });
+          await page.waitForTimeout(120);
+          await run(`${t}/낚시결과`);
+          const fsRes = await page.evaluate(() => __cardFits('#fishGame .fs-result, #fishGame .fs-item'));
+          if (fsRes && fsRes.length) results.push({ 화면: `${t}/낚시결과`, 넘침: fsRes });
+          await page.evaluate(() => { const h = document.getElementById('fishGame'); if (h) h.remove(); });
+          await page.waitForTimeout(150);
+        }
+
         // 마을은 다섯이고 **건물 수가 다르다.** 일곱인 마을과 넷인 마을을 다 본다 —
         // 그림 높이가 건물 수를 따라가므로 명판이 겹치는지는 일곱짜리로만 잡힌다.
         // 색은 마을마다 다른 팔레트라(`village.js` 의 SKIN) 새 마을도 한 곳은 재야 한다 —
