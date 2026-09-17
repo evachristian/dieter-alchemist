@@ -232,6 +232,19 @@ const numIn = (re, what) => {
       const d = dur(f);
       return { name: '낚시터', dur: d, max: Math.min(cap, Math.floor(d / cycle) * per), per, cap, cycle };
     },
+    // 밀밭 — 참새 `REWARD_PER` 마리마다 하나, `REWARD_MAX` 까지.
+    // ⚠️ 여기서 한 판 최대를 잡는 것은 **스폰 간격**이다 (호두밭의 판 크기와 같은 자리다) —
+    // 2분 동안 나오는 참새를 «다» 쫓아도 그 이상은 못 받는다.
+    // 제일 촘촘할 때(`SPAWN_MIN`)로 세므로 여기서 나오는 수는 **넉넉한 쪽**이다
+    sparrow: () => {
+      const f = src('sparrow.js');
+      const per = num(f, /const REWARD_PER\s*=\s*(\d+)/, 'REWARD_PER');
+      const cap = num(f, /const REWARD_MAX\s*=\s*(\d+)/, 'REWARD_MAX');
+      const spawn = num(f, /SPAWN_MIN\s*=\s*(\d+)/, 'SPAWN_MIN');
+      const d = dur(f);
+      const birds = Math.floor(d / spawn);
+      return { name: '밀밭', dur: d, max: Math.min(cap, Math.floor(birds / per)), per, cap, spawn, birds };
+    },
   };
 
   // **형 표와 이 목록이 같은 것을 가리키는가.** 형에만 있으면 밸런스를 아무도 안 본
@@ -286,6 +299,16 @@ const numIn = (re, what) => {
     const r = G.rock, need = r.cap * r.per;
     ok('바위산 상한이 «판을 비우고도 더 깬 사람»의 것이다', need >= r.rows,
        `상한에 닿으려면 ${need}줄 · 판은 ${r.rows}줄짜리다 (판 하나보다 많아야 한다)`);
+  }
+  // ── 밀밭 — 같은 이유를 **참새 수**로 잰다. ⚠️ 상한만 보면 요율이 안 보인다
+  // (호두밭에서 배운 자리다): 스폰되는 것의 절반도 안 쫓고 꼭대기에 닿으면
+  // 「2분을 내는」 거래가 아니라 그냥 기다리는 시간이 된다
+  if (G.sparrow) {
+    const s2 = G.sparrow, need = s2.cap * s2.per;
+    const share = need / s2.birds;
+    ok('밀밭 상한이 «거의 다 쫓은 사람»의 것이다', share >= 0.5 && share <= 1,
+       `상한에 닿으려면 ${need}마리 · 2분에 제일 촘촘해도 ${s2.birds}마리가 나온다`
+       + ` (${Math.round(share * 100)}% · 50~100% 여야 한다)`);
   }
 }
 
