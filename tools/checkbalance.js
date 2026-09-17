@@ -255,6 +255,20 @@ const numIn = (re, what) => {
       const best = Math.floor(Math.floor(birds / 5) * 25 / per);   // 다 펜타로 맞혔을 때
       return { name: '밀밭', dur: d, max: Math.min(cap, best), per, cap, spawn, birds };
     },
+    // 바람개비 밭 — 치운 바람개비 `REWARD_PER` 개마다 하나, `REWARD_MAX` 까지.
+    // ⚠️ **여기는 「한 판에 몇 개」가 상한을 안 잡는다** — 판을 비우면 새 판이 깔린다.
+    // 상한 자체가 곧 한 판 최대이고, 그 상한이 «진짜 일»인지는 아래에서 따로 본다
+    pinwheel: () => {
+      const f = src('pinwheel.js');
+      const per = num(f, /const REWARD_PER\s*=\s*(\d+)/, 'REWARD_PER');
+      const cap = num(f, /const REWARD_MAX\s*=\s*(\d+)/, 'REWARD_MAX');
+      // ⚠️ `const COLS = 6, ROWS = 7;` 처럼 **한 줄에 둘**이라 `const` 를 붙이면 못 찾는다
+      const cols = num(f, /COLS\s*=\s*(\d+)/, 'COLS');
+      const rows = num(f, /ROWS\s*=\s*(\d+)/, 'ROWS');
+      const fill = num(f, /FILL\s*=\s*([\d.]+)/, 'FILL');
+      const perBoard = Math.round(cols * rows * fill);
+      return { name: '바람개비 밭', dur: dur(f), max: cap, per, cap, perBoard };
+    },
   };
 
   // **형 표와 이 목록이 같은 것을 가리키는가.** 형에만 있으면 밸런스를 아무도 안 본
@@ -330,6 +344,16 @@ const numIn = (re, what) => {
     const r = G.rock, need = r.cap * r.per;
     ok('바위산 상한이 «판을 비우고도 더 깬 사람»의 것이다', need >= r.rows,
        `상한에 닿으려면 ${need}줄 · 판은 ${r.rows}줄짜리다 (판 하나보다 많아야 한다)`);
+  }
+  // ── 바람개비 밭 — 같은 이유를 **판 수**로 잰다. 판을 비우면 새 판이 깔리므로
+  // 상한이 헐거우면 「한 판 대충 치우고 꼭대기」가 된다: **판 하나를 통째로 비우는 것보다
+  // 훨씬 많이** 치워야 상한에 닿아야 한다
+  if (G.pinwheel) {
+    const w2 = G.pinwheel, need = w2.cap * w2.per;
+    const boards = need / w2.perBoard;
+    ok('바람개비 밭 상한이 «판을 여러 번 비운 사람»의 것이다', boards >= 3,
+       `상한에 닿으려면 ${need}개 · 한 판이 ${w2.perBoard}개라 ${boards.toFixed(1)}판이다`
+       + ' (세 판 이상이어야 한다)');
   }
   // ── 밀밭 — 같은 이유를 **참새 수**로 잰다. ⚠️ 상한만 보면 요율이 안 보인다
   // (호두밭에서 배운 자리다): 스폰되는 것의 절반도 안 쫓고 꼭대기에 닿으면

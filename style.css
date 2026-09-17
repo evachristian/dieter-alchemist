@@ -2882,6 +2882,75 @@ button.tm-slot:active { transform: scale(0.94); }
   box-shadow: 0 4px 10px rgba(255,150,190,0.35);
 }
 
+/* ─── 바람개비 밭 · 바람개비 퍼즐 ───────────────────────────
+   참새 쫓기(#sparrowGame)의 짜임을 그대로 베낀다 — 미니게임 여섯이 저마다 다른 꼴이면
+   나가는 길도 HUD 도 매번 다시 찾아야 한다 (UI_POLICY.md 의 시트 규칙과 같은 결). */
+#pinwheelGame {
+  position: fixed; inset: 0; z-index: 9500;
+  background: #7ec8f0;                    /* 한낮 하늘 — 흙빛·저녁·돌그늘·물빛·노을과 나란한 여섯째다 */
+  display: flex; align-items: center; justify-content: center;
+}
+.pw-stage {
+  position: relative; width: 100%; height: 100%;
+  max-width: min(100vw, calc(100dvh * 9 / 16));
+  max-height: min(100dvh, calc(100vw * 16 / 9));
+  overflow: hidden;
+}
+.pw-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.pw-hud {
+  position: absolute; left: 0; right: 0; top: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+  background: linear-gradient(180deg, rgba(20,40,60,0.55), rgba(20,40,60,0));
+  font-size: 0.86rem; font-weight: 800; color: #ffffff;
+  text-shadow: 0 1px 3px rgba(20,40,60,0.5);   /* 하늘이 밝아서 흰 글자가 묻힌다 */
+  pointer-events: none;
+}
+/* ⚠️ 맵 이름이 길면 점수·시계를 밀어낸다 — 이름만 줄이고 숫자 둘은 제 폭을 지킨다 */
+.pw-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pw-score, .pw-timer { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.pw-timer {
+  font-size: 1.45rem; font-weight: 900; text-shadow: none;
+  background: rgba(20,40,60,0.55); border-radius: 999px; padding: 1px 12px;
+}
+.pw-timer.hurry { color: #fff0ee; background: rgba(196,52,40,0.85); animation: swHurry .7s ease-in-out infinite; }
+.pw-tbar {
+  position: absolute; left: 14px; right: 14px;
+  top: calc(52px + env(safe-area-inset-top, 0px));
+  height: 6px; border-radius: 999px; overflow: hidden;
+  background: rgba(20,40,60,0.28);
+  pointer-events: none;
+}
+.pw-tbar > i { display: block; height: 100%; width: 100%; background: #ffffff; border-radius: 999px; }
+.pw-tbar.hurry > i { background: #ff7a6a; }
+.pw-hint {
+  position: absolute; left: 0; right: 0; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  padding: 0 14px;
+  text-align: center; font-size: 0.78rem; font-weight: 700; color: #ffffff;
+  text-shadow: 0 1px 3px rgba(20,40,60,0.55);
+  pointer-events: none;
+}
+/* 결과 — 끝났을 때만 뜬다 */
+.pw-result {
+  position: absolute; inset: 0; display: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; text-align: center; background: rgba(20,40,60,0.82);
+}
+.pw-result.show { display: flex; }
+.pw-res-title { font-size: 1rem; font-weight: 800; color: #ffffff; line-height: 1.5; }
+.pw-res-items { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.pw-item {
+  font-size: 0.8rem; font-weight: 800; color: var(--ink);
+  background: var(--cream); border-radius: 999px; padding: 5px 11px;
+}
+/* .btn 은 flex:1 이라 세로 flex 안에서 높이까지 늘어난다 (호박 밭의 그 자리와 같다) */
+.pw-result > * { flex: 0 0 auto; }
+.pw-close {
+  flex: 0 0 auto; width: auto; min-width: 150px;
+  background: var(--pink-2); color: var(--ink);
+  box-shadow: 0 4px 10px rgba(255,150,190,0.35);
+}
+
 /* 물약 카드의 '?' — 이름 옆에 붙인다.
    모서리(오른쪽 위)에 두면 개수 표기(.potion-count)와 자리가 겹친다. */
 .potion-card { position: relative; }

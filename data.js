@@ -992,12 +992,14 @@ const FIELD_TYPES = [
   { k: 'rock',    mini: 'rock',    name: 'ft_rock',    tag: 'mini_tag_rk' },  // 바위산 — 돌깨기 게임
   { k: 'fish',    mini: 'fish',    name: 'ft_fish',    tag: 'mini_tag_fs' },  // 낚시터 — 낚시
   { k: 'sparrow', mini: 'sparrow', name: 'ft_sparrow', tag: 'mini_tag_sw' },  // 밀밭 — 참새 쫓기
+  { k: 'pinwheel',mini: 'pinwheel',name: 'ft_pinwheel',tag: 'mini_tag_pw' },  // 바람개비 밭 — 바람개비 퍼즐
 ];
 // <<<GEN:maptype
 const MAP_TYPES = {
   // 포근 평야 지대
   p_mirror: 'fish',           // 거울 저수지
   p_walnut: 'walnut',         // 호두 마루
+  p_windmill: 'pinwheel',     // 바람개비 밭
   p_sunset: 'sparrow',        // 노을 밀밭
   p_pumpkin: 'pumpkin',       // 파수꾼의 호박 밭
   // 뾰족 산악 지대

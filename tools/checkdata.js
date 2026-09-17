@@ -129,7 +129,7 @@ add('맵의 지대가 ZONES 에 없다',
   // 찾는데, 파일이 없으면 `gather()` 가 조용히 «그냥 줍기»로 떨어진다 —
   // 미니게임 맵인데 미니게임이 안 뜨는 상태가 오류 없이 만들어진다
   const MINI_FILE = { pumpkin: 'pumpkin.js', walnut: 'walnut.js', rock: 'rock.js', fish: 'fish.js',
-                      sparrow: 'sparrow.js' };
+                      sparrow: 'sparrow.js', pinwheel: 'pinwheel.js' };
   D.FIELD_TYPES.filter(t => t.mini).forEach(t => {
     const f = MINI_FILE[t.mini];
     if (!f) bad.push(`형 ${t.k}: 미니게임 «${t.mini}» 의 파일을 모른다`);

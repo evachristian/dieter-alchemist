@@ -54,6 +54,8 @@ const NAME_RULES = [
   // ⚠️ `밀` 로 잡으면 재료 「밀 이삭」과 헷갈릴 뿐 아니라 이름에 밀이 든 맵이
   // 늘어나는 순간 딸려 온다 — 규칙은 **그 맵 하나를 가리킬 만큼** 좁아야 한다
   [/밀밭/, 'sparrow'],
+  // 바람개비 밭 — 바람이 부는 쪽으로만 빠져나가는 퍼즐 (`pinwheel.js`)
+  [/바람개비/, 'pinwheel'],
 ];
 
 function typeOf(m) {
@@ -76,7 +78,7 @@ for (const o of OUT) {
 // 넷 다 이미 미니게임이 붙어 나간 맵이라, 규칙을 고치다 형이 바뀌면
 // **그 맵의 채집이 조용히 다른 게임으로 바뀐다.** 여기서 못 박는다
 const PINNED = { p_pumpkin: 'pumpkin', p_walnut: 'walnut', m_rock: 'rock', p_mirror: 'fish',
-                 p_sunset: 'sparrow' };
+                 p_sunset: 'sparrow', p_windmill: 'pinwheel' };
 for (const [id, want] of Object.entries(PINNED)) {
   const got = (OUT.find(o => o.id === id) || {}).type;
   if (got !== want) problems.push(`${id}: 형이 ${got} 다 — ${want} 로 못 박혀 있다`);

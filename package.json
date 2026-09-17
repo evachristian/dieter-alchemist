@@ -38,6 +38,7 @@
     "test:rock": "node tools/checkrock.js",
     "test:fish": "node tools/checkfish.js",
     "test:sparrow": "node tools/checksparrow.js",
+    "test:pinwheel": "node tools/checkpinwheel.js",
     "test:time": "node tools/checktime.js",
     "test:farm": "node tools/checkfarm.js",
     "test:balance": "node tools/checkbalance.js",
