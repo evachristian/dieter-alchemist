@@ -33,9 +33,21 @@
   const SP_BASE = 0.05, SP_TOP = 0.20;
 
   const PAD = 6;             // 격자 바깥 여백
-  const APPLE = '#e0503f';   // 사과 빨강
-  const APPLE_SEL = '#ff8a5c';
-  const LEAF = '#5aa84f';
+  // ─── 타일 ────────────────────────────────────────────────────
+  // **그 맵에서 나는 것을 그린다** — 버섯 마을이면 🍄, 가시덤불이면 🌵.
+  // 사과만 깔면 어느 과수원에 서 있든 같은 화면이라, 「여기가 어디인지」가 사라진다.
+  //
+  // ⚠️ **숫자가 주인공이다.** 이모지를 크게 깔고 숫자를 그 «위»에 얹어 보았더니
+  // 숫자가 이모지를 덮어 둘 다 안 읽혔고, 모서리 배지로 빼니 칸을 붙여 놓았을 때
+  // **어느 칸의 숫자인지** 흐려졌다 (넷을 38px 로 그려 놓고 골랐다).
+  // 그래서 **크림 판 위에 이모지를 작게 얹고 숫자를 아래 크게** 둔다 —
+  // 원래 사과 게임의 «동그란 판 + 큰 숫자»를 그대로 지키면서 이모지가 딱지로 붙는다
+  const PLATE = '#fff6e6';       // 크림 판 (진한 글자를 받는다)
+  const PLATE_SEL = '#ffe2a8';   // 고르는 중
+  const PLATE_BAD = '#d8d2c8';   // 합이 안 맞았을 때 잠깐
+  const NUM_INK = '#3a2a1a';     // 판 위 숫자 — 크림에 대비 10:1 이 넘는다
+  const EM_Y = -0.42, EM_SIZE = 0.36;   // 이모지 — 판 반지름에 대한 자리·크기
+  const NUM_Y = 0.34, NUM_SIZE = 0.42;  // 숫자
 
   let host = null, cv = null, ctx = null, raf = 0, timerT = 0;
   let S = null;              // 진행 중 상태 (없으면 안 돌고 있는 것)
@@ -78,10 +90,26 @@
     P[r2 + 1][c2 + 1] - P[r1][c2 + 1] - P[r2 + 1][c1] + P[r1][c1];
 
   // ─── 상태 ───
+  // 칸마다 **한 번 정해 두고 안 바꾼다.** 매번 새로 뽑으면 다시 그릴 때마다 그림이
+  // 바뀌어 눈이 따라갈 수가 없다 (날씨를 `render()` 마다 뽑지 않는 것과 같은 규칙이다)
+  function newEmojis(pool) {
+    const D = window.GameData;
+    const ems = (pool && pool.length ? pool : ['berry'])
+      .map(id => ((D && D.INGREDIENTS && D.INGREDIENTS[id]) || {}).emoji || '🍎');
+    const g = [];
+    for (let r = 0; r < ROWS; r++) {
+      const row = [];
+      for (let c = 0; c < COLS; c++) row.push(ems[Math.floor(Math.random() * ems.length)]);
+      g.push(row);
+    }
+    return g;
+  }
+
   function newState(pool, specialId) {
     return {
       t0: 0, now: 0, over: false, cleared: false,
       grid: newBoard(),          // 지워진 칸은 0
+      em: newEmojis(pool),       // 칸마다의 이모지 (그 맵에서 나는 것)
       score: 0,                  // 지운 사과 수 = 점수
       moves: 0,                  // 성공한 네모 수 (연출·검사용)
       sel: null,                 // 드래그 중인 네모 {r1,c1,r2,c2}
@@ -153,6 +181,7 @@
     ctx.clearRect(0, 0, S.w, S.h);
     const cell = S.cell, pad = cell * 0.09;
     const badOn = S.bad && S.now < S.bad;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       const v = S.grid[r][c];
       if (!v) continue;
@@ -160,21 +189,16 @@
         && c >= Math.min(S.sel.c1, S.sel.c2) && c <= Math.max(S.sel.c1, S.sel.c2);
       const x = S.ox + c * cell + cell / 2, y = S.oy + r * cell + cell / 2;
       const rad = cell / 2 - pad;
-      // 잎 — 사과로 읽히게 하는 것은 이 두 획이다 (동그라미만 그리면 구슬로 보인다)
-      ctx.fillStyle = LEAF;
-      ctx.beginPath();
-      ctx.ellipse(x + rad * 0.42, y - rad * 0.86, rad * 0.30, rad * 0.16, -0.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#7b5233'; ctx.lineWidth = Math.max(1, cell * 0.05);
-      ctx.beginPath(); ctx.moveTo(x, y - rad * 0.72); ctx.lineTo(x, y - rad * 1.0); ctx.stroke();
-      // 몸통
-      ctx.fillStyle = badOn && inSel ? '#9c9c9c' : (inSel ? APPLE_SEL : APPLE);
+      // 판 — 숫자를 받는 자리다. 색만 바뀌고 크기는 안 바뀐다
+      ctx.fillStyle = badOn && inSel ? PLATE_BAD : (inSel ? PLATE_SEL : PLATE);
       ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
-      // 숫자 — **흰 글자에 그늘을 깔지 않는다.** 사과 빨강 위 흰색이 이미 5.4:1 이다
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `700 ${Math.round(cell * 0.46)}px system-ui, -apple-system, sans-serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(v), x, y + cell * 0.02);
+      // 그 맵에서 나는 것 — 판 «위쪽»에 작게
+      ctx.font = `${Math.round(cell * EM_SIZE)}px system-ui, -apple-system, sans-serif`;
+      ctx.fillText((S.em[r] && S.em[r][c]) || '🍎', x, y + rad * EM_Y);
+      // 숫자 — 판 «아래쪽»에 크게. 크림 위 진한 먹이라 대비를 따로 손볼 것이 없다
+      ctx.fillStyle = NUM_INK;
+      ctx.font = `800 ${Math.round(cell * NUM_SIZE)}px system-ui, -apple-system, sans-serif`;
+      ctx.fillText(String(v), x, y + rad * NUM_Y);
     }
     // 드래그 중인 네모 — **합을 같이 보여 준다.** 안 보여 주면 머릿속으로만 더해야 해서
     // 2분 동안 눈이 아니라 암산이 게임이 된다
@@ -190,12 +214,28 @@
       ctx.setLineDash(sum === TARGET ? [] : [5, 4]);
       ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
       ctx.setLineDash([]);
+      // ⚠️ **합을 «어두운 알약» 위에 얹는다.** 흰 글자로만 두었더니 네모 위쪽에 크림
+      // 타일이 오는 순간 통째로 사라졌다 (찍어 보고 알았다 — 캔버스라 대비 검사가 못 본다).
+      // 알약이면 배경이 무엇이든 읽힌다
       if (sum > 0) {
-        const bx = x + w / 2, by = Math.max(y - 10, 14);
-        ctx.fillStyle = sum === TARGET ? '#ffd76a' : '#ffffffcc';
-        ctx.font = `800 ${Math.round(Math.max(13, cell * 0.44))}px system-ui, sans-serif`;
+        const fs = Math.round(Math.max(13, cell * 0.44));
+        ctx.font = `800 ${fs}px system-ui, -apple-system, sans-serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(String(sum), bx, by);
+        const tw = ctx.measureText(String(sum)).width;
+        const pw = tw + fs * 0.9, ph = fs * 1.5;
+        const bx = Math.min(Math.max(x + w / 2, pw / 2 + 4), S.w - pw / 2 - 4);
+        // ⚠️ **칸을 가리지 않는 자리에 둔다.** 네모 바로 위에 얹었더니 **윗 칸의 숫자를
+        // 덮었다** — 지금 고르려는 것을 가리는 표시다 (찍어 보고 알았다).
+        // 판은 가운데 정렬이라 아래에 빈 띠가 남으므로 **거기**에 둔다.
+        // 화면이 짧아 띠가 없으면 그때만 네모 위로 올린다 (그래도 HUD 는 안 파고든다)
+        const gridBottom = S.oy + ROWS * cell;
+        let by;
+        if (S.h - gridBottom >= ph + 10) by = gridBottom + (S.h - gridBottom) / 2;
+        else { by = y - ph * 0.7; if (by - ph / 2 < 46) by = y + h + ph * 0.7; }
+        ctx.fillStyle = sum === TARGET ? '#ffd76a' : 'rgba(20,32,14,0.88)';
+        ctx.beginPath(); ctx.roundRect(bx - pw / 2, by - ph / 2, pw, ph, ph / 2); ctx.fill();
+        ctx.fillStyle = sum === TARGET ? '#2a1f08' : '#f6fbef';
+        ctx.fillText(String(sum), bx, by + 0.5);
       }
     }
   }
@@ -281,12 +321,15 @@
     host = document.createElement('div');
     host.id = 'appleGame';
     const title = map ? `${map.emoji} ${N(map.id, map.name)}` : T('ap_title');
+    // 점수 옆 아이콘도 **그 맵의 것**이다 — 🍎 를 박아 두면 버섯 마을에서 사과가 뜬다
+    const D0 = window.GameData;
+    const icon = ((D0 && D0.INGREDIENTS && D0.INGREDIENTS[pool[0]]) || {}).emoji || '🍎';
     host.innerHTML = `
       <div class="ap-stage">
         <canvas class="ap-canvas"></canvas>
         <div class="ap-hud">
           <span class="ap-name">${title}</span>
-          <span class="ap-score">🍎 <b class="ap-n">0</b></span>
+          <span class="ap-score">${icon} <b class="ap-n">0</b></span>
           <span class="ap-timer">2:00</span>
         </div>
         <div class="ap-hint">${T('ap_hint')}</div>
@@ -359,6 +402,9 @@
       rows: ROWS, cols: COLS, score: S.score, moves: S.moves, over: S.over,
       alive: S.grid.reduce((n, row) => n + row.filter(v => v > 0).length, 0),
       lastSum: S.lastSum,
+      // 지금 깔려 있는 이모지 — **그 맵에서 나는 것인가**를 검사가 본다
+      emojis: [...new Set(S.em.flat())],
+      pool: (S.pool || []).slice(),
       // 지금 지울 수 있는 네모 하나 (없으면 null) — 검사가 «진짜로» 한 수 둘 수 있게
       hint: findMove(),
     };

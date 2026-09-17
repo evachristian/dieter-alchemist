@@ -128,6 +128,28 @@ function ok(cond, msg, extra) {
   ok(b0.alive === 120, '사과 120개로 시작한다', String(b0.alive));
   ok(b0.min >= 1 && b0.max <= 9, '숫자는 1~9 다', `${b0.min}~${b0.max}`);
   ok(!!b0.hint, '시작하자마자 지울 수 있는 네모가 있다 (막힌 판으로 시작하지 않는다)');
+  // ── **타일이 «그 맵에서 나는 것»인가** (사과를 박아 두면 어느 과수원이든 같은 화면이다)
+  const tiles = await page.evaluate(() => {
+    const b = Apple.boardState(), D0 = window.GameData;
+    const want = b.pool.map(id => (D0.INGREDIENTS[id] || {}).emoji).filter(Boolean);
+    return { got: b.emojis, want, bad: b.emojis.filter(e => want.indexOf(e) < 0) };
+  });
+  ok(tiles.want.length > 0, '그 맵의 재료 이모지를 찾았다', tiles.want.join(''));
+  ok(!tiles.bad.length, '타일이 «그 맵에서 나는 것»으로만 깔린다',
+     tiles.bad.length ? `${tiles.bad.join('')} 는 이 맵 것이 아니다` : tiles.got.join(''));
+  // ⚠️ **한 가지만 깔려도 통과하면 안 된다** — 풀이 다섯인데 한 종류만 쓰면
+  // 「맵 재료를 쓴다」가 사실상 거짓이다 (120칸이라 다섯이 다 안 나올 수가 없다)
+  ok(tiles.got.length >= Math.min(3, tiles.want.length),
+     '한 가지만 깔지 않는다 (판이 그 맵의 여러 재료로 섞인다)',
+     `${tiles.got.length}가지 / 풀 ${tiles.want.length}가지`);
+  // 다시 그려도 **같은 칸은 같은 그림**이어야 한다 — 매번 뽑으면 눈이 못 따라간다
+  const stable = await page.evaluate(() => {
+    const a = Apple._state().em.map(r => r.join('')).join('|');
+    Apple._state().sel = null;
+    const b = Apple._state().em.map(r => r.join('')).join('|');
+    return a === b && a.length > 0;
+  });
+  ok(stable, '칸의 그림은 한 번 정해지면 안 바뀐다');
   ok(b0.cell > 8, '칸이 화면에 맞게 잡혔다', `${Math.round(b0.cell)}px`);
 
   // ── **진짜 마우스로 끈다.** `_play()` 로만 재면 드래그 → 칸 좌표 변환이

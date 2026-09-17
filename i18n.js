@@ -432,7 +432,7 @@
       // ─ 과수원 · 사과 게임 ─
       ap_title: '사과 게임',
       ap_hint: '👆 끌어서 네모 · 합이 10이면 딴다',
-      ap_done: '사과 {n}개를 땄다!',
+      ap_done: '{n}개를 땄다!',
       ap_cleared: '과수원을 통째로 비웠다! 한 알도 안 남았다',
       ap_none: '아무것도 따지 못했다',
       ap_close: '나가기',
@@ -1677,7 +1677,7 @@
       ft_pumpkin: 'Pumpkin Patch',
       ap_title: 'Apple Game',
       ap_hint: '👆 Drag a box · picks when the sum is 10',
-      ap_done: 'You picked {n} apples!',
+      ap_done: 'You picked {n}!',
       ap_cleared: 'You cleared the whole orchard! Not one left',
       ap_none: 'You picked nothing',
       ap_close: 'Leave',
