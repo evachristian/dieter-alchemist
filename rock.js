@@ -45,6 +45,15 @@
   const GRAV       = 0.0016; // 파편에 걸리는 중력 (px/ms²)
 
   const PAD = 6;             // 판 바깥 여백
+  // ─── 다음 조각 미리 보기 ───
+  // **판 «위»의 띠에 놓는다.** 판 안에 겹쳐 놓으면 쌓인 돌과 섞여 「저건 뭐지」가 되고,
+  // HUD 줄에 끼우면 맵 이름·점수·시계를 밀어낸다 (이름이 긴 맵에서 먼저 터진다).
+  // ⚠️ **그 띠를 «미리 떼어 놓는다»**(`fit`) — 남는 자리에 그리면 화면이 짧을 때
+  // 조각이 판을 덮거나 통째로 사라진다
+  const HUD_H    = 46;       // HUD 가 덮는 높이 (`style.css` 의 `.rk-hud` 와 짝)
+  const HINT_H   = 44;       // 아래 안내 줄
+  const NEXT_K   = 0.62;     // 미리보기 칸 = 판 칸의 몇 배
+  const NEXT_GAP = 10;       // 판 위로 띄우는 거리
 
   // ─── 돌조각 일곱 ─────────────────────────────────────────────
   // 테트리스의 일곱 모양 그대로다. `n`×`n` 상자 안의 칸 목록으로 두고 **상자를 돌려서**
@@ -94,7 +103,9 @@
       t0: 0, now: 0, over: false, buried: false,
       grid, seed,
       p: null,                 // 지금 내려오는 조각 {k, n, cells, r, c, seeds}
-      next: rollKind(),
+      // ⚠️ **다음 조각은 «종류»가 아니라 조각 그 자체다.** 미리보기에서 종류만 들고
+      // 있다가 나올 때 새로 만들면 얼룩이 달라져 **보여 준 돌과 다른 돌**이 내려온다
+      next: makePiece(rollKind()),
       lines: 0,                // 깬 줄 = 점수
       drops: 0,                // 놓은 조각 수 (검사·연출용)
       lastDrop: 0, lockAt: 0,
@@ -232,9 +243,9 @@
   }
 
   function spawn() {
-    const k = S.next;
-    S.next = rollKind();
-    const p = makePiece(k);
+    // **미리 보여 준 그 조각이 그대로 내려온다** (얼룩까지 같다)
+    const p = S.next;
+    S.next = makePiece(rollKind());
     S.p = p;
     S.lastDrop = S.now;
     // **나올 자리가 없으면 그 자리에서 끝난다** — 돌무더기가 천장까지 찬 것이다
@@ -252,9 +263,15 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (!S) return;
     S.w = w; S.h = h;
-    S.cell = Math.max(10, Math.min((w - PAD * 2) / COLS, (h - PAD * 2) / ROWS));
+    // 세로는 **HUD + 미리보기 띠 + 판 + 안내 줄**이 다 들어가야 한다.
+    // 띠의 높이가 칸 크기에 딸려 있으므로 한 식으로 푼다:
+    //   HUD + (2·NEXT_K·cell + GAP) + ROWS·cell + HINT ≤ h
+    const room = h - PAD * 2 - HUD_H - NEXT_GAP - HINT_H;
+    S.cell = Math.max(10, Math.min((w - PAD * 2) / COLS, room / (ROWS + 2 * NEXT_K)));
     S.ox = (w - S.cell * COLS) / 2;
-    S.oy = (h - S.cell * ROWS) / 2;
+    const top = HUD_H + 2 * NEXT_K * S.cell + NEXT_GAP;
+    // 남는 자리는 위아래로 나눠 갖는다 (안내 줄 몫은 빼 놓고)
+    S.oy = top + Math.max(0, (h - top - HINT_H - S.cell * ROWS) / 2);
   }
 
   // ─── 그리기 ─────────────────────────────────────────────────
@@ -308,6 +325,25 @@
     ctx.restore();
   }
 
+  // 다음에 내려올 조각 — 판 오른쪽 위에 맞춰 놓는다.
+  // **「다음」이라고 적어 준다** — 딱지가 없으면 판 위에 돌 하나가 걸려 있는 것처럼 읽힌다
+  function drawNext() {
+    const p = S.next;
+    if (!p || S.over) return;
+    const pc = S.cell * NEXT_K;
+    const rs = p.cells.map(c => c[0]), cs = p.cells.map(c => c[1]);
+    const r0 = Math.min(...rs), c0 = Math.min(...cs);
+    const w = (Math.max(...cs) - c0 + 1) * pc, h = (Math.max(...rs) - r0 + 1) * pc;
+    const x0 = S.ox + S.cell * COLS - w;          // 판 오른쪽 끝에 맞춘다
+    const y0 = S.oy - NEXT_GAP - h;
+    p.cells.forEach(([r, c], i) =>
+      drawStone(x0 + (c - c0) * pc, y0 + (r - r0) * pc, pc, p.k, p.seeds[i]));
+    ctx.fillStyle = 'rgba(246,251,239,0.78)';
+    ctx.font = `700 ${Math.round(pc * 0.46)}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(T('rk_next'), x0 - 9, y0 + h / 2);
+  }
+
   function draw() {
     if (!S || !ctx) return;
     const cell = S.cell;
@@ -348,6 +384,7 @@
         if (rr >= 0) drawStone(S.ox + (S.p.c + c) * cell, S.oy + rr * cell, cell, S.p.k, S.p.seeds[i]);
       });
     }
+    drawNext();
     // 깨진 줄의 먼지 — 파편보다 «먼저» 깔린다
     for (const f of S.flashes) {
       const k = 1 - (S.now - f.born) / FLASH_MS;
@@ -565,6 +602,8 @@
       rows: ROWS, cols: COLS, lines: S.lines, drops: S.drops, over: S.over, buried: S.buried,
       filled: S.grid.reduce((n, row) => n + row.filter(v => v > 0).length, 0),
       piece: S.p ? { k: S.p.k, r: S.p.r, c: S.p.c, cells: S.p.cells.map(c => c.slice()) } : null,
+      next: S.next ? S.next.k : null,       // 미리 보여 주고 있는 조각
+
       bits: S.bits.length,
       rowsFull: S.grid.filter(row => row.every(v => v > 0)).length,
     };

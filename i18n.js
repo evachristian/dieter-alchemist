@@ -439,6 +439,7 @@
       wn_close: '나가기',
       // ─ 바위산 · 돌깨기 게임 ─
       rk_title: '돌깨기 게임',
+      rk_next: '다음',
       rk_hint: '👆 끌어서 옮기고 · 톡 치면 돌린다 · 아래로 쓸면 떨어진다',
       rk_done: '{n}줄을 깼다!',
       rk_buried: '돌무더기가 천장까지 찼다… {n}줄',
@@ -1692,6 +1693,7 @@
       wn_none: 'You picked nothing',
       wn_close: 'Leave',
       rk_title: 'Stone Breaker',
+      rk_next: 'Next',
       rk_hint: '👆 Drag to move · tap to turn · swipe down to drop',
       rk_done: 'You broke {n} rows!',
       rk_buried: 'The rubble reached the top… {n} rows',

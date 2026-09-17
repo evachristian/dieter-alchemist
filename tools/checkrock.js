@@ -181,6 +181,48 @@ function ok(cond, msg, extra) {
   ok(px1 && px2 && px1.ink === px2.ink, '다시 그려도 돌의 얼룩이 그대로다',
      px1 && px2 ? (px1.ink === px2.ink ? '두 프레임이 같다' : '프레임마다 달라진다') : '못 쟀다');
 
+  // ── **다음 조각을 미리 보여 주는가** ─────────────────────────
+  //
+  // ⚠️ **「무언가 그려져 있다」로 재면 안 된다** — 아무 조각이나 그려 놓아도 통과한다.
+  // 보여 준 것이 **그대로 내려오는지**를 다섯 번 이어서 본다 (한 번이면 일곱 중 하나로
+  // 우연히 맞을 수 있다)
+  const nexts = await page.evaluate(() => {
+    const out = [];
+    for (let i = 0; i < 5; i++) {
+      const shown = Rock.boardState().next;
+      Rock._drop();                                   // 지금 조각을 떨구면 다음이 나온다
+      const came = Rock.boardState().piece;
+      out.push({ shown, came: came ? came.k : null });
+    }
+    return out;
+  });
+  const same = nexts.filter(n => n.shown === n.came).length;
+  ok(same === nexts.length, '미리 보여 준 조각이 그대로 내려온다',
+     `${same}/${nexts.length}회 · ` + nexts.map(n => `${n.shown}→${n.came}`).join(' '));
+  // **판 «위»의 띠에 실제로 그려져 있는가** — 캔버스라 DOM 으로는 아무것도 안 보인다.
+  // 띠는 판 밖이라 배경이 투명하므로, **속이 꽉 찬 픽셀**이 곧 돌이다
+  // (「다음」 딱지는 반투명이라 안 걸린다)
+  const band = await page.evaluate(() => {
+    const cvEl = document.querySelector('#rockGame .rk-canvas');
+    const g = cvEl.getContext('2d');
+    const st = Rock._state();
+    const dpr = cvEl.width / parseFloat(cvEl.style.width);
+    const x = Math.round(st.ox * dpr), w = Math.round(st.cell * 10 * dpr);
+    const y = Math.round(Math.max(0, st.oy - st.cell * 1.4) * dpr);
+    const h = Math.round(st.cell * 1.3 * dpr);
+    const img = g.getImageData(x, y, w, h).data;
+    let solid = 0;
+    for (let i = 3; i < img.length; i += 4) if (img[i] === 255) solid++;
+    return { solid, box: `${w}×${h}`, oy: Math.round(st.oy), cell: Math.round(st.cell) };
+  });
+  ok(band.solid > 200, '판 위의 띠에 다음 조각이 그려져 있다',
+     `꽉 찬 픽셀 ${band.solid} (띠 ${band.box})`);
+  // ⚠️ **띠가 판을 덮으면 안 된다** — 미리보기가 쌓인 돌 위에 겹치면 둘 다 안 읽힌다
+  // 위에서 «뜬» 띠(판 꼭대기에서 1.4칸)가 HUD 아래에 통째로 들어가야 한다 —
+  // 판을 그냥 가운데 두면 그 띠가 HUD 를 파고들어 조각이 맵 이름 위에 겹친다
+  ok(band.oy >= 46 + band.cell * 1.4, '미리보기 띠가 HUD 와 판 «사이»에 따로 있다',
+     `판 꼭대기 ${band.oy}px · 칸 ${band.cell}px · 띠는 ${Math.round(band.oy - band.cell * 1.4)}px 부터`);
+
   // ── **진짜 마우스로 움직인다.** `_move()` 로만 재면 손가락 → 칸 셈이
   //    통째로 틀려도 통과한다 (`checktut` 이 `el.click()` 을 안 쓰는 것과 같은 이유다)
   const drag = async (dx, dy, ms) => {
