@@ -34,7 +34,7 @@
     "gen:farm": "node tools/genfarm.js",
     "gen:mapattr": "node tools/genmapattr.js",
     "gen:maptype": "node tools/genmaptype.js",
-    "test:apple": "node tools/checkapple.js",
+    "test:walnut": "node tools/checkwalnut.js",
     "test:time": "node tools/checktime.js",
     "test:farm": "node tools/checkfarm.js",
     "test:balance": "node tools/checkbalance.js",

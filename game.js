@@ -2779,7 +2779,7 @@ function switchTab(tab) {
 // 형(`D.fieldMini`)이 「여기는 그냥 줍는 곳이 아니다」라고 하면 그 화면으로 들어간다.
 // **미니게임 이름 → 전역 모듈**은 여기 한 줄이고, 끝난 뒤 처리도 한 함수다 —
 // 게임이 늘 때마다 `gather()` 에 `if` 를 붙이면 곧 갈래가 다섯이 된다.
-const MINIS = { pumpkin: 'Pumpkin', apple: 'Apple' };
+const MINIS = { pumpkin: 'Pumpkin', walnut: 'Walnut' };
 
 // 미니게임이 끝났다. 주운 것을 가방에 넣는다.
 // **AP 는 들어갈 때 이미 냈으므로 여기서 또 빼지 않는다.**
@@ -2789,7 +2789,7 @@ function finishMiniRun(map, res) {
   rec('gathered');                     // 총 횟수는 기록에만 (재료별 누적은 addInv 가)
   got.forEach(() => rec('itemsGot'));
   // ⚠️ **퀘스트의 「채집 n번」을 한 걸음으로 센다.** 평범한 채집과 같은 자리다 —
-  // 안 세면 과수원만 도는 사람은 `q_walk`(채집 8번)에서 영영 안 나아간다
+  // 안 세면 호두밭만 도는 사람은 `q_walk`(채집 8번)에서 영영 안 나아간다
   questBump('visit', map.id);
   const specials = got.filter(id => id === map.special).length;
   for (let i = 0; i < specials; i++) rec('specials');

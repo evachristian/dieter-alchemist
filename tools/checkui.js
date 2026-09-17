@@ -1243,33 +1243,33 @@ function launchOpts() {
           await page.waitForTimeout(150);
         }
 
-        // **과수원 · 사과 게임** — 판은 캔버스라 못 보지만 **HUD 와 결과 화면은 DOM 이다.**
+        // **호두밭 · 호두 게임** — 판은 캔버스라 못 보지만 **HUD 와 결과 화면은 DOM 이다.**
         // 맵 이름이 길면(영어는 더 길다) 점수·시계를 밀어내므로 넘침을 여기서 잰다.
         // ⚠️ **결과 화면까지 열어 놓고 잰다** — 게임 중 화면만 재면 결과의 「나가기」와
         // 재료 알약은 한 번도 안 잰 것이 된다 (밭 시트에서 배운 것과 같다)
         {
           await page.evaluate(() => {
-            // 이름이 제일 긴 과수원으로 잰다 — 짧은 것으로 재면 넘침이 안 드러난다
-            const ms = D.MAPS.filter(x => D.fieldMini(x.id) === 'apple');
+            // 이름이 제일 긴 호두밭으로 잰다 — 짧은 것으로 재면 넘침이 안 드러난다
+            const ms = D.MAPS.filter(x => D.fieldMini(x.id) === 'walnut');
             const m = ms.sort((a, b) => N(b.id, b.name).length - N(a.id, a.name).length)[0];
-            Apple.start(m, () => {});
+            Walnut.start(m, () => {});
           });
           await page.waitForTimeout(120);
-          await run(`${t}/사과게임`);
-          const apFit = await page.evaluate(() => __cardFits('#appleGame .ap-hud, #appleGame .ap-hint'));
-          if (apFit && apFit.length) results.push({ 화면: `${t}/사과게임`, 넘침: apFit });
+          await run(`${t}/호두게임`);
+          const wnFit = await page.evaluate(() => __cardFits('#walnutGame .wn-hud, #walnutGame .wn-hint'));
+          if (wnFit && wnFit.length) results.push({ 화면: `${t}/호두게임`, 넘침: wnFit });
           // 결과 화면 — 재료 알약이 여럿일 때를 본다 (한 종류만 넣으면 줄바꿈을 못 잰다)
           await page.evaluate(() => {
-            const st = Apple._state();
+            const st = Walnut._state();
             st.score = 60;
             st.picked = (st.pool || []).slice(0, 4).concat((st.pool || []).slice(0, 2));
-            Apple._finish();
+            Walnut._finish();
           });
           await page.waitForTimeout(120);
-          await run(`${t}/사과게임결과`);
-          const apRes = await page.evaluate(() => __cardFits('#appleGame .ap-result, #appleGame .ap-item'));
-          if (apRes && apRes.length) results.push({ 화면: `${t}/사과게임결과`, 넘침: apRes });
-          await page.evaluate(() => { const h = document.getElementById('appleGame'); if (h) h.remove(); });
+          await run(`${t}/호두게임결과`);
+          const wnRes = await page.evaluate(() => __cardFits('#walnutGame .wn-result, #walnutGame .wn-item'));
+          if (wnRes && wnRes.length) results.push({ 화면: `${t}/호두게임결과`, 넘침: wnRes });
+          await page.evaluate(() => { const h = document.getElementById('walnutGame'); if (h) h.remove(); });
           await page.waitForTimeout(150);
         }
 

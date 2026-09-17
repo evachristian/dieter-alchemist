@@ -29,39 +29,26 @@ const D = global.window.GameData;
 
 // ─── 규칙 ─────────────────────────────────────────────────────
 //
-// **위에서부터 먼저 걸리는 것을 쓴다.** 순서가 곧 우선순위다 — 「파수꾼의 호박 밭」은
-// 이름에 `호박` 이 있어서 호박 밭 형이 먼저 걸려야 한다. 그 뒤에 과수원 규칙이 오면
-// 그 맵의 호박 넷이 열매로 세어져 **과수원 형이 되어 미니게임이 바뀐다.**
+// **미니게임은 «이름이 그 게임인 곳»에만 붙는다.** 「호두 마루」에서 호두를 줍고
+// 「파수꾼의 호박 밭」에서 호박을 피한다 — 카드를 보면 무슨 게임인지 이미 알 수 있고,
+// 맵을 늘려도 규칙이 저절로 번지지 않는다.
 //
-// ⚠️ **열매를 헐겁게 잡지 않는다.** 처음에 `이끼 가지`·`고사리` 까지 열매로 세었더니
-// **숲 열 곳 중 아홉 곳**이 과수원이 됐다 — 고사리는 열매가 아니고, 그렇게 되면
-// 「과수원 형」이 사실상 「숲」의 다른 이름이 된다.
+// ⚠️ **한때 재료 풀로도 뽑았다** (열매가 셋 이상이면 과수원). 그렇게 하면 아홉 곳이
+// 미니게임이 되는데, 2분짜리를 아홉 곳에서 시키면 「꾹 누르기 자동 채집」이 사실상
+// 사라진다 — 코지 게임에서 그건 숙제다. 지금은 **이름 규칙뿐이고, 안 걸리면 평범한 곳**이다.
+// 미니게임을 늘릴 때도 여기에 한 줄을 적어 **어느 맵인지 눈에 보이게** 한다.
+//
+// **위에서부터 먼저 걸리는 것을 쓴다** — 순서가 곧 우선순위다.
 const NAME_RULES = [
   // 호박 밭 — 파수꾼이 호박을 굴린다 (`pumpkin.js`)
   [/호박/, 'pumpkin'],
-  // 과수원 — **이름이 이미 나무·열매인 곳.** 재료를 안 봐도 여기가 어디인지 알 수 있다
-  [/호두|버섯|고목|덤불|나무문|과수/, 'orchard'],
+  // 호두밭 — 합이 10이면 줍는다 (`walnut.js`)
+  [/호두/, 'walnut'],
 ];
-
-// 나무·덩굴·줄기에 **«달려서 따는»** 것. 곡식(밀)·풀(약초)·이슬은 열매가 아니다.
-const FRUIT = [
-  'berry',          // 🍓 산딸기
-  'walnut',         // 🥜 호두
-  'pine_cone',      // 🌰 솔방울
-  'mushroom',       // 🍄 버섯
-  'tree_resin',     // 🟠 나무 수액
-  'cactus',         // 🌵 가시선인장
-  'honey',          // 🍯 들꿀 — 벌이 꽃에서 모은 것이라 «따는» 쪽에 든다
-  'zucchini', 'old_pumpkin', 'sweet_pumpkin', 'chestnut_pumpkin',
-];
-// 이름으로는 안 걸리는데 **재료가 열매뿐인** 곳 (「미식가의 들」·「소풍 바위」).
-// 셋 이상으로 잡는 이유는 위의 ⚠️ 그대로다 — 둘이면 숲이 통째로 걸린다
-const FRUIT_MIN = 3;
 
 function typeOf(m) {
   for (const [re, k] of NAME_RULES) if (re.test(m.name)) return k;
-  const n = (m.pool || []).filter(i => FRUIT.includes(i)).length;
-  return n >= FRUIT_MIN ? 'orchard' : 'field';
+  return 'field';
 }
 
 const OUT = D.MAPS.map(m => ({ id: m.id, zone: m.zone, name: m.name, type: typeOf(m) }));
@@ -78,7 +65,7 @@ for (const o of OUT) {
 // ⚠️ **옛 배정을 새로 뽑지 않는다** (genwardrobe 의 `LEGACY` 와 같은 규칙).
 // 호박 밭은 이미 미니게임이 붙어 나간 맵이라, 규칙을 고치다 형이 바뀌면
 // **그 맵의 채집이 조용히 다른 게임으로 바뀐다.** 여기서 못 박는다
-const PINNED = { p_pumpkin: 'pumpkin' };
+const PINNED = { p_pumpkin: 'pumpkin', p_walnut: 'walnut' };
 for (const [id, want] of Object.entries(PINNED)) {
   const got = (OUT.find(o => o.id === id) || {}).type;
   if (got !== want) problems.push(`${id}: 형이 ${got} 다 — ${want} 로 못 박혀 있다`);
@@ -96,11 +83,19 @@ for (const [z, m] of Object.entries(byZone)) {
     problems.push(`지대 ${z}: 전부 ${Object.keys(m)[0]} 형 — 평범하게 주울 곳이 없다`);
   }
 }
-// **과수원이 한 지대에만 있으면 안 된다** — 그건 지대의 다른 이름일 뿐이다.
-// (산악·해안에 과수원이 없는 것은 맞는 모양이다 — 나무가 자라는 땅에만 있다)
-const orchardZones = Object.entries(byZone).filter(([, m]) => m.orchard).map(([z]) => z);
-if (orchardZones.length < 2) {
-  problems.push(`과수원이 ${orchardZones.join(',') || '아무 지대에도'} 만 있다 — 지대 둘 이상에 걸쳐야 한다`);
+// **미니게임마다 갈 곳이 있어야 한다.** 이름 규칙이 어긋나면 그 게임이 붙은 맵이
+// 하나도 없어지는데, 화면에는 아무 오류도 안 뜬다 — 만들어 놓은 게임에 영영 못 닿는다
+for (const t of D.FIELD_TYPES) {
+  if (t.mini && !total[t.k]) problems.push(`${t.k} 형인 맵이 하나도 없다 — ${t.mini} 게임에 닿을 길이 없다`);
+}
+// **미니게임 하나는 «처음부터» 열려 있어야 한다.** 미니게임 맵이 둘뿐이라, 둘 다
+// 매력을 모아야 열리는 곳이면 새 플레이어는 한참 동안 미니게임을 한 번도 못 본다
+// (지금 호두 마루가 `unlock: 0` 이다)
+const miniMaps = OUT.filter(o => o.type !== 'field')
+  .map(o => D.MAPS.find(m => m.id === o.id));
+if (miniMaps.length && !miniMaps.some(m => !m.unlock)) {
+  problems.push('미니게임 맵이 전부 잠겨 있다 — 하나는 `unlock: 0` 이어야 처음부터 만난다 ('
+    + miniMaps.map(m => `${m.name} ${m.unlock}`).join(' · ') + ')');
 }
 
 if (LIST) {
