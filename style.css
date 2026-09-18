@@ -347,6 +347,31 @@ body.has-quest .screen { padding-bottom: 168px; }
   border-radius: 999px; padding: 3px 9px;
   box-shadow: 0 2px 6px rgba(200, 110, 40, 0.35);
   white-space: nowrap;                       /* 두 줄로 접히면 카드 위로 삐져나온다 */
+  /* ⚠️ **이제 «눌리는» 버튼이다** (❔ → 규칙 시트). 카드 몸통은 누르는 곳이 아니라
+     AP 가 새던 자리라, 이 딱지는 **제 자리에서만** 클릭을 받아야 한다 */
+  border: 0; font-family: inherit; cursor: pointer;
+}
+.spot-badge > i {
+  font-style: normal; font-weight: 900;
+  margin-left: 1px; opacity: 0.85;
+}
+.spot-badge:active { transform: scale(0.96); }
+
+/* ─── 미니게임 규칙 시트 (❔) ───
+   바닥 시트 공통 꼴을 그대로 쓴다 (`UI_POLICY.md` 3-2) — 폭·모서리·「나가기」는
+   다른 시트에서 베꼈고 여기서 따로 정하지 않는다 */
+.mh-body {
+  display: flex; flex-direction: column; gap: 9px;
+  max-height: 52vh; overflow-y: auto;
+  margin: 4px 0 2px;
+}
+.mh-row {
+  /* ⚠️ 규칙은 «읽는» 글이라 줄 간격을 넉넉히 둔다 — 알약이 아니라 문단이다.
+     ⚠️ 웨이트는 **500** 이다: 600 은 이 폰트에서 안 불러오는 굵기라
+     `checkTextStyle()` 이 「웨이트 600 미로드」로 잡는다 (TEXT_POLICY.md) */
+  font-size: 0.86rem; font-weight: 500; line-height: 1.6; color: var(--ink);
+  background: var(--cream); border-radius: 12px; padding: 9px 12px;
+  text-align: left; word-break: keep-all;
 }
 .spot-card.pop { animation: cardpop 0.4s ease; }
 @keyframes cardpop { 0% { transform: scale(1); } 40% { transform: scale(1.04); box-shadow: 0 8px 22px rgba(255,150,190,0.4); } 100% { transform: scale(1); } }

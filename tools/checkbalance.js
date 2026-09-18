@@ -277,11 +277,9 @@ const numIn = (re, what) => {
       const per = num(f, /const REWARD_PER\s*=\s*(\d+)/, 'REWARD_PER');
       const cap = num(f, /const REWARD_MAX\s*=\s*(\d+)/, 'REWARD_MAX');
       const rowM = num(f, /const ROW_M\s*=\s*(\d+)/, 'ROW_M');
-      const fallMs = num(f, /const FALL_MS\s*=\s*(\d+)/, 'FALL_MS');
       const airSec = num(f, /const AIR_SEC\s*=\s*(\d+)/, 'AIR_SEC');
       const rows = (cap * per) / rowM;          // 상한에 닿으려면 내려가야 하는 줄 수
-      return { name: '소풍 바위', dur: dur(f), max: cap, per, cap, rows,
-               freefallMs: rows * fallMs, airMs: airSec * 1000 };
+      return { name: '소풍 바위', dur: dur(f), max: cap, per, cap, rows, airMs: airSec * 1000 };
     },
   };
 
@@ -448,12 +446,14 @@ const numIn = (re, what) => {
     ok('소풍 바위 · 산소가 장식이 아니다', d.airMs < d.dur,
        `산소 한 통 ${d.airMs / 1000}초 < 판 ${d.dur / 1000}초`
        + ` — 2분을 다 쓰려면 반드시 캡슐을 주워야 한다`);
-    // **한 칸도 안 파고 통째로 떨어지기만 해도** 드는 시간 (진짜 바닥이다).
-    // 이것마저 짧아지면 상한이 헐거운 것이다
-    ok('소풍 바위 상한이 «떨어지기만 해도» 판의 5분의 1은 드는 깊이다',
-       d.freefallMs >= d.dur * 0.2,
-       `상한 ${d.cap}개 = ${d.rows}줄 · 낙하만 해도 ${(d.freefallMs / 1000).toFixed(1)}초`
-       + ` (2분의 20% = ${d.dur / 5000}초 이상)`);
+    // ⚠️⚠️ **「떨어지기만 해도 드는 시간」은 여기서 지웠다 — 전제가 사라졌다.**
+    // 갱도에 구멍이 있던 동안에는 「한 칸도 안 파고 통째로 떨어지기만 해도」가 말이
+    // 됐는데, **판을 꽉 채우면서 한 칸도 안 파면 한 줄도 못 내려가게 됐다**
+    // (`driller.js` 의 `ensureRows`). 일어날 수 없는 일에서 뽑은 바닥은
+    // **사실이 아닌 잣대**이고, 그런 것은 통과시켜도 아무것도 안 지킨 것이다.
+    // 그 약속(「상한이 진짜 일이다」)은 없앤 것이 아니라 **잴 수 있는 자리로 옮겼다** —
+    // `checkdriller` 의 「상한에 닿으려면 판의 절반은 쉬지 않고 파야 한다」가
+    // 진짜 봇으로 재고, 그쪽이 훨씬 센 약속이다 (24초 → 60초)
   }
 
   // ── 밀밭 — 같은 이유를 **참새 수**로 잰다. ⚠️ 상한만 보면 요율이 안 보인다

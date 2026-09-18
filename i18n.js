@@ -487,6 +487,58 @@
       pw_dead: '심장이 남아나질 않네… 바람개비 {n}개를 날렸다!',
       pw_close: '나가기',
       // ─── 소풍 바위 · 바위 부수기 (미스터 드릴러 식) ───
+      // ─── 미니게임 규칙 (❔ · 카드의 딱지를 누르면) ───
+      // ⚠️ **AP 를 내기 «전»에 읽는 글이다.** 「무엇을 하는 게임인가」 → 「어떻게
+      // 하는가」 → 「무엇을 받는가」 → **「잃는 것은 없다」** 순서로 쓴다.
+      // 마지막 줄이 중요하다: 이 프로젝트에서 미니게임은 벌을 주지 않는다
+      mh_title: '규칙',
+      mh_open: '{name} 규칙 보기',
+      mh_none: '규칙이 아직 안 적혀 있어요.',
+
+      mh_walnut_1: '🌰 숫자가 적힌 호두가 깔립니다.',
+      mh_walnut_2: '👆 끌어서 네모를 그리면, 그 안의 숫자 합이 정확히 10일 때 호두가 지워져요.',
+      mh_walnut_3: '✨ 지워진 칸은 건너뛸 수 있어요 — 판이 비어 갈수록 멀리 있는 것끼리 묶입니다.',
+      mh_walnut_4: '🎁 주운 호두 {per}개마다 재료 하나 (최대 {max}개).',
+      mh_walnut_5: '💛 합이 안 맞아도 잃는 것은 없어요. 2분을 마음껏 써 보세요.',
+
+      mh_pumpkin_1: '🎃 파수꾼이 사방에서 호박을 굴립니다.',
+      mh_pumpkin_2: '👆 끌어서 피하세요. 굴러오기 직전에 바닥에 궤적이 보여요.',
+      mh_pumpkin_3: '🎁 {every}초를 버틸 때마다 재료 하나, {sec}초를 끝까지 버티면 {bonus}개 더 (최대 {max}개).',
+      mh_pumpkin_4: '💛 맞아도 그때까지 주운 것은 그대로 가져갑니다.',
+
+      mh_rock_1: '🪨 돌조각이 위에서 내려옵니다.',
+      mh_rock_2: '👆 끌면 옮기고, 톡 치면 돌리고, 아래로 쓸면 떨어뜨려요.',
+      mh_rock_3: '💥 한 줄이 다 차면 그 줄이 깨져 사라집니다.',
+      mh_rock_4: '🎁 깬 줄 하나가 재료 하나 (최대 {max}개).',
+      mh_rock_5: '💛 천장까지 차면 거기서 끝나지만, 깬 줄만큼은 그대로 가져갑니다.',
+
+      mh_fish_1: '🎣 찌가 흔들리면 입질입니다 — 그때 화면을 눌러 채세요.',
+      mh_fish_2: '👆 누르고 있으면 그물이 올라가고, 놓으면 내려갑니다.',
+      mh_fish_3: '🐟 그물 «안»에 물고기를 붙들고 있으면 옆의 눈금이 차요.',
+      mh_fish_4: '🎁 한 번 건질 때마다 재료 {per}개 (최대 {max}개).',
+      mh_fish_5: '💛 놓쳐도 건진 것은 그대로예요. 다시 기다리면 됩니다.',
+
+      mh_sparrow_1: '🐦 참새가 밀 이삭에 앉아 쪼아 먹습니다.',
+      mh_sparrow_2: '👆 누른 자리로 화살이 날아가요. 활을 당기는 데 조금 걸립니다.',
+      mh_sparrow_3: '💥 한 발에 여러 마리를 맞히면 점수가 «제곱»으로 들어와요 — 뒤로 갈수록 떼로 내려앉으니 그때를 노리세요.',
+      mh_sparrow_4: '🎁 {per}점마다 재료 하나 (최대 {max}개). {sec}초짜리입니다.',
+      mh_sparrow_5: '💛 빗나가도 번 점은 한 톨도 안 줄어요.',
+
+      mh_pinwheel_1: '🌬️ 바람개비는 «제가 도는 쪽»으로만 날아갑니다.',
+      mh_pinwheel_2: '👆 누르면 그 방향으로 판을 빠져나가요 — 가는 길에 하나라도 있으면 못 나갑니다.',
+      mh_pinwheel_3: '✨ 어느 것부터 치울지가 퍼즐이고, 한 수가 연쇄로 길을 엽니다. 판을 다 비우면 새 판이 깔려요.',
+      mh_pinwheel_4: '🎁 치운 바람개비 {per}개마다 재료 하나 (최대 {max}개).',
+      mh_pinwheel_5: '💗 막힌 것을 {lives}번 누르면 끝나지만, 치운 것은 그대로 가져갑니다.',
+
+      mh_driller_1: '⛏️ 바위를 파고 내려갑니다. 아래·왼쪽·오른쪽으로만 팔 수 있어요 — 위로는 못 갑니다.',
+      mh_driller_2: '👆 파고 싶은 쪽을 누른 채로 있으면 계속 팝니다.',
+      mh_driller_3: '💥 받치던 것을 파내면 위가 무너지고, 쌓인 것이 «같은 색 {merge}개»를 이루면 사라지며 또 떨어져요.',
+      mh_driller_4: '🔴 점 1~4개는 «색 번호»일 뿐, 좋고 나쁜 차이는 없어요 — 점 개수가 같으면 같은 색입니다.',
+      mh_driller_5: '🪨 빗금이 그어진 회갈색은 «단단한 바위»입니다. 색이 없어 연쇄로는 안 사라지고, {hits}번 파야 부서지며 산소를 먹어요. 남은 빗금이 곧 남은 횟수입니다.',
+      mh_driller_6: '🫧 산소는 계속 줄어듭니다. 하늘빛 동그라미(에어 캡슐)로 들어가면 차요.',
+      mh_driller_7: '🎁 {per}m 내려갈 때마다 재료 하나 (최대 {max}개).',
+      mh_driller_8: '💗 {lives}번 깔리거나 숨이 차면 끝나지만, 판 깊이만큼은 그대로 가져갑니다.',
+
       dr_title: '바위 부수기',
       dr_hint: '👆 파고 싶은 쪽을 누른 채로 — 위로는 못 판다',
       dr_done: '{n}m 까지 파고 내려갔다!',
@@ -1788,6 +1840,54 @@
       pw_oops: 'Oh no, wrong one! My heart skipped a beat!',
       pw_dead: 'My poor heart… but you sent off {n} pinwheels!',
       pw_close: 'Leave',
+      mh_title: 'How to play',
+      mh_open: 'How to play: {name}',
+      mh_none: 'No rules written yet.',
+
+      mh_walnut_1: '🌰 The ground is covered in numbered walnuts.',
+      mh_walnut_2: '👆 Drag a box — if the numbers inside add up to exactly 10, they clear.',
+      mh_walnut_3: '✨ Cleared squares are skipped over, so far-apart walnuts pair up as the board empties.',
+      mh_walnut_4: '🎁 One ingredient per {per} walnuts picked (up to {max}).',
+      mh_walnut_5: '💛 A wrong sum costs you nothing. Take the whole 2 minutes.',
+
+      mh_pumpkin_1: '🎃 The watchman rolls pumpkins at you from every side.',
+      mh_pumpkin_2: '👆 Drag to dodge. A trail shows on the ground just before each one rolls.',
+      mh_pumpkin_3: '🎁 One ingredient per {every} seconds survived, plus {bonus} more for lasting all {sec} seconds (up to {max}).',
+      mh_pumpkin_4: '💛 Even if you get hit, you keep everything picked up so far.',
+
+      mh_rock_1: '🪨 Chunks of stone fall from above.',
+      mh_rock_2: '👆 Drag to move, tap to rotate, swipe down to drop.',
+      mh_rock_3: '💥 Fill a row and it cracks apart and vanishes.',
+      mh_rock_4: '🎁 One ingredient per row cleared (up to {max}).',
+      mh_rock_5: '💛 Stacking to the ceiling ends the run, but you keep every row you cleared.',
+
+      mh_fish_1: '🎣 When the float bobs, that is a bite — tap then to hook it.',
+      mh_fish_2: '👆 Hold to raise the net, release and it sinks.',
+      mh_fish_3: '🐟 Keep the fish *inside* the net and the gauge beside it fills.',
+      mh_fish_4: '🎁 {per} ingredients per fish landed (up to {max}).',
+      mh_fish_5: '💛 Losing one costs you nothing — just wait for the next bite.',
+
+      mh_sparrow_1: '🐦 Sparrows perch on the wheat and peck at it.',
+      mh_sparrow_2: '👆 An arrow flies where you tap. Drawing the bow takes a moment.',
+      mh_sparrow_3: '💥 Hitting several with one arrow scores the *square* — they land in bigger flocks later on, so wait for those.',
+      mh_sparrow_4: '🎁 One ingredient per {per} points (up to {max}). This one runs {sec} seconds.',
+      mh_sparrow_5: '💛 A miss never takes away points you already earned.',
+
+      mh_pinwheel_1: '🌬️ A pinwheel can only fly the way it spins.',
+      mh_pinwheel_2: '👆 Tap it to send it off that way — it cannot leave if anything stands in its path.',
+      mh_pinwheel_3: '✨ Choosing what to clear first is the puzzle, and one move opens a chain. Sweep the board and a new one is laid.',
+      mh_pinwheel_4: '🎁 One ingredient per {per} pinwheels cleared (up to {max}).',
+      mh_pinwheel_5: '💗 {lives} blocked taps end the run, but you keep everything you cleared.',
+
+      mh_driller_1: '⛏️ Dig your way down. You can only dig down, left and right — never upward.',
+      mh_driller_2: '👆 Hold the side you want to dig and you keep digging.',
+      mh_driller_3: '💥 Dig away a support and what is above collapses; {merge} of the same colour touching vanish and fall again.',
+      mh_driller_4: '🔴 The 1–4 dots are just a colour label, not better or worse — same dot count means same colour.',
+      mh_driller_5: '🪨 The grey-brown rock with scratches is *hard rock*. It has no colour, so chains never clear it; {hits} digs break it and it costs you air. The scratches left are the digs left.',
+      mh_driller_6: '🫧 Your air keeps draining. Step into a sky-blue circle (an air capsule) to refill it.',
+      mh_driller_7: '🎁 One ingredient per {per}m down (up to {max}).',
+      mh_driller_8: '💗 Getting crushed {lives} times or running out of air ends the run, but you keep the depth you dug.',
+
       dr_title: 'Rock Breaker',
       dr_hint: '👆 Hold the side you want to dig — you cannot dig upward',
       dr_done: 'You dug all the way down to {n}m!',

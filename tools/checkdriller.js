@@ -119,6 +119,33 @@ function ok(cond, msg, extra) {
   });
   ok(preMerged === 0, '깔릴 때부터 «같은 색 넷»이 붙어 있지는 않다', `${preMerged}덩어리`);
 
+  // ⚠️⚠️ **손을 대기 «전»에는 갱도가 한 칸도 안 움직인다 — 신고받은 자리다.**
+  // 예전에는 줄마다 구멍을 뚫어 두어서(`FILL` 0.86) 떠 있는 바위가 첫 낙하 틱에
+  // 그대로 무너졌다 — **판에 들어서자마자 아무것도 안 눌렀는데** 바위가 쏟아지고
+  // 넷이 사라지고 사람까지 내려갔다. 무너지는 것은 전부 「내가 한 일」이어야 한다.
+  // ⚠️ **네 가지를 다 본다** — 낙하만 보면 연쇄로 사라지는 판을 놓치고, 사람이
+  // 내려간 줄만 보면 옆에서 무너지는 판을 놓친다. 「몇 틱이나 돌았나」도 같이 낸다
+  // (0건이 「통과」가 아니라 「한 번도 안 쟀다」인 것을 가르는 자리다)
+  //
+  // ⚠️⚠️ **«차»로 재면 못 잡는다 — 사보타주가 그대로 통과했다.** 구멍을 도로 뚫는
+  // 사보타주를 걸어 봤더니 여기서 「낙하 0」이 나왔는데, 무너지는 것은 판이 열린
+  // **첫 몇 백 ms 에 이미 다 끝나** 있었다 — 위의 줄들을 재는 동안 지나간 것이다.
+  // 그래서 **처음부터의 «누계»를 본다**: 손을 한 번도 안 댔으면 그 값은 셋 다
+  // 0 이어야 하고, 사람도 시작 줄(0)에 그대로 서 있어야 한다. 언제 들여다보든 걸린다
+  const idle = await page.evaluate(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const s = Driller._state();
+    const t = s.now;
+    await wait(1200);
+    return { falls: s.falls, merges: s.merges, digs: s.digs, drop: s.pr,
+             ms: Math.round(s.now - t), fallMs: Driller.FALL_MS };
+  });
+  ok(idle.ms >= 600, '가만히 둔 동안 판이 실제로 돌았다 (아무것도 안 쟀으면 여기서 걸린다)',
+     `${idle.ms}ms · 낙하 틱 ${Math.floor(idle.ms / idle.fallMs)}번`);
+  ok(idle.falls === 0 && idle.merges === 0 && idle.digs === 0 && idle.drop === 0,
+     '손을 대기 전에는 갱도가 «한 칸도» 안 움직인다 (판을 연 뒤로 누계다)',
+     `낙하 ${idle.falls} · 연쇄 ${idle.merges} · 판 ${idle.digs} · 내려간 줄 ${idle.drop}`);
+
   // ── ⚠️ **진짜 마우스로 누른다** — `_dig()` 로만 재면 손가락 ↔ 칸 셈이 틀려도 통과한다
   //    (호두·돌깨기·참새·바람개비에서 배운 자리다)
   const box = await page.evaluate(() => {
@@ -156,6 +183,17 @@ function ok(cond, msg, extra) {
   // 바꿨는데, 견주는 기준을 **누르기 한참 «전»의 줄**로 잡아 놓아 그사이에 떨어진
   // 만큼이 여유가 됐다 — 사보타주(위로도 파지게 하기)가 두 번 다 통과했다.
   // 지금은 **발판을 놓아 멈춰 세우고**, 그 «선 자리»를 기준으로 잰다
+  // ⚠️ **머리 위가 생길 만큼 «진짜로 파서» 내려간 다음에 잰다.** 예전에는 위의
+  // 900ms 한 번이면 서너 줄이 내려갔는데, **판을 꽉 채운 뒤로는 한 줄**이라
+  // 「위로 파 볼 만큼 내려와 있다」에서 멈춰 **위로 못 판다는 규칙이 통째로 안 재졌다**
+  // (0건이 「통과」가 아니라 「한 번도 안 쟀다」이던 자리다). 시간을 박지 말고
+  // **줄 수로** 내려간다 — 파는 속도를 또 고쳐도 따라온다
+  for (let i = 0; i < 8; i++) {
+    const s = await page.evaluate(() => Driller.boardState());
+    if (s.pr >= 3) break;
+    await page.evaluate(() => { const st = Driller._state(); if (st) st.air = Driller.AIR_MAX; });
+    await press(0, 1.2, 1200);
+  }
   const up = await page.evaluate(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms));
     const s = Driller._state();
@@ -249,6 +287,16 @@ function ok(cond, msg, extra) {
   // 반대쪽 — 2분을 다 쓰면 닿을 수 있어야 한다. 안 그러면 상한이 아무도 못 닿는 장식이다
   ok(durS * mps >= capM, '그래도 2분을 다 쓰면 상한에 닿는다 (장식이 아니다)',
      `${durS}초 × ${mps.toFixed(1)} m/s = ${Math.round(durS * mps)}m ≥ ${capM}m`);
+  // ⚠️⚠️ **「상한이 진짜 일이다」가 이 줄로 옮겨 왔다.** `checkbalance` 에는
+  // 「한 칸도 안 파고 떨어지기만 해도 판의 5분의 1」이 있었는데, **판을 꽉 채우면서
+  // 한 칸도 안 파면 한 줄도 못 내려가게 되어** 그 전제 자체가 사라졌다 —
+  // 일어날 수 없는 일에서 뽑은 바닥은 통과시켜도 아무것도 안 지킨 것이다.
+  // 여기서는 **쉬지 않고 판 봇**에게 몇 초가 드는지를 재서 본다 (낚시터의
+  // 「2분의 절반 가까이를 쉬지 않고 건져야 한다」와 같은 자리다)
+  ok(capM / mps >= durS * 0.5,
+     '상한에 닿으려면 «판의 절반»은 쉬지 않고 파야 한다 (상한이 헐겁지 않다)',
+     `${capM}m ÷ ${mps.toFixed(1)} m/s = ${(capM / mps).toFixed(0)}초`
+     + ` (판 ${durS}초의 ${Math.round(capM / mps / durS * 100)}% · 50% 이상이어야 한다)`);
 
   // ── 덩어리 · 연쇄 · 낙하 ─────────────────────────────────────
   //
@@ -286,11 +334,15 @@ function ok(cond, msg, extra) {
   const floorAt = await page.evaluate(() => {
     const s = Driller._state();
     const F = s.pr + 6;
-    if (F - 2 < 0 || !s.rows[F] || !s.rows[F + 1] || !s.rows[F - 2]) return null;
+    if (F - 3 < 0 || !s.rows[F] || !s.rows[F + 1] || !s.rows[F - 3]) return null;
     // ⚠️ **치우지 않고 «단단한 것으로 바꾸기만» 한다** — 치우면 위가 무너진다.
-    // 네 줄을 통째로 바꿔야 심을 칸의 «둘레»가 다 단단해져 덩어리가 혼자 선다
+    // 줄을 통째로 바꿔야 심을 칸의 «둘레»가 다 단단해져 덩어리가 혼자 선다
     // (한 줄만 바꿨더니 위아래의 같은 색이 붙어 「셋을 놓았는데 다섯」이 됐다)
-    for (let r = F - 2; r <= F + 1; r++)
+    // ⚠️ **다섯 줄이다 — 넷이면 «낙하»를 못 잰다.** 낙하는 F−2 에 돌 하나를 띄우는데,
+    // 그 바로 위(F−3)가 생 갱도면 **판을 꽉 채운 뒤로는 거기에 반드시 바위가 있어서**
+    // 같은 색이면 옆으로까지 붙어 단단한 바닥에 얹히거나(안 떨어진다) 넷이 되어
+    // 아예 사라졌다 — 「안 내려왔다」로 빨개진 것은 게임이 아니라 그 이웃이었다
+    for (let r = F - 3; r <= F + 1; r++)
       for (let c = 0; c < Driller.COLS; c++) s.rows[r][c] = { k: 'x', hp: 99, s: 1 };
     return F;
   });

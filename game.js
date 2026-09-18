@@ -2020,6 +2020,64 @@ window.playEnding = playEnding;
 // ⚠️ **본 것만 보여 준다.** 안 본 컷씬을 제목까지 늘어놓으면 스포일러다 —
 // 못 본 것은 막마다 **개수만** 알려 준다.
 // ⚠️ **다시 보기는 보상을 다시 주지 않는다** (`playCut` 은 보여 주기만 한다)
+// ─── 미니게임 규칙 (❔) ─────────────────────────────────────
+//
+// **일곱 게임의 규칙이 한 표에 있다.** 화면마다 따로 적으면 게임을 고쳤을 때
+// 한쪽만 고치게 된다 (지대별 AP 에서 배운 것과 같다).
+//
+// ⚠️ **줄 수를 여기 박지 않는다** — `mh_<형>_1` 부터 «없을 때까지» 읽는다.
+// 박아 두면 줄을 늘려도 화면에 안 나오고, 줄을 줄이면 열쇠 이름이 그대로 뜬다.
+// `checkdata` 가 **형 표의 미니게임마다 두 언어에 줄이 있는지**를 본다 — 새 게임을
+// 붙이면서 규칙을 안 쓰고 지나갈 수 없는 자리다
+const MH_MAX = 12;                      // 한 게임의 줄 수 상한 (읽다 멈추는 자리)
+// ⚠️⚠️ **규칙 줄에 요율·상한을 «숫자로 박지» 않는다.** 「100m 마다 하나 (최대 18개)」라고
+// 적어 두었더니 `REWARD_PER` 를 55 로 내린 날 **화면에 적힌 값과 받는 개수가 갈렸다** —
+// 카드의 ⚡ 와 받는 개수가 갈리던 것(`miniRewardMax`)과 같은 사고다.
+// 수치는 **그 게임의 모듈이 유일한 원본**이므로 여기서 읽어 `{per}`·`{max}` 로 넣는다
+function miniHelpVars(kind) {
+  const mod = window[MINIS[kind]] || {};
+  return { per: mod.REWARD_PER, max: mod.REWARD_MAX,
+           sec: Math.round((mod.DUR_MS || 0) / 1000),
+           every: Math.round((mod.REWARD_EVERY || 0) / 1000),
+           bonus: mod.CLEAR_BONUS, lives: mod.LIVES,
+           hits: mod.X_HITS, merge: mod.MERGE };
+}
+function miniHelpLines(kind) {
+  const out = [], vars = miniHelpVars(kind);
+  for (let i = 1; i <= MH_MAX; i++) {
+    const k = `mh_${kind}_${i}`;
+    const v = T(k, vars);
+    if (!v || v === k) break;           // 없는 열쇠는 이름을 그대로 돌려준다
+    out.push(v);
+  }
+  return out;
+}
+window.miniHelpLines = miniHelpLines;
+
+function openMiniHelp(kind) {
+  const ft = D.FIELD_TYPES.find(t => t.mini === kind);
+  const lines = miniHelpLines(kind);
+  const tt = document.getElementById('miniHelpTitle');
+  const bd = document.getElementById('miniHelpBody');
+  // 머리말은 **딱지에 적힌 그 말**이다 (`FIELD_TYPES.tag`) — 카드에서 누른 것과
+  // 시트의 제목이 다르면 어디서 온 시트인지를 잃는다
+  if (tt) tt.textContent = ft && ft.tag ? T(ft.tag) : T('mh_title');
+  if (bd) {
+    bd.innerHTML = lines.length
+      ? lines.map(l => `<div class="mh-row">${escHtml(l)}</div>`).join('')
+      : `<div class="mh-row">${T('mh_none')}</div>`;
+  }
+  const m = document.getElementById('miniHelpSheet');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeMiniHelp() {
+  const m = document.getElementById('miniHelpSheet');
+  if (m) m.classList.remove('show');
+}
+window.openMiniHelp = openMiniHelp;
+window.closeMiniHelp = closeMiniHelp;
+
 function openStory() {
   renderStory();
   const m = document.getElementById('storySheet');
@@ -3844,8 +3902,14 @@ function renderGather() {
     // ⚠️ **어느 게임인지까지 적는다.** 예전에는 「스페셜 맵」 한 마디라 무엇이 특별한지를
     // **AP 를 내고 들어가 봐야** 알았다 — 2분짜리 게임이 갑자기 뜨는 것은 안내가 아니다.
     // 딱지 글자는 형 표(`FIELD_TYPES.tag`)에 있다: 게임이 늘어도 여기는 안 고친다
+    // ⚠️ **딱지가 곧 「규칙 보기」 버튼이다** (❔). 규칙을 읽는 자리를 게임 «안»에
+    // 두지 않는 이유는 하나다 — 읽는 동안 시계와 산소가 그대로 흐른다.
+    // 그리고 여기가 **AP 를 내기 전**이라, 「2분짜리가 갑자기 뜨는 것은 안내가 아니다」를
+    // 고친 그 자리에 규칙까지 붙는 것이 맞다
     const ftag = D.fieldType(D.mapType(spot.id)).tag;
-    const badge = ftag ? `<span class="spot-badge">${T(ftag)}</span>` : '';
+    const fmini = D.fieldMini(spot.id);
+    const badge = ftag ? `<button class="spot-badge" onclick="openMiniHelp('${fmini}')"
+      aria-label="${T('mh_open', { name: T(ftag) })}">${T(ftag)} <i>❔</i></button>` : '';
     // 속성은 **글자로** 적는다 (이모지 아님 — CREATURE.md 2장). 오른쪽 위 배지.
     // 재료 칩(둥근 알약)과 자리·모양이 달라야 무엇이 무엇인지 헷갈리지 않는다
     const at = D.creatureAttr(D.mapAttr(spot.id));

@@ -1220,6 +1220,37 @@ function launchOpts() {
           await page.waitForTimeout(150);
         }
 
+        // **❔ 미니게임 규칙 시트** — 카드의 딱지를 누르면 **AP 를 내기 «전»에** 규칙을
+        // 읽는 자리다. ⚠️ **일곱을 다 연다** — 하나만 재면 제일 긴 규칙(바위 부수기는
+        // 여덟 줄이다)은 한 번도 안 잰 것이 된다. 게임마다 줄 수도 길이도 다르고,
+        // 영어는 대체로 더 길다 (부엌의 「제일 긴 한 마디」와 같은 자리다).
+        // ⚠️ **`__cardFits` 를 같이 부른다** — 시트 속의 줄은 그냥 `div` 라
+        // `checkLayout()` 의 선택자에 안 걸리고, 목록에 `overflow-y:auto` 가 있으면
+        // 가로 넘침까지 `auto` 로 계산돼 **넘침 검사에서 통째로 빠진다**
+        {
+          const kinds = await page.evaluate(() => D.FIELD_TYPES.filter(x => x.mini).map(x => x.mini));
+          for (const k of kinds) {
+            const bad = await page.evaluate((kind) => {
+              openMiniHelp(kind);
+              const sheet = document.getElementById('miniHelpSheet');
+              if (!sheet || !sheet.classList.contains('show')) return `${kind}: 시트가 안 열린다`;
+              const rows = sheet.querySelectorAll('.mh-row');
+              if (!rows.length) return `${kind}: 규칙이 한 줄도 안 그려졌다`;
+              const title = (document.getElementById('miniHelpTitle') || {}).textContent || '';
+              if (!title.trim()) return `${kind}: 어느 게임의 규칙인지가 안 적혀 있다`;
+              if (!sheet.querySelector('.sheet-exit')) return `${kind}: 나가는 길(「나가기」)이 없다`;
+              return null;
+            }, k);
+            if (bad) { results.push({ 화면: `${t}/미니게임규칙`, 오류: bad }); continue; }
+            await page.waitForTimeout(240);
+            await run(`${t}/미니게임규칙:${k}`);
+            const fit = await page.evaluate(() => __cardFits('#miniHelpSheet, #miniHelpSheet .mh-row'));
+            if (fit && fit.length) results.push({ 화면: `${t}/미니게임규칙:${k}`, 넘침: fit });
+          }
+          await page.evaluate(() => closeMiniHelp());
+          await page.waitForTimeout(150);
+        }
+
         // **파수꾼의 호박 밭** — 캔버스라 `checkUI()` 가 못 본다. 그래서 여기서만
         // 「공주 얼굴이 진짜로 구워졌는가」를 따로 묻는다 (`Pumpkin.faceState()`).
         // ⚠️ 못 구워도 게임은 돌아야 한다 — 그때는 예전 동그라미로 떨어진다
