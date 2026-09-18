@@ -324,21 +324,23 @@ body.has-quest .screen { padding-bottom: 168px; }
    - 높이: `align-items: stretch` 로 시간대가 동행 줄 높이를 그대로 받는다.
      시간대 쪽은 글자 한 줄뿐이라 제 높이로 두면 15px 쯤 낮다
    - 모서리: 둘 다 999px 알약. 테두리 굵기(1px)와 아래 여백(8px)도 같은 값이다 */
-/* 일지 · 동행 · 시간대가 한 줄이다. 일지는 제 글자 폭만 쓰고(`.diary-btn` 이
-   `width:auto`) 남는 자리를 동행 줄이 다 가져간다 — 좁아지면 **줄어드는 것은
-   동행 이름**이어야 한다(`.pal-name` 이 `min-width:0`). 일지는 글자가 짧고
-   시간대는 이미 265px 에서 이모지만 남긴다.
-   ⚠️ 셋의 아래 여백이 제각각이면 줄이 흔들려 보인다 — 여기서 한 번에 잡고
-   속의 것들은 `margin-bottom: 0` 이다 */
-.gt-top { display: flex; align-items: stretch; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
-.gt-top .diary-btn { margin: 0; flex: 0 0 auto; align-self: stretch; }
-/* ⚠️ **셋이 안 들어가면 «줄을 바꾼다»** (`flex-wrap` + 바닥 폭 190px).
-   265px 영어에서는 일지(「Field Journal」)만으로 130px 이라, 억지로 한 줄에 두면
-   동행 줄이 50px 로 눌려 「No companion creature」가 석 줄이 되고 띠가 76px 로
-   부푼다 (찍어 보고 알았다) — 그 폭에서는 두 줄이 맞는 모양이다.
-   넓은 화면은 한 줄 그대로다 (390px 에서 동행 줄에 248px 이 남는다) */
-.gt-top .pal-line { flex: 1 1 190px; min-width: 0; margin: 0; }
-.gt-top .pal-row, .gt-top .dp-chip { margin: 0; }
+/* 제목 줄 — 왼쪽에 「🧭 탐험」, 오른쪽 끝에 「📔 탐험 일지」.
+   ⚠️ **일지를 동행 줄과 한 줄에 두지 않는다** — 그렇게 했다가 265px 영어에서
+   동행 줄이 50px 로 눌려 되돌린 자리다. 제목은 어느 언어에서나 짧아서
+   (「Explore」·「탐험」) 그 옆이 일지의 제자리고, 덕분에 동행 줄은 **언제나**
+   한 줄을 통째로 쓴다.
+   ⚠️ 제목이 길어져도 **일지가 먼저 줄지 않는다**(`flex: 0 0 auto`) — 버튼 글자가
+   접히면 두 줄짜리 알약이 되어 제목 줄이 통째로 부푼다 */
+.gt-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 2px; }
+/* ⚠️ **제목을 접지 않는다**(`nowrap`). 265px 영어에서 「🧭」와 「Explore」가 두 줄로
+   갈려 머리글이 52px 로 부풀었다 (찍어 보고 알았다) — 이모지와 낱말이 갈리면
+   제목이 아니라 사고로 보인다. 안 들어가면 **일지가 아랫줄로 내려간다**(`flex-wrap`) */
+.gt-head .screen-title { flex: 0 1 auto; white-space: nowrap; margin-bottom: 0; }
+/* ⚠️ **일지는 «줄어들 수는» 있어야 한다**(`flex: 0 1 auto` · `min-width: 0`).
+   `0 0 auto` 로 두었더니 라벨 2배 확대(= 더 긴 번역)에서 **제 줄에 내려와서도
+   상자 밖으로 2px 나갔다** — 그 폭에서는 글자가 두 줄로 접히는 것이 맞는 모양이다.
+   평소(한국어·영어)에는 한 글자도 안 접힌다 */
+.gt-head .diary-btn { flex: 0 1 auto; min-width: 0; margin: 0 0 0 auto; }
 /* `hidden` 은 맨 위의 `[hidden]{display:none!important}` 이 책임진다 —
    여기에 짝 규칙을 또 두지 않는다 (그 한 줄을 만든 이유가 그것이다) */
 .pal-line { display: flex; align-items: stretch; gap: 6px; }
@@ -354,8 +356,22 @@ body.has-quest .screen { padding-bottom: 168px; }
 /* 265px 영어에서 `Morning` 이 동행 이름을 다 밀어낸다 — 좁아지면 이모지만 남긴다.
    시간대는 **거들 뿐**이고, 지금 누구를 데려가는지가 먼저다 */
 @media (max-width: 330px) { .dp-chip .dp-name { display: none; } }
+/* 딱지(❔)와 서류(📄)는 **버튼 둘**이라 상자로 묶는다 — 버튼 안에 버튼은 못 넣는다.
+   카드 왼쪽 위 모서리에 서는 것은 이제 이 상자다 */
+.spot-badges {
+  position: absolute; left: -8px; top: -8px; z-index: 1;
+  display: flex; align-items: stretch; gap: 4px;
+  /* ⚠️⚠️ **오른쪽 위 배지(날씨·속성)와 겹치면 안 된다.** 둘 다 절대 배치라
+     서로를 안 밀어내는데, 📄 가 붙어 딱지가 34px 넓어지자 **265px 영어에서
+     다섯 장이 최대 40px 겹쳐** 📄 를 눌러도 날씨 배지가 클릭을 먹었다
+     (진짜 마우스로 눌러 보고 알았다 — `elementFromPoint` 가 `.spot-weather` 였다).
+     오른쪽 몫(제일 넓은 것이 87px)을 떼어 두고 **이름이 줄게** 한다:
+     남는 것은 ❔ 와 📄 다 — 줄어드는 것은 «이미 카드에 적힌» 게임 이름이어야 한다
+     (바람개비 밭 HUD 에서 정한 규칙과 같다). 390px 에서는 한 글자도 안 잘린다 */
+  max-width: calc(100% - 100px); min-width: 0;
+}
 .spot-badge {
-  position: absolute; left: -4px; top: -8px; z-index: 1;
+  position: relative;
   /* 흰 글자 + 주황은 어떤 조합으로도 2.4:1 을 못 넘는다. 진한 갈색 글자로 바꿔 5.5:1.
      그라데이션도 뺐다 — 검증기가 배경을 못 읽어 흰색으로 '추정' 하면 오진의 빌미가 된다.
      크기도 10.2px 이라 최소 11px 에 걸렸다 (TEXT_POLICY.md) */
@@ -368,7 +384,10 @@ body.has-quest .screen { padding-bottom: 168px; }
      AP 가 새던 자리라, 이 딱지는 **제 자리에서만** 클릭을 받아야 한다 */
   border: 0; font-family: inherit; cursor: pointer;
   display: inline-flex; align-items: center; gap: 5px;
+  min-width: 0; overflow: hidden;
 }
+/* 이름만 줄어든다 — ❔ 동그라미는 `flex: 0 0 auto` 라 한 픽셀도 안 준다 */
+.sb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* ─── 물음표는 «이모지가 아니라 글자»다 ───
    ⚠️ 처음에는 `❔`(U+2754)를 썼는데 그 글리프는 **흰/옅은 회색 물음표**라
    연주황 딱지 위에서 거의 안 보였다 — 「진짜 안 띈다」로 신고받은 자리다.
@@ -387,6 +406,35 @@ body.has-quest .screen { padding-bottom: 168px; }
 }
 .spot-badge:active { transform: scale(0.96); }
 .spot-badge:active > i { background: #6b3d10; }
+/* ─── 지난 기록 (📄) ───
+   ⚠️ **딱지 «안»에 넣지 않는다** — 규칙(❔)과 기록(📄)은 여는 것이 서로 다르다.
+   딱지와 같은 높이·같은 모서리로 옆에 서서 «한 벌»로 보이되, 배경을 크림빛으로
+   갈라 「이건 다른 버튼」이라고 말한다. 이모지라 대비 검사가 볼 글자는 없고,
+   이름은 `aria-label` 이 맡는다 (튜토리얼의 손 그림과 같은 규칙이다) */
+.spot-log {
+  display: flex; align-items: center; justify-content: center;
+  padding: 3px 8px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--card);
+  font-family: inherit; font-size: 0.8rem; line-height: 1.2;
+  cursor: pointer; flex: 0 0 auto;
+  box-shadow: 0 2px 6px rgba(200, 110, 40, 0.22);
+}
+.spot-log:active { transform: scale(0.94); }
+
+/* ─── 지난 기록 시트 ─── 규칙 시트(`.mh-*`)와 같은 꼴이다 */
+.ml-sum { font-size: 0.82rem; font-weight: 700; color: var(--ink-soft); margin: 2px 0 6px; }
+.ml-body { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; margin: 2px 0; }
+.ml-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.84rem; font-weight: 500; color: var(--ink);
+  background: var(--cream); border-radius: 12px; padding: 8px 12px;
+}
+/* 날짜는 «언제»라 제 폭만 쓰고, 점수가 남는 자리를 가져간다 — 좁아지면
+   줄어드는 것은 점수가 아니라 아무것도 아니어야 해서 셋 다 `keep-all` 이다 */
+.ml-date { flex: 0 0 auto; color: var(--ink-soft); font-weight: 700; }
+.ml-score { flex: 1 1 auto; min-width: 0; font-weight: 800; word-break: keep-all; }
+.ml-got { flex: 0 0 auto; color: var(--ink-soft); font-weight: 700; word-break: keep-all; }
+.ml-empty { font-size: 0.84rem; font-weight: 500; color: var(--ink-soft); padding: 10px 2px; }
 
 /* ─── 미니게임 규칙 시트 (❔) ───
    바닥 시트 공통 꼴을 그대로 쓴다 (`UI_POLICY.md` 3-2) — 폭·모서리·「나가기」는

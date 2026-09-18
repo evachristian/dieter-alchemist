@@ -164,11 +164,36 @@ add('맵의 지대가 ZONES 에 없다',
     if (n && !/\{max\}/.test(raw.join(' '))) {
       bad.push(`형 ${t.k}: ❔ 규칙에 한 판 상한이 «숫자로 박혀» 있다 — {max} 로 적어야 값이 안 갈린다`);
     }
+    // ⚠️⚠️ **지난 기록의 «단위»도 형마다 있어야 한다** (`mr_unit_<형>`).
+    // 점수의 뜻이 게임마다 달라서(호두 «개» · 호박 «초» · 바위산 «줄» · 낚시 «마리» ·
+    // 참새 «점» · 바람개비 «개» · 드릴러 «m») 한 낱말로 못 적는다 — 없으면
+    // `T()` 가 **열쇠를 그대로** 돌려줘 기록 줄에 「mr_unit_rock」 이 뜬다.
+    // 오류는 안 나고 **글자만 조용히 깨진다** (❔ 규칙에서 배운 것과 같은 자리다).
+    // ⚠️ `{n}` 이 있는지도 같이 본다 — 자리표시자가 없으면 숫자가 통째로 사라져
+    //    「줄」 한 글자만 남는다. `I.t()` 는 값을 안 넘기면 자리표시자를 그대로 준다
+    const unit = I.t(`mr_unit_${t.mini}`);
+    if (unit === `mr_unit_${t.mini}`) {
+      bad.push(`형 ${t.k}: 지난 기록의 단위(mr_unit_${t.mini})가 없다 — 기록 줄에 열쇠가 그대로 뜬다`);
+    } else if (!/\{n\}/.test(unit)) {
+      bad.push(`형 ${t.k}: 지난 기록의 단위(mr_unit_${t.mini})에 {n} 이 없다 — 점수가 통째로 안 보인다`);
+    }
     const f = MINI_FILE[t.mini];
     if (!f) bad.push(`형 ${t.k}: 미니게임 «${t.mini}» 의 파일을 모른다`);
     else if (!fs.existsSync(path.join(ROOT, f))) bad.push(`형 ${t.k}: ${f} 가 없다`);
     else if (!fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').includes(f)) {
       bad.push(`형 ${t.k}: index.html 이 ${f} 를 안 읽는다`);
+    } else {
+      // ⚠️⚠️ **끝낼 때 «점수»를 같이 돌려줘야 한다** — 📄 지난 기록이 그것을 적는다.
+      // 빠뜨리면 `miniLogAdd` 가 0 으로 적어 **모든 줄이 「0개」로 쌓인다** — 오류도
+      // 안 나고 기록만 조용히 거짓말을 한다 (호박 밭이 실제로 그랬다).
+      // ⚠️ 값이 아니라 «모양»을 본다: 값을 베끼면 검사기만 옛 것으로 남지만,
+      //    모양은 그 파일 하나가 원본이라 갈릴 데가 없다
+      const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+      const end = src.match(/cb\(\{[^}]*\}\)/);
+      if (!end) bad.push(`형 ${t.k}: ${f} 가 끝날 때 무엇을 돌려주는지 못 찾겠다`);
+      else if (!/\bscore\b/.test(end[0])) {
+        bad.push(`형 ${t.k}: ${f} 가 끝낼 때 score 를 안 돌려준다 — 지난 기록이 전부 0 으로 쌓인다`);
+      }
     }
   });
   // ⚠️⚠️ **튜토리얼이 가리키는 맵은 반드시 «평범한 곳»이어야 한다.**

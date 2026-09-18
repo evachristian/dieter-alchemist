@@ -81,6 +81,14 @@ const defaultState = () => ({
   // 옛 세이브에는 이 칸이 없고 `defaultState()` 의 `[]` 가 그대로 남는다
   // (`CREATURE.md` 11장의 `petField` 와 같은 경우다)
   diary: [],
+  // 미니게임 「지난 기록」 — 맵마다 `{ n, best, log: [{t, s, g}] }`
+  // (`n` 판 수 · `best` 최고 점수 · `log` 최근 `MINILOG_MAX` 판 · `t` 시각 ·
+  //  `s` 점수 · `g` 받은 재료 수). **없던 칸을 더하는 것**이라 `SAVE_VER` 를 안 올린다.
+  // ⚠️ **점수의 «뜻»은 게임마다 다르다** (호두 개수 · 버틴 초 · 깬 줄 · 건진 마리 ·
+  // 점 · 치운 수 · 내려간 m) — 숫자만 적고 **단위는 읽을 때** 붙인다
+  // (`mr_unit_<형>`). 일지가 이름 대신 id 를 담는 것과 같은 이유다: 적을 때 문장을
+  // 만들면 그때의 언어가 세이브에 굳는다
+  miniLog: {},
   // 퀘스트 (`QUEST.md`). **없던 칸을 더하는 것**이라 `SAVE_VER` 를 안 올린다.
   // · `active` — 지금 하는 것 하나. **한 번에 하나만 내보낸다** (목록은 곧 숙제다)
   // · `n`      — 지금 퀘스트의 진행 수. **받은 뒤부터 센다**
@@ -2078,6 +2086,71 @@ function closeMiniHelp() {
 window.openMiniHelp = openMiniHelp;
 window.closeMiniHelp = closeMiniHelp;
 
+// ─── 미니게임 「지난 기록」 (📄) ─────────────────────────────
+// 카드 딱지의 ❔ 옆에 붙은 서류를 누르면 **그 맵에서 놀았던 판들**이 뜬다.
+// 여기도 ❔ 와 같은 자리다 — **AP 를 내기 «전»에** 「지난번에 얼마나 했더라」를
+// 볼 수 있어야 한다. 게임 «안»에 두면 시계가 흐르는 동안 읽게 된다
+const MINILOG_MAX = 10;        // 맵마다 남기는 최근 판 수 (세이브 크기 · 일지와 같은 규칙)
+
+function miniLogOf(mapId) {
+  const all = S.miniLog || {};
+  const r = all[mapId];
+  return { n: (r && r.n) || 0, best: (r && r.best) || 0, log: (r && r.log) || [] };
+}
+// 한 판을 적는다. ⚠️ **시각은 `nowDate()` 를 지난다** — `new Date()` 를 여기서 부르면
+// `checktime` 이 시계를 옮겨 놓을 구멍이 없어진다 (`dayKey` 에서 겪은 그 자리다)
+function miniLogAdd(mapId, res, gotN) {
+  if (!S.miniLog || typeof S.miniLog !== 'object') S.miniLog = {};
+  const cur = miniLogOf(mapId);
+  const s = Math.max(0, Math.round((res && res.score) || 0));
+  const row = { t: nowDate().getTime(), s, g: gotN || 0 };
+  const log = cur.log.concat([row]).slice(-MINILOG_MAX);
+  // ⚠️ **최고 기록은 «남은 줄»에서 다시 세지 않는다** — 열 판이 넘으면 옛 줄이
+  // 밀려 나가는데, 거기서 다시 세면 **최고 기록이 스스로 내려간다**
+  S.miniLog[mapId] = { n: cur.n + 1, best: Math.max(cur.best, s), log };
+}
+
+function openMiniLog(mapId) {
+  const map = D.MAPS.find(m => m.id === mapId);
+  const kind = D.fieldMini(mapId);
+  const r = miniLogOf(mapId);
+  const tt = document.getElementById('miniLogTitle');
+  const sm = document.getElementById('miniLogSum');
+  const bd = document.getElementById('miniLogBody');
+  // 머리말은 **맵 이름**이다 — ❔ 는 「무슨 게임인가」라 딱지 이름이 맞지만,
+  // 기록은 「여기서 내가 한 일」이라 장소 이름이라야 어디 것인지 안 헷갈린다
+  if (tt) tt.textContent = map ? `${map.emoji || ''} ${N(map.id, map.name)}`.trim() : T('mr_title');
+  const unit = n => T(`mr_unit_${kind}`, { n });
+  if (sm) {
+    sm.textContent = r.n
+      ? T('mr_sum', { n: r.n, best: unit(r.best) })
+      : '';
+  }
+  if (bd) {
+    bd.innerHTML = r.n
+      // **최근 것이 위로 온다** — 방금 한 판을 보러 여는 자리다
+      ? r.log.slice().reverse().map(row => {
+        const d = new Date(row.t);
+        return `<div class="ml-row">
+          <span class="ml-date">${escHtml(T('di_day', { m: d.getMonth() + 1, d: d.getDate() }))}</span>
+          <span class="ml-score">${escHtml(unit(row.s))}</span>
+          <span class="ml-got">${escHtml(T('mr_got', { n: row.g }))}</span>
+        </div>`;
+      }).join('')
+      : `<div class="ml-empty">${T('mr_empty')}</div>`;
+  }
+  const m = document.getElementById('miniLogSheet');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeMiniLog() {
+  const m = document.getElementById('miniLogSheet');
+  if (m) m.classList.remove('show');
+}
+window.openMiniLog = openMiniLog;
+window.closeMiniLog = closeMiniLog;
+window.miniLogOf = miniLogOf;
+
 function openStory() {
   renderStory();
   const m = document.getElementById('storySheet');
@@ -2871,6 +2944,10 @@ function miniRewardMax(mapId) {
 function finishMiniRun(map, res) {
   const got = (res && res.picked) || [];
   got.forEach(id => addInv(id, 1));
+  // 「지난 기록」 — **여기 한 곳에서만 적는다.** 게임마다 제 `finish()` 에서
+  // 적게 하면 일곱 벌이 되고, 새 게임을 붙일 때 반드시 하나를 빠뜨린다
+  // (보상·퀘스트 셈을 이 함수로 모은 것과 같은 이유다)
+  miniLogAdd(map.id, res, got.length);
   rec('gathered');                     // 총 횟수는 기록에만 (재료별 누적은 addInv 가)
   got.forEach(() => rec('itemsGot'));
   // ⚠️ **퀘스트의 「채집 n번」을 한 걸음으로 센다.** 평범한 채집과 같은 자리다 —
@@ -3908,8 +3985,14 @@ function renderGather() {
     // 고친 그 자리에 규칙까지 붙는 것이 맞다
     const ftag = D.fieldType(D.mapType(spot.id)).tag;
     const fmini = D.fieldMini(spot.id);
-    const badge = ftag ? `<button class="spot-badge" onclick="openMiniHelp('${fmini}')"
-      aria-label="${T('mh_open', { name: T(ftag) })}">${T(ftag)}<i aria-hidden="true">?</i></button>` : '';
+    // ⚠️ **딱지와 📄 는 «버튼 둘»이라 상자로 묶는다** — 버튼 안에 버튼을 넣을 수는
+    // 없다. 상자가 카드 모서리에 서고 안에서 둘이 나란히 눕는다 (`.spot-badges`)
+    const badge = ftag ? `<div class="spot-badges">
+      <button class="spot-badge" onclick="openMiniHelp('${fmini}')"
+        aria-label="${T('mh_open', { name: T(ftag) })}"><span class="sb-name">${T(ftag)}</span><i aria-hidden="true">?</i></button>
+      <button class="spot-log" onclick="openMiniLog('${spot.id}')"
+        aria-label="${T('mr_open', { name: N(spot.id, spot.name) })}">📄</button>
+    </div>` : '';
     // 속성은 **글자로** 적는다 (이모지 아님 — CREATURE.md 2장). 오른쪽 위 배지.
     // 재료 칩(둥근 알약)과 자리·모양이 달라야 무엇이 무엇인지 헷갈리지 않는다
     const at = D.creatureAttr(D.mapAttr(spot.id));

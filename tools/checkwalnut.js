@@ -348,6 +348,36 @@ function ok(cond, msg, extra) {
   ok(after.inv > res.invBefore, '가방이 실제로 늘었다', `${res.invBefore} → ${after.inv}`);
   ok(res.want >= 3, '잰 것이 «0개짜리 보상»이 아니다', `${res.want}개 기대`);
 
+  // ── 📄 지난 기록 — **한 판을 «진짜로» 놀고 나서** 잰다
+  // ⚠️⚠️ `checkui` 는 값을 심어 놓고 `openMiniLog()` 를 **직접 부른다** — 그림(대비·넘침)을
+  // 재는 자리라 그것이 맞지만, 그러면 ① 📄 의 배선과 ② 기록이 실제로 «적히는지»를
+  // 한 번도 안 본다 (`Walnut.start()` 를 직접 부르면 안 되는 것과 같은 자리다).
+  // 여기는 방금 한 판을 끝낸 자리라 **둘 다 잴 수 있는 유일한 곳**이다
+  const log = await page.evaluate((id) => {
+    const r = miniLogOf(id);
+    return { n: r.n, last: r.log[r.log.length - 1] || null };
+  }, mapId);
+  ok(log.n === 1, '한 판을 놀면 기록이 «한 줄» 적힌다', `${log.n}판`);
+  ok(!!log.last && log.last.s === res.score,
+     '적힌 점수가 방금 판의 점수와 같다', `${log.last && log.last.s} ↔ ${res.score}`);
+  // ⚠️ **누르는 것은 카드의 📄 다.** `openMiniLog()` 를 부르면 배선이 끊겨도 통과한다
+  const sheet = await page.evaluate((id) => {
+    const b = document.querySelector(`.spot-card[data-spot="${id}"] .spot-log`);
+    if (!b) return { err: '카드에 📄 가 없다' };
+    b.click();
+    const sh = document.getElementById('miniLogSheet');
+    return { show: !!(sh && sh.classList.contains('show')),
+             rows: sh ? sh.querySelectorAll('.ml-row').length : 0,
+             // 열쇠가 그대로 새면(`mr_unit_walnut` 이 없으면) 여기에 보인다
+             text: sh ? (sh.textContent || '').trim() : '' };
+  }, mapId);
+  ok(!sheet.err && sheet.show, '카드의 📄 를 누르면 지난 기록이 열린다', sheet.err || '');
+  ok(sheet.rows === 1, '방금 한 판이 줄로 서 있다', `${sheet.rows}줄`);
+  ok(!/mr_(unit|got|sum)_?/.test(sheet.text), '단위·요약이 열쇠로 새지 않는다',
+     (sheet.text.match(/mr_\w+/) || [''])[0]);
+  await page.evaluate(() => closeMiniLog());
+  await page.waitForTimeout(120);
+
   // ── 평범한 맵은 **그대로 줍는다** (미니게임이 새지 않는가)
   const plainId = await page.evaluate(() =>
     D.MAPS.filter(m => D.mapType(m.id) === 'field' && m.unlock === 0)[0].id);

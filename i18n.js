@@ -495,6 +495,23 @@
       mh_open: '{name} 규칙 보기',
       mh_none: '규칙이 아직 안 적혀 있어요.',
 
+      // ─── 미니게임 「지난 기록」 (📄) ───
+      // ⚠️ **점수의 단위는 게임마다 다르다** — 세이브에는 숫자만 적고 여기서 말을 붙인다
+      // (일지가 이름 대신 id 를 담는 것과 같은 이유다: 적을 때 문장을 만들면
+      //  그때의 언어가 세이브에 굳는다)
+      mr_title: '지난 기록',
+      mr_open: '{name} 지난 기록',
+      mr_empty: '아직 여기서 논 적이 없어요.',
+      mr_sum: '{n}판 · 최고 {best}',
+      mr_got: '재료 {n}개',
+      mr_unit_walnut: '호두 {n}개',
+      mr_unit_pumpkin: '{n}초 버팀',
+      mr_unit_rock: '{n}줄',
+      mr_unit_fish: '{n}마리',
+      mr_unit_sparrow: '{n}점',
+      mr_unit_pinwheel: '바람개비 {n}개',
+      mr_unit_driller: '{n}m',
+
       mh_walnut_1: '🌰 숫자가 적힌 호두가 깔립니다.',
       mh_walnut_2: '👆 끌어서 네모를 그리면, 그 안의 숫자 합이 정확히 10일 때 호두가 지워져요.',
       mh_walnut_3: '✨ 지워진 칸은 건너뛸 수 있어요 — 판이 비어 갈수록 멀리 있는 것끼리 묶입니다.',
@@ -1843,6 +1860,19 @@
       mh_title: 'How to play',
       mh_open: 'How to play: {name}',
       mh_none: 'No rules written yet.',
+
+      mr_title: 'Past runs',
+      mr_open: 'Past runs: {name}',
+      mr_empty: 'You have not played here yet.',
+      mr_sum: 'Runs: {n} · best {best}',
+      mr_got: '{n} picked',
+      mr_unit_walnut: '{n} walnuts',
+      mr_unit_pumpkin: '{n}s survived',
+      mr_unit_rock: '{n} rows',
+      mr_unit_fish: '{n} fish',
+      mr_unit_sparrow: '{n} pts',
+      mr_unit_pinwheel: '{n} pinwheels',
+      mr_unit_driller: '{n}m',
 
       mh_walnut_1: '🌰 The ground is covered in numbered walnuts.',
       mh_walnut_2: '👆 Drag a box — if the numbers inside add up to exactly 10, they clear.',

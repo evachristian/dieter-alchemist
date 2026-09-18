@@ -173,6 +173,14 @@ function launchOpts() {
       for (const el of [root, ...root.querySelectorAll('*')]) {
         const st = getComputedStyle(el);
         if (st.display === 'none' || st.overflowX === 'auto' || st.overflowX === 'scroll') continue;
+        // ⚠️ **말줄임표를 단 자리는 «일부러» 줄이는 자리다.** 거기서는 `scrollWidth` 가
+        // 잘리기 «전»의 폭이라 늘 제 칸보다 넓은데, 화면에는 「🌬️..」 로 얌전히 선다
+        // (바람개비 밭 HUD 의 맵 이름이 그렇게 39px 넘침으로 잡히고 있었다 —
+        // style.css 에 「줄어드는 것은 이름이어야 한다」고 적어 둔 바로 그 자리다).
+        // 세 가지가 «다» 있을 때만 건너뛴다 — 그것이 곧 「여기는 잘려도 된다」는 선언이다.
+        // 그냥 `overflow: hidden` 으로 «말없이» 자르는 것은 그대로 잡힌다
+        if (st.textOverflow === 'ellipsis' && st.overflowX === 'hidden' &&
+            (st.whiteSpace === 'nowrap' || st.whiteSpace === 'pre')) continue;
         const over = el.scrollWidth - el.clientWidth;
         if (over > 1) {
           const who = el.className || el.tagName.toLowerCase();
@@ -1279,6 +1287,90 @@ function launchOpts() {
           }
           await page.evaluate(() => closeMiniHelp());
           await page.waitForTimeout(150);
+        }
+
+        // **📄 지난 기록 시트** — 딱지의 ❔ 옆. ⚠️ **두 모양을 다 잰다**:
+        // 기록이 있는 쪽(줄·요약)과 **한 판도 안 한 쪽**(「아직 논 적이 없어요」).
+        // 빈 쪽만 재면 줄의 대비·넘침을 한 번도 안 잰 것이고, 있는 쪽만 재면
+        // 새 플레이어가 처음 여는 화면을 한 번도 안 잰 것이다
+        {
+          const mapId = await page.evaluate(() => {
+            const m = D.MAPS.find(x => D.fieldMini(x.id));
+            return m ? m.id : null;
+          });
+          if (!mapId) results.push({ 화면: `${t}/지난기록`, 오류: '미니게임 맵이 없다' });
+          else {
+            // 값을 심어 놓고 연다 — **판 수가 최근 줄보다 많은** 상태로 둔다
+            // (「최고 기록은 남은 줄에서 다시 세지 않는다」가 화면에도 보여야 한다)
+            const bad = await page.evaluate((id) => {
+              const now = Date.now();
+              S.miniLog = S.miniLog || {};
+              S.miniLog[id] = { n: 23, best: 1234, log: Array.from({ length: 10 }, (_, i) =>
+                ({ t: now - (10 - i) * 3600e3, s: 120 + i * 37, g: i % 4 })) };
+              openMiniLog(id);
+              const sh = document.getElementById('miniLogSheet');
+              if (!sh || !sh.classList.contains('show')) return '시트가 안 열린다';
+              const rows = sh.querySelectorAll('.ml-row').length;
+              if (rows !== 10) return `줄이 ${rows}개다 (심은 10개가 다 안 그려졌다)`;
+              if (!(document.getElementById('miniLogSum') || {}).textContent.trim()) return '요약 줄이 비었다';
+              if (!sh.querySelector('.sheet-exit')) return '나가는 길이 없다';
+              return null;
+            }, mapId);
+            if (bad) results.push({ 화면: `${t}/지난기록`, 오류: bad });
+            else {
+              await page.waitForTimeout(240);
+              await run(`${t}/지난기록`);
+              const fit = await page.evaluate(() => __cardFits('#miniLogSheet, #miniLogSheet .ml-row'));
+              if (fit && fit.length) results.push({ 화면: `${t}/지난기록`, 넘침: fit });
+            }
+            // 빈 쪽 — 새 플레이어가 처음 여는 화면
+            const bad2 = await page.evaluate((id) => {
+              S.miniLog = {};
+              openMiniLog(id);
+              const sh = document.getElementById('miniLogSheet');
+              if (!sh || !sh.classList.contains('show')) return '빈 기록에서 시트가 안 열린다';
+              if (!sh.querySelector('.ml-empty')) return '「아직 논 적이 없어요」 줄이 없다';
+              if (sh.querySelectorAll('.ml-row').length) return '기록이 없는데 줄이 그려졌다';
+              return null;
+            }, mapId);
+            if (bad2) results.push({ 화면: `${t}/지난기록빈`, 오류: bad2 });
+            else { await page.waitForTimeout(200); await run(`${t}/지난기록빈`); }
+            await page.evaluate(() => { closeMiniLog(); S.miniLog = {}; });
+            await page.waitForTimeout(150);
+          }
+        }
+
+        // ⚠️⚠️ **카드의 왼쪽 위 딱지와 오른쪽 위 배지가 «겹치면» 안 된다.**
+        // 둘 다 절대 배치라 서로를 안 밀어낸다 — 📄 가 붙어 딱지가 34px 넓어지자
+        // **265px 영어에서 다섯 장이 최대 40px 겹쳐** 📄 를 눌러도 날씨 배지가
+        // 클릭을 먹었다 (진짜 마우스로 눌러 `elementFromPoint` 를 찍어 보고 알았다).
+        // ⚠️ **넘침 검사(`__cardFits`)로는 못 잡는다** — 둘 다 제 칸 안에 얌전히
+        // 들어 있고 «서로»만 겹친다. 그래서 두 상자를 직접 견준다.
+        // 지대를 다 돌아 **몇 장을 쟀는지도 같이 낸다** (0장이면 아무것도 안 잰 것이다)
+        {
+          const ov = await page.evaluate(() => {
+            const keepZ = (typeof gatherZone !== 'undefined') ? gatherZone : null;
+            const out = [];
+            D.ZONES.forEach(z => {
+              setGatherZone(z.id);
+              document.querySelectorAll('.spot-card').forEach(c => {
+                const b = c.querySelector('.spot-badges'), g = c.querySelector('.spot-tags');
+                if (!b || !g) return;
+                const br = b.getBoundingClientRect(), gr = g.getBoundingClientRect();
+                out.push({ id: c.dataset.spot, gap: Math.round(gr.left - br.right) });
+              });
+            });
+            if (keepZ) setGatherZone(keepZ);
+            return out;
+          });
+          const hit = ov.filter(r => r.gap < 0);
+          results.push(!ov.length
+            ? { 화면: `${t}/딱지겹침`, 오류: '딱지가 있는 카드를 한 장도 못 쟀다' }
+            : hit.length
+              ? { 화면: `${t}/딱지겹침`, 오류: hit.map(r => `${r.id} 가 ${-r.gap}px 겹친다`).join(' · ') }
+              : { 화면: `${t}/딱지겹침`, pass: true, total: 0,
+                  잰것: `${ov.length}장 · 제일 좁은 틈 ${Math.min(...ov.map(r => r.gap))}px` });
+          await page.waitForTimeout(120);
         }
 
         // **파수꾼의 호박 밭** — 캔버스라 `checkUI()` 가 못 본다. 그래서 여기서만

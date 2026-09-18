@@ -295,6 +295,10 @@
     S.cleared = cleared;
     cancelAnimationFrame(raf);
     const survived = Math.min(DUR_MS, (S.t0 ? S.now - S.t0 : 0));
+    // ⚠️ **버틴 시간이 여기서만 나온다** — 「지난 기록」(`miniLogAdd`)이 쓸 점수라
+    // 상태에 남겨 둔다. 다른 미니게임 여섯은 이미 `score` 를 돌려주고 있었는데
+    // 여기만 안 줘서 **기록에 점수 칸이 비었다** (버틴 시간이 곧 이 게임의 점수다)
+    S.lived = survived;
     // 끝까지 버틴 보너스 — 개수는 `CLEAR_BONUS` 한 곳에서 나온다 (상한도 그것을 쓴다)
     if (cleared) for (let i = 0; i < CLEAR_BONUS; i++) S.picked.push(pickItem());
 
@@ -336,8 +340,9 @@
   function close() {
     const picked = S ? S.picked.slice() : [];
     const cleared = S ? S.cleared : false;
+    const score = S ? Math.round((S.lived || 0) / 1000) : 0;   // 버틴 «초»
     teardown();
-    if (onEndCb) { const cb = onEndCb; onEndCb = null; cb({ picked, cleared }); }
+    if (onEndCb) { const cb = onEndCb; onEndCb = null; cb({ picked, cleared, score }); }
   }
 
   function teardown() {

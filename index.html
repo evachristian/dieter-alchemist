@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260918j">
+<link rel="stylesheet" href="style.css?v=20260918l">
 </head>
 <body>
 
@@ -38,7 +38,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260918j" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260918l" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -317,27 +317,28 @@
 
   <!-- ── 탐험 화면 (내부 이름은 gather 그대로 — 세이브·탭 키가 걸려 있다) ── -->
   <section id="screen-gather" class="screen">
-    <h2 class="screen-title" data-i18n="screen_gather">🧭 탐험</h2>
-    <p id="gatherSub" class="screen-sub" data-i18n="screen_gather_sub">장소를 골라 채집하세요.</p>
-    <!-- 탐험 일지 — 그날 있었던 일이 한 줄씩 쌓인다.
-         **탭 위에 둔다.** 세 갈래(필드/마을/밭) 중 어느 쪽 일이든 다 적히므로
-         한 갈래 안에 넣으면 다른 갈래에서 온 사람은 있는 줄도 모른다.
-         ⚠️ **일지 · 동행 · 시간대가 «한 줄»이다.** 예전에는 일지가 제 줄을 통째로
-         차지하고 동행 줄이 지대 탭 «아래»에 따로 있었다 — 셋 다 「지금 어떤 조건으로
-         나가는가」를 말하는 얇은 것들이라 두 줄을 먹을 이유가 없고, 그만큼 카드
-         목록이 아래로 밀렸다 (사람이 그림으로 자리를 정해 줬다) -->
-    <div class="gt-top">
+    <!-- 제목 줄에 **탐험 일지**가 같이 선다 (오른쪽 끝).
+         ⚠️ **한때 일지 · 동행 · 시간대를 «한 줄»에 다 넣었다가 되돌린 자리다** —
+         265px 영어에서는 「Field Journal」만으로 130px 이라 동행 줄이 50px 로 눌려
+         「No companion creature」가 석 줄이 됐다. 일지는 **글자가 짧고 갈래와 무관한**
+         것이라 제목 줄의 남는 자리가 제자리고, 그러면 동행 줄은 **어느 언어에서나**
+         한 줄을 통째로 쓴다 (사람이 그림으로 자리를 정해 줬다).
+         일지가 탭 «위»에 있는 이유는 그대로다 — 세 갈래(필드/마을/밭) 중 어느 쪽 일이든
+         다 적히므로 한 갈래 안에 넣으면 다른 갈래에서 온 사람은 있는 줄도 모른다 -->
+    <div class="gt-head">
+      <h2 class="screen-title" data-i18n="screen_gather">🧭 탐험</h2>
       <button class="btn btn-ghost diary-btn" onclick="openDiary()" data-i18n="di_open">📔 탐험 일지</button>
-      <!-- 동행 크리처. **세로를 거의 안 먹는다** — 일지 옆에 얇게 얹는다
-           (운동 버튼을 방 그림 위에 얹은 것과 같은 판단 — UI_POLICY)
-           오른쪽 끝의 시간대는 **따로 누르는 것**이다. 한 버튼 안에 넣으면
-           시각을 보려고 눌렀는데 크리처 고르기 시트가 뜬다.
-           ⚠️ **동행·시간대는 «필드 갈래»의 것이다** — 마을·밭에서는 `renderPalRow()`
-           가 이 줄을 통째로 접는다 (거기서는 데려갈 곳이 없다) -->
-      <div id="palLine" class="pal-line">
-        <button id="palRow" class="pal-row" onclick="openPalPick()"></button>
-        <button id="dayPart" class="dp-chip" onclick="daypartInfo(this)"></button>
-      </div>
+    </div>
+    <p id="gatherSub" class="screen-sub" data-i18n="screen_gather_sub">장소를 골라 채집하세요.</p>
+    <!-- 동행 크리처. **세로를 거의 안 먹는다** — 지대 탭 위에 얇게 얹는다
+         (운동 버튼을 방 그림 위에 얹은 것과 같은 판단 — UI_POLICY)
+         오른쪽 끝의 시간대는 **따로 누르는 것**이다. 한 버튼 안에 넣으면
+         시각을 보려고 눌렀는데 크리처 고르기 시트가 뜬다.
+         ⚠️ **동행·시간대는 «필드 갈래»의 것이다** — 마을·밭에서는 `renderPalRow()`
+         가 이 줄을 통째로 접는다 (거기서는 데려갈 곳이 없다) -->
+    <div id="palLine" class="pal-line">
+      <button id="palRow" class="pal-row" onclick="openPalPick()"></button>
+      <button id="dayPart" class="dp-chip" onclick="daypartInfo(this)"></button>
     </div>
     <!-- 탐험은 세 갈래다 — 필드(재료를 캐는 곳) / 마을(사람을 만나는 곳) /
          밭(심고 거두고 지키는 곳. 여신 단계부터 · FARM.md).
@@ -900,6 +901,19 @@
   </div>
 </div>
 
+<!-- ── 미니게임 「지난 기록」 (📄 · 카드 딱지의 ❔ 옆) ──
+     그 맵에서 놀았던 판들. **❔ 와 같은 자리다** — AP 를 내기 «전»에
+     「지난번에 얼마나 했더라」를 볼 수 있어야 한다.
+     꼴은 위의 규칙 시트를 그대로 베꼈다 (UI_POLICY 3-2 · 폭·모서리·「나가기」를 따로 안 정한다) -->
+<div id="miniLogSheet" class="modal" onclick="if(event.target===this) closeMiniLog()">
+  <div class="modal-card farm-card">
+    <div id="miniLogTitle" class="confirm-text"></div>
+    <div id="miniLogSum" class="ml-sum"></div>
+    <div id="miniLogBody" class="ml-body"></div>
+    <button class="sheet-exit" onclick="closeMiniLog()" data-i18n="sheet_exit">나가기</button>
+  </div>
+</div>
+
 <!-- ── 퀘스트 칩 (QUEST.md 2-1) ──
      탭 바 바로 위에 뜨는 NPC 얼굴. **누가 주는 퀘스트인지가 얼굴로 보인다.**
      ⚠️ 퀘스트가 없으면 `hidden` 이다 — 회색으로 남겨 두면 「내가 뭘 안 한 건가」가 된다 -->
@@ -1037,25 +1051,25 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260918j"></script>
-<script src="intro.js?v=20260918j"></script>
-<script src="data.js?v=20260918j"></script>
-<script src="avatar.js?v=20260918j"></script>
-<script src="village.js?v=20260918j"></script>
-<script src="portrait.js?v=20260918j"></script>
-<script src="creature.js?v=20260918j"></script>
-<script src="cauldron.js?v=20260918j"></script>
-<script src="pumpkin.js?v=20260918j"></script>
-<script src="walnut.js?v=20260918j"></script>
-<script src="rock.js?v=20260918j"></script>
-<script src="fish.js?v=20260918j"></script>
-<script src="sparrow.js?v=20260918j"></script>
-<script src="pinwheel.js?v=20260918j"></script>
-<script src="driller.js?v=20260918j"></script>
-<script src="sfx.js?v=20260918j"></script>
-<script src="sync.js?v=20260918j"></script>
-<script src="game.js?v=20260918j"></script>
-<script src="tutorial.js?v=20260918j"></script>
-<script src="a11y.js?v=20260918j"></script>
+<script src="i18n.js?v=20260918l"></script>
+<script src="intro.js?v=20260918l"></script>
+<script src="data.js?v=20260918l"></script>
+<script src="avatar.js?v=20260918l"></script>
+<script src="village.js?v=20260918l"></script>
+<script src="portrait.js?v=20260918l"></script>
+<script src="creature.js?v=20260918l"></script>
+<script src="cauldron.js?v=20260918l"></script>
+<script src="pumpkin.js?v=20260918l"></script>
+<script src="walnut.js?v=20260918l"></script>
+<script src="rock.js?v=20260918l"></script>
+<script src="fish.js?v=20260918l"></script>
+<script src="sparrow.js?v=20260918l"></script>
+<script src="pinwheel.js?v=20260918l"></script>
+<script src="driller.js?v=20260918l"></script>
+<script src="sfx.js?v=20260918l"></script>
+<script src="sync.js?v=20260918l"></script>
+<script src="game.js?v=20260918l"></script>
+<script src="tutorial.js?v=20260918l"></script>
+<script src="a11y.js?v=20260918l"></script>
 </body>
 </html>
