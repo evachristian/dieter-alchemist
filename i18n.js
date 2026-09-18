@@ -326,7 +326,7 @@
       cr_count: '{n} / {m} 마리',
       // 동행 크리처 — 탐험에 데려간다
       pal_none: '혼자 간다',
-      pal_row_none: '🐾 동행 없음',
+      pal_row_none: '🐾 동행 크리처 없음',
       pal_row: '🐾 {name}{josa} 함께',
       pal_pick_title: '누구와 함께 갈까요?',
       pal_close: '닫기', sheet_exit: '나가기',
@@ -1700,7 +1700,7 @@
       cr_unknown: '???',
       cr_count: '{n} / {m}',
       pal_none: 'Go alone',
-      pal_row_none: '🐾 No companion',
+      pal_row_none: '🐾 No companion creature',
       pal_row: '🐾 With {name}',
       pal_pick_title: 'Who comes along?',
       pal_close: 'Close', sheet_exit: 'Leave',

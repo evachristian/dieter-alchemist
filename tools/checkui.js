@@ -395,6 +395,36 @@ function launchOpts() {
           else { await page.waitForTimeout(250); await run(`${t}/동행고르기`); }
           await page.evaluate(() => { closePalPick(); setFieldPet(null); });
           await page.waitForTimeout(150);
+
+          // ⚠️⚠️ **동행·시간대 줄은 «필드 갈래»에서만 뜬다.** 일지 옆(탭 «위»)으로
+          // 올라오면서 세 갈래에 다 걸리게 됐는데, 마을·밭에는 데려갈 곳이 없어서
+          // 거기 뜨면 누르는 순간 뜻 없는 시트가 열린다.
+          // ⚠️ **`hidden` «속성»으로 재면 안 된다** — 속성은 붙어 있는데 화면에는
+          // 그대로 있는 상태가 이 저장소에서 세 번 났다 (그래서 맨 위에
+          // `[hidden]{display:none!important}` 한 줄이 있다). **그려진 높이**로 잰다.
+          // 몇 갈래를 쟀는지도 **통과했을 때도** 같이 낸다 — 아무 줄도 안 남기면
+          // 「0건」이 「접힌다를 한 번도 안 쟀다」와 구별이 안 된다
+          const palTabs = await page.evaluate(() => {
+            const h = () => {
+              const l = document.getElementById('palLine');
+              return l ? Math.round(l.getBoundingClientRect().height) : -1;
+            };
+            const out = {};
+            setGatherTab('field'); out.field = h();
+            setGatherTab('village'); out.village = h();
+            if (farmOpen()) { setGatherTab('farm'); out.farm = h(); }
+            setGatherTab('field');
+            return out;
+          });
+          const folded = Object.entries(palTabs).filter(([k]) => k !== 'field');
+          const palBad = palTabs.field <= 0 ? '필드 갈래인데 동행 줄이 안 보인다'
+            : folded.length < 1 ? '필드 말고 잰 갈래가 하나도 없다'
+            : folded.filter(([, v]) => v !== 0).map(([k, v]) => `${k} 갈래에 동행 줄이 ${v}px 남아 있다`).join(' · ');
+          results.push(palBad
+            ? { 화면: `${t}/동행줄갈래`, 오류: palBad }
+            : { 화면: `${t}/동행줄갈래`, pass: true, total: 0,
+                잰것: Object.entries(palTabs).map(([k, v]) => `${k} ${v}px`).join(' · ') });
+          await page.waitForTimeout(150);
         }
         // **밭 탭** (FARM.md 2단계) — 여신 단계부터 보인다. FULL 이 매력을 채워 두므로
         // 여기서는 열려 있다. ⚠️ 서버에 밭이 없으면 「지금은 볼 수 없다」 한 줄만
