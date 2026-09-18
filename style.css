@@ -344,18 +344,32 @@ body.has-quest .screen { padding-bottom: 168px; }
      크기도 10.2px 이라 최소 11px 에 걸렸다 (TEXT_POLICY.md) */
   font-size: 0.7rem; font-weight: 800; color: #6b3d10; letter-spacing: 0.02em;
   background: #ffbc78;
-  border-radius: 999px; padding: 3px 9px;
+  border-radius: 999px; padding: 3px 4px 3px 9px;
   box-shadow: 0 2px 6px rgba(200, 110, 40, 0.35);
   white-space: nowrap;                       /* 두 줄로 접히면 카드 위로 삐져나온다 */
   /* ⚠️ **이제 «눌리는» 버튼이다** (❔ → 규칙 시트). 카드 몸통은 누르는 곳이 아니라
      AP 가 새던 자리라, 이 딱지는 **제 자리에서만** 클릭을 받아야 한다 */
   border: 0; font-family: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
 }
+/* ─── 물음표는 «이모지가 아니라 글자»다 ───
+   ⚠️ 처음에는 `❔`(U+2754)를 썼는데 그 글리프는 **흰/옅은 회색 물음표**라
+   연주황 딱지 위에서 거의 안 보였다 — 「진짜 안 띈다」로 신고받은 자리다.
+   게다가 **그림 글자라 `checkTextStyle()` 이 대비를 안 잰다** — 안 보이는 채로
+   0건이 나오는 종류다 (하트 ♥ 와 같은 자리다).
+   지금은 **진짜 `?` 글자 + 짙은 동그라미**라 눈에 띄고, 대비도 검사가 잰다.
+   ⚠️ 동그라미가 곧 「누르는 곳」이라는 표시다 — 딱지 전체가 버튼이지만
+   사람이 먼저 보는 것은 이 동그라미다 */
 .spot-badge > i {
-  font-style: normal; font-weight: 900;
-  margin-left: 1px; opacity: 0.85;
+  font-style: normal; font-weight: 800; font-size: 0.8rem; line-height: 1;
+  color: #fff7f2; background: #8a4a12;
+  width: 20px; height: 20px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);   /* 딱지 색과 갈라 주는 테 */
+  flex: 0 0 auto;
 }
 .spot-badge:active { transform: scale(0.96); }
+.spot-badge:active > i { background: #6b3d10; }
 
 /* ─── 미니게임 규칙 시트 (❔) ───
    바닥 시트 공통 꼴을 그대로 쓴다 (`UI_POLICY.md` 3-2) — 폭·모서리·「나가기」는

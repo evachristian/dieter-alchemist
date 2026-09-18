@@ -3909,7 +3909,7 @@ function renderGather() {
     const ftag = D.fieldType(D.mapType(spot.id)).tag;
     const fmini = D.fieldMini(spot.id);
     const badge = ftag ? `<button class="spot-badge" onclick="openMiniHelp('${fmini}')"
-      aria-label="${T('mh_open', { name: T(ftag) })}">${T(ftag)} <i>❔</i></button>` : '';
+      aria-label="${T('mh_open', { name: T(ftag) })}">${T(ftag)}<i aria-hidden="true">?</i></button>` : '';
     // 속성은 **글자로** 적는다 (이모지 아님 — CREATURE.md 2장). 오른쪽 위 배지.
     // 재료 칩(둥근 알약)과 자리·모양이 달라야 무엇이 무엇인지 헷갈리지 않는다
     const at = D.creatureAttr(D.mapAttr(spot.id));
