@@ -388,24 +388,33 @@ body.has-quest .screen { padding-bottom: 168px; }
 }
 /* 이름만 줄어든다 — ❔ 동그라미는 `flex: 0 0 auto` 라 한 픽셀도 안 준다 */
 .sb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* ─── 물음표는 «이모지가 아니라 글자»다 ───
+/* ─── 「ℹ」는 «이모지가 아니라 글자»다 ───
    ⚠️ 처음에는 `❔`(U+2754)를 썼는데 그 글리프는 **흰/옅은 회색 물음표**라
    연주황 딱지 위에서 거의 안 보였다 — 「진짜 안 띈다」로 신고받은 자리다.
    게다가 **그림 글자라 `checkTextStyle()` 이 대비를 안 잰다** — 안 보이는 채로
    0건이 나오는 종류다 (하트 ♥ 와 같은 자리다).
-   지금은 **진짜 `?` 글자 + 짙은 동그라미**라 눈에 띄고, 대비도 검사가 잰다.
+   지금은 **진짜 `i` 글자 + 흰 동그라미**라 눈에 띄고, 대비도 검사가 잰다.
+   ⚠️ `?` 였다가 `i` 가 됐다 — 「물어보는 것」이 아니라 «안내»라는 뜻이다.
+   ℹ️(U+2139) 이모지를 쓰면 위의 사고가 그대로 돌아온다: **뜻을 지는 기호는
+   이모지로 두지 않는다.**
    ⚠️ 동그라미가 곧 「누르는 곳」이라는 표시다 — 딱지 전체가 버튼이지만
    사람이 먼저 보는 것은 이 동그라미다 */
 .spot-badge > i {
   font-style: normal; font-weight: 800; font-size: 0.8rem; line-height: 1;
-  color: #fff7f2; background: #8a4a12;
+  /* 흰 바탕 + 짙은 회색 글자 (실측 10.44:1). 예전에는 짙은 갈색 바탕 + 흰 글자였다 */
+  color: #3f3f46; background: #ffffff;
+  /* ⚠️ **글자 하나에는 자간이 «뒤»에만 붙는다** — 딱지의 `letter-spacing` 을
+     물려받으면 그만큼 왼쪽으로 치우친 채로 가운데 정렬된다 */
+  letter-spacing: 0;
   width: 20px; height: 20px; border-radius: 999px;
   display: inline-flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);   /* 딱지 색과 갈라 주는 테 */
+  /* ⚠️ **테를 흰색으로 두면 안 된다** — 동그라미가 이제 흰색이라 테가 같이 녹아
+     연주황 위에서 가장자리가 흐려진다. 딱지 글자와 같은 갈색을 옅게 두른다 */
+  box-shadow: 0 0 0 1.5px rgba(107, 61, 16, 0.32);
   flex: 0 0 auto;
 }
 .spot-badge:active { transform: scale(0.96); }
-.spot-badge:active > i { background: #6b3d10; }
+.spot-badge:active > i { background: #f3e7db; }
 /* ─── 지난 기록 (📄) ───
    ⚠️ **딱지 «안»에 넣지 않는다** — 규칙(❔)과 기록(📄)은 여는 것이 서로 다르다.
    딱지와 같은 높이·같은 모서리로 옆에 서서 «한 벌»로 보이되, 배경을 크림빛으로

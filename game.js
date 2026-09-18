@@ -3989,7 +3989,7 @@ function renderGather() {
     // 없다. 상자가 카드 모서리에 서고 안에서 둘이 나란히 눕는다 (`.spot-badges`)
     const badge = ftag ? `<div class="spot-badges">
       <button class="spot-badge" onclick="openMiniHelp('${fmini}')"
-        aria-label="${T('mh_open', { name: T(ftag) })}"><span class="sb-name">${T(ftag)}</span><i aria-hidden="true">?</i></button>
+        aria-label="${T('mh_open', { name: T(ftag) })}"><span class="sb-name">${T(ftag)}</span><i aria-hidden="true">i</i></button>
       <button class="spot-log" onclick="openMiniLog('${spot.id}')"
         aria-label="${T('mr_open', { name: N(spot.id, spot.name) })}">📄</button>
     </div>` : '';
