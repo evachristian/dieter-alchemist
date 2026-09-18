@@ -56,6 +56,10 @@ const NAME_RULES = [
   [/밀밭/, 'sparrow'],
   // 바람개비 밭 — 바람이 부는 쪽으로만 빠져나가는 퍼즐 (`pinwheel.js`)
   [/바람개비/, 'pinwheel'],
+  // 소풍 바위 — 바위를 파고 내려간다 (`driller.js` · 미스터 드릴러 식).
+  // ⚠️ `바위` 로 잡으면 「흔들 바위산」·「파도 바위」·「인어의 바위」·「도마뱀 바위굴」이
+  // 통째로 딸려 온다 — 규칙은 **그 맵 하나를 가리킬 만큼** 좁아야 한다
+  [/소풍 바위/, 'driller'],
 ];
 
 function typeOf(m) {
@@ -78,7 +82,7 @@ for (const o of OUT) {
 // 넷 다 이미 미니게임이 붙어 나간 맵이라, 규칙을 고치다 형이 바뀌면
 // **그 맵의 채집이 조용히 다른 게임으로 바뀐다.** 여기서 못 박는다
 const PINNED = { p_pumpkin: 'pumpkin', p_walnut: 'walnut', m_rock: 'rock', p_mirror: 'fish',
-                 p_sunset: 'sparrow', p_windmill: 'pinwheel' };
+                 p_sunset: 'sparrow', p_windmill: 'pinwheel', p_picnic: 'driller' };
 for (const [id, want] of Object.entries(PINNED)) {
   const got = (OUT.find(o => o.id === id) || {}).type;
   if (got !== want) problems.push(`${id}: 형이 ${got} 다 — ${want} 로 못 박혀 있다`);

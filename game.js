@@ -2792,7 +2792,7 @@ function switchTab(tab) {
 // **미니게임 이름 → 전역 모듈**은 여기 한 줄이고, 끝난 뒤 처리도 한 함수다 —
 // 게임이 늘 때마다 `gather()` 에 `if` 를 붙이면 곧 갈래가 다섯이 된다.
 const MINIS = { pumpkin: 'Pumpkin', walnut: 'Walnut', rock: 'Rock', fish: 'Fish', sparrow: 'Sparrow',
-                pinwheel: 'Pinwheel' };
+                pinwheel: 'Pinwheel', driller: 'Driller' };
 
 // 이 맵의 미니게임이 **한 판에 최대 몇 개**를 주는가 (평범한 채집이면 0).
 // **드는 AP 가 여기서 나온다** — `gatherCost()` 가 이 값에 비례해 받는다.

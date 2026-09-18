@@ -1406,6 +1406,51 @@ function launchOpts() {
           await page.waitForTimeout(150);
         }
 
+        // **소풍 바위 · 바위 부수기** — HUD·산소 막대·안내 줄·「아이쿠」가 다 DOM 이다.
+        // ⚠️ 알약이 **다섯**이라(이름·하트·깊이·시계 + 산소 막대) 띠가 제일 빡빡한 화면이다
+        {
+          await page.evaluate(() => {
+            const ms = D.MAPS.filter(x => D.fieldMini(x.id) === 'driller');
+            const m = ms.sort((a, b) => N(b.id, b.name).length - N(a.id, a.name).length)[0];
+            Driller.start(m, () => {});
+            const st = Driller._state();
+            st.lives = Math.max(1, Driller.LIVES - 1);
+            st.air = 18;                                  // 산소가 붉게 뛰는 자리도 같이 잰다
+            const hs = document.querySelectorAll('#drillerGame .dr-heart');
+            hs.forEach((h, i) => h.classList.toggle('gone', i >= st.lives));
+            const o = document.querySelector('#drillerGame .dr-oops');
+            if (o) o.classList.add('show');
+          });
+          await page.waitForTimeout(160);
+          await run(`${t}/바위부수기`);
+          const drFit = await page.evaluate(() => __cardFits(
+            '#drillerGame .dr-hud, #drillerGame .dr-hint, #drillerGame .dr-oops, #drillerGame .dr-oops-say'));
+          if (drFit && drFit.length) results.push({ 화면: `${t}/바위부수기`, 넘침: drFit });
+          const drSaw = await page.evaluate(() => {
+            const o = document.querySelector('#drillerGame .dr-oops.show');
+            const r = o && o.getBoundingClientRect();
+            return { on: !!(r && r.width > 0 && r.height > 0),
+                     gone: document.querySelectorAll('#drillerGame .dr-heart.gone').length,
+                     low: !!document.querySelector('#drillerGame .dr-air.low') };
+          });
+          if (!drSaw.on) results.push({ 화면: `${t}/바위부수기`, 오류: '「아이쿠」 층이 안 켜졌다 — 0건이 «안 잰 것»이다' });
+          if (!drSaw.gone) results.push({ 화면: `${t}/바위부수기`, 오류: '꺼진 하트가 하나도 없다 — `.gone` 을 한 번도 안 쟀다' });
+          if (!drSaw.low) results.push({ 화면: `${t}/바위부수기`, 오류: '산소가 «붉은» 자리를 안 쟀다' });
+          // 결과 화면 — **생명이 다해 끝난 쪽**으로 잰다 (그쪽 문구가 제일 길다)
+          await page.evaluate(() => {
+            const st = Driller._state();
+            st.deep = Math.ceil(Driller.REWARD_PER * 5 / Driller.ROW_M); st.dead = true;
+            st.picked = (st.pool || []).slice(0, 4).concat((st.pool || []).slice(0, 2));
+            Driller._finish();
+          });
+          await page.waitForTimeout(140);
+          await run(`${t}/바위부수기결과`);
+          const drRes = await page.evaluate(() => __cardFits('#drillerGame .dr-result, #drillerGame .dr-item'));
+          if (drRes && drRes.length) results.push({ 화면: `${t}/바위부수기결과`, 넘침: drRes });
+          await page.evaluate(() => { const h = document.getElementById('drillerGame'); if (h) h.remove(); });
+          await page.waitForTimeout(150);
+        }
+
         // 마을은 다섯이고 **건물 수가 다르다.** 일곱인 마을과 넷인 마을을 다 본다 —
         // 그림 높이가 건물 수를 따라가므로 명판이 겹치는지는 일곱짜리로만 잡힌다.
         // 색은 마을마다 다른 팔레트라(`village.js` 의 SKIN) 새 마을도 한 곳은 재야 한다 —

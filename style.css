@@ -3017,6 +3017,119 @@ button.tm-slot:active { transform: scale(0.94); }
   box-shadow: 0 4px 10px rgba(255,150,190,0.35);
 }
 
+/* ═══ 소풍 바위 · 바위 부수기 (미스터 드릴러 식) ═══
+   ⚠️ **HUD 글자를 어두운 알약 위에 얹는다.** 갱도 위쪽은 하늘·풀밭이라 밝고
+   아래로 갈수록 어두워져서 «배경이 판마다 달라진다» — 바람개비 밭에서 1.84:1 로
+   잡혔던 것과 같은 자리라 처음부터 알약으로 둔다 */
+#drillerGame {
+  position: fixed; inset: 0; z-index: 9500;
+  background: #3a2c20;                    /* 땅속 — 흙빛·저녁·돌그늘·물빛·노을·한낮에 이은 일곱째다 */
+  display: flex; align-items: center; justify-content: center;
+}
+.dr-stage {
+  position: relative; width: 100%; height: 100%;
+  max-width: min(100vw, calc(100dvh * 9 / 16));
+  max-height: min(100dvh, calc(100vw * 16 / 9));
+  overflow: hidden;
+}
+.dr-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.dr-hud {
+  position: absolute; left: 0; right: 0; top: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 5px;
+  padding: calc(9px + env(safe-area-inset-top, 0px)) 10px 6px;
+  font-size: 0.86rem; font-weight: 800; color: #ffffff;
+  pointer-events: none;
+}
+/* ⚠️ 맵 이름이 길면 나머지를 밀어낸다 — **줄어드는 것은 이름이어야 한다**:
+   남은 기회·깊이·시계는 «지금 벌어지는 일»이고 이름은 카드를 누를 때 이미 본 것이다 */
+.dr-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dr-depth, .dr-timer { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.dr-name, .dr-depth, .dr-timer {
+  background: rgba(20,14,8,0.62); border-radius: 999px; padding: 2px 8px;
+}
+.dr-timer.hurry { color: #fff0ee; background: rgba(196,52,40,0.9); animation: swHurry .7s ease-in-out infinite; }
+.dr-lives {
+  flex: 0 0 auto; display: flex; gap: 3px; line-height: 1;
+  background: rgba(20,14,8,0.62); border-radius: 999px; padding: 3px 7px;
+}
+.dr-heart { font-style: normal; font-size: 1.05rem; color: #ff6e88; }
+/* 잃은 하트 — `forwards` 라 **평소 상태가 곧 끝난 상태**다 (`settle()` 이 보는 자리) */
+.dr-heart.gone { animation: drHeartPop 620ms ease-out forwards; }
+@keyframes drHeartPop {
+  0%   { transform: scale(1);             opacity: 1; }
+  28%  { transform: scale(1.6);           opacity: 1; filter: brightness(1.7); }
+  100% { transform: scale(.25) translateY(-12px); opacity: 0; }
+}
+/* 산소 — **이 게임의 심장이라 막대로 크게 보여 준다.** 시계는 바깥 울타리고
+   이쪽이 「멈추지 말고 내려가라」를 미는 힘이다 */
+.dr-air {
+  position: absolute; left: 10px; right: 10px;
+  /* ⚠️ **HUD 알약 «밑»에 둔다** — 44px 에 두었더니 이름 알약과 겹쳤다 (찍어 보고 잡았다) */
+  top: calc(50px + env(safe-area-inset-top, 0px));
+  height: 11px; border-radius: 999px;
+  background: rgba(20,14,8,0.55);
+  pointer-events: none;
+}
+.dr-air > i {
+  display: block; height: 100%; width: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #4fc3c9, #9fe8ec);
+}
+.dr-air > b { position: absolute; right: 4px; top: -5px; font-size: 0.72rem; }
+.dr-air.low > i { background: linear-gradient(90deg, #d9534a, #ff8c7a); }
+.dr-air.low { animation: swHurry .7s ease-in-out infinite; }
+.dr-hint {
+  position: absolute; left: 0; right: 0; bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  padding: 0 14px; text-align: center;
+  font-size: 0.78rem; font-weight: 700; color: #ffffff;
+  pointer-events: none;
+}
+.dr-hint > span {
+  display: inline-block; max-width: 100%;
+  background: rgba(20,14,8,0.62); border-radius: 999px; padding: 4px 12px;
+}
+/* 「아이쿠, 깔렸네!」 — 바람개비 밭과 같은 꼴이되 **더 짧게 머문다**(손이 계속 움직이는 게임이다).
+   평소 `display:none` 이라 `checkui` 가 **일부러 켜 놓고** 잰다 */
+.dr-oops {
+  position: absolute; left: 10px; right: 10px;
+  bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+  display: none; align-items: flex-end; justify-content: center; gap: 8px;
+  pointer-events: none;
+}
+.dr-oops.show { display: flex; animation: drOops 1100ms ease-out forwards; }
+@keyframes drOops {
+  0%   { opacity: 0; transform: translateY(10px); }
+  12%  { opacity: 1; transform: translateY(0); }
+  78%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+.dr-oops-face { flex: 0 0 auto; width: 54px; height: 59px; }
+.dr-oops-face svg { width: 100%; height: 100%; display: block; }
+.dr-oops-say {
+  min-width: 0; max-width: 236px;
+  font-size: 0.83rem; font-weight: 800; line-height: 1.45; color: var(--ink);
+  background: var(--cream); border-radius: 14px; padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(20,14,8,0.32);
+}
+.dr-result {
+  position: absolute; inset: 0; display: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; text-align: center; background: rgba(28,20,12,0.86);
+}
+.dr-result.show { display: flex; }
+.dr-res-title { font-size: 1rem; font-weight: 800; color: #ffffff; line-height: 1.5; }
+.dr-res-items { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.dr-item {
+  font-size: 0.8rem; font-weight: 800; color: var(--ink);
+  background: var(--cream); border-radius: 999px; padding: 5px 11px;
+}
+/* .btn 은 flex:1 이라 세로 flex 안에서 높이까지 늘어난다 (다른 미니게임과 같은 자리다) */
+.dr-result > * { flex: 0 0 auto; }
+.dr-close {
+  flex: 0 0 auto; width: auto; min-width: 150px;
+  background: var(--pink-2); color: var(--ink);
+  box-shadow: 0 4px 10px rgba(255,150,190,0.35);
+}
+
 /* 물약 카드의 '?' — 이름 옆에 붙인다.
    모서리(오른쪽 위)에 두면 개수 표기(.potion-count)와 자리가 겹친다. */
 .potion-card { position: relative; }

@@ -269,6 +269,20 @@ const numIn = (re, what) => {
       const perBoard = Math.round(cols * rows * fill);
       return { name: '바람개비 밭', dur: dur(f), max: cap, per, cap, perBoard };
     },
+    // 소풍 바위 — 내려간 깊이 `REWARD_PER` m 마다 하나, `REWARD_MAX` 까지.
+    // ⚠️ **여기도 「한 판에 몇 칸」이 상한을 안 잡는다** — 갱도가 끝없이 이어진다.
+    // 상한 자체가 곧 한 판 최대이고, 그 상한이 «진짜 일»인지는 아래에서 따로 본다
+    driller: () => {
+      const f = src('driller.js');
+      const per = num(f, /const REWARD_PER\s*=\s*(\d+)/, 'REWARD_PER');
+      const cap = num(f, /const REWARD_MAX\s*=\s*(\d+)/, 'REWARD_MAX');
+      const rowM = num(f, /const ROW_M\s*=\s*(\d+)/, 'ROW_M');
+      const fallMs = num(f, /const FALL_MS\s*=\s*(\d+)/, 'FALL_MS');
+      const airSec = num(f, /const AIR_SEC\s*=\s*(\d+)/, 'AIR_SEC');
+      const rows = (cap * per) / rowM;          // 상한에 닿으려면 내려가야 하는 줄 수
+      return { name: '소풍 바위', dur: dur(f), max: cap, per, cap, rows,
+               freefallMs: rows * fallMs, airMs: airSec * 1000 };
+    },
   };
 
   // **형 표와 이 목록이 같은 것을 가리키는가.** 형에만 있으면 밸런스를 아무도 안 본
@@ -418,6 +432,30 @@ const numIn = (re, what) => {
        `상한에 닿으려면 ${need}개 · 한 판이 ${w2.perBoard}개라 ${boards.toFixed(1)}판이다`
        + ' (세 판 이상이어야 한다)');
   }
+  // ── 소풍 바위 ─────────────────────────────────────────────
+  //
+  // ⚠️⚠️ **여기서 「파는 데 드는 시간」을 «계산»하지 않는다 — 두 번 다 틀렸다.**
+  // `줄 수 × (DIG_MS + FALL_MS)` 로 바닥을 잡아 놓았더니 실제 게임은 그보다 두 배
+  // 가까이 빨랐다: 파는 단위가 «덩어리»라 한 번에 1~3칸을 내려가고, 연쇄가 터지면
+  // 통째로 낙하한다. **사실이 아닌 잣대는 통과시켜도 아무것도 안 지킨 것이다.**
+  // 그래서 진짜 속도는 **`npm run test:driller` 가 봇을 붙여 잰다** (거기가 잴 수
+  // 있는 자리다). 여기서는 **식으로 «반드시» 참인 것만** 본다
+  if (G.driller) {
+    const d = G.driller;
+    // ⚠️ **산소가 판보다 짧아야 한다.** 한 통으로 2분을 버티면 에어 캡슐을 주우러
+    // 도는 판단이 통째로 사라지고, 그러면 미스터 드릴러가 아니라 그냥 파기다 —
+    // 상한을 지키는 것이 «시간»이 아니라 «산소»라는 것이 이 게임의 설계다
+    ok('소풍 바위 · 산소가 장식이 아니다', d.airMs < d.dur,
+       `산소 한 통 ${d.airMs / 1000}초 < 판 ${d.dur / 1000}초`
+       + ` — 2분을 다 쓰려면 반드시 캡슐을 주워야 한다`);
+    // **한 칸도 안 파고 통째로 떨어지기만 해도** 드는 시간 (진짜 바닥이다).
+    // 이것마저 짧아지면 상한이 헐거운 것이다
+    ok('소풍 바위 상한이 «떨어지기만 해도» 판의 5분의 1은 드는 깊이다',
+       d.freefallMs >= d.dur * 0.2,
+       `상한 ${d.cap}개 = ${d.rows}줄 · 낙하만 해도 ${(d.freefallMs / 1000).toFixed(1)}초`
+       + ` (2분의 20% = ${d.dur / 5000}초 이상)`);
+  }
+
   // ── 밀밭 — 같은 이유를 **참새 수**로 잰다. ⚠️ 상한만 보면 요율이 안 보인다
   // (호두밭에서 배운 자리다): 스폰되는 것의 절반도 안 쫓고 꼭대기에 닿으면
   // 「2분을 내는」 거래가 아니라 그냥 기다리는 시간이 된다
