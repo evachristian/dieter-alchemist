@@ -6,8 +6,11 @@
 //  가는 길에 다른 바람개비가 하나라도 있으면 못 나간다 — 어느 것부터 치울지가 곧 퍼즐이다.
 //  한 수가 **연쇄로 길을 연다**. 판을 다 비우면 새 판이 깔리고, 2분 동안 치운 수가 재료다.
 //
-//  ⚠️ **막혀도 잃는 것이 없다.** 원본은 하트가 깎이지만 이 게임에서는 흔들리기만 한다 —
-//  「틀려도 재료가 한 톨도 안 없어진다」(흐린 장)가 이 프로젝트의 규칙이다.
+//  **생명 셋** — 막힌 것을 세 번 누르면 그 자리에서 끝난다 (사람이 정한 규칙이다).
+//  ⚠️ 한때는 「막혀도 벌이 없다 · 흔들리기만 한다」였다. 바뀐 뒤에도 **재료는
+//  한 톨도 안 없어진다** — 그때까지 치운 것은 그대로 가져간다. 돌깨기에서 천장까지
+//  차면 그 자리에서 끝나되 깬 줄은 그대로 가져가는 것(`rk_buried`)과 같은 자리다.
+//  **잃는 것은 재료가 아니라 남은 시간이다.**
 //
 //  좌표는 캔버스 픽셀(CSS px)로 다룬다. 고해상도 화면을 위해 백버퍼만 DPR 배로 잡고
 //  컨텍스트를 미리 scale 해 둔다 (다른 미니게임 넷과 같은 규칙이다).
@@ -36,6 +39,15 @@
   // 히든 재료 — 많이 치울수록 오른다 (다른 넷과 같은 식: 바닥 5% ~ 꼭대기 25%)
   const SP_BASE = 0.05, SP_TOP = 0.20;
 
+  // ─── 생명 ───
+  // **막힌 것을 이만큼 누르면 끝난다.** 잃는 것은 «재료»가 아니라 «남은 시간»이다 —
+  // 그때까지 치운 것은 그대로 가져간다 (위 머리말).
+  // ⚠️ **깎는 문은 `loseLife()` 한 곳이다.** 다른 데서 또 깎으면 경로가 둘이 되어
+  // 한쪽 빗장을 빼도 다른 쪽이 막아 준다 (낚시의 `hook()` 에서 배운 자리다)
+  const LIVES = 3;
+  const OOPS_MS = 1500;      // 공주가 「아이쿠」 하는 동안 (마지막 하나를 잃으면 이만큼 뒤에 끝난다)
+  const HEART_POP_MS = 620;  // 하트가 터져 사라지는 동안 (CSS `pwHeartPop` 과 같은 값)
+
   // ─── 연출 ───
   const FLY_MS = 380;        // 날아 나가는 시간
   const SHAKE_MS = 300;      // 막혔을 때 흔들리는 시간
@@ -60,7 +72,7 @@
   // 위 · 오른쪽 · 아래 · 왼쪽
   const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
 
-  let host = null, cv = null, ctx = null, raf = 0, timerT = 0;
+  let host = null, cv = null, ctx = null, raf = 0, timerT = 0, oopsT = 0, deadT = 0;
   let S = null;              // 진행 중 상태 (없으면 안 돌고 있는 것)
 
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -72,6 +84,9 @@
       grid: [], flying: [], boards: 0, cleared: 0,
       clearedAt: 0, refillAt: 0,
       pool, specialId, picked: [], gotSpecial: false,
+      // `dying` 은 마지막 하나를 잃고 「아이쿠」를 읽는 동안이다 — 아직 `over` 는 아니지만
+      // 누르는 것은 안 먹는다. 이것이 없으면 그 1.5초에 계속 눌려 점수가 더 오른다
+      lives: LIVES, lostAt: 0, dying: false, dead: false,
       over: false, w: 0, h: 0, cell: 0, ox: 0, oy: 0,
     };
   }
@@ -122,13 +137,12 @@
   // 한쪽 빗장을 빼도 다른 쪽이 막아 준다 (낚시의 `hook()` 에서 배운 자리다).
   // 돌려주는 값은 「정말로 날아갔는가」다
   function tap(c, r) {
-    if (!S || S.over || S.refillAt) return false;
+    if (!S || S.over || S.dying || S.refillAt) return false;
     const p = at(c, r);
     if (!p) return false;
     if (!pathClear(c, r, p.d)) {
-      // ⚠️ **막혀도 벌이 없다** — 흔들리기만 한다 (원본은 하트가 깎인다)
       p.shake = S.now;
-      if (window.Sfx) Sfx.play('tap');
+      loseLife();                       // ⚠️ 생명을 깎는 문은 이 한 줄뿐이다
       return false;
     }
     put(c, r, null);
@@ -139,6 +153,63 @@
     // 판을 다 비웠다 — 한숨 돌리고 새 판
     if (S.left <= 0) { S.clearedAt = S.now; S.refillAt = S.now + REFILL_MS; }
     return true;
+  }
+
+  // ─── 생명 하나를 잃는다 ─────────────────────────────────────
+  //
+  // 하트가 터져 사라지고, 공주가 「아이쿠, 틀렸네!」 한다.
+  // ⚠️ **하트도 「아이쿠」도 캔버스가 아니라 DOM 이다** — 캔버스 안은 `checkUI()` 가
+  // 아무것도 못 보는 자리라, 글자가 있는 것은 DOM 에 두어야 대비·넘침이 재진다
+  // (미니게임의 HUD·결과 화면을 DOM 으로 둔 것과 같은 규칙이다).
+  function loseLife() {
+    if (!S || S.over || S.dying) return;
+    S.lives = Math.max(0, S.lives - 1);
+    S.lostAt = S.now;
+    paintHearts();
+    showOops();
+    if (window.Sfx) Sfx.play('fail');
+    if (S.lives > 0) return;
+    // **마지막 하나** — 「아이쿠」를 읽을 틈을 주고 끝낸다. 그 사이에는 안 눌린다(`dying`).
+    // ⚠️ 그 자리에서 바로 `finish()` 하면 결과 판이 덮어써서 **방금 터진 하트도
+    // 공주도 한 프레임도 못 보고 사라진다** (그려 보고 알았다)
+    S.dying = true; S.dead = true;
+    deadT = setTimeout(() => { if (S) finish(); }, OOPS_MS);
+  }
+
+  // 하트 셋 — 잃은 만큼 `.gone` 이 붙는다. **뒤에서부터** 꺼진다
+  function paintHearts() {
+    if (!host || !S) return;
+    const hs = host.querySelectorAll('.pw-heart');
+    hs.forEach((h, i) => h.classList.toggle('gone', i >= S.lives));
+    const box = host.querySelector('.pw-lives');
+    if (box) box.setAttribute('aria-label', T('pw_lives_n', { n: S.lives }));
+  }
+
+  // 놀란 공주의 얼굴 — `Portrait.bust()` 가 내주는 SVG 문자열이다.
+  // ⚠️ **캔버스가 아니라 DOM 이라 그대로 넣으면 된다** (호박 밭은 캔버스라 Image 로
+  // 굽는 한 겹이 더 있었다). ⚠️ **못 그려도 게임은 그대로 돌아야 한다** —
+  // 실패하면 얼굴 없이 대사만 뜬다 (미니게임이 안 뜨는 것보다 훨씬 낫다)
+  function oopsFace() {
+    try {
+      const sp = window.GameData && GameData.speaker('sp_gwiriel');
+      if (!sp || !window.Portrait) return '';
+      // 「아이쿠!」 하는 얼굴이라 `shock`(놀람)이다 — 이름은 `data.js` 의 `moods` 표에서 고른다
+      return Portrait.bust(sp, 'shock', { bare: true }) || '';
+    } catch (e) { return ''; }
+  }
+
+  // 공주가 한마디 — 같은 층에 하나만 뜬다 (겹쳐 뜨면 글자가 겹쳐 읽힌다)
+  function showOops() {
+    if (!host || !S) return;
+    const box = host.querySelector('.pw-oops');
+    if (!box) return;
+    // ⚠️ **얼굴은 매번 다시 안 그린다** — 초상화 SVG 는 한 번 넣어 두고 층만 켠다.
+    // 매번 그리면 누를 때마다 파서가 돌아 2분 내내 끊긴다
+    box.classList.remove('show');
+    void box.offsetWidth;                       // 애니메이션을 처음부터 다시 돌린다
+    box.classList.add('show');
+    clearTimeout(oopsT);
+    oopsT = setTimeout(() => { if (host) box.classList.remove('show'); }, OOPS_MS);
   }
 
   // ─── 캔버스 크기 맞추기 (DPR 반영) ───
@@ -327,9 +398,11 @@
   // ─── 끝내기 ─────────────────────────────────────────────────
   function finish() {
     if (!S || S.over) return;
-    S.over = true;
+    S.over = true; S.dying = false;
     cancelAnimationFrame(raf);
-    clearTimeout(timerT);
+    clearTimeout(timerT); clearTimeout(deadT); clearTimeout(oopsT);
+    // ⚠️ **생명이 다해 끝나도 치운 것은 그대로 계산한다** — 잃는 것은 남은 시간이지
+    // 재료가 아니다 (돌깨기의 `rk_buried` 와 같은 자리다)
     const n = Math.min(REWARD_MAX, Math.floor(S.cleared / REWARD_PER));
     for (let i = 0; i < n; i++) S.picked.push(pickItem());
     if (S.specialId) {
@@ -357,7 +430,8 @@
     }).join('');
     const box = host.querySelector('.pw-result');
     box.innerHTML = `
-      <div class="pw-res-title">${S.cleared ? T('pw_done', { n: S.cleared }) : T('pw_none')}</div>
+      <div class="pw-res-title">${S.dead ? T('pw_dead', { n: S.cleared })
+        : (S.cleared ? T('pw_done', { n: S.cleared }) : T('pw_none'))}</div>
       <div class="pw-res-items">${rows || `<span class="pw-item">${T('pw_none')}</span>`}</div>
       <button class="btn pw-close">${T('pw_close')}</button>`;
     box.classList.add('show');
@@ -374,7 +448,7 @@
 
   function teardown() {
     cancelAnimationFrame(raf);
-    clearTimeout(timerT);
+    clearTimeout(timerT); clearTimeout(deadT); clearTimeout(oopsT);
     window.removeEventListener('resize', fit);
     if (host && host.parentNode) host.parentNode.removeChild(host);
     host = null; cv = null; ctx = null; S = null;
@@ -395,11 +469,17 @@
         <canvas class="pw-canvas"></canvas>
         <div class="pw-hud">
           <span class="pw-name">${title}</span>
+          <span class="pw-lives" role="img" aria-label="${T('pw_lives_n', { n: LIVES })}"
+            >${new Array(LIVES).fill('<i class="pw-heart">♥</i>').join('')}</span>
           <span class="pw-score">🌬️ <b class="pw-n">0</b></span>
           <span class="pw-timer">2:00</span>
         </div>
         <div class="pw-tbar"><i></i></div>
-        <div class="pw-hint">${T('pw_hint')}</div>
+        <div class="pw-hint"><span>${T('pw_hint')}</span></div>
+        <div class="pw-oops">
+          <div class="pw-oops-face">${oopsFace()}</div>
+          <div class="pw-oops-say">${T('pw_oops')}</div>
+        </div>
         <div class="pw-result"></div>
       </div>`;
     document.body.appendChild(host);
@@ -447,6 +527,10 @@
     if (!S) return null;
     return {
       cleared: S.cleared, left: S.left, boards: S.boards, over: S.over,
+      lives: S.lives, dying: S.dying, dead: S.dead,
+      // 화면에 «남아 있는» 하트 수 — 상태와 그림이 갈리는지 보려면 둘 다 필요하다
+      hearts: host ? host.querySelectorAll('.pw-heart:not(.gone)').length : -1,
+      oops: !!(host && host.querySelector('.pw-oops.show')),
       flying: S.flying.length, cell: S.cell, ox: S.ox, oy: S.oy, cols: COLS, rows: ROWS,
       // 칸마다 방향(없으면 -1)과 **지금 누르면 나가는가**
       grid: S.grid.map((p, i) => p
@@ -464,5 +548,6 @@
     _state: () => S,
     isPlaying: () => !!S,
     REWARD_PER, REWARD_MAX, DUR_MS, COLS, ROWS, FILL, REFILL_MS,
+    LIVES, OOPS_MS, HEART_POP_MS,
   };
 })();

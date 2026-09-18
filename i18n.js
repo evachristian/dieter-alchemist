@@ -478,6 +478,12 @@
       pw_swept: '한 판 비웠다!',
       pw_done: '바람개비 {n}개를 날렸다!',
       pw_none: '하나도 날리지 못했다',
+      // 생명 — 막힌 것을 세 번 누르면 끝난다.
+      // ⚠️ **「잃었다」고 쓰지 않는다** — 치운 것은 그대로 가져가므로 잃은 것은
+      // 남은 시간뿐이다 (돌깨기의 `rk_buried` 와 같은 결로 쓴다)
+      pw_lives_n: '남은 기회 {n}',
+      pw_oops: '아이쿠, 틀렸네! 심장이 꿍했어!',
+      pw_dead: '심장이 남아나질 않네… 바람개비 {n}개를 날렸다!',
       pw_close: '나가기',
       // 맵 카드 — 여기가 미니게임이라는 것을 **들어가기 «전»에** 알려 준다
       mini_tag: '🌰 호두 게임',
@@ -1763,6 +1769,9 @@
       pw_swept: 'Board swept!',
       pw_done: 'You sent off {n} pinwheels!',
       pw_none: 'You sent off nothing',
+      pw_lives_n: '{n} tries left',
+      pw_oops: 'Oh no, wrong one! My heart skipped a beat!',
+      pw_dead: 'My poor heart… but you sent off {n} pinwheels!',
       pw_close: 'Leave',
       mini_tag_rk: '🪨 Stone Breaker',
       mini_tag_fs: '🎣 Fishing',

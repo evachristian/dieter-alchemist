@@ -2899,8 +2899,8 @@ button.tm-slot:active { transform: scale(0.94); }
 .pw-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .pw-hud {
   position: absolute; left: 0; right: 0; top: 0;
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 5px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 10px;
   background: linear-gradient(180deg, rgba(20,40,60,0.55), rgba(20,40,60,0));
   font-size: 0.86rem; font-weight: 800; color: #ffffff;
   text-shadow: 0 1px 3px rgba(20,40,60,0.5);   /* 하늘이 밝아서 흰 글자가 묻힌다 */
@@ -2909,11 +2909,72 @@ button.tm-slot:active { transform: scale(0.94); }
 /* ⚠️ 맵 이름이 길면 점수·시계를 밀어낸다 — 이름만 줄이고 숫자 둘은 제 폭을 지킨다 */
 .pw-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pw-score, .pw-timer { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+/* ⚠️ **여기만 하늘이 밝다** — 다른 미니게임 다섯은 흙빛·저녁·돌그늘·물빛·노을이라
+   흰 글자가 그냥 읽히는데, 한낮의 `#7ec8f0` 위에서는 **1.84:1** 이었다 (그림자는
+   대비가 아니다 — `checkTextStyle` 이 안 쳐 준다). 그래서 **어두운 알약 위에 얹는다**
+   (호두 게임의 합계·참새의 시계와 같은 자리다 · 지금 6.1:1).
+   ⚠️ 오래 안 잡힌 이유는 `checkui` 에 이 화면 블록이 아예 없었기 때문이다 —
+   0건이 「통과」가 아니라 **「한 번도 안 쟀다」**였다.
+   ⚠️ **알약이 넷이라 띠가 빡빡하다** — 265px·영어에서 맵 이름이 「🌬️..」 까지 줄었다.
+   여백을 조인 것이 그 몫이다. 더 좁아지면 **줄어드는 것은 이름이어야 한다**:
+   남은 기회·점수·시계는 «지금 벌어지는 일»이고 이름은 카드를 누를 때 이미 본 것이다 */
+.pw-name, .pw-score {
+  background: rgba(20,40,60,0.62); border-radius: 999px; padding: 2px 8px;
+  text-shadow: none;
+}
 .pw-timer {
   font-size: 1.45rem; font-weight: 900; text-shadow: none;
-  background: rgba(20,40,60,0.55); border-radius: 999px; padding: 1px 12px;
+  background: rgba(20,40,60,0.55); border-radius: 999px; padding: 1px 9px;
 }
 .pw-timer.hurry { color: #fff0ee; background: rgba(196,52,40,0.85); animation: swHurry .7s ease-in-out infinite; }
+/* ─── 생명 셋 ───
+   ⚠️ 하트는 «그림 글자»라 `checkTextStyle()` 이 대비를 안 본다 (호감도의 ♥ 와 같다) —
+   그래서 어두운 테두리를 손으로 둘러 밝은 하늘에 안 묻히게 한다.
+   ⚠️ **이름은 `aria-label` 이 맡는다** — 하트 세 개로는 「남은 기회」가 안 읽힌다 */
+/* HUD 의 나머지와 같은 알약 위에 얹는다 — 하나만 맨몸으로 두면 띠 한가운데가 빈다
+   (찍어 보고 맞췄다). ⚠️ **폭이 하트 셋으로 고정이다** — 잃은 하트가 자리를 비우면
+   옆의 점수·시계가 들썩인다 */
+.pw-lives {
+  flex: 0 0 auto; display: flex; gap: 3px; line-height: 1;
+  background: rgba(20,40,60,0.62); border-radius: 999px; padding: 3px 7px;
+}
+.pw-heart { font-style: normal; font-size: 1.05rem; color: #ff6e88; text-shadow: none; }
+/* 잃은 하트 — 한 번 크게 부풀었다 사라진다.
+   ⚠️ `forwards` 로 **평소 상태가 곧 끝난 상태**여야 한다: `settle()` 이 끝이 있는
+   애니메이션을 끝 상태로 보내므로, 그러지 않으면 검증기가 「아직 있는 하트」로 센다
+   (엔딩 연출의 조각에서 배운 것과 같다) */
+.pw-heart.gone { animation: pwHeartPop 620ms ease-out forwards; }
+@keyframes pwHeartPop {
+  0%   { transform: scale(1);             opacity: 1; }
+  28%  { transform: scale(1.6);           opacity: 1; filter: brightness(1.7); }
+  100% { transform: scale(.25) translateY(-12px); opacity: 0; }
+}
+/* ─── 「아이쿠, 틀렸네!」 — 공주가 한마디 ───
+   ⚠️ **안내 줄 위에 둔다** (판을 가리면 방금 누른 자리가 안 보인다).
+   평소에는 `display:none` 이라 대비 검사에서 빠지는데, 그래서 `checkui` 가
+   **일부러 틀려 놓고** 이 층을 켜서 잰다 (0건이 「재 본 적 없다」가 되지 않게) */
+.pw-oops {
+  position: absolute; left: 10px; right: 10px;
+  bottom: calc(46px + env(safe-area-inset-bottom, 0px));
+  display: none; align-items: flex-end; justify-content: center; gap: 8px;
+  pointer-events: none;
+}
+.pw-oops.show { display: flex; animation: pwOops 1500ms ease-out forwards; }
+@keyframes pwOops {
+  0%   { opacity: 0; transform: translateY(10px); }
+  10%  { opacity: 1; transform: translateY(0); }
+  82%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+.pw-oops-face { flex: 0 0 auto; width: 58px; height: 63px; }
+.pw-oops-face svg { width: 100%; height: 100%; display: block; }
+/* 말풍선 — 밝은 밭 위라 크림 바탕에 진한 글자로 둔다 (캔버스 위의 흰 글자는 묻힌다) */
+.pw-oops-say {
+  min-width: 0; max-width: 240px;
+  font-size: 0.83rem; font-weight: 800; line-height: 1.45; color: var(--ink);
+  background: var(--cream); border-radius: 14px; padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(20,40,60,0.28);
+}
 .pw-tbar {
   position: absolute; left: 14px; right: 14px;
   top: calc(52px + env(safe-area-inset-top, 0px));
@@ -2923,12 +2984,17 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 .pw-tbar > i { display: block; height: 100%; width: 100%; background: #ffffff; border-radius: 999px; }
 .pw-tbar.hurry > i { background: #ff7a6a; }
+/* 안내 줄도 같은 이유로 알약 위에 얹는다 — 가운데 정렬을 지키려고 «속 span» 에 건다
+   (줄 전체를 칠하면 화면 끝까지 닿는 띠가 되어 한낮의 밭을 가로막는다) */
 .pw-hint {
   position: absolute; left: 0; right: 0; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   padding: 0 14px;
   text-align: center; font-size: 0.78rem; font-weight: 700; color: #ffffff;
-  text-shadow: 0 1px 3px rgba(20,40,60,0.55);
   pointer-events: none;
+}
+.pw-hint > span {
+  display: inline-block; max-width: 100%;
+  background: rgba(20,40,60,0.62); border-radius: 999px; padding: 4px 12px;
 }
 /* 결과 — 끝났을 때만 뜬다 */
 .pw-result {

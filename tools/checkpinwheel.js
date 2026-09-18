@@ -138,17 +138,44 @@ function ok(cond, msg, extra) {
      `치움 ${b1.cleared} · (${open0.c},${open0.r}) 사라짐 ${gone}`);
   ok(b1.flying > 0, '날아 나가는 연출이 있다 (그냥 사라지지 않는다)', `${b1.flying}개`);
 
-  // ── 막힌 것은 «안 나가고, 벌도 없다»
+  // ── 막힌 것을 누르면 «안 나가고, 생명이 하나 준다» ──────────
+  //
+  // ⚠️ **치운 수는 한 톨도 안 준다** — 잃는 것은 재료가 아니라 남은 시간이다
+  // (돌깨기의 `rk_buried` 와 같은 자리다). 그 둘을 «같이» 봐야 한다:
+  // 생명만 보면 재료를 몰래 깎아도 통과하고, 재료만 보면 생명이 안 깎여도 통과한다
+  // ⚠️ **수치를 여기 옮겨 적지 않는다** — 생명 수는 게임에서 읽는다 (3 으로 박아 두면
+  // `LIVES` 를 고쳤을 때 검사기만 옛 값으로 남는다)
+  const LIVES = await page.evaluate(() => Pinwheel.LIVES);
+  ok(LIVES >= 1 && b1.hearts === LIVES && b1.lives === LIVES, '처음에 하트가 다 떠 있다',
+     `하트 ${b1.hearts}개 · 남은 기회 ${b1.lives} / ${LIVES}`);
   const blocked = b1.grid.filter(p => !p.open)[0];
   if (!blocked) {
     ok(false, '막힌 바람개비가 하나는 있다 (없으면 이 검사를 한 번도 안 한 것이다)');
   } else {
     await clickCell(blocked.c, blocked.r);
-    await page.waitForTimeout(120);
+    await page.waitForTimeout(140);
     const b2 = await page.evaluate(() => Pinwheel.boardState());
     ok(b2.cleared === 1 && b2.grid.length === b1.grid.length,
-       '막힌 것은 눌러도 안 나간다 (그리고 잃는 것도 없다)',
+       '막힌 것은 눌러도 안 나간다 (치운 수는 그대로다)',
        `치움 ${b2.cleared} · 남은 ${b2.grid.length}`);
+    ok(b2.lives === b1.lives - 1, '막힌 것을 누르면 생명이 하나 준다',
+       `${b1.lives} → ${b2.lives}`);
+    // ⚠️ **상태와 «그림»을 따로 본다** — 숫자만 세면 하트를 안 지워도 통과한다
+    ok(b2.hearts === b2.lives, '화면의 하트도 같이 준다 (상태와 그림이 안 갈린다)',
+       `하트 ${b2.hearts}개 · 남은 기회 ${b2.lives}`);
+    const say = await page.evaluate(() => {
+      const el = document.querySelector('#pinwheelGame .pw-oops.show');
+      return { on: !!el, text: el ? el.textContent.trim() : '',
+               face: !!(el && el.querySelector('svg')) };
+    });
+    ok(say.on && say.text.length > 4, '공주가 「아이쿠」 하고 한마디 한다', say.text.slice(0, 30));
+    ok(say.face, '그 옆에 공주 얼굴이 있다 (대사만 뜨지 않는다)');
+    // 나머지 검사는 온전한 게임에서 해야 하니 되돌려 놓는다
+    await page.evaluate(() => {
+      const st = Pinwheel._state();
+      st.lives = Pinwheel.LIVES; st.dying = false; st.dead = false;
+      document.querySelectorAll('#pinwheelGame .pw-heart').forEach(h => h.classList.remove('gone'));
+    });
   }
 
   // ── ⚠️⚠️ **깔린 판이 «반드시 풀리는가»** ─────────────────
@@ -300,6 +327,86 @@ function ok(cond, msg, extra) {
   }, plainId);
   ok(plain.okc === true && !plain.host, '평범한 맵은 미니게임 없이 그대로 줍는다');
   ok(plain.got >= 1, '그 자리에서 재료가 들어온다', `+${plain.got}`);
+
+  // ── ⚠️ **세 번 틀리면 끝난다 — 그래도 치운 것은 그대로 가져간다** ──────
+  //
+  // **판을 새로 열어서 본다.** 앞의 검사들이 생명을 되돌려 놓고 지나갔으니,
+  // 「처음부터 세 번」이 진짜로 끝내는지는 새 판에서만 잴 수 있다.
+  // ⚠️ 여기서도 **`Pinwheel.start()` 를 직접 안 부른다** — 채집 버튼을 누른다
+  await page.evaluate((id) => {
+    switchTab('gather'); setGatherTab('field');
+    const m = D.MAPS.find(x => x.id === id);
+    S.charmPeak = Math.max(S.charmPeak, (m.unlock || 0) + 10);
+    S.energy = 5000; render(); setGatherZone(m.zone);
+  }, mapId);
+  await page.waitForTimeout(140);
+  await page.evaluate((id) => {
+    const b = document.querySelector(`.spot-card[data-spot="${id}"] .btn-gather`);
+    if (b) b.click();
+  }, mapId);
+  await page.waitForTimeout(280);
+
+  const dead = await page.evaluate(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    if (!Pinwheel.isPlaying()) return { noGame: true };
+    const st = Pinwheel._state();
+    const inv0 = Object.values(S.inventory || {}).reduce((a, b) => a + b, 0);
+    // **치워 놓은 것이 있어야 「그래도 가져간다」를 잴 수 있다** — 0 이면
+    // 재료가 0개라 무슨 짓을 해도 통과하는 「0개짜리 보상」이 된다
+    st.cleared = Pinwheel.REWARD_PER * 3;
+    const want = Math.floor(st.cleared / Pinwheel.REWARD_PER);
+    const steps = [];
+    for (let i = 0; i < Pinwheel.LIVES; i++) {
+      const b = Pinwheel.boardState();
+      const blk = b.grid.filter(p => !p.open)[0];
+      if (!blk) { steps.push({ noBlocked: true }); break; }
+      Pinwheel._tap(blk.c, blk.r);
+      const a = Pinwheel.boardState();
+      steps.push({ lives: a.lives, over: a.over, dying: a.dying,
+                   hearts: a.hearts, cleared: a.cleared });
+    }
+    const mid = Pinwheel.boardState();
+    // 마지막 하나를 잃으면 「아이쿠」를 읽는 동안(`OOPS_MS`)은 안 눌리고, 그 뒤에 끝난다
+    const blockedNow = Pinwheel.boardState().grid.filter(p => p.open)[0];
+    const clearedBefore = mid.cleared;
+    if (blockedNow) Pinwheel._tap(blockedNow.c, blockedNow.r);
+    const duringDying = Pinwheel.boardState().cleared;
+    await wait(Pinwheel.OOPS_MS + 500);
+    const end = Pinwheel.boardState();
+    const box = document.querySelector('#pinwheelGame .pw-result');
+    const shown = !!(box && box.classList.contains('show'));
+    const text = box ? box.textContent.trim() : '';
+    if (box) { const c = box.querySelector('.pw-close'); if (c) c.click(); }
+    await wait(200);
+    const inv1 = Object.values(S.inventory || {}).reduce((a, b) => a + b, 0);
+    return { steps, mid, end, shown, text: text.slice(0, 60), want,
+             got: inv1 - inv0, clearedBefore, duringDying,
+             host: !!document.getElementById('pinwheelGame') };
+  });
+
+  if (dead.noGame) {
+    ok(false, '게임 오버를 재려고 판을 다시 열었다 (안 열리면 이 검사를 한 번도 안 한 것이다)');
+  } else {
+    const bad = dead.steps.filter(s => s.noBlocked).length;
+    ok(!bad && dead.steps.length === LIVES, `막힌 것을 ${LIVES}번 눌러 봤다`,
+       dead.steps.map(s => `남은 ${s.lives}`).join(' → '));
+    // ⚠️ **마지막 «전»까지는 안 끝나야 한다** — 한 번에 끝나면 생명이 셋인 뜻이 없다
+    ok(dead.steps.slice(0, -1).every(s => !s.over && !s.dying),
+       `${LIVES - 1}번까지는 안 끝난다 (생명이 ${LIVES}개인 뜻이 있다)`,
+       dead.steps.map(s => (s.over ? '끝' : s.dying ? '끝나는중' : '계속')).join(' · '));
+    ok(dead.mid.lives === 0 && (dead.mid.dying || dead.mid.over),
+       `${LIVES}번 틀리면 끝난다`, `남은 기회 ${dead.mid.lives} · 끝나는중 ${dead.mid.dying}`);
+    ok(dead.mid.hearts === 0, '하트가 하나도 안 남는다', `${dead.mid.hearts}개`);
+    // ⚠️ 「아이쿠」를 읽는 동안 계속 눌리면 **끝난 뒤에도 점수가 오른다**
+    ok(dead.duringDying === dead.clearedBefore, '끝나는 동안에는 더 안 눌린다',
+       `${dead.clearedBefore} → ${dead.duringDying}`);
+    ok(dead.end.over && dead.shown, '「아이쿠」를 읽을 틈을 주고 결과가 뜬다', dead.text.split('\n')[0]);
+    // ⚠️⚠️ **이 게임의 규칙이다** — 잃는 것은 재료가 아니라 남은 시간이다
+    ok(dead.got >= dead.want && dead.want >= 3,
+       '생명이 다해 끝나도 «치운 것은 그대로» 가져간다 (재료는 한 톨도 안 잃는다)',
+       `치움 ${dead.clearedBefore} → 재료 ${dead.want}개 기대 · +${dead.got}`);
+    ok(!dead.host, '나가면 화면이 걷힌다 (게임 오버 쪽도)');
+  }
 
   await done(browser, page, errs);
 })();

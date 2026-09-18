@@ -1330,6 +1330,82 @@ function launchOpts() {
           await page.waitForTimeout(150);
         }
 
+        // **노을 밀밭 · 참새 쫓기** — HUD 와 결과 화면은 DOM 이다.
+        // ⚠️ **여기는 오래 빠져 있던 자리다** — 붙일 때 이 블록을 안 만들어서, 30초짜리
+        // 타이머(`.sw-timer`)도 안내 줄도 **한 번도 안 재고 있었다.** 미니게임을 늘리면
+        // 여기에 한 블록을 같이 만든다 (형 표와 `checkbalance` 목록을 맞추는 것과 같은 자리다)
+        {
+          await page.evaluate(() => {
+            const ms = D.MAPS.filter(x => D.fieldMini(x.id) === 'sparrow');
+            const m = ms.sort((a, b) => N(b.id, b.name).length - N(a.id, a.name).length)[0];
+            Sparrow.start(m, () => {});
+          });
+          await page.waitForTimeout(140);
+          await run(`${t}/참새쫓기`);
+          const swFit = await page.evaluate(() => __cardFits('#sparrowGame .sw-hud, #sparrowGame .sw-hint'));
+          if (swFit && swFit.length) results.push({ 화면: `${t}/참새쫓기`, 넘침: swFit });
+          await page.evaluate(() => {
+            const st = Sparrow._state();
+            st.points = 48;
+            st.picked = (st.pool || []).slice(0, 4).concat((st.pool || []).slice(0, 2));
+            Sparrow._finish();
+          });
+          await page.waitForTimeout(120);
+          await run(`${t}/참새쫓기결과`);
+          const swRes = await page.evaluate(() => __cardFits('#sparrowGame .sw-result, #sparrowGame .sw-item'));
+          if (swRes && swRes.length) results.push({ 화면: `${t}/참새쫓기결과`, 넘침: swRes });
+          await page.evaluate(() => { const h = document.getElementById('sparrowGame'); if (h) h.remove(); });
+          await page.waitForTimeout(150);
+        }
+
+        // **바람개비 밭 · 바람개비 퍼즐** — HUD 와 결과 화면은 DOM 이다.
+        // ⚠️ **「아이쿠」 층을 «일부러 켜 놓고» 잰다.** 평소에는 `display:none` 이라
+        // 검사에서 통째로 빠지는데, 거기에 대사 한 줄과 공주 얼굴이 들어 있다 —
+        // 안 켜고 잰 0건은 「통과」가 아니라 **「한 번도 안 쟀다」**이다
+        // (접혀 있는 채집 가방·개발용 블록에서 배운 것과 같다).
+        // ⚠️ **하트도 하나 꺼 놓고 잰다** — 다 켜진 줄만 재면 `.gone` 이 어떻게 보이는지는
+        // 한 번도 안 본 것이 된다
+        {
+          await page.evaluate(() => {
+            const ms = D.MAPS.filter(x => D.fieldMini(x.id) === 'pinwheel');
+            const m = ms.sort((a, b) => N(b.id, b.name).length - N(a.id, a.name).length)[0];
+            Pinwheel.start(m, () => {});
+            const st = Pinwheel._state();
+            st.lives = Math.max(1, Pinwheel.LIVES - 1);
+            const hs = document.querySelectorAll('#pinwheelGame .pw-heart');
+            hs.forEach((h, i) => h.classList.toggle('gone', i >= st.lives));
+            const o = document.querySelector('#pinwheelGame .pw-oops');
+            if (o) o.classList.add('show');
+          });
+          await page.waitForTimeout(140);
+          await run(`${t}/바람개비퍼즐`);
+          const pwFit = await page.evaluate(() => __cardFits(
+            '#pinwheelGame .pw-hud, #pinwheelGame .pw-hint, #pinwheelGame .pw-oops, #pinwheelGame .pw-oops-say'));
+          if (pwFit && pwFit.length) results.push({ 화면: `${t}/바람개비퍼즐`, 넘침: pwFit });
+          // 「아이쿠」 층이 정말로 켜져 있었는지 — 안 켜졌으면 위의 0건은 아무 뜻이 없다
+          const pwSaw = await page.evaluate(() => {
+            const o = document.querySelector('#pinwheelGame .pw-oops.show');
+            const r = o && o.getBoundingClientRect();
+            return { on: !!(r && r.width > 0 && r.height > 0),
+                     gone: document.querySelectorAll('#pinwheelGame .pw-heart.gone').length };
+          });
+          if (!pwSaw.on) results.push({ 화면: `${t}/바람개비퍼즐`, 오류: '「아이쿠」 층이 안 켜졌다 — 0건이 «안 잰 것»이다' });
+          if (!pwSaw.gone) results.push({ 화면: `${t}/바람개비퍼즐`, 오류: '꺼진 하트가 하나도 없다 — `.gone` 을 한 번도 안 쟀다' });
+          // 결과 화면 — **생명이 다해 끝난 쪽**으로 잰다 (그쪽 문구가 더 길다)
+          await page.evaluate(() => {
+            const st = Pinwheel._state();
+            st.cleared = 25; st.dead = true;
+            st.picked = (st.pool || []).slice(0, 4).concat((st.pool || []).slice(0, 2));
+            Pinwheel._finish();
+          });
+          await page.waitForTimeout(120);
+          await run(`${t}/바람개비퍼즐결과`);
+          const pwRes = await page.evaluate(() => __cardFits('#pinwheelGame .pw-result, #pinwheelGame .pw-item'));
+          if (pwRes && pwRes.length) results.push({ 화면: `${t}/바람개비퍼즐결과`, 넘침: pwRes });
+          await page.evaluate(() => { const h = document.getElementById('pinwheelGame'); if (h) h.remove(); });
+          await page.waitForTimeout(150);
+        }
+
         // 마을은 다섯이고 **건물 수가 다르다.** 일곱인 마을과 넷인 마을을 다 본다 —
         // 그림 높이가 건물 수를 따라가므로 명판이 겹치는지는 일곱짜리로만 잡힌다.
         // 색은 마을마다 다른 팔레트라(`village.js` 의 SKIN) 새 마을도 한 곳은 재야 한다 —
