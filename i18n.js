@@ -968,8 +968,8 @@
       // **공주가 제 일기에 적는 말투다.** 안내문이 아니라 혼잣말이라
       // 「…했다」로 끝나고 「흑」 「히히」 같은 소리가 섞인다.
       // 조사(`{fj}` `{nj}` `{ij}` `{wj}`)는 `diaryLine()` 이 받침을 보고 골라 준다
-      di_open: '📔 탐험 일지',
-      di_title: '📔 탐험 일지',
+      di_open: '📔 저널',
+      di_title: '📔 저널',
       di_era: '로엔 제국력 {y}년',
       di_day: '{m}월 {d}일',
       di_empty: '아직 새하얀 일기장이에요. 오늘부터 한 줄씩 채워 볼까요?',
@@ -2294,8 +2294,8 @@
       pg_from_brew: '⚗️ Brewed in the workshop',
       pg_from_unknown: 'No way to get this yet',
       // ─── 탐험 일지 ───
-      di_open: '📔 Field Journal',
-      di_title: '📔 Field Journal',
+      di_open: '📔 Journal',
+      di_title: '📔 Journal',
       di_era: 'Year {y} of the Loen Empire',
       di_day: '{m}/{d}',
       di_empty: 'The pages are still blank. Shall we write the first line today?',
