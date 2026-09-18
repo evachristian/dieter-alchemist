@@ -16,6 +16,12 @@
   const PLAYER_R    = 13;
   const EASE        = 0.22;     // 손가락을 따라가는 정도 (1 이면 즉시)
   const REWARD_EVERY = 8000;    // 이만큼 버틸 때마다 재료 1개
+  const CLEAR_BONUS  = 2;       // 끝까지 버티면 이만큼 더
+  // **한 판 상한** — 버틴 시간 몫 + 클리어 보너스.
+  // ⚠️ 다른 다섯과 달리 여기는 상한이 «상수»가 아니라 규칙에서 나온다. 그래도
+  // 이 줄이 있어야 하는 이유는 **드는 AP 가 여기서 나오기 때문이다**
+  // (`D.ENERGY.miniApK` · game.js 의 `miniRewardMax`). 게임도 검사기도 이것을 읽는다
+  const REWARD_MAX = Math.floor(DUR_MS / REWARD_EVERY) + CLEAR_BONUS;
   const HIT_GRACE_MS = 1200;    // 시작 직후에는 맞지 않는다 (화면 파악할 시간)
 
   const PLAYER_R_DRAW = 19;     // 얼굴은 판정보다 조금 크게 그린다 (아래 ⚠️)
@@ -289,7 +295,8 @@
     S.cleared = cleared;
     cancelAnimationFrame(raf);
     const survived = Math.min(DUR_MS, (S.t0 ? S.now - S.t0 : 0));
-    if (cleared) S.picked.push(pickItem(), pickItem());   // 끝까지 버틴 보너스
+    // 끝까지 버틴 보너스 — 개수는 `CLEAR_BONUS` 한 곳에서 나온다 (상한도 그것을 쓴다)
+    if (cleared) for (let i = 0; i < CLEAR_BONUS; i++) S.picked.push(pickItem());
 
     // ── 특별 재료 '뒤로 깠다는 호박씨' ──
     // 끝나면 확률로 얻는다. 오래 버틸수록 확률이 오르고, 끝까지 버티면 최대(25%).
@@ -402,6 +409,8 @@
 
   window.Pumpkin = { faceState,
     start,
+    // 드는 AP 가 여기서 나온다 (`gatherCost` → `miniRewardMax`)
+    REWARD_MAX, REWARD_EVERY, CLEAR_BONUS, DUR_MS,
     // 검사용 — 진행 중 상태를 들여다보거나 즉시 끝낼 때
     _state: () => S,
     _finish: cleared => finish(!!cleared),

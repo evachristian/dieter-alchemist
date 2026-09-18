@@ -311,9 +311,72 @@ const numIn = (re, what) => {
   }
   ok('어느 미니게임도 다른 것을 «두 축 모두»에서 덮지 않는다', !dom.length,
      dom.join(' / ') || all.map(g => `${g.name} ${rate(g).toFixed(1)}/분 · ${g.max}개`).join(' · '));
-  // 미니게임 한 판이 **평범한 채집 한 번보다는** 나아야 2분을 낼 이유가 생긴다
-  ok('미니게임이 그냥 줍는 것보다 낫다', all.every(g => g.max > 1),
-     `평범한 채집은 한 번에 1개다 · ${all.map(g => g.name + ' ' + g.max).join(' · ')}`);
+  // ── **드는 AP** — 「미니게임이 그냥 줍는 것보다 낫다」를 «AP당»으로 본다 ──
+  //
+  // ⚠️ 예전에는 **개수만** 봤다 (`g.max > 1`). 그러면 미니게임 맵도 평범한 채집과
+  // 같은 6 AP 를 받고 있던 동안 **AP당 6~20배**였는데 그대로 통과했다 —
+  // 한 판이 몇 개를 주는지만 세고 **얼마를 내는지는 한 번도 안 본** 검사였다.
+  //
+  // 지금은 `gatherCost()` 가 `지대 AP × 한 판 상한 × miniApK` 를 받는다.
+  // ⚠️ **여기서 상한을 다시 적지 않는다** — 게임 파일에서 읽은 `g.max` 를 그대로 쓴다.
+  // ⚠️ 그리고 이 검사는 **모듈이 내놓는 `REWARD_MAX`** 로 값을 매긴다: 그것이 게임이
+  // 실제로 값을 매기는 데 쓰는 수다. 둘이 어긋나면 화면의 ⚡ 와 받는 개수가 갈리므로
+  // **어긋나는 것 자체를 실패시킨다**
+  {
+    const K = D.ENERGY.miniApK;
+    // ⚠️ **모듈을 진짜로 읽어 `REWARD_MAX` 를 꺼낸다** — 정규식으로 긁으면 호박 밭처럼
+    // 상한이 «식»인 것(`floor(DUR/EVERY)+CLEAR_BONUS`)을 못 읽고, 무엇보다 게임이
+    // 실제로 쓰는 값이 아니라 **그 값의 사본**을 보게 된다. 여섯 다 브라우저 API 를
+    // 모듈 바깥에서 안 건드려서 node 에서 그대로 읽힌다
+    global.window = global.window || {};
+    global.document = global.document || {
+      createElement: () => ({ getContext: () => null, style: {} }),
+      addEventListener() {}, querySelectorAll: () => [], documentElement: { setAttribute() {} },
+    };
+    const modOf = k => {
+      const name = k[0].toUpperCase() + k.slice(1);
+      require(path.join(ROOT, k + '.js'));
+      if (!global.window[name]) throw new Error(`${k}.js 가 window.${name} 를 안 내놓는다`);
+      return global.window[name];
+    };
+    const rows = [], bad = [], gapless = [], floored = [];
+    for (const k of Object.keys(G)) {
+      const g = G[k];
+      // 이 게임이 붙은 맵 — 지대가 곧 평범한 채집 한 번의 값이다
+      const maps = D.MAPS.filter(m => D.fieldMini(m.id) === k);
+      if (!maps.length) { bad.push(`${g.name}: 붙은 맵이 없다`); continue; }
+      // 모듈이 값을 매기는 데 쓰는 상한 (game.js 의 `miniRewardMax` 가 보는 바로 그 값)
+      const capSrc = modOf(k).REWARD_MAX;
+      if (!capSrc) { bad.push(`${g.name}: REWARD_MAX 를 안 내놓는다 — 값이 매겨지지 않는다`); continue; }
+      for (const m of maps) {
+        const one = D.zoneAp(m.zone);              // 평범한 채집 한 번
+        const ap = Math.max(one, Math.round(one * capSrc * K));
+        if (ap <= one) floored.push(`${m.name} ${ap} AP — 평범한 채집(${one})의 바닥에 닿았다`);
+        // AP당 몇 배 나은가 (평범한 채집은 지대 AP 당 1개)
+        const mult = (g.max / ap) / (1 / one);
+        rows.push(`${m.name} ⚡${ap} → ${g.max}개(${mult.toFixed(1)}배 · 본전 ${Math.round(100 / mult)}%)`);
+        // **미니게임은 그냥 줍는 것보다 나아야 한다** — 2분을 낼 이유가 그것뿐이다
+        if (mult <= 1.2) bad.push(`${m.name}: AP당 ${mult.toFixed(2)}배뿐이다`);
+        // **못한 판도 손해가 아니어야 한다.** 봇으로 잰 제일 못하는 손이 상한의 45% 쯤이라
+        // (밀밭 설렁설렁 2.7/6 · 낚시 느긋한 10/18) 본전 지점이 그 아래여야 한다 —
+        // 「틀려도 잃는 것이 없다」(흐린 장)의 연장이다
+        if (1 / mult > 0.45) bad.push(`${m.name}: 상한의 ${Math.round(100 / mult)}% 를 먹어야 본전이다`);
+        // **너무 후해도 안 된다** — AP 가 값이 아니게 되면 미니게임이 다시 공짜가 된다
+        if (mult > 8) bad.push(`${m.name}: AP당 ${mult.toFixed(1)}배 — AP 가 값이 아니게 된다`);
+      }
+      // 모듈의 상한과 여기서 센 한 판 최대가 어긋나면 **⚡ 와 받는 개수가 갈린다**
+      if (capSrc !== g.max) gapless.push(`${g.name}: 값은 상한 ${capSrc} 로 매기는데 한 판 최대는 ${g.max}`);
+    }
+    ok('미니게임이 «AP당» 그냥 줍는 것보다 낫다', !bad.length,
+       bad.join(' / ') || rows.join(' · '));
+    ok('미니게임 값이 그 게임의 상한과 같은 것을 본다', !gapless.length,
+       gapless.join(' / ') || `여섯 다 REWARD_MAX 로 매긴다 (k=${K})`);
+    // ⚠️ **바닥에 닿으면 안 된다.** 닿으면 `miniApK` 를 어떤 값으로 내려도 화면이
+    // 안 바뀌어, 무슨 값을 넣어도 통과하는 「스스로 맞는」 검사가 된다
+    // (호위 할인의 평야 바닥에서 배운 것과 같다)
+    ok('미니게임 값이 평범한 채집의 바닥에 안 닿는다', !floored.length,
+       floored.join(' / ') || '여섯 다 바닥보다 위다');
+  }
 
   // ── 호두밭 — **상한이 실제로 걸려야 한다.** 판을 다 지웠을 때가 상한보다 적으면
   // `REWARD_MAX` 는 아무 일도 안 하는 장식이고, 판을 늘리는 순간 조용히 후해진다

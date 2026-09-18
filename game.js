@@ -1166,6 +1166,10 @@ function energyCap() {
 // 맵 id 를 넘기면 그 맵의 값을, 아무것도 안 넘기면 기본값을 준다 —
 // 화면 어디서도 `D.ENERGY.cost.gather` 를 **직접 읽지 않는다**: 직접 읽으면
 // 버튼에 적힌 값과 실제로 깎이는 값이 갈린다 (그게 제일 나쁜 종류의 버그다)
+//
+// **미니게임 맵은 «한 판이 돌려주는 개수»에 비례해 받는다** (`D.ENERGY.miniApK`) —
+// 한 판에 6~20개를 주면서 값이 평범한 채집 한 번과 같으면 AP 가 값이 아니게 된다.
+// 여기 한 곳에서 곱하므로 **카드의 ⚡ 와 실제로 깎이는 값이 저절로 같다.**
 function gatherCost(mapId) {
   const m = mapId && D.MAPS.find(x => x.id === mapId);
   const base = m ? D.zoneAp(m.zone) : D.ENERGY.cost.gather;
@@ -1173,7 +1177,15 @@ function gatherCost(mapId) {
   // ⚠️ 여기 한 곳을 지나므로 **버튼에 적힌 값과 깎이는 값이 갈리지 않는다.**
   // 평야보다 싸지지는 않게 바닥을 둔다 — 후반 지대가 초반보다 싸면 지대 순서가 뒤집힌다
   const floor = D.zoneAp('plain');
-  return Math.max(floor, base - bondApCut(m ? m.zone : null));
+  // **할인은 «평범한 채집 한 번»의 값에서 깎는다.** 미니게임 값은 그것을 배로 늘린
+  // 것이라 할인도 같은 비율로 따라온다 — 여기서 따로 깎으면 두 번째 경로가 생긴다
+  const one = Math.max(floor, base - bondApCut(m ? m.zone : null));
+  const cap = m ? miniRewardMax(m.id) : 0;
+  if (!cap) return one;
+  // ⚠️ 평범한 채집 한 번보다 싸질 수는 없다. **다만 이 바닥에 닿으면 안 된다** —
+  // 닿으면 `miniApK` 를 아무 값으로 내려도 화면이 안 바뀌어 「스스로 맞는」 값이 된다.
+  // `checkbalance` 가 **바닥에 안 닿는지**를 본다 (호위 할인의 평야 바닥과 같은 규칙)
+  return Math.max(one, Math.round(one * cap * (D.ENERGY.miniApK || 0)));
 }
 window.gatherCost = gatherCost;
 
@@ -2781,6 +2793,20 @@ function switchTab(tab) {
 // 게임이 늘 때마다 `gather()` 에 `if` 를 붙이면 곧 갈래가 다섯이 된다.
 const MINIS = { pumpkin: 'Pumpkin', walnut: 'Walnut', rock: 'Rock', fish: 'Fish', sparrow: 'Sparrow',
                 pinwheel: 'Pinwheel' };
+
+// 이 맵의 미니게임이 **한 판에 최대 몇 개**를 주는가 (평범한 채집이면 0).
+// **드는 AP 가 여기서 나온다** — `gatherCost()` 가 이 값에 비례해 받는다.
+//
+// ⚠️ **상한은 그 게임의 모듈이 유일한 원본이다**(`REWARD_MAX`). 여기나 data.js 에
+// 사본을 두면 게임의 보상을 고쳤을 때 **값만 옛 것으로 남아** 화면에 적힌 AP 와
+// 실제로 받는 개수가 갈린다 (지대별 AP 에서 배운 것과 같다).
+// ⚠️ 없는 값을 0 으로 떨어뜨리는 것은 「평범한 채집」이라는 뜻이다 — 미니게임인데
+// 0 이 나오면 그 맵만 조용히 싸진다. `checkbalance` 가 여섯을 다 세어 그것을 막는다
+function miniRewardMax(mapId) {
+  const k = D.fieldMini(mapId);
+  const mod = k && window[MINIS[k]];
+  return (mod && mod.REWARD_MAX) || 0;
+}
 
 // 미니게임이 끝났다. 주운 것을 가방에 넣는다.
 // **AP 는 들어갈 때 이미 냈으므로 여기서 또 빼지 않는다.**
