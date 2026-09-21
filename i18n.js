@@ -328,6 +328,8 @@
       why_of: '{name}이(가) 무엇인가요',
       // ─── 운동 ───
       dev_binge: '🌙 폭식 한 밤 (임시)',
+      dev_q_btn: '퀘스트 완료 버튼',
+      dev_q_done: '(임시) 퀘스트 완료',
       dev_binge_ok: '혼자 먹은 밤을 하나 만들었어요. (안 본 것 {n}번)',
       dev_binge_no: '지금은 안 만들어졌어요 (같은 날이거나 배가 부릅니다).',
       act_exercise: '운동', act_binge: '흡입',
@@ -1836,6 +1838,8 @@
       now_full: 'Fullness', now_stam: 'Stamina',
       why_of: 'What is {name}?',
       dev_binge: '🌙 Force one binge (temp)',
+      dev_q_btn: 'Quest-complete button',
+      dev_q_done: '(temp) Complete quest',
       dev_binge_ok: 'Added one night alone. ({n} unseen)',
       dev_binge_no: 'Nothing happened (same day, or she is full).',
       act_exercise: 'Exercise', act_binge: 'Devour',

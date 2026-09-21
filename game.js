@@ -101,6 +101,11 @@ const defaultState = () => ({
   // (조건은 `actOpen()` 한 곳에 있다). ⚠️ 부엌은 여기 안 넣는다 — 그쪽은
   // 「클레멘을 만났나」로 «계산»되므로 값이 두 벌이 되면 어긋난다
   roomActs: [],
+  // 개발용(임시) — 퀘스트 시트에 「(임시) 퀘스트 완료」 버튼을 띄울지.
+  // **«더하는» 칸이라 `SAVE_VER` 를 안 올린다** (옛 세이브에는 이 키가 없어서
+  // `Object.assign(defaultState(), 저장값)` 이 여기 적힌 `false` 를 그대로 남긴다 ·
+  // `miniLog` 와 같은 규칙이다)
+  devQuestBtn: false,
   // 본 컷씬 — 스토리 다시보기 목록 (2단계에서 쓴다)
   seenCuts: [],
   // ─── 키워드 (STORY.md 「키워드 시스템」) ─────────────────────
@@ -1292,6 +1297,16 @@ window.refreshQuests = refreshQuests;
 function questProgress(q) {
   const st = questState();
   const g = q.goal || {};
+  // 개발용(임시) — 「(임시) 퀘스트 완료」를 누른 퀘스트는 **다 찬 것으로 친다.**
+  //
+  // ⚠️ **여기 한 곳에만 둔다.** 목표가 일곱 갈래(`deliver`·`charm`·`village`·`keyword`·
+  // `bond`·이벤트)라 «진행도를 심는» 방식으로는 상태형 넷이 안 찬다 — 마을을 열거나
+  // 호감도를 올려 «흉내»를 내면 그건 퀘스트가 아니라 게임 상태를 건드리는 것이고,
+  // 시험이 끝난 뒤에도 남는다. 진행도만 이 줄에서 접으면 **막대 · 「n / n」 ·
+  // `questFull` 이 저절로 같이 따라온다** (경로가 둘이 될 데가 없다).
+  // ⚠️ **퀘스트 id 로 묶는다** — `true` 하나로 두면 보상을 받은 뒤 «다음» 퀘스트까지
+  // 다 찬 것이 된다. `claimQuest` 가 비우지만, 거기에만 기대지 않는다
+  if (st.devFull && st.devFull === q.id) return g.n;
   if (g.kind === 'deliver') return Math.min(g.n, invCount(g.id));
   if (g.kind === 'charm')   return Math.min(g.n, charmPeak());
   // 2·3막의 목표 — **「물어봤는가」가 아니라 「열렸는가 · 가졌는가」다.**
@@ -1362,6 +1377,7 @@ function claimQuest() {
   (r.kw || []).forEach(id => { if (!hasKw(id)) { S.keywords.push(id); gotKw.push(id); } });
   st.done.push(q.id);
   st.active = null; st.n = 0;
+  st.devFull = null;                     // 개발용 표시는 그 퀘스트에서 끝난다
   rec('quests');
   diaryAdd('di_quest', { id: q.id, who: q.npc });
   refreshQuests();                       // 다음 것을 바로 내보낸다
@@ -2430,6 +2446,11 @@ function renderQuestSheet() {
   if (ti) ti.textContent = T(q.id + '_name');
   const now = questProgress(q), max = q.goal.n;
   const full = now >= max;
+  // 개발용(임시) — 스위치를 켠 사람에게만 보인다. ⚠️ 꺼 두면 **마크업이 한 글자도
+  // 안 바뀐다** (평소 화면에 빈 줄이 남지 않게). 다 찬 뒤에는 할 일이 없으니 접는다
+  const devDone = (S.devQuestBtn && !full)
+    ? `<button class="btn btn-dev q-devdone" onclick="devQuestFull()">${T('dev_q_done')}</button>`
+    : '';
 
   // **어디로 가면 되는지까지 말한다.** 비법서에서 만든 부품을 그대로 쓴다 —
   // 무엇을 해야 할지 알아도 어디로 갈지 모르면 게임이 그 자리에서 멈춘다
@@ -2455,7 +2476,9 @@ function renderQuestSheet() {
     </div>
     <div class="q-goal">${T(q.id + '_desc')}</div>
     <div class="q-bar"><span style="width:${Math.round(now / max * 100)}%"></span></div>
-    <div class="q-num ${full ? 'ok' : ''}">${now} / ${max}</div>
+    ${devDone
+      ? `<div class="q-numrow">${devDone}<div class="q-num ${full ? 'ok' : ''}">${now} / ${max}</div></div>`
+      : `<div class="q-num ${full ? 'ok' : ''}">${now} / ${max}</div>`}
     ${where ? `<div class="q-sec">${whereLabel}</div><div class="q-where">${where}</div>` : ''}
     <div class="q-sec">${T('q_reward')}</div>
     <div class="q-reward">${rewardText(q.reward)}</div>
@@ -6375,7 +6398,10 @@ function renderRoomDevTail() {
       devAct(T('dev_acct'), 'openDevAccounts()'),
     ]) +
     devGroup(T('dev_g_open')) +
-    devSws([devSw(on, T('dev_tutorial'), 'devToggleTutorial()')]) +
+    // ⚠️ 「퀘스트 완료 버튼」은 **켜고 끄는 것**이라 실행 줄이 아니라 여기다 —
+    // 누르면 그 자리에서 무슨 일이 일어나는 것이 아니라 «화면에 버튼이 하나 는다»
+    devSws([devSw(on, T('dev_tutorial'), 'devToggleTutorial()'),
+            devSw(!!S.devQuestBtn, T('dev_q_btn'), 'devToggleQuestBtn()')]) +
     // 방 안에서 하는 일 다섯 — 아직 여는 «조건»이 정해진 것은 부엌뿐이라,
     // 나머지 넷은 여기서 켜 봐야 화면을 볼 수 있다.
     // ⚠️ 부엌도 넣어 둔다 — 첫 퀘스트를 안 지나고 부엌 화면만 보고 싶을 때가 있다
@@ -6396,6 +6422,29 @@ function devToggleAct(id) {
   render();
 }
 window.devToggleAct = devToggleAct;
+
+// 개발용: 퀘스트 시트의 「(임시) 퀘스트 완료」 버튼을 켜고 끈다.
+function devToggleQuestBtn() {
+  S.devQuestBtn = !S.devQuestBtn;
+  save();
+  render();
+  renderQuestSheet();          // 시트가 열린 채로 눌렀을 수도 있다
+}
+window.devToggleQuestBtn = devToggleQuestBtn;
+
+// 개발용: 지금 하는 퀘스트를 **다 찬 것으로 친다.**
+// ⚠️ **보상까지 대신 받지 않는다** — 「가져가기」로 바꿔만 놓는다. 시험하고 싶은 것은
+// 대개 그 뒤(완료 컷씬 · 보상 · 다음 퀘스트)라, 여기서 받아 버리면 그 길을 건너뛴다
+function devQuestFull() {
+  const q = activeQuest();
+  if (!q) return;
+  questState().devFull = q.id;
+  save();
+  renderQuestSheet();
+  renderQuestChip();
+  if (window.Sfx) Sfx.play('pick');
+}
+window.devQuestFull = devQuestFull;
 
 // 개발용: **스토리를 통째로 연다.**
 //

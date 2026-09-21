@@ -785,12 +785,67 @@ function launchOpts() {
             S.quest = { active: qm.id, n: 0, done: [], queue: [] };
             openQuest();
             if (!document.querySelector('#questSheet .pg-row')) return '어디로 가면 되는지가 없다';
+            // ⚠️⚠️ **개발용 버튼이 평소 화면에 «새면» 안 된다.** 스위치가 꺼져 있으면
+            // 마크업이 한 글자도 안 바뀌어야 하는데, 「켜면 뜨는가」만 재던 동안에는
+            // **스위치를 통째로 무시하는 사보타주가 그대로 통과했다** — 출시된 화면에
+            // 개발용 버튼이 박힌 채로 0건이 나온다. 여기가 그 «반대쪽»이다
+            if (S.devQuestBtn) return '개발용 스위치가 켜진 채로 평소 화면을 재고 있다';
+            if (document.querySelector('#questSheet .q-devdone'))
+              return '스위치가 꺼져 있는데 개발용 「퀘스트 완료」 버튼이 보인다';
+            if (document.querySelector('#questSheet .q-numrow'))
+              return '스위치가 꺼져 있는데 진행도 줄이 두 칸으로 갈려 있다';
             return null;
           });
           if (qsBad) results.push({ 화면: `${t}/퀘스트시트`, 오류: qsBad });
           else { await page.waitForTimeout(280); await run(`${t}/퀘스트시트`); }
           const qsBad2 = await page.evaluate(() => window.__cardFits('#questSheet'));
           if (qsBad2) results.push({ 화면: `${t}/퀘스트시트`, 오류: qsBad2 });
+
+          // **개발용(임시) 「퀘스트 완료」 버튼** — 스위치를 켠 사람에게만 보인다.
+          //
+          // ⚠️ **꺼져 있는 것이 기본이라, 안 켜고 재면 이 줄을 한 번도 안 잰 것이 된다**
+          // (개발용 블록을 펼쳐서 재기 시작하자마자 `.tune-label` 이 잡히던 것과 같은
+          // 구멍이다 — 출시 전까지는 사람이 실제로 보는 자리다).
+          // 진행도 줄이 **두 칸으로 갈리는** 자리라 265px·영어에서 먼저 터진다
+          {
+            const dqBad = await page.evaluate(() => {
+              S.devQuestBtn = true;
+              questState().devFull = null;
+              renderQuestSheet();
+              const b = document.querySelector('#questSheet .q-devdone');
+              if (!b) return '스위치를 켰는데 버튼이 안 뜬다';
+              const num = document.querySelector('#questSheet .q-numrow .q-num');
+              if (!num) return '진행도 줄이 그 옆에 안 선다';
+              // ⚠️ **눌러 본다** — 「떠 있는가」만 보면 아무 일도 안 하는 버튼이어도 통과한다
+              const q = activeQuest();
+              const before = questProgress(q);
+              b.click();
+              // ⚠️ **보상까지 대신 받으면 안 된다** — 시험하고 싶은 것은 그 «뒤»다
+              // (완료 컷씬 · 보상 · 다음 퀘스트). **진행도보다 «먼저» 본다** — 받아
+              // 버리면 `devFull` 이 같이 비워져 진행도도 0 이라, 뒤에 두면 「눌러도
+              // 안 찬다」는 엉뚱한 말이 나온다 (사보타주에서 실제로 그랬다)
+              if ((questState().done || []).includes(q.id)) return '누르자마자 보상까지 받아 버린다';
+              const after = questProgress(q);
+              if (after !== q.goal.n) return `눌러도 안 찬다 (${before} → ${after} / ${q.goal.n})`;
+              if (!questFull(q)) return '다 찼는데 `questFull` 이 거짓이다';
+              return null;
+            });
+            if (dqBad) results.push({ 화면: `${t}/퀘스트완료버튼`, 오류: dqBad });
+            else {
+              await page.waitForTimeout(200);
+              await run(`${t}/퀘스트완료버튼`);
+              const b2 = await page.evaluate(() => window.__cardFits('#questSheet'));
+              if (b2) results.push({ 화면: `${t}/퀘스트완료버튼`, 오류: b2 });
+            }
+            // ⚠️ **재고 나서 되돌린다** — 안 그러면 뒤의 「퀘스트완료」가 «이미 다 찬»
+            // 퀘스트를 보게 되어 그 길을 한 번도 안 걷는다 (이 파일의 단골 사고다)
+            await page.evaluate(() => {
+              S.devQuestBtn = false;
+              questState().devFull = null;
+              renderQuestSheet();
+            });
+            await page.waitForTimeout(120);
+          }
 
           // **끝까지 눌러 본다** — 진행 → 완료 → 보상 → 다음 것.
           // ⚠️ 진행도는 **받은 뒤부터** 센다. `record` 를 그대로 보면 이미 마흔 번
