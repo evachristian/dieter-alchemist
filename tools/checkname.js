@@ -134,15 +134,35 @@ rows.push(`문자열 — 허용된 두 곳(설정값) 말고는 없음`);
       await page.waitForTimeout(120);
       await grab();
     }
-    // 물어볼 것을 하나씩 다 눌러 본다 — 대답마다 이름이 섞였는지 본다
+    // 물어볼 것을 하나씩 다 눌러 본다 — 대답마다 이름이 섞였는지 본다.
+    //
+    // ⚠️⚠️ **대답은 «컷씬»이라 끝까지 넘겨야 화면에 뜬다.** 칩만 누르고 말면
+    // 그려지는 것은 첫 줄(공주의 질문)뿐이고 **그 사람의 대답은 한 번도 안 뜬다** —
+    // 그 상태로도 「이름 안 샘」이 나오는데, 그건 안 새는 것이 아니라 **안 잰 것**이다
+    // (칩을 누른 직후의 통과가 정확히 그랬다). 그래서 **읽은 줄 수를 같이 낸다**
     const chips = await page.$$eval('#villageBody .ask-chip', els => els.length);
-    let seen = 0;
+    let seen = 0, lines = 0;
     for (let i = 0; i < chips; i++) {
       await page.$$eval('#villageBody .ask-chip', (els, k) => els[k] && els[k].click(), i);
       await page.waitForTimeout(150);
       await grab();
+      // 장면을 끝까지 — 줄마다 훑는다
+      for (let n = 0; n < 12; n++) {
+        const on = await page.evaluate(() => {
+          const el = document.getElementById('cutScene');
+          return !!(el && !el.hidden);
+        });
+        if (!on) break;
+        lines++;
+        await page.evaluate(() => cutNext());
+        await page.waitForTimeout(70);
+        await grab();
+      }
       seen++;
     }
+    // 잠긴 칩은 장면을 안 열고 선물 시트로 빠진다 — 그래서 **줄 수는 칩 수보다 적을 수 있다.**
+    // 잘못은 **한 줄도 못 읽은 것**이다 (그때가 곧 「안 재고 통과」다)
+    if (chips && !lines) bad.push(`${lang}: 물어본 대답을 한 줄도 못 읽었다 — 장면이 안 떴다`);
     const text = seenText.join('\n');
     if (text.indexOf('이그리트') >= 0 || text.indexOf('Ygritte') >= 0) {
       bad.push(`${lang}: 여왕의 이름이 화면에 떴다 — 마지막 장면이 죽는다`);
@@ -152,7 +172,7 @@ rows.push(`문자열 — 허용된 두 곳(설정값) 말고는 없음`);
       bad.push(`${lang}: 이름표가 「${want}」가 아니다 — ${shown}`);
     }
     if (errs.length) bad.push(`${lang}: 콘솔 오류 — ${errs[0]}`);
-    rows.push(`${lang} 이름표 「${shown}」 · 물어본 것 ${seen}개 · 이름 안 샘`);
+    rows.push(`${lang} 이름표 「${shown}」 · 물어본 것 ${seen}개(대사 ${lines}줄) · 이름 안 샘`);
     await page.close();
   }
   await browser.close();

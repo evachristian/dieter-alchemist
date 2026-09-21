@@ -30,6 +30,24 @@ function launchOpts() {
 // '되돌아갔는지' 를 알 수 없다.
 const CASES = [
   {
+    // ⚠️⚠️ **「정신적 허기」가 `defaultState` 의 기본값이던 시절.** 지금은 첫 퀘스트의
+    // 보상이라 기본값이 **빈 배열**인데, 그 말은 **이 칸이 한 번이라도 비워지면
+    // 진행 전체가 날아간다**는 뜻이다 — 키워드가 없으면 아무에게도 못 묻고,
+    // 화면에는 「아직 물어볼 것이 없어요」 한 줄만 남는다 (오류는 안 뜬다).
+    // 기본값이 있던 동안에는 그 값이 구멍을 메워 줘서 이 검사가 필요 없었다
+    name: '세이브 15 — 이야기를 걷던 사람에게서 키워드를 뺏지 않는다',
+    save: { ver: 15, name: '이야기', nameClaimed: true, tutorialDone: true,
+            keywords: ['kw_hunger', 'kw_beauty', 'kw_gem'],
+            villages: ['vl_chimney'], talked: ['sp_clemen|kw_hunger'] },
+    expect: (S) => [
+      (S.keywords || []).length === 3 || `키워드가 ${(S.keywords || []).length}개로 줄었다`,
+      (S.keywords || []).includes('kw_hunger') || '「정신적 허기」가 사라졌다 — 아무에게도 못 묻는다',
+      (S.keywords || []).includes('kw_gem') || '중간까지 모은 키워드가 사라졌다',
+      (S.villages || []).includes('vl_chimney') || '열어 둔 마을이 닫혔다',
+      (S.talked || []).includes('sp_clemen|kw_hunger') || '물어본 기록이 사라졌다',
+    ],
+  },
+  {
     name: '세이브 1 (버전 표기가 없던 시절)',
     save: { name: '올드원', nameClaimed: true, gathered: 42, inventory: { herb: 7 } },
     expect: (S) => [

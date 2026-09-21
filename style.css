@@ -797,8 +797,10 @@ body.has-quest .screen { padding-bottom: 168px; }
    무엇을 하면 되는지 알아야 하기 때문이다 (자물쇠 + 눌렀을 때의 안내).
    ⚠️ 잠긴 콘텐츠 «공통 표현»을 쓴다 (CLAUDE.md 4번) — 화면마다 따로 흐리게 만들지 않는다 */
 .ask-chip.locked { color: var(--ink); }
-/* 지금 화면에 대답이 떠 있는 칩 */
-.ask-chip.on { background: var(--pink); border-color: var(--pink-2); font-weight: 800; }
+/* ⚠️ 「지금 대답이 떠 있는 칩」(`.ask-chip.on`)은 없앴다 — 대답이 컷씬으로 돌면서
+   «화면에 떠 있는 대답» 자체가 없어졌다. 물어본 칩은 🆕 와 점이 빠지는 것으로 이미
+   갈린다. 안 쓰는 규칙을 남겨 두면 다음 사람이 그것을 고치려다 시간을 쓴다
+   (`.pal-line[hidden]` 을 지운 것과 같은 자리다) */
 .ask-chip:active { transform: scale(0.97); }
 
 /* 「갈 곳만 알려 주는」 점 (STORY.md 「길 잃음 방지」).

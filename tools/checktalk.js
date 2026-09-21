@@ -209,10 +209,32 @@ Object.entries(byNpc).forEach(([npc, list]) => {
 });
 
 // ── 걸어 본다 — 시작 키워드만 들고 어디까지 갈 수 있나
+//
+// ⚠️⚠️ **퀘스트도 같이 걷는다.** 한때 시작 키워드(`defaultState` 의 `keywords`)만
+// 들고 걸었는데, **첫 키워드가 `q_meet` 의 보상으로 옮겨 가면서 그 전제가 깨졌다** —
+// 시작 목록이 비어서 그대로 두면 마흔일곱 대답이 전부 「도달 불가능」이 된다.
+// 반대로 START 에 그 키워드를 손으로 적어 넣으면 **사본이 생겨**, 퀘스트에서 빼도
+// 검사기만 옛 규칙으로 통과한다 (그것이 정확히 이 파일이 피하려던 것이다).
+// 그래서 **주는 자리를 그대로 걷는다**: 조건(`need`)이 채워진 퀘스트는 깰 수 있고,
+// 깨면 `reward.kw` 가 들어오고 그 컷씬(`cut.in`·`cut.out`)을 본 것이 된다.
 const have = new Set(START);
 const openV = new Set();
+const seenC = new Set();
 const reached = new Set();
-for (let pass = 0; pass < D.ASKS.length + 2; pass++) {
+const claimed = new Set();
+// 그 퀘스트를 지금 깰 수 있는가 — 여는 조건과 **목표**를 둘 다 본다.
+// ⚠️ 목표도 봐야 한다: 못 이루는 목표(아무도 안 주는 키워드)를 단 퀘스트는
+// 영영 0/1 이라 그 보상도 영영 안 들어온다
+function questOk(q) {
+  const nd = q.need || {}, g = q.goal || {};
+  if (nd.kw && !have.has(nd.kw)) return false;
+  if (nd.village && !openV.has(nd.village)) return false;
+  if (nd.cut && !seenC.has(nd.cut)) return false;
+  if (g.kind === 'keyword' && !have.has(g.id)) return false;
+  if (g.kind === 'village' && !openV.has(g.id)) return false;
+  return true;
+}
+for (let pass = 0; pass < D.ASKS.length + D.QUESTS.length + 2; pass++) {
   let moved = false;
   D.ASKS.forEach((a, i) => {
     if (reached.has(i)) return;
@@ -226,8 +248,17 @@ for (let pass = 0; pass < D.ASKS.length + 2; pass++) {
     (a.gives || []).forEach(k => have.add(k));
     (a.opens || []).forEach(v => openV.add(v));
   });
+  D.QUESTS.forEach(q => {
+    if (claimed.has(q.id) || !questOk(q)) return;
+    claimed.add(q.id); moved = true;
+    ((q.reward || {}).kw || []).forEach(k => have.add(k));
+    if (q.cut) { if (q.cut.in) seenC.add(q.cut.in); if (q.cut.out) seenC.add(q.cut.out); }
+  });
   if (!moved) break;
 }
+// ⚠️ **시작이 텅 비어 있으면 게임이 첫 화면에서 막힌다.** 시작 키워드를 다 빼고
+// 퀘스트 보상으로 옮긴 뒤로는 「걸을 수 있는 첫걸음이 있는가」가 이 파일의 첫 질문이다
+if (!have.size) bad.push('시작할 키워드가 하나도 없다 — 아무에게도 물어볼 수가 없다');
 
 // **도달 불가능** — 아무도 주지 않는 키워드를 조건으로 쓰거나, 못 여는 마을 안에 있는 대답
 D.ASKS.forEach((a, i) => {
@@ -303,7 +334,15 @@ cyc.forEach(c => bad.push(`순환: 마을이 서로를 연다 (${c}) — 둘 다
 console.log(`인물 ${D.SPEAKERS.length}명 · 대사 ${Object.keys(D.TALKS).length}묶음 · 앉은 자리 ${placed.size}곳`);
 console.log(`표정 ${global.__moodN}가지 (부품 ${global.__partN})`);
 console.log(`  그중 호감도가 있어야 열리는 대답 ${D.ASKS.filter(a => D.askNeedBond(a)).length}줄`);
-console.log(`키워드 ${D.KEYWORDS.length}개 · 물어볼 것 ${D.ASKS.length}줄 · 시작 [${START.join(', ')}] → 마을 ${openV.size}곳 개방`);
+// ⚠️ **첫걸음이 어디서 나왔는지를 같이 낸다** — 시작 목록이 비어 있는 것이 지금은
+// 정상(첫 키워드가 퀘스트 보상이다)이라, `시작 []` 만 찍으면 고장으로 읽힌다
+{
+  const qkw = [];
+  D.QUESTS.forEach(q => ((q.reward || {}).kw || []).forEach(k => qkw.push(`${k}←${q.id}`)));
+  const first = START.length ? START.join(', ') : '(없음)';
+  console.log(`키워드 ${D.KEYWORDS.length}개 · 물어볼 것 ${D.ASKS.length}줄 · `
+    + `시작 [${first}] + 퀘스트 [${qkw.join(', ') || '(없음)'}] → 마을 ${openV.size}곳 개방`);
+}
 if (!bad.length) { console.log('✅ 인물·대사 표에 어긋난 곳 없음'); process.exit(0); }
 console.log(`❌ ${bad.length}건`);
 bad.forEach(m => console.log('   ' + m));

@@ -1143,9 +1143,16 @@ const QUESTS = [
   // (「세 번 오면 습관」은 뒤의 `q_kitchen` 이 그대로 맡는다)
   // ⚠️ **주는 사람은 요정 대모다** — 첫 만남 컷씬에서 「셰프를 고용했다」고 말하는
   // 쪽이라, 여기가 `sp_clemen` 이면 아직 만나지도 않은 사람이 부탁을 해 온다
+  // ⚠️ **첫 키워드(「정신적 허기」)가 여기서 나온다** (`reward.kw`).
+  // 예전에는 `defaultState` 의 기본값이라 **튜토리얼을 막 마친 화면에서 부엌에
+  // 이미 물어볼 것이 하나 떠 있었다** — 아직 클레멘을 만나지도 않았는데.
+  // 그 허기를 알아차리는 자리가 곧 「같이 먹어 본 밥상」이라, 순서를 이야기에 맞췄다.
+  // ⚠️ **이 퀘스트에서 빼면 게임이 그 자리에서 막힌다** — 시작 키워드가 하나도 없어
+  // 아무에게도 물을 수가 없다. `checktalk` 이 표를 걸어 보고 잡는다
   { id: 'q_meet', npc: 'sp_althea', act: 1, at: 0,
     goal: { kind: 'kitchen', n: 1 },
-    reward: { crystal: 30, items: { wheat: 4 } }, cut: { in: 'c_meet_in', out: 'c_meet_out' } },
+    reward: { kw: ['kw_hunger'], crystal: 30, items: { wheat: 4 } },
+    cut: { in: 'c_meet_in', out: 'c_meet_out' } },
   { id: 'q_first', npc: 'sp_althea', act: 1, at: 0,
     goal: { kind: 'brew', id: 'vitality', n: 2 },
     reward: { pages: ['potion:low#0/4'], crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },

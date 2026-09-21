@@ -107,11 +107,17 @@ const defaultState = () => ({
   // **셋 다 없던 칸이라 `SAVE_VER` 를 안 올린다.** 옛 세이브에는 이 키가 아예 없어서
   // `Object.assign(defaultState(), 저장값)` 이 여기 적힌 기본값을 그대로 남긴다.
   //
-  // ⚠️ `keywords` 의 기본값이 **빈 배열이 아니다.** 「정신적 허기」는 누가 알려 준 것이
-  // 아니라 공주가 처음부터 지고 있는 것이고(인트로가 그 이야기다), 이것이 하나 있어야
-  // 이야기가 시작된다 — 마을이 전부 잠긴 채로 「물어볼 것이 없다」가 되면
-  // 아무 데도 못 간다. 옛 세이브도 이 기본값을 그대로 받으므로 막히지 않는다.
-  keywords: ['kw_hunger'],
+  // ⚠️ **첫 키워드는 이제 «첫 퀘스트의 보상»이다** (`q_meet` 의 `reward.kw`).
+  // 한때 「정신적 허기」가 여기 기본값으로 박혀 있었는데, 그러면 **튜토리얼을 막 마친
+  // 화면에서 부엌에 이미 물어볼 것이 하나 떠 있다** — 아직 클레멘을 만나지도 않았고,
+  // 무엇보다 그 허기를 «클레멘과 같이 밥을 먹어 보고» 알아차리는 것이 1막의 첫 장면이다.
+  // 지금은 「부엌에서 같이 먹기」를 끝내야 들어온다 (순서가 이야기와 같아졌다).
+  // ⚠️ 빈 배열로 시작해도 **막다른 길이 아니다** — 첫 퀘스트는 `at: 0` 에 `need` 도
+  // 없어서 튜토리얼 직후 저절로 서 있고, 목표(부엌 한 번)도 늘 할 수 있다.
+  //   `checktalk` 이 그것을 **표에서 걸어 보고** 확인한다 (퀘스트가 주는 키워드까지 센다)
+  // ⚠️ **옛 세이브에서 뺏지 않는다** — 저장된 `keywords` 가 기본값을 덮으므로
+  // 이미 「정신적 허기」를 가진 사람은 그대로다. 퀘스트 보상은 이미 있으면 그냥 지나간다
+  keywords: [],
   // 이미 물어본 것 — `'npc|kw'` 꼴. 회색으로 표시하고, 다시 물어도 된다
   talked: [],
   // ─── 흐린 장 (비법서가 수수께끼가 된다) ───────────────────
@@ -1349,6 +1355,11 @@ function claimQuest() {
   if (r.crystal) S.crystal = (S.crystal || 0) + r.crystal;
   if (r.energy) S.energy = Math.min(energyCap(), (S.energy || 0) + r.energy);
   if (r.items) Object.keys(r.items).forEach(id => addInv(id, r.items[id]));
+  // **키워드** — 지금은 첫 퀘스트의 「정신적 허기」 하나다 (이야기가 시작되는 자리).
+  // ⚠️ **이미 가진 것은 조용히 지나간다** — 옛 세이브는 그것을 기본값으로 들고 있어서,
+  // 여기서 또 밀어 넣으면 칩이 두 개가 된다
+  const gotKw = [];
+  (r.kw || []).forEach(id => { if (!hasKw(id)) { S.keywords.push(id); gotKw.push(id); } });
   st.done.push(q.id);
   st.active = null; st.n = 0;
   rec('quests');
@@ -1361,6 +1372,14 @@ function claimQuest() {
   // 장이 들어왔으면 **따로 한 번 더 알린다** — 결정·재료와 한 줄에 섞으면
   // 「비법서가 늘었다」가 안 읽힌다. 이게 이 퀘스트의 진짜 보상이다
   if (gotPages) setTimeout(() => toast(T('page_got', { n: gotPages }), null, 3600), 1400);
+  // 키워드도 **따로 알린다** — 그것이 곧 「이제 누구에게 무엇을 물을 수 있다」라서
+  // 결정·재료와 한 줄에 섞이면 이야기가 열린 것이 안 읽힌다.
+  // ⚠️ `doAsk` 가 쓰는 것과 **같은 문자열**이다 (뜻이 같은 것을 두 벌로 쓰지 않는다)
+  gotKw.forEach((id, i) => {
+    const k = D.keyword(id);
+    setTimeout(() => toast(T('ask_new', { name: N(id, k ? k.name : id) }), null, 3600),
+      1400 + (gotPages ? 1 : 0) * 700 + i * 700);
+  });
   if (window.Sfx) Sfx.play('success');
   render();
 }
@@ -1427,7 +1446,6 @@ function openKitchen() {
 function closeKitchen() {
   const m = document.getElementById('kitchenSheet');
   if (m) m.classList.remove('show');
-  clearAsk();          // 다음에 열면 오늘의 한 마디부터 (방금 들은 말이 남아 있으면 인사가 아니다)
 }
 window.openKitchen = openKitchen;
 window.closeKitchen = closeKitchen;
@@ -1441,16 +1459,17 @@ function renderKitchen() {
   // 오늘의 한 마디 — **날짜로 고정한다.** 다시 그릴 때마다 말이 바뀌면
   // 「내가 잘못 읽었나」가 된다 (일지 꼬리말·날씨와 같은 규칙)
   const i = diaryHash('kt|' + dayKey()) % KITCHEN_LINES;
-  // 물어본 것이 있으면 **그 대답이 오늘의 한 마디보다 먼저다** (마을 말풍선과 같은 규칙)
-  const ask = shownAsk('sp_clemen');
+  // ⚠️ **키워드 대답이 여기 끼어들지 않는다** — 그것은 이제 컷씬으로 돈다(`askScene`).
+  // 예전에는 대답이 이 자리를 갈아 끼워서 「방금 들은 말」과 「오늘의 한 마디」가
+  // 같은 말풍선을 나눠 쓰고 있었다. 이 줄은 **늘 하는 말**만 맡는다
   el.innerHTML = `
     <div class="q-say">
       <span class="q-face" aria-hidden="true">${
         window.Portrait ? Portrait.bust(D.speaker('sp_clemen'),
-          ask ? (ask.mood || 'def') : (done ? 'smile' : 'def'), { bare: true }) : ''}</span>
+          done ? 'smile' : 'def', { bare: true }) : ''}</span>
       <span class="q-line">
         <b class="q-who">${speakerName('sp_clemen')}</b>
-        <span class="q-text">${ask ? T(ask.line) : T(done ? 'kt_after' : `kt_say_${i + 1}`)}</span>
+        <span class="q-text">${T(done ? 'kt_after' : `kt_say_${i + 1}`)}</span>
       </span>
     </div>
     <div class="kt-note">${T('kt_free')}</div>
@@ -1509,13 +1528,26 @@ function asksNew(npc) {
   return asksAvail(npc).filter(a => !askedAlready(npc, a.kw) && !askLocked(a)).length;
 }
 
-// 지금 화면에 떠 있는 대답. **저장하지 않는다** — 진행이 아니라 방금 들은 말이고,
-// 화면을 떠났다 오면 인사말부터가 맞다 (대사 `talkIdx` 와 같은 규칙)
-let askNpc = null, askKw = null;
-function clearAsk() { askNpc = null; askKw = null; }
-function shownAsk(npc) {
-  if (askNpc !== npc || !askKw) return null;
-  return D.ASKS.find(a => a.npc === npc && a.kw === askKw) || null;
+// 키워드 하나를 묻는 **장면**을 그 자리에서 짓는다 — 공주가 묻고, 그 사람이 답한다.
+//
+// ⚠️ **예전에는 인사말 자리에 한 줄이 갈아 끼워졌다.** 대답이 인사말·오늘의 한 마디와
+// 같은 말풍선을 쓰다 보니 **「방금 그 사람이 한 말」과 「늘 하는 말」이 구별이 안 됐고**,
+// 화면을 떠났다 오면 조용히 사라져서 무슨 말을 들었는지가 안 남았다.
+// 키워드를 가져가서 듣는 말은 이 게임의 «이야기»라 컷씬이 맞는 자리다 (사람이 정했다).
+//
+// ⚠️ **묻는 줄은 한 문자열에서 나온다** (`ask_cut_q`). 마흔일곱 대답마다 질문을 따로
+// 쓰면 그만큼 번역이 빠질 자리가 늘고, 무엇보다 새 대답을 붙일 때 빠뜨리게 된다.
+// 키워드 이름을 «…» 로 감싸 두면 `cutLineHtml` 이 금색으로 집어 준다 —
+// **두 언어가 같은 수의 표시를 갖게** 영어는 `*…*` 다 (컷씬 대사와 같은 규칙)
+function askScene(a) {
+  const k = D.keyword(a.kw);
+  const nm = N(a.kw, k ? k.name : a.kw);
+  return {
+    id: 'ask:' + askKey(a.npc, a.kw),
+    noLog: true,
+    lines: [['sp_gwiriel', 'think'], [a.npc, a.mood || 'def']],
+    text: [T('ask_cut_q', { name: nm }), T(a.line)],
+  };
 }
 
 // 「물어볼 것」 칩 줄. **부엌과 마을이 같은 것을 쓴다** — 두 벌이면 한쪽만 고치게 된다
@@ -1528,8 +1560,7 @@ function askRowHtml(npc) {
     const lock = askLocked(a);
     const fresh = !lock && !askedAlready(npc, a.kw);
     const tn = lock ? D.BOND_TIERS[D.askNeedBond(a)] : null;
-    return `<button class="ask-chip ${fresh ? 'fresh' : ''} ${lock ? 'locked' : ''} ${
-      askNpc === npc && askKw === a.kw ? 'on' : ''}"
+    return `<button class="ask-chip ${fresh ? 'fresh' : ''} ${lock ? 'locked' : ''}"
       data-ask="${a.kw}"${lock ? ` title="${T('ask_locked', { tier: N(tn.id, tn.name) })}"` : ''}
       onclick="doAsk('${npc}','${a.kw}')">${lock ? '🔒 ' : (fresh ? '🆕 ' : '')}${
       N(a.kw, k ? k.name : a.kw)}${
@@ -1569,7 +1600,6 @@ function doAsk(npc, kw) {
     if (!opened && window.Sfx) Sfx.play('fail');
     return;
   }
-  askNpc = npc; askKw = kw;
   const first = !askedAlready(npc, kw);
   const got = [], opened = [];
   if (first) {
@@ -1588,23 +1618,28 @@ function doAsk(npc, kw) {
     renderActBadges();
     save();
   }
-  // 부엌이냐 마을이냐에 따라 다시 그릴 화면이 다르다
+  // 부엌이냐 마을이냐에 따라 다시 그릴 화면이 다르다.
+  // **장면을 틀기 «전»에 그린다** — 장면이 닫히면 그 밑이 이미 새 상태여야 한다
   if (document.getElementById('kitchenSheet').classList.contains('show')) renderKitchen();
   else renderGather();
-  if (window.Sfx) Sfx.play('pick');
-  // **알림은 대답 «뒤에** 온다.** 대답을 읽기도 전에 토스트가 덮으면
-  // 그 사람이 무슨 말을 했는지가 안 남는다
-  got.forEach((id, i) => {
-    const k = D.keyword(id);
-    setTimeout(() => toast(T('ask_new', { name: N(id, k ? k.name : id) }), null, 3000), 900 + i * 700);
-  });
-  opened.forEach((id, i) => {
-    const v = D.VILLAGES.find(x => x.id === id);
-    const nm = N(id, v ? v.name : id);
-    setTimeout(() => {
-      toast(T('ask_opened', { name: nm, nj: josa(nm, '으로') }), null, 3400);
-      if (window.Sfx) Sfx.play('success');
-    }, 900 + (got.length + i) * 700);
+  // **대답은 «장면»으로 돈다** (소리는 `playScene` 이 낸다 — 두 번 겹쳐 내지 않는다)
+  playScene(askScene(a), () => {
+    // ⚠️ **알림은 장면이 «끝난 뒤»다.** 예전에는 900ms 뒤로 미뤄 두었는데, 그때는
+    // 대답이 말풍선 한 줄이라 그 정도면 읽히던 것이고 — **이제 그 자리에 컷씬이
+    // 덮여 있어서 토스트가 장면 위에 뜬다.** 읽는 속도는 사람마다 달라서 시간으로는
+    // 영영 못 맞춘다: 「다 읽었다」는 신호는 **장면을 끝까지 넘긴 것** 하나뿐이다
+    got.forEach((id, i) => {
+      const k = D.keyword(id);
+      setTimeout(() => toast(T('ask_new', { name: N(id, k ? k.name : id) }), null, 3000), 200 + i * 700);
+    });
+    opened.forEach((id, i) => {
+      const v = D.VILLAGES.find(x => x.id === id);
+      const nm = N(id, v ? v.name : id);
+      setTimeout(() => {
+        toast(T('ask_opened', { name: nm, nj: josa(nm, '으로') }), null, 3400);
+        if (window.Sfx) Sfx.play('success');
+      }, 200 + (got.length + i) * 700);
+    });
   });
 }
 window.doAsk = doAsk;
@@ -1872,22 +1907,34 @@ window.renderGift = renderGift;
 // (`QUEST.md` 8-5 — 만들기 전에 미리 적어 둔 함정이다).
 let cutNow = null, cutAt = 0, cutThen = null;
 
-// `id` 컷씬을 처음부터 재생한다. 끝나면 `then()` 을 부른다.
-// **본 것으로 적는다** — 스토리 다시보기 목록이 이 표를 쓴다
-function playCut(id, then) {
-  const c = D.cutOf(id);
-  if (!c || !c.lines.length) { if (then) then(); return; }
-  cutNow = c; cutAt = 0; cutThen = then || null;
-  if (!Array.isArray(S.seenCuts)) S.seenCuts = [];
-  // **본 컷씬이 퀘스트를 열 수도 있다** (`need.cut` — 5막이 그렇다).
-  // ⚠️ 여기서 한 번 맞춰 두지 않으면 다음에 매력이 오를 때까지 칩이 안 뜬다 —
-  // 엔딩을 본 사람에게는 그 「다음」이 영영 안 올 수도 있다
-  if (!S.seenCuts.includes(id)) { S.seenCuts.push(id); refreshQuests(); save(); }
+// 장면 하나를 처음부터 재생한다. 끝나면 `then()` 을 부른다.
+//
+// ⚠️ **표에 적힌 컷씬과 «그 자리에서 지은» 장면이 같은 길을 지난다** — 키워드를 물으면
+// 공주가 묻고 그 사람이 답하는 두 줄짜리 장면이 즉석에서 만들어지는데(`askScene`),
+// 그것을 따로 그리기 시작하면 넘기기·연출·닫을 때의 다시 그리기가 곧 두 벌이 된다
+// (밭 시트와 밭 탭에서 배운 것과 같다). 장면 쪽에 칸 둘을 더 두는 것으로 끝낸다:
+//   `text`  — 줄마다 **이미 번역된** 글. 없으면 예전처럼 `${id}_${n}` 을 찾아 쓴다
+//   `noLog` — **본 것으로 안 적는다.** 키워드 장면은 마흔일곱 개가 넘는데 그것이
+//             `seenCuts` 에 쌓이면 세이브만 불어나고, 스토리 다시보기·`need.cut` 은
+//             `CUTS` 표에 있는 것만 뜻하므로 적어 봐야 아무도 안 본다
+function playScene(cut, then) {
+  if (!cut || !cut.lines || !cut.lines.length) { if (then) then(); return; }
+  cutNow = cut; cutAt = 0; cutThen = then || null;
+  if (!cut.noLog) {
+    if (!Array.isArray(S.seenCuts)) S.seenCuts = [];
+    // **본 컷씬이 퀘스트를 열 수도 있다** (`need.cut` — 5막이 그렇다).
+    // ⚠️ 여기서 한 번 맞춰 두지 않으면 다음에 매력이 오를 때까지 칩이 안 뜬다 —
+    // 엔딩을 본 사람에게는 그 「다음」이 영영 안 올 수도 있다
+    if (!S.seenCuts.includes(cut.id)) { S.seenCuts.push(cut.id); refreshQuests(); save(); }
+  }
   const el = document.getElementById('cutScene');
   if (el) el.hidden = false;
   drawCut();
   if (window.Sfx) Sfx.play('pick');
 }
+
+// `id` 컷씬을 처음부터 재생한다. **본 것으로 적는다** — 스토리 다시보기가 이 표를 쓴다
+function playCut(id, then) { playScene(D.cutOf(id), then); }
 window.playCut = playCut;
 
 // 연출 한 겹 — **글자는 하나도 안 넣는다.** 장식이 대비 검사를 흔들지 않게.
@@ -1971,7 +2018,10 @@ function drawCut() {
   // **「부르는 말」로 뜬다** — 공주는 플레이어가 지은 이름으로, 요정 대모는
   // 「요정 대모」로 (설정상의 이름 「알테이아」는 본인도 안 쓴다 · STORY.md 「호칭 규칙」)
   if (who) who.textContent = speakerName(spId);
-  if (txt) txt.innerHTML = cutLineHtml(T(`${cutNow.id}_${cutAt + 1}`));
+  // 그 자리에서 지은 장면은 글을 **들고 온다**(`text`). 표에 적힌 컷씬은 예전처럼 찾아 쓴다
+  if (txt) {
+    txt.innerHTML = cutLineHtml(cutNow.text ? cutNow.text[cutAt] : T(`${cutNow.id}_${cutAt + 1}`));
+  }
   if (dots) {
     dots.innerHTML = cutNow.lines
       .map((_, i) => `<i class="${i === cutAt ? 'on' : ''}"></i>`).join('');
@@ -4186,19 +4236,19 @@ function renderVillageSpot(el, v, s) {
   const greetMood = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].greetMood) || 'def';
   const talking = talkIdx !== null && lines.length;
   const talk = (sp && D.TALKS[sp.id]) || null;
-  // 키워드로 물은 대답이 떠 있으면 **그것이 인사말·대사보다 먼저다** —
-  // 방금 누른 것에 답하지 않고 인사말이 그대로 있으면 안 눌린 것처럼 보인다
-  const ask = sp ? shownAsk(sp.id) : null;
+  // ⚠️ **키워드 대답이 이 말풍선을 안 쓴다** — 이제 컷씬으로 돈다(`askScene`).
+  // 예전에는 대답이 인사말·대사를 밀어내고 이 자리에 앉았는데, 그러면
+  // **「방금 그 사람이 한 말」과 「늘 하는 말」이 같은 자리에서 나와** 구별이 안 됐다.
+  // 이 말풍선은 인사말과 대사만 맡는다.
   // 들어섰을 때는 **인사말**, 대화를 시작하면 대사. 사람이 없으면 빈 자리 문구.
   // 인사말이 없는 사람은 첫 대사로 떨어진다 (없어도 화면이 비지 않게)
-  const line = ask ? T(ask.line)
-    : (talking ? T(lines[talkIdx])
+  const line = talking ? T(lines[talkIdx])
     : (bt ? T(bt.greet)
     : (talk && talk.greet ? T(talk.greet)
-    : (lines.length ? T(lines[0]) : T('npc_line_soon')))));
+    : (lines.length ? T(lines[0]) : T('npc_line_soon'))));
   // 마지막 줄에서는 ▾ 를 지운다 — 더 없는데 계속 있으면 눌러도 안 넘어가는 것처럼 보인다
-  const more = !ask && talking && talkIdx < lines.length - 1;
-  const dots = (!ask && talking)
+  const more = talking && talkIdx < lines.length - 1;
+  const dots = talking
     ? `<div class="npc-dots">${lines.map((_, i) =>
         `<span class="npc-dot ${i === talkIdx ? 'on' : ''}"></span>`).join('')}</div>` : '';
 
@@ -4219,7 +4269,7 @@ function renderVillageSpot(el, v, s) {
       ${(window.Village ? Village.interior(s, v.id) : '')}
       ${sp && window.Portrait
         ? `<div class="npc-figure">${Portrait.bust(Object.assign({}, sp, { name: speakerName(sp.id) }),
-             ask ? (ask.mood || 'def') : (talking ? (moods[talkIdx] || 'def') : greetMood), { bare: true })}</div>`
+             talking ? (moods[talkIdx] || 'def') : greetMood, { bare: true })}</div>`
         : ''}
       <div class="npc-acts">
         ${sp && hasBond(sp.id)
@@ -4237,10 +4287,7 @@ function talkNext(sid) {
   const sp = s && s.npc && D.speaker(s.npc);
   const lines = sp ? talkLinesOf(sp.id) : [];
   if (!lines.length) return;
-  // 대사를 넘기기 시작하면 키워드 대답은 물러난다 — 둘이 같은 말풍선을 쓴다
-  const wasAsk = !!(sp && shownAsk(sp.id));
-  clearAsk();
-  talkIdx = wasAsk ? 0 : ((talkIdx === null || talkIdx >= lines.length - 1) ? null : talkIdx + 1);
+  talkIdx = (talkIdx === null || talkIdx >= lines.length - 1) ? null : talkIdx + 1;
   renderGather();
 }
 window.talkNext = talkNext;
@@ -4252,7 +4299,6 @@ function npcAct(kind, sid) {
     const sp = s && s.npc && D.speaker(s.npc);
     const lines = sp ? talkLinesOf(sp.id) : [];
     if (!lines.length) { toast(T('npc_talk_soon'), '.npc-act.main', null, 'above'); return; }
-    clearAsk();
     talkIdx = 0;
     renderGather();
     return;
@@ -5187,9 +5233,9 @@ window.setGatherTab = setGatherTab;
 let villageTab = D.VILLAGES[0].id;
 // 지금 들어가 있는 **건물**. null 이면 마을 지도다 (탭 상태와 같이 저장하지 않는다)
 let villageSpotIn = null;
-function setVillage(id) { villageTab = id; villageSpotIn = null; talkIdx = null; clearAsk(); renderGather(); }
+function setVillage(id) { villageTab = id; villageSpotIn = null; talkIdx = null; renderGather(); }
 window.setVillage = setVillage;
-function leaveSpot() { villageSpotIn = null; talkIdx = null; clearAsk(); renderGather(); }
+function leaveSpot() { villageSpotIn = null; talkIdx = null; renderGather(); }
 window.leaveSpot = leaveSpot;
 // 잠긴 마을 카드를 눌렀을 때 — 조건이 정해지면 여기서 조건을 안내한다
 function villageInfo(id, el) {

@@ -1676,11 +1676,9 @@ function launchOpts() {
             const chips = document.querySelectorAll('#villageBody .ask-chip');
             const want = D.asksOf('sp_yutark').length;
             if (chips.length !== want) return `칩이 ${chips.length}개다 (${want} 기대)`;
-            // 눌러서 **대답이 말풍선에 뜨는지** — 안 뜨면 안 눌린 것처럼 보인다
-            doAsk('sp_yutark', 'kw_beauty');
-            const said = document.querySelector('#villageBody .npc-line').textContent;
-            if (said === T('tk_yutark_greet')) return '눌렀는데 인사말 그대로다';
-            if (!document.querySelector('#villageBody .ask-chip.on')) return '누른 칩에 표시가 없다';
+            // ⚠️ **여기서 `doAsk` 를 부르지 않는다** — 대답이 컷씬으로 바뀌면서
+            // 누르는 순간 이 화면이 통째로 덮인다. 그러면 칩 줄을 재는 것이 아니라
+            // **덮개 위에서 재게 된다.** 장면 쪽은 아래 「키워드장면」이 따로 잰다
             // ⚠️ **자물쇠 칩이 이 화면에 있어야 한다.** 없으면 🔒 줄의 대비·넘침을
             // 아무도 안 재는 것이다 — 「0건」이 재 본 적 없다는 뜻이 된다
             if (!document.querySelector('#villageBody .ask-chip.locked'))
@@ -1691,8 +1689,39 @@ function launchOpts() {
           else { await page.waitForTimeout(250); await run(`${t}/물어볼것`); }
           const askBad = await page.evaluate(() => window.__fits('#villageBody'));
           if (askBad) results.push({ 화면: `${t}/물어볼것`, 오류: askBad });
+          // **키워드를 누르면 도는 «장면»** — 공주가 묻고(1줄) 그 사람이 답한다(2줄).
+          //
+          // ⚠️ **두 줄을 «다» 잰다.** 첫 줄만 재면 그 사람의 대답 — 길이가 제각각이고
+          // 훨씬 긴 쪽 — 을 한 번도 안 잰 것이 된다 (부엌의 「오늘의 한 마디」와
+          // 낚시의 걸음별 안내에서 배운 것과 같은 구멍이다).
+          // ⚠️ 이 층은 새로 생긴 화면이라 **제 블록을 따로 둔다** — 위의 「물어볼것」
+          // 0건은 이 층을 한 번도 안 잰 것이다 (참새·바람개비에서 겪은 자리다)
+          for (const n of [1, 2]) {
+            const sBad = await page.evaluate((step) => {
+              if (step === 1) doAsk('sp_yutark', 'kw_beauty');
+              else cutNext();
+              const el = document.getElementById('cutScene');
+              if (!el || el.hidden) return `${step}번째 줄에서 장면이 안 떠 있다`;
+              const txt = (document.getElementById('cutText').textContent || '').trim();
+              if (!txt) return `${step}번째 줄이 비었다`;
+              const who = (document.getElementById('cutWho').textContent || '').trim();
+              if (!who) return `${step}번째 줄에 말하는 사람이 없다`;
+              return null;
+            }, n);
+            if (sBad) { results.push({ 화면: `${t}/키워드장면${n}`, 오류: sBad }); break; }
+            await page.waitForTimeout(260);
+            await run(`${t}/키워드장면${n}`);
+            const fBad = await page.evaluate(() => window.__fits('#cutScene'));
+            if (fBad) results.push({ 화면: `${t}/키워드장면${n}`, 넘침: fBad });
+          }
+          // ⚠️ **장면을 끝까지 닫는다.** 열어 둔 채로 나가면 뒤 화면이 통째로 덮인 채
+          // 재진다 (이 파일에서 뒷정리를 빠뜨려 뒤가 무너진 것이 여러 번이다)
+          await page.evaluate(() => {
+            let n = 0;
+            while (!document.getElementById('cutScene').hidden && n++ < 12) cutNext();
+          });
+          await page.waitForTimeout(120);
           // ⚠️ **내려놓은 호감도를 되돌린다.** 안 되돌리면 뒤 화면이 다른 조건에서 재진다
-          // (이 파일에서 뒷정리를 빠뜨려 뒤가 무너진 것이 이번이 여섯 번째다)
           await page.evaluate(() => { S.bond.sp_yutark = D.BOND_TIERS[3].at; });
           await page.evaluate(() => leaveSpot());
           await page.waitForTimeout(120);

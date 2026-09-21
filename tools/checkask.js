@@ -58,18 +58,56 @@ function ok(cond, msg, extra) {
     const i = document.getElementById('intro'); if (i) i.style.display = 'none';
   });
 
-  // 부엌이 열려 있어야 이야기가 시작된다
+  // 떠 있는 장면을 **끝까지 넘기고** 줄마다 「누가 · 무슨 말」을 모아 온다.
+  //
+  // ⚠️ **`cutNext()` 를 부르는 것으로는 못 가른다** — 화면이 안 떠도 그냥 지나간다.
+  // 그래서 **떠 있는 동안만** 돌고, 한 줄도 못 읽었으면 빈 배열이 나온다 (그때 실패한다).
+  // ⚠️ 장면이 안 닫히는 사고를 대비해 한계를 둔다 — 검사기가 멈추면 무엇이 틀렸는지
+  // 결과에 안 남는다 (`checkrock` 에서 배운 자리다)
+  async function playThrough() {
+    const out = [];
+    for (let i = 0; i < 12; i++) {
+      const on = await page.evaluate(() => {
+        const el = document.getElementById('cutScene');
+        if (!el || el.hidden) return null;
+        return { who: (document.getElementById('cutWho').textContent || '').trim(),
+                 text: (document.getElementById('cutText').textContent || '').trim() };
+      });
+      if (!on) break;
+      out.push(on);
+      await page.evaluate(() => cutNext());
+      await page.waitForTimeout(50);
+    }
+    return out;
+  }
+
+  // 부엌이 열려 있어야 이야기가 시작된다.
+  // ⚠️ `c_meet_in` 을 본 것으로 두는 것이 곧 **셰프가 왔다**(`chefHired`)이다 —
+  // 그것이 부엌을 연다. 나오는 컷씬 둘도 같이 심어 둔다 (여기서 볼 것이 아니다)
   await page.evaluate(() => {
     S.tutorialDone = true;
     S.name = '테스트';
-    S.seenCuts = ['c_clemen_meet'];      // 인사 컷씬은 건너뛴다 (여기서 볼 것이 아니다)
+    S.seenCuts = ['c_clemen_meet', 'c_meet_in', 'c_meet_out'];
     save(); render();
   });
 
-  // ── 시작 상태
+  // ── 시작 상태 — **첫 키워드는 첫 퀘스트가 준다**
+  //
+  // ⚠️⚠️ 한때 「정신적 허기」가 `defaultState` 의 기본값이라 **튜토리얼을 막 마친
+  // 화면에서 부엌에 이미 물어볼 것이 하나 떠 있었다** — 아직 클레멘을 만나지도 않았는데.
+  // 지금은 「부엌에서 같이 먹기」를 끝내야 들어온다. **빈손인 쪽도 재야 한다**:
+  // 「받은 뒤」만 재면 순서가 뒤집혀도 통과한다
   let st = await page.evaluate(() => ({ kw: S.keywords.slice(), vl: S.villages.slice() }));
-  ok(st.kw.length === 1 && st.kw[0] === 'kw_hunger', '시작 키워드는 「정신적 허기」 하나', st.kw.join(','));
+  ok(st.kw.length === 0, '첫 퀘스트 «전»에는 키워드가 하나도 없다', st.kw.join(',') || '(없음)');
   ok(st.vl.length === 0, '마을은 전부 잠겨 있다', `열린 곳 ${st.vl.length}`);
+  ok(await page.evaluate(() => { const q = activeQuest(); return q && q.id; }) === 'q_meet',
+     '첫 퀘스트가 「셰프를 고용했어요」로 서 있다');
+
+  await page.evaluate(() => openKitchen());
+  await page.waitForSelector('#kitchenSheet.show', { timeout: 4000 });
+  ok(await page.$$eval('#kitchenSheet .ask-chip', els => els.length) === 0,
+     '그때 부엌에는 물어볼 칩이 하나도 없다');
+  ok(!!(await page.$('#kitchenSheet .ask-none')), '대신 「아직 물어볼 것이 없어요」가 선다');
 
   // ── 부엌 버튼의 점(●) — **두 가지를 뜻하는 자리다**
   //
@@ -79,19 +117,34 @@ function ok(cond, msg, extra) {
   const kdot = () => page.evaluate(() => !document.getElementById('kitchenDot').hidden);
   ok(await kdot(), '밥 전에는 점이 켜져 있다');
   await page.evaluate(() => { eatWithClemen(); });
-  ok(await kdot(), '마을이 하나도 없으면 밥을 먹어도 점이 남는다 (갈 곳이 여기뿐이다)');
 
-  // ── 부엌
-  await page.evaluate(() => openKitchen());
+  // ── 첫 퀘스트를 낸다 → 그 보상이 「정신적 허기」다
+  ok(await page.evaluate(() => questFull(activeQuest())), '한 번 같이 먹으면 첫 퀘스트가 찬다');
+  await page.evaluate(() => { claimQuest(); });
+  await page.waitForTimeout(120);
+  st = await page.evaluate(() => ({ kw: S.keywords.slice(), done: (S.quest.done || []).slice() }));
+  ok(st.done.includes('q_meet'), '첫 퀘스트가 끝난다');
+  ok(st.kw.length === 1 && st.kw[0] === 'kw_hunger',
+     '그 보상으로 「정신적 허기」가 들어온다', st.kw.join(',') || '(없음)');
+
+  await page.evaluate(() => { openKitchen(); });
   await page.waitForSelector('#kitchenSheet.show .ask-chip', { timeout: 4000 });
+  ok(await kdot(), '마을이 하나도 없으면 밥을 먹어도 점이 남는다 (갈 곳이 여기뿐이다)');
   let chips = await page.$$eval('#kitchenSheet .ask-chip', els => els.map(e => e.textContent.trim()));
   ok(chips.length === 1 && chips[0].includes('허기'), '부엌 칩은 가진 것 하나뿐', chips.join(' / '));
   ok(chips[0].includes('🆕'), '아직 안 물어본 것에 🆕 가 붙는다');
 
   await page.click('#kitchenSheet .ask-chip');
-  await page.waitForTimeout(80);
-  let said = await page.$eval('#kitchenSheet .q-text', e => e.textContent.trim());
-  ok(said.includes('일곱 굴뚝'), '대답이 오늘의 한 마디를 밀어내고 뜬다', said.slice(0, 24));
+  await page.waitForTimeout(120);
+  // ⚠️ **대답은 이제 «컷씬»이다** — 공주가 묻고, 그 사람이 답한다.
+  // 끝까지 넘겨야 `doAsk` 의 뒷정리(새 키워드·마을 토스트)가 돈다
+  let scene = await playThrough();
+  ok(scene.length === 2, '대답이 두 줄짜리 장면으로 돈다', `${scene.length}줄`);
+  ok(scene[0].text.includes('허기'), '공주가 «그 키워드»를 짚어 묻는다', (scene[0].text || '').slice(0, 24));
+  ok(scene[0].who !== scene[1].who, '묻는 사람과 답하는 사람이 다르다',
+     `${scene[0].who} → ${scene[1].who}`);
+  let said = scene[scene.length - 1].text;
+  ok(said.includes('일곱 굴뚝'), '클레멘이 그 자리에서 답한다', said.slice(0, 24));
   st = await page.evaluate(() => ({ kw: S.keywords.slice(), vl: S.villages.slice() }));
   ok(st.kw.includes('kw_beauty'), '「아름다움」을 얻는다');
   ok(st.vl.includes('vl_chimney'), '일곱 굴뚝이 열린다');
@@ -127,7 +180,8 @@ function ok(cond, msg, extra) {
   // **다시 물어도 되지만 주는 것은 한 번뿐이다**
   const before = await page.evaluate(() => S.keywords.length);
   await page.click('#kitchenSheet .ask-chip');
-  await page.waitForTimeout(60);
+  await page.waitForTimeout(120);
+  ok((await playThrough()).length === 2, '다시 물어도 장면은 그대로 돈다');
   ok(await page.evaluate(() => S.keywords.length) === before, '다시 물어도 키워드가 두 번 안 들어온다');
 
   await page.evaluate(() => closeKitchen());
@@ -144,12 +198,14 @@ function ok(cond, msg, extra) {
       (els, n) => els.findIndex(e => e.textContent.includes(n)), kwName);
     if (idx < 0) return null;
     await page.$$eval('#villageBody .ask-chip', (els, i) => els[i].click(), idx);
-    await page.waitForTimeout(80);
-    return await page.$eval('#villageBody .npc-line', e => e.textContent.trim());
+    await page.waitForTimeout(120);
+    // 마을에서도 대답은 **장면**이다 — 마지막 줄이 그 사람의 말이다
+    const sc = await playThrough();
+    return sc.length ? sc[sc.length - 1].text : null;
   }
 
   let line = await askIn('vl_chimney', 'vs_chimney_forge', '아름다움');
-  ok(line && line.includes('깎인'), '오릭스가 말풍선에 답한다', (line || '').slice(0, 20));
+  ok(line && line.includes('깎인'), '오릭스가 장면에서 답한다', (line || '').slice(0, 20));
   ok(await page.evaluate(() => S.keywords.includes('kw_gem')), '「광석」을 얻는다');
   await askIn('vl_chimney', 'vs_chimney_forge', '광석');
   await askIn('vl_chimney', 'vs_chimney_forge', '여왕');

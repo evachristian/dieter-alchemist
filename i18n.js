@@ -97,6 +97,10 @@
       ask_title: '물어볼 것',
       ask_none: '아직 물어볼 것이 없어요.',
       ask_new: '새로 물어볼 것 — {name}',
+      // 키워드를 물을 때 **공주가 먼저 하는 말** (컷씬 첫 줄 · `askScene`).
+      // ⚠️ 마흔일곱 대답마다 질문을 따로 쓰지 않는다 — 한 줄에서 이름만 갈아 끼운다.
+      // «…» 는 `cutLineHtml` 이 금색으로 집어 주는 표시다 (영어는 `*…*` · 수가 같아야 한다)
+      ask_cut_q: '«{name}»에 대해… 여쭤봐도 될까요?',
       ask_opened: '{name}{nj} 가는 길이 열렸어요!',
       ask_hint: '들은 이야기를 다른 사람에게도 물어보세요.',
       // ─── 호감도 (STORY.md 「남자 NPC 여섯」) ───
@@ -1523,6 +1527,7 @@
       ask_title: 'Ask about',
       ask_none: 'Nothing to ask about yet.',
       ask_new: 'Something new to ask about — {name}',
+      ask_cut_q: 'May I ask you about *{name}*?',
       ask_opened: 'The road to {name} is open!',
       ask_hint: 'Take what you heard to someone else.',
       npc_gift: 'Gift',
