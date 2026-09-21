@@ -1330,7 +1330,10 @@ const CUTS = [
   { id: 'c_bring_in',  act: 1, lines: [['sp_althea', 'def'], ['sp_gwiriel', 'soft']] },
   { id: 'c_bring_out', act: 1, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'smile']] },
   { id: 'c_egg_in',    act: 1, lines: [['sp_althea', 'def'], ['sp_gwiriel', 'shock']] },
-  { id: 'c_egg_out',   act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
+  // ⚠️ 마지막 줄이 **🧺 수확 버튼을 설명한다.** 버튼은 크리처를 얻는 «순간» 이미
+  // 떠 있으므로(`hasProducer`), 여기서 할 일은 「세워 두지 않으면 아무것도 안 들어온다」를
+  // 말해 주는 것이다 — 그 갈래를 모르면 빈 기록을 보고 고장으로 읽는다
+  { id: 'c_egg_out',   act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm'], ['sp_althea', 'smile']] },
   { id: 'c_sip_in',    act: 1, lines: [['sp_althea', 'scold'], ['sp_gwiriel', 'soft']] },
   { id: 'c_sip_out',   act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
   { id: 'c_bloom_in',  act: 1, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'soft']] },
@@ -1367,7 +1370,10 @@ const CUTS = [
                                          ['sp_clemen', 'warm'], ['sp_gwiriel', 'awe'],
                                          ['sp_gwiriel', 'shy'], ['sp_clemen', 'warm']] },
   { id: 'c_kitchen_in',  act: 1, lines: [['sp_clemen', 'def'], ['sp_gwiriel', 'soft']] },
-  { id: 'c_kitchen_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_clemen', 'smile']] },
+  // ⚠️ 마지막 줄이 **🏃 운동 버튼을 연다** (`actOpen('exercise')` 가 이 퀘스트를 본다).
+  // 버튼이 조용히 나타나면 아무도 모른다 — 부엌이 컷씬으로 열렸듯이 여기도 한 줄이 연다.
+  // **먹는 법을 가르친 사람이 몸 쓰는 쪽을 가리키는 것**이라 클레멘의 줄이 맞다
+  { id: 'c_kitchen_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_clemen', 'smile'], ['sp_clemen', 'warm']] },
   { id: 'c_soup_in',     act: 1, lines: [['sp_clemen', 'def'], ['sp_gwiriel', 'smile']] },
   { id: 'c_soup_out',    act: 1, lines: [['sp_clemen', 'smile'], ['sp_gwiriel', 'soft'], ['sp_clemen', 'def']] },
   // 1막과 2막 사이의 다리(`q_gift`). **그가 매일 하는 일을 그대로 건넨다** —

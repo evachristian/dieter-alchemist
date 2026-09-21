@@ -887,6 +887,55 @@ function launchOpts() {
             await page.evaluate(() => { while (!document.getElementById('cutScene').hidden) cutNext(); closeQuest(); });
           }
 
+          // **컷씬(제일 긴 줄)** — ⚠️ 위의 「컷씬」은 **첫 퀘스트의 첫 줄** 하나만 잰다.
+          // 대사가 마흔 컷에 백 줄이 넘는데 그중 «한 줄»만 재는 것이라, 제일 긴 줄은
+          // 영영 안 잰 것이 된다 (부엌의 「오늘의 한 마디」와 같은 구멍이다).
+          // 그래서 **제일 긴 줄로 못 박고** 한 번 더 잰다 — 어느 줄인지는 표에서
+          // 뽑으므로, 대사를 늘리면 저절로 따라온다.
+          //
+          // ⚠️ **언어마다 따로 세운다.** 말풍선은 `data-i18n` 이 아니라 `innerHTML` 로
+          // 그려져서 `I18N.setLang()` 을 해도 **다시 안 그려진다** — 한 언어에서 세워 놓고
+          // 재면 다른 언어의 제일 긴 줄은 한 번도 안 잰 것이 된다 (영어가 더 길다)
+          for (const code of await page.evaluate(() => I18N.langs().map(l => l.code))) {
+            const pin = await page.evaluate((code) => {
+              if (typeof closeQuest === 'function') closeQuest();
+              while (!document.getElementById('cutScene').hidden) cutNext();
+              I18N.setLang(code);
+              let best = null;
+              D.CUTS.forEach(c => (c.lines || []).forEach((_, i) => {
+                const s = T(`${c.id}_${i + 1}`);
+                if (!s || /^c_\w+_\d+$/.test(s)) return;      // 문구가 빠진 줄은 건너뛴다
+                if (!best || s.length > best.len) best = { id: c.id, at: i, len: s.length };
+              }));
+              if (!best) return null;
+              S.seenCuts = (S.seenCuts || []).filter(x => x !== best.id);
+              playCut(best.id, null);
+              for (let i = 0; i < best.at; i++) cutNext();
+              if (document.getElementById('cutScene').hidden) return null;
+              // **무엇을 쟀는지 통과할 때도 낸다** — 0건이 「한 번도 안 쟀다」였던 자리다.
+              // ⚠️ 견줄 때는 **강조 표시를 떼고** 센다 — `cutLineHtml` 이 «…» · *…* 를
+              // 금색 칸으로 바꾸면서 그 기호를 지우므로, 원문 길이 그대로 견주면
+              // 멀쩡한 줄이 늘 「두 자 모자란다」로 잡힌다
+              const want = T(`${best.id}_${best.at + 1}`).replace(/[«»*]/g, '').length;
+              return { ...best, want, txt: document.getElementById('cutText').textContent.length };
+            }, code);
+            if (!pin) { results.push({ 화면: `${t}/컷씬긴줄(${code})`, 오류: '제일 긴 줄을 못 세웠다 — 한 번도 안 쟀다' }); continue; }
+            if (pin.txt !== pin.want) {
+              results.push({ 화면: `${t}/컷씬긴줄(${code})`, 오류: `세운 줄(${pin.id}_${pin.at + 1} · ${pin.want}자)이 화면에는 ${pin.txt}자다` });
+              continue;
+            }
+            console.log(`  컷씬긴줄(${code}) — ${pin.id}_${pin.at + 1} · ${pin.len}자`);
+            await page.waitForTimeout(280);
+            await run(`${t}/컷씬긴줄(${code})`);
+            // ⚠️ **`checkUI()` 만으로는 말풍선 안을 못 본다** — `checkLayout()` 은 정해진
+            // 선택자(버튼·칩·카드…)만 재는데 대사 줄은 그냥 `<p>` 라 대상이 아니다.
+            // 안 끊기는 긴 낱말을 넣는 사보타주가 **그대로 통과했다** (밭 시트에서
+            // 배운 자리다). 그래서 내용이 제 칸보다 넓은지를 `__fits` 로 직접 본다
+            const fitBad = await page.evaluate(() => window.__fits('#cutScene'));
+            if (fitBad) results.push({ 화면: `${t}/컷씬긴줄(${code})`, 오류: fitBad });
+            await page.evaluate(() => { while (!document.getElementById('cutScene').hidden) cutNext(); closeQuest(); });
+          }
+
           // **엔딩 연출** — 거울이 깨지는 줄은 배경이 더 깊고(`\.cut.deep`) 조각 층이
           // 얹힌다. ⚠️ **연출이 «켜진» 줄에서 재야 한다** — 위의 컷씬 검사는 1막이라
           // 연출이 없고, 그 0건은 이 층을 한 번도 안 잰 것이다
@@ -2006,22 +2055,37 @@ function launchOpts() {
           const keepCuts = (S.seenCuts || []).slice();
           const keepQ = JSON.stringify(S.quest);
           const keepKd = S.kitchenDay;
+          // 넷이 더 늘었다 — 흡입(혼자 먹은 밤) · 수확(크리처) · 밭(매력)
+          const keepAlone = (S.record || {}).aloneNights || 0;
+          const keepBinges = (S.binges || []).slice();
+          const keepCr = (S.creatures || []).slice();
+          const keepPet = S.petRoom, keepFld = S.petField;
+          const keepStats = JSON.stringify(S.stats), keepPeak = S.charmPeak;
           const vis = id => { const e = document.getElementById(ROOM_ACT_BTN[id]); return !!e && !e.hidden; };
           const back = () => { S.roomActs = keepActs; S.seenCuts = keepCuts; S.kitchenDay = keepKd;
-                               S.quest = JSON.parse(keepQ); renderActBadges(); };
+                               S.quest = JSON.parse(keepQ); S.record.aloneNights = keepAlone;
+                               S.binges = keepBinges;
+                               S.creatures = keepCr; S.petRoom = keepPet; S.petField = keepFld;
+                               S.stats = JSON.parse(keepStats); S.charmPeak = keepPeak;
+                               renderActBadges(); };
+          // **새 플레이어의 자리로 내린다** — 매력까지 0 으로 내려야 밭이 잠긴다
+          // (`farmOpen` 은 `charmPeak()` 인데, 그것이 `totalCharm()` 을 다시 올려 준다)
           S.roomActs = []; S.seenCuts = [];
           S.quest = { active: null, n: 0, done: [], queue: [] };
+          S.record.aloneNights = 0; S.binges = []; S.creatures = [];
+          S.petRoom = null; S.petField = null;
+          S.stats = { beauty: 0, charm: 0 }; S.charmPeak = 0;
           renderActBadges();
           const on = ROOM_ACTS.filter(vis);
-          if (on.length) { back(); return `튜토리얼 직후인데 ${on.join('·')} 가 보인다`; }
+          if (on.length) { back(); return { err: `튜토리얼 직후인데 ${on.join('·')} 가 보인다` }; }
           // **클레멘을 만나면 부엌만** 나타난다 (첫 만남 컷씬을 본 순간이다)
           S.seenCuts = ['c_meet_in']; renderActBadges();
-          if (!vis('kitchen')) { back(); return '클레멘을 만났는데 부엌이 안 나타난다'; }
+          if (!vis('kitchen')) { back(); return { err: '클레멘을 만났는데 부엌이 안 나타난다' }; }
           // ⚠️ **보임과 열림이 갈리면 안 된다** — 버튼은 보이는데 눌러도 아무 일이
           // 없던 자리다 (옛 세이브에서 실제로 그랬다)
-          if (!kitchenOpen()) { back(); return '부엌이 보이는데 열리지는 않는다'; }
+          if (!kitchenOpen()) { back(); return { err: '부엌이 보이는데 열리지는 않는다' }; }
           const extra = ROOM_ACTS.filter(id => id !== 'kitchen').filter(vis);
-          if (extra.length) { back(); return `부엌만 열려야 하는데 ${extra.join('·')} 도 보인다`; }
+          if (extra.length) { back(); return { err: `부엌만 열려야 하는데 ${extra.join('·')} 도 보인다` }; }
           // ⚠️ **컷씬을 진짜로 «끝까지 넘겨» 본다.** 위처럼 `renderActBadges()` 를 손으로
           // 불러 주고 재면 「그리기가 빠진」 버그를 통째로 못 본다 — 실제로 컷씬이 끝나도
           // 부엌은 안 나타났고, 다음에 무엇이든 화면을 다시 그려야 그제야 나왔다.
@@ -2031,12 +2095,57 @@ function launchOpts() {
           renderActBadges();
           playCut('c_meet_in', null);
           for (let i = 0; i < 40 && !document.getElementById('cutScene').hidden; i++) cutNext();
-          if (!vis('kitchen')) { back(); return '컷씬이 끝났는데 부엌이 안 나타난다 (다시 안 그렸다)'; }
-          if (document.getElementById('kitchenDot').hidden) { back(); return '부엌이 나타났는데 레드닷이 없다'; }
+          if (!vis('kitchen')) { back(); return { err: '컷씬이 끝났는데 부엌이 안 나타난다 (다시 안 그렸다)' }; }
+          if (document.getElementById('kitchenDot').hidden) { back(); return { err: '부엌이 나타났는데 레드닷이 없다' }; }
+
+          // ── 나머지 넷 — **다 같은 종류의 문이 아니다** (`actOpen` 의 주석 그대로).
+          // 조건을 하나씩 만들어 주고 **그 버튼만** 늘어나는지 본다.
+          // ⚠️ 조건을 만든 뒤 **`render()` 를 부른다** — `renderActBadges()` 를 손으로
+          // 불러 주면 「그리기가 빠진」 버그를 통째로 못 본다 (부엌에서 배운 자리다)
+          const 열린것 = ['kitchen'];
+          let 잰것 = 1;
+          const step = (id, 왜, mk) => {
+            mk();
+            render();
+            if (!vis(id)) return `${왜} ${id} 가 안 나타난다`;
+            // ⚠️ **보임과 열림이 갈리면 안 된다** — `actOpen` 하나를 지나야 한다
+            if (!actOpen(id)) return `${id} 가 보이는데 열리지는 않는다`;
+            열린것.push(id);
+            const 샌것 = ROOM_ACTS.filter(vis).filter(x => !열린것.includes(x));
+            if (샌것.length) return `${id} 까지만 열려야 하는데 ${샌것.join('·')} 도 보인다`;
+            잰것++;
+            return null;
+          };
+          // 🏃 운동 — `q_kitchen`(부엌 3번)을 «끝내면»
+          let e = step('exercise', '부엌 퀘스트를 끝냈는데',
+            () => { S.quest.done = ['q_meet', 'q_kitchen']; });
+          // 🍗 흡입 — 혼자 먹은 밤이 «있었으면». ⚠️ 아직 «안 본» 밤(`bingeCount`)이 아니다:
+          // 그건 장면을 다 보면 0 이 되는 큐라, 컷씬을 넘기는 순간 버튼이 사라진다.
+          // **그래서 일부러 «다 보고 난 뒤»의 자리에서 잰다** (`S.binges` 가 빈 채로) —
+          // 그냥 밤을 하나 쌓아 놓고 재면 잘못된 조건도 그대로 통과한다
+          if (!e) e = step('binge', '혼자 먹은 밤이 있었는데(다 보고 난 뒤)',
+            () => { S.record.aloneNights = 1; S.binges = []; });
+          // 🧺 수확 — 생산하는 크리처를 «가지면» (= `q_egg` 의 목표).
+          // ⚠️ 「세운 아이」가 아니라 「가진 아이」다 — 세우기 전에도 열려야 한다
+          if (!e) {
+            const r = D.RECIPES.find(x => x.result.kind === 'creature' && x.result.makes
+              && D.INGREDIENTS[x.result.makes.id]);
+            if (!r) e = '생산하는 크리처가 표에 하나도 없다 — 이 방향은 아예 안 쟀다';
+            else e = step('produce', '크리처를 얻었는데',
+              () => { S.creatures = [r.result.id]; });
+          }
+          // 🌾 밭 — 여신(리그와 같은 문). ⚠️ 매력 문이라 퀘스트로 또 잠그지 않는다
+          if (!e) e = step('farm', '여신이 됐는데',
+            () => { S.stats.charm = D.LEAGUE.openAt; });
+          if (!e && !farmOpen()) e = '밭이 보이는데 `farmOpen()` 은 거짓이다 (문이 두 벌이다)';
           back();
-          return null;
+          return { err: e, n: 잰것 };
         });
-        if (actBad) results.push({ 화면: `${t}/방버튼해금`, 오류: actBad });
+        if (actBad.err) results.push({ 화면: `${t}/방버튼해금`, 오류: actBad.err });
+        // ⚠️ **몇 개를 쟀는지 통과할 때도 낸다** — 0건이 「통과」가 아니라
+        // 「한 번도 안 쟀다」였던 적이 이 저장소에서만 세 번이다
+        else if (actBad.n !== 5) results.push({ 화면: `${t}/방버튼해금`, 오류: `다섯 중 ${actBad.n}개만 쟀다` });
+        else console.log(`  방버튼해금 — 다섯을 다 쟀다 (${actBad.n}/5)`);
 
         const ktBad = await page.evaluate(() => {
           S.seenCuts = ['c_clemen_meet']; S.kitchenDay = 0;
