@@ -1575,12 +1575,26 @@ function askKey(npc, kw) { return npc + '|' + kw; }
 function askedAlready(npc, kw) { return !!(S.talked && S.talked.includes(askKey(npc, kw))); }
 // 이 사람에게 지금 물어볼 수 있는 것 (= 그가 반응하고 + 내가 가진 것)
 function asksAvail(npc) { return D.asksOf(npc).filter(a => hasKw(a.kw)); }
-// 호감도가 모자라 아직 못 여는 대답인가.
+// 아직 못 여는 대답인가 — **모자란 것이 무엇인지까지** 돌려준다.
 //
-// **호감도가 이야기를 민다** — 물약을 만들어 주고 → 가까워지고 → 그제야 하는 말이 있다.
+// 문이 둘이다:
+//  · **호감도**(`need.bond`) — 물약을 만들어 주고 → 가까워지고 → 그제야 하는 말이 있다
+//  · **퀘스트**(`need.quest`) — 1막 사슬의 «속도»를 잡는다 (data.js 의 ASKS 머리말)
+//
 // ⚠️ **잠긴 것도 «보여 준다».** 아예 감추면 무엇을 하면 되는지 알 수가 없다
-// (「길 잃음 방지가 제일 중요하다」 — STORY.md). 대신 무엇이 모자란지 적는다
-function askLocked(a) { return bondTier(a.npc) < D.askNeedBond(a); }
+// (「길 잃음 방지가 제일 중요하다」 — STORY.md). 대신 무엇이 모자란지 적는다.
+// ⚠️ **모자란 이유를 «여기 한 곳»에서 낸다** — `doAsk` 가 갈래마다 다시 판정하면
+// 화면이 여는 시트와 토스트가 갈린다 (경로를 두 벌로 두지 않는다).
+// ⚠️ **이미 물어본 것은 안 잠근다** — 어제 들은 말이 오늘 자물쇠가 되면 그건 뺏는 것이다
+function askNeed(a) {
+  if (askedAlready(a.npc, a.kw)) return null;
+  const q = D.askNeedQuest(a);
+  if (q && !questCleared(q)) return { kind: 'quest', id: q };
+  const b = D.askNeedBond(a);
+  if (bondTier(a.npc) < b) return { kind: 'bond', tier: b };
+  return null;
+}
+function askLocked(a) { return !!askNeed(a); }
 // 아직 한 번도 안 물어본 것의 수 — 마을 탭·건물의 점(●)이 이 수를 본다.
 // ⚠️ **잠긴 것은 안 센다.** 점을 보고 갔는데 못 여는 것뿐이면 그 점이 거짓말이 된다
 function asksNew(npc) {
@@ -1622,11 +1636,17 @@ function askRowHtml(npc) {
   if (!list.length) return `<div class="ask-box"><div class="ask-none">${T('ask_none')}</div></div>`;
   const chips = list.map(a => {
     const k = D.keyword(a.kw);
-    const lock = askLocked(a);
+    // ⚠️ **모자란 것이 무엇이냐에 따라 안내가 다르다** — 호감도 문과 퀘스트 문이다.
+    // `D.askNeedBond(a)` 를 그냥 읽으면 **퀘스트로 잠긴 칩이 「'모르는 사이' 단계가
+    // 되면」**이라고 말한다 (0번 단계라서다) — 아무리 친해져도 안 풀리는데 그렇게 적힌다
+    const need = askNeed(a);
+    const lock = !!need;
     const fresh = !lock && !askedAlready(npc, a.kw);
-    const tn = lock ? D.BOND_TIERS[D.askNeedBond(a)] : null;
+    const tip = !need ? '' : need.kind === 'quest'
+      ? T('ask_locked_q', { name: T(need.id + '_name') })
+      : T('ask_locked', { tier: N(D.BOND_TIERS[need.tier].id, D.BOND_TIERS[need.tier].name) });
     return `<button class="ask-chip ${fresh ? 'fresh' : ''} ${lock ? 'locked' : ''}"
-      data-ask="${a.kw}"${lock ? ` title="${T('ask_locked', { tier: N(tn.id, tn.name) })}"` : ''}
+      data-ask="${a.kw}"${lock ? ` title="${escHtml(tip)}"` : ''}
       onclick="doAsk('${npc}','${a.kw}')">${lock ? '🔒 ' : (fresh ? '🆕 ' : '')}${
       N(a.kw, k ? k.name : a.kw)}${
       fresh ? '<span class="tab-dot ask-dot" aria-hidden="true"></span>' : ''}</button>`;
@@ -1652,16 +1672,29 @@ function doAsk(npc, kw) {
   // 그래서 **그 사람의 선물 시트를 바로 연다.** 새 화면을 만들지 않아도 되는 이유는
   // 그 시트에 이미 다 적혀 있기 때문이다 — ♥ 진행 · **다음 단계까지 남은 점수** ·
   // 좋아하는 등급 · 줄 수 있는 물약이 오를 점수 순으로.
-  if (askLocked(a)) {
-    const who = speakerName(npc);
-    const tn = D.BOND_TIERS[D.askNeedBond(a)];
-    const opened = hasBond(npc);
-    if (opened) openGift(npc);
-    // ⚠️ **토스트에 앵커를 안 준다.** 누른 칩은 이제 시트에 덮여 있어서, 거기 붙이면
-    // **안 보이는 것을 가리킨다** (토스트의 z-index 는 시트보다 위라 글자는 보인다).
-    // 기본 자리에 뜨면 방금 열린 시트의 «머리말»처럼 읽힌다
-    toast(T('ask_locked_toast', { who, nj: josa(who, '은는'), tier: N(tn.id, tn.name) }), null, 3400);
-    // 시트가 열렸으면 `openGift` 가 이미 소리를 냈다 — 두 번 겹쳐 내지 않는다
+  const need = askNeed(a);
+  if (need) {
+    // ⚠️ **모자란 것이 무엇이냐에 따라 «데려가는 곳»이 다르다.** 둘 다 「그래서 뭘 하면
+    // 되는데」에 답하는 자리로 보낸다 — 호감도면 **선물 시트**, 퀘스트면 **퀘스트 시트**다
+    let opened = false;
+    if (need.kind === 'quest') {
+      // 지금 하는 퀘스트를 보여 준다. ⚠️ **막는 그 퀘스트가 아직 안 나왔을 수도 있지만**
+      // 표 순서대로 가면 반드시 거기 닿으므로, 지금 할 일을 보여 주는 것이 답이다
+      opened = !!activeQuest();
+      if (opened) openQuest();
+      const qn = T(need.id + '_name');
+      toast(T('ask_locked_quest', { name: qn, nj: josa(qn, '을를') }), null, 3400);
+    } else {
+      const who = speakerName(npc);
+      const tn = D.BOND_TIERS[need.tier];
+      opened = hasBond(npc);
+      if (opened) openGift(npc);
+      // ⚠️ **토스트에 앵커를 안 준다.** 누른 칩은 이제 시트에 덮여 있어서, 거기 붙이면
+      // **안 보이는 것을 가리킨다** (토스트의 z-index 는 시트보다 위라 글자는 보인다).
+      // 기본 자리에 뜨면 방금 열린 시트의 «머리말»처럼 읽힌다
+      toast(T('ask_locked_toast', { who, nj: josa(who, '은는'), tier: N(tn.id, tn.name) }), null, 3400);
+    }
+    // 시트가 열렸으면 그쪽이 이미 소리를 냈다 — 두 번 겹쳐 내지 않는다
     if (!opened && window.Sfx) Sfx.play('fail');
     return;
   }

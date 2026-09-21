@@ -110,7 +110,9 @@ function ok(cond, msg, extra) {
   // 실제 경로 그대로 — **오릭스와 그만큼 친해진 뒤 「사과」를 물어** 「유리관」을 얻는다
   // 「사과」까지 오는 길(노래 → 사과)은 `checkask` 가 이미 걷는다. 여기서는 거기까지를
   // 손에 쥐여 주되, **그 뒤부터는 전부 진짜로 물어본다.**
-  // 「아름다움」은 부엌에서 나온다 — 3막에서 여왕에게 가져갈 것이라 여기서 받아 둔다
+  // ⚠️ **「아름다움」은 굴뚝의 오릭스가 준다** (클레멘의 첫 줄은 «마을만» 연다).
+  // 3막에서 여왕에게 가져갈 것이라 여기서 받아 둔다 — 그 줄은 `q_walk` 문이 걸려 있는데
+  // 여기서는 1막을 통째로 끝낸 자리라 이미 열려 있다
   await page.evaluate(() => {
     // ⚠️ **단계를 박지 않고 표에서 읽는다** — 문턱을 옮기면 여기가 조용히 어긋난다
     S.bond.sp_orix = D.BOND_TIERS[D.askNeedBond(
@@ -118,9 +120,9 @@ function ok(cond, msg, extra) {
     S.keywords.push('kw_apple');
     render();
   });
-  await ask('sp_clemen', 'kw_hunger');
+  await ask('sp_orix', 'kw_hunger');
   ok(await page.evaluate(() => S.keywords.includes('kw_beauty')),
-    '부엌에서 「아름다움」을 얻는다');
+    '오릭스에게 「허기」를 물어 「아름다움」을 얻는다');
   await ask('sp_orix', 'kw_apple');
   ok(await page.evaluate(() => S.keywords.includes('kw_glass')),
     '오릭스에게 「사과」를 물어 「유리관」을 얻는다');

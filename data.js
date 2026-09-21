@@ -1935,15 +1935,39 @@ function keyword(id) { return KEYWORDS.find(x => x.id === id) || null; }
 // 키워드 · 죽은 키워드 · 순환 · **막다른 진행**(가진 것으로 아무 마을도 못 여는 상태)을
 // 본다. 진행이 막히는 버그는 화면에 아무 오류도 안 띄우고, 플레이어는 그냥 그만둔다.
 //
+// ⚠️⚠️ **1막의 사슬은 퀘스트가 «속도»를 잡는다** (`need: { quest }`).
+//
+// 예전에는 1막 열셋이 **문이 하나도 없어서**, 묻는 데 AP 도 시간도 안 드는 것과 겹쳐
+// **튜토리얼을 마친 사람이 한자리에 앉아 1막 이야기를 통째로** 걸어갈 수 있었다.
+// 퀘스트 쪽은 매력 0 → 50 을 타느라 열흘쯤 걸리므로 **이야기가 먼저 끝나고 점수만
+// 남는 구간**이 생겼다 (「키워드가 너무 빠르다」로 신고받았다).
+//
+// 지금은 **퀘스트 하나에 문 하나**다 — `q_walk` · `q_kitchen` · `q_bring` · `q_egg` ·
+// `q_soup` · `q_sip` · `q_bloom` 일곱.
+//
+// ⚠️ **막는 것은 «구간의 머리» 한 줄뿐이다.** 뒤따르는 줄들은 그 머리가 주는 키워드를
+// 이미 요구하므로 **저절로 같이 기다린다** — 「카이로스 + 독사과 → 사과밭」에 또 걸면
+// 같은 것을 두 번 잠그는 것이다. 일곱 줄로 열셋이 다 밀린다.
+// ⚠️ **앞뒤 양 끝은 안 잠근다** — 첫 줄(클레멘 + 허기)은 튜토리얼 직후의 유일한 길이고,
+// 마지막 둘(슈타르크 + 여왕 · 오릭스 + 왕자)은 이미 **매력 60**(`q_bloom`)이 문이라
+// 충분히 느리다. 거기에 또 걸면 잠금이 잠금을 덮는다.
+// ⚠️ **2막의 문(`need.bond`)에는 퀘스트를 «또» 걸지 않는다** — 두 번 잠그는 것이고,
+// `checkbalance` 의 「2막 문이 기초 등급 안에서 열리는가」가 조용히 어긋난다.
+// ⚠️ **`quest.done` 은 되돌아가지 않는다** — 그래서 열렸던 대답이 다시 안 닫힌다
+// (`need.kw`·`need.village` 와 같은 이유로 고른 값이다).
+//
 // 한 사람이 동시에 반응하는 키워드는 **3~6개**로 유지한다 (checktalk 이 센다).
 // 2막에서 다섯이 여섯이 됐다 — 막이 하나 늘 때마다 한 칸씩 늘릴 수는 없으니,
 // 3막의 것은 **새 사람**(이그리트)이 받아야 한다.
 // 전부 늘어놓으면 나중에 백 개가 되고, 반응 없는 걸 골라 헛걸음하는 재미는
 // 코지 게임에 안 맞는다.
 const ASKS = [
-  // 🍳 클레멘 — **부엌은 늘 닿는다.** 마을이 전부 잠겨 있어도 여기서 이야기가 시작된다
+  // 🍳 클레멘 — **부엌은 늘 닿는다.** 마을이 전부 잠겨 있어도 여기서 이야기가 시작된다.
+  // ⚠️ **이 줄은 «마을만» 연다.** 예전에는 키워드(아름다움)까지 같이 줬는데, 그러면
+  // 「한 줄이 둘 다 열면 나머지 한 사람에게 물을 이유가 사라진다」(2막에서 정한 규칙)가
+  // 1막의 첫 줄에서 깨진다. 아름다움은 굴뚝 마을의 오릭스가 받는다 (바로 아래)
   { npc: 'sp_clemen', kw: 'kw_hunger', line: 'ak_clemen_hunger', mood: 'def',
-    gives: ['kw_beauty'], opens: ['vl_chimney'],
+    opens: ['vl_chimney'],
     more: [['sp_gwiriel', 'ohh'], ['sp_clemen', 'warm']] },
   { npc: 'sp_clemen', kw: 'kw_beauty', line: 'ak_clemen_beauty', mood: 'smile',
     more: [['sp_gwiriel', 'doubt'], ['sp_clemen', 'smile']] },
@@ -1951,18 +1975,28 @@ const ASKS = [
     more: [['sp_gwiriel', 'curious'], ['sp_clemen', 'flat']] },
   { npc: 'sp_clemen', kw: 'kw_mother', line: 'ak_clemen_mother', mood: 'smile',
     more: [['sp_gwiriel', 'ohh'], ['sp_clemen', 'warm']] },
-  // ⛏️ 오릭스 — **키워드를 가장 많이 주는 사람** (STORY.md). 말 많은 인물이 하나 필요하다
+  // ⛏️ 오릭스 — **키워드를 가장 많이 주는 사람** (STORY.md). 말 많은 인물이 하나 필요하다.
+  // ⚠️ **「아름다움」이 여기서 나온다** — 클레멘에게서 옮겨 온 자리다. 정신적 허기를
+  // 「다들 예뻐지면 해결된다던데」로 받아 넘기는 세속적인 대꾸가 이 인물의 것이고,
+  // 그 한 줄이 이야기를 «마을 밖에서 마을 안으로» 데려온다
+  { npc: 'sp_orix', kw: 'kw_hunger', line: 'ak_orix_hunger', mood: 'wink', gives: ['kw_beauty'],
+    need: { quest: 'q_walk' },
+    more: [['sp_gwiriel', 'doubt'], ['sp_orix', 'smirk']] },
   { npc: 'sp_orix', kw: 'kw_beauty', line: 'ak_orix_beauty', mood: 'wink', gives: ['kw_gem'],
+    need: { quest: 'q_kitchen' },
     more: [['sp_gwiriel', 'laugh'], ['sp_orix', 'warm']] },
   { npc: 'sp_orix', kw: 'kw_gem', line: 'ak_orix_gem', mood: 'def', gives: ['kw_queen'],
+    need: { quest: 'q_bring' },
     more: [['sp_gwiriel', 'curious'], ['sp_orix', 'doubt']] },
   { npc: 'sp_orix', kw: 'kw_queen', line: 'ak_orix_queen', mood: 'def', gives: ['kw_song'],
+    need: { quest: 'q_egg' },
     more: [['sp_gwiriel', 'worry'], ['sp_orix', 'smirk']] },
   // 가시울타리 문을 단 것이 그다 — **여는 법도 아는 사람**이라 이 자리가 자연스럽다
   { npc: 'sp_orix', kw: 'kw_prince', line: 'ak_orix_prince', mood: 'wink', opens: ['vl_thorn'],
     more: [['sp_gwiriel', 'doubt'], ['sp_orix', 'proud']] },
   // 🎻 카이로스 — 떠돌이라 거처가 없다. 오늘은 일곱 굴뚝의 여관에 있다
   { npc: 'sp_kairos', kw: 'kw_song', line: 'ak_kairos_song', mood: 'sing', gives: ['kw_apple'],
+    need: { quest: 'q_soup' },
     more: [['sp_gwiriel', 'curious'], ['sp_kairos', 'sad']] },
   { npc: 'sp_kairos', kw: 'kw_beauty', line: 'ak_kairos_beauty', mood: 'sing',
     more: [['sp_gwiriel', 'think'], ['sp_kairos', 'sing']] },
@@ -1974,6 +2008,7 @@ const ASKS = [
   // 🌱 실반 — 과수원을 빼앗긴 사람. **개념 키워드에는 답하지 않는다**
   // (「아름다움」에 답하는 것은 남자 NPC 여섯이고 그는 그 여섯이 아니다 — STORY.md)
   { npc: 'sp_sylvan', kw: 'kw_apple', line: 'ak_sylvan_apple', mood: 'def', gives: ['kw_curse'],
+    need: { quest: 'q_sip' },
     more: [['sp_gwiriel', 'sorry'], ['sp_sylvan', 'flat']] },
   { npc: 'sp_sylvan', kw: 'kw_curse', line: 'ak_sylvan_curse', mood: 'def', opens: ['vl_mirror'],
     more: [['sp_gwiriel', 'curious'], ['sp_sylvan', 'doubt']] },
@@ -1988,6 +2023,7 @@ const ASKS = [
   // ⚠️ **그는 거짓말을 못 한다.** 여왕이 무엇을 묻는지 «사실대로» 옮길 뿐인데,
   // 그 사실이 곧 암살 의뢰의 냄새다 — 「암시만 한다」(STORY.md)가 이 줄이다
   { npc: 'sp_yutark', kw: 'kw_queen', line: 'ak_yutark_queen', mood: 'def', gives: ['kw_order'],
+    need: { quest: 'q_bloom' },
     more: [['sp_gwiriel', 'curious'], ['sp_yutark', 'flat']] },
   { npc: 'sp_yutark', kw: 'kw_mother', line: 'ak_yutark_mother', mood: 'true',
     more: [['sp_gwiriel', 'soft'], ['sp_yutark', 'warm']] },
@@ -2128,6 +2164,8 @@ const ASKS = [
 function asksOf(npc) { return ASKS.filter(a => a.npc === npc); }
 // 그 대답에 필요한 호감도 단계 (없으면 0)
 function askNeedBond(a) { return (a.need && a.need.bond) || 0; }
+// 그 대답을 열어 주는 퀘스트 id (없으면 null) — 1막의 속도를 잡는 문이다
+function askNeedQuest(a) { return (a.need && a.need.quest) || null; }
 
 // ═══════════════════════════════════════════════════════════════
 //  호감도 — 공주가 «주는» 쪽에서 오른다 (STORY.md 「남자 NPC 여섯 › 공통 규칙」)
@@ -2973,7 +3011,7 @@ for (const r of RECIPES) RECIPE_MAP[recipeKey(r.inputs)] = r.result;
 window.GameData = {
   INGREDIENTS, ZONES, MAPS, zoneUnlock, zoneAp, CAULDRONS, RECIPES, RECIPE_MAP, CRYSTAL, SHOP, TIERS,
   VILLAGES, VILLAGE_SHOWN, villagesShown, SPEAKERS, speaker, TALKS, BASE_MOODS, moodsOf,
-  KEYWORDS, keyword, ASKS, asksOf, askNeedBond, LORE, ingRarity, hideableOf, hiddenOf,
+  KEYWORDS, keyword, ASKS, asksOf, askNeedBond, askNeedQuest, LORE, ingRarity, hideableOf, hiddenOf,
   BOND_TIERS, bondTierOf, BOND_GAIN, BONDS, BOND_GIFTS, bondNpcs, BOND_GIVES, bondGiver, bondTalk,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,

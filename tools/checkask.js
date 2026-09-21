@@ -158,8 +158,12 @@ function ok(cond, msg, extra) {
   let said = scene[1].text;
   ok(said.includes('일곱 굴뚝'), '클레멘이 그 자리에서 답한다', said.slice(0, 24));
   st = await page.evaluate(() => ({ kw: S.keywords.slice(), vl: S.villages.slice() }));
-  ok(st.kw.includes('kw_beauty'), '「아름다움」을 얻는다');
   ok(st.vl.includes('vl_chimney'), '일곱 굴뚝이 열린다');
+  // ⚠️ **한 줄이 「키워드 + 마을」을 같이 주지 않는다** (2막에서 정한 규칙을 1막에도).
+  // 예전에는 이 줄이 「아름다움」까지 같이 줘서 **첫 줄 하나로 이야기가 두 칸 갔다** —
+  // 아름다움은 굴뚝에 가서 오릭스에게 받는다
+  ok(st.kw.length === 1 && !st.kw.includes('kw_beauty'),
+     '그 줄은 «마을만» 연다 — 키워드는 안 늘어난다', st.kw.join(','));
   // 마을이 열리면 안내는 **마을 탭의 점**이 맡는다 → 부엌 점은 「오늘 밥」만 뜻한다.
   // ⚠️ **여기서 `render()` 를 부르지 않는다.** `doAsk` 가 스스로 뱃지를 다시 그리는지를
   // 보는 자리라, 먼저 그려 주면 안 그려도 통과한다 (실제로 켜진 채 남아 있었다)
@@ -171,23 +175,8 @@ function ok(cond, msg, extra) {
   ok(!(await kdot()), '밥을 먹으면 꺼진다');
 
   chips = await page.$$eval('#kitchenSheet .ask-chip', els => els.map(e => e.textContent.trim()));
-  ok(chips.length === 2, '칩이 둘로 는다', chips.join(' / '));
+  ok(chips.length === 1, '부엌 칩은 그대로 하나다 (아름다움은 굴뚝에서 받는다)', chips.join(' / '));
   ok(!chips.find(c => c.includes('허기')).includes('🆕'), '물어본 것은 🆕 가 사라진다 (칩은 남는다)');
-
-  // **칩 우상단의 레드닷** — 마을 탭·건물·부엌 버튼의 점과 같은 뜻이다.
-  // ⚠️ **양쪽을 몇 개 쟀는지도 같이 낸다.** 한쪽이 0이면 그 방향은 아예 안 잰 것이라
-  // 「0건」이 통과가 아니라 「재 본 적 없다」가 된다 (checkavatar 의 발등·부츠와 같은 규칙)
-  const chipDots = await page.$$eval('#kitchenSheet .ask-chip', els => els.map(e => ({
-    fresh: e.classList.contains('fresh'),
-    dot: !!e.querySelector('.ask-dot'),
-    // 절대 배치라도 **가로로 삐져나오면** 칩이 줄 끝에 설 때 넘친다 (`__cardFits` 가 잡는다)
-    over: e.scrollWidth - e.clientWidth,
-  })));
-  const chipFreshN = chipDots.filter(d => d.fresh).length, chipOldN = chipDots.length - chipFreshN;
-  ok(chipFreshN > 0 && chipOldN > 0, '새 칩과 이미 물어본 칩을 «둘 다» 쟀다', `새 ${chipFreshN} · 물어본 것 ${chipOldN}`);
-  ok(chipDots.filter(d => d.fresh).every(d => d.dot), '아직 안 물어본 칩에는 우상단에 점이 붙는다');
-  ok(chipDots.filter(d => !d.fresh).every(d => !d.dot), '이미 물어본 칩에는 점이 없다');
-  ok(chipDots.every(d => d.over <= 1), '점이 칩 밖으로 삐져나오지 않는다', `최대 ${Math.max(...chipDots.map(d => d.over))}px`);
 
   // **다시 물어도 되지만 주는 것은 한 번뿐이다**
   const before = await page.evaluate(() => S.keywords.length);
@@ -197,6 +186,75 @@ function ok(cond, msg, extra) {
   ok(await page.evaluate(() => S.keywords.length) === before, '다시 물어도 키워드가 두 번 안 들어온다');
 
   await page.evaluate(() => closeKitchen());
+
+  // ── 1막 사슬의 «속도 문» — 그 퀘스트를 끝내야 열린다 (`need.quest` · data.js 의 ASKS 머리말)
+  //
+  // ⚠️⚠️ **끝낸 것으로 심기 «전»에 잠겨 있는지 먼저 본다.** 그냥 심고 지나가면
+  // **문을 아무 데나 옮겨도 통과한다** — 호감도 문턱을 「3」으로 박아 두었다가 겪은
+  // 그 사고와 같은 종류다. 지금은 ① 그 앞에서는 잠겨 있고 ② 그 퀘스트를 끝내면
+  // 풀리는지를 **문 일곱에서 전부** 본다.
+  // ⚠️ 퀘스트는 «끝낸 것으로 심는다» — 여기서 볼 것은 퀘스트 진행이 아니라 **문**이다
+  // (퀘스트를 진짜로 걷는 것은 `checkstory`·`checkbond` 의 몫이다)
+  let gateN = 0;
+  const chipLocked = (kwName) => page.$$eval('#villageBody .ask-chip',
+    (els, n) => { const e = els.find(x => x.textContent.includes(n)); return e ? e.classList.contains('locked') : null; }, kwName);
+  async function openGate(village, spot, kwName, quest) {
+    await page.evaluate(([v, s]) => { switchTab('gather'); setGatherTab('village'); setVillage(v); tapVillageSpot(v, s); },
+      [village, spot]);
+    await page.waitForSelector('#villageBody .ask-chip', { timeout: 2000 }).catch(() => {});
+    const before = await chipLocked(kwName);
+    ok(before === true, `「${kwName}」은 ${quest} 전에는 잠겨 있다`,
+       before === null ? '칩이 아예 없다' : '');
+    // ⚠️ **첫 문에서는 «눌러 본다».** 막기만 하면 버그로 읽히므로 `doAsk` 는
+    // ① 키워드를 안 주고 ② **무엇을 하면 되는지** 말해 주고 ③ **퀘스트 시트로 데려간다**.
+    // 잠금/해제만 재면 그 갈래는 한 줄도 안 도는데 화면은 멀쩡해 보인다
+    if (!gateN) {
+      await flushToasts();
+      const kwBefore = await page.evaluate(() => S.keywords.length);
+      await page.$$eval('#villageBody .ask-chip',
+        (els, n) => els.find(x => x.textContent.includes(n)).click(), kwName);
+      await page.waitForTimeout(160);
+      const r = await page.evaluate(() => ({
+        kw: S.keywords.length,
+        sheet: !!document.querySelector('#questSheet.show'),
+        cut: !document.getElementById('cutScene').hidden,
+        tst: (document.getElementById('toast') || {}).textContent || '',
+      }));
+      ok(r.kw === kwBefore, '퀘스트로 잠긴 칩은 눌러도 키워드가 안 들어온다', `${kwBefore} → ${r.kw}`);
+      ok(r.tst.includes(await page.evaluate(q => T(q + '_name'), quest)),
+         '왜 안 되는지 말해 준다 — «어느 퀘스트»인지까지', r.tst.slice(0, 40));
+      // 퀘스트 시트로 데려간다. ⚠️ 아직 안 본 인트로 컷씬이 있으면 그쪽이 먼저 뜬다 —
+      // 둘 다 「그래서 뭘 하면 되는데」에 답하는 자리라 어느 쪽이든 맞다
+      ok(r.sheet || r.cut, '퀘스트 시트(또는 그 컷씬)로 데려간다', `시트 ${r.sheet} · 컷씬 ${r.cut}`);
+      await page.evaluate(() => {
+        while (!document.getElementById('cutScene').hidden) cutNext();
+        if (typeof closeQuest === 'function') closeQuest();
+      });
+      await page.waitForTimeout(120);
+      await page.evaluate(([v, s2]) => { switchTab('gather'); setGatherTab('village'); setVillage(v); tapVillageSpot(v, s2); },
+        [village, spot]);
+      await page.waitForSelector('#villageBody .ask-chip', { timeout: 2000 }).catch(() => {});
+    }
+    await page.evaluate((q) => { questState().done.push(q); render(); }, quest);
+    const after = await chipLocked(kwName);
+    ok(after === false, `${quest} 를 끝내면 그 자리에서 풀린다`,
+       after === null ? '칩이 사라졌다' : '');
+    gateN++;
+  }
+
+  // **예약된 토스트를 다 흘려보낸다** — `doAsk` 는 새 키워드·새 마을 알림을
+  // `setTimeout(…, 900 + i*700)` 으로 미뤄 두므로, 그냥 읽으면 **몇 단계 전의 말**을
+  // 지금 누른 칩의 대답으로 착각한다 (실제로 그렇게 통과하고 있었다).
+  // 토스트는 3초를 머무르고 사이 간격은 0.7초라, **1.2초 동안 한 번도 안 떴으면** 다 흘러간 것이다.
+  // ⚠️ **한 곳에 둔다** — 두 벌로 두면 한쪽만 고쳐서 어긋난다
+  async function flushToasts() {
+    for (let t = 0, quiet = 0; t < 100; t++) {
+      quiet = (await page.evaluate(() => document.getElementById('toast').classList.contains('show'))) ? 0 : quiet + 1;
+      if (quiet >= 10) return true;
+      await page.waitForTimeout(120);
+    }
+    return false;
+  }
 
   // ── 마을 안에서 사슬을 끝까지
   async function askIn(village, spot, kwName) {
@@ -222,10 +280,39 @@ function ok(cond, msg, extra) {
   // 마을에서 돈 장면들의 «모양» — 아래에서 한꺼번에 본다
   const askShape = [];
 
-  let line = await askIn('vl_chimney', 'vs_chimney_forge', '아름다움');
+  // ⚠️ **「아름다움」은 이제 오릭스가 준다** — 클레멘의 첫 줄은 «마을만» 연다.
+  // 굴뚝에 처음 들어서면 물을 수 있는 것은 「정신적 허기」 하나이고 그것도 잠겨 있다
+  await openGate('vl_chimney', 'vs_chimney_forge', '허기', 'q_walk');
+  let line = await askIn('vl_chimney', 'vs_chimney_forge', '허기');
+  ok(line && line.includes('아름다움'), '오릭스가 「아름다움」을 넘겨 준다', (line || '').slice(0, 24));
+  ok(await page.evaluate(() => S.keywords.includes('kw_beauty')), '「아름다움」을 얻는다');
+
+  await openGate('vl_chimney', 'vs_chimney_forge', '아름다움', 'q_kitchen');
+
+  // **칩 우상단의 레드닷** — 마을 탭·건물·부엌 버튼의 점과 같은 뜻이다.
+  // ⚠️ **여기서 잰다** — 지금 오릭스에게 「허기」(이미 물어본 것)와 「아름다움」(새 것)이
+  // 나란히 서 있다. 부엌에서 재던 자리인데, 첫 줄이 키워드를 안 주게 되면서 거기는
+  // **칩이 하나뿐이라 «새 칩» 쪽을 한 번도 안 재는 자리**가 됐다.
+  // ⚠️ **양쪽을 몇 개 쟀는지도 같이 낸다.** 한쪽이 0이면 그 방향은 아예 안 잰 것이라
+  // 「0건」이 통과가 아니라 「재 본 적 없다」가 된다 (checkavatar 의 발등·부츠와 같은 규칙)
+  const chipDots = await page.$$eval('#villageBody .ask-chip', els => els.map(e => ({
+    fresh: e.classList.contains('fresh'),
+    dot: !!e.querySelector('.ask-dot'),
+    // 절대 배치라도 **가로로 삐져나오면** 칩이 줄 끝에 설 때 넘친다 (`__cardFits` 가 잡는다)
+    over: e.scrollWidth - e.clientWidth,
+  })));
+  const chipFreshN = chipDots.filter(d => d.fresh).length, chipOldN = chipDots.length - chipFreshN;
+  ok(chipFreshN > 0 && chipOldN > 0, '새 칩과 이미 물어본 칩을 «둘 다» 쟀다', `새 ${chipFreshN} · 물어본 것 ${chipOldN}`);
+  ok(chipDots.filter(d => d.fresh).every(d => d.dot), '아직 안 물어본 칩에는 우상단에 점이 붙는다');
+  ok(chipDots.filter(d => !d.fresh).every(d => !d.dot), '이미 물어본 칩에는 점이 없다');
+  ok(chipDots.every(d => d.over <= 1), '점이 칩 밖으로 삐져나오지 않는다', `최대 ${Math.max(...chipDots.map(d => d.over))}px`);
+
+  line = await askIn('vl_chimney', 'vs_chimney_forge', '아름다움');
   ok(line && line.includes('깎인'), '오릭스가 장면에서 답한다', (line || '').slice(0, 20));
   ok(await page.evaluate(() => S.keywords.includes('kw_gem')), '「광석」을 얻는다');
+  await openGate('vl_chimney', 'vs_chimney_forge', '광석', 'q_bring');
   await askIn('vl_chimney', 'vs_chimney_forge', '광석');
+  await openGate('vl_chimney', 'vs_chimney_forge', '여왕', 'q_egg');
   await askIn('vl_chimney', 'vs_chimney_forge', '여왕');
   ok(await page.evaluate(() => S.keywords.includes('kw_song')), '「노래」까지 이어진다');
 
@@ -236,10 +323,12 @@ function ok(cond, msg, extra) {
     els => els.filter(e => e.querySelector('.tab-dot')).map(e => e.dataset.vspot));
   ok(pinDot.includes('vs_chimney_inn'), '새로 물어볼 것이 있는 건물에 점이 뜬다', pinDot.join(','));
 
+  await openGate('vl_chimney', 'vs_chimney_inn', '노래', 'q_soup');
   await askIn('vl_chimney', 'vs_chimney_inn', '노래');
   await askIn('vl_chimney', 'vs_chimney_inn', '독사과');
   ok(await page.evaluate(() => S.villages.includes('vl_apple')), '붉은 사과밭이 열린다');
 
+  await openGate('vl_apple', 'vs_apple_empty', '독사과', 'q_sip');
   await askIn('vl_apple', 'vs_apple_empty', '독사과');
   await askIn('vl_apple', 'vs_apple_empty', '저주');
   ok(await page.evaluate(() => S.villages.includes('vl_mirror')), '거울 골짜기가 열린다');
@@ -248,6 +337,7 @@ function ok(cond, msg, extra) {
   ok(line && line.includes('모르겠'), '유타르크는 저주에 「모르겠다」고 한다', (line || '').slice(0, 20));
 
   // ── 여기서 사슬이 둘로 갈린다 — 사냥꾼 쉼터 · 가시덤불 마을
+  await openGate('vl_mirror', 'vs_mirror_pond', '여왕', 'q_bloom');
   await askIn('vl_mirror', 'vs_mirror_pond', '여왕');
   ok(await page.evaluate(() => S.keywords.includes('kw_order')), '「암살 의뢰」를 얻는다');
   await askIn('vl_chimney', 'vs_chimney_inn', '암살 의뢰');
@@ -292,14 +382,7 @@ function ok(cond, msg, extra) {
   // 것은 몇 단계 전의 「거울 골짜기로 가는 길이 열렸어요!」였다.
   // 옛 검사가 `tst.length > 0` 으로 통과하고 있던 이유가 그것이다 (아무 글자나 있으면 됐다).
   // 토스트는 3초를 머무르고 사이 간격은 0.7초라, **1.2초 동안 한 번도 안 떴으면** 다 흘러간 것이다
-  const drained = await (async () => {
-    for (let t = 0, quiet = 0; t < 100; t++) {
-      quiet = (await page.evaluate(() => document.getElementById('toast').classList.contains('show'))) ? 0 : quiet + 1;
-      if (quiet >= 10) return true;
-      await page.waitForTimeout(120);
-    }
-    return false;
-  })();
+  const drained = await flushToasts();
   ok(drained, '앞 단계의 예약 토스트가 다 흘러갔다 (안 그러면 남의 말을 읽는다)');
   // 자물쇠가 없으면 그 자리의 칩을 그냥 누른다 — 「막혔는가」는 그래도 재야 한다
   await page.$$eval('#villageBody .ask-chip',
@@ -436,7 +519,9 @@ function ok(cond, msg, extra) {
   // 열넷 중 열셋 — **못 얻는 것은 「엄마의 봉인」 하나뿐**이고, 그것이 맞는 상태다.
   // 카이로스·발렌의 호감도가 있어야 나오는데 여기서 올린 것은 오릭스 하나다.
   // 「불로장생」은 오릭스의 유리관 대답이, 「진짜 나」는 첨탑에서 여왕이 바로 준다
-  ok(st.kw === 13 && st.tk === 40, '키워드 13 · 물어본 것 40 이 남는다', `kw ${st.kw} · talked ${st.tk}${why}`);
+  // ⚠️ 물어본 것이 40 → **41** 이 된 것은 1막 사슬에 줄이 하나 늘었기 때문이다
+  // (「오릭스 + 정신적 허기 → 아름다움」 · 클레멘의 첫 줄에서 옮겨 온 마디)
+  ok(st.kw === 13 && st.tk === 41, '키워드 13 · 물어본 것 41 이 남는다', `kw ${st.kw} · talked ${st.tk}${why}`);
   ok(!st.sl, '호감도를 안 올린 사람의 말은 아직 안 들었다 (봉인)');
 
   // ── 마을에서 돈 장면들도 **대화**인가
@@ -448,6 +533,11 @@ function ok(cond, msg, extra) {
      `제일 짧은 것 ${Math.min(...askShape.map(s => s.length))}줄`);
   ok(askShape.every(s => new Set(s).size === 2), '마을에서도 두 사람이 번갈아 말한다',
      (askShape.find(s => new Set(s).size !== 2) || []).join(' → ') || '전부 둘');
+
+  // ⚠️ **문을 몇 개 쟀는지 표와 견준다** — 새 문을 붙이고 검사를 안 늘리면
+  // 「0건」이 통과가 아니라 「그 문은 한 번도 안 쟀다」가 된다 (이 저장소의 단골 구멍이다)
+  const gateTotal = await page.evaluate(() => D.ASKS.filter(a => D.askNeedQuest(a)).length);
+  ok(gateN === gateTotal, '퀘스트 문을 «다» 재 봤다', `${gateN} / ${gateTotal}`);
 
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));
 

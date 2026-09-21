@@ -1738,6 +1738,54 @@ function launchOpts() {
           else { await page.waitForTimeout(250); await run(`${t}/물어볼것`); }
           const askBad = await page.evaluate(() => window.__fits('#villageBody'));
           if (askBad) results.push({ 화면: `${t}/물어볼것`, 오류: askBad });
+
+          // **칩이 제일 많은 사람** — `checktalk` 의 `ASK_MAX` 가 막으려는 것이
+          // 「칩 줄이 화면을 먹는다」라, **글이 아니라 여기서 화면이 판정한다.**
+          // ⚠️ 누구인지 «표에서 읽는다» — 이름을 박아 두면 칸이 옮겨 다닐 때
+          // 엉뚱한 사람을 재고, 제일 빡빡한 줄은 한 번도 안 잰 것이 된다
+          // (지금은 오릭스 일곱 — 1막 사슬 넷 + 2막 둘 + 「정신적 허기」)
+          {
+            // ⚠️ **재고 나서 되돌린다.** 이 파일에서 «상태를 두고 나간» 사고를 다섯 번 냈다 —
+            // 여기서 퀘스트를 전부 `done` 으로 채우고 나갔더니 뒤의 「스토리열기」가
+            // **「퀘스트가 안 열렸다」**로 빨개졌다 (깰 것이 하나도 안 남아서다)
+            const keep = await page.evaluate(() => JSON.stringify({
+              kw: S.keywords, vl: S.villages, q: S.quest, bond: S.bond,
+            }));
+            const top = await page.evaluate(() => {
+              const n = {};
+              D.ASKS.forEach(a => { n[a.npc] = (n[a.npc] || 0) + 1; });
+              const npc = Object.keys(n).sort((a, b) => n[b] - n[a])[0];
+              let vi = null, sp = null;
+              D.VILLAGES.forEach(v => (v.spots || []).forEach(x => {
+                if (x.npc === npc) { vi = v.id; sp = x.id; }
+              }));
+              if (!vi) return { err: `${npc} 가 아무 건물에도 안 앉았다` };
+              // 칩이 «다» 서야 제일 빡빡한 줄이 된다 — 키워드·마을·퀘스트를 다 채운다
+              D.KEYWORDS.forEach(k => { if (!S.keywords.includes(k.id)) S.keywords.push(k.id); });
+              D.villagesShown().forEach(v => { if (!S.villages.includes(v.id)) S.villages.push(v.id); });
+              D.QUESTS.forEach(q => { if (!questState().done.includes(q.id)) questState().done.push(q.id); });
+              S.bond[npc] = 9999;
+              setGatherTab('village'); setVillage(vi); tapVillageSpot(vi, sp);
+              const got = document.querySelectorAll('#villageBody .ask-chip').length;
+              const want = D.asksOf(npc).length;
+              if (got !== want) return { err: `${npc} 의 칩이 ${got}개다 (${want} 기대)` };
+              return { npc, n: want };
+            });
+            if (top.err) results.push({ 화면: `${t}/물어볼것많은사람`, 오류: top.err });
+            else {
+              await page.waitForTimeout(250);
+              await run(`${t}/물어볼것많은사람`);
+              const b2 = await page.evaluate(() => window.__fits('#villageBody'));
+              if (b2) results.push({ 화면: `${t}/물어볼것많은사람`, 오류: b2 });
+              else console.log(`  물어볼것많은사람 — ${top.npc} · 칩 ${top.n}개`);
+            }
+            await page.evaluate((raw) => {
+              const k = JSON.parse(raw);
+              S.keywords = k.kw; S.villages = k.vl; S.quest = k.q; S.bond = k.bond;
+              leaveSpot(); render();
+            }, keep);
+            await page.waitForTimeout(120);
+          }
           // **키워드를 누르면 도는 «장면»** — 공주가 묻고(1줄) 그 사람이 답한다(2줄).
           //
           // ⚠️ **두 줄을 «다» 잰다.** 첫 줄만 재면 그 사람의 대답 — 길이가 제각각이고

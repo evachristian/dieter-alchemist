@@ -219,15 +219,36 @@ require('./checkname.js').scanStrings().forEach(m => bad.push(m));
 // 한 사람이 동시에 반응하는 키워드는 **3~6개**로 유지한다 (STORY.md 「화면」).
 // 넘으면 칩 줄이 화면을 먹고, 반응 없는 것을 골라 헛걸음하는 재미는 코지 게임에 안 맞는다.
 // ⚠️ 2막에서 다섯이 여섯이 됐다. **막마다 한 칸씩 늘릴 수는 없다** —
-// 3막의 것은 새 사람(이그리트)이 받아야 한다. 여기를 또 올리기 전에 그것부터 본다
-const ASK_MAX = 6;
+// 3막의 것은 새 사람(이그리트)이 받았다. 여기를 또 올리기 전에 그것부터 본다.
+//
+// ⚠️⚠️ **일곱이 된 것은 오릭스 하나뿐이고, 그것도 «마지막 수단»으로 올린 값이다.**
+// 1막의 속도 문(`need.quest`)을 붙이면서 「정신적 허기 → 아름다움」 한 줄이 늘었는데,
+// 오릭스는 이미 여섯이었다 (1막 사슬 넷 + 2막 둘 · 곁가지가 **하나도 없다**).
+// 대안을 다 그려 보고 고른 자리다 — 어느 쪽이든 손해가 더 컸다:
+//  · 「여왕 → 노래」를 카이로스에게 → 그 줄은 **「여관의 떠돌이가 노래로 만들어 뒀을걸」**
+//    이라 카이로스 자신이 하면 자기를 가리키는 말이 된다
+//  · 「독사과 → 유리관」(2막)을 빼기 → `kw_glass` 를 주는 줄이 하나로 줄어
+//    **2막의 문이 「아무하고나 친함」이 아니라 「슈타르크와 친함」이 된다** (`q_gift` 가 깨진다)
+//  · 「광석」 마디를 지우기 → 키워드 하나와 대사 한 벌이 통째로 죽는다
+// 규칙이 막으려던 것(칩 줄이 화면을 먹는다)은 **`checkui` 의 「물어볼것」이 265px 영어에서
+// 실제로 잰다** — 글이 아니라 화면이 판정한다. 다음 막에서 또 모자라면
+// **새 사람**이 받는다 (3막의 이그리트가 그 선례다).
+const ASK_MAX = 7;
+// ⚠️ **상한만 두면 일곱이 슬금슬금 는다.** 「일곱은 한 명뿐」을 따로 못 박는다 —
+// 그것이 곧 「예외는 한 줄로 «보인다»」(굽 표의 `HEEL` 과 같은 규칙)이다
+const ASK_SOFT = 6, ASK_OVER_MAX = 1;
 const byNpc = {};
 D.ASKS.forEach(a => { (byNpc[a.npc] = byNpc[a.npc] || []).push(a.kw); });
+const over = [];
 Object.entries(byNpc).forEach(([npc, list]) => {
   if (list.length > ASK_MAX) {
     bad.push(`ASKS ${npc}: 반응하는 키워드가 ${list.length}개다 (3~${ASK_MAX}개로 유지한다)`);
-  }
+  } else if (list.length > ASK_SOFT) over.push(`${npc}(${list.length})`);
 });
+if (over.length > ASK_OVER_MAX) {
+  bad.push(`ASKS ${ASK_SOFT}개를 넘는 사람이 ${over.length}명이다 — ${over.join(' · ')}`
+    + ` (${ASK_OVER_MAX}명까지다. 다음은 «새 사람»이 받는다)`);
+}
 
 // ── 걸어 본다 — 시작 키워드만 들고 어디까지 갈 수 있나
 //
@@ -265,6 +286,13 @@ for (let pass = 0; pass < D.ASKS.length + D.QUESTS.length + 2; pass++) {
     // 호감도 조건은 **언제나 채울 수 있는 것**으로 본다 — 물약을 만들어 주면 오르고,
     // 내려가지 않는다. 다만 **호감도가 없는 사람**에게 걸려 있으면 못 채운다
     if (D.askNeedBond(a) && !D.BONDS[a.npc]) return;
+    // ⚠️⚠️ **퀘스트 조건은 «깰 수 있어야» 채워진다** (1막의 속도 문 · `need.quest`).
+    // 여기가 이 검사의 새 급소다 — 퀘스트가 키워드를 기다리고 그 키워드를 주는 대답이
+    // 그 퀘스트를 기다리면 **둘이 서로를 기다리는 고리**가 되는데, 화면에는 오류 하나
+    // 안 뜨고 그냥 안 풀린다. 이 되풀이는 «움직이는 것이 없으면» 멎으므로,
+    // 고리에 걸린 줄은 끝까지 `reached` 에 안 들어와 아래에서 그대로 잡힌다
+    const nq = D.askNeedQuest(a);
+    if (nq && !claimed.has(nq)) return;
     reached.add(i); moved = true;
     (a.gives || []).forEach(k => have.add(k));
     (a.opens || []).forEach(v => openV.add(v));
@@ -285,7 +313,12 @@ if (!have.size) bad.push('시작할 키워드가 하나도 없다 — 아무에�
 D.ASKS.forEach((a, i) => {
   if (reached.has(i)) return;
   const vi = npcVillage[a.npc];
-  const why = (vi && !openV.has(vi)) ? `${vi} 를 열 수가 없다` : `«${a.kw}» 를 아무도 안 준다`;
+  // ⚠️ **이유를 갈라서 말한다.** 퀘스트 문에 걸린 것을 「키워드를 아무도 안 준다」로
+  // 적으면 **엉뚱한 곳을 고치게 된다** — 그 고리는 표의 다른 쪽에 있다
+  const nq = D.askNeedQuest(a);
+  const why = (vi && !openV.has(vi)) ? `${vi} 를 열 수가 없다`
+    : (nq && !claimed.has(nq)) ? `«${nq}» 를 깰 수가 없다 (퀘스트와 서로를 기다리는 고리인지 볼 것)`
+    : `«${a.kw}» 를 아무도 안 준다`;
   bad.push(`도달 불가능: ${a.npc} 에게 «${a.kw}» 를 물을 수가 없다 — ${why}`);
 });
 
@@ -354,7 +387,8 @@ cyc.forEach(c => bad.push(`순환: 마을이 서로를 연다 (${c}) — 둘 다
 
 console.log(`인물 ${D.SPEAKERS.length}명 · 대사 ${Object.keys(D.TALKS).length}묶음 · 앉은 자리 ${placed.size}곳`);
 console.log(`표정 ${global.__moodN}가지 (부품 ${global.__partN})`);
-console.log(`  그중 호감도가 있어야 열리는 대답 ${D.ASKS.filter(a => D.askNeedBond(a)).length}줄`);
+console.log(`  그중 호감도가 있어야 열리는 대답 ${D.ASKS.filter(a => D.askNeedBond(a)).length}줄`
+  + ` · 퀘스트가 열어 주는 대답 ${D.ASKS.filter(a => D.askNeedQuest(a)).length}줄`);
 // ⚠️ **첫걸음이 어디서 나왔는지를 같이 낸다** — 시작 목록이 비어 있는 것이 지금은
 // 정상(첫 키워드가 퀘스트 보상이다)이라, `시작 []` 만 찍으면 고장으로 읽힌다
 {
