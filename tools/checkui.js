@@ -1069,23 +1069,26 @@ function launchOpts() {
             refreshQuests(); render();
             if (!S.quest.active) return '퀘스트가 하나도 안 나왔다';
             // 같은 이유로 **장을 주는 퀘스트**를 골라 세운다 (첫 퀘스트가 아닐 수 있다)
-            const q = D.QUESTS.find(x => ((x.reward || {}).pages || []).length);
+            const q = D.QUESTS.find(x => (x.reward || {}).page);
             if (!q) return '장을 주는 퀘스트가 표에 하나도 없다';
             // ⚠️ **큐도 같이 비운다** — 그냥 active 만 갈아 끼우면 그 id 가 큐에 남아 있어서
             // 보상을 받은 «직후에 다시» 같은 퀘스트가 나온다 (「마쳤는데 아직 그 퀘스트다」)
             S.quest = { active: q.id, n: 0, done: [], queue: [] };
-            const want = (q.reward.pages || []).reduce((a, sp) => a.concat(D.pagesForSpec(sp)), []);
-            // 보상 줄에 장이 적히는가
+            const want = q.reward.page;
+            // 보상 줄에 장이 적히는가 — ⚠️ **숫자가 아니라 «이름»이다.**
+            // 「📖 비법서 6장」이던 것을 고친 자리라, 이름이 안 적히면 되돌아간 것이다
             S.quest.n = q.goal.n;
             openQuest();
             const line = document.querySelector('#questSheet .q-reward').textContent;
             if (line.indexOf('📖') < 0) return `보상 줄에 장이 안 적힌다 (${line.trim()})`;
+            const nm = pageName(want);
+            if (line.indexOf(nm) < 0) return `보상 줄에 장의 «이름»이 없다 (${line.trim()} · 「${nm}」 기대)`;
             const before = S.discovered.length;
             claimQuest();
-            const got = want.filter(id => hasPage(id)).length;
-            if (got !== want.length) return `장이 ${got}/${want.length} 만 들어왔다`;
-            if (S.discovered.length !== before + want.length) {
-              return `가진 장이 ${S.discovered.length - before} 늘었다 (${want.length} 기대)`;
+            if (!hasPage(want)) return `「${nm}」 장이 안 들어왔다`;
+            // ⚠️ **한 장이다.** 여러 장으로 되돌아가면 여기서 잡힌다
+            if (S.discovered.length !== before + 1) {
+              return `가진 장이 ${S.discovered.length - before} 늘었다 (1 기대)`;
             }
             // ⚠️ **이미 가진 장은 보상 줄에서 빠져야 한다.** 그물이 먼저 준 뒤에
             // 「📖 24장」이라고 적혀 있으면 거짓말이다
@@ -1104,7 +1107,7 @@ function launchOpts() {
           await page.evaluate(() => {
             closeQuest();
             S.quest = { active: null, n: 0, done: [], queue: [] };
-            S.charmPeak = 0; S.seenCuts = []; grantPages(true); render();
+            S.charmPeak = 0; S.seenCuts = []; grantStarterPages(); render();
           });
 
           // **스토리 다시보기** — 본 것만 나오고, 못 본 것은 개수만

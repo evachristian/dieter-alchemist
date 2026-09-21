@@ -1151,34 +1151,34 @@ const QUESTS = [
   // 아무에게도 물을 수가 없다. `checktalk` 이 표를 걸어 보고 잡는다
   { id: 'q_meet', npc: 'sp_althea', act: 1, at: 0,
     goal: { kind: 'kitchen', n: 1 },
-    reward: { kw: ['kw_hunger'], crystal: 30, items: { wheat: 4 } },
+    reward: { page: 'p_12', kw: ['kw_hunger'], crystal: 30, items: { wheat: 4 } },
     cut: { in: 'c_meet_in', out: 'c_meet_out' } },
   { id: 'q_first', npc: 'sp_althea', act: 1, at: 0,
     goal: { kind: 'brew', id: 'vitality', n: 2 },
-    reward: { pages: ['potion:low#0/4'], crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },
+    reward: { page: 'p_07', crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },
   { id: 'q_walk', npc: 'sp_althea', act: 1, at: 6,
     goal: { kind: 'visit', n: 8 },
-    reward: { pages: ['creature:basic#0/2'], crystal: 60 }, cut: { in: 'c_walk_in', out: 'c_walk_out' } },
+    reward: { page: 'dandelion_hare', crystal: 60 }, cut: { in: 'c_walk_in', out: 'c_walk_out' } },
   // 요리사 클레멘 (STORY.md 1순위). **부엌 자체는 퀘스트와 상관없이 열려 있다** —
   // 「혼자 먹은 밤」의 페널티를 피할 길을 선택 콘텐츠 뒤에 숨기면 안 된다
   { id: 'q_kitchen', npc: 'sp_clemen', act: 1, at: 10,
     goal: { kind: 'kitchen', n: 3 },
-    reward: { pages: ['potion:low#1/4'], crystal: 70, items: { wheat: 8 } }, cut: { in: 'c_kitchen_in', out: 'c_kitchen_out' } },
+    reward: { page: 'p_17', crystal: 70, items: { wheat: 8 } }, cut: { in: 'c_kitchen_in', out: 'c_kitchen_out' } },
   { id: 'q_bring', npc: 'sp_althea', act: 1, at: 14,
     goal: { kind: 'deliver', id: 'herb', n: 10 },
-    reward: { pages: ['potion:mid#0/4'], crystal: 80, items: { berry: 6 } }, cut: { in: 'c_bring_in', out: 'c_bring_out' } },
+    reward: { page: 'p_14', crystal: 80, items: { berry: 6 } }, cut: { in: 'c_bring_in', out: 'c_bring_out' } },
   { id: 'q_egg', npc: 'sp_althea', act: 1, at: 22,
     goal: { kind: 'creature', n: 1 },
-    reward: { pages: ['potion:mid#1/4'], crystal: 120 }, cut: { in: 'c_egg_in', out: 'c_egg_out' } },
+    reward: { page: 'sunbeam_hen', crystal: 120 }, cut: { in: 'c_egg_in', out: 'c_egg_out' } },
   { id: 'q_soup', npc: 'sp_clemen', act: 1, at: 26,
     goal: { kind: 'deliver', id: 'wheat', n: 12 },
-    reward: { pages: ['creature:basic#1/2'], crystal: 140, items: { herb: 10 } }, cut: { in: 'c_soup_in', out: 'c_soup_out' } },
+    reward: { page: 'p_08', crystal: 140, items: { herb: 10 } }, cut: { in: 'c_soup_in', out: 'c_soup_out' } },
   { id: 'q_sip', npc: 'sp_althea', act: 1, at: 32,
     goal: { kind: 'drink', n: 5 },
-    reward: { pages: ['creature:mid#0/2'], crystal: 150, items: { dew: 8 } }, cut: { in: 'c_sip_in', out: 'c_sip_out' } },
+    reward: { page: 'p_15', crystal: 150, items: { dew: 8 } }, cut: { in: 'c_sip_in', out: 'c_sip_out' } },
   { id: 'q_bloom', npc: 'sp_althea', act: 1, at: 45,
     goal: { kind: 'charm', n: 60 },
-    reward: { pages: ['potion:high#0/2', 'creature:high#0/2'], crystal: 200 }, cut: { in: 'c_bloom_in', out: 'c_bloom_out' } },
+    reward: { page: 'm_42', crystal: 200 }, cut: { in: 'c_bloom_in', out: 'c_bloom_out' } },
 
   // ⚠️ **1막과 2막 사이의 다리다.** `q_bloom`(매력 60)을 끝내도 `q_glass` 는 호감도
   // 「친함」이 있어야 열려서, 그 사이에 **퀘스트가 하나도 없는 구간**이 있었다
@@ -1194,7 +1194,7 @@ const QUESTS = [
   //   일을 그대로 건네는 자리다 — `q_soup`(성 사람들 몫)의 짝이 된다
   { id: 'q_gift', npc: 'sp_clemen', act: 1, at: 50,
     goal: { kind: 'bond', n: 2 },
-    reward: { pages: ['potion:mid#2/4'], crystal: 180, items: { honey: 8 } },
+    reward: { page: 'mystic', crystal: 180, items: { honey: 8 } },
     cut: { in: 'c_gift_in', out: 'c_gift_out' } },
 
   // ═══ 2막부터 — **여는 조건이 매력이 아니라 «이야기»다** ══════════
@@ -1217,17 +1217,17 @@ const QUESTS = [
   // ─ 2막 · 되찾기 — 「유리관」 한 줄에서 마을 둘이 갈린다 ─
   { id: 'q_glass', npc: 'sp_sylvan', act: 2, at: 60, need: { kw: 'kw_glass' },
     goal: { kind: 'village', id: 'vl_glass', n: 1 },
-    reward: { pages: ['creature:mid#1/2'], crystal: 180, items: { mist_drop: 8 } },
+    reward: { page: 'm_31', crystal: 180, items: { mist_drop: 8 } },
     cut: { in: 'c_glass_q_in', out: 'c_glass_q_out' } },
   { id: 'q_mine', npc: 'sp_orix', act: 2, at: 70, need: { village: 'vl_glass' },
     goal: { kind: 'village', id: 'vl_mine', n: 1 },
-    reward: { pages: ['potion:high#1/2'], crystal: 200, items: { crystal: 8 } },
+    reward: { page: 'm_41', crystal: 200, items: { crystal: 8 } },
     cut: { in: 'c_mine_q_in', out: 'c_mine_q_out' } },
   // 「오래 사는 법」을 물어 놓고 **오늘을 사는 물약**을 젓게 한다.
   // 오릭스가 이 대비를 말하는 인물이라 그가 준다
   { id: 'q_life', npc: 'sp_orix', act: 2, at: 85, need: { kw: 'kw_life' },
     goal: { kind: 'brew', n: 6 },
-    reward: { pages: ['creature:high#1/2'], crystal: 240, items: { iron_ore: 10 } },
+    reward: { page: 'm_37', crystal: 240, items: { iron_ore: 10 } },
     cut: { in: 'c_life_in', out: 'c_life_out' } },
 
   // ─ 3막 · 대면 ─
@@ -1235,11 +1235,11 @@ const QUESTS = [
   // 점수를 더 모아야 진행되는 것이 되고, `need` 가 이미 순서를 지킨다
   { id: 'q_spire', npc: 'sp_stark', act: 3, at: 100, need: { kw: 'kw_life' },
     goal: { kind: 'village', id: 'vl_spire', n: 1 },
-    reward: { crystal: 300, items: { crystal: 12 } },
+    reward: { page: 'm_43', crystal: 150, items: { crystal: 12 } },
     cut: { in: 'c_spire_q_in', out: 'c_spire_q_out' } },
   { id: 'q_self', npc: 'sp_valen', act: 3, at: 100, need: { village: 'vl_spire' },
     goal: { kind: 'keyword', id: 'kw_self', n: 1 },
-    reward: { crystal: 340, items: { sp_starore: 2 } },
+    reward: { page: 'm_44', crystal: 170, items: { sp_starore: 2 } },
     cut: { in: 'c_self_in', out: 'c_self_out' } },
 
   // ─ 4막 · 봉인이 풀리기 «직전» ─
@@ -1248,7 +1248,7 @@ const QUESTS = [
   // 안 차는** 상태였다 — 만들어 놓은 엔딩에 아무도 못 닿는 종류의 사고다
   { id: 'q_seal', npc: 'sp_althea', act: 4, at: 100, need: { kw: 'kw_self' },
     goal: { kind: 'deliver', id: 'iron_ore', n: 20 },
-    reward: { room: 5, crystal: 400, items: { crystal: 10 } },
+    reward: { page: 'm_40', room: 5, crystal: 200, items: { crystal: 10 } },
     cut: { in: 'c_seal_q_in', out: 'c_seal_q_out' } },
 
   // ─ 5막 · 에필로그 뒤 ─
@@ -1256,61 +1256,79 @@ const QUESTS = [
   // ⚠️ **컷씬을 본 뒤에만 열린다** — 엔딩 전에 뜨면 마지막 장면을 앞질러 말한다
   { id: 'q_table', npc: 'sp_clemen', act: 5, at: 100, need: { cut: 'c_epilogue' },
     goal: { kind: 'kitchen', n: 5 },
-    reward: { crystal: 500, items: { wheat: 20 } },
+    reward: { page: 'm_33', crystal: 250, items: { wheat: 20 } },
     cut: { in: 'c_table_in', out: 'c_table_out' } },
 ];
 function questOf(id) { return QUESTS.find(q => q.id === id) || null; }
 
 // ─── 장이 나오는 두 길 ────────────────────────────────────────
 //
-// **퀘스트가 먼저, 단계 지급이 그물이다** (`QUEST.md` 6장).
+// **퀘스트가 «이름 있는 한 장»을 주고, 그물이 «한 장씩 흘린다»** (`QUEST.md` 6장).
 //
-// 예전에는 단계마다 서른 장이 툭 들어왔다 — 「요정 대모가 줬다」는 문장 없이.
-// 이제 장은 **퀘스트 보상**으로 나오고, 같은 묶음을 단계 지급이 **한 단계 늦게**
-// 한 번 더 준다.
+// ⚠️⚠️ **한 번에 들어오는 장은 «한 장»이다 — 퀘스트도 그물도 예외 없다.**
+// 예전에는 퀘스트가 3~16장을, 그물이 단계마다 등급을 통째로(뮤즈에서 **50장**)
+// 쏟아부었다. 그러면 셋이 한꺼번에 무너진다:
+//   · **여러 장은 «숫자»가 되고, 한 장은 «이름»이 된다** — 「📖 비법서 6장」에는
+//     무엇을 받았는지가 어디에도 안 나온다. 한 장이면 「'생기 물약' 장」이라고 쓸 수 있다
+//   · **흐린 장이 한꺼번에 열리면 수수께끼가 뭉개진다** (`LORE` 의 그 재미다)
+//   · **보상의 크기가 이야기와 무관해진다** — `q_bloom` 이 16장이던 것은 그 퀘스트가
+//     커서가 아니라 «상급 물약의 절반이 거기 걸려서»였다
 //
 // ⚠️ **그물을 없애지 않는다.** 퀘스트가 유일한 출구가 되면 하나가 막히는 순간
 // 게임이 통째로 멈춘다. 퀘스트를 하면 빠르고, 안 해도 느릴 뿐 못 하게 되진 않는다.
 //
 // ⚠️ **새싹(0)의 기초 물약 여섯 장은 그대로 자동이다.** 첫 퀘스트가 「생기 물약을
 // 만들어라」인데 그 장이 없으면 시작조차 못 한다.
+
+// ── 천장 — 매력 «단계»가 등급을 «열어 둔다» (주지는 않는다) ──
 //
-// `tools/checkdata.js` 가 둘을 합쳐 **136장이 다 나오는지**와
-// **퀘스트가 그물보다 먼저 오는지**를 본다.
-// ⚠️ **그물은 등급을 «통째로» 준다.** 퀘스트는 등분해서 맛보기만 주므로
-// (`QUESTS` 의 ⚠️), 나머지를 채우는 것은 여기다 — 여기까지 잘게 쪼개면
-// 퀘스트를 안 한 사람이 영영 못 얻는 장이 생긴다 (`checkdata` 의 ①)
+// ⚠️ **여기서 장이 나오지 않는다.** 예전에는 이 표가 곧 지급이라 단계가 오르는
+// 순간 등급이 통째로 들어왔다. 지금 이 표가 하는 일은 **흘림이 어디까지 닿는가**
+// 하나뿐이다 — 꺼내는 것은 «조합»이다 (`PAGE_DRIP`).
 const PAGE_TIERS = [
-  ['potion:basic'],                             // 새싹 0   — 시작 밑천 (퀘스트 없이 자동)
-  ['potion:low'],                               // 꽃봉오리 15 — q_first · q_kitchen 의 그물
-  ['creature:basic'],                           // 요정 35  — q_walk · q_soup 의 그물
-  ['potion:mid#0', 'potion:mid#1'],             // 뮤즈 60  — q_bring · q_egg 의 그물
-  ['creature:mid', 'potion:high', 'creature:high'],   // 여신 100 — q_sip · q_bloom 의 그물
+  ['potion:basic'],                                   // 새싹 0      — 시작 밑천 (자동)
+  ['potion:low'],                                     // 꽃봉오리 15
+  ['creature:basic'],                                 // 요정 35
+  ['potion:mid'],                                     // 뮤즈 60
+  ['creature:mid', 'potion:high', 'creature:high'],   // 여신 100
 ];
-// `kind:grade` · `kind:grade#i`(절반 중 i번째) · `kind:grade#i/k`(k등분 중 i번째).
-// **id 순으로 가른다** — 정렬이 정해져 있어야 다시 불러도 같은 장이 같은 자리에 온다.
+// `kind:grade` 하나로 등급을 통째로 집는다. **id 순으로 가른다** — 정렬이 정해져
+// 있어야 다시 불러도 같은 장이 같은 자리에 온다.
 //
-// ⚠️ **`#i` 는 예전부터 「절반」이었다** (`PAGE_TIERS` 의 `potion:mid#0`). 그 뜻을
-// 안 바꾼다 — 바꾸면 단계 지급이 통째로 어긋난다. `/k` 를 «덧붙이는» 것으로만 넓혔다.
-//
-// 등분이 필요한 이유: 퀘스트 하나가 **등급을 통째로** 주면 첫 퀘스트에서 스물네 장이
-// 한꺼번에 들어온다. 흐린 장이 스물네 개가 되면 하나하나를 알아내는 재미가 뭉개지고,
-// 그물(단계 지급)도 이미 다 가진 것을 또 주는 빈손이 된다.
+// ⚠️ **예전의 `#i/k`(등분)는 지웠다.** 퀘스트가 등급 «등분»이 아니라 손으로 고른
+// 한 장을 주게 되면서 쓰는 데가 없어졌다 — 안 쓰는 규칙을 남겨 두면 다음 사람이
+// 그것을 고치려다 시간을 쓴다 (`.ask-chip.on` 에서 정한 것과 같다).
 function pagesForSpec(spec) {
-  const at = spec.indexOf('#');
-  const [kind, grade] = (at >= 0 ? spec.slice(0, at) : spec).split(':');
-  const list = RECIPES
+  const [kind, grade] = spec.split(':');
+  return RECIPES
     .filter(r => r.result.kind === kind && r.result.grade === grade)
     .map(r => r.result.id).sort();
-  if (at < 0) return list;
-  const tail = spec.slice(at + 1).split('/');
-  const idx = Number(tail[0]);
-  const parts = tail.length > 1 ? Number(tail[1]) : 2;      // 안 적으면 절반
-  if (!(parts > 0) || !(idx >= 0) || idx >= parts) return [];
-  const cut = Math.ceil(list.length / parts);
-  return list.slice(idx * cut, (idx + 1) * cut);
 }
 
+// ── 흘림 — **조합에 성공할 때마다 세고, 네 번마다 아직 없는 한 장** ──
+//
+// **왜 조합인가** — 장은 조합에 쓰는 물건이고, 「만들다 보니 다음 장이 떠올랐다」가
+// 연금술사의 이야기다. 게다가 **이미 있는 자리**다(`brewReward` 가 현자의 결정을
+// 주는 그 한 곳) — 새 경로를 안 만든다. AP 25 가 드니 제동도 이미 있다.
+//
+// 하루 AP 1000~1800 중 조합에 3할쯤 쓰면 12~20회 → **하루 3~5장**, 백열몇 장에 한 달쯤.
+// `tools/checkbalance.js` 가 이 관계를 잰다.
+const PAGE_DRIP = 4;
+
+// 흘림 차례 — `[{ id, tier }]`. `tier` 는 **천장**(그 단계에 닿아야 흘러나온다)이고,
+// 배열 순서가 곧 «꺼내는 순서»다.
+//
+// ⚠️⚠️ **퀘스트가 주기로 한 열일곱 장은 맨 뒤로 민다.** 안 그러면 흘림이 먼저
+// 건네 버려 **퀘스트를 깼는데 빈손**이 된다 (「받았는데 아무 일도 안 일어난다」).
+// 뒤로 «미는» 것이지 «빼는» 것이 아니라서, 퀘스트를 한 줄도 안 해도 흘림이 결국
+// 전부 준다 — 「그물을 없애지 않는다」가 그대로 지켜진다.
+function pageFlow() {
+  const byQuest = new Set(QUESTS.map(q => (q.reward || {}).page).filter(Boolean));
+  const out = [];
+  PAGE_TIERS.forEach((specs, tier) => specs.forEach(sp =>
+    pagesForSpec(sp).forEach(id => out.push({ id, tier, late: byQuest.has(id) }))));
+  return out.sort((a, b) => (a.late - b.late) || (a.tier - b.tier));
+}
 
 // ─── 컷씬 (QUEST.md 2-2 · 2단계) ─────────────────────────────
 //
@@ -3021,6 +3039,7 @@ window.GameData = {
   CREATURE_ATTRS, creatureAttr, MAP_ATTRS, mapAttr,
   FIELD_TYPES, MAP_TYPES, mapType, fieldType, fieldMini,
   FARM_CROPS, farmCrop, PLOT_COST, QUESTS, questOf, CUTS, cutOf, PAGE_TIERS, pagesForSpec,
+  PAGE_DRIP, pageFlow,
   WEATHERS, WEATHER_HOURS, DAYPARTS, SPECIAL_TIERS, specialTier,
   getTier, recipeKey,
 };

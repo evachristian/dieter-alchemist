@@ -1006,7 +1006,7 @@
       // 대사는 **요정 대모의 말투**다 — 수십 년을 곁에서 지킨 사람이라
       // 잔소리도 애정이다 (`STORY.md` 알테이아).
       q_reward: '보상', q_mats: '{name} 재료', q_where: '{name} 구하는 곳',
-      q_pages: '비법서 {n}장',
+      q_page: '「{name}」 장',
       q_claim: '보상 가져가요!',
       q_not_yet: '아직 진행중이에요',
       q_done_toast: '「{name}」{nj} 마쳤어요!',
@@ -1061,7 +1061,7 @@
       // 「장이 없다」와 「그런 조합은 없다」를 **갈라 말하지 않는다** — 갈라 말하면
       // 아무거나 넣어 보며 조합이 존재하는지 알아낼 수 있게 되어 뒷문이 생긴다
       brew_no_page: '비법서에 이 조합의 장이 없어요. 아는 레시피를 눌러 담아 주세요',
-      page_got: '📖 비법서에 새 장이 {n}장 늘었어요!',
+      page_got_one: '📖 비법서에 「{name}」 장이 늘었어요!',
       pg_open: '비법서 펼치기',
       pg_title: '📖 {name}',
       pg_more: '외 {n}곳',
@@ -2445,7 +2445,7 @@
       c_bloom_out_3: 'I am not. Something got in my eye. Come — on to the next story.',
       // ─── 퀘스트 (QUEST.md) ───
       q_reward: 'Reward', q_mats: '{name} ingredients', q_where: 'Where to find {name}',
-      q_pages: '{n} pages',
+      q_page: '“{name}” page',
       q_claim: 'Claim reward!',
       q_not_yet: 'Still in progress',
       q_done_toast: 'Finished "{name}"!',
@@ -2494,7 +2494,7 @@
       q_table_in: 'Nothing urgent left, is there? Then we do this in order. Food first.',
       // ─── 연금술 비법서 ───
       brew_no_page: 'No page for this mix in your grimoire. Tap a recipe you know',
-      page_got: '📖 {n} new pages in your grimoire!',
+      page_got_one: '📖 Your grimoire gained the “{name}” page!',
       pg_open: 'Open grimoire page',
       pg_title: '📖 {name}',
       pg_more: '+{n} more',

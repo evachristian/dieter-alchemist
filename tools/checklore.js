@@ -325,13 +325,24 @@ function ok(cond, msg, extra) {
     ok(got.total === got.n, '   …총 횟수는 record.gathered 가 센다', `${got.total}`);
     await p2.reload({ waitUntil: 'load' });
     await p2.waitForTimeout(2200);
+    // ⚠️ **세이브가 통째로 사라진 판과 «누적이 깨진» 판을 갈라서 말한다.**
+    // 드물게(스무 판에 한 번쯤) 브라우저가 새로고침 사이에 `file://` 의 localStorage 를
+    // 비우는 일이 있다 — 그러면 심어 둔 세이브가 다시 깔리고 **rev 가 1로 되돌아간다.**
+    // 그것을 「합 0」으로만 적으면 다음 사람이 «누적»을 디버깅하게 된다 (실제로 그랬다).
+    // **통과시키지는 않는다** — 0건이 통과가 아닌 것과 같은 이유로, 못 잰 판도 실패다
     const back = await p2.evaluate(() => {
       const g = S.gathered || {};
+      const raw = JSON.parse(localStorage.getItem('dieter_alchemist_save_v1') || '{}');
       return { type: typeof S.gathered, sum: Object.values(g).reduce((a, b) => a + b, 0),
-               any: Object.keys(g).some(id => ingMastered(id) || g[id] > 0) };
+               any: Object.keys(g).some(id => ingMastered(id) || g[id] > 0),
+               rev: raw.rev || 0, wiped: !raw.gathered && (raw.rev || 0) <= 1 };
     });
     ok(back.type === 'object' && back.sum === got.sum,
-       '   …새로고침해도 그대로다', `${back.type} · 합 ${back.sum} (${got.sum} 기대)`);
+       '   …새로고침해도 그대로다',
+       back.wiped
+         ? `세이브가 통째로 사라졌다 (rev ${back.rev}) — 브라우저가 file:// 저장을 비운 판이다.`
+           + ' 게임이 아니라 검사 환경 문제이니 한 번 더 돌려 볼 것'
+         : `${back.type} · 합 ${back.sum} (${got.sum} 기대)`);
     await ctx2.close();
   }
 

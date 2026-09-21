@@ -269,6 +269,12 @@ const defaultState = () => ({
   // 히든 재료의 «연달아 헛걸음» 수 — 맵 id → 횟수. 천장(`D.SPECIAL_TIERS.pity`)이 이것을
   // 본다. 없던 칸이라 SAVE_VER 는 안 올린다 (옛 세이브는 0 에서 세기 시작하면 된다)
   spMiss:    {},
+  // 비법서 «흘림» — 다음 한 장까지 센 조합 성공 수 (0 ~ `D.PAGE_DRIP`−1).
+  // ⚠️ 없던 칸이라 SAVE_VER 는 안 올린다 — 옛 세이브는 0 에서 세기 시작하면 되고,
+  // 이미 가진 장은 한 장도 안 건드린다 (`miniLog` 와 같은 규칙).
+  // ⚠️ **누적 조합 수(`record.brewOk`)로 되짚지 않는다.** 그러면 옛 세이브가
+  // 켜자마자 밀린 몫을 통째로 받아 지금 고치는 그 문제가 그대로 돌아온다
+  pageDrip:  0,
   rev:       0,             // 저장 횟수 — 서버 동기화에서 어느 쪽이 최신인지 판단
   ver:       SAVE_VER,      // 세이브 버전 (마이그레이션용)
 });
@@ -767,16 +773,9 @@ function checkUnlocks() {
   if (now <= lastCharmSeen) { lastCharmSeen = now; return; }
   const opened = D.MAPS.filter(m => m.unlock > lastCharmSeen && m.unlock <= now);
   lastCharmSeen = now;
-  // **비법서의 새 장도 여기서 온다.** 단계가 오르는 자리가 곧 장이 오는 자리다 —
-  // 따로 판정을 두면 「매력이 올랐다」를 두 곳에서 세게 된다.
-  // 맵 안내보다 **먼저** 띄운다: 맵이 열려도 만들 것을 모르면 갈 이유가 없다
-  const pages = grantPages(true);
-  if (pages) {
-    setTimeout(() => {
-      toast(T('page_got', { n: pages }), null, 3600);
-      if (window.Sfx) Sfx.play('success');
-    }, 1200);
-  }
+  // ⚠️ **여기서 장이 «안» 온다.** 예전에는 단계가 오르는 자리가 곧 장이 오는
+  // 자리라, 뮤즈가 되는 순간 중급 물약 **50장**이 한꺼번에 들어왔다. 지금 단계가
+  // 하는 일은 **천장을 올리는 것**뿐이고, 꺼내는 것은 조합이다 (`flowPages`)
   if (!opened.length) return;
   const names = opened.map(m => N(m.id, m.name)).join(', ');
   setTimeout(() => {
@@ -1357,13 +1356,13 @@ function claimQuest() {
   const r = q.reward || {};
   // 「갖다줘」는 **낼 때 소모한다.** 그래야 갖다준 것이 된다
   if (q.goal.kind === 'deliver') spendItem(q.goal.id, q.goal.n);
-  // **비법서 장** — 이제 여기가 장이 나오는 첫 자리다 (단계 지급은 그물이다).
-  // 이미 가진 것은 안 센다: 그물이 먼저 준 뒤라면 「받았는데 아무 일도 안 일어난다」가
-  // 되는데, `checkdata` 가 퀘스트를 그물보다 먼저 오게 붙들고 있다
-  let gotPages = 0;
-  (r.pages || []).forEach(spec => {
-    D.pagesForSpec(spec).forEach(id => { if (!hasPage(id)) { S.discovered.push(id); gotPages++; } });
-  });
+  // **비법서 장 — «이름 있는 한 장»이다.** 「📖 비법서 6장」은 숫자일 뿐이고
+  // 무엇을 받았는지가 어디에도 안 나왔다. 어느 장인지는 표(`QUESTS`)가 손으로
+  // 골라 두었다 — 그 퀘스트가 가리키는 것이고, **그 시점에 만들 수 있는 것**이다.
+  // ⚠️ 이미 가진 것은 안 센다. 흘림이 먼저 줄 일은 거의 없지만(퀘스트 몫은
+  // `pageFlow()` 의 맨 뒤다) 아주 오래 미뤘으면 그럴 수 있다
+  const gotPage = (r.page && !hasPage(r.page)) ? r.page : null;
+  if (gotPage) S.discovered.push(gotPage);
   // **공방 단계** — 지금은 이 퀘스트 하나가 유일한 길이다 (개발용 스위치 말고는).
   // ⚠️ **내려가지 않게 `max` 로 올린다** — 보상이 진행을 되돌리면 그건 벌이다
   if (r.room) S.roomLevel = Math.min(roomMax(), Math.max(S.roomLevel || 0, r.room));
@@ -1387,14 +1386,14 @@ function claimQuest() {
   { const nm = T(q.id + '_name'); toast(T('q_done_toast', { name: nm, nj: josa(nm, '을를') }), null, 3200); }
   // 장이 들어왔으면 **따로 한 번 더 알린다** — 결정·재료와 한 줄에 섞으면
   // 「비법서가 늘었다」가 안 읽힌다. 이게 이 퀘스트의 진짜 보상이다
-  if (gotPages) setTimeout(() => toast(T('page_got', { n: gotPages }), null, 3600), 1400);
+  if (gotPage) pageToast([gotPage], 1400);
   // 키워드도 **따로 알린다** — 그것이 곧 「이제 누구에게 무엇을 물을 수 있다」라서
   // 결정·재료와 한 줄에 섞이면 이야기가 열린 것이 안 읽힌다.
   // ⚠️ `doAsk` 가 쓰는 것과 **같은 문자열**이다 (뜻이 같은 것을 두 벌로 쓰지 않는다)
   gotKw.forEach((id, i) => {
     const k = D.keyword(id);
     setTimeout(() => toast(T('ask_new', { name: N(id, k ? k.name : id) }), null, 3600),
-      1400 + (gotPages ? 1 : 0) * 700 + i * 700);
+      1400 + (gotPage ? 1 : 0) * 700 + i * 700);
   });
   if (window.Sfx) Sfx.play('success');
   render();
@@ -2510,14 +2509,11 @@ function questNotYet() {
 window.questNotYet = questNotYet;
 
 const rewardText = r => [
-  // **장을 맨 앞에.** 결정보다 이쪽이 크다.
-  // ⚠️ **아직 «없는» 장만 센다.** 퀘스트를 미루다 그물(단계 지급)이 먼저 주고 나면
-  // 실제로 들어오는 것은 0장인데, 「📖 24장」이라고 적혀 있으면 거짓말이 된다
-  (() => {
-    const n = ((r && r.pages) || []).reduce((k, sp) =>
-      k + D.pagesForSpec(sp).filter(id => !hasPage(id)).length, 0);
-    return n ? `📖 ${T('q_pages', { n })}` : '';
-  })(),
+  // **장을 맨 앞에.** 결정보다 이쪽이 크다. 그리고 «이름»으로 적는다 —
+  // 「📖 비법서 6장」은 무엇을 받는지를 한 글자도 안 알려 준다.
+  // ⚠️ **아직 «없는» 장일 때만 적는다.** 이미 가졌으면 실제로 들어오는 것이
+  // 없는데 적혀 있으면 거짓말이 된다
+  (r && r.page && !hasPage(r.page)) ? `📖 ${T('q_page', { name: pageName(r.page) })}` : '',
   r && r.crystal ? `✨ ${r.crystal}` : '',
   r && r.energy ? `⚡ ${r.energy}` : '',
   ...(r && r.items ? Object.keys(r.items).map(id => `${itemArt(id, 18)} ${itemName(id)} ×${r.items[id]}`) : []),
@@ -2544,6 +2540,13 @@ const rewardText = r => [
 function hasPage(id) { return !!(S.discovered && S.discovered.includes(id)); }
 window.hasPage = hasPage;
 
+// 장의 «이름». 결과물이 물약이면 레시피에서, 크리처면 `itemName` 에서 나온다 —
+// **한 곳을 지난다**: 보상 줄과 토스트가 같은 이름을 불러야 한다
+function pageName(id) {
+  const r = D.RECIPES.find(x => x.result.id === id);
+  return r ? N(r.result.id, r.result.name) : itemName(id);
+}
+
 // 장이 나오는 두 길과 그 표는 **`data.js` 에 있다** (`D.PAGE_TIERS` · `D.pagesForSpec`).
 // 검사기(`tools/checkdata.js`)가 게임을 안 띄우고도 「136장이 다 나오는지」와
 // 「퀘스트가 그물보다 먼저 오는지」를 재야 해서 데이터 쪽에 두었다.
@@ -2553,32 +2556,65 @@ window.hasPage = hasPage;
 // `Identifier has already been declared` 로 **game.js 가 통째로 안 실행된다.**
 // 화면은 그냥 빈 껍데기가 되고, 콘솔을 안 열면 원인을 못 찾는다 (실제로 겪었다).
 // `npm test` 의 `checkglobals` 가 이걸 잡는다.
-// 여태 닿은 단계까지의 장을 **없는 것만** 채운다 (그물). 몇 장이 들어왔는지 돌려준다.
 function pagesForTier(i) {
   return (D.PAGE_TIERS[i] || []).reduce((a, spec) => a.concat(D.pagesForSpec(spec)), []);
 }
 
-// 여태 닿은 단계까지의 장을 **없는 것만** 채운다. 몇 장이 들어왔는지 돌려준다.
+// ── 시작 밑천 — 새싹(0단계)의 기초 물약 여섯 장만 자동이다 ──
 //
+// ⚠️ **여기서 더 주지 않는다.** 예전에는 「여태 닿은 단계까지」를 통째로 채워서
+// 뮤즈가 되는 순간 **50장**이 한꺼번에 들어왔다. 지금 그 몫은 «흘림»이 맡는다
+// (`flowPages`) — 단계는 천장만 올린다.
 // ⚠️ **튜토리얼 전에는 한 장도 안 준다.** 튜토리얼이 시작 레시피(`vitality`)로
-// 조합을 가르치는데, 그 앞에 서른 장이 쏟아지면 가리켜야 할 줄을 못 찾는다.
+// 조합을 가르치는데, 그 앞에 장이 쏟아지면 가리켜야 할 줄을 못 찾는다.
 // ⚠️ **이미 가진 것은 안 건드린다** — 예전에 알아낸 레시피가 그대로 남아야 한다.
-function grantPages(silent) {
+function grantStarterPages() {
   if (!S.tutorialDone) return 0;
   if (!Array.isArray(S.discovered)) S.discovered = [];
-  const top = capTier();
   let got = 0;
-  for (let i = 0; i <= top; i++) {
-    pagesForTier(i).forEach(id => { if (!hasPage(id)) { S.discovered.push(id); got++; } });
-  }
-  if (got) {
-    save();
-    if (!silent) toast(T('page_got', { n: got }), null, 3600);
-    if (window.Sfx) Sfx.play('success');
+  pagesForTier(0).forEach(id => { if (!hasPage(id)) { S.discovered.push(id); got++; } });
+  if (got) { save(); if (window.Sfx) Sfx.play('success'); }
+  return got;
+}
+window.grantStarterPages = grantStarterPages;
+
+// ── 흘림 — 조합에 성공할 때마다 세고, `D.PAGE_DRIP` 회마다 한 장 ──
+//
+// 꺼낼 수 있는 것은 **천장(`capTier()`) 안에서 아직 없는 첫 장**이다.
+// 차례는 `D.pageFlow()` 가 정한다 — 퀘스트 몫은 맨 뒤라 퀘스트가 빈손이 안 된다.
+function nextFlowPage() {
+  const top = capTier();
+  const hit = D.pageFlow().find(p => p.tier <= top && !hasPage(p.id));
+  return hit ? hit.id : null;
+}
+
+// 조합 n 개분을 센다. 들어온 장들의 id 를 돌려준다.
+//
+// ⚠️⚠️ **천장에 막히면 카운터를 «안 쓴다».** 밀림을 허용하면 단계가 오르는 순간
+// 밀린 몫이 **여러 장 한꺼번에** 터져 지금 고치는 그 문제가 그대로 돌아온다.
+// (새싹에서는 기초 여섯 장이 이미 다 있어서 실제로 막혀 있는 구간이다)
+function flowPages(n) {
+  if (!S.tutorialDone) return [];
+  if (!Array.isArray(S.discovered)) S.discovered = [];
+  const got = [];
+  for (let i = 0; i < (n || 1); i++) {
+    const next = nextFlowPage();
+    if (!next) break;                              // 천장에 막혔다 — 세지 않는다
+    S.pageDrip = (S.pageDrip || 0) + 1;
+    if (S.pageDrip >= D.PAGE_DRIP) { S.pageDrip = 0; S.discovered.push(next); got.push(next); }
   }
   return got;
 }
-window.grantPages = grantPages;
+window.flowPages = flowPages;
+
+// 장 한 장이 들어온 것을 알린다 — **이름을 부른다.** 「새 장이 6장 늘었어요」는
+// 숫자일 뿐이고, 무엇을 받았는지가 어디에도 안 나온다 (이 기획의 출발점이다)
+function pageToast(ids, delay) {
+  ids.forEach((id, i) => setTimeout(() => {
+    toast(T('page_got_one', { name: pageName(id) }), null, 3600);
+    if (window.Sfx) Sfx.play('success');
+  }, (delay || 0) + i * 900));
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  크리처 생산 (CREATURE.md 8장) — 하루에 한 번, 저절로 쌓인다
@@ -3918,6 +3954,11 @@ function doBrew(n) {
   // 없어졌고, 그대로 두면 AP 충전도 밭 칸도 영영 못 여는 게임이 된다.
   // 조합 값(25)보다 반드시 작다 — 같기만 해도 조합을 돌려 AP 를 무한히 번다
   S.crystal = (S.crystal || 0) + (D.ENERGY.brewReward || 0) * n;
+  // **비법서의 새 장도 여기서 나온다** (`D.PAGE_DRIP` 회마다 한 장).
+  // 장은 조합에 쓰는 물건이고 「만들다 보니 다음 장이 떠올랐다」가 연금술사의
+  // 이야기다 — 그래서 현자의 결정이 나오는 **이 한 곳**에 같이 붙인다.
+  // ⚠️ 새 경로를 안 만든다: 여기 말고 다른 데서 또 흘리면 요율이 두 벌이 된다
+  const flowed = flowPages(n);
   const isNew = !S.discovered.includes(result.id);
   if (isNew) {
     rec('discoveries');
@@ -3951,6 +3992,9 @@ function doBrew(n) {
   if (isNew) {
     setTimeout(() => toast(T('recipe_found', { name: N(result.id, result.name) }), null, 3000), 900);
   }
+  // **흘러나온 장을 이름으로 알린다** — 조합 결과 모달 «위»에 뜬다.
+  // ⚠️ 새 레시피 알림과 겹치지 않게 그 뒤로 민다 (같은 자리에 둘이 서면 앞엣것을 덮는다)
+  if (flowed.length) pageToast(flowed, isNew ? 2200 : 900);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -9604,10 +9648,10 @@ document.addEventListener('DOMContentLoaded', () => {
       d: lost.days, grit: lost.grit, fit: lost.fit.toFixed(2) }), null, 5200), 900);
   }
   switchTab('showcase');
-  // **비법서를 한 번 맞춰 둔다.** `checkUnlocks()` 는 매력이 «오를 때»만 도는데,
-  // 이미 여신인 사람은 다음에 물약을 마실 때까지 제 단계의 장을 못 받는다.
-  // 조용히(`true`) 채운다 — 켤 때마다 「새 장 30장!」이 뜨면 그건 소식이 아니다
-  grantPages(true);
+  // **시작 밑천을 한 번 맞춰 둔다** — 튜토리얼을 막 마친 사람에게 기초 물약
+  // 여섯 장이 있어야 첫 퀘스트(「생기 물약을 만들어라」)를 시작할 수 있다.
+  // 나머지는 조합이 한 장씩 꺼낸다 (`flowPages`)
+  grantStarterPages();
   // 퀘스트도 같이 맞춘다 — 조건이 이미 찬 사람에게 칩이 바로 떠야 한다
   refreshQuests();
   // 튜토리얼 — 인트로를 아직 안 봤으면 여기서는 그냥 돌아가고,

@@ -37,6 +37,39 @@ const numIn = (re, what) => {
   return Number(m[1]);
 };
 
+// ─── ⓪ 비법서 — 흘림만으로 «한 달 안에» 다 나오는가 ───────────
+//
+// 장은 퀘스트가 고른 한 장과 **조합이 흘리는 한 장**으로만 나온다
+// (`D.PAGE_DRIP` 회에 한 장). 그러면 「요율을 얼마로 두느냐」가 곧
+// **비법서가 다 열리기까지의 시간**이라, 수치끼리의 약속이 된다:
+//
+//   · 너무 촘촘하면(1회에 한 장) 지금 고친 「한꺼번에 쏟아진다」가 되돌아온다
+//   · 너무 성기면(20회에 한 장) 만들어 놓은 레시피의 절반이 죽은 콘텐츠가 된다
+//
+// ⚠️ **요율을 여기에 옮겨 적지 않는다** — `D.PAGE_DRIP` 과 `D.ENERGY` 를 읽는다.
+{
+  const { cost, cap, capPerTier } = D.ENERGY;
+  const drip = D.PAGE_DRIP;
+  // 여신의 하루 AP 중 **3할**을 조합에 쓴다고 보면 (나머지는 채집·운동이다)
+  const dayAp = cap + (D.TIERS.length - 1) * (capPerTier || 0);
+  const brewsDay = Math.floor(dayAp * 0.3 / cost.brew);
+  const pagesDay = brewsDay / drip;
+  // 흘림이 실제로 맡는 몫 = 전체 − 시작 밑천 − 퀘스트가 고른 열일곱
+  const starter = (D.PAGE_TIERS[0] || []).reduce((a, sp) => a + D.pagesForSpec(sp).length, 0);
+  const byQuest = new Set(D.QUESTS.map(q => (q.reward || {}).page).filter(Boolean)).size;
+  const rest = D.RECIPES.length - starter - byQuest;
+  const days = rest / pagesDay;
+  ok('비법서가 한 달 안에 다 나온다', days <= 31,
+    `하루 ${pagesDay.toFixed(1)}장(조합 ${brewsDay}회 ÷ ${drip}) × ${rest}장 = ${days.toFixed(1)}일 — 31일까지다`);
+  // 반대쪽 — **하루에 열 장 넘게 쏟아지면** 이 기획의 출발점이 무너진다
+  ok('비법서가 하루에 쏟아지지 않는다', pagesDay <= 10,
+    `하루 ${pagesDay.toFixed(1)}장 — 열 장까지다 (그 위는 다시 «숫자»가 된다)`);
+  // 퀘스트 열일곱이 흘림 몫을 **앞지르지 않는다** — 퀘스트가 유일한 길이 되면
+  // 하나가 막히는 순간 게임이 멈춘다 (「그물을 없애지 않는다」)
+  ok('퀘스트가 장의 주된 출구가 아니다', byQuest < rest,
+    `퀘스트 ${byQuest}장 < 흘림 ${rest}장 이어야 한다`);
+}
+
 // ─── ① AP — 조합을 돌려서 AP 를 버는 고리가 없는가 ────────────
 //
 // 현자의 결정은 **AP 와 1:1 로 바꿀 수 있다**(`chargeCost / cap`). 그러니 조합

@@ -431,68 +431,92 @@ add('id 가 겹친다', dupId);
 
 // ─── 비법서 장이 나오는 두 길 (QUEST.md 6장) ──────────────────
 //
-// 장은 **퀘스트 보상**으로 나오고, 같은 묶음을 **단계 지급(그물)**이 한 단계 늦게
-// 한 번 더 준다. 여기서 보는 것은 둘이다:
-//
-//   ① **136장이 다 나오는가** — 어느 길로도 못 얻는 장이 있으면 그 레시피는
-//      게임 안에 있는데 «영영 못 만드는» 것이 된다. 화면에는 `?` 로만 보인다
-//   ② **퀘스트가 그물보다 «먼저» 오는가** — 그물이 먼저 주면 퀘스트를 깨도
-//      들어오는 장이 0이다. 「받았는데 아무 일도 안 일어난다」가 된다
+// 장은 **퀘스트가 고른 한 장**과 **조합이 흘리는 한 장**, 둘로만 나온다.
+// ⚠️ **예전 검사는 `reward.pages`(등급 등분)를 훑고 있었다.** 그 칸이 없어지면
+// 반복문이 0번 돌아 **아무것도 안 재고 통과한다** — 0건이 「통과」가 아니라
+// 「한 번도 안 쟀다」가 되는, 이 저장소에서 몇 번씩 난 그 사고다.
+// 그래서 **몇 개를 쟀는지를 통과할 때도 낸다.**
 {
   const bad = [];
   if (D.PAGE_TIERS.length !== D.TIERS.length) {
-    bad.push(`단계 지급이 ${D.PAGE_TIERS.length}칸인데 매력 단계는 ${D.TIERS.length}칸이다`);
+    bad.push(`천장 표가 ${D.PAGE_TIERS.length}칸인데 매력 단계는 ${D.TIERS.length}칸이다`);
   }
-  const net = new Map();            // 장 → 그물이 주는 매력
-  D.PAGE_TIERS.forEach((specs, i) => {
-    const at = (D.TIERS[i] || {}).min;
-    specs.forEach(sp => {
-      const list = D.pagesForSpec(sp);
-      if (!list.length) bad.push(`단계 지급에 빈 묶음이 있다 (${sp})`);
-      list.forEach(id => { if (!net.has(id)) net.set(id, at); });
-    });
-  });
-  const byQuest = new Set();
+  const RES = new Map(D.RECIPES.map(r => [r.result.id, r]));
+
+  // ① **퀘스트는 장을 «한 장»만 준다** — 열일곱이 다, 서로 겹치지 않게
+  const seen = new Map();
+  let picked = 0;
   D.QUESTS.forEach(q => {
-    ((q.reward || {}).pages || []).forEach(sp => {
-      const list = D.pagesForSpec(sp);
-      if (!list.length) { bad.push(`${q.id} — 보상의 묶음이 비었다 (${sp})`); return; }
-      list.forEach(id => byQuest.add(id));
-      // ② 그물이 먼저 오면 퀘스트 보상이 빈손이 된다
-      const netAt = net.get(list[0]);
-      if (netAt !== undefined && netAt <= q.at) {
-        bad.push(`${q.id}(매력 ${q.at}) 보다 그물이 먼저 준다 (${sp} → 매력 ${netAt})`);
-      }
-    });
+    const r = q.reward || {};
+    if (r.pages) bad.push(`${q.id} — 아직 «여러 장»(reward.pages)을 준다. 한 장(reward.page)이어야 한다`);
+    if (!r.page) { bad.push(`${q.id} — 주는 장이 없다 (reward.page)`); return; }
+    picked++;
+    if (!RES.has(r.page)) { bad.push(`${q.id} — 없는 레시피의 장이다 (${r.page})`); return; }
+    if (seen.has(r.page)) bad.push(`${q.id} 와 ${seen.get(r.page)} 가 같은 장을 준다 (${r.page}) — 한쪽은 빈손이 된다`);
+    seen.set(r.page, q.id);
   });
-  // ③ **한 퀘스트가 주는 장 수** — 등급을 통째로 주면 안 된다.
-  //
-  // 예전에는 첫 퀘스트(매력 0)가 하급 물약 **스물네 장**을 한꺼번에 줬다.
-  // 시작 밑천이 여섯 장인데 그 네 배가 첫 몇 분에 들어오면
-  //   · **흐린 장이 스물네 개** 동시에 열려 하나하나 알아내는 재미가 뭉개지고
-  //   · 그물이 한 단계 뒤에 주는 것이 **이미 다 가진 것**이라 빈손이 된다
-  // 등분해서 맛보기만 주고 나머지는 그물이 채운다.
-  //
-  // ⚠️ **첫 퀘스트는 더 엄하게 본다** — 거기가 제일 눈에 띄고, 시작 밑천과 견줘진다.
-  const PAGE_MAX = 20, FIRST_MAX = 8;
-  const first = D.QUESTS.slice().sort((a, b) => a.at - b.at)[0];
+
+  // ② **그 시점에 «만들 수 있는» 장이다** — 재료가 아직 안 열린 지대에서만
+  //    나오면 받아도 못 만드는 죽은 장이다. 크리처가 상급 물약의 재료라서
+  //    «닫힘»까지 돌린다 (만들 수 있는 것이 또 재료가 된다).
+  //    ⚠️ 매력 100(여신)에서도 만들 수 있는 것은 57장뿐이다 — 맵이 매력 510 까지
+  //    열리기 때문이다. 그래서 후반 퀘스트도 중급까지만 줄 수 있다
+  const CROPS = new Set(D.FARM_CROPS.map(c => c.id));
+  const makeable = at => {
+    const have = new Set();
+    D.MAPS.forEach(m => {
+      if ((m.unlock || 0) > at) return;
+      (m.pool || []).forEach(i => have.add(i));
+      if (m.special) have.add(m.special);
+    });
+    if (at >= 100) CROPS.forEach(c => have.add(c));      // 밭은 여신부터
+    const ok = new Set();
+    for (let grew = true; grew;) {
+      grew = false;
+      D.RECIPES.forEach(r => {
+        if (ok.has(r.result.id)) return;
+        if (!r.inputs.every(i => have.has(i))) return;
+        ok.add(r.result.id); have.add(r.result.id); grew = true;
+      });
+    }
+    return ok;
+  };
+  let checked = 0;
   D.QUESTS.forEach(q => {
-    const n = ((q.reward || {}).pages || [])
-      .reduce((a, sp) => a + D.pagesForSpec(sp).length, 0);
-    const cap = (first && q.id === first.id) ? FIRST_MAX : PAGE_MAX;
-    if (n > cap) {
-      bad.push(`${q.id}(매력 ${q.at}) 가 장을 ${n}개 준다 — ${cap}개까지다`
-        + ` (등급을 통째로 주면 흐린 장이 한꺼번에 열려 뭉개진다)`);
+    const id = (q.reward || {}).page;
+    if (!id || !RES.has(id)) return;
+    checked++;
+    if (!makeable(q.at).has(id)) {
+      bad.push(`${q.id}(매력 ${q.at}) 가 주는 「${RES.get(id).result.name}」 은 그 매력에서 못 만든다`
+        + ` — 재료가 아직 안 열린 지대에서만 난다`);
     }
   });
 
-  // ① 어느 길로도 못 얻는 장
-  const orphan = D.RECIPES.map(r => r.result.id)
-    .filter(id => !net.has(id) && !byQuest.has(id));
-  if (orphan.length) {
-    bad.push(`어느 길로도 못 얻는 장 ${orphan.length}개 (${orphan.slice(0, 4).join(' · ')}…)`);
-  }
+  // ③ **흘림이 136장을 다 덮는다** — 어느 길로도 못 얻는 장이 있으면 그 레시피는
+  //    게임 안에 있는데 «영영 못 만드는» 것이 된다. 화면에는 `?` 로만 보인다
+  const flow = D.pageFlow();
+  const ids = flow.map(p => p.id);
+  if (new Set(ids).size !== ids.length) bad.push('흘림 차례에 같은 장이 두 번 있다');
+  const miss = D.RECIPES.map(r => r.result.id).filter(id => !ids.includes(id));
+  if (miss.length) bad.push(`흘림이 못 닿는 장 ${miss.length}개 (${miss.slice(0, 4).join(' · ')}…)`);
+
+  // ④ **퀘스트 몫은 흘림의 «맨 뒤»다** — 안 그러면 흘림이 먼저 건네 버려
+  //    퀘스트를 깼는데 빈손이 된다 (「받았는데 아무 일도 안 일어난다」)
+  const firstLate = flow.findIndex(p => seen.has(p.id));
+  const lateBlock = firstLate >= 0 && flow.slice(firstLate).every(p => seen.has(p.id));
+  if (firstLate < 0) bad.push('흘림 차례에 퀘스트 몫이 하나도 없다 — 무엇을 잰 것인지 알 수 없다');
+  else if (!lateBlock) bad.push('퀘스트 몫이 흘림의 맨 뒤에 안 몰려 있다 — 흘림이 먼저 주면 퀘스트가 빈손이 된다');
+
+  // ⑤ **시작 밑천은 천장 0단계 그대로다** — 첫 퀘스트가 「생기 물약을 만들어라」라
+  //    그 장이 없으면 시작조차 못 한다
+  const starter = (D.PAGE_TIERS[0] || []).reduce((a, sp) => a.concat(D.pagesForSpec(sp)), []);
+  if (!starter.includes('vitality')) bad.push('시작 밑천에 「생기 물약」이 없다 — 첫 퀘스트를 깰 수가 없다');
+
   add('비법서 배분이 어긋난다', bad);
+  if (!bad.length) {
+    console.log(`   비법서 — 퀘스트 ${picked}장(만들 수 있는지 ${checked}장 잼)`
+      + ` · 흘림 ${flow.length}장(조합 ${D.PAGE_DRIP}회에 한 장 · 맨 뒤 ${flow.length - firstLate}장이 퀘스트 몫)`);
+  }
 }
 
 // ─── 결과 ─────────────────────────────────────────────────────
