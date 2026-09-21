@@ -1696,7 +1696,15 @@ function launchOpts() {
           // 낚시의 걸음별 안내에서 배운 것과 같은 구멍이다).
           // ⚠️ 이 층은 새로 생긴 화면이라 **제 블록을 따로 둔다** — 위의 「물어볼것」
           // 0건은 이 층을 한 번도 안 잰 것이다 (참새·바람개비에서 겪은 자리다)
-          for (const n of [1, 2]) {
+          // ⚠️ **줄 수를 여기 박지 않는다** — 대답마다 다르다(`more`). 표에서 읽는다.
+          // 둘만 재던 자리인데, 이어지는 줄이 붙으면서 **뒤쪽이 통째로 안 재진다**
+          // (거기가 보통 제일 긴 줄이다 — 부엌의 「오늘의 한 마디」와 같은 구멍이다)
+          const askN = await page.evaluate(() => {
+            const a = D.ASKS.find(x => x.npc === 'sp_yutark' && x.kw === 'kw_beauty');
+            return 2 + ((a.more || []).length);
+          });
+          if (askN < 3) results.push({ 화면: `${t}/키워드장면`, 오류: `줄이 ${askN}개뿐이다 — 이어지는 줄을 한 번도 안 쟀다` });
+          for (let n = 1; n <= askN; n++) {
             const sBad = await page.evaluate((step) => {
               if (step === 1) doAsk('sp_yutark', 'kw_beauty');
               else cutNext();

@@ -1539,14 +1539,20 @@ function asksNew(npc) {
 // 쓰면 그만큼 번역이 빠질 자리가 늘고, 무엇보다 새 대답을 붙일 때 빠뜨리게 된다.
 // 키워드 이름을 «…» 로 감싸 두면 `cutLineHtml` 이 금색으로 집어 준다 —
 // **두 언어가 같은 수의 표시를 갖게** 영어는 `*…*` 다 (컷씬 대사와 같은 규칙)
+// ⚠️ **이어지는 줄은 «같은 줄기»에서 나온다** (`more` → `ak_…_2` · `_3` …).
+// 두 번째 줄부터를 제 열쇠로 따로 적으면 **그 사람이 하는 말이 두 곳에 흩어져**,
+// 대답을 고칠 때 한쪽만 고치게 된다. `line` 하나가 줄기이고 뒤는 번호다.
+// `more` 는 «누가 · 어떤 얼굴로» 만 적는다 — 글은 번호가 데려온다
 function askScene(a) {
   const k = D.keyword(a.kw);
   const nm = N(a.kw, k ? k.name : a.kw);
+  const more = a.more || [];
   return {
     id: 'ask:' + askKey(a.npc, a.kw),
     noLog: true,
-    lines: [['sp_gwiriel', 'think'], [a.npc, a.mood || 'def']],
-    text: [T('ask_cut_q', { name: nm }), T(a.line)],
+    lines: [['sp_gwiriel', 'think'], [a.npc, a.mood || 'def'], ...more],
+    text: [T('ask_cut_q', { name: nm }), T(a.line),
+           ...more.map((_, i) => T(`${a.line}_${i + 2}`))],
   };
 }
 

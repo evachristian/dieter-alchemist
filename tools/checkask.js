@@ -138,12 +138,24 @@ function ok(cond, msg, extra) {
   await page.waitForTimeout(120);
   // ⚠️ **대답은 이제 «컷씬»이다** — 공주가 묻고, 그 사람이 답한다.
   // 끝까지 넘겨야 `doAsk` 의 뒷정리(새 키워드·마을 토스트)가 돈다
+  // ⚠️ **줄 수를 검사기에 박지 않는다** — 대답마다 다르다(`more`). 표에서 읽는다
+  const wantN = await page.evaluate(() => {
+    const a = D.ASKS.find(x => x.npc === 'sp_clemen' && x.kw === 'kw_hunger');
+    return 2 + ((a.more || []).length);
+  });
   let scene = await playThrough();
-  ok(scene.length === 2, '대답이 두 줄짜리 장면으로 돈다', `${scene.length}줄`);
+  ok(scene.length === wantN, '대답이 여러 줄짜리 «대화»로 돈다', `${scene.length}줄 (${wantN} 기대)`);
+  ok(wantN > 2, '이어지는 줄이 실제로 붙어 있다 — 한 줄로 끝나지 않는다', `${wantN}줄`);
   ok(scene[0].text.includes('허기'), '공주가 «그 키워드»를 짚어 묻는다', (scene[0].text || '').slice(0, 24));
   ok(scene[0].who !== scene[1].who, '묻는 사람과 답하는 사람이 다르다',
      `${scene[0].who} → ${scene[1].who}`);
-  let said = scene[scene.length - 1].text;
+  // **말이 오간다** — 그 사람만 계속 떠드는 것이 아니라 공주가 중간에 끼어든다.
+  // ⚠️ 이것이 없으면 「여러 줄」이 그냥 «긴 대답»과 구별이 안 된다
+  ok(new Set(scene.map(s => s.who)).size === 2, '두 사람이 번갈아 말한다',
+     scene.map(s => s.who).join(' → '));
+  ok(scene.every(s => s.text && !/^ak_|^ask_/.test(s.text)),
+     '어느 줄도 열쇠 이름이 새지 않는다', scene.map(s => s.text.slice(0, 8)).join(' / '));
+  let said = scene[1].text;
   ok(said.includes('일곱 굴뚝'), '클레멘이 그 자리에서 답한다', said.slice(0, 24));
   st = await page.evaluate(() => ({ kw: S.keywords.slice(), vl: S.villages.slice() }));
   ok(st.kw.includes('kw_beauty'), '「아름다움」을 얻는다');
@@ -181,7 +193,7 @@ function ok(cond, msg, extra) {
   const before = await page.evaluate(() => S.keywords.length);
   await page.click('#kitchenSheet .ask-chip');
   await page.waitForTimeout(120);
-  ok((await playThrough()).length === 2, '다시 물어도 장면은 그대로 돈다');
+  ok((await playThrough()).length === wantN, '다시 물어도 장면은 그대로 돈다');
   ok(await page.evaluate(() => S.keywords.length) === before, '다시 물어도 키워드가 두 번 안 들어온다');
 
   await page.evaluate(() => closeKitchen());
@@ -199,10 +211,16 @@ function ok(cond, msg, extra) {
     if (idx < 0) return null;
     await page.$$eval('#villageBody .ask-chip', (els, i) => els[i].click(), idx);
     await page.waitForTimeout(120);
-    // 마을에서도 대답은 **장면**이다 — 마지막 줄이 그 사람의 말이다
+    // 마을에서도 대답은 **장면**이다.
+    // ⚠️ **돌려줄 것은 «둘째 줄»이다** — 첫 줄은 공주의 질문이고, 뒤는 이어지는
+    // 주고받음(`more`)이다. 마지막 줄을 돌려주면 그 사람의 «마무리»를 본 대답으로
+    // 착각해 「오릭스가 유리관 이야기를 꺼낸다」 같은 줄이 통째로 어긋난다
     const sc = await playThrough();
-    return sc.length ? sc[sc.length - 1].text : null;
+    if (sc.length) askShape.push(sc.map(s => s.who));
+    return sc.length > 1 ? sc[1].text : null;
   }
+  // 마을에서 돈 장면들의 «모양» — 아래에서 한꺼번에 본다
+  const askShape = [];
 
   let line = await askIn('vl_chimney', 'vs_chimney_forge', '아름다움');
   ok(line && line.includes('깎인'), '오릭스가 장면에서 답한다', (line || '').slice(0, 20));
@@ -420,6 +438,16 @@ function ok(cond, msg, extra) {
   // 「불로장생」은 오릭스의 유리관 대답이, 「진짜 나」는 첨탑에서 여왕이 바로 준다
   ok(st.kw === 13 && st.tk === 40, '키워드 13 · 물어본 것 40 이 남는다', `kw ${st.kw} · talked ${st.tk}${why}`);
   ok(!st.sl, '호감도를 안 올린 사람의 말은 아직 안 들었다 (봉인)');
+
+  // ── 마을에서 돈 장면들도 **대화**인가
+  //
+  // ⚠️ 부엌 하나만 재면 「그 한 줄만 여러 줄이고 나머지 마흔여섯은 그대로」여도
+  // 통과한다 — 몇 개를 쟀는지를 같이 낸다 (한쪽이 0이면 그 방향은 안 잰 것이다)
+  ok(askShape.length >= 5, '마을에서도 장면을 여러 번 쟀다', `${askShape.length}개`);
+  ok(askShape.every(s => s.length >= 3), '마을의 대답도 여러 줄이다',
+     `제일 짧은 것 ${Math.min(...askShape.map(s => s.length))}줄`);
+  ok(askShape.every(s => new Set(s).size === 2), '마을에서도 두 사람이 번갈아 말한다',
+     (askShape.find(s => new Set(s).size !== 2) || []).join(' → ') || '전부 둘');
 
   ok(!errs.length, '콘솔 오류 없음', errs.slice(0, 2).join(' | '));
 

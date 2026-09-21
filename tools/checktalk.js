@@ -152,6 +152,27 @@ D.ASKS.forEach(a => {
     bad.push(`ASKS ${where}: 표정 '${a.mood}' 이 없다 (조용히 기본으로 떨어진다)`);
   if (!a.line) bad.push(`ASKS ${where}: 대답(line)이 없다`);
   else if (I.t(a.line) === a.line) bad.push(`ASKS ${where}: 대답 문구가 없다 (${a.line}) — 화면에 키 이름이 그대로 뜬다`);
+  // ⚠️ **이어지는 줄**(`more`) — 대답이 컷씬으로 돌면서 생긴 칸이다.
+  // 글은 `line` 을 줄기로 «번호»가 데려온다(`ak_…_2` · `_3` …) — 그래서 여기서
+  // 볼 것은 셋이다: 말하는 사람이 있는가 · 그 얼굴이 있는가 · **그 번호의 글이 있는가**.
+  // ⚠️ 번호가 비면 화면에 **열쇠 이름이 그대로 뜬다** (`ak_orix_glass_3`) —
+  // 오류는 안 나고 장면 한가운데가 그렇게 깨진다
+  (a.more || []).forEach((m, i) => {
+    const n = i + 2;
+    const who = Array.isArray(m) ? m[0] : null, md = Array.isArray(m) ? m[1] : null;
+    const msp = who && D.speaker(who);
+    if (!msp) { bad.push(`ASKS ${where}: 이어지는 ${n}번째 줄에 그런 인물이 없다 (${who})`); return; }
+    if (md && (!msp.moods || !msp.moods[md]))
+      bad.push(`ASKS ${where}: 이어지는 ${n}번째 줄의 표정 '${md}' 이 ${who} 에게 없다`);
+    const key = `${a.line}_${n}`;
+    if (I.t(key) === key) bad.push(`ASKS ${where}: 이어지는 ${n}번째 줄의 글이 없다 (${key})`);
+  });
+  // 번호만 있고 `more` 에 자리가 없는 글은 **영영 화면에 안 뜬다** (써 놓고 버려진 줄이다)
+  if (a.line) {
+    const over = (a.more || []).length + 2;
+    if (I.t(`${a.line}_${over}`) !== `${a.line}_${over}`)
+      bad.push(`ASKS ${where}: ${a.line}_${over} 를 써 놓고 more 에 자리가 없다 — 영영 안 뜬다`);
+  }
   // ⚠️ **호감도가 없는 사람에게 호감도 조건을 걸면 영영 안 열린다.**
   // 클레멘이 그렇다 — 대가 없이 주는 쪽이라 눈금을 안 붙였다.
   // 화면에는 자물쇠만 뜨고 아무리 해도 안 풀린다 (조용히 막히는 종류다)

@@ -1937,45 +1937,72 @@ function keyword(id) { return KEYWORDS.find(x => x.id === id) || null; }
 const ASKS = [
   // 🍳 클레멘 — **부엌은 늘 닿는다.** 마을이 전부 잠겨 있어도 여기서 이야기가 시작된다
   { npc: 'sp_clemen', kw: 'kw_hunger', line: 'ak_clemen_hunger', mood: 'def',
-    gives: ['kw_beauty'], opens: ['vl_chimney'] },
-  { npc: 'sp_clemen', kw: 'kw_beauty', line: 'ak_clemen_beauty', mood: 'smile' },
-  { npc: 'sp_clemen', kw: 'kw_queen',  line: 'ak_clemen_queen',  mood: 'def', gives: ['kw_mother'] },
-  { npc: 'sp_clemen', kw: 'kw_mother', line: 'ak_clemen_mother', mood: 'smile' },
+    gives: ['kw_beauty'], opens: ['vl_chimney'],
+    more: [['sp_gwiriel', 'ohh'], ['sp_clemen', 'warm']] },
+  { npc: 'sp_clemen', kw: 'kw_beauty', line: 'ak_clemen_beauty', mood: 'smile',
+    more: [['sp_gwiriel', 'doubt'], ['sp_clemen', 'smile']] },
+  { npc: 'sp_clemen', kw: 'kw_queen', line: 'ak_clemen_queen', mood: 'def', gives: ['kw_mother'],
+    more: [['sp_gwiriel', 'curious'], ['sp_clemen', 'flat']] },
+  { npc: 'sp_clemen', kw: 'kw_mother', line: 'ak_clemen_mother', mood: 'smile',
+    more: [['sp_gwiriel', 'ohh'], ['sp_clemen', 'warm']] },
   // ⛏️ 오릭스 — **키워드를 가장 많이 주는 사람** (STORY.md). 말 많은 인물이 하나 필요하다
-  { npc: 'sp_orix', kw: 'kw_beauty', line: 'ak_orix_beauty', mood: 'wink', gives: ['kw_gem'] },
-  { npc: 'sp_orix', kw: 'kw_gem',    line: 'ak_orix_gem',    mood: 'def',  gives: ['kw_queen'] },
-  { npc: 'sp_orix', kw: 'kw_queen',  line: 'ak_orix_queen',  mood: 'def',  gives: ['kw_song'] },
+  { npc: 'sp_orix', kw: 'kw_beauty', line: 'ak_orix_beauty', mood: 'wink', gives: ['kw_gem'],
+    more: [['sp_gwiriel', 'laugh'], ['sp_orix', 'warm']] },
+  { npc: 'sp_orix', kw: 'kw_gem', line: 'ak_orix_gem', mood: 'def', gives: ['kw_queen'],
+    more: [['sp_gwiriel', 'curious'], ['sp_orix', 'doubt']] },
+  { npc: 'sp_orix', kw: 'kw_queen', line: 'ak_orix_queen', mood: 'def', gives: ['kw_song'],
+    more: [['sp_gwiriel', 'worry'], ['sp_orix', 'smirk']] },
   // 가시울타리 문을 단 것이 그다 — **여는 법도 아는 사람**이라 이 자리가 자연스럽다
-  { npc: 'sp_orix', kw: 'kw_prince', line: 'ak_orix_prince', mood: 'wink', opens: ['vl_thorn'] },
+  { npc: 'sp_orix', kw: 'kw_prince', line: 'ak_orix_prince', mood: 'wink', opens: ['vl_thorn'],
+    more: [['sp_gwiriel', 'doubt'], ['sp_orix', 'proud']] },
   // 🎻 카이로스 — 떠돌이라 거처가 없다. 오늘은 일곱 굴뚝의 여관에 있다
-  { npc: 'sp_kairos', kw: 'kw_song',   line: 'ak_kairos_song',   mood: 'sing', gives: ['kw_apple'] },
-  { npc: 'sp_kairos', kw: 'kw_beauty', line: 'ak_kairos_beauty', mood: 'sing' },
-  { npc: 'sp_kairos', kw: 'kw_apple',  line: 'ak_kairos_apple',  mood: 'def',  opens: ['vl_apple'] },
+  { npc: 'sp_kairos', kw: 'kw_song', line: 'ak_kairos_song', mood: 'sing', gives: ['kw_apple'],
+    more: [['sp_gwiriel', 'curious'], ['sp_kairos', 'sad']] },
+  { npc: 'sp_kairos', kw: 'kw_beauty', line: 'ak_kairos_beauty', mood: 'sing',
+    more: [['sp_gwiriel', 'think'], ['sp_kairos', 'sing']] },
+  { npc: 'sp_kairos', kw: 'kw_apple', line: 'ak_kairos_apple', mood: 'def', opens: ['vl_apple'],
+    more: [['sp_gwiriel', 'curious'], ['sp_kairos', 'sad']] },
   // 소문을 나르는 사람이라 「그런 노래는 안 만든다」면서도 갈 곳은 알려 준다
-  { npc: 'sp_kairos', kw: 'kw_order',  line: 'ak_kairos_order',  mood: 'def',  opens: ['vl_hunter'] },
+  { npc: 'sp_kairos', kw: 'kw_order', line: 'ak_kairos_order', mood: 'def', opens: ['vl_hunter'],
+    more: [['sp_gwiriel', 'shock'], ['sp_kairos', 'flat']] },
   // 🌱 실반 — 과수원을 빼앗긴 사람. **개념 키워드에는 답하지 않는다**
   // (「아름다움」에 답하는 것은 남자 NPC 여섯이고 그는 그 여섯이 아니다 — STORY.md)
-  { npc: 'sp_sylvan', kw: 'kw_apple',  line: 'ak_sylvan_apple',  mood: 'def',  gives: ['kw_curse'] },
-  { npc: 'sp_sylvan', kw: 'kw_curse',  line: 'ak_sylvan_curse',  mood: 'def',  opens: ['vl_mirror'] },
-  { npc: 'sp_sylvan', kw: 'kw_mother', line: 'ak_sylvan_mother', mood: 'warm' },
+  { npc: 'sp_sylvan', kw: 'kw_apple', line: 'ak_sylvan_apple', mood: 'def', gives: ['kw_curse'],
+    more: [['sp_gwiriel', 'sorry'], ['sp_sylvan', 'flat']] },
+  { npc: 'sp_sylvan', kw: 'kw_curse', line: 'ak_sylvan_curse', mood: 'def', opens: ['vl_mirror'],
+    more: [['sp_gwiriel', 'curious'], ['sp_sylvan', 'doubt']] },
+  { npc: 'sp_sylvan', kw: 'kw_mother', line: 'ak_sylvan_mother', mood: 'warm',
+    more: [['sp_gwiriel', 'ohh'], ['sp_sylvan', 'warm']] },
   // 🪞 유타르크 — **답을 피한다.** 「아름다움」에 답하는 것은 최후의 순간 딱 한 번이고,
   // 「저주」에는 정말로 모른다고 한다 — **거짓말이 아니다** (STORY.md 「대표 사례」)
-  { npc: 'sp_yutark', kw: 'kw_beauty', line: 'ak_yutark_beauty', mood: 'def' },
-  { npc: 'sp_yutark', kw: 'kw_curse',  line: 'ak_yutark_curse',  mood: 'true' },
+  { npc: 'sp_yutark', kw: 'kw_beauty', line: 'ak_yutark_beauty', mood: 'def',
+    more: [['sp_gwiriel', 'doubt'], ['sp_yutark', 'laugh']] },
+  { npc: 'sp_yutark', kw: 'kw_curse', line: 'ak_yutark_curse', mood: 'true',
+    more: [['sp_gwiriel', 'suspect'], ['sp_yutark', 'true']] },
   // ⚠️ **그는 거짓말을 못 한다.** 여왕이 무엇을 묻는지 «사실대로» 옮길 뿐인데,
   // 그 사실이 곧 암살 의뢰의 냄새다 — 「암시만 한다」(STORY.md)가 이 줄이다
-  { npc: 'sp_yutark', kw: 'kw_queen',  line: 'ak_yutark_queen',  mood: 'def', gives: ['kw_order'] },
-  { npc: 'sp_yutark', kw: 'kw_mother', line: 'ak_yutark_mother', mood: 'true' },
+  { npc: 'sp_yutark', kw: 'kw_queen', line: 'ak_yutark_queen', mood: 'def', gives: ['kw_order'],
+    more: [['sp_gwiriel', 'curious'], ['sp_yutark', 'flat']] },
+  { npc: 'sp_yutark', kw: 'kw_mother', line: 'ak_yutark_mother', mood: 'true',
+    more: [['sp_gwiriel', 'soft'], ['sp_yutark', 'warm']] },
   // 🏹 슈타르크 — 「살아 있는 것」. **자기가 주는 것을 자기 몸으로 증명하는 사람**
-  { npc: 'sp_stark', kw: 'kw_beauty', line: 'ak_stark_beauty', mood: 'warm' },
-  { npc: 'sp_stark', kw: 'kw_order',  line: 'ak_stark_order',  mood: 'def' },
-  { npc: 'sp_stark', kw: 'kw_queen',  line: 'ak_stark_queen',  mood: 'def', gives: ['kw_prince'] },
-  { npc: 'sp_stark', kw: 'kw_mother', line: 'ak_stark_mother', mood: 'warm' },
+  { npc: 'sp_stark', kw: 'kw_beauty', line: 'ak_stark_beauty', mood: 'warm',
+    more: [['sp_gwiriel', 'ohh'], ['sp_stark', 'flat']] },
+  { npc: 'sp_stark', kw: 'kw_order', line: 'ak_stark_order', mood: 'def',
+    more: [['sp_gwiriel', 'doubt'], ['sp_stark', 'smirk']] },
+  { npc: 'sp_stark', kw: 'kw_queen', line: 'ak_stark_queen', mood: 'def', gives: ['kw_prince'],
+    more: [['sp_gwiriel', 'think'], ['sp_stark', 'meh']] },
+  { npc: 'sp_stark', kw: 'kw_mother', line: 'ak_stark_mother', mood: 'warm',
+    more: [['sp_gwiriel', 'soft'], ['sp_stark', 'sad']] },
   // ⚔️ 발렌 — 「나 같은 거지」. 진짜 강한 사람은 말이 없고 지위로 강한 사람은 계속 말한다
-  { npc: 'sp_valen', kw: 'kw_beauty', line: 'ak_valen_beauty', mood: 'def' },
-  { npc: 'sp_valen', kw: 'kw_order',  line: 'ak_valen_order',  mood: 'def' },
-  { npc: 'sp_valen', kw: 'kw_queen',  line: 'ak_valen_queen',  mood: 'def' },
-  { npc: 'sp_valen', kw: 'kw_mother', line: 'ak_valen_mother', mood: 'soft' },
+  { npc: 'sp_valen', kw: 'kw_beauty', line: 'ak_valen_beauty', mood: 'def',
+    more: [['sp_gwiriel', 'laugh'], ['sp_valen', 'shy']] },
+  { npc: 'sp_valen', kw: 'kw_order', line: 'ak_valen_order', mood: 'def',
+    more: [['sp_gwiriel', 'doubt'], ['sp_valen', 'sorry']] },
+  { npc: 'sp_valen', kw: 'kw_queen', line: 'ak_valen_queen', mood: 'def',
+    more: [['sp_gwiriel', 'sorry'], ['sp_valen', 'meh']] },
+  { npc: 'sp_valen', kw: 'kw_mother', line: 'ak_valen_mother', mood: 'soft',
+    more: [['sp_gwiriel', 'soft'], ['sp_valen', 'think']] },
 
   // ─── 가까워져야 나오는 말 ───────────────────────────────────
   //
@@ -1997,27 +2024,35 @@ const ASKS = [
   // ⚠️ **클레멘에게는 `need.bond` 를 걸 수 없다.** 그에게는 호감도가 없어서
   // (대가 없이 주는 쪽이라 눈금을 안 붙였다) 조건이 영영 안 채워진다 —
   // `checktalk` 이 그것을 잡는다.
-  { npc: 'sp_orix',   kw: 'kw_apple',  line: 'ak_orix_apple',   mood: 'def',
-    need: { bond: 2 }, gives: ['kw_glass'] },
-  { npc: 'sp_stark',  kw: 'kw_curse',  line: 'ak_stark_curse',  mood: 'def',
-    need: { bond: 2 }, gives: ['kw_glass'] },
+  { npc: 'sp_orix', kw: 'kw_apple', line: 'ak_orix_apple', mood: 'def',
+    need: { bond: 2 }, gives: ['kw_glass'],
+    more: [['sp_gwiriel', 'shock'], ['sp_orix', 'grit']] },
+  { npc: 'sp_stark', kw: 'kw_curse', line: 'ak_stark_curse', mood: 'def',
+    need: { bond: 2 }, gives: ['kw_glass'],
+    more: [['sp_gwiriel', 'shock'], ['sp_stark', 'grit']] },
   { npc: 'sp_kairos', kw: 'kw_mother', line: 'ak_kairos_mother', mood: 'def',
-    need: { bond: 2 }, gives: ['kw_seal'] },
-  { npc: 'sp_valen',  kw: 'kw_curse',  line: 'ak_valen_curse',  mood: 'soft',
-    need: { bond: 2 }, gives: ['kw_seal'] },
+    need: { bond: 2 }, gives: ['kw_seal'],
+    more: [['sp_gwiriel', 'worry'], ['sp_kairos', 'warm']] },
+  { npc: 'sp_valen', kw: 'kw_curse', line: 'ak_valen_curse', mood: 'soft',
+    need: { bond: 2 }, gives: ['kw_seal'],
+    more: [['sp_gwiriel', 'shock'], ['sp_valen', 'proud']] },
   // 이 둘은 «주는 것 없이» 인물을 보여 주는 줄이다 — 신뢰의 값이 정보만은 아니다
   { npc: 'sp_yutark', kw: 'kw_hunger', line: 'ak_yutark_hunger', mood: 'true',
-    need: { bond: 3 } },
-  { npc: 'sp_sylvan', kw: 'kw_queen',  line: 'ak_sylvan_queen',  mood: 'def',
-    need: { bond: 3 } },
+    need: { bond: 3 },
+    more: [['sp_gwiriel', 'shock'], ['sp_yutark', 'true']] },
+  { npc: 'sp_sylvan', kw: 'kw_queen', line: 'ak_sylvan_queen', mood: 'def',
+    need: { bond: 3 },
+    more: [['sp_gwiriel', 'shock'], ['sp_sylvan', 'grit']] },
 
   // ─── 새 키워드를 받아 주는 자리 ────────────────────────────
   // ⚠️ 안 만들면 `checktalk` 이 「죽은 키워드」로 잡는다 — 들고 다닐 데가 없는 것이다.
   // 둘 다 **2막으로 가는 씨앗**이다 (유리관 호수 · 엄마의 봉인)
-  { npc: 'sp_clemen', kw: 'kw_seal',  line: 'ak_clemen_seal',  mood: 'def' },
+  { npc: 'sp_clemen', kw: 'kw_seal', line: 'ak_clemen_seal', mood: 'def',
+    more: [['sp_gwiriel', 'worry'], ['sp_clemen', 'think']] },
   // **여기서 2막이 열린다.** 실반은 못 가 봤지만 길은 안다 — 사람이 사는 땅의 일이다
   { npc: 'sp_sylvan', kw: 'kw_glass', line: 'ak_sylvan_glass', mood: 'def',
-    opens: ['vl_glass'] },
+    opens: ['vl_glass'],
+    more: [['sp_gwiriel', 'resolve'], ['sp_sylvan', 'worry']] },
 
   // ─── 2막 — 유리관 · 은빛 갱도 · 불로장생 ───────────────────
   //
@@ -2027,16 +2062,20 @@ const ASKS = [
   //
   // ⚠️ 오릭스의 이 줄이 **불로장생까지 준다.** 관을 짠 사람만 알 수 있는 것
   // (숨구멍)이 곧 그 키워드라, 다른 사람 입에서 나오면 근거가 없어진다.
-  { npc: 'sp_orix',   kw: 'kw_glass', line: 'ak_orix_glass', mood: 'def',
-    gives: ['kw_life'], opens: ['vl_mine'] },
+  { npc: 'sp_orix', kw: 'kw_glass', line: 'ak_orix_glass', mood: 'def',
+    gives: ['kw_life'], opens: ['vl_mine'],
+    more: [['sp_gwiriel', 'shock'], ['sp_orix', 'think']] },
   // ⚠️ **이 줄은 STORY.md 「봉인은 허기의 원인이 아니다」 그 자체다.**
   // 공주가 도망칠 구멍을 하나 찾았을 때, **거짓말을 못 하는** 거울이 「아닙니다」라고
   // 답한다. 여기를 무르게 고치면 이 게임의 주제가 통째로 무너진다 —
   // 폭식이 마법 탓이 되는 순간 애정결핍 이야기가 없어진다
-  { npc: 'sp_yutark', kw: 'kw_seal',  line: 'ak_yutark_seal', mood: 'true' },
+  { npc: 'sp_yutark', kw: 'kw_seal', line: 'ak_yutark_seal', mood: 'true',
+    more: [['sp_gwiriel', 'cry'], ['sp_yutark', 'warm']] },
   // 불로장생을 받아 주는 둘. **아무것도 안 준다** — 3막의 문은 여기서 열지 않는다
-  { npc: 'sp_clemen', kw: 'kw_life',  line: 'ak_clemen_life', mood: 'smile' },
-  { npc: 'sp_kairos', kw: 'kw_life',  line: 'ak_kairos_life', mood: 'sing' },
+  { npc: 'sp_clemen', kw: 'kw_life', line: 'ak_clemen_life', mood: 'smile',
+    more: [['sp_gwiriel', 'think'], ['sp_clemen', 'warm']] },
+  { npc: 'sp_kairos', kw: 'kw_life', line: 'ak_kairos_life', mood: 'sing',
+    more: [['sp_gwiriel', 'sad'], ['sp_kairos', 'smile']] },
 
   // ─── 3막 — 여왕의 첨탑 · 진짜 나 ───────────────────────────
   //
@@ -2044,8 +2083,9 @@ const ASKS = [
   // (STORY.md 「이름」), 성 안을 아는 유일한 사람이다 — 길을 아는 이유가 인물에 있다.
   // ⚠️ **매력 점수로 또 잠그지 않는다.** 「여신 등급 = 여왕과 같은 자리」는 비유이고,
   // 문은 이 한 줄이다 (CLAUDE.md 「점수로 두 번 잠그지 않는다」)
-  { npc: 'sp_stark',  kw: 'kw_life',  line: 'ak_stark_life',  mood: 'def',
-    opens: ['vl_spire'] },
+  { npc: 'sp_stark', kw: 'kw_life', line: 'ak_stark_life', mood: 'def',
+    opens: ['vl_spire'],
+    more: [['sp_gwiriel', 'resolve'], ['sp_stark', 'flat']] },
 
   // 👑 여왕 — **3막의 키워드는 새 사람이 받는다.** 여섯이 이미 여섯 칸씩 차서
   // 상한을 또 올리는 대신 그녀가 받도록 했다 (checktalk 의 `ASK_MAX` 주석 참고).
@@ -2057,20 +2097,27 @@ const ASKS = [
   // ⚠️ **「아름다움」이 「진짜 나」를 준다.** 평생 그것을 못 찾은 사람만이 그 말을
   // «질문»으로 흘릴 수 있다 — 답을 아는 사람 입에서 나오면 수수께끼가 아니라 답지다.
   { npc: 'sp_ygritte', kw: 'kw_beauty', line: 'ak_queen_beauty', mood: 'def',
-    gives: ['kw_self'] },
-  { npc: 'sp_ygritte', kw: 'kw_life',   line: 'ak_queen_life',   mood: 'cold' },
-  { npc: 'sp_ygritte', kw: 'kw_mother', line: 'ak_queen_mother', mood: 'cold' },
-  { npc: 'sp_ygritte', kw: 'kw_order',  line: 'ak_queen_order',  mood: 'cold' },
+    gives: ['kw_self'],
+    more: [['sp_gwiriel', 'worry'], ['sp_ygritte', 'shock']] },
+  { npc: 'sp_ygritte', kw: 'kw_life', line: 'ak_queen_life', mood: 'cold',
+    more: [['sp_gwiriel', 'think'], ['sp_ygritte', 'cold']] },
+  { npc: 'sp_ygritte', kw: 'kw_mother', line: 'ak_queen_mother', mood: 'cold',
+    more: [['sp_gwiriel', 'ohh'], ['sp_ygritte', 'sad']] },
+  { npc: 'sp_ygritte', kw: 'kw_order', line: 'ak_queen_order', mood: 'cold',
+    more: [['sp_gwiriel', 'resolve'], ['sp_ygritte', 'doubt']] },
   // 같은 상처를 앓는 두 여자가 같은 낱말 앞에 선다 (STORY.md 「그래서 — 자기 열심으로는 안 된다」).
   // **그녀는 자기 이야기를 하는 줄도 모른다**
-  { npc: 'sp_ygritte', kw: 'kw_hunger', line: 'ak_queen_hunger', mood: 'def' },
+  { npc: 'sp_ygritte', kw: 'kw_hunger', line: 'ak_queen_hunger', mood: 'def',
+    more: [['sp_gwiriel', 'soft'], ['sp_ygritte', 'shock']] },
 
   // 「진짜 나」를 받아 주는 둘. **유타르크가 아니다** — 그에게 이 말을 가져가는 것은
   // 저주가 풀리는 순간이라 엔딩의 몫이고, 여기서 미리 쓰면 그 장면이 죽는다.
   // ⚠️ **슈타르크도 아니다.** 인물로는 제일 어울리지만(죽이기를 그만두고서야 자기를 알았다)
   // 첨탑을 여는 줄이 이미 그의 여섯째 칸이라 자리가 없다 — 상한을 올리는 대신 비켜 간다
-  { npc: 'sp_sylvan', kw: 'kw_self',  line: 'ak_sylvan_self', mood: 'def' },
-  { npc: 'sp_valen',  kw: 'kw_self',  line: 'ak_valen_self',  mood: 'soft' },
+  { npc: 'sp_sylvan', kw: 'kw_self', line: 'ak_sylvan_self', mood: 'def',
+    more: [['sp_gwiriel', 'soft'], ['sp_sylvan', 'smile']] },
+  { npc: 'sp_valen', kw: 'kw_self', line: 'ak_valen_self', mood: 'soft',
+    more: [['sp_gwiriel', 'warm'], ['sp_valen', 'pout']] },
 ];
 function asksOf(npc) { return ASKS.filter(a => a.npc === npc); }
 // 그 대답에 필요한 호감도 단계 (없으면 0)
