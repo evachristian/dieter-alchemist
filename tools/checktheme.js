@@ -145,6 +145,45 @@ if (!miss) ok(`여섯이 같은 토큰 ${baseKeys.length}개를 «다» 가졌�
   if (!wrong) ok(`컬러칩 ${listed.length}개가 다 그 테마의 주 강조색이다`);
 }
 
+// 길잡이 점(●)이 «그 위에 올라앉는 채움»과 색으로 갈리는가.
+//
+// ⚠️⚠️ **대비(휘도)로는 못 잡는다.** 점은 글자가 아니라 `checkTextStyle()` 의 검사망
+// 밖이고, 설령 재더라도 휘도만 보는 잣대는 **색이 같은 것을 못 본다** (이모지 테에서
+// 배운 자리다 — 「이 잣대는 «색»을 못 본다」). 챠콜의 주 강조가 산호였을 때
+// 붉은 점(#e11d48)이 그 위에 앉아 **ΔE 37** 밖에 안 갈렸다 (「붉은색 버튼을 쓰니까
+// 레드닷이 눈에 띄지 않는다」로 신고받았다). 다음으로 낮은 테마가 63 이다.
+// ⚠️ 점 색은 **style.css 에서 읽는다** — 검사기에 베껴 두면 한쪽만 고쳐 갈린다
+{
+  const DOT_MIN = 50;
+  const dot = (css.match(/\.tab-dot\s*\{[^}]*background:\s*(#[0-9a-f]{3,8})/i) || [])[1];
+  // CIE Lab ΔE76 — 휘도·채도·색상을 한 수로 본다
+  const lab = h => {
+    const c = rgb(h); if (!c) return null;
+    const f = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const [r, g, b] = [f(c[0]), f(c[1]), f(c[2])];
+    const k = t => t > 0.008856 ? Math.cbrt(t) : (7.787 * t + 16 / 116);
+    const x = k((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047);
+    const y = k(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    const z = k((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883);
+    return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  };
+  if (!dot) bad('style.css 의 `.tab-dot` 에서 점 색을 못 찾았다 (길잡이 점을 잴 수가 없다)');
+  else {
+    const A = lab(dot);
+    let worst = null, n = 0;
+    names.forEach(t => {
+      const B = lab((blocks[t] || {})['--pink-2']);
+      if (!A || !B) return;
+      n++;
+      const d = Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
+      if (!worst || d < worst.d) worst = { t, d, fill: blocks[t]['--pink-2'] };
+    });
+    if (n < names.length) bad(`길잡이 점을 ${n}/${names.length} 테마에서만 쟀다`);
+    else if (worst.d < DOT_MIN) bad(`«${worst.t}» 의 주 강조(${worst.fill}) 위에서 길잡이 점(${dot})이 ΔE ${worst.d.toFixed(1)} 로 묻힌다 (${DOT_MIN} 필요)`);
+    else ok(`길잡이 점이 여섯 채움에서 다 갈린다 (제일 낮은 «${worst.t}» ΔE ${worst.d.toFixed(1)})`);
+  }
+}
+
 // 이름이 두 언어에 다 있는가 (칩에는 글자가 없어 `aria-label` 이 이름을 진다)
 {
   let lack = [];
@@ -390,6 +429,7 @@ async function onScreen() {
         }
       }
     }
+
     await ctx.close();
   }
 

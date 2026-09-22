@@ -208,7 +208,7 @@
   --tint: #3a404a; --mix-base: #2b2f35; --shadow: 0 4px 14px rgba(0,0,0,0.45);
   --glass: rgba(255,255,255,0.05); --glass-2: rgba(255,255,255,0.10); --glass-3: rgba(255,255,255,0.14); --glass-line: rgba(255,255,255,0.10);
   --track: rgba(0,0,0,0.38); --halo: #1a1d21;
-  --pink: #603e35; --pink-2: #a24a33; --text-pink: #d9d2c8;
+  --pink: #354762; --pink-2: #3565a8; --text-pink: #d9d2c8;
   --mint: #23372e; --mint-2: #2f5a44; --text-mint: #8fe0b8;
   --lav: #333a46; --lav-2: #546078; --text-lav: #c3b6f0;
   --ink: #e8e6e3; --ink-soft: #c2bfbb; --ink-dim: #8b8781;
@@ -219,7 +219,7 @@
   --float: rgba(26,29,34,0.88);
   --well: rgba(255,255,255,0.14);
   --btn-shadow: rgba(0,0,0,0.5);
-  --btn-grad-a: #c58575; --btn-grad-b: #9b4e3b; --btn-halo: #1a1d21; --emoji-halo: rgba(240,234,228,0.5);
+  --btn-grad-a: #7697c5; --btn-grad-b: #3c659e; --btn-halo: #1a1d21; --emoji-halo: rgba(240,234,228,0.5);
   /* THEME:charcoal>>> */
 }
 
