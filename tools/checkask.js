@@ -456,6 +456,26 @@ function ok(cond, msg, extra) {
   let dots = await page.$$eval('#villageTabs .cat-tab',
     els => els.filter(e => e.querySelector('.tab-dot')).map(e => e.dataset.village));
   ok(dots.length > 0, '아직 안 물어본 마을 탭에 점이 있다', dots.join(','));
+
+  // ── 윗단 «마을» 갈래의 점 — 안쪽 점이 하나라도 있으면 켜진다
+  // ⚠️ 안쪽(마을 탭·건물)에만 찍으면 «필드»에 서 있는 사람에게는 아예 안 보인다 —
+  // 갈 곳을 알려 주는 점이 갈 곳에 들어가야만 보이면 뜻이 없다
+  const gtDots = () => page.$$eval('.gt-tabs .room-tab',
+    els => els.filter(e => e.querySelector('.tab-dot')).map(e => e.dataset.gtab));
+  let gt = await gtDots();
+  ok(gt.includes('village'), '안쪽에 점이 있으면 윗단 «마을» 갈래에도 점이 뜬다', gt.join(',') || '(없음)');
+  ok(!gt.includes('field') && !gt.includes('farm'), '필드·밭 갈래에는 안 붙는다', gt.join(',') || '(없음)');
+  // ⚠️⚠️ **`I18N.apply()` 를 «그리기 없이» 불러 본다.** 그 함수는 `data-i18n` 요소의
+  // `textContent` 를 통째로 갈아 끼우므로, 라벨을 버튼에 바로 달아 두면 점이 **그 자리에서
+  // 사라진다** — 지금은 `setLang` 도 부팅도 곧바로 `render()` 를 부르기 때문에 그 사고가
+  // 안 보일 뿐이다. `setLang('en')` 으로 재면 **다시 그려져서** 무엇을 해 놔도 통과한다
+  // (그렇게 짰다가 사보타주가 그대로 지나갔다). 그리기를 빼야 구조가 재진다
+  await page.evaluate(() => { I18N.apply(); });
+  await page.waitForTimeout(60);
+  gt = await gtDots();
+  ok(gt.includes('village'), '다시 그리지 않아도 점이 살아 있다 (라벨이 안쪽 span 이다)',
+     gt.join(',') || '(없음)');
+
   // 남은 것을 전부 물어본다
   await page.evaluate(() => {
     D.ASKS.forEach(a => { if (S.keywords.includes(a.kw)) doAsk(a.npc, a.kw); });
@@ -465,6 +485,9 @@ function ok(cond, msg, extra) {
   dots = await page.$$eval('#villageTabs .cat-tab',
     els => els.filter(e => e.querySelector('.tab-dot')).map(e => e.dataset.village));
   ok(dots.length === 0, '다 물어보면 점이 꺼진다', dots.join(','));
+  // ⚠️ **켜지는 것만 재면 「끄는 줄」을 빼도 통과한다** — 안 꺼지는 점은 거짓말이다
+  gt = await gtDots();
+  ok(!gt.includes('village'), '다 물어보면 윗단 «마을» 갈래의 점도 꺼진다', gt.join(',') || '(없음)');
 
   // ── 새로고침해도 남는가 (세이브)
   // ⚠️ **저장이 끝난 것을 보고 나서 새로고침한다.** 그냥 기다렸다 새로고침했더니

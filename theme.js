@@ -30,7 +30,7 @@
     { id: 'blue',     sw: '#aad8f2' },
     { id: 'pink',     sw: '#ffb8d9' },
     { id: 'purple',   sw: '#cbb6f2' },
-    { id: 'charcoal', sw: '#5c6470' },
+    { id: 'charcoal', sw: '#a24a33' },
   ];
   var DEFAULT = 'ecru';
 

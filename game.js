@@ -4202,8 +4202,21 @@ function renderGather() {
   // 잠겼는데 밭에 서 있으면(개발용으로 열었다 닫은 경우 등) 필드로 되돌린다 —
   // 안 그러면 탭 줄에 없는 화면이 그대로 남는다
   if (gatherTab === 'farm' && !fOpen) gatherTab = 'field';
-  document.querySelectorAll('.gt-tabs .room-tab').forEach(b =>
-    b.classList.toggle('active', b.dataset.gtab === gatherTab));
+  // **마을 갈래에 새로 물어볼 것이 있으면 윗단 탭에도 점을 찍는다.**
+  // 안쪽(마을 탭·건물 명판)에만 찍으면 «필드»에 서 있는 사람에게는 아예 안 보인다 —
+  // 갈 곳을 알려 주는 점이 갈 곳에 들어가야만 보이면 뜻이 없다.
+  // ⚠️ 판정은 `villageNews` 하나를 그대로 쓴다 (안쪽 점과 같은 함수라 갈릴 데가 없다) —
+  // 잠긴 마을은 거기서 이미 거짓이므로 「잠긴 것은 길잡이 점에 안 센다」도 저절로 따라온다
+  const vDot = D.villagesShown().some(villageNews);
+  document.querySelectorAll('.gt-tabs .room-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.gtab === gatherTab);
+    // ⚠️ **켜기만 하고 끄는 줄을 빼먹지 않는다** — 다 물어본 뒤에도 점이 남으면
+    // 그 점이 거짓말이 된다 (부엌 점에서 「다 먹었는데 안 사라진다」로 신고받은 자리다)
+    const want = b.dataset.gtab === 'village' && vDot;
+    const has = b.querySelector('.tab-dot');
+    if (want && !has) b.insertAdjacentHTML('beforeend', '<span class="tab-dot" aria-hidden="true"></span>');
+    else if (!want && has) has.remove();
+  });
   ['field', 'village', 'farm'].forEach(t => {
     const p = document.getElementById('gatherPanel-' + t);
     if (p) p.classList.toggle('active', t === gatherTab);

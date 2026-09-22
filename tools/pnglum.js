@@ -10,15 +10,23 @@
 // 못 읽는 모양이면 **빈 배열**을 돌려준다 — 부르는 쪽이 「한 점도 못 읽었다」로 실패시킨다
 const { decode } = require('./png');
 
-function pngLums(buf) {
+// 한 장을 풀어 **폭·높이와 함께** 돌려준다 (`{ w, h, l }`).
+// 자리를 아는 검사(`checkemoji` — 이모지 상자와 그 둘레를 갈라 재야 한다)는 이쪽을 쓴다.
+// 못 읽는 모양이면 `null` 이다 — 부르는 쪽이 「한 점도 못 읽었다」로 실패시킨다
+function pngLumGrid(buf) {
   let im;
-  try { im = decode(buf); } catch (e) { return []; }
+  try { im = decode(buf); } catch (e) { return null; }
   const g = v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-  const out = new Array(im.w * im.h);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = 0.2126 * g(im.px[i * 4]) + 0.7152 * g(im.px[i * 4 + 1]) + 0.0722 * g(im.px[i * 4 + 2]);
+  const l = new Array(im.w * im.h);
+  for (let i = 0; i < l.length; i++) {
+    l[i] = 0.2126 * g(im.px[i * 4]) + 0.7152 * g(im.px[i * 4 + 1]) + 0.0722 * g(im.px[i * 4 + 2]);
   }
-  return out;
+  return { w: im.w, h: im.h, l };
 }
 
-module.exports = { pngLums };
+function pngLums(buf) {
+  const grid = pngLumGrid(buf);
+  return grid ? grid.l : [];
+}
+
+module.exports = { pngLums, pngLumGrid };

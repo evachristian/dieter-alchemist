@@ -104,7 +104,7 @@
   --float: rgba(255,255,255,0.92);
   --well: rgba(120,112,92,0.20);
   --btn-shadow: rgba(94,80,44,0.38);
-  --btn-grad-a: #f2dc9a; --btn-grad-b: #d2b155; --btn-halo: transparent;
+  --btn-grad-a: #f2dc9a; --btn-grad-b: #d2b155; --btn-halo: transparent; --emoji-halo: transparent;
   /* THEME:ecru>>> */
 }
 
@@ -127,7 +127,7 @@
   --float: rgba(255,255,255,0.92);
   --well: rgba(130,108,86,0.20);
   --btn-shadow: rgba(104,74,33,0.38);
-  --btn-grad-a: #a4b1cd; --btn-grad-b: #cfa368; --btn-halo: transparent;
+  --btn-grad-a: #a4b1cd; --btn-grad-b: #cfa368; --btn-halo: transparent; --emoji-halo: transparent;
   /* THEME:beige>>> */
 }
 
@@ -150,7 +150,7 @@
   --float: rgba(255,255,255,0.92);
   --well: rgba(100,116,134,0.20);
   --btn-shadow: rgba(32,88,120,0.38);
-  --btn-grad-a: #c4bff0; --btn-grad-b: #aad8f2; --btn-halo: transparent;
+  --btn-grad-a: #c4bff0; --btn-grad-b: #aad8f2; --btn-halo: transparent; --emoji-halo: transparent;
   /* THEME:blue>>> */
 }
 
@@ -173,7 +173,7 @@
   --float: rgba(255,255,255,0.92);
   --well: rgba(154,138,149,0.24);
   --btn-shadow: rgba(167,44,101,0.38);
-  --btn-grad-a: #c9b6ff; --btn-grad-b: #ffb8d9; --btn-halo: transparent;
+  --btn-grad-a: #c9b6ff; --btn-grad-b: #ffb8d9; --btn-halo: transparent; --emoji-halo: transparent;
   /* THEME:pink>>> */
 }
 
@@ -196,7 +196,7 @@
   --float: rgba(255,255,255,0.92);
   --well: rgba(122,110,140,0.20);
   --btn-shadow: rgba(92,47,176,0.38);
-  --btn-grad-a: #b5d4f2; --btn-grad-b: #cbb6f2; --btn-halo: transparent;
+  --btn-grad-a: #b5d4f2; --btn-grad-b: #cbb6f2; --btn-halo: transparent; --emoji-halo: transparent;
   /* THEME:purple>>> */
 }
 
@@ -208,7 +208,7 @@
   --tint: #3a404a; --mix-base: #2b2f35; --shadow: 0 4px 14px rgba(0,0,0,0.45);
   --glass: rgba(255,255,255,0.05); --glass-2: rgba(255,255,255,0.10); --glass-3: rgba(255,255,255,0.14); --glass-line: rgba(255,255,255,0.10);
   --track: rgba(0,0,0,0.38); --halo: #1a1d21;
-  --pink: #383d44; --pink-2: #5c6470; --text-pink: #d9d2c8;
+  --pink: #603e35; --pink-2: #a24a33; --text-pink: #d9d2c8;
   --mint: #23372e; --mint-2: #2f5a44; --text-mint: #8fe0b8;
   --lav: #333a46; --lav-2: #546078; --text-lav: #c3b6f0;
   --ink: #e8e6e3; --ink-soft: #c2bfbb; --ink-dim: #8b8781;
@@ -219,7 +219,7 @@
   --float: rgba(26,29,34,0.88);
   --well: rgba(255,255,255,0.14);
   --btn-shadow: rgba(0,0,0,0.5);
-  --btn-grad-a: #8b97ac; --btn-grad-b: #5b6577; --btn-halo: #1a1d21;
+  --btn-grad-a: #c58575; --btn-grad-b: #9b4e3b; --btn-halo: #1a1d21; --emoji-halo: rgba(240,234,228,0.5);
   /* THEME:charcoal>>> */
 }
 
@@ -229,12 +229,37 @@
    지금 `.btn-flex` 와 `.wr-gift` 가 이 한 줄을 같이 본다.
    ⚠️ 색이 `transparent` 면 그려지는 것이 없다 — 테가 필요 없는 테마는 **한 픽셀도
    안 바뀐다**. 그래서 「필요한 테마에만 켠다」가 규칙 하나로 선다 */
+/* ⚠️ **이모지의 테도 같은 규칙이다** (`--emoji-halo`) — 모양은 여기, 색은 테마 블록.
+   밝은 다섯은 `transparent` 라 **한 픽셀도 안 바뀐다**.
+   쓰는 자리 목록은 아래 「어두운 판 위의 어두운 이모지」 블록 하나뿐이다 */
 :root {
   --radius: 20px;
   --btn-ink-edge:
     0 1px 0 var(--btn-halo), 0 -1px 0 var(--btn-halo),
     1px 0 0 var(--btn-halo), -1px 0 0 var(--btn-halo),
     0 0 4px var(--btn-halo);
+  --emoji-edge:
+    0 1px 0 var(--emoji-halo), 0 -1px 0 var(--emoji-halo),
+    1px 0 0 var(--emoji-halo), -1px 0 0 var(--emoji-halo);
+}
+
+/* ═══ 어두운 판 위의 어두운 이모지 ═══════════════════════════
+   ⚠️⚠️ **`checkTextStyle()` 은 이모지를 아예 안 잰다** — 「그림 글자의 대비는 재지
+   않는다」가 규칙이라(♥ 3.56:1 · ❔ 1.34:1 이 둘 다 0건이던 그 자리) 검사망 밖이다.
+   밝은 테마 다섯에서는 그래도 됐다: 이모지는 대개 어두운 쪽이라 크림색 판 위에서
+   저절로 읽힌다. **챠콜에서만 반대가 된다** — 어두운 판 위의 어두운 이모지
+   (🐾 · 👖 · 👤 · ❓…)는 윤곽조차 안 남는다 (「동행 크리처 없음」 앞의 🐾 가
+   그렇게 신고받은 자리다).
+
+   그래서 **둘레에 옅은 테를 두른다.** 색이 `transparent` 인 다섯 테마는 한 픽셀도
+   안 바뀐다 — 「필요한 테마에만 켠다」가 `--btn-halo` 와 같은 규칙 하나로 선다.
+   ⚠️ **자리는 «재서» 골랐다** (`npm run test:emoji`) — 챠콜이 밝은 테마보다 못한
+   자리만 넣는다. 눈으로 고르면 목록이 끝없이 늘어난다.
+   ⚠️ 테가 이 요소의 «글자»에도 같이 걸린다. 챠콜의 글자는 이미 밝아서(`--ink`)
+   같은 색 테는 거의 안 보이지만, **큰 글자 블록에는 붙이지 않는다** —
+   짧은 라벨(탭·줄 머리)뿐이다 */
+.tab-icon, .room-tab, .cat-tab, .pal-name, .creature-art, .lg-face {
+  text-shadow: var(--emoji-edge);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -1610,9 +1635,13 @@ button.tm-slot:active { transform: scale(0.94); }
    명도차가 4~12 밖에 안 나 **버튼이 평평해 보였다** (에크루·챠콜에서 신고받았다).
 
    ⚠️⚠️ **두 테마에서 「밝게」의 뜻이 서로 반대다 — 재 보고서야 갈렸다.**
-   · **챠콜**은 말 그대로 밝히는 것이 맞다. 카드(#2b2f35)와의 대비가 2.29 → **4.56** 이라
-     버튼이 비로소 카드에서 «떠오른다». 대신 `--ink`(#e8e6e3)가 밝은 끝에서 **2.37** 로
+   · **챠콜**은 말 그대로 밝히는 것이 맞다. 카드(#2b2f35)와의 대비가 2.29 → **4.48** 이라
+     버튼이 비로소 카드에서 «떠오른다». 대신 `--ink`(#e8e6e3)가 밝은 끝에서 **2.41** 로
      내려앉으므로 **글자에 테를 두른다**(아래 `--btn-halo`)
+     · ⚠️ **그래도 회색이면 버튼으로 «안 읽힌다».** 한동안 청회색(#8b97ac → #5b6577)이었고
+       명암은 맞았는데 「어포던스 유발이 잘 안 된다」로 신고받았다 — 어두운 판 위의
+       무채색은 아무리 밝혀도 «판의 일부»로 보인다. 지금은 **산호**다(로고 색이다).
+       ⚠️ 밝기는 그대로 두고 **채도만** 올렸으므로 위의 수치와 테 규칙은 안 바뀐다
    · **에크루는 밝히면 «사라진다».** 카드가 흰색이라 위 끝을 밝힐수록 카드에 묻힌다
      (1.46 → 1.14). 여기서 모자랐던 것은 밝기가 아니라 **채도**였다 — 회끼 도는 베이지
      (채도 15/18)를 금빛(**36/60**)으로 올렸다. 글자는 7.83 / 5.14 라 테가 필요 없다.
