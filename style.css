@@ -104,6 +104,7 @@
   --float: rgba(255,255,255,0.92);
   --well: rgba(120,112,92,0.20);
   --btn-shadow: rgba(94,80,44,0.38);
+  --btn-grad-a: #f2dc9a; --btn-grad-b: #d2b155; --btn-halo: transparent;
   /* THEME:ecru>>> */
 }
 
@@ -126,6 +127,7 @@
   --float: rgba(255,255,255,0.92);
   --well: rgba(130,108,86,0.20);
   --btn-shadow: rgba(104,74,33,0.38);
+  --btn-grad-a: #a4b1cd; --btn-grad-b: #cfa368; --btn-halo: transparent;
   /* THEME:beige>>> */
 }
 
@@ -148,6 +150,7 @@
   --float: rgba(255,255,255,0.92);
   --well: rgba(100,116,134,0.20);
   --btn-shadow: rgba(32,88,120,0.38);
+  --btn-grad-a: #c4bff0; --btn-grad-b: #aad8f2; --btn-halo: transparent;
   /* THEME:blue>>> */
 }
 
@@ -170,6 +173,7 @@
   --float: rgba(255,255,255,0.92);
   --well: rgba(154,138,149,0.24);
   --btn-shadow: rgba(167,44,101,0.38);
+  --btn-grad-a: #c9b6ff; --btn-grad-b: #ffb8d9; --btn-halo: transparent;
   /* THEME:pink>>> */
 }
 
@@ -192,6 +196,7 @@
   --float: rgba(255,255,255,0.92);
   --well: rgba(122,110,140,0.20);
   --btn-shadow: rgba(92,47,176,0.38);
+  --btn-grad-a: #b5d4f2; --btn-grad-b: #cbb6f2; --btn-halo: transparent;
   /* THEME:purple>>> */
 }
 
@@ -214,11 +219,23 @@
   --float: rgba(26,29,34,0.88);
   --well: rgba(255,255,255,0.14);
   --btn-shadow: rgba(0,0,0,0.5);
+  --btn-grad-a: #8b97ac; --btn-grad-b: #5b6577; --btn-halo: #1a1d21;
   /* THEME:charcoal>>> */
 }
 
 /* 테마를 안 타는 것 — 모양이지 색이 아니다 */
-:root { --radius: 20px; }
+/* ⚠️ **버튼 글자의 테는 «모양»이 여기, «색»이 테마 블록에 있다** (`--btn-halo`).
+   두 군데에 똑같은 그림자 다섯 줄을 적어 두면 한쪽만 고쳐 갈린다 —
+   지금 `.btn-flex` 와 `.wr-gift` 가 이 한 줄을 같이 본다.
+   ⚠️ 색이 `transparent` 면 그려지는 것이 없다 — 테가 필요 없는 테마는 **한 픽셀도
+   안 바뀐다**. 그래서 「필요한 테마에만 켠다」가 규칙 하나로 선다 */
+:root {
+  --radius: 20px;
+  --btn-ink-edge:
+    0 1px 0 var(--btn-halo), 0 -1px 0 var(--btn-halo),
+    1px 0 0 var(--btn-halo), -1px 0 0 var(--btn-halo),
+    0 0 4px var(--btn-halo);
+}
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 /* ⚠️ **`hidden` 속성만으로는 안 숨는다** — 그래서 여기서 한 번에 못 박는다.
@@ -1583,7 +1600,28 @@ button.tm-slot:active { transform: scale(0.94); }
    탁해지지 않는다 (다크만은 검정이다 — 색 그림자는 다크에서 «빛나는» 것처럼 보인다) */
 .btn-primary { background: var(--pink-2); color: var(--ink); box-shadow: 0 5px 14px var(--btn-shadow); }
 .btn-ghost { background: var(--cream); color: var(--ink-soft); }
-.btn-flex { background: linear-gradient(120deg, var(--lav-2), var(--pink-2)); color: var(--ink); width: 100%; margin: 10px 0 0; box-shadow: 0 5px 14px var(--btn-shadow); }
+/* ⚠️ 그라데이션의 두 끝은 **제 토큰**(`--btn-grad-a/b`)이다. 예전에는 «재화 슬롯»과
+   «주 강조 슬롯»(`--lav-2` → `--pink-2`)을 그냥 갖다 썼는데, 그 둘이 닮은 테마에서는
+   명도차가 4~12 밖에 안 나 **버튼이 평평해 보였다** (에크루·챠콜에서 신고받았다).
+
+   ⚠️⚠️ **두 테마에서 「밝게」의 뜻이 서로 반대다 — 재 보고서야 갈렸다.**
+   · **챠콜**은 말 그대로 밝히는 것이 맞다. 카드(#2b2f35)와의 대비가 2.29 → **4.56** 이라
+     버튼이 비로소 카드에서 «떠오른다». 대신 `--ink`(#e8e6e3)가 밝은 끝에서 **2.37** 로
+     내려앉으므로 **글자에 테를 두른다**(아래 `--btn-halo`)
+   · **에크루는 밝히면 «사라진다».** 카드가 흰색이라 위 끝을 밝힐수록 카드에 묻힌다
+     (1.46 → 1.14). 여기서 모자랐던 것은 밝기가 아니라 **채도**였다 — 회끼 도는 베이지
+     (채도 15/18)를 금빛(**36/60**)으로 올렸다. 글자는 7.83 / 5.14 라 테가 필요 없다.
+   **그래서 헤일로는 「밝은 테마에도 일단 깔아 두는 것」이 아니다** — 필요 없는 곳은
+   `transparent` 라 한 픽셀도 안 바뀐다 (롤백해 둔 네 테마가 그대로 남는 이유다).
+
+   ⚠️ **밝기는 «글자에서 멀어지는 쪽»으로만 간다** — 테를 안 두른 테마에 해당한다.
+   `checktheme` 은 **끝마다** 「글자가 제 힘으로 서거나, 테가 그 끝에서 4.5:1 이거나」를
+   본다 — 테마 단위로 뭉뚱그리면 안 된다. 챠콜은 «밝은 끝»에서만 테가 일하고 어두운
+   끝에서는 글자가 제 힘으로 선다 (그렇게 짰다가 2.88 로 헛짚었다) */
+/* ⚠️⚠️ **그림자는 `checkTextStyle()` 이 대비로 안 쳐 준다** (바람개비 HUD·퀘스트 숫자에서
+   배운 자리다). 그러니 테를 둘렀다고 토큰 대비 검사를 «그냥 면제»하면 아무도 안 보는
+   자리가 된다 — `checktheme` 의 「버튼글자」가 **진짜 픽셀을 떠서** 잰다 */
+.btn-flex { background: linear-gradient(120deg, var(--btn-grad-a), var(--btn-grad-b)); color: var(--ink); width: 100%; margin: 10px 0 0; box-shadow: 0 5px 14px var(--btn-shadow); text-shadow: var(--btn-ink-edge); }
 .btn-reset { background: transparent; color: var(--ink-soft); border: 1px solid rgba(154,138,149,0.35); width: 100%; margin-top: 28px; font-weight: 600; font-size: 0.82rem; }
 /* 임시(출시 버전에서 제거): AP 충전 테스트 버튼 */
 /* ⚠️ 글자색은 금색 그라데이션의 **제일 어두운 스톱**(`#ffb066`)에서 4.5:1 을 넘겨야 한다.
@@ -2420,7 +2458,8 @@ button.tm-slot:active { transform: scale(0.94); }
 .wr-foot > * { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wr-count { font-size: 0.72rem; font-weight: 800; color: var(--ink-soft); }
 .wr-gift {
-  border: none; background: linear-gradient(135deg, var(--lav-2), var(--pink-2)); color: var(--ink);
+  border: none; background: linear-gradient(135deg, var(--btn-grad-a), var(--btn-grad-b)); color: var(--ink);
+  text-shadow: var(--btn-ink-edge);
   font-family: inherit; font-weight: 800; font-size: 0.74rem; padding: 7px 14px;
   border-radius: 999px; cursor: pointer; box-shadow: 0 4px 11px var(--btn-shadow);
 }

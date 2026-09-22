@@ -22,6 +22,8 @@ const ROOT = path.join(__dirname, '..');
 const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
 const themeJs = fs.readFileSync(path.join(ROOT, 'theme.js'), 'utf8');
 const i18n = fs.readFileSync(path.join(ROOT, 'i18n.js'), 'utf8');
+// PNG 픽셀 읽기는 `checkui.js` 와 **같은 한 곳**에서 온다 (베끼면 한쪽만 고쳐 갈린다)
+const { pngLums } = require('./pnglum');
 
 let fails = 0, notes = [];
 const bad = m => { fails++; console.log('  ❌ ' + m); };
@@ -170,6 +172,8 @@ const PAIRS = [
   ['--text-blue', '--blue'], ['--text-red', '--red'],
   ['--on-accent', '--text-pink'], ['--on-accent', '--text-red'],
   ['--toast-ink', '--toast-bg'],
+  // 그라데이션 버튼의 두 끝은 **아래 `BTN` 이 따로 본다** — 테(`--btn-halo`)가 있느냐로
+  // 잣대가 갈려서, 한 표에 같이 두면 둘 중 한 갈래가 반드시 틀린 값으로 재진다
   // 반투명 판 위 — 카드에 얹힌 것으로 쳐서 잰다 (`.potion-why` 의 ? 가 여기 산다)
   ['--ink', '--well'], ['--ink-soft', '--well'],
   // 글자 뒤의 테는 그 글자와 «반대쪽» 이어야 한다 (진행도 숫자가 채운 막대 위에 선다)
@@ -188,6 +192,19 @@ const LOCK_A = 0.8;
 // ⚠️ 표에 «안 쓰는 조합»까지 넣으면 아무도 못 보는 자리 때문에 값을 옮기게 된다 —
 // 표는 「실제로 서는 것」만 담아야 잣대가 된다 (넓게 잡았다가 일곱 건을 헛짚었다)
 const LOCKED = [['--ink', '--cream'], ['--ink', '--card']];
+// ⚠️⚠️ **그라데이션 버튼의 두 끝은 «끝마다» 따로 본다** —
+// 「**글자**가 제 힘으로 서거나, **테**가 그 끝에서 4.5:1 이거나」. 밝은 버튼 위의 밝은
+// 글자를 읽게 해 주는 것이 테이므로, 테가 안 읽히면 글자도 안 읽힌다.
+// 거기에 «글자 ↔ 테»도 같이 본다 (제 테와 붙어 버리면 두른 뜻이 없다).
+// ⚠️ **테마 단위로 뭉뚱그리면 안 된다.** 챠콜은 «밝은 끝»에서만 테가 일하고 어두운
+// 끝에서는 글자가 제 힘으로 선다 — 「테를 켰으면 두 끝 다 테로 잰다」로 짰다가
+// 멀쩡한 어두운 끝을 2.88 로 헛짚었다.
+// ⚠️ **면제가 아니다.** 그림자는 `checkTextStyle()` 이 대비로 안 쳐 주므로, 테를 두른
+// 자리는 ③의 「버튼글자」가 **진짜 픽셀을 떠서** 한 번 더 잰다. 여기만 두면
+// 「테를 선언해 놓고 안 그리는」 사보타주가 그대로 통과한다
+// ⚠️ **두 갈래를 각각 몇 번 쟀는지 낸다** — 한쪽이 0이면 그 방향은 아예 안 잰 것이다
+const BTN = ['--btn-grad-a', '--btn-grad-b'];
+let btnBare = 0, btnEdged = 0;
 for (const t of names) {
   const kv = blocks[t];
   const f = [];
@@ -200,6 +217,34 @@ for (const t of names) {
   };
   PAIRS.forEach(([a, b]) => look(a, b, 4.5));
   BIG.forEach(([a, b]) => look(a, b, 3));
+  {
+    const halo = (kv['--btn-halo'] || '').trim();
+    const edged = halo && halo !== 'transparent' && halo !== 'none';
+    if (!halo) f.push('--btn-halo 이 없다 (테를 안 두를 거면 transparent 라고 적는다)');
+    else if (edged) {
+      // 글자가 제 테와 붙으면 두른 뜻이 없다
+      const iv = cr(flat(kv['--ink'], kv['--card']), flat(halo, kv['--card']));
+      if (iv == null) f.push('--ink/--btn-halo 를 못 읽었다');
+      else if (iv < 4.5) f.push(`--ink(${kv['--ink']}) 와 테(${halo})가 ${iv.toFixed(2)} 로 붙어 있다 — 4.5 필요`);
+    }
+    BTN.forEach(stop => {
+      const bg = kv[stop];
+      if (bg == null) { f.push(`${stop} 를 못 읽었다`); return; }
+      const on = flat(bg, kv['--card']);
+      const iv = cr(flat(kv['--ink'], kv['--card']), on);
+      const hv = edged ? cr(flat(halo, kv['--card']), on) : null;
+      if (iv == null || (edged && hv == null)) { f.push(`${stop} 위의 대비를 못 읽었다`); return; }
+      const best = Math.max(iv, hv == null ? 0 : hv);
+      const by = (hv != null && hv > iv) ? '테' : '글자';
+      if (by === '테') btnEdged++; else btnBare++;
+      if (best < min) { min = best; minAt = `${by} on ${stop}`; }
+      if (best < 4.5) {
+        f.push(`${stop}(${bg}) 위에서 글자 ${iv.toFixed(2)}`
+          + (hv == null ? '' : ` · 테(${halo}) ${hv.toFixed(2)}`)
+          + ' — 둘 중 하나는 4.5 여야 한다 (--btn-halo 로 테를 두를 수 있다)');
+      }
+    });
+  }
   LOCKED.forEach(([a, b]) => {
     const fg = flat(kv[a], kv[b]), bg = kv[b];
     const c = rgb(fg), base = rgb(bg);
@@ -210,7 +255,13 @@ for (const t of names) {
     if (v < 4.5) f.push(`${a} on ${b} 이 «잠긴 채»(opacity ${LOCK_A}) ${v.toFixed(2)} — 4.5 필요`);
   });
   if (f.length) { f.forEach(x => bad(`«${t}» ${x}`)); }
-  else ok(`«${t}» ${PAIRS.length + BIG.length + LOCKED.length}짝 통과 (제일 빠듯한 곳 ${minAt} ${min.toFixed(2)}:1)`);
+  else ok(`«${t}» ${PAIRS.length + BIG.length + LOCKED.length + BTN.length}짝 통과 (제일 빠듯한 곳 ${minAt} ${min.toFixed(2)}:1)`);
+}
+// ⚠️ **0건이 통과가 아니다** — 두 갈래를 몇 번씩 쟀는지 같이 내야 「한 끝도 안 쟀다」와 갈린다
+if (btnBare + btnEdged !== names.length * BTN.length) {
+  bad(`버튼 그라데이션의 끝을 ${btnBare + btnEdged}곳만 쟀다 (${names.length * BTN.length}곳이어야 한다)`);
+} else {
+  ok(`버튼 그라데이션 — 글자가 제 힘으로 선 끝 ${btnBare} · 테가 받친 끝 ${btnEdged} (다 4.5:1 위)`);
 }
 
 // ─── ③ 화면 ────────────────────────────────────────────────────
@@ -280,6 +331,62 @@ async function onScreen() {
     if (blocked || measured < 50) bad(`«${t}» 를 제대로 못 쟀다 (잰 요소 ${measured}개)`);
     else if (total) bad(`«${t}» 에서 대비 위반 ${total}건 (탭 ${TABS.length}곳 · 잰 요소 ${measured}개)\n      첫 건: ${first}`);
     else ok(`«${t}» 탭 ${TABS.length}곳 대비 0건 (잰 요소 ${measured}개)`);
+
+    // ⓔ **버튼 글자 — 진짜 픽셀로 잰다.**
+    //
+    // ⚠️⚠️ `checkTextStyle()` 은 이 자리를 영영 못 본다. 이유가 둘이다 —
+    // ① 배경이 **그라데이션**이라 조상에서 색을 찾는 방식으로는 근사밖에 못 하고
+    // ② **그림자는 대비로 안 쳐 준다** (바람개비 HUD·퀘스트 숫자에서 두 번 배운 자리다).
+    // 그래서 챠콜처럼 «밝은 버튼 + 테 두른 글자» 로 가면 ②의 토큰 검사만으로는
+    // 「테를 선언해 놓고 안 그리는」 사보타주가 그대로 통과한다.
+    //
+    // ⚠️ **재는 상자를 글자에 «붙인다»** — 버튼 상자를 통째로 찍으면 상자 안에서 제일
+    // 밝은 점이 모서리 «밖»의 카드 배경이라, 테를 통째로 떼도 통과한다 (퀘스트 숫자에서
+    // 사보타주가 검사기의 구멍을 찾아낸 자리다). `Range` 로 **글자줄**만 집는다.
+    // ⚠️ 앞의 이모지(📢)는 뺀다 — 제 색이 있어서 그것만으로 대비가 부풀어 오른다
+    {
+      await page.evaluate(() => switchTab('showcase'));
+      await page.waitForTimeout(200);
+      const box = await page.evaluate(() => {
+        const b = document.querySelector('.btn-flex');
+        if (!b) return { err: '버튼(.btn-flex)을 못 찾았다' };
+        b.scrollIntoView({ block: 'center' });
+        const node = [...b.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+        if (!node) return { err: '버튼에 글자 노드가 없다' };
+        const s = node.textContent;
+        // 이모지·변형자·공백을 앞에서 걷어 낸다 (남는 것이 «글자»다)
+        let i = 0;
+        while (i < s.length && !/\p{L}|\p{N}/u.test(s[i])) i++;
+        if (i >= s.length) return { err: '버튼 글자에 이모지밖에 없다' };
+        const r = document.createRange();
+        r.setStart(node, i); r.setEnd(node, s.length);
+        const q = r.getBoundingClientRect();
+        const cs = getComputedStyle(b);
+        return { x: q.left, y: q.top, w: q.width, h: q.height,
+                 text: s.slice(i).trim(), shadow: cs.textShadow };
+      });
+      if (box.err) bad(`«${t}» 버튼글자 — ${box.err}`);
+      else if (box.w < 8 || box.h < 6) {
+        bad(`«${t}» 버튼글자 — 글자 상자가 ${box.w.toFixed(0)}×${box.h.toFixed(0)}px 라 아무것도 안 쟀다`);
+      } else {
+        const shot = await page.screenshot({ clip: {
+          x: Math.floor(box.x), y: Math.floor(box.y),
+          width: Math.max(1, Math.ceil(box.w)), height: Math.max(1, Math.ceil(box.h)) } });
+        const lums = pngLums(shot);
+        if (!lums.length) bad(`«${t}» 버튼글자 — 픽셀을 한 점도 못 읽었다`);
+        else {
+          const lo = Math.min(...lums), hi = Math.max(...lums);
+          const v = (hi + 0.05) / (lo + 0.05);
+          if (v < 4.5) {
+            bad(`«${t}» 버튼글자 — 「${box.text}」가 그라데이션 위에서 ${v.toFixed(2)}:1 이다`
+              + ` (4.5:1 이상 · 테가 필요하면 --btn-halo 를 켠다 · 지금 그림자 ${box.shadow})`);
+          } else {
+            ok(`«${t}» 버튼글자 「${box.text}」 ${v.toFixed(2)}:1`
+              + ` (밝은 ${hi.toFixed(2)} · 어두운 ${lo.toFixed(2)} · ${lums.length}점)`);
+          }
+        }
+      }
+    }
     await ctx.close();
   }
 

@@ -41,6 +41,20 @@
     // 대비 검사에서 빼되, 아웃라인이 실제로 붙어 있는지는 반드시 확인한다.
     // (그냥 검사에서 빼기만 하면 아웃라인을 깜빡한 순간 아무도 못 잡는다)
     roomBgSelector: '.on-room-bg',
+    // ⚠️⚠️ **일부러 밝힌 버튼의 글자** (`--btn-halo` 로 테를 두른 자리).
+    //
+    // 방 배경 위 글자와 «짜임»은 같고 «이유»는 다르다 — 저기는 배경색을 **알 수 없어서**
+    // 못 재는 것이고, 여기는 **알면서 일부러 밝힌** 것이다. 그래서 문을 따로 둔다:
+    // 하나로 묶으면 「배경을 못 잰다」는 핑계가 아무 데나 붙는다.
+    //
+    // ⚠️ **빼기만 하는 예외가 아니다 — 셋이 짝으로 지킨다:**
+    //  ① 여기서 **테가 진짜 네 방향으로 붙어 있는지 · 글자와 대비가 되는지**를 본다
+    //     (투명한 그림자는 방향으로 안 센다 — 안 그리는 테는 테가 아니다)
+    //  ② `checktheme` ②가 토큰으로 «테 ↔ 그라데이션 끝» 4.5:1 을 본다
+    //  ③ `checktheme` ③「버튼글자」가 여섯 테마에서 **진짜 픽셀**을 떠서 잰다
+    // ⚠️ **대비가 되는 자리는 그대로 대비로 잰다** — 이 문은 «떨어졌을 때만» 열린다.
+    //    무조건 빼면 테가 `transparent` 인 다섯 테마의 버튼이 통째로 안 재진다
+    edgedSelector: '.btn-flex, .wr-gift',
     outlineMinDirections: 4,   // 이 방향 수 이상 그림자가 있어야 '테두리' 로 친다
     // 아웃라인 대신 **퍼지는 음영**으로도 가독성을 보장할 수 있다 (테두리가 촌스러울 때).
     // 다만 '흐린 그림자 하나' 로는 부족하다 — 몇 겹인지 · 얼마나 짙은지 · 글자와
@@ -75,6 +89,11 @@
       if (!lens || lens.length < 2) continue;
       const x = parseFloat(lens[0]), y = parseFloat(lens[1]);
       if (x === 0 && y === 0) continue;                 // 흐림만 있는 그림자
+      // ⚠️ **투명한 그림자는 방향으로 안 센다** — 안 그리는 테는 테가 아니다.
+      // (테마마다 켜고 끄는 테가 생기면서 필요해졌다: 꺼진 테마에서 `transparent` 네 줄이
+      //  그대로 「아웃라인 4방향」으로 세어져 **대비 검사를 통째로 건너뛸** 뻔했다)
+      const c = parseColor(part);
+      if (c && c.a === 0) continue;
       dirs.add(`${Math.sign(x)},${Math.sign(y)}`);
     }
     return dirs.size;
@@ -311,7 +330,22 @@
         }
       } else if (ratio < need && !pictogramOnly(text)) {
         // 이모지만 있는 칸은 대비를 재지 않는다 (색을 스스로 가진 그림 글자)
-        issues.push(`대비 ${ratio.toFixed(2)}:1 (필요 ${need}:1)`);
+        //
+        // ⚠️ **일부러 밝힌 버튼은 «테»가 받친다** (POLICY.edgedSelector 의 주석 참고).
+        // 여기까지 내려왔다는 것은 색만으로는 못 넘겼다는 뜻이라, 테가 «진짜로»
+        // 붙어 있는지를 보고서야 넘긴다 — 없으면 그대로 위반이다
+        const dirs = outlineDirections(cs.textShadow);
+        const edge = haloOf(cs.textShadow, cs.color);
+        const edged = !!el.closest(POLICY.edgedSelector)
+          && dirs >= POLICY.outlineMinDirections
+          && edge.ratio >= POLICY.haloMinRatio;
+        if (!edged) {
+          issues.push(`대비 ${ratio.toFixed(2)}:1 (필요 ${need}:1)`
+            + (el.closest(POLICY.edgedSelector)
+              ? ` — 테로 받치려면 ${POLICY.outlineMinDirections}방향(지금 ${dirs}) ·`
+                + ` 글자와 대비 ${POLICY.haloMinRatio}(지금 ${edge.ratio.toFixed(2)}) 가 필요하다`
+              : ''));
+        }
       }
       // **번역 키가 그대로 화면에 나온 것.**
       // 없는 키를 부르면 i18n 이 키 문자열을 그대로 돌려준다 — 오류도 안 나고,
