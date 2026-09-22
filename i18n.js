@@ -1029,7 +1029,7 @@
       q_sip_in: '만드는 것보다 마시는 게 어려운 사람이 많아요. 다섯 병, 천천히요.',
       q_bloom_name: '피어나는 중',
       q_bloom_desc: '매력 총합 60에 닿아 보세요.',
-      q_bloom_in: '요즘 거울을 오래 보죠? 알아요. 예순까지 가 봐요, 프린세스.',
+      q_bloom_in: '잠재된 매력을 끌어올려 봐요, 60이란 숫자는 그렇게 멀지 않아요, 프린세스.',
       // 1막과 2막 사이의 다리. **설명이 「무엇을」과 「어떻게」를 같이 말한다** —
       // 호감도는 물약을 «선물»해야 오르는데 그 연결이 화면 어디에도 안 적혀 있었다
       q_gift_name: '그냥 하나씩',
@@ -2474,7 +2474,7 @@
       q_sip_in: 'Making them is easier than drinking them, for most people. Five bottles. Slowly.',
       q_bloom_name: 'Blooming',
       q_bloom_desc: 'Reach 60 total charm.',
-      q_bloom_in: "You've been looking in the mirror a while lately. I know. Let us get to sixty, Princess.",
+      q_bloom_in: "Let us draw out the charm that sleeps in you — sixty is not so far, Princess.",
       q_gift_name: 'Just One Each',
       q_gift_desc: 'Become Close with anyone. Gifting a potion to someone you met in a village raises it.',
       q_gift_in: 'Take one with you next time you go to a village. Not to sell. Just to give.',
