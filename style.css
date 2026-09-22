@@ -424,7 +424,11 @@ body {
    같은 색이 된다. 값은 `theme.js` 의 `sw` 에서 오고, 그것이 진짜 그 테마의
    주 강조색인지는 `tools/checktheme.js` 가 style.css 와 대조한다.
    ⚠️ 여섯이 **한 줄에** 선다 — 265px 에서도 안 접히게 `flex: 1 1 0` 으로 줄어든다 */
-.set-swatches { gap: 10px; flex-wrap: nowrap; }
+/* ⚠️ **가운데 정렬이다.** 칸마다 `max-width` 가 있어서 여섯을 다 채우고도 자리가
+   남는데, 기본값(`flex-start`)이면 남는 몫이 **전부 오른쪽에 몰린다** — 줄이
+   왼쪽으로 쏠려 보였다 (신고받았다). 위의 「언어 설정」·「사운드」는 두 칸이
+   자리를 다 나눠 가져서 이 문제가 없다 — 칩이 여섯인 이 줄에만 있는 일이다 */
+.set-swatches { gap: 10px; flex-wrap: nowrap; justify-content: center; }
 .set-sw {
   flex: 1 1 0; min-width: 26px; max-width: 44px; aspect-ratio: 1;
   border-radius: 50%; padding: 0; cursor: pointer; font-family: inherit;

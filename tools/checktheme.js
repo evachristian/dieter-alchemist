@@ -414,18 +414,32 @@ async function onScreen() {
     if (uniq.size !== names.length) bad(`여섯 중 색이 겹치는 테마가 있다 — ${JSON.stringify(seen)}`);
     else ok(`여섯이 다 다른 색으로 그려진다`);
 
-    // 고른 칩에 표시가 서는가 · 여섯이 다 떠 있는가
+    // 고른 칩에 표시가 서는가 · 여섯이 다 떠 있는가 · **줄이 가운데 서는가**
     const chip = await page.evaluate(() => {
       Theme.set('charcoal'); openSettings(); renderSettings();
-      const all = [...document.querySelectorAll('#setThemeList .set-sw')];
+      const box = document.getElementById('setThemeList');
+      const all = [...box.querySelectorAll('.set-sw')];
+      // ⚠️ 칩마다 `max-width` 가 있어서 여섯을 다 채우고도 자리가 남는다 —
+      // 그 남는 몫이 한쪽으로 몰리는지를 **양 끝 여백으로** 잰다 (「쏠려 보인다」로 신고받았다)
+      const r = box.getBoundingClientRect();
+      const first = all[0] && all[0].getBoundingClientRect();
+      const last = all[all.length - 1] && all[all.length - 1].getBoundingClientRect();
       return { n: all.length, on: all.filter(b => b.classList.contains('on')).length,
                named: all.filter(b => (b.getAttribute('aria-label') || '').trim()).length,
-               onIsCharcoal: all.findIndex(b => b.classList.contains('on')) };
+               w: r.width,
+               left: first ? first.left - r.left : null,
+               right: last ? r.right - last.right : null };
     });
     if (chip.n !== names.length) bad(`설정에 칩이 ${chip.n}개 서 있다 (${names.length}개 기대)`);
     else if (chip.on !== 1) bad(`고른 칩 표시가 ${chip.on}개다 (하나여야 한다)`);
     else if (chip.named !== chip.n) bad(`이름(aria-label)이 없는 칩이 있다 — ${chip.n - chip.named}개`);
     else ok(`칩 ${chip.n}개 · 고른 것 하나에만 표시 · 이름이 다 있다`);
+    // ⚠️ **못 잰 것을 «통과»로 흘리지 않는다** — 시트가 안 떠 있으면 폭이 0 이라
+    // 아래의 「여백이 같은가」가 0 ↔ 0 으로 늘 참이 된다 (퀘스트 완료 버튼에서 배운 자리다)
+    if (!(chip.w > 0) || chip.left == null) bad(`컬러칩 줄을 못 쟀다 (폭 ${chip.w}px) — 가운데 정렬을 한 번도 안 본 것이다`);
+    else if (Math.abs(chip.left - chip.right) > 1) {
+      bad(`컬러칩 줄이 한쪽으로 쏠렸다 — 왼쪽 ${chip.left.toFixed(0)}px · 오른쪽 ${chip.right.toFixed(0)}px`);
+    } else ok(`컬러칩 줄이 가운데 선다 (양 끝 ${chip.left.toFixed(0)}px · 줄 폭 ${chip.w.toFixed(0)}px)`);
     if (errs.length) bad(`콘솔 오류 — ${errs[0]}`);
     await ctx.close();
   }
