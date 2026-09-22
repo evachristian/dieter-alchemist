@@ -82,7 +82,7 @@ async function boot(page) {
     // 「점이 없다」를 `getElementById` 로만 재면 **이름만 바꿔 되살려도 통과한다** —
     // 톱니 버튼 «안»에 점 종류가 하나라도 있는지를 본다
     const g = document.getElementById('btnSettings');
-    return { dots: g ? g.querySelectorAll('.tab-dot, .qc-dot, .act-dot, .ask-dot').length : -1,
+    return { dots: g ? g.querySelectorAll('.tab-dot, .qc-dot, .act-dot').length : -1,
              gear: !!g };
   });
   await a.waitForTimeout(400);

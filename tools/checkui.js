@@ -2056,6 +2056,71 @@ function launchOpts() {
           });
           await page.waitForTimeout(150);
         }
+        // **레드닷은 «언제나 버튼의 우상단»이다** (style.css 의 `.tab-dot`).
+        //
+        // ⚠️⚠️ 예전에는 점이 «글 흐름 안»이라 라벨 뒤에 붙었고 칩만 우상단이었다 —
+        // 같은 뜻의 점이 화면마다 다른 자리에 섰다 (「우상단으로 통일되는 룰」로
+        // 신고받은 자리다). 자리는 CSS 한 줄이라 **눈으로는 통일된 줄 알기 쉽다**:
+        // 실제로 점이 여섯 자리에 흩어져 있으므로 **한 자리라도 어긋나면 잡아야 한다.**
+        // ⚠️ 「붙어 있는가」만 보면 **잘린 점**을 못 본다 — 버튼이 제 상자를 자르면
+        // (`overflow: hidden`) 점이 절반만 남는데 상자 좌표는 그대로다.
+        //   그래서 «자리»와 «안 잘리는가»를 같이 본다 (실제로 특정도에 져서
+        //   `overflow: hidden` 이 살아남아 반달만 남은 적이 있다 — 찍어 보고 알았다)
+        // ⚠️ **몇 개를 쟀는지 낸다** — 0건이 「통과」인지 「점이 하나도 안 떴다」인지
+        //   가르려면 필요하다
+        {
+          const seen = new Map();
+          const sweep = async (fn) => {
+            const err = await page.evaluate(src => {
+              try { (0, eval)('(' + src + ')()'); return null; } catch (e) { return e.message; }
+            }, fn.toString());
+            if (err) return err;
+            await page.waitForTimeout(220);
+            const got = await page.evaluate(() => {
+              const out = [];
+              document.querySelectorAll('.tab-dot').forEach(d => {
+                const r = d.getBoundingClientRect();
+                if (r.width < 2 || r.height < 2) return;      // 안 그려진 것은 잴 것이 없다
+                const host = d.parentElement;
+                const h = host.getBoundingClientRect();
+                if (h.width < 2 || h.height < 2) return;
+                const cs = getComputedStyle(host);
+                const name = host.tagName.toLowerCase()
+                  + (host.getAttribute('class') ? '.' + host.getAttribute('class').trim().split(/\s+/).join('.') : '');
+                // 점의 «가운데»가 버튼의 오른쪽 위 모서리에서 얼마나 떨어졌나
+                const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+                const far = Math.hypot(h.right - cx, cy - h.top);
+                const clip = /hidden|clip|auto|scroll/.test(cs.overflow + ' ' + cs.overflowX + ' ' + cs.overflowY);
+                out.push({ name, far: +far.toFixed(1), fixed: cs.position !== 'static', clip });
+              });
+              return out;
+            });
+            got.forEach(g => { if (!seen.has(g.name) || seen.get(g.name).far < g.far) seen.set(g.name, g); });
+            return null;
+          };
+          const errs = [];
+          for (const fn of [
+            () => { switchTab('gather'); setGatherTab('village'); setVillage('vl_chimney'); },
+            () => { tapVillageSpot('vl_chimney', 'vs_chimney_forge'); },
+            () => { leaveSpot(); switchTab('showcase'); },
+          ]) { const e = await sweep(fn); if (e) errs.push(e); }
+          errs.forEach(e => results.push({ 화면: `${t}/레드닷자리`, 오류: `자리를 못 열었다 — ${e}` }));
+          const rows = [...seen.values()];
+          const CORNER = 14;
+          if (rows.length < 4) {
+            results.push({ 화면: `${t}/레드닷자리`, 오류: `점을 ${rows.length}가지 자리에서만 쟀다 (한 번도 안 잰 자리가 있다)` });
+          }
+          rows.forEach(g => {
+            if (!g.fixed) results.push({ 화면: `${t}/레드닷자리`, 오류: `${g.name} 이 «static» 이라 점이 엉뚱한 상자를 기준으로 선다` });
+            else if (g.clip) results.push({ 화면: `${t}/레드닷자리`, 오류: `${g.name} 이 제 상자를 잘라서 점이 잘린다 (overflow)` });
+            else if (g.far > CORNER) results.push({ 화면: `${t}/레드닷자리`, 오류: `${g.name} 의 점이 우상단에서 ${g.far}px 떨어져 있다 (${CORNER}px 까지)` });
+          });
+          if (!errs.length && rows.length >= 4 && !rows.some(g => !g.fixed || g.clip || g.far > CORNER)) {
+            console.log(`  레드닷자리 — ${rows.length}가지 자리 · 제일 먼 것 ${Math.max(...rows.map(g => g.far)).toFixed(1)}px`);
+          }
+          await page.evaluate(() => { switchTab('gather'); setGatherTab('village'); });
+          await page.waitForTimeout(150);
+        }
         for (const sid of ['vs_chimney_shop', 'vs_chimney_tower']) {
           const bad = await page.evaluate((id) => {
             setGatherTab('village');
@@ -2071,11 +2136,16 @@ function launchOpts() {
           const bad2 = await page.evaluate(() => {
             const acts = [...document.querySelectorAll('.npc-act')];
             if (!acts.length) return '버튼이 없다';
-            const row = document.querySelector('.npc-acts').getBoundingClientRect();
+            const rowEl = document.querySelector('.npc-acts');
+            const row = rowEl.getBoundingClientRect();
             const last = acts[acts.length - 1];
             if (!last.classList.contains('main')) return '오른쪽 끝이 대화가 아니다';
             const r = last.getBoundingClientRect();
-            if (Math.abs(r.right - (row.right - 12)) > 2) return '대화 버튼이 오른쪽 끝에 안 붙어 있다';
+            // ⚠️ 줄의 안쪽 여백을 **읽어서** 쓴다 — 예전에는 `12` 가 박혀 있어서,
+            // 버튼이 그림 위에서 내려오며 여백이 0 이 되자 멀쩡한 화면이 걸렸다
+            // (「수치를 검사기에 옮겨 적지 않는다」가 여기서도 그대로다)
+            const pad = parseFloat(getComputedStyle(rowEl).paddingRight) || 0;
+            if (Math.abs(r.right - (row.right - pad)) > 2) return '대화 버튼이 오른쪽 끝에 안 붙어 있다';
             return null;
           });
           if (bad2) results.push({ 화면: `${t}/${sid}`, 오류: bad2 });

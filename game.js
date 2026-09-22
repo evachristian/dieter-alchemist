@@ -1693,7 +1693,7 @@ function askRowHtml(npc) {
       data-ask="${a.kw}"${lock ? ` title="${escHtml(tip)}"` : ''}
       onclick="doAsk('${npc}','${a.kw}')">${lock ? '🔒 ' : (fresh ? '🆕 ' : '')}${
       N(a.kw, k ? k.name : a.kw)}${
-      fresh ? '<span class="tab-dot ask-dot" aria-hidden="true"></span>' : ''}</button>`;
+      fresh ? '<span class="tab-dot" aria-hidden="true"></span>' : ''}</button>`;
   }).join('');
   return `<div class="ask-box">
       <div class="ask-title">${T('ask_title')}</div>
@@ -4226,6 +4226,9 @@ function renderGather() {
     // 그 점이 거짓말이 된다 (부엌 점에서 「다 먹었는데 안 사라진다」로 신고받은 자리다)
     const want = b.dataset.gtab === 'village' && vDot;
     const has = b.querySelector('.tab-dot');
+    // ⚠️ `dot-host` 도 같이 켜고 끈다 — 점은 우상단에 «걸치는» 절대 배치라,
+    // 버튼이 제 상자를 자르면(`overflow: hidden`) 통째로 잘린다 (style.css `.tab-dot`)
+    b.classList.toggle('dot-host', want);
     if (want && !has) b.insertAdjacentHTML('beforeend', '<span class="tab-dot" aria-hidden="true"></span>');
     else if (!want && has) has.remove();
   });
@@ -4369,8 +4372,10 @@ function renderVillages() {
       const open = isVillageOpen(v);
       // **갈 곳만 알려 준다** — 무엇을 물을지는 안 알려 준다 (STORY.md 「길 잃음 방지」)
       const dot = villageNews(v) ? '<span class="tab-dot" aria-hidden="true"></span>' : '';
-      return `<button class="cat-tab ${villageTab === v.id ? 'active' : ''} ${open ? '' : 'locked'}"
-        data-village="${v.id}" onclick="setVillage('${v.id}')"><span class="em">${open ? v.emoji : '🔒'}</span> ${N(v.id, v.name)}${dot}</button>`;
+      // ⚠️ 점이 붙는 탭은 `dot-host` 를 달고 말줄임을 «라벨»로 옮긴다 —
+      // 버튼이 제 상자를 자르면 우상단에 걸친 점이 통째로 잘린다 (style.css `.tab-dot`)
+      return `<button class="cat-tab ${villageTab === v.id ? 'active' : ''} ${open ? '' : 'locked'} ${dot ? 'dot-host' : ''}"
+        data-village="${v.id}" onclick="setVillage('${v.id}')"><span class="tab-label"><span class="em">${open ? v.emoji : '🔒'}</span> ${N(v.id, v.name)}</span>${dot}</button>`;
     }).join('');
   }
 
@@ -4514,6 +4519,13 @@ function renderVillageSpot(el, v, s) {
       <button class="btn-back" onclick="leaveSpot()" aria-label="${T('npc_back_map')}">‹</button>
       <span class="npc-place">${s.emoji} ${N(s.id, s.name)}</span>
     </div>
+    <div class="npc-stage">
+      ${(window.Village ? Village.interior(s, v.id) : '')}
+      ${sp && window.Portrait
+        ? `<div class="npc-figure">${Portrait.bust(Object.assign({}, sp, { name: speakerName(sp.id) }),
+             talking ? (moods[talkIdx] || 'def') : greetMood, { bare: true })}</div>`
+        : ''}
+    </div>
     <div class="npc-bubble ${talking ? 'live' : ''}"
       ${talking ? `onclick="talkNext('${s.id}')" role="button" tabindex="0"` : ''}>
       ${sp ? `<div class="npc-name">${speakerName(sp.id)}${bondHtml(sp.id)}</div>` : ''}
@@ -4522,18 +4534,11 @@ function renderVillageSpot(el, v, s) {
       ${more ? '<span class="npc-more">▾</span>' : ''}
     </div>
     ${sp ? askRowHtml(sp.id) : ''}
-    <div class="npc-stage">
-      ${(window.Village ? Village.interior(s, v.id) : '')}
-      ${sp && window.Portrait
-        ? `<div class="npc-figure">${Portrait.bust(Object.assign({}, sp, { name: speakerName(sp.id) }),
-             talking ? (moods[talkIdx] || 'def') : greetMood, { bare: true })}</div>`
-        : ''}
-      <div class="npc-acts">
-        ${sp && hasBond(sp.id)
-          ? `<button class="npc-act" onclick="openGift('${sp.id}')">${T('npc_gift')}</button>`
-          : (trade ? `<button class="npc-act" onclick="npcAct('trade','${s.id}')">${T('npc_trade')}</button>` : '')}
-        <button class="npc-act main" onclick="npcAct('talk','${s.id}')">${T('npc_talk')}</button>
-      </div>
+    <div class="npc-acts">
+      ${sp && hasBond(sp.id)
+        ? `<button class="npc-act" onclick="openGift('${sp.id}')">${T('npc_gift')}</button>`
+        : (trade ? `<button class="npc-act" onclick="npcAct('trade','${s.id}')">${T('npc_trade')}</button>` : '')}
+      <button class="npc-act main" onclick="npcAct('talk','${s.id}')">${T('npc_talk')}</button>
     </div>`;
 }
 

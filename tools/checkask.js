@@ -297,7 +297,7 @@ function ok(cond, msg, extra) {
   // 「0건」이 통과가 아니라 「재 본 적 없다」가 된다 (checkavatar 의 발등·부츠와 같은 규칙)
   const chipDots = await page.$$eval('#villageBody .ask-chip', els => els.map(e => ({
     fresh: e.classList.contains('fresh'),
-    dot: !!e.querySelector('.ask-dot'),
+    dot: !!e.querySelector(".tab-dot"),
     // 절대 배치라도 **가로로 삐져나오면** 칩이 줄 끝에 설 때 넘친다 (`__cardFits` 가 잡는다)
     over: e.scrollWidth - e.clientWidth,
   })));
@@ -373,7 +373,7 @@ function ok(cond, msg, extra) {
   // ⚠️ **잠긴 칩에는 점이 없다** — 길잡이 점이 「못 여는 것」을 가리키면 거짓말이 된다
   // (바로 아래 `asksNew` 가 안 센다는 것과 같은 규칙이고, 화면 쪽이 이것이다)
   ok(lockTxt.length ? await page.$eval('#villageBody .ask-chip.locked',
-       e => !e.querySelector('.ask-dot')) : false, '잠긴 칩에는 점이 안 붙는다');
+       e => !e.querySelector(".tab-dot")) : false, '잠긴 칩에는 점이 안 붙는다');
 
   let kwN = await page.evaluate(() => S.keywords.length);
   // ⚠️ **앞 단계가 «예약해 둔» 토스트를 먼저 흘려보낸다.** `doAsk` 는 새 키워드·새 마을
