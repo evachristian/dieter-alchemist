@@ -25,6 +25,30 @@ const SAVE_VER = 15;
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
 
+// ─── 지금 시각 — **게임의 시계는 여기 하나뿐이다** ────────────
+//
+// **시간에 기대는 것은 전부 `nowMs()` 를 지난다.** `Date.now()` 를 여기저기서 부르면
+// 시계를 옮겨 놓을 구멍이 없어진다 — 「하루 뒤」를 만들 수가 없다.
+// (`tools/checktime.js` 가 `Date.now` 하나만 갈아 끼우고 나머지가 다 따라오는 이유다)
+//
+// ⚠️ **한때 이 약속이 «글로만» 있었다.** 주석에는 「전부 이 한 곳을 지난다」고 적혀
+// 있었는데 실제로는 `Date.now()` 를 **스물다섯 곳**에서 직접 부르고 있었고, 그중
+// 몸의 시계(`tickBody` · `decayIdle` · 염색 남은 시간)가 거기 있었다 — 그래서
+// 시계를 옮기면 **AP·생산·밤만 따라오고 포만감은 제자리**였다. 지금은 둘이 같이 간다.
+//
+// ⚠️ **`devClock` 은 `load()` 보다 «위»에 둔다.** `defaultState()` 가 `nowMs()` 를
+// 부르는데 `load()` 는 game.js 를 끝까지 읽기 전에 불린다 — 아래에 두면
+// `ReferenceError` 가 나고 `load()` 의 `catch` 가 그것을 삼켜 **세이브가 통째로
+// 기본값으로 되돌아간다** (세이브 9 사고와 같은 자리다).
+// ⚠️ 그래서 여기서 `S` 를 읽지 않는다 — 불러온 뒤에 `setDevClock()` 이 맞춰 준다.
+let devClock = 0;                       // 개발용(임시) 「하루가 지나갔다고 치기」의 몫
+function nowMs() { return Date.now() + devClock; }
+function setDevClock(ms) { devClock = ms || 0; }
+
+// ⚠️ **게임의 시계가 «아닌» 것은 그대로 `Date.now()` 다** — 저장 실패 토스트의 제동 ·
+// 캐시 버스터 · 밭 요청의 작업 번호 · 서버가 준 시각(`FARM.now`) · 「마지막 저장 n분 전」.
+// 그것들은 현실 시계를 재는 자리라, 개발용으로 옮겨 놓으면 오히려 거짓말이 된다.
+
 // 방 안에서 하는 일 — 다섯 버튼의 id 표.
 // ⚠️ **`load()` 보다 위에 둔다.** `migrate()` 가 이 표를 쓰는데, `load()` 는 game.js 를
 // 끝까지 읽기 전에 불린다 — 아래쪽에 두면 `ReferenceError` 가 나고 `load()` 의 `catch`
@@ -264,7 +288,7 @@ const defaultState = () => ({
   // 아우라 세부 수치 (각 0~1000)
   aura:      { happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 },
   cauldronId: 'cd_iron_old',  // 사용 중인 마법 솥 (시작은 튜토리얼용 2구)
-  firstTs:   Date.now(),    // 첫 플레이 시각 — 키 성장의 기준
+  firstTs:   nowMs(),       // 첫 플레이 시각 — 키 성장의 기준
   record:    newRecord(),   // 플레이 기록 (누적 통계)
   // 히든 재료의 «연달아 헛걸음» 수 — 맵 id → 횟수. 천장(`D.SPECIAL_TIERS.pity`)이 이것을
   // 본다. 없던 칸이라 SAVE_VER 는 안 올린다 (옛 세이브는 0 에서 세기 시작하면 된다)
@@ -275,6 +299,9 @@ const defaultState = () => ({
   // ⚠️ **누적 조합 수(`record.brewOk`)로 되짚지 않는다.** 그러면 옛 세이브가
   // 켜자마자 밀린 몫을 통째로 받아 지금 고치는 그 문제가 그대로 돌아온다
   pageDrip:  0,
+  // 개발용(임시) 「하루가 지나갔다고 치기」가 옮겨 놓은 시계의 몫(ms).
+  // 없던 칸이라 SAVE_VER 는 안 올린다 — 옛 세이브는 0 이고 한 글자도 안 바뀐다
+  devClock:  0,
   rev:       0,             // 저장 횟수 — 서버 동기화에서 어느 쪽이 최신인지 판단
   ver:       SAVE_VER,      // 세이브 버전 (마이그레이션용)
 });
@@ -310,8 +337,8 @@ function newRecord() {
     playSec:     0,   // 실제로 화면을 보고 있던 시간 (초)
     days:        1,   // 접속한 날 수
     lastDay:     dayKey(),
-    firstTs:     Date.now(),
-    lastTs:      Date.now(),
+    firstTs:     nowMs(),
+    lastTs:      nowMs(),
   };
 }
 // 기록 갱신 — 필드가 없던 예전 세이브도 안전하게 다룬다
@@ -373,6 +400,9 @@ function tickPlayTime() {
 }
 
 let S = load();
+// ⚠️ **불러온 «뒤»에 맞춘다.** `nowMs()` 는 `load()` 도중에 불리므로 그 안에서
+// `S` 를 읽을 수가 없다 (TDZ). 새로고침해도 옮겨 놓은 시계가 그대로여야 한다
+setDevClock(S.devClock);
 
 // 세이브의 모양을 맞춘다. **불러오기와 서버에서 받아오기 둘 다 이걸 쓴다** —
 // 예전에는 두 곳에 같은 정리를 따로 적어 두었다가, 한쪽에만 새 칸을 넣어
@@ -431,7 +461,7 @@ function load() {
       const st = Object.assign(defaultState(), parsed);
       normalizeState(st);
       st.aura = Object.assign({ happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 }, st.aura || {});
-      if (!st.firstTs) st.firstTs = Date.now();
+      if (!st.firstTs) st.firstTs = nowMs();
       if (!st.cauldronId) st.cauldronId = 'cd_iron_old';
       if (!Array.isArray(st.unlocked)) st.unlocked = [];
       st.record = Object.assign(newRecord(), st.record || {});
@@ -461,7 +491,7 @@ function load() {
 let saveFailedAt = 0;
 function save() {
   S.rev = (S.rev || 0) + 1;
-  if (S.record) S.record.lastTs = Date.now();
+  if (S.record) S.record.lastTs = nowMs();
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(S));
     saveFailedAt = 0;
@@ -488,6 +518,7 @@ function adoptState(state) {
   // 기기를 바꾼 사람만 새 기본값을 못 받는다 — 튜토리얼을 마친 사람에게
   // 튜토리얼이 처음부터 다시 뜨는 식으로 드러난다. 버전은 **받아온 값**에서 읽는다
   migrate(S, (state && state.ver) || 1);
+  setDevClock(S.devClock);          // 받아온 세이브의 개발용 시계도 따라간다
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { console.warn('save failed', e); }
   if (typeof render === 'function') render();
   if (window.Tut) Tut.refresh();
@@ -712,7 +743,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 
 // 첫 플레이 이후 지난 날 수 (실수)
 function daysPlayed() {
-  const ms = Date.now() - (S.firstTs || Date.now());
+  const ms = nowMs() - (S.firstTs || nowMs());
   return Math.max(0, ms / 86400000);
 }
 // 나이 — 화면에는 안 보이지만 회춘 시스템을 위해 유지
@@ -1143,10 +1174,8 @@ function toast(msg, anchor, ms, place) {
 //  에너지 (행동력) — 현실 24h = 게임 24h, 로컬 자정에 충전
 // ═══════════════════════════════════════════════════════════════
 // ─── 지금 시각 ───
-// **시간에 기대는 것은 전부 이 한 곳을 지난다.** `new Date()` 를 여기저기서 부르면
-// 시계를 옮겨 놓고 검사할 수가 없다 — 「하루 뒤」를 만들 구멍이 없어진다.
-// (tools/checktime.js 가 Date.now 하나만 갈아 끼우고 나머지가 다 따라오는 이유다)
-function nowDate() { return new Date(Date.now()); }
+// 시계는 **`nowMs()` 한 곳**이다 (파일 맨 위 · 「게임의 시계는 여기 하나뿐이다」).
+function nowDate() { return new Date(nowMs()); }
 
 // 로컬 날짜 키 (YYYYMMDD 정수) — 날짜가 바뀌면(자정) 값이 달라짐
 function dayKey(d = nowDate()) {
@@ -1562,7 +1591,7 @@ function eatWithClemen() {
   // 배가 부르다 — 혼자 먹은 밤의 `fullnessBack` 과 같은 값이다.
   // 「따뜻한 밥」이 야식보다 덜 채우면 그건 벌이지 온기가 아니다
   S.fullness = Math.max(fullness(), BINGE.fullnessBack);
-  S.bodyTs = Date.now();
+  S.bodyTs = nowMs();
   rec('meals');
   questBump('kitchen');
   diaryAdd('di_meal', { who: 'sp_clemen' });
@@ -2748,7 +2777,7 @@ function stamina() { return Math.max(0, Math.min(staminaMax(), S.stamina || 0));
 
 // 흐른 시간만큼 포만감·스태미나를 옮긴다. 하나라도 움직였으면 true
 function tickBody() {
-  const now = Date.now();
+  const now = nowMs();
   if (!S.bodyTs) { S.bodyTs = now; return false; }
   const h = Math.min(BODY_TICK_MAX_H, (now - S.bodyTs) / 3600000);
   if (h <= 0) return false;
@@ -2795,7 +2824,7 @@ const DAY_MS = 86400000;
 
 // 깎였으면 { grit, fit, days } 를, 아니면 null 을 돌려준다
 function decayIdle() {
-  const now = Date.now();
+  const now = nowMs();
   // 아직 한 번도 운동한 적이 없으면 기준이 없다 — 지금부터 센다
   if (!S.lastWorkoutTs) { S.lastWorkoutTs = now; S.decayTs = now; return null; }
   // **이미 반영한 데까지는 다시 안 깎는다** (decayTs). 이게 없으면 부를 때마다 깎인다
@@ -5739,7 +5768,7 @@ function wornId(slot) { const it = wornItem(slot); return it ? it.id : null; }
 function dyeLeft(slot) { return itemDyeLeft(wornId(slot)); }
 function itemDyeLeft(itemId) {
   const t = itemId && (S.dyeEnd || {})[itemId];
-  return t ? t - Date.now() : 0;
+  return t ? t - nowMs() : 0;
 }
 // 옷이 갖고 태어난 색과 **같은 색이 팔레트에 있으면** 그 색이다.
 // 있으면 이름을 알려 줄 수 있고, 팔레트에서는 그 칩을 감춘다 (같은 것이 두 번 나오니까).
@@ -5955,7 +5984,7 @@ function applyDye(slot, colorId, kind) {
     delete S.dyeEnd[it.id];
   } else {
     delete S.dyeForever[it.id];
-    S.dyeEnd[it.id] = Date.now() + DYE_MS;
+    S.dyeEnd[it.id] = nowMs() + DYE_MS;
   }
   dyeOpen = null;        // 다 썼으면 접는다 — 열어 둔 채로 두면 방금 바뀐 아바타가 안 보인다
   save();
@@ -6440,6 +6469,9 @@ function renderRoomDevTail() {
       devAct(T('dev_kitchen'), 'devKitchenVisit()'),
       // 여러 캐릭터를 오가며 시험하려면 신원을 «보관»해 둘 데가 있어야 한다
       devAct(T('dev_acct'), 'openDevAccounts()'),
+      // 하루를 기다려야만 보이는 것이 여럿이다 (AP 자정 충전 · 포만감 · 방치 감소 ·
+      // 혼자 먹은 밤 · 크리처 생산 · 날씨). **시계를 옮겨 한 번에** 본다
+      devAct(T('dev_skip_day'), 'devSkipDay()'),
     ]) +
     devGroup(T('dev_g_open')) +
     // ⚠️ 「퀘스트 완료 버튼」은 **켜고 끄는 것**이라 실행 줄이 아니라 여기다 —
@@ -6537,13 +6569,39 @@ window.devKitchenVisit = devKitchenVisit;
 // 따로 이벤트를 손으로 만들면 진짜 경로가 안 검사된다
 function devBinge() {
   S.fullness = 0;
-  S.bingeDay = dayKey(new Date(Date.now() - DAY_MS));
+  S.bingeDay = dayKey(new Date(nowMs() - DAY_MS));
   const r = checkBinge();
   save();
   render();
   toast(r ? T('dev_binge_ok', { n: bingeCount() }) : T('dev_binge_no'));
 }
 window.devBinge = devBinge;
+
+// 개발용: **하루가 지나갔다고 친다.**
+//
+// 하루를 기다려야만 보이는 것이 여럿이다 — AP 자정 충전 · 포만감·스태미나 ·
+// 방치 감소 · 혼자 먹은 밤 · 크리처 생산 · 날씨·시간대. 그것들을 버튼 하나로 본다.
+//
+// ⚠️⚠️ **값을 손으로 심지 않고 «시계»를 옮긴다.** 날짜에 기대는 값이 예닐곱 군데라
+// 하나씩 심으면 반드시 하나를 빠뜨리고, 그러면 **버튼이 만든 하루와 진짜 하루가
+// 다른 것**이 된다 (경로가 둘이 되는 그 사고다). 시계는 `nowMs()` 한 곳이므로
+// 거기를 옮기면 «전부» 따라온다.
+// ⚠️ **옮긴 몫은 세이브에 남는다**(`S.devClock`) — 새로고침하면 되돌아가는 하루는
+// 하루가 아니다. 몸의 시각(`bodyTs` 등)이 그 시계로 적혀 있어서 되돌리면 어긋난다.
+// ⚠️ **정산은 부팅·자정·복귀와 «같은 함수»를 부른다**(`refreshEnergy`) — 여기서
+// 따로 깎으면 버튼으로 본 것이 진짜 경로가 아니게 된다.
+// ⚠️ **밭은 안 따라온다** — 자라는 시각은 서버가 재기 때문이다 (`FARM.now`).
+function devSkipDay() {
+  setDevClock((S.devClock || 0) + DAY_MS);
+  S.devClock = devClock;
+  refreshEnergy();                 // 부팅·자정·복귀가 지나는 그 자리
+  save();
+  render();
+  toast(T('dev_day_done', { d: Math.round(devClock / DAY_MS) }), null, 3200);
+  if (window.Sfx) Sfx.play('success');
+}
+window.devSkipDay = devSkipDay;
+
 window.devToggleTutorial = devToggleTutorial;
 // 튜토리얼 되감기 — 인트로 다시보기와 짝이 되는 개발용 버튼
 function devReplayTutorial() {
@@ -6569,7 +6627,7 @@ function devLeagueScore(n) {
 }
 // 지난 주로 되돌려 정산을 강제한다 — 승급/강등 배너를 눌러서 확인하는 유일한 길
 function devLeagueEndWeek() {
-  const past = new Date(Date.now() - 7 * 86400000);
+  const past = new Date(nowMs() - 7 * 86400000);
   S.week.key = weekKey(past);
   save();
   settleLeague();
@@ -7295,7 +7353,7 @@ function playTimeText(sec) {
   return h ? T('rec_hm', { h, m }) : T('rec_m', { m });
 }
 function dateText(ts) {
-  const d = new Date(ts || Date.now());
+  const d = new Date(ts || nowMs());
   return `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`;
 }
 
@@ -9410,7 +9468,7 @@ function doWorkout() {
   S.fit = +((S.fit || 0) + c.fit).toFixed(3);
   addAura('grit', c.grit);
   if (c.happy) addAura('happy', c.happy);
-  S.lastWorkoutTs = S.decayTs = Date.now();
+  S.lastWorkoutTs = S.decayTs = nowMs();
   rec('workouts');
   rec('exMin', exPickMin);
   save();

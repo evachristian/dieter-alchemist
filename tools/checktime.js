@@ -394,11 +394,69 @@ function launchOpts() {
     await ctx.close();
   }
 
+  // ── 개발용 「하루가 지나갔다고 치기」 ──────────────────────────
+  //
+  // ⚠️⚠️ **이 버튼이 옮기는 것은 «시계»다 — 값을 심는 것이 아니다.** 날짜에 기대는
+  // 값이 예닐곱 군데라 하나씩 심으면 반드시 하나를 빠뜨리고, 그러면 버튼이 만든
+  // 하루와 진짜 하루가 달라진다. 그래서 여기서 보는 것은 **한꺼번에 따라오는가**다:
+  //   ① 날짜 키가 «하루» 간다 (이틀이 아니다)
+  //   ② AP 가 상한까지 찬다 (자정 충전)
+  //   ③ **포만감이 줄어든다** ← `nowDate()` 가 아니라 `Date.now()` 를 쓰던 자리라,
+  //      시계를 반만 옮기면 여기만 제자리다 (그래서 콕 집어 잰다)
+  //   ④ **새로고침해도 옮긴 시계가 그대로다** (되돌아가는 하루는 하루가 아니다)
+  let dayLines = '';
+  {
+    const ctx = await browser.newContext();
+    const p = await ctx.newPage();
+    const perr = [];
+    p.on('pageerror', e => perr.push(String(e)));
+    await p.goto(BASE, { waitUntil: 'load' });
+    await p.waitForTimeout(2200);
+    const r = await p.evaluate(() => {
+      const out = [];
+      S.tutorialDone = true;
+      S.devClock = 0; setDevClock(0);
+      S.energyDay = dayKey(); S.energy = 10;
+      S.fullness = 100; S.bodyTs = nowMs();
+      // ⚠️ `bingeDay` 를 0 으로 두면 「처음 들어온 사람」으로 보고 그 자리에서
+      // 기준만 잡고 돌아간다 — 밤이 하나도 안 세어진다. **오늘로** 세워야 한다
+      S.record.aloneNights = 0; S.binges = []; S.kitchenDay = 0; S.bingeDay = dayKey();
+      const d0 = dayKey(), f0 = fullness(), n0 = S.record.aloneNights || 0;
+      devSkipDay();
+      out.push({ k: '날짜가 하루 간다', v: dayKey() - d0, want: 1 });
+      out.push({ k: 'AP 가 상한까지 찬다', v: S.energy, want: energyCap() });
+      // ⚠️⚠️ **「조금이라도 줄었나」로 재면 못 가른다.** 시계를 반만 옮겨도
+      // (몸의 시계가 진짜 `Date.now()` 를 보면) 버튼을 누르는 동안 흐른 몇 ms 만큼은
+      // 줄어들어서 **그대로 통과했다** — 가르지 못하는 잣대는 무슨 값을 넣어도 통과한다.
+      // ⚠️ 그렇다고 「하루치만큼 줄었나」로도 못 잰다 — 포만감이 바닥나면 그 밤에
+      // `BINGE.fullnessBack`(70)까지 **도로 찬다.** 그래서 잴 것은 **밤이 지나갔는가**다:
+      // 시계를 반만 옮기면 포만감이 100 그대로라 밤 판정에 아예 안 걸린다
+      out.push({ k: '몸도 같이 간다 (밤이 하나 지나간다)', v: (S.record.aloneNights || 0) - n0, want: 1,
+                 show: `포만감 ${f0.toFixed(0)} → ${fullness().toFixed(0)} · 혼자 먹은 밤 +${(S.record.aloneNights || 0) - n0}` });
+      out.push({ k: '옮긴 시계가 세이브에 남는다', v: Math.round((S.devClock || 0) / 86400000), want: 1 });
+      return out;
+    });
+    const ls = r.map(x => (String(x.v) === String(x.want) ? '\u2705 ' : '\u274c ')
+      + `개발용 하루 넘기기 — ${x.k} (${x.show || x.v} · ${x.want} 기대)`);
+    // ④ 새로고침해도 그대로인가
+    await p.reload({ waitUntil: 'load' });
+    await p.waitForTimeout(2200);
+    const kept = await p.evaluate(() => ({ off: Math.round((S.devClock || 0) / 86400000),
+                                           live: Math.round((nowMs() - Date.now()) / 86400000) }));
+    ls.push((kept.off === 1 && kept.live === 1 ? '\u2705 ' : '\u274c ')
+      + `개발용 하루 넘기기 — 새로고침해도 시계가 그대로다 (세이브 ${kept.off}일 · 지금 시계 ${kept.live}일 · 1 기대)`);
+    if (perr.length) ls.push('\u274c 개발용 하루 넘기기 — 오류 ' + perr[0]);
+    dayLines = ls.join('\n');
+    await ctx.close();
+  }
+
   await browser.close();
   console.log(lines);
   console.log(bootLine);
+  console.log(dayLines);
   errs.forEach(e => console.log(e));
-  const bad = lines.split('\n').concat([bootLine]).filter(l => l.startsWith('\u274c')).length + errs.length;
+  const bad = lines.split('\n').concat([bootLine]).concat(dayLines.split('\n'))
+    .filter(l => l.startsWith('\u274c')).length + errs.length;
   console.log(bad ? `\n\u274c ${bad}건` : '\n\u2705 시간이 흐르는 값 전부 통과');
   process.exit(bad ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });
