@@ -299,6 +299,45 @@ async function onScreen() {
     await ctx.close();
   }
 
+  // ⓓ **로고 화면은 테마를 «안» 탄다.** `logo.png` 는 투명 영역이 아예 없는 불투명
+  // 이미지라, 바탕이 near-white 가 아니면 **로고가 사각형으로 깨져 보인다**
+  // (에크루 배경에서 신고받았다). 그래서 여기만은 토큰을 쓰면 «안 된다» —
+  // 여섯에서 같은 색인지, 그 색이 로고 모서리와 가까운지를 본다
+  {
+    // ⚠️ **스플래시는 2.5초 뒤 DOM 에서 «완전히 제거»된다** — 다른 검사처럼 기다렸다
+    // 재면 늘 「못 찾았다」가 나온다. 그래서 여기만 **뜨자마자** 잰다
+    const seen = new Set();
+    for (const t of names) {
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 880 } });
+      const page = await ctx.newPage();
+      await page.addInitScript((th) => {
+        localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+        if (th) localStorage.setItem('dieter_alchemist_theme_v1', th);
+      }, t);
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+      const got = await page.evaluate(() => {
+        const el = document.getElementById('splash');
+        if (!el) return null;
+        const cs = getComputedStyle(el);
+        const nm = document.querySelector('#splash .splash-name');
+        return { bg: cs.backgroundColor, ink: nm ? getComputedStyle(nm).color : '(없음)' };
+      });
+      await ctx.close();
+      if (!got) { bad('로고 화면(#splash)을 못 찾았다'); break; }
+      seen.add(got.bg + ' / ' + got.ink);
+    }
+    if (seen.size > 1) {
+      bad(`로고 화면이 테마마다 다르다 — ${[...seen].join(' · ')} (불투명 로고라 사각형이 드러난다)`);
+    } else if (seen.size === 1) {
+      const [one] = [...seen];
+      const c = rgb(one.split(' / ')[0]);
+      // 로고 모서리가 #f9f8f9~#f6f7f7 이다 — 여기서 멀어지면 사각형이 보인다
+      const far = !c || c.some(v => v < 238 || v > 255);
+      if (far) bad(`로고 화면 바탕이 ${one.split(' / ')[0]} 다 — 로고 모서리(near-white)와 멀어 사각형이 드러난다`);
+      else ok(`로고 화면은 여섯에서 다 같다 (${one})`);
+    }
+  }
+
   // ⓒ 새로고침해도 남는가 + **첫 페인트부터** 그 테마인가
   // ⚠️ theme.js 가 문서 끝으로 밀리면 기본 색으로 한 번 그려진 뒤 얹혀 «번쩍인다».
   //    눈으로는 못 보므로 「CSS 가 오기 전에 이미 속성이 붙어 있었나」로 잰다

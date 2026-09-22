@@ -226,7 +226,9 @@ body {
 .splash {
   position: fixed; inset: 0; z-index: 999;
   display: flex; align-items: center; justify-content: center;
-  background: var(--bg-2, #F6F6F8);
+  /* ⚠️ **로고 화면은 테마를 안 탄다** — logo.png 가 투명 영역이 없는 불투명
+     이미지라 바탕이 near-white 가 아니면 사각형으로 깨져 보인다 (index.html 참고) */
+  background: #F6F6F8;
   opacity: 1;
   transition: opacity 1.6s ease;   /* 페이드아웃 1.6초 */
 }
@@ -237,7 +239,7 @@ body {
 .splash-logo { width: 168px; height: 168px; display: block; }
 .splash-name {
   font-size: 1.06rem; font-weight: 700; letter-spacing: 0.06em;
-  color: var(--ink, #3f3a44); text-align: center;
+  color: #3f3a44; text-align: center;
 }
 
 /* ─── 상단바 (헤더 = AP + 등급 + 설정) ─── */
