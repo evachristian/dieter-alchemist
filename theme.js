@@ -25,12 +25,12 @@
   //    다른 색이면 고르기 전에는 무엇이 될지 알 수가 없다.
   //    `tools/checktheme.js` 가 style.css 에서 읽어 이 표와 대조한다
   var THEMES = [
-    { id: 'beige',    sw: '#e3c9a6' },
-    { id: 'ecru',     sw: '#ddd2b6' },
-    { id: 'blue',     sw: '#aad8f2' },
-    { id: 'pink',     sw: '#ffb8d9' },
-    { id: 'purple',   sw: '#cbb6f2' },
-    { id: 'charcoal', sw: '#4d545e' },
+    { id: 'beige',    sw: '#cfa368' },
+    { id: 'ecru',     sw: '#c0ab77' },
+    { id: 'blue',     sw: '#5fb5e6' },
+    { id: 'pink',     sw: '#ff82bc' },
+    { id: 'purple',   sw: '#ba9eee' },
+    { id: 'charcoal', sw: '#5c6470' },
   ];
   var DEFAULT = 'ecru';
 

@@ -33,6 +33,10 @@
    · `--ink-dim` **비활성·잠금 전용** — 읽어야 하는 글자에는 절대 금지
    · `--line` **테두리 전용**이라 대비 규칙(4.5:1)을 안 탄다. 글자에 쓰지 말 것
      (흰 바탕에서 1.2:1 이다. 그 용도는 `--ink` 계열이다)
+   · `--btn-shadow` **버튼 밑의 그림자**. 그 테마의 눌리는 색을 «한참 진하게»
+     한 것이라 색을 띠면서도 탁하지 않다. ⚠️ **채도를 눌러야 한다**(58% 상한) —
+     채움 그대로 쓰면 그림자가 아니라 «네온 광채»로 읽힌다 (핑크에서 그랬다).
+     ⚠️ 다크만은 **검정**이다: 색 그림자는 어두운 판 위에서 빛나는 것처럼 보인다
    · `--blue` / `--red` 는 **승패 전용**이다 — 파랑이 이김·성공, 빨강이 짐·실패.
      민트/라벤더로는 「좋다/나쁘다」가 안 읽혀서 따로 둔 것이라, 테마마다 톤만 맞춘다
      (밝은 다섯은 `#17458f` 위 `#d9e8ff` = 7.41:1 · `#a81f18` 위 `#ffdcd6` = 5.73:1)
@@ -42,6 +46,16 @@
    ⚠️ 값을 바꾸면 `npm run test:theme` 을 돌린다 — 토큰끼리의 대비를 표로 재고
    (`TEXT_POLICY.md` 의 띠 그대로), 여섯 테마 × 화면에서 `checkTextStyle()` 을
    다시 돌린다.
+
+   ⚠️⚠️ **「눌리는 색」(`--pink-2`)은 카드에서 «떠올라야» 한다.** 처음에는 카드와의
+   대비가 1.50~1.82 뿐이라 버튼이 크림색 판에 묻혔다 (「버튼이 눈에 안 띈다」로
+   신고받았다). 지금은 여섯 다 **2.3** 이다. 한계를 잡고 있던 것은 그 위의 글자라,
+   **`--ink` 를 한 단 진하게**(카드 위 8.2~8.8 → 10.5~10.8) 해서 여유를 만들고
+   그만큼 눌리는 색을 깊게 했다 — 글자는 오히려 더 잘 읽힌다.
+   · ⚠️ 깊어진 채움 위에서 `--text-pink` 가 3:1 아래로 떨어져 셋(에크루·베이지·핑크)은
+     그 글자색도 같이 내렸다. **한쪽만 옮기면 조용히 띠를 벗어난다** — 표가 잡아 준다
+   · ⚠️ **컬러칩도 같이 옮긴다** — 칩은 「그 테마의 주 강조색 그 값」이라 안 고치면
+     화면과 칩이 갈린다 (`checktheme` 이 실제로 여섯 다 잡았다)
 
    ⚠️ **「핑크」의 토큰 값은 예전 그대로지만, 화면이 «한 픽셀도» 같지는 않다.**
    하드코딩돼 있던 색을 토큰으로 옮기면서 달라진 자리가 있다 — 되돌리려다 헷갈리지
@@ -72,16 +86,17 @@
   --tint: #f6f1e2; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(150,140,110,0.18);
   --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
   --track: #e6e0d2; --halo: #ffffff;
-  --pink: #eee7d6; --pink-2: #ddd2b6; --text-pink: #6d5a2c;
+  --pink: #eee7d6; --pink-2: #c0ab77; --text-pink: #69572b;
   --mint: #dcebd9; --mint-2: #b2dcb2; --text-mint: #2d6136;
-  --lav: #e7dfca; --lav-2: #d2c6a6; --text-lav: #5d4c26;
-  --ink: #4f4a42; --ink-soft: #635d53; --ink-dim: #938d82;
+  --lav: #e7dfca; --lav-2: #c2b186; --text-lav: #5d4c26;
+  --ink: #423e38; --ink-soft: #635d53; --ink-dim: #938d82;
   --text-warn: #8a5a2b; --on-accent: #ffffff;
-  --toast-bg: #4f4a42; --toast-ink: #ffffff;
+  --toast-bg: #423e38; --toast-ink: #ffffff;
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
   --well: rgba(120,112,92,0.20);
+  --btn-shadow: rgba(94,80,44,0.38);
   /* THEME:ecru>>> */
 }
 
@@ -93,16 +108,17 @@
   --tint: #fbf1e3; --mix-base: #fffdfa; --shadow: 0 4px 14px rgba(170,140,110,0.18);
   --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
   --track: #e9ded0; --halo: #ffffff;
-  --pink: #f2e2cf; --pink-2: #e3c9a6; --text-pink: #7a5427;
+  --pink: #f2e2cf; --pink-2: #cfa368; --text-pink: #765126;
   --mint: #dcebd6; --mint-2: #b4dcaa; --text-mint: #2e6130;
-  --lav: #e2e6ef; --lav-2: #c5cddf; --text-lav: #3f4c79;
-  --ink: #56483d; --ink-soft: #6b5c4f; --ink-dim: #9b8c7e;
+  --lav: #e2e6ef; --lav-2: #a4b1cd; --text-lav: #3f4c79;
+  --ink: #473c32; --ink-soft: #6b5c4f; --ink-dim: #9b8c7e;
   --text-warn: #8a5a2b; --on-accent: #ffffff;
-  --toast-bg: #56483d; --toast-ink: #ffffff;
+  --toast-bg: #473c32; --toast-ink: #ffffff;
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
   --well: rgba(130,108,86,0.20);
+  --btn-shadow: rgba(104,74,33,0.38);
   /* THEME:beige>>> */
 }
 
@@ -114,16 +130,17 @@
   --tint: #e9f4fc; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(120,150,180,0.18);
   --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
   --track: #dde7f0; --halo: #ffffff;
-  --pink: #d6ecfa; --pink-2: #aad8f2; --text-pink: #1f5c85;
+  --pink: #d6ecfa; --pink-2: #5fb5e6; --text-pink: #1f5c85;
   --mint: #d3efdf; --mint-2: #a3e0c0; --text-mint: #17684a;
-  --lav: #e2e0f7; --lav-2: #c4bff0; --text-lav: #46399c;
-  --ink: #47505a; --ink-soft: #5a636e; --ink-dim: #8b939c;
+  --lav: #e2e0f7; --lav-2: #b1aaeb; --text-lav: #46399c;
+  --ink: #384047; --ink-soft: #5a636e; --ink-dim: #8b939c;
   --text-warn: #8a5a2b; --on-accent: #ffffff;
-  --toast-bg: #47505a; --toast-ink: #ffffff;
+  --toast-bg: #384047; --toast-ink: #ffffff;
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
   --well: rgba(100,116,134,0.20);
+  --btn-shadow: rgba(32,88,120,0.38);
   /* THEME:blue>>> */
 }
 
@@ -135,16 +152,17 @@
   --tint: #fff0f7; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(180,140,160,0.18);
   --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
   --track: #e4d7ea; --halo: #ffffff;
-  --pink: #ffd9ec; --pink-2: #ffb8d9; --text-pink: #9c3566;
+  --pink: #ffd9ec; --pink-2: #ff82bc; --text-pink: #963362;
   --mint: #cdeede; --mint-2: #9fe0c4; --text-mint: #166b4c;
-  --lav: #e7ddff; --lav-2: #c9b6ff; --text-lav: #4f36a0;
-  --ink: #5a4a55; --ink-soft: #6e5d69; --ink-dim: #9a8a95;
+  --lav: #e7ddff; --lav-2: #bca4ff; --text-lav: #4f36a0;
+  --ink: #483b44; --ink-soft: #6e5d69; --ink-dim: #9a8a95;
   --text-warn: #8a5a2b; --on-accent: #ffffff;
-  --toast-bg: #5a4a55; --toast-ink: #ffffff;
+  --toast-bg: #483b44; --toast-ink: #ffffff;
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
   --well: rgba(154,138,149,0.24);
+  --btn-shadow: rgba(167,44,101,0.38);
   /* THEME:pink>>> */
 }
 
@@ -156,16 +174,17 @@
   --tint: #f1ebfd; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(150,130,190,0.18);
   --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
   --track: #e6def0; --halo: #ffffff;
-  --pink: #e6ddfa; --pink-2: #cbb6f2; --text-pink: #5b3aa3;
+  --pink: #e6ddfa; --pink-2: #ba9eee; --text-pink: #5b3aa3;
   --mint: #d5eedf; --mint-2: #a5e0c3; --text-mint: #176a4b;
-  --lav: #dceafa; --lav-2: #b5d4f2; --text-lav: #1f5680;
-  --ink: #524a5c; --ink-soft: #655d70; --ink-dim: #948da0;
+  --lav: #dceafa; --lav-2: #83b7e9; --text-lav: #1f5680;
+  --ink: #433c4b; --ink-soft: #655d70; --ink-dim: #948da0;
   --text-warn: #8a5a2b; --on-accent: #ffffff;
-  --toast-bg: #524a5c; --toast-ink: #ffffff;
+  --toast-bg: #433c4b; --toast-ink: #ffffff;
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
   --well: rgba(122,110,140,0.20);
+  --btn-shadow: rgba(92,47,176,0.38);
   /* THEME:purple>>> */
 }
 
@@ -177,9 +196,9 @@
   --tint: #3a404a; --mix-base: #2b2f35; --shadow: 0 4px 14px rgba(0,0,0,0.45);
   --glass: rgba(255,255,255,0.05); --glass-2: rgba(255,255,255,0.10); --glass-3: rgba(255,255,255,0.14); --glass-line: rgba(255,255,255,0.10);
   --track: rgba(0,0,0,0.38); --halo: #1a1d21;
-  --pink: #383d44; --pink-2: #4d545e; --text-pink: #d9d2c8;
+  --pink: #383d44; --pink-2: #5c6470; --text-pink: #d9d2c8;
   --mint: #23372e; --mint-2: #2f5a44; --text-mint: #8fe0b8;
-  --lav: #333a46; --lav-2: #454f63; --text-lav: #c3b6f0;
+  --lav: #333a46; --lav-2: #546078; --text-lav: #c3b6f0;
   --ink: #e8e6e3; --ink-soft: #c2bfbb; --ink-dim: #8b8781;
   --text-warn: #e8c38a; --on-accent: #23262b;
   --toast-bg: #e8e6e3; --toast-ink: #23262b;
@@ -187,6 +206,7 @@
   --red: #452420; --red-2: #7a3a33; --text-red: #ffaea4;
   --float: rgba(26,29,34,0.88);
   --well: rgba(255,255,255,0.14);
+  --btn-shadow: rgba(0,0,0,0.5);
   /* THEME:charcoal>>> */
 }
 
@@ -1010,6 +1030,9 @@ body.has-quest .screen { padding-bottom: 168px; }
   flex: 0 1 auto; min-width: 0; max-width: 46%;
   font-family: inherit; font-size: 0.8rem; font-weight: 800; color: var(--ink);
   background: var(--pink-2); border: none; border-radius: 999px;
+  /* 카드에서 유일하게 누르는 곳이라 **떠 있어야 한다** — 예전에는 그림자가 없어
+     크림색 카드 위의 평평한 알약이었다 (「버튼이 눈에 안 띈다」로 신고받은 자리다) */
+  box-shadow: 0 4px 11px var(--btn-shadow);
   /* 이 카드에서 **유일하게 누르는 곳**이라 손가락이 넉넉히 닿아야 한다.
      위아래를 키워 46px — 손끝이 덮는 크기(대략 44px)를 밑돌지 않게 잡았다 */
   padding: 14px 15px; min-height: 46px;
@@ -1547,9 +1570,13 @@ button.tm-slot:active { transform: scale(0.94); }
   cursor: pointer; flex: 1; transition: transform 0.1s ease, filter 0.1s ease;
 }
 .btn:active { transform: scale(0.96); }
-.btn-primary { background: var(--pink-2); color: var(--ink); box-shadow: 0 4px 10px rgba(255,150,190,0.4); }
+/* ⚠️ **그림자는 테마 색이다**(`--btn-shadow`). 예전에는 분홍(`rgba(255,150,190,.4)`)이
+   박혀 있어서 블루·에크루 버튼 밑에 «분홍 안개»가 깔렸다 — 색을 고르는 기능이 생긴
+   순간 제일 먼저 어긋나는 자리다. 값은 그 테마의 눌리는 색을 «한참 진하게» 한 것이라
+   탁해지지 않는다 (다크만은 검정이다 — 색 그림자는 다크에서 «빛나는» 것처럼 보인다) */
+.btn-primary { background: var(--pink-2); color: var(--ink); box-shadow: 0 5px 14px var(--btn-shadow); }
 .btn-ghost { background: var(--cream); color: var(--ink-soft); }
-.btn-flex { background: linear-gradient(120deg, var(--lav-2), var(--pink-2)); color: var(--ink); width: 100%; margin: 10px 0 0; box-shadow: 0 4px 12px rgba(180,140,220,0.4); }
+.btn-flex { background: linear-gradient(120deg, var(--lav-2), var(--pink-2)); color: var(--ink); width: 100%; margin: 10px 0 0; box-shadow: 0 5px 14px var(--btn-shadow); }
 .btn-reset { background: transparent; color: var(--ink-soft); border: 1px solid rgba(154,138,149,0.35); width: 100%; margin-top: 28px; font-weight: 600; font-size: 0.82rem; }
 /* 임시(출시 버전에서 제거): AP 충전 테스트 버튼 */
 /* ⚠️ 글자색은 금색 그라데이션의 **제일 어두운 스톱**(`#ffb066`)에서 4.5:1 을 넘겨야 한다.
@@ -1771,7 +1798,7 @@ button.tm-slot:active { transform: scale(0.94); }
   border-radius: 11px; cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.room-tab.active { background: var(--pink-2); color: var(--ink); box-shadow: 0 2px 6px rgba(200,140,175,0.3); }
+.room-tab.active { background: var(--pink-2); color: var(--ink); box-shadow: 0 2px 7px var(--btn-shadow); }
 .room-panel { display: none; }
 .room-panel.active { display: block; }
 .hint-block { display: block; text-align: center; font-size: 0.72rem; color: var(--ink-soft); margin: 10px 2px 2px; }
@@ -2388,7 +2415,7 @@ button.tm-slot:active { transform: scale(0.94); }
 .wr-gift {
   border: none; background: linear-gradient(135deg, var(--lav-2), var(--pink-2)); color: var(--ink);
   font-family: inherit; font-weight: 800; font-size: 0.74rem; padding: 7px 14px;
-  border-radius: 999px; cursor: pointer; box-shadow: var(--shadow);
+  border-radius: 999px; cursor: pointer; box-shadow: 0 4px 11px var(--btn-shadow);
 }
 .wr-gift:active { transform: scale(0.96); }
 
