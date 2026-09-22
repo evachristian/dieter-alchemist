@@ -709,19 +709,26 @@ function launchOpts() {
           const qdBad = await page.evaluate(() => {
             const q = activeQuest();
             if (!q) return '퀘스트가 없다';
+            const chip = () => document.getElementById('questChip');
             const dot = () => document.querySelector('#questChip .qc-dot');
             const bang = () => document.querySelector('#questChip .qc-badge');
             const anim = (el) => el && getComputedStyle(el).animationName !== 'none';
+            if (!(q.cut && q.cut.in)) return `«${q.id}» 에 인트로 컷씬이 없다 (맥박을 잴 수가 없다)`;
             const keep = (S.seenCuts || []).slice();
             S.seenCuts = keep.filter(c => c !== (q.cut && q.cut.in));
             S.quest.n = 0; renderQuestChip();
             if (!bang()) return '아직 못 낸 퀘스트인데 「!」 가 없다';
             if (dot()) return '아직 못 냈는데 점이 뜬다 — 그건 「받아 가라」는 자리다';
             if (anim(bang())) return '아직 못 낸 「!」 가 움직인다 — 그건 재촉이다';
+            // ⚠️ **맥박(칩 둘레)은 「인트로를 아직 안 봤다」는 뜻이다** — 누르면 새 장면이 돈다
+            if (!anim(chip())) return '인트로를 아직 안 본 퀘스트인데 칩이 안 뛴다';
             // **열어 본 뒤에도 그대로 있는다** (예전에는 여기서 꺼졌다)
             S.seenCuts = keep.concat(q.cut && q.cut.in ? [q.cut.in] : []);
             renderQuestChip();
             if (!bang()) return '열어 봤다고 「!」 가 꺼졌다 — 하는 퀘스트가 있는 동안은 켜져 있어야 한다';
+            // ⚠️ **그래도 맥박은 멎는다** — 눌러 봐야 시트가 열릴 뿐인 자리가 계속 뛰면 재촉이다.
+            // 「!」 는 켜진 채 남고 움직임만 빠진다 — 그 둘을 «갈라서» 본다
+            if (anim(chip())) return '인트로를 본 퀘스트인데 칩이 계속 뛴다 — 그건 재촉이다';
             // 다 차면 **점만** 뜨고 「!」 는 안 뜬다 — 그리고 그 점은 «뛴다»
             S.quest.n = q.goal.n; renderQuestChip();
             if (!dot()) return '다 찼는데 점이 없다';

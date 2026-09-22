@@ -4127,7 +4127,11 @@ button.tm-slot:active { transform: scale(0.94); }
   display: flex; align-items: center; justify-content: center; background: var(--cream);
 }
 .qc-face svg { width: 100%; height: 100%; display: block; }
-/* 아직 한 걸음도 안 뗀 퀘스트 — 「여기 새 게 있다」를 반짝임으로 알린다.
+/* **인트로 컷씬을 아직 안 본 퀘스트** — 「여기 새 게 있다」를 반짝임으로 알린다.
+   ⚠️ 예전에는 「아직 한 걸음도 안 뗀 것」이었는데, 상태형 목표(마을·호감도)는 한 걸음
+   떼는 데만 며칠이 걸려서 **그동안 내내 재촉하는** 꼴이었다. 움직이는 것은
+   «누르면 지금 무슨 일이 일어나는» 자리에만 준다 — 안 본 인트로가 있으면 누르는
+   순간 새 장면이 돌고, 한 번 본 뒤로는 눌러 봐야 시트가 열릴 뿐이다.
    ⚠️ 끝이 없는 애니메이션이라 `settle()` 이 안 건드린다 (검증기가 잴 수 있다) */
 .quest-chip.fresh { animation: qcPulse 1.8s ease-in-out infinite; }
 @keyframes qcPulse {
