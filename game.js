@@ -7542,6 +7542,18 @@ function renderSettings() {
       `<button class="set-opt ${l.code === cur ? 'on' : ''}" onclick="chooseLang('${l.code}')">${l.label}</button>`
     ).join('');
   }
+  // UI 색상 — 칩 여섯. **누르면 그 자리에서 바뀐다** (적용 버튼이 없는 것은 위 둘과 같다).
+  // ⚠️ 목록도 색도 `Theme` 에서 받는다 — 여기에 또 적으면 테마를 늘릴 때 한쪽만 고치게 된다.
+  // ⚠️ 칩에는 글자가 없으므로 **이름은 `aria-label`** 이 진다 (색만으로 가르지 않는다).
+  const te = document.getElementById('setThemeList');
+  if (te && window.Theme) {
+    const now = Theme.get();
+    te.innerHTML = Theme.list().map(t =>
+      `<button class="set-sw ${t.id === now ? 'on' : ''}" style="background:${t.sw}"` +
+      ` aria-label="${escHtml(T('theme_' + t.id))}" aria-pressed="${t.id === now}"` +
+      ` onclick="chooseTheme('${t.id}')"></button>`
+    ).join('');
+  }
   // 사운드 On/Off (기본 On)
   const se = document.getElementById('setSoundList');
   if (se) {
@@ -7559,6 +7571,17 @@ function chooseSound(on) {
   if (window.Sfx) Sfx.setOn(on);         // 즉시 적용 + localStorage 저장
   renderSettings();
 }
+// ⚠️ **다시 그리는 것은 설정 시트뿐이다.** 색은 `<html data-theme>` 한 곳이 바꾸므로
+// 화면 전체는 CSS 가 알아서 따라온다 — 여기서 `render()` 를 부르면 열려 있던 시트가
+// 닫히고 고르던 자리를 잃는다 (여섯을 눌러 보며 고르는 자리다).
+// ⚠️ **캔버스는 «그릴 때» 색을 읽는다**(`cssVar()`) — 공유 카드처럼 그때그때 그리는
+// 것은 저절로 따라오고, 미니게임 HUD 는 매 프레임 그리므로 역시 따라온다.
+// 이미 그려 놓고 안 지우는 캔버스를 새로 만들면 그때는 여기서 다시 그려 줘야 한다.
+function chooseTheme(id) {
+  if (window.Theme) Theme.set(id);       // 즉시 적용 + localStorage 저장
+  renderSettings();
+}
+window.chooseTheme = chooseTheme;
 // 임시: 캐시 지우기 (브라우저 캐시 + Service Worker + 저장 데이터 유지 여부 선택)
 // 테스트 편의용 — 출시 버전에서는 제거
 function clearCacheHard() {

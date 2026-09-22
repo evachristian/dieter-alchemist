@@ -111,11 +111,16 @@ function launchOpts() {
   // TUT 이면 **세이브를 아예 심지 않는다** — 진짜 새 플레이어라야 튜토리얼이 뜬다.
   await page.addInitScript((mode) => {
     localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
-    if (mode === 'tut') { localStorage.removeItem('dieter_alchemist_save_v1'); return; }
+    // UI 색상 — `THEME=charcoal node tools/checkui.js` 로 그 테마에서 통째로 잰다.
+    // ⚠️ **안 주면 기본(에크루)이다** — 여섯을 다 돌려 보려면 `npm run test:theme` 이
+    // 주요 화면을 훑고, 화면 전체는 이 변수로 하나씩 돌린다 (한 판이 길어서다)
+    if (mode.theme) localStorage.setItem('dieter_alchemist_theme_v1', mode.theme);
+    if (mode.save === 'tut') { localStorage.removeItem('dieter_alchemist_save_v1'); return; }
     localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
-      mode === 'full' ? { ver: 8, name: 'Tester', nameClaimed: true, tutorialDone: true, crystal: 1240 }
-                      : { ver: 5, name: 'Tester', nameClaimed: true }));
-  }, process.env.TUT ? 'tut' : (process.env.FULL ? 'full' : 'plain'));
+      mode.save === 'full' ? { ver: 8, name: 'Tester', nameClaimed: true, tutorialDone: true, crystal: 1240 }
+                           : { ver: 5, name: 'Tester', nameClaimed: true }));
+  }, { save: process.env.TUT ? 'tut' : (process.env.FULL ? 'full' : 'plain'),
+       theme: process.env.THEME || '' });
 
   await page.goto(BASE, { waitUntil: 'load' });
   // 스플래시가 스스로 사라지길 기다리되, 안 사라지면 직접 치운다

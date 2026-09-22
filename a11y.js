@@ -133,24 +133,71 @@
     return '#' + h(c.r) + h(c.g) + h(c.b);
   }
 
+  // 그라데이션에 박힌 색 스톱들. 브라우저가 풀어 준 `background-image` 를 그대로 읽으므로
+  // 토큰 이름을 몰라도 되고, 이름을 바꿔도 안 썩는다. `url(...)` 짜리 그림은 빈 배열이다
+  function gradientStops(cs) {
+    const img = cs.backgroundImage || '';
+    if (!img || img === 'none') return [];
+    return (img.match(/rgba?\([^)]+\)/g) || []).map(parseColor).filter(c => c && c.a > 0);
+  }
+  // 여러 스톱 중 **글자에게 제일 불리한 것**을 고른다 — 한 스톱만 고르면 다른 스톱에서
+  // 깨진 것을 놓친다 (그라데이션은 자리마다 색이 다르니 나쁜 쪽으로 봐야 한다)
+  function worstStop(stops, acc, fg) {
+    let best = null, worst = Infinity;
+    for (const st of stops) {
+      const bg = acc ? over(acc, st) : st;
+      const c = fg ? contrast(fg, bg) : 0;
+      if (c < worst) { worst = c; best = bg; }
+    }
+    return best;
+  }
+  // 페이지 바닥에 «실제로 깔린» 색들. ⚠️ 토큰 이름(`--bg-1`…)으로 읽지 않는다 —
+  // 이름을 바꾸는 순간 조용히 흰색 가정으로 되돌아가기 때문이다.
+  function pageStops() {
+    let out = [];
+    [document.body, document.documentElement].forEach(n => {
+      if (!n || out.length) return;
+      const cs = getComputedStyle(n);
+      out = gradientStops(cs);
+      if (!out.length) {
+        const c = parseColor(cs.backgroundColor);
+        if (c && c.a > 0) out = [c];
+      }
+    });
+    // 아무것도 못 읽으면 예전처럼 흰색으로 가정한다 (그래도 «추정» 으로 표시된다)
+    return out.length ? out : [{ r: 255, g: 255, b: 255, a: 1 }];
+  }
   // 조상을 거슬러 올라가며 실제로 눈에 보이는 배경색을 합성한다.
   // 그라데이션/이미지가 깔린 경우엔 정확한 값을 알 수 없으므로 approx 로 표시.
-  function effectiveBg(el) {
+  //
+  // ⚠️⚠️ **끝내 못 만났을 때의 «가정»을 흰색으로 박아 두지 않는다.** 페이지 바닥이
+  // 그라데이션이라 여기까지 오는 글자가 많은데(화면 제목 · 설명 줄 · 아래 탭 라벨),
+  // 흰색으로 가정하면 **다크 테마에서 멀쩡한 화면이 통째로 위반으로 잡힌다**
+  // (밝은 글자 위에 흰 배경을 가정하니 1.25:1 이 나왔다 — 실제로 13건이 그랬다).
+  // 그렇다고 한 스톱만 고르면 다른 스톱에서 깨진 것을 놓치므로 **제일 불리한
+  // 스톱**을 고른다 — 그러려면 글자색을 알아야 해서 `fg` 를 받는다.
+  function effectiveBg(el, fg) {
     let acc = null, approx = false;
     for (let n = el; n; n = n.parentElement) {
       const cs = getComputedStyle(n);
       if (cs.backgroundImage && cs.backgroundImage !== 'none') approx = true;
+      // ⚠️⚠️ **그라데이션도 «칠해진 색»이다.** 못 읽는다고 넘기면 그 위의 글자를
+      // «조상의» 배경으로 재게 된다 — 개발용 금색 버튼이 다크에서 페이지 바닥(#2b2f35)
+      // 위에 있는 것으로 잡혀 2.28:1 로 나왔다 (밝은 테마에서는 흰색 가정이 우연히
+      // 비슷해서 통과했을 뿐이다). 그림(`url(...)`)은 스톱이 없으니 예전대로 지나간다.
+      // 배경 이미지는 배경색 «위»에 칠해지므로 색보다 먼저 본다
+      const stops = gradientStops(cs);
+      if (stops.length) return { color: worstStop(stops, acc, fg), approx: true };
       const c = parseColor(cs.backgroundColor);
       if (c && c.a > 0) {
         acc = acc ? over(acc, c) : c;
         if (acc.a >= 1) return { color: acc, approx };
       }
     }
-    // 여기까지 왔다는 건 불투명한 배경을 끝내 못 만났다는 뜻이다 — 흰색은 '측정값' 이 아니라
-    // 가정이므로 반드시 추정으로 표시한다. (예전에는 실측 흰색과 구분이 안 돼
+    // 여기까지 왔다는 건 불투명한 배경을 끝내 못 만났다는 뜻이다 — 이 값은 '측정값' 이
+    // 아니라 가정이므로 반드시 추정으로 표시한다. (예전에는 실측 흰색과 구분이 안 돼
     // "실측인데 #ffffff/#ffffff" 처럼 보였다)
-    const white = { r: 255, g: 255, b: 255, a: 1 };
-    return { color: acc ? over(acc, white) : white, approx: true };
+    return { color: worstStop(pageStops(), acc, fg), approx: true };
   }
 
   // ─── 측정 조건 ───
@@ -237,8 +284,9 @@
       const isLarge = sizePx >= POLICY.largePx || (sizePx >= POLICY.largeBoldPx && weight >= POLICY.boldMin);
       const need = isLarge ? POLICY.contrastLarge : POLICY.contrastNormal;
 
-      const bgInfo = effectiveBg(el);
+      // ⚠️ 배경을 못 찾았을 때 «어느 스톱으로 가정할지» 를 고르려고 글자색을 먼저 읽는다
       let fg = parseColor(cs.color) || { r: 0, g: 0, b: 0, a: 1 };
+      const bgInfo = effectiveBg(el, fg);
       // 요소 자체의 opacity 로 흐려진 글씨는 배경과 섞인 것으로 계산
       const eo = effectiveOpacity(el);
       fg = over({ ...fg, a: fg.a * eo }, bgInfo.color);
@@ -310,7 +358,10 @@
       console.log(`[텍스트 정책] 투명한 조상에 가려 건너뛴 글자 ${hiddenByOpacity}건 `
         + '(닫힌 레이어면 정상. 보고 있는 화면이 통째로 여기 잡히면 측정 조건을 의심할 것)');
     }
-    return { pass, count: rows.length, rows, hiddenByOpacity, policy: POLICY };
+    // ⚠️ **몇 개를 쟀는지를 같이 낸다** — 위반 0건이 「통과」인지 「한 번도 안 쟀다」인지는
+    // 이것 없이는 부르는 쪽에서 가를 수가 없다 (`checkLocked` 의 `checked` 와 같은 자리다).
+    // 화면이 아직 안 떴거나 탭이 안 바뀌었으면 여기가 0 으로 내려앉는다
+    return { pass, count: rows.length, rows, checked: seen.size, hiddenByOpacity, policy: POLICY };
   }
 
   function selectorOf(el) {

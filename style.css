@@ -1,39 +1,197 @@
 /* ═══════════════════════════════════════════════════════════════
    다이어터 연금술사 — 스타일 (코지 파스텔)
    ═══════════════════════════════════════════════════════════════ */
+
+/* ═══ UI 색상 — 테마 여섯 벌 ═══════════════════════════════════
+   설정에서 고른다 (`theme.js` → `<html data-theme="...">`). 기본은 **에크루**다.
+
+   ⚠️⚠️ **토큰 이름은 «색»이 아니라 «자리»다.** `--pink` 는 블루 테마에서 파랑이고
+   챠콜에서 회색이다 — 이름이 핑크인 것은 처음에 핑크 하나뿐이었기 때문이고,
+   지금 그것이 뜻하는 것은 **「주 강조」라는 자리**다. 이름을 바꾸지 않은 이유는
+   `TEXT_POLICY.md`·`UI_POLICY.md` 가 이 이름들로 «관계»를 적어 두었기 때문이다
+   (「`--pink-2` 는 글자색으로 쓰지 않는다」는 여섯 테마에서 다 참이다).
+
+   | 자리 | 토큰 | 무엇인가 |
+   |---|---|---|
+   | 주 강조 | `--pink` `--pink-2` `--text-pink` | 고른 탭 · 기본 버튼 · 진행 막대 |
+   | 좋다 | `--mint` `--mint-2` `--text-mint` | 됐다 · 올라감 — **여섯 테마에서 늘 초록 쪽이다** |
+   | 재화·보조 | `--lav` `--lav-2` `--text-lav` | 헤더 알약 · 보조 패널 |
+
+   ⚠️ 「좋다」를 테마 색으로 같이 물들이지 않는다 — 그러면 리그의 ▲올라감(민트)과
+   ▼내려감(주 강조)이 **같은 색이 되어 뜻이 사라진다.** 승패(`--blue`/`--red`)도
+   같은 이유로 테마마다 «톤만» 맞추고 색은 안 바꾼다.
+
+   ⚠️⚠️ **테마는 블록 하나에 토큰을 «다» 적는다.** 한 줄이라도 빠지면 그 자리에
+   앞 테마(에크루) 값이 남는데, 챠콜에서 그것은 **밝은 판 위의 밝은 글자**라
+   화면에 오류 하나 없이 안 읽히게 된다. `tools/checktheme.js` 가
+   `<<<THEME:` 구간을 읽어 **여섯이 같은 토큰을 다 가졌는지**를 본다.
+
+   블록이 한 줄짜리로 빽빽해졌으므로 **토큰마다 딸려 있던 주의는 여기 모아 둔다**:
+
+   · `--ink` 본문·제목·버튼 라벨 — **모든 표면에서 4.5:1 이상**
+   · `--ink-soft` 보조 설명 — 흰색/크림/파스텔-1 까지. 파스텔-2 위에는 쓰지 말 것
+   · `--ink-dim` **비활성·잠금 전용** — 읽어야 하는 글자에는 절대 금지
+   · `--line` **테두리 전용**이라 대비 규칙(4.5:1)을 안 탄다. 글자에 쓰지 말 것
+     (흰 바탕에서 1.2:1 이다. 그 용도는 `--ink` 계열이다)
+   · `--blue` / `--red` 는 **승패 전용**이다 — 파랑이 이김·성공, 빨강이 짐·실패.
+     민트/라벤더로는 「좋다/나쁘다」가 안 읽혀서 따로 둔 것이라, 테마마다 톤만 맞춘다
+     (밝은 다섯은 `#17458f` 위 `#d9e8ff` = 7.41:1 · `#a81f18` 위 `#ffdcd6` = 5.73:1)
+   · 파스텔 배경 «위의 흰 글씨는 금지»다 (1.5~1.8:1). 진한 강조색 위의 글자는
+     `#fff` 가 아니라 **`--on-accent`** — 다크에서는 그것이 어두워진다
+
+   ⚠️ 값을 바꾸면 `npm run test:theme` 을 돌린다 — 토큰끼리의 대비를 표로 재고
+   (`TEXT_POLICY.md` 의 띠 그대로), 여섯 테마 × 화면에서 `checkTextStyle()` 을
+   다시 돌린다.
+
+   ⚠️ **「핑크」의 토큰 값은 예전 그대로지만, 화면이 «한 픽셀도» 같지는 않다.**
+   하드코딩돼 있던 색을 토큰으로 옮기면서 달라진 자리가 있다 — 되돌리려다 헷갈리지
+   않게 여기 다 적어 둔다:
+   · 유리 판의 불투명도 아홉 가지(0.42~0.92)를 **세 단계로** 모았다 (아래 항)
+   · 고른 줄의 옅은 바탕 `#fff0f7` · `#fff6fb` 를 **`--tint` 하나로** 모았다
+   · 표에 없던 강조 글자 넷(`#b03356` `#9a3450` `#b04a6a` ×2)을 **`--text-pink`** 로
+     (TEXT_POLICY 1장 「새 색을 즉석에서 만들어 쓰지 않는다」)
+   · 리그 ▲▼ 줄 배경 `#e6f7ee`·`#fdeef2` → `--mint`·`--pink`
+   · AP 충전 슬라이더 손잡이 `#ff8fc0` → `--text-pink` (트랙 위에서 더 또렷하다)
+   · 선물 딱지 `#ffe0ec/#8a3355` · `#e6efdc/#4c6135` → `--pink`·`--mint` 계열
+   · `.potion-why` 의 ? 글자 `--ink-soft` → `--ink` (블루에서 4.50:1 로 걸렸다)
+   · 개발용 버튼 글자 `#8a5a1a` → `#6d450d` (금색 위에서 3.28:1 이었다 · 아래 항)
+   · **없던 배경이 넷 생겼다** — `var(--pink-1)` 사고 (아래 항) ═══════════════ */
+
+/* ⚠️ `--float` 는 `--glass` 계열과 «다른 자리»다 — 유리는 페이지 배경 위에 얹히고
+   float 은 **방 그림 위**에 뜬다. 다크에서 유리(흰색 14%)를 그대로 쓰면 밝은 방
+   그림이 그대로 비쳐 **밝은 글자가 밝은 그림 위**에 앉는다 (찍어 보고 알았다)
+/* ⚠️ 유리는 **세 단계뿐이다**(`--glass` · `-2` · `-3`). 원래 0.42 · 0.5 · 0.55 · 0.7 ·
+   0.72 · 0.75 · 0.85 · 0.88 · 0.92 로 아홉 가지가 흩어져 있었는데, 그대로 두면
+   **다크에서 뒤집을 자리가 아홉 곳**이 되어 반드시 하나를 빠뜨린다 (실제로 `.gt-box`
+   하나를 빠뜨려 마법사의 탑에서 3.03:1 이 났다). 눈으로 안 갈리는 차이라 셋으로 모았다 */
+/* ── 에크루가 기본이다 — 아무것도 안 고른 사람이 보는 화면 ── */
 :root {
-  --cream:   #fff7f2;
-  --pink:    #ffd9ec;
-  --pink-2:  #ffb8d9;
-  --mint:    #cdeede;
-  --mint-2:  #9fe0c4;
-  --lav:     #e7ddff;
-  --lav-2:   #c9b6ff;
-  /* 텍스트 색 — TEXT_POLICY.md 참고. 값 변경 시 checkTextStyle() 로 재검증할 것 */
-  --ink:      #5a4a55;   /* 본문. 모든 표면에서 4.5:1 이상 */
-  --ink-soft: #6e5d69;   /* 보조 텍스트. 파스텔-1 표면까지 4.5:1 이상 */
-  --ink-dim:  #9a8a95;   /* 비활성/잠금 전용 — 읽어야 하는 글자에는 금지 */
-  /* 파스텔 위 강조 텍스트 (흰 글씨 대신 사용) */
-  --text-pink: #9c3566;
-  --text-mint: #166b4c;
-  --text-lav:  #4f36a0;
-  --text-warn: #8a5a2b;
-  /* 승패 전용 — 파랑(이김·성공) · 빨강(짐·실패).
-     민트/라벤더로는 「좋다/나쁘다」가 안 읽혔다. 값은 대비를 재서 골랐다:
-     #17458f 위 #d9e8ff = 7.41:1 · #a81f18 위 #ffdcd6 = 5.73:1 (기준 4.5) */
-  --blue:      #d9e8ff;
-  --blue-2:    #9dc0f2;
-  --text-blue: #17458f;
-  --red:       #ffdcd6;
-  --red-2:     #f0a89f;
-  --text-red:  #a81f18;
-  --card:    #ffffff;
-  /* 실선 한 겹. 글자가 아니라 **테두리 전용**이라 대비 규칙(4.5:1)을 안 탄다 —
-     글자에는 쓰지 말 것 (그 용도는 --ink 계열이다) */
-  --line:    #ece3e8;
-  --shadow:  0 4px 14px rgba(180,140,160,0.18);
-  --radius:  20px;
+  /* <<<THEME:ecru */
+  --bg-1: #f3eee1; --bg-2: #e9e6da; --bg-3: #e0e6dc;
+  --card: #ffffff; --cream: #faf7ef; --line: #e9e3d6;
+  --tint: #f6f1e2; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(150,140,110,0.18);
+  --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
+  --track: #e6e0d2; --halo: #ffffff;
+  --pink: #eee7d6; --pink-2: #ddd2b6; --text-pink: #6d5a2c;
+  --mint: #dcebd9; --mint-2: #b2dcb2; --text-mint: #2d6136;
+  --lav: #e7dfca; --lav-2: #d2c6a6; --text-lav: #5d4c26;
+  --ink: #4f4a42; --ink-soft: #635d53; --ink-dim: #938d82;
+  --text-warn: #8a5a2b; --on-accent: #ffffff;
+  --toast-bg: #4f4a42; --toast-ink: #ffffff;
+  --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
+  --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
+  --float: rgba(255,255,255,0.92);
+  --well: rgba(120,112,92,0.20);
+  /* THEME:ecru>>> */
 }
+
+/* 베이지 */
+:root[data-theme="beige"] {
+  /* <<<THEME:beige */
+  --bg-1: #f6e8d6; --bg-2: #efe5d9; --bg-3: #e4e9de;
+  --card: #fffdfa; --cream: #faf3ea; --line: #ece0d2;
+  --tint: #fbf1e3; --mix-base: #fffdfa; --shadow: 0 4px 14px rgba(170,140,110,0.18);
+  --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
+  --track: #e9ded0; --halo: #ffffff;
+  --pink: #f2e2cf; --pink-2: #e3c9a6; --text-pink: #7a5427;
+  --mint: #dcebd6; --mint-2: #b4dcaa; --text-mint: #2e6130;
+  --lav: #e2e6ef; --lav-2: #c5cddf; --text-lav: #3f4c79;
+  --ink: #56483d; --ink-soft: #6b5c4f; --ink-dim: #9b8c7e;
+  --text-warn: #8a5a2b; --on-accent: #ffffff;
+  --toast-bg: #56483d; --toast-ink: #ffffff;
+  --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
+  --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
+  --float: rgba(255,255,255,0.92);
+  --well: rgba(130,108,86,0.20);
+  /* THEME:beige>>> */
+}
+
+/* 블루 */
+:root[data-theme="blue"] {
+  /* <<<THEME:blue */
+  --bg-1: #dcefff; --bg-2: #e6e4fb; --bg-3: #d9f0e6;
+  --card: #ffffff; --cream: #f2f7fb; --line: #dde6ee;
+  --tint: #e9f4fc; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(120,150,180,0.18);
+  --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
+  --track: #dde7f0; --halo: #ffffff;
+  --pink: #d6ecfa; --pink-2: #aad8f2; --text-pink: #1f5c85;
+  --mint: #d3efdf; --mint-2: #a3e0c0; --text-mint: #17684a;
+  --lav: #e2e0f7; --lav-2: #c4bff0; --text-lav: #46399c;
+  --ink: #47505a; --ink-soft: #5a636e; --ink-dim: #8b939c;
+  --text-warn: #8a5a2b; --on-accent: #ffffff;
+  --toast-bg: #47505a; --toast-ink: #ffffff;
+  --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
+  --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
+  --float: rgba(255,255,255,0.92);
+  --well: rgba(100,116,134,0.20);
+  /* THEME:blue>>> */
+}
+
+/* 핑크 — 예전 화면 그대로 */
+:root[data-theme="pink"] {
+  /* <<<THEME:pink */
+  --bg-1: #ffd9ec; --bg-2: #e7ddff; --bg-3: #cdeede;
+  --card: #ffffff; --cream: #fff7f2; --line: #ece3e8;
+  --tint: #fff0f7; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(180,140,160,0.18);
+  --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
+  --track: #e4d7ea; --halo: #ffffff;
+  --pink: #ffd9ec; --pink-2: #ffb8d9; --text-pink: #9c3566;
+  --mint: #cdeede; --mint-2: #9fe0c4; --text-mint: #166b4c;
+  --lav: #e7ddff; --lav-2: #c9b6ff; --text-lav: #4f36a0;
+  --ink: #5a4a55; --ink-soft: #6e5d69; --ink-dim: #9a8a95;
+  --text-warn: #8a5a2b; --on-accent: #ffffff;
+  --toast-bg: #5a4a55; --toast-ink: #ffffff;
+  --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
+  --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
+  --float: rgba(255,255,255,0.92);
+  --well: rgba(154,138,149,0.24);
+  /* THEME:pink>>> */
+}
+
+/* 퍼플 */
+:root[data-theme="purple"] {
+  /* <<<THEME:purple */
+  --bg-1: #ece2fd; --bg-2: #e0ecfb; --bg-3: #dbf0e5;
+  --card: #ffffff; --cream: #f8f5fd; --line: #e7e0f0;
+  --tint: #f1ebfd; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(150,130,190,0.18);
+  --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
+  --track: #e6def0; --halo: #ffffff;
+  --pink: #e6ddfa; --pink-2: #cbb6f2; --text-pink: #5b3aa3;
+  --mint: #d5eedf; --mint-2: #a5e0c3; --text-mint: #176a4b;
+  --lav: #dceafa; --lav-2: #b5d4f2; --text-lav: #1f5680;
+  --ink: #524a5c; --ink-soft: #655d70; --ink-dim: #948da0;
+  --text-warn: #8a5a2b; --on-accent: #ffffff;
+  --toast-bg: #524a5c; --toast-ink: #ffffff;
+  --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
+  --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
+  --float: rgba(255,255,255,0.92);
+  --well: rgba(122,110,140,0.20);
+  /* THEME:purple>>> */
+}
+
+/* 챠콜 — 하나뿐인 다크 */
+:root[data-theme="charcoal"] {
+  /* <<<THEME:charcoal */
+  --bg-1: #262a30; --bg-2: #22262c; --bg-3: #1e2228;
+  --card: #2b2f35; --cream: #343941; --line: #3f454e;
+  --tint: #3a404a; --mix-base: #2b2f35; --shadow: 0 4px 14px rgba(0,0,0,0.45);
+  --glass: rgba(255,255,255,0.05); --glass-2: rgba(255,255,255,0.10); --glass-3: rgba(255,255,255,0.14); --glass-line: rgba(255,255,255,0.10);
+  --track: rgba(0,0,0,0.38); --halo: #1a1d21;
+  --pink: #383d44; --pink-2: #4d545e; --text-pink: #d9d2c8;
+  --mint: #23372e; --mint-2: #2f5a44; --text-mint: #8fe0b8;
+  --lav: #333a46; --lav-2: #454f63; --text-lav: #c3b6f0;
+  --ink: #e8e6e3; --ink-soft: #c2bfbb; --ink-dim: #8b8781;
+  --text-warn: #e8c38a; --on-accent: #23262b;
+  --toast-bg: #e8e6e3; --toast-ink: #23262b;
+  --blue: #1e3352; --blue-2: #35538a; --text-blue: #a9c9ff;
+  --red: #452420; --red-2: #7a3a33; --text-red: #ffaea4;
+  --float: rgba(26,29,34,0.88);
+  --well: rgba(255,255,255,0.14);
+  /* THEME:charcoal>>> */
+}
+
+/* 테마를 안 타는 것 — 모양이지 색이 아니다 */
+:root { --radius: 20px; }
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 /* ⚠️ **`hidden` 속성만으로는 안 숨는다** — 그래서 여기서 한 번에 못 박는다.
@@ -50,7 +208,7 @@ html, body { height: 100%; }
 body {
   font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--ink);
-  background: linear-gradient(160deg, var(--pink) 0%, var(--lav) 55%, var(--mint) 100%);
+  background: linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 55%, var(--bg-3) 100%);
   background-attachment: fixed;
   -webkit-user-select: none; user-select: none;
   overscroll-behavior: none;
@@ -68,7 +226,7 @@ body {
 .splash {
   position: fixed; inset: 0; z-index: 999;
   display: flex; align-items: center; justify-content: center;
-  background: #F6F6F8;
+  background: var(--bg-2, #F6F6F8);
   opacity: 1;
   transition: opacity 1.6s ease;   /* 페이드아웃 1.6초 */
 }
@@ -79,7 +237,7 @@ body {
 .splash-logo { width: 168px; height: 168px; display: block; }
 .splash-name {
   font-size: 1.06rem; font-weight: 700; letter-spacing: 0.06em;
-  color: #3f3a44; text-align: center;
+  color: var(--ink, #3f3a44); text-align: center;
 }
 
 /* ─── 상단바 (헤더 = AP + 등급 + 설정) ─── */
@@ -89,9 +247,9 @@ body {
      375px 에서 AP 알약이 눌려 + 가 10px 밖으로 나갔다 */
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
   padding: 12px 16px;
-  background: rgba(255,255,255,0.55);
+  background: var(--glass);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255,255,255,0.6);
+  border-bottom: 1px solid var(--glass-line);
 }
 
 /* 헤더의 알약들 — **재화 하나에 알약 하나.**
@@ -114,7 +272,7 @@ body {
 .gem-wrap { gap: 5px; flex: 0 0 auto; padding: 6px 6px 6px 8px; }
 .en-ic { font-size: 0.95rem; }
 /* 트랙은 알약 안이라 밝게 — 라벤더 위에 예전의 잿빛 트랙을 두면 탁해 보인다 */
-.en-track { display: block; position: relative; flex: 1; min-width: 60px; height: 18px; border-radius: 999px; background: rgba(255,255,255,0.6); }
+.en-track { display: block; position: relative; flex: 1; min-width: 60px; height: 18px; border-radius: 999px; background: var(--glass-3); }
 .en-fill {
   position: absolute; left: 0; top: 0; height: 100%; width: 100%; border-radius: 999px;
   background: linear-gradient(90deg, #ffd76a, #ff9ec4);
@@ -123,7 +281,7 @@ body {
 .en-text {
   position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center;
   font-size: 0.72rem; font-weight: 800; color: var(--ink); white-space: nowrap;
-  text-shadow: 0 1px 2px rgba(255,255,255,0.7);
+  text-shadow: 0 1px 2px var(--halo);
 }
 /* 현자의 결정 (보유 개수) + 충전 버튼 — AP 알약 안 오른쪽.
    결정으로 AP 를 채우므로 AP 와 한 덩어리에 두는 것이 맞다. */
@@ -146,7 +304,7 @@ body {
   flex: 0 0 auto; min-width: 0; overflow: hidden;
   width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0;
   /* 알약 안의 흰 동그라미 — 매력 칩의 등급 뱃지와 짝을 이룬다 */
-  background: rgba(255,255,255,0.72); color: var(--ink-soft); font-family: inherit;
+  background: var(--glass-2); color: var(--ink-soft); font-family: inherit;
   font-weight: 800; font-size: 0.92rem; line-height: 1; cursor: pointer;
   display: flex; align-items: center; justify-content: center; aspect-ratio: 1 / 1;
 }
@@ -159,7 +317,7 @@ body {
   font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
   padding: 2px 8px; flex: 0 0 auto;
   min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: rgba(255,255,255,0.55); border-radius: 999px;
+  background: var(--glass); border-radius: 999px;
 }
 .sync-chip[data-state="offline"] { color: var(--text-warn); }
 
@@ -183,7 +341,7 @@ body {
 /* 등급 아이콘 + 매력 총합을 한 덩어리로 */
 .header-charm { background: var(--lav); border-radius: 999px; padding: 3px 4px 3px 3px; gap: 4px; }
 .hdr-tier {
-  border: none; background: rgba(255,255,255,0.75); font-size: 1rem; line-height: 1;
+  border: none; background: var(--glass-2); font-size: 1rem; line-height: 1;
   width: 26px; height: 26px; border-radius: 50%; cursor: pointer; padding: 0;
   display: flex; align-items: center; justify-content: center; font-family: inherit;
 }
@@ -209,8 +367,25 @@ body {
   font-family: inherit; font-weight: 800; font-size: 0.88rem; color: var(--ink);
   padding: 11px 10px; border-radius: 14px; cursor: pointer;
 }
-.set-opt.on { border-color: var(--pink-2); background: #fff0f7; }
+.set-opt.on { border-color: var(--pink-2); background: var(--tint); }
 .set-opt:active { transform: scale(0.96); }
+/* UI 색상 컬러칩 — 옷장 컬러칩(`.wr-color`)과 **같은 언어**다 (UI_POLICY 3-2):
+   동그라미 · 옅은 테두리 · 고른 것은 «두 겹 링». 테두리 색만 바꾸면 그 색과
+   비슷한 칩에서 구분이 사라지기 때문이다.
+   ⚠️ **칩에 칠하는 색만은 토큰이 아니라 값이 박힌다** — 여기가 보여 주는 것은
+   «지금 테마»가 아니라 «누르면 될 색»이라 `var(--pink-2)` 로 두면 여섯이 전부
+   같은 색이 된다. 값은 `theme.js` 의 `sw` 에서 오고, 그것이 진짜 그 테마의
+   주 강조색인지는 `tools/checktheme.js` 가 style.css 와 대조한다.
+   ⚠️ 여섯이 **한 줄에** 선다 — 265px 에서도 안 접히게 `flex: 1 1 0` 으로 줄어든다 */
+.set-swatches { gap: 10px; flex-wrap: nowrap; }
+.set-sw {
+  flex: 1 1 0; min-width: 26px; max-width: 44px; aspect-ratio: 1;
+  border-radius: 50%; padding: 0; cursor: pointer; font-family: inherit;
+  border: 2px solid rgba(0,0,0,0.10);
+  transition: transform 0.1s ease;
+}
+.set-sw:active { transform: scale(0.88); }
+.set-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--pink-2); }
 .modal-card .set-full { width: 100%; margin: 0; }
 
 /* ─── 화면 ─── */
@@ -233,9 +408,9 @@ body.has-quest .screen { padding-bottom: 168px; }
 /* 부모가 grid 일 때도 flex 일 때도 한 줄을 통째로 차지해야 한다.
    flex 부모에서 grid-column 은 무시돼 폭이 글자에 맞게 줄고,
    그러면 text-align:center 가 아무 일도 하지 않는다 (가방이 그랬다). */
-.empty-hint { grid-column: 1 / -1; flex: 1 1 100%; width: 100%; box-sizing: border-box; color: var(--ink-soft); font-size: 0.85rem; text-align: center; padding: 24px 20px; background: rgba(255,255,255,0.5); border-radius: var(--radius); line-height: 1.5; }
+.empty-hint { grid-column: 1 / -1; flex: 1 1 100%; width: 100%; box-sizing: border-box; color: var(--ink-soft); font-size: 0.85rem; text-align: center; padding: 24px 20px; background: var(--glass); border-radius: var(--radius); line-height: 1.5; }
 .empty-hint.clickable { cursor: pointer; transition: transform 0.1s ease, background 0.15s ease; }
-.empty-hint.clickable:active { transform: scale(0.98); background: rgba(255,255,255,0.7); }
+.empty-hint.clickable:active { transform: scale(0.98); background: var(--glass-2); }
 
 /* ─── 채집: 장소 카드 ─── */
 .spot-list { display: flex; flex-direction: column; gap: 14px; }
@@ -283,7 +458,11 @@ body.has-quest .screen { padding-bottom: 168px; }
   background: var(--cream); font-family: inherit; color: inherit;
   font-size: 0.86rem; font-weight: 800; cursor: pointer; text-align: left;
 }
-.pal-item.on { border-color: var(--text-pink); background: var(--pink-1); }
+/* ⚠️ 네 곳이 «없는 변수»(`--pink-1`)를 부르고 있었다 — CSS 는 그런 선언을
+   조용히 통째로 버리므로 **고른 줄에 바탕이 아예 안 깔려 있었다**
+   (TEXT_POLICY.md 가 경고해 둔 그 사고다). 테마를 만들며 드러났고,
+   `checktheme` 의 「선언 안 된 토큰」이 이제 이것을 잡는다 */
+.pal-item.on { border-color: var(--text-pink); background: var(--tint); }
 .pal-item:active { transform: scale(0.98); }
 
 /* 날씨 · 속성 배지 — 카드 **오른쪽 위**. 「특별한 맵」 배지(왼쪽 위)와 같은 모양이되 자리가 다르다.
@@ -297,8 +476,8 @@ body.has-quest .screen { padding-bottom: 168px; }
    대비를 여섯 번 다 맞춰야 하고, 그중 하나는 반드시 걸린다 (TEXT_POLICY.md) */
 .spot-attr {
   font-size: 0.7rem; font-weight: 800; color: var(--ink);
-  background: color-mix(in srgb, var(--at) 26%, #fff);
-  border: 1px solid color-mix(in srgb, var(--at) 55%, #fff);
+  background: color-mix(in srgb, var(--at) 26%, var(--mix-base));
+  border: 1px solid color-mix(in srgb, var(--at) 55%, var(--mix-base));
   border-radius: 999px; padding: 3px 9px;
 }
 /* 날씨는 이모지 하나뿐이라 **글자 대비를 잴 것이 없다.** 대신 눌리는 것으로 보여야 해서
@@ -402,7 +581,7 @@ body.has-quest .screen { padding-bottom: 168px; }
 .spot-badge > i {
   font-style: normal; font-weight: 800; font-size: 0.8rem; line-height: 1;
   /* 흰 바탕 + 짙은 회색 글자 (실측 10.44:1). 예전에는 짙은 갈색 바탕 + 흰 글자였다 */
-  color: #3f3f46; background: #ffffff;
+  color: var(--ink); background: var(--card);
   /* ⚠️ **글자 하나에는 자간이 «뒤»에만 붙는다** — 딱지의 `letter-spacing` 을
      물려받으면 그만큼 왼쪽으로 치우친 채로 가운데 정렬된다 */
   letter-spacing: 0;
@@ -414,7 +593,7 @@ body.has-quest .screen { padding-bottom: 168px; }
   flex: 0 0 auto;
 }
 .spot-badge:active { transform: scale(0.96); }
-.spot-badge:active > i { background: #f3e7db; }
+.spot-badge:active > i { background: var(--cream); }
 /* ─── 지난 기록 (📄) ───
    ⚠️ **딱지 «안»에 넣지 않는다** — 규칙(❔)과 기록(📄)은 여는 것이 서로 다르다.
    딱지와 같은 높이·같은 모서리로 옆에 서서 «한 벌»로 보이되, 배경을 크림빛으로
@@ -532,8 +711,8 @@ body.has-quest .screen { padding-bottom: 168px; }
      카드가 좌우 1px 씩 좁아져 「하늘을 그대로 비추는 저수 / 지.」로 접혔다 —
      2px 이 글줄을 바꾼다. 지금은 카드 폭이 판을 씌우기 «전»과 정확히 같다 */
   margin: 4px -9px 0; padding: 8px;
-  background: rgba(255, 255, 255, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
   border-radius: 24px;
 }
 /* 탐험 윗단 — 필드 / 마을 / 밭 (모양·색은 .room-tabs 그대로).
@@ -631,7 +810,7 @@ body.has-quest .screen { padding-bottom: 168px; }
 /* 색은 «거들 뿐»이고 ♥/♡ 모양이 단계를 말한다. 그래도 4.5:1 은 지킨다 —
    장식이라고 예외를 두기 시작하면 예외가 는다 (TEXT_POLICY.md).
    분홍 계열에서 4.5:1 을 넘기려면 이만큼 진해야 한다 (#d8607f 은 3.56 이었다) */
-.bd-pip { font-size: 0.72rem; color: #b03356; }
+.bd-pip { font-size: 0.72rem; color: var(--text-pink); }
 .bd-pip:not(.on) { color: var(--ink-soft); }
 .bd-name { font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -647,7 +826,7 @@ body.has-quest .screen { padding-bottom: 168px; }
   font-family: inherit; font-size: 0.78rem; font-weight: 500; color: var(--ink);
   line-height: 1.5; word-break: break-all;
 }
-.rs-bad { margin: 10px 0 0; font-size: 0.8rem; font-weight: 700; color: #9a3450; }
+.rs-bad { margin: 10px 0 0; font-size: 0.8rem; font-weight: 700; color: var(--text-pink); }
 /* 찾은 캐릭터 — **누구인지 보여 준 다음에야** 갈아탄다 */
 .rs-found {
   margin: 12px 0 8px; padding: 12px;
@@ -682,7 +861,7 @@ body.has-quest .screen { padding-bottom: 168px; }
   background: var(--cream); border-radius: 12px;
 }
 .give-what { flex: 1 1 auto; min-width: 0; font-size: 0.76rem; font-weight: 700; color: var(--ink); }
-.give-now { flex: 0 0 auto; font-size: 0.78rem; font-weight: 900; color: #b04a6a; }
+.give-now { flex: 0 0 auto; font-size: 0.78rem; font-weight: 900; color: var(--text-pink); }
 .give-next { flex: 0 0 auto; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft); }
 .gift-list { display: flex; flex-direction: column; gap: 7px; max-height: 46vh; overflow-y: auto; }
 .gift-none { font-size: 0.82rem; color: var(--ink-soft); padding: 14px 0; text-align: center; }
@@ -709,9 +888,9 @@ body.has-quest .screen { padding-bottom: 168px; }
 .gift-tag { font-size: 0.7rem; font-weight: 800; border-radius: 999px; padding: 3px 7px;
   white-space: nowrap; }
 /* 진한 글자 + 옅은 바탕 — 흰 글자로는 어떤 파스텔에서도 4.5:1 을 못 넘긴다 */
-.gift-tag.new  { background: #ffe0ec; color: #8a3355; }
-.gift-tag.like { background: #e6efdc; color: #4c6135; }
-.gift-gain { flex: 0 0 auto; font-size: 0.84rem; font-weight: 900; color: #b04a6a; }
+.gift-tag.new  { background: var(--pink); color: var(--text-pink); }
+.gift-tag.like { background: var(--mint); color: var(--text-mint); }
+.gift-gain { flex: 0 0 auto; font-size: 0.84rem; font-weight: 900; color: var(--text-pink); }
 /* 닷 네비게이션 — 대사가 몇 줄인지, 지금 몇 번째인지 */
 .npc-dots { display: flex; gap: 5px; margin-top: 9px; }
 .npc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cream); flex: none; }
@@ -817,7 +996,7 @@ body.has-quest .screen { padding-bottom: 168px; }
 .tab-dot {
   display: inline-block; width: 10px; height: 10px; margin-left: 6px; flex: 0 0 auto;
   border-radius: 50%; background: #e11d48;
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(225,29,72,0.28);
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4px rgba(225,29,72,0.28);
   vertical-align: 1px;
 }
 /* '채집' 버튼 — 톡 누르면 한 번, 꾹 누르면 계속 채집한다 (startGatherHold).
@@ -836,7 +1015,7 @@ body.has-quest .screen { padding-bottom: 168px; }
   touch-action: pan-y; user-select: none; -webkit-user-select: none;
   /* 분홍 알약 위에서는 ⚡ 이모지가 배경에 묻힌다 — 글자와 이모지 **전체**에
      흰 음영을 깔아 윤곽을 세운다 (AP 게이지 숫자와 같은 방식) */
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px var(--halo);
 }
 .btn-gather:active { transform: scale(0.94); }
 /* 분홍 알약 위에서는 주황 글자(--text-warn)가 4.5:1 을 못 넘는다 — 본문 색을 그대로 쓴다 */
@@ -1288,7 +1467,7 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 
 /* 빼기 배지 — 흰 ✕ 가 읽히도록 진한 핑크를 쓴다 (TEXT_POLICY 대비 4.5:1) */
-.c-slot-x { position: absolute; top: -6px; right: -6px; font-size: 0.7rem; background: var(--text-pink); color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2; }
+.c-slot-x { position: absolute; top: -6px; right: -6px; font-size: 0.7rem; background: var(--text-pink); color: var(--on-accent); width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2; }
 
 /* ─── 마법진(연성진) 재료 슬롯 ─── */
 .magic-circle { position: relative; width: 250px; max-width: 88%; aspect-ratio: 1 / 1; margin: 10px auto 6px; }
@@ -1355,9 +1534,14 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 
 /* ─── 버튼 ─── */
+/* ⚠️⚠️ **기반에 글자색을 둔다.** `<button>` 은 `color` 를 물려받지 않는다 — 브라우저가
+   `color: buttontext`(검정)를 얹기 때문이다. 그래서 색을 안 적은 변종은 **검정 글자**가
+   되는데, 밝은 테마에서는 크림 위 검정이라 우연히 통과하고 **챠콜에서만** 어두운 판 위
+   검정이 된다 (`.brewq-step` 이 1.81:1 이었다 · `checkui` 가 잡았다).
+   변종마다 적게 두면 새 버튼을 만들 때마다 빠뜨리므로 **여기 한 곳에서** 막는다 */
 .btn {
   border: none; border-radius: 14px; font-family: inherit;
-  font-weight: 800; font-size: 0.95rem; padding: 13px 16px;
+  font-weight: 800; font-size: 0.95rem; padding: 13px 16px; color: var(--ink);
   cursor: pointer; flex: 1; transition: transform 0.1s ease, filter 0.1s ease;
 }
 .btn:active { transform: scale(0.96); }
@@ -1366,7 +1550,11 @@ button.tm-slot:active { transform: scale(0.94); }
 .btn-flex { background: linear-gradient(120deg, var(--lav-2), var(--pink-2)); color: var(--ink); width: 100%; margin: 10px 0 0; box-shadow: 0 4px 12px rgba(180,140,220,0.4); }
 .btn-reset { background: transparent; color: var(--ink-soft); border: 1px solid rgba(154,138,149,0.35); width: 100%; margin-top: 28px; font-weight: 600; font-size: 0.82rem; }
 /* 임시(출시 버전에서 제거): AP 충전 테스트 버튼 */
-.btn-dev { width: 100%; margin-top: 24px; font-weight: 800; font-size: 0.85rem; color: #8a5a1a; background: linear-gradient(135deg, #ffe08a, #ffd0a0); border: 1px dashed rgba(180,120,40,0.5); }
+/* ⚠️ 글자색은 금색 그라데이션의 **제일 어두운 스톱**(`#ffb066`)에서 4.5:1 을 넘겨야 한다.
+   예전 `#8a5a1a` 는 거기서 **3.28:1** 이었는데, `checkTextStyle()` 이 그라데이션을
+   못 읽어 «흰색»으로 가정하는 바람에 (5.4:1) 오래 통과하고 있었다 — 테마를 만들며
+   그 가정을 고치자 80건이 한꺼번에 드러났다. 개발용이라고 예외를 두지 않는다 */
+.btn-dev { width: 100%; margin-top: 24px; font-weight: 800; font-size: 0.85rem; color: #6d450d; background: linear-gradient(135deg, #ffe08a, #ffd0a0); border: 1px dashed rgba(180,120,40,0.5); }
 
 /* ─── 바디 파츠 조절 (임시 · 테스트용 — 출시 때 이 블록을 지운다) ───
    AP 충전 버튼과 같은 점선 테두리로 "임시"임을 드러낸다. */
@@ -1479,7 +1667,7 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 /* 지금 솥에 담아 둔 레시피 — 옷장·컬러칩의 '고른 것' 과 같은 표시를 쓴다 */
 .recipe-row.clickable.on {
-  border-color: var(--pink-2); background: #fff0f7;
+  border-color: var(--pink-2); background: var(--tint);
 }
 .recipe-row.clickable.on::after {
   content: '✓'; margin-left: 4px; flex: none;
@@ -1498,7 +1686,7 @@ button.tm-slot:active { transform: scale(0.94); }
 .recipe-row.locked .recipe-arrow { color: var(--ink-soft); }
 /* 방금 알아낸 레시피 — 맨 위에서 반짝 */
 .recipe-row.just-found {
-  border: 2px solid var(--pink-2); background: #fff6fb;
+  border: 2px solid var(--pink-2); background: var(--tint);
   animation: recipePop 0.6s cubic-bezier(.2,1.3,.5,1) both;
 }
 @keyframes recipePop { 0% { transform: scale(0.94); opacity: 0; } 60% { transform: scale(1.03); } 100% { transform: scale(1); opacity: 1; } }
@@ -1539,7 +1727,7 @@ button.tm-slot:active { transform: scale(0.94); }
 .room-head .screen-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .room-head .icon-btn { margin-left: auto; }
 .btn-init {
-  border: 1px solid rgba(154,138,149,0.35); background: rgba(255,255,255,0.7);
+  border: 1px solid var(--line); background: var(--glass-2);
   color: var(--ink-soft); font-family: inherit; font-weight: 700; font-size: 0.8rem;
   padding: 7px 16px; border-radius: 999px; cursor: pointer;
 }
@@ -1551,7 +1739,7 @@ button.tm-slot:active { transform: scale(0.94); }
    `stroke="currentColor"` 라 색은 아래 color 하나로 따라온다. */
 .icon-btn, .hdr-gear {
   width: 34px; height: 34px; border-radius: 50%; padding: 0;
-  border: 1px solid rgba(154,138,149,0.28); background: rgba(255,255,255,0.85);
+  border: 1px solid var(--line); background: var(--glass-3);
   color: var(--ink-soft); line-height: 1; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 2px 6px rgba(180,140,160,0.16);
@@ -1628,7 +1816,7 @@ button.tm-slot:active { transform: scale(0.94); }
   display: flex; align-items: center; gap: 5px;
   padding: 7px 12px; border: none; border-radius: 999px; cursor: pointer;
   font-family: inherit; font-size: 0.82rem; font-weight: 800; color: var(--ink);
-  background: rgba(255,255,255,0.92);
+  background: var(--float);
   box-shadow: 0 2px 8px rgba(60,40,55,0.28);
 }
 .room-act:active { transform: scale(0.97); }
@@ -2053,7 +2241,7 @@ button.tm-slot:active { transform: scale(0.94); }
   padding: 8px 4px; cursor: pointer; font-family: inherit; transition: transform 0.1s ease;
 }
 .wr-item:active { transform: scale(0.94); }
-.wr-item.on { border-color: var(--pink-2); background: #fff0f7; }
+.wr-item.on { border-color: var(--pink-2); background: var(--tint); }
 /* 줄 높이를 고정한다 — 이름이 한 줄인 칸과 두 줄인 칸이 섞이면
    '4.5줄' 이 몇 px 인지 정해지지 않는다 */
 .wr-items .wr-item { height: var(--wr-row); justify-content: center; }
@@ -2162,7 +2350,7 @@ button.tm-slot:active { transform: scale(0.94); }
   font-size: 0.72rem; font-weight: 800; color: var(--text-pink);
 }
 /* 원래 색으로 되돌리기 — 염색약을 쓰지 않으므로 개수가 없다 */
-.dye-item-orig { border-color: var(--pink-2); background: #fff6fb; }
+.dye-item-orig { border-color: var(--pink-2); background: var(--tint); }
 .wr-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(28px, 1fr)); gap: 6px; }
 .wr-color {
   aspect-ratio: 1; border-radius: 50%; cursor: pointer; padding: 0;
@@ -2176,7 +2364,7 @@ button.tm-slot:active { transform: scale(0.94); }
 .wr-color:active { transform: scale(0.86); }
 /* 고른 색은 **두 겹 링**으로 표시한다. 테두리 색만 바꾸면 그 색과 비슷한 옷 색에서
    구분이 사라진다 (흰 링은 흰색 위에서, 검은 링은 검정 위에서 안 보인다) */
-.wr-color.on { border-color: var(--ink); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--pink-2); }
+.wr-color.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--pink-2); }
 /* '원래 색' 은 팔레트가 아니라는 걸 알아보게 각진 모서리로 둔다 */
 .wr-color-orig { border-radius: 8px; }
 /* 잠긴 색 — **채도를 낮추지 않는다.** 여기서는 색 자체가 내용이라,
@@ -2186,7 +2374,7 @@ button.tm-slot:active { transform: scale(0.94); }
 .wr-color.locked { opacity: 0.78; }
 .wr-clock {
   font-size: 0.7rem; line-height: 1;                    /* 최소 글자 크기 11px */
-  background: rgba(255,255,255,0.88); border-radius: 50%;
+  background: var(--glass-3); border-radius: 50%;
   width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;
 }
 
@@ -2223,7 +2411,7 @@ button.tm-slot:active { transform: scale(0.94); }
    대비를 여섯 번 다 맞춰야 하고 그중 하나는 반드시 걸린다 (TEXT_POLICY.md) */
 .cr-attr {
   display: inline-block; margin-right: 4px; padding: 0 5px; border-radius: 999px;
-  background: color-mix(in srgb, var(--at, var(--pink-2)) 26%, #fff);
+  background: color-mix(in srgb, var(--at, var(--pink-2)) 26%, var(--mix-base));
   color: var(--ink); font-weight: 800;
 }
 /* 도감의 「가진 수 / 전체 수」 — **탭이 아니라 그 아래 한 줄**에 둔다.
@@ -2282,7 +2470,7 @@ button.tm-slot:active { transform: scale(0.94); }
   border: 2px solid transparent; border-radius: 12px;
   background: var(--cream); cursor: pointer;
 }
-.feed-pet.on { border-color: var(--text-pink); background: var(--pink-1); }
+.feed-pet.on { border-color: var(--text-pink); background: var(--tint); }
 .feed-pet-art { width: 30px; height: 30px; display: block; }
 .feed-pet-art svg { display: block; }
 .feed-petname { font-size: 0.82rem; font-weight: 800; margin: 2px 0 8px; }
@@ -2296,7 +2484,7 @@ button.tm-slot:active { transform: scale(0.94); }
   background: var(--cream); font-family: inherit; color: inherit;
   font-size: 0.8rem; font-weight: 800; cursor: pointer;
 }
-.feed-item.on { border-color: var(--text-pink); background: var(--pink-1); }
+.feed-item.on { border-color: var(--text-pink); background: var(--tint); }
 .feed-emoji { flex: 0 0 auto; font-size: 1.1rem; }
 .feed-name { flex: 0 0 auto; }
 /* 효과는 **줄어드는 쪽**이다 — 좁아지면 여기가 먼저 밀린다 (UI_POLICY 가변 폭) */
@@ -2318,7 +2506,7 @@ button.tm-slot:active { transform: scale(0.94); }
   font-size: 0.76rem; font-weight: 800; cursor: pointer;
 }
 /* 고른 것 — **글자가 아니라 테두리와 딱지로** 알린다. 목록에서 훑을 때 먼저 눈에 든다 */
-.creature-card.on { border-color: var(--text-pink); background: var(--pink-1); }
+.creature-card.on { border-color: var(--text-pink); background: var(--tint); }
 /* 0.66rem 은 10.6px 이라 최소 글자 크기(11px)에 걸린다 — TEXT_POLICY.md */
 .creature-on {
   margin-top: 4px; font-size: 0.72rem; font-weight: 900; color: var(--text-pink);
@@ -2331,8 +2519,8 @@ button.tm-slot:active { transform: scale(0.94); }
 .tab-bar {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 480px; z-index: 30;
-  display: flex; background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.7);
+  display: flex; background: var(--glass-3);
+  backdrop-filter: blur(12px); border-top: 1px solid var(--glass-line);
   padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
 }
 .tab-btn {
@@ -2367,8 +2555,8 @@ button.tm-slot:active { transform: scale(0.94); }
   flex: none; border: none; background: none; cursor: pointer;
   font-family: inherit; font-size: 0.9rem; color: var(--ink-soft); padding: 2px 4px;
 }
-.lg-last.lg-up   { background: #e6f7ee; } .lg-last.lg-up   .lg-last-ic { color: var(--text-mint); }
-.lg-last.lg-down { background: #fdeef2; } .lg-last.lg-down .lg-last-ic { color: var(--text-pink); }
+.lg-last.lg-up   { background: var(--mint); } .lg-last.lg-up   .lg-last-ic { color: var(--text-mint); }
+.lg-last.lg-down { background: var(--pink); } .lg-last.lg-down .lg-last-ic { color: var(--text-pink); }
 .lg-last.lg-stay .lg-last-ic { color: var(--ink-soft); }
 
 /* 리그 배지 + 이름 + 남은 시간 */
@@ -2417,7 +2605,7 @@ button.tm-slot:active { transform: scale(0.94); }
   border: 2px solid transparent;
 }
 /* 내 줄 — 색만으로 알리지 않는다. 테두리까지 준다 (UI_POLICY 7장의 이유와 같다) */
-.lg-row.me { background: #fff0f7; border-color: var(--pink-2); }
+.lg-row.me { background: var(--tint); border-color: var(--pink-2); }
 .lg-rank {
   flex: none; min-width: 22px; text-align: center;
   font-size: 0.92rem; font-weight: 800; color: var(--ink-soft); font-variant-numeric: tabular-nums;
@@ -2599,7 +2787,7 @@ button.tm-slot:active { transform: scale(0.94); }
 .ap-chg-track {
   position: relative; height: 22px; border-radius: 999px;
   /* 패널 바탕이 --cream 이라 게이지 바탕도 --cream 이면 통이 안 보인다 */
-  background: #f0e6f2; overflow: hidden;
+  background: var(--track); overflow: hidden;
 }
 .ap-chg-now, .ap-chg-add { position: absolute; top: 0; height: 100%; }
 .ap-chg-now { left: 0; background: linear-gradient(90deg, #ffd76a, #ffb86a); }
@@ -2608,7 +2796,7 @@ button.tm-slot:active { transform: scale(0.94); }
 .ap-chg-text {
   position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center;
   font-size: 0.78rem; font-weight: 800; color: var(--ink); white-space: nowrap;
-  text-shadow: 0 1px 2px rgba(255,255,255,0.75);
+  text-shadow: 0 1px 2px var(--halo);
 }
 /* 슬라이더 — 손가락으로 잡을 것이라 손잡이를 크게(24px) 잡는다.
    appearance:none 을 주면 크롬/사파리는 트랙·손잡이를 **직접 그려야** 한다 */
@@ -2619,17 +2807,17 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 /* 트랙 색은 패널 바탕(--cream)과 달라야 한다 — 같으면 손잡이만 떠 있는 것처럼 보인다 */
 .ap-chg-range::-webkit-slider-runnable-track {
-  height: 8px; border-radius: 999px; background: #e4d7ea;
+  height: 8px; border-radius: 999px; background: var(--track);
 }
-.ap-chg-range::-moz-range-track { height: 8px; border-radius: 999px; background: #e4d7ea; }
+.ap-chg-range::-moz-range-track { height: 8px; border-radius: 999px; background: var(--track); }
 .ap-chg-range::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 24px; height: 24px; margin-top: -8px; border-radius: 50%;
-  background: #ff8fc0; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(180,90,140,0.35);
+  background: var(--text-pink); border: 3px solid var(--card); box-shadow: 0 2px 6px rgba(180,90,140,0.35);
 }
 .ap-chg-range::-moz-range-thumb {
   width: 18px; height: 18px; border-radius: 50%;
-  background: #ff8fc0; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(180,90,140,0.35);
+  background: var(--text-pink); border: 3px solid var(--card); box-shadow: 0 2px 6px rgba(180,90,140,0.35);
 }
 .ap-chg-range:focus-visible { outline: 3px solid var(--lav-2); outline-offset: 3px; border-radius: 999px; }
 
@@ -2658,9 +2846,9 @@ button.tm-slot:active { transform: scale(0.94); }
   padding: 12px 14px; font-size: 1rem; font-weight: 800; font-family: inherit;
   color: var(--ink); background: var(--cream); text-align: center; outline: none;
 }
-.name-input:focus { border-color: var(--pink-2); background: #fff; }
+.name-input:focus { border-color: var(--pink-2); background: var(--card); }
 .name-error {
-  min-height: 18px; font-size: 0.78rem; font-weight: 800; color: #e2708f;
+  min-height: 18px; font-size: 0.78rem; font-weight: 800; color: var(--text-red);
   margin: 8px 0 12px; line-height: 1.4;
 }
 /* 오류가 아니라 진행 안내('확인 중…'). 분홍은 실패로 읽히므로 본문색을 쓴다.
@@ -2677,7 +2865,7 @@ button.tm-slot:active { transform: scale(0.94); }
 /* ─── 토스트 ─── */
 .toast {
   position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
-  background: var(--ink); color: #fff; font-size: 0.85rem; font-weight: 700;
+  background: var(--toast-bg); color: var(--toast-ink); font-size: 0.85rem; font-weight: 700;
   padding: 11px 20px; border-radius: 999px; z-index: 9995;
   opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
   white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
@@ -3281,7 +3469,11 @@ button.tm-slot:active { transform: scale(0.94); }
 .potion-why {
   flex: 0 0 auto;
   width: 17px; height: 17px; border-radius: 50%; border: none; padding: 0;
-  background: rgba(154,138,149,0.24); color: var(--ink-soft);
+  /* ⚠️ 판은 «옅게 파인 자리»(`--well`)다 — 하드코딩된 회색 안개로 두었더니
+     다크에서 어두운 카드 위에 어두운 안개가 되어 버튼이 사라졌다.
+     ⚠️ 글자는 `--ink-soft` 가 아니라 `--ink` 다: soft 로 두면 블루에서 4.50:1 로
+     «간발»로 걸렸고, 같은 뜻의 다른 ? 버튼(`.spot-badge > i`)도 이미 `--ink` 다 */
+  background: var(--well); color: var(--ink);
   font-family: inherit; font-weight: 800; font-size: 0.7rem; line-height: 1;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
@@ -3367,7 +3559,7 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 켜지면 실선 + 노랑. `.btn-dev.on` 과 **같은 색을 쓴다** — 개발용 블록 안에서
    「켜짐」이 두 가지 색이면 그것부터 헷갈린다 */
 .dev-sw.on {
-  color: #8a5a1a; background: linear-gradient(135deg, #ffd06a, #ffb066);
+  color: #6d450d; background: linear-gradient(135deg, #ffd06a, #ffb066);
   border-style: solid; border-color: rgba(180,120,40,0.5);
 }
 .dev-sw:active { transform: scale(0.96); }
@@ -3687,7 +3879,11 @@ button.tm-slot:active { transform: scale(0.94); }
 .bs-stats { margin: 8px 0 0; font-size: 0.86rem; font-weight: 800; color: #ffb3c4; }
 /* 마지막 줄. **여기가 이 장면의 전부다** — 그래서 한 박자 늦게, 조용히 */
 .bs-tail { margin: 10px 0 0; font-size: 0.9rem; font-weight: 500; color: #d8ccd6; }
-.bs-next { width: 100%; margin-top: 16px; }
+/* ⚠️ **색을 «명시»한다.** 이 장면은 제 그림을 가진 어두운 판이라 테마를 안 타는데,
+   예전에는 배경도 글자도 «브라우저 기본»(`#efefef` + 검정)에 기대고 있었다 —
+   `.btn` 기반이 `--ink` 를 주게 되자 챠콜에서 **밝은 판 위 밝은 글자**(1.08:1)가 됐다.
+   컷씬(`.cut-*`)이 고정색을 쓰는 것과 같은 자리라 여기도 고정색이다 */
+.bs-next { width: 100%; margin-top: 16px; background: #efeae4; color: #2a2030; }
 
 /* ═══ 탐험 일지 ═══════════════════════════════════════════════
    **읽는 화면이다.** 밭·약탈 화면처럼 숫자를 훑는 곳이 아니라 문장을 읽는 곳이라
@@ -3769,7 +3965,7 @@ button.tm-slot:active { transform: scale(0.94); }
    글자로 쓰면 2.85:1 밖에 안 나온다 — 탐험 카드의 `.spot-attr` 와 같은 방식으로
    색은 배경에 옅게 깔고 글자는 `--ink` 로 잡는다 (TEXT_POLICY) */
 .pg-attr {
-  color: var(--ink); background: color-mix(in srgb, var(--at) 26%, #fff);
+  color: var(--ink); background: color-mix(in srgb, var(--at) 26%, var(--mix-base));
   border-radius: 999px; padding: 1px 7px;
 }
 .pg-dp, .pg-rare { color: var(--text-lav); }
@@ -3841,7 +4037,7 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 .qc-badge {
   position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px;
-  border-radius: 999px; background: var(--text-red); color: #fff;
+  border-radius: 999px; background: var(--text-red); color: var(--on-accent);
   font-family: inherit;
   font-size: 0.72rem; font-weight: 900; line-height: 20px; text-align: center;
 }
@@ -3875,8 +4071,8 @@ button.tm-slot:active { transform: scale(0.94); }
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   line-height: 1; white-space: nowrap;
   font-size: 0.78rem; font-weight: 800; color: var(--text-lav);
-  text-shadow: 0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff,
-               0 0 3px #fff, 0 0 3px #fff;
+  text-shadow: 0 1px 0 var(--halo), 0 -1px 0 var(--halo), 1px 0 0 var(--halo),
+               -1px 0 0 var(--halo), 0 0 3px var(--halo), 0 0 3px var(--halo);
 }
 .q-num.ok { color: var(--text-mint); }
 /* 개발용(임시) 「(임시) 퀘스트 완료」 — 막대 **아래에 전체 폭**으로 선다.
