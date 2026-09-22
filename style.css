@@ -3988,6 +3988,13 @@ button.tm-slot:active { transform: scale(0.94); }
 .pg-name { font-size: 0.86rem; font-weight: 800; color: var(--ink); }
 .pg-n { color: var(--text-pink); }
 .pg-where { font-size: 0.76rem; font-weight: 700; color: var(--text-lav); word-break: break-word; }
+/* ⚠️ **잠긴 줄의 글자는 `--ink` 다** — 「잠긴 요소의 글자는 `--ink` 로 진하게 잡는다」가
+   잠긴 콘텐츠 공통 표현의 규칙인데(`opacity: 0.8` 이 대비를 그대로 깎으므로),
+   이 줄만 강조색(`--text-lav`)을 그대로 쓰고 있었다. 퍼플에서 **4.49:1** 로 내려앉아
+   드러났다 — 다섯 테마에서는 4.6~5.1 이라 간발로 통과하고 있었을 뿐이다.
+   ⚠️ 값을 한 테마만 밀어서 고치지 않는다: 규칙을 안 지킨 자리가 원인이다.
+   (`saturate(0.15)` 가 이미 색을 걷어 내므로 화면에서 달라지는 것도 거의 없다) */
+.pg-row.locked .pg-where, .pg-row.locked .pg-ap { color: var(--ink); }
 .pg-tip { display: flex; flex-wrap: wrap; gap: 4px 7px; font-size: 0.74rem; font-weight: 800; }
 .pg-ap { color: var(--text-mint); }
 /* 속성은 **글자를 그 색으로 칠하지 않는다.** 크리처 속성색은 배지용 밝은 색이라

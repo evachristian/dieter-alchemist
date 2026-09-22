@@ -176,6 +176,18 @@ const PAIRS = [
   ['--halo', '--text-pink'], ['--halo', '--text-lav'], ['--halo', '--text-mint'],
 ];
 const BIG = [['--text-pink', '--pink-2'], ['--text-mint', '--mint-2'], ['--text-lav', '--lav-2']];
+// ⚠️⚠️ **잠긴 콘텐츠는 `opacity: 0.8` 로 «흐려진 채» 읽혀야 한다** (style.css 의 잠긴
+// 콘텐츠 공통 표현). 원색으로만 재면 그 8할이 안 보이는데, 실제로 퍼플의 비법서
+// 「어디서 나는가」 줄이 **4.49:1** 로 내려앉아 있었다 (여섯 중 퍼플만 걸렸다 —
+// 원색끼리는 7.21 이라 표가 한 번도 못 봤다). 합성해서 크림·카드 위에서 잰다
+const LOCK_A = 0.8;
+// ⚠️ **`--ink` «하나만» 본다.** 잠긴 콘텐츠 공통 표현이 「잠긴 요소의 글자는 `--ink` 로
+// 진하게 잡는다」고 정해 두었으므로, 거기 서도 되는 색은 그것뿐이다.
+// 강조색(`--text-*`)과 `--ink-soft` 는 0.8 로 흐려지면 3.8~4.4 로 떨어진다 —
+// 목록에 넣는 대신 **그 색을 잠긴 자리에 두지 않는 것**이 답이다 (`.pg-where` 가 그랬다).
+// ⚠️ 표에 «안 쓰는 조합»까지 넣으면 아무도 못 보는 자리 때문에 값을 옮기게 된다 —
+// 표는 「실제로 서는 것」만 담아야 잣대가 된다 (넓게 잡았다가 일곱 건을 헛짚었다)
+const LOCKED = [['--ink', '--cream'], ['--ink', '--card']];
 for (const t of names) {
   const kv = blocks[t];
   const f = [];
@@ -188,8 +200,17 @@ for (const t of names) {
   };
   PAIRS.forEach(([a, b]) => look(a, b, 4.5));
   BIG.forEach(([a, b]) => look(a, b, 3));
+  LOCKED.forEach(([a, b]) => {
+    const fg = flat(kv[a], kv[b]), bg = kv[b];
+    const c = rgb(fg), base = rgb(bg);
+    if (!c || !base) { f.push(`${a}/${b} 를 못 읽었다`); return; }
+    const mix = 'rgb(' + [0, 1, 2].map(i => Math.round(c[i] * LOCK_A + base[i] * (1 - LOCK_A))).join(',') + ')';
+    const v = cr(mix, bg);
+    if (v < min) { min = v; minAt = `${a} on ${b} (잠김)`; }
+    if (v < 4.5) f.push(`${a} on ${b} 이 «잠긴 채»(opacity ${LOCK_A}) ${v.toFixed(2)} — 4.5 필요`);
+  });
   if (f.length) { f.forEach(x => bad(`«${t}» ${x}`)); }
-  else ok(`«${t}» ${PAIRS.length + BIG.length}짝 통과 (제일 빠듯한 곳 ${minAt} ${min.toFixed(2)}:1)`);
+  else ok(`«${t}» ${PAIRS.length + BIG.length + LOCKED.length}짝 통과 (제일 빠듯한 곳 ${minAt} ${min.toFixed(2)}:1)`);
 }
 
 // ─── ③ 화면 ────────────────────────────────────────────────────
