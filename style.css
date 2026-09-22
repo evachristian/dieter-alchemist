@@ -47,11 +47,18 @@
    (`TEXT_POLICY.md` 의 띠 그대로), 여섯 테마 × 화면에서 `checkTextStyle()` 을
    다시 돌린다.
 
-   ⚠️⚠️ **「눌리는 색」(`--pink-2`)은 카드에서 «떠올라야» 한다.** 처음에는 카드와의
-   대비가 1.50~1.82 뿐이라 버튼이 크림색 판에 묻혔다 (「버튼이 눈에 안 띈다」로
-   신고받았다). 지금은 여섯 다 **2.3** 이다. 한계를 잡고 있던 것은 그 위의 글자라,
-   **`--ink` 를 한 단 진하게**(카드 위 8.2~8.8 → 10.5~10.8) 해서 여유를 만들고
-   그만큼 눌리는 색을 깊게 했다 — 글자는 오히려 더 잘 읽힌다.
+   ⚠️⚠️ **「눌리는 색」(`--pink-2`)이 카드에서 떠오르는 정도는 테마마다 다르다.**
+   처음에는 여섯 다 1.50~1.82 뿐이라 버튼이 크림색 판에 묻혔고(「버튼이 눈에 안 띈다」로
+   신고받았다), 한 번 여섯을 다 2.3 으로 올렸다. 그러고 나서 **에크루·핑크·블루·퍼플은
+   사람이 보고 예전 색으로 되돌렸다** — 그 넷은 다시 1.50~1.82 다.
+   **베이지·챠콜만 깊은 값(2.3)을 쓴다.**
+   · 되돌린 것은 **채움뿐**이다 — `--btn-shadow` 와 채집 버튼의 그림자는 그대로 두었다.
+     「예전 색 + 새 그림자」가 지금 넷의 모양이고, 그림자만으로도 버튼이 판에서 뜬다
+   · 그때 같이 옮긴 **`--ink`(카드 위 10.5~10.8)와 `--text-pink` 는 안 되돌렸다** —
+     버튼 색이 아니라 글자색이고, 진해진 쪽이 읽기에 낫다
+   · ⚠️ 다시 깊게 갈 일이 있으면 **한계를 잡는 것은 그 위의 글자**(`--ink` ≥ 4.5)다.
+     `--pink-2` 만 옮기면 `--text-pink` 가 3:1 띠를 벗어나고, **컬러칩도 같이** 옮겨야
+     한다 (칩은 「그 테마의 주 강조색 그 값」이다 — `checktheme` 이 대조한다)
    · ⚠️ 깊어진 채움 위에서 `--text-pink` 가 3:1 아래로 떨어져 셋(에크루·베이지·핑크)은
      그 글자색도 같이 내렸다. **한쪽만 옮기면 조용히 띠를 벗어난다** — 표가 잡아 준다
    · ⚠️ **컬러칩도 같이 옮긴다** — 칩은 「그 테마의 주 강조색 그 값」이라 안 고치면
@@ -86,9 +93,9 @@
   --tint: #f6f1e2; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(150,140,110,0.18);
   --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
   --track: #e6e0d2; --halo: #ffffff;
-  --pink: #eee7d6; --pink-2: #c0ab77; --text-pink: #69572b;
+  --pink: #eee7d6; --pink-2: #ddd2b6; --text-pink: #69572b;
   --mint: #dcebd9; --mint-2: #b2dcb2; --text-mint: #2d6136;
-  --lav: #e7dfca; --lav-2: #c2b186; --text-lav: #5d4c26;
+  --lav: #e7dfca; --lav-2: #d2c6a6; --text-lav: #5d4c26;
   --ink: #423e38; --ink-soft: #635d53; --ink-dim: #938d82;
   --text-warn: #8a5a2b; --on-accent: #ffffff;
   --toast-bg: #423e38; --toast-ink: #ffffff;
@@ -130,9 +137,9 @@
   --tint: #e9f4fc; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(120,150,180,0.18);
   --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
   --track: #dde7f0; --halo: #ffffff;
-  --pink: #d6ecfa; --pink-2: #5fb5e6; --text-pink: #1f5c85;
+  --pink: #d6ecfa; --pink-2: #aad8f2; --text-pink: #1f5c85;
   --mint: #d3efdf; --mint-2: #a3e0c0; --text-mint: #17684a;
-  --lav: #e2e0f7; --lav-2: #b1aaeb; --text-lav: #46399c;
+  --lav: #e2e0f7; --lav-2: #c4bff0; --text-lav: #46399c;
   --ink: #384047; --ink-soft: #5a636e; --ink-dim: #8b939c;
   --text-warn: #8a5a2b; --on-accent: #ffffff;
   --toast-bg: #384047; --toast-ink: #ffffff;
@@ -152,9 +159,9 @@
   --tint: #fff0f7; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(180,140,160,0.18);
   --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
   --track: #e4d7ea; --halo: #ffffff;
-  --pink: #ffd9ec; --pink-2: #ff82bc; --text-pink: #963362;
+  --pink: #ffd9ec; --pink-2: #ffb8d9; --text-pink: #963362;
   --mint: #cdeede; --mint-2: #9fe0c4; --text-mint: #166b4c;
-  --lav: #e7ddff; --lav-2: #bca4ff; --text-lav: #4f36a0;
+  --lav: #e7ddff; --lav-2: #c9b6ff; --text-lav: #4f36a0;
   --ink: #483b44; --ink-soft: #6e5d69; --ink-dim: #9a8a95;
   --text-warn: #8a5a2b; --on-accent: #ffffff;
   --toast-bg: #483b44; --toast-ink: #ffffff;
@@ -174,9 +181,9 @@
   --tint: #f1ebfd; --mix-base: #ffffff; --shadow: 0 4px 14px rgba(150,130,190,0.18);
   --glass: rgba(255,255,255,0.55); --glass-2: rgba(255,255,255,0.72); --glass-3: rgba(255,255,255,0.88); --glass-line: rgba(255,255,255,0.6);
   --track: #e6def0; --halo: #ffffff;
-  --pink: #e6ddfa; --pink-2: #ba9eee; --text-pink: #5b3aa3;
+  --pink: #e6ddfa; --pink-2: #cbb6f2; --text-pink: #5b3aa3;
   --mint: #d5eedf; --mint-2: #a5e0c3; --text-mint: #176a4b;
-  --lav: #dceafa; --lav-2: #83b7e9; --text-lav: #1f5680;
+  --lav: #dceafa; --lav-2: #b5d4f2; --text-lav: #1f5680;
   --ink: #433c4b; --ink-soft: #655d70; --ink-dim: #948da0;
   --text-warn: #8a5a2b; --on-accent: #ffffff;
   --toast-bg: #433c4b; --toast-ink: #ffffff;
