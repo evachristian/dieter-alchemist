@@ -3348,66 +3348,78 @@ function gather(mapId) {
   return true;
 }
 
-// ─── 맵 카드 꾹 누르기 = 자동 연속 채집 ───
+// ─── 카드 꾹 누르기 = 연속 실행 (채집 · 물약 마시기) ───
 //
-// 톡 누르면 한 번(= 기존 onclick), 꾹 누르고 있으면 계속 줍는다.
+// 톡 누르면 한 번(= 기존 onclick), 꾹 누르고 있으면 계속한다.
 //
-// 즉시 줍지 않고 HOLD_DELAY 를 두는 이유: 목록을 **손가락으로 밀어 내릴 때**
-// 누른 순간 채집되면 스크롤만 해도 AP 가 샌다. 그래서 처음 한 번은 onclick 에
+// 즉시 하지 않고 HOLD_DELAY 를 두는 이유: 목록을 **손가락으로 밀어 내릴 때**
+// 누른 순간 실행되면 스크롤만 해도 AP 가(물약이) 샌다. 그래서 처음 한 번은 onclick 에
 // 맡긴다 — 끌어서 스크롤하면 click 이 애초에 발생하지 않는다.
-const HOLD_DELAY = 450;   // 이만큼 누르고 있어야 자동 채집이 시작된다
-const HOLD_EVERY = 420;   // 자동 채집 간격
+//
+// ⚠️ **엔진은 하나다.** 채집과 물약이 각자 제 타이머를 두면 곧 두 벌이 되고,
+// 한쪽만 고쳐 어긋난다 — 손을 떼는 자리·스크롤 취소·이어 오는 click 버리기가
+// 전부 같은 규칙이라 갈라 둘 이유가 없다 (낚시의 `hook()` 과 같은 자리다).
+// 한 걸음(`step`)은 **더 할 수 있으면 참**을 돌려준다 (AP 가 떨어지면 · 물약이 떨어지면 거짓).
+const HOLD_DELAY = 450;   // 이만큼 누르고 있어야 연속 실행이 시작된다
+const HOLD_EVERY = 420;   // 연속 실행 간격
 const HOLD_MOVE  = 10;    // 이만큼(px) 움직이면 스크롤로 보고 취소한다
-let gatherHold = null;
+let holdRun = null;
 
-function startGatherHold(mapId, ev) {
-  stopGatherHold();
-  gatherHold = {
-    id: mapId, x: ev ? ev.clientX : 0, y: ev ? ev.clientY : 0,
+function startHold(step, ev) {
+  stopHold();
+  holdRun = {
+    step, x: ev ? ev.clientX : 0, y: ev ? ev.clientY : 0,
     fired: false, timer: null, interval: null,
   };
-  gatherHold.timer = setTimeout(() => {
-    if (!gatherHold) return;
-    gatherHold.fired = true;                 // 이 뒤의 click 은 무시한다 (한 번 더 줍히지 않게)
-    if (!gather(mapId)) { stopGatherHold(); return; }
-    gatherHold.interval = setInterval(() => {
-      if (!gather(mapId)) stopGatherHold();  // AP 가 떨어지면 스스로 멈춘다
+  holdRun.timer = setTimeout(() => {
+    if (!holdRun) return;
+    holdRun.fired = true;                  // 이 뒤의 click 은 무시한다 (한 번 더 실행되지 않게)
+    if (!holdRun.step()) { stopHold(); return; }
+    holdRun.interval = setInterval(() => {
+      if (!holdRun || !holdRun.step()) stopHold();   // 밑천이 떨어지면 스스로 멈춘다
     }, HOLD_EVERY);
   }, HOLD_DELAY);
 }
-function stopGatherHold() {
-  if (!gatherHold) return;
-  clearTimeout(gatherHold.timer);
-  if (gatherHold.interval) clearInterval(gatherHold.interval);
+function stopHold() {
+  if (!holdRun) return false;
+  clearTimeout(holdRun.timer);
+  if (holdRun.interval) clearInterval(holdRun.interval);
   // 손을 뗀 직후의 click 한 번만 막는다
-  const fired = gatherHold.fired;
-  gatherHold = null;
+  const fired = holdRun.fired;
+  holdRun = null;
   return fired;
 }
 
-// 자동 채집이 돌았다면 이어서 오는 click 은 버린다
+// 연속 실행이 돌았다면 이어서 오는 click 은 버린다
 let swallowTap = false;
-function tapGather(mapId) {
+function tapOnce(fn) {
   if (swallowTap) { swallowTap = false; return; }
-  gather(mapId);
+  fn();
 }
 
-// **손을 떼는 것은 document 에서 받는다.** gather() 안의 render() 가 카드를
-// 통째로 새로 그려서, 카드에 붙인 pointerup 은 영영 오지 않는다 — 그러면
-// 손을 떼도 자동 채집이 멈추지 않는다. (탭 스크롤에서 겪었던 것과 같은 함정)
-document.addEventListener('pointerup', () => { swallowTap = !!stopGatherHold(); });
-document.addEventListener('pointercancel', () => { stopGatherHold(); });
-// 목록을 밀어 내리는 중이면 채집이 아니다
+function startGatherHold(mapId, ev) { startHold(() => gather(mapId), ev); }
+function tapGather(mapId)           { tapOnce(() => gather(mapId)); }
+function startDrinkHold(pid, ev)    { startHold(() => drinkPotion(pid), ev); }
+function tapDrink(pid)              { tapOnce(() => drinkPotion(pid)); }
+
+// **손을 떼는 것은 document 에서 받는다.** gather()·drinkPotion() 안의 render() 가
+// 카드를 통째로 새로 그려서, 카드에 붙인 pointerup 은 영영 오지 않는다 — 그러면
+// 손을 떼도 연속 실행이 멈추지 않는다. (탭 스크롤에서 겪었던 것과 같은 함정)
+document.addEventListener('pointerup', () => { swallowTap = !!stopHold(); });
+document.addEventListener('pointercancel', () => { stopHold(); });
+// 목록을 밀어 내리는 중이면 실행이 아니다
 document.addEventListener('pointermove', (e) => {
-  if (!gatherHold || gatherHold.fired) return;
-  if (Math.abs(e.clientX - gatherHold.x) > HOLD_MOVE ||
-      Math.abs(e.clientY - gatherHold.y) > HOLD_MOVE) stopGatherHold();
+  if (!holdRun || holdRun.fired) return;
+  if (Math.abs(e.clientX - holdRun.x) > HOLD_MOVE ||
+      Math.abs(e.clientY - holdRun.y) > HOLD_MOVE) stopHold();
 });
-window.addEventListener('scroll', () => { if (gatherHold && !gatherHold.fired) stopGatherHold(); }, true);
+window.addEventListener('scroll', () => { if (holdRun && !holdRun.fired) stopHold(); }, true);
 
 window.startGatherHold = startGatherHold;
-window.stopGatherHold = stopGatherHold;
+window.stopGatherHold = stopHold;
 window.tapGather = tapGather;
+window.startDrinkHold = startDrinkHold;
+window.tapDrink = tapDrink;
 
 // ═══════════════════════════════════════════════════════════════
 //  리그 (주간 랭킹)
@@ -4057,12 +4069,18 @@ function showPotionEffect(potionId, anchor) {
 }
 window.showPotionEffect = showPotionEffect;
 
+// 한 병 마신다. **더 마실 수 있으면 참**을 돌려준다 — 꾹 누르기(`startDrinkHold`)가
+// 이 값을 보고 멈춘다. 마지막 한 병이면 마시고 나서 거짓이다.
 function drinkPotion(potionId) {
-  if ((S.potions[potionId] || 0) <= 0) return;
+  if ((S.potions[potionId] || 0) <= 0) return false;
   const r = D.RECIPES.find(x => x.result.id === potionId);
-  if (!r) return;
+  if (!r) return false;
   S.potions[potionId]--;
   if (S.potions[potionId] === 0) delete S.potions[potionId];
+  // ⚠️ **「꿀꺽」은 여기 한 곳에서만 난다.** 카드 쪽(pointerdown)에서 내면 꾹 누르는 동안
+  // 한 번밖에 안 들리고, 정작 못 마신 손짓에도 소리가 난다 — 소리가 나는 자리는
+  // 물약이 실제로 줄어드는 자리여야 한다 (낚시의 `hook()` 과 같은 규칙이다)
+  if (window.Sfx) Sfx.play('gulp');
   rec('drinks');
   questBump('drink', potionId);
   const beforeStep = bodyStep();
@@ -4093,6 +4111,7 @@ function drinkPotion(potionId) {
       toast(T(afterStep === BODY_STEPS ? 'body_done' : 'body_down'), null, 2600);
     }, 1500);
   }
+  return (S.potions[potionId] || 0) > 0;   // 남아 있으면 꾹 누르기가 이어진다
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -4953,10 +4972,14 @@ function renderShowcase() {
       if (!r) return '';
       // '?' 는 이름 옆에 인라인으로 둔다 — 모서리에 두면 개수(×N)와 자리가 겹친다.
       // 카드 안에 있지만 마시기와 별개다 — stopPropagation 이 없으면 눌러도 마셔진다.
-      return `<div class="potion-card" onclick="drinkPotion('${pid}')">
+      // 톡 누르면 한 병, 꾹 누르고 있으면 계속 마신다 (`startDrinkHold`).
+      // `data-nosfx` 인 이유: 이 카드의 소리는 버튼음이 아니라 **마실 때 나는 「꿀꺽」**이다
+      // (`drinkPotion` 한 곳에서 낸다). '?' 는 제 소리를 직접 적어 두어 그대로 남는다.
+      return `<div class="potion-card" data-nosfx onclick="tapDrink('${pid}')"
+        onpointerdown="startDrinkHold('${pid}', event)" oncontextmenu="return false">
         <div class="potion-emoji">${r.result.emoji}</div>
         <div class="potion-name">${N(r.result.id, r.result.name)}<button class="potion-why"
-          aria-label="${T('potion_why')}"
+          aria-label="${T('potion_why')}" data-sfx="ui_tap"
           onclick="event.stopPropagation(); showPotionEffect('${pid}', this)">?</button></div>
         <div class="potion-count">×${S.potions[pid]}</div>
       </div>`;

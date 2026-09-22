@@ -126,6 +126,16 @@
       tone(500, 0.5, 'sine', 0.04, 0, 300);
       tone(300, 0.5, 'sine', 0.035, 0.1, 520);
     },
+    // 물약을 마신다 — "꿀꺽"
+    // 삼키는 소리는 «두 박자»다: 목으로 넘어가며 음이 올라갔다가(꿀), 내려앉는다(꺽).
+    // 한 박자로 두면 그냥 «툭» 하는 저음이라 마시는 것으로 안 들린다.
+    // 길이는 다 합쳐 0.27초다 — 꾹 누르기 간격(420ms)보다 짧아야 연달아 마셔도 안 겹친다.
+    gulp() {
+      tone(170, 0.12, 'sine', 0.10, 0,    330);   // 「꿀」 올라간다
+      noise(0.09, 0.035, 0,    'lowpass', 700, 0.8, 300);
+      tone(310, 0.14, 'sine', 0.09, 0.13, 120);   // 「꺽」 내려앉는다
+      noise(0.08, 0.030, 0.13, 'lowpass', 620, 0.8, 240);
+    },
     // 가마솥 등장 — 보글보글
     bubble() {
       tone(120, 0.4, 'sine', 0.07, 0, 220);
@@ -168,7 +178,6 @@
   ].join(',');
 
   function uiSound(el) {
-    if (el.dataset && el.dataset.sfx) return el.dataset.sfx;   // 개별 지정 우선
     const c = el.classList;
     if (c.contains('tab-btn')) return 'ui_tab';
     if (c.contains('btn-primary')) return 'ui_confirm';
@@ -185,8 +194,12 @@
     if (t.classList && t.classList.contains('modal')) { SFX.play('ui_back'); return; }
     const el = t.closest(TAP_SEL);
     if (!el || el.disabled) return;
-    if (el.hasAttribute('data-nosfx') || el.closest('[data-nosfx]')) return;
-    SFX.play(uiSound(el));
+    // ⚠️ **제 소리를 직접 적어 둔 요소는 조상의 `data-nosfx` 보다 앞선다.**
+    // 안 그러면 소리를 끈 카드 «안»의 버튼까지 같이 벙어리가 된다 —
+    // 물약 카드('꿀꺽'은 마실 때 낸다)의 '?' 버튼이 그 자리다
+    const own = el.dataset && el.dataset.sfx;
+    if (!own && (el.hasAttribute('data-nosfx') || el.closest('[data-nosfx]'))) return;
+    SFX.play(own || uiSound(el));
   }, true);
 
   window.Sfx = SFX;

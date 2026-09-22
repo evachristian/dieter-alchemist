@@ -26,6 +26,7 @@
     "test:tut": "node tools/checktut.js",
     "test:tuttext": "node tools/checktuttext.js",
     "test:melt": "node tools/checkmelt.js",
+    "test:drink": "node tools/checkdrink.js",
     "bundle": "node tools/bundle.js",
     "side": "node tools/side.js",
     "neck": "node tools/neckscan.js",

@@ -2478,7 +2478,11 @@ button.tm-slot:active { transform: scale(0.94); }
   background: var(--cream); border-radius: 16px; padding: 12px 6px;
   text-align: center; position: relative; min-width: 0;
 }
-.potion-card { cursor: pointer; transition: transform 0.1s ease; }
+/* 톡 누르면 한 병, 꾹 누르면 계속 마신다 (startDrinkHold) — 채집 버튼과 같은 규칙이다:
+   touch-action 을 pan-y 로 두어 카드 위에서 시작한 손가락으로도 선반을 밀어 내릴 수 있고,
+   user-select 는 꾹 누를 때 이름 글자가 잡히는 것을 막는다 */
+.potion-card { cursor: pointer; transition: transform 0.1s ease;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .potion-card:active { transform: scale(0.95); }
 .potion-emoji { font-size: 2rem; }
 /* 크리처는 이모지가 아니라 SVG 다 (creature.js) — 칸 가운데에 고정 크기로 앉힌다 */
