@@ -2015,12 +2015,15 @@ function renderGift() {
     const gain = giftGain(npc, id);
     const fresh = !giftedTo(npc).includes(id);
     const liked = r.result.grade === b.like;
+    // 맨 뒤는 **「선물하기」 알약**이다 — 줄 전체가 버튼인데 그것이 화면에 안 적혀 있어서
+    // 「+3」 이 그냥 «설명»으로 읽혔다 (「선물하기 버튼처럼 보이지 않는다」로 신고받았다).
+    // 오를 점수를 알약 «안»에 넣어 누를 자리와 얻을 것이 한 덩어리로 보이게 한다
     return `<button class="gift-row" data-gift="${id}" onclick="giveGift('${npc}','${id}')">
         <span class="gift-em" aria-hidden="true">${r.result.emoji}</span>
         <span class="gift-nm">${N(id, r.result.name)}<span class="gift-have">×${S.potions[id]}</span></span>
-        <span class="gift-gain">+${gain}</span>
         <span class="gift-tags">${fresh ? `<span class="gift-tag new">${T('gift_first')}</span>` : ''}${
           liked ? `<span class="gift-tag like">${T('gift_like')}</span>` : ''}</span>
+        <span class="gift-go">${T('gift_go', { n: gain })}</span>
       </button>`;
   }).join('');
   const t = bondTier(npc);
@@ -4246,7 +4249,7 @@ function renderGather() {
     zoneEl.innerHTML = D.ZONES.map(z => {
       const open = isZoneOpen(z);
       return `<button class="cat-tab ${gatherZone === z.id ? 'active' : ''} ${open ? '' : 'locked'}"
-        onclick="setGatherZone('${z.id}', this)">${open ? z.emoji : '🔒'} ${N(z.id, z.name)}</button>`;
+        onclick="setGatherZone('${z.id}', this)"><span class="em">${open ? z.emoji : '🔒'}</span> ${N(z.id, z.name)}</button>`;
     }).join('');
   }
 
@@ -4367,7 +4370,7 @@ function renderVillages() {
       // **갈 곳만 알려 준다** — 무엇을 물을지는 안 알려 준다 (STORY.md 「길 잃음 방지」)
       const dot = villageNews(v) ? '<span class="tab-dot" aria-hidden="true"></span>' : '';
       return `<button class="cat-tab ${villageTab === v.id ? 'active' : ''} ${open ? '' : 'locked'}"
-        data-village="${v.id}" onclick="setVillage('${v.id}')">${open ? v.emoji : '🔒'} ${N(v.id, v.name)}${dot}</button>`;
+        data-village="${v.id}" onclick="setVillage('${v.id}')"><span class="em">${open ? v.emoji : '🔒'}</span> ${N(v.id, v.name)}${dot}</button>`;
     }).join('');
   }
 
@@ -4569,7 +4572,7 @@ function renderAtelier() {
     cdEl.innerHTML = D.CAULDRONS.map(c => {
       const open = isCauldronOpen(c);
       return `<button class="cat-tab ${S.cauldronId === c.id ? 'active' : ''} ${open ? '' : 'locked'}"
-        data-pot="${c.id}" onclick="chooseCauldron('${c.id}', this)">${open ? c.emoji : '🔒'} ${N(c.id, c.name)} ${c.slots}${T('slot_unit')}</button>`;
+        data-pot="${c.id}" onclick="chooseCauldron('${c.id}', this)"><span class="em">${open ? c.emoji : '🔒'}</span> ${N(c.id, c.name)} ${c.slots}${T('slot_unit')}</button>`;
     }).join('');
   }
 
@@ -4655,7 +4658,7 @@ function renderAtelier() {
   const kindEl = document.getElementById('recipeKinds');
   if (kindEl) {
     kindEl.innerHTML = [['potion', 'stuff_potions'], ['creature', 'room_creatures']].map(([k, key]) =>
-      `<button class="room-tab ${recipeKind === k ? 'active' : ''}" onclick="setRecipeKind('${k}')">${T(key)}</button>`
+      `<button class="room-tab ${recipeKind === k ? 'active' : ''}" onclick="setRecipeKind('${k}')">${I18N.em(T(key))}</button>`
     ).join('');
   }
   // 아랫단 — 등급. 물약이든 크리처든 같은 네 등급을 쓴다.
@@ -5255,9 +5258,9 @@ function renderPalRow() {
   const nm = pet ? N(pet.id, pet.name) : '';
   el.innerHTML = pet
     ? `<span class="pal-art">${window.Creature ? Creature.icon(pet, 30) : ''}</span>
-       <span class="pal-name">${T('pal_row', { name: nm, josa: josa(nm, '과와') })}</span>
+       <span class="pal-name">${I18N.em(T('pal_row', { name: nm, josa: josa(nm, '과와') }))}</span>
        ${attr ? `<span class="cr-attr" style="--at:${attr.color}">${N(attr.id, attr.name)}</span>` : ''}`
-    : `<span class="pal-name pal-off">${T('pal_row_none')}</span>`;
+    : `<span class="pal-name pal-off">${I18N.em(T('pal_row_none'))}</span>`;
   el.setAttribute('aria-label', T('pal_pick_title'));
 }
 
@@ -5737,7 +5740,7 @@ function renderWardrobe() {
     return `<button class="cat-tab wr-tab ${on ? 'active' : ''} ${dimmed ? 'dim' : ''}"
       onclick="setWardrobeTab('${m.slot}')"
       aria-label="${N(m.slot, m.label)}${on && m.gated && showCount ? ' · ' + T('wr_owned', { have: list.filter(x => isOwned(m.slot, x)).length, total: list.length }) : ''}"
-      >${m.emoji} ${N(m.slot, m.label)}${n}</button>`;
+      ><span class="em">${m.emoji}</span> ${N(m.slot, m.label)}${n}</button>`;
   }).join('');
 
   // 튜토리얼을 마치기 전에는 **가진 것만** 보여 준다.

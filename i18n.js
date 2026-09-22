@@ -109,6 +109,7 @@
       gift_title: '{who}에게 줄 물약',
       gift_likes: '{who}{nj} {grade}을 좋아해요.',
       gift_first: '처음', gift_like: '취향',
+      gift_go: '선물하기 +{n}',
       gift_none: '줄 물약이 없어요. 공방에서 만들어 오세요.',
       gift_done: '{name}{nj} 드렸어요 (+{n})',
       bond_next: '{tier}까지 {n}',
@@ -1645,6 +1646,7 @@
       gift_title: 'A potion for {who}',
       gift_likes: '{who} is fond of {grade}.',
       gift_first: 'first', gift_like: 'favourite',
+      gift_go: 'Give +{n}',
       gift_none: 'No potions to give. Brew some in the atelier.',
       gift_done: 'Gave {name} (+{n})',
       bond_next: '{n} more to {tier}',
@@ -3560,13 +3562,34 @@
     if (typeof window.render === 'function') window.render();
   }
 
+  // ═══ 머리에 붙은 이모지를 «제 요소»로 떼어 낸다 ═══════════════
+  // ⚠️⚠️ 이모지의 테(`--emoji-edge`)는 그 요소의 «글자»에도 같이 걸린다.
+  // 챠콜에서는 글자색(`--ink` #e8e6e3)과 테 색(`--emoji-halo`)이 **사실상 같은 색**
+  // 이라, 라벨이 1px 씩 굵어지고 가장자리가 흐려져 오히려 읽기 나빠졌다
+  // (「버튼 텍스트가 버튼 음영 색이랑 동일하니까 가독성 떨어진다」로 신고받았다).
+  // 그래서 **테는 이모지에만** 건다 — 「🎒 잡화」의 🎒 만 제 요소로 떼어 낸다.
+  // ⚠️ `textContent` 는 한 글자도 안 바뀐다 (`<span class="em">🎒</span> 잡화`).
+  //    라벨을 글자로 읽는 검사(`checktut` 의 「지시문↔대상」)가 그대로 돈다
+  const EM_HEAD = /^(\p{Extended_Pictographic}[️‍\u{1F3FB}-\u{1F3FF}\p{Extended_Pictographic}]*)(\s+)([\s\S]+)$/u;
+  const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ESC[c]); }
+
+  // 이모지로 시작하는 라벨이면 그 이모지만 감싼 HTML, 아니면 그냥 접은 글자
+  function em(s) {
+    const m = EM_HEAD.exec(String(s));
+    return m ? `<span class="em">${m[1]}</span>${m[2]}${esc(m[3])}` : esc(s);
+  }
+
   // data-i18n 속성이 붙은 정적 요소를 현재 언어로 교체
   function apply() {
     document.querySelectorAll('[data-i18n]').forEach(el => {
-      el.textContent = t(el.getAttribute('data-i18n'));
+      const s = t(el.getAttribute('data-i18n'));
+      // 이모지가 머리에 있을 때만 HTML 이다 — 나머지는 예전 그대로 textContent
+      if (EM_HEAD.test(s)) el.innerHTML = em(s);
+      else el.textContent = s;
     });
     document.documentElement.setAttribute('lang', current);
   }
 
-  window.I18N = { t, n, apply, setLang, getLang, langs, LANG_KEY };
+  window.I18N = { t, n, em, apply, setLang, getLang, langs, LANG_KEY };
 })();

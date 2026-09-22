@@ -126,6 +126,40 @@ function measure(grid, b) {
   return { ratio: (hi + 0.05) / (lo + 0.05), bg, best, px: (x1 - x0) * (y1 - y0) };
 }
 
+// 테를 두른 자리에 «글자»가 섞여 있지 않은가.
+//
+// ⚠️⚠️ 테(`--emoji-edge`)는 그 요소의 글자에도 같이 걸리는데, 챠콜에서는 글자색
+// (`--ink`)과 테 색(`--emoji-halo`)이 **사실상 같은 색**이라 라벨이 굵고 흐려진다
+// (「버튼 텍스트가 버튼 음영 색이랑 동일하니까 가독성 떨어진다」로 신고받았다).
+// 그래서 테는 **이모지만 있는 요소**에만 선다 — 라벨은 `I18N.em()` 이 이모지를
+// `<span class="em">` 으로 떼어 낸다.
+//
+// ⚠️ **선택자를 검사기에 베껴 적지 않는다** — style.css 의 그 규칙에서 읽어 온다.
+// 베껴 두면 목록이 늘었을 때 검사기만 옛 목록으로 돌아 아무것도 안 잡는다.
+// ⚠️ 이것은 대비와 «다른 축»이다: 대비만 재면 테를 라벨 통째로 되돌려도 통과한다
+//    (오히려 대비는 올라간다) — 그래서 짝으로 둔다
+const HALO_TEXT = `(() => {
+  let sel = null;
+  for (const sh of document.styleSheets) {
+    let rules; try { rules = sh.cssRules; } catch (e) { continue; }
+    for (const r of rules || []) {
+      if (r.style && /--emoji-edge/.test(r.style.getPropertyValue('text-shadow') || '')) sel = r.selectorText;
+    }
+  }
+  if (!sel) return { sel: null, hits: [], n: 0 };
+  const STRIP = /[\\p{Extended_Pictographic}\\uFE0F\\uFE0E\\u200D\\u{1F3FB}-\\u{1F3FF}\\s]/gu;
+  const hits = [];
+  let n = 0;
+  document.querySelectorAll(sel).forEach(el => {
+    n++;
+    const rest = (el.textContent || '').replace(STRIP, '');
+    if (!rest) return;
+    const name = el.tagName.toLowerCase() + (el.getAttribute('class') ? '.' + el.getAttribute('class').trim().split(/\\s+/).join('.') : '');
+    hits.push(name + ' — “' + rest.slice(0, 16) + '”');
+  });
+  return { sel, hits, n };
+})()`;
+
 const VIEWS = [
   ['마이 룸 · 옷',     () => { switchTab('showcase'); setRoomTab('clothes'); }],
   ['마이 룸 · 잡화',   () => { switchTab('showcase'); setRoomTab('stuff'); setStuffTab('potions'); }],
@@ -184,6 +218,7 @@ async function sweep(browser, theme, bad) {
   await page.waitForTimeout(300);
 
   const seen = new Map();
+  const halo = { sel: null, hits: new Set(), n: 0 };
   let measured = 0, views = 0;
   for (const [label, fn] of VIEWS) {
     const err = await page.evaluate(src => {
@@ -192,6 +227,11 @@ async function sweep(browser, theme, bad) {
     if (err) { bad.push(`«${theme}» 의 «${label}» 를 열 수가 없다 — ${err}`); continue; }
     await page.waitForTimeout(260);
     views++;
+
+    // 테를 두른 자리에 글자가 섞였는가 — 화면마다 본다 (라벨은 화면마다 다르다)
+    const ht = await page.evaluate(HALO_TEXT);
+    halo.sel = ht.sel; halo.n += ht.n;
+    ht.hits.forEach(h => halo.hits.add(`«${label}» 의 ${h}`));
 
     const total = await page.evaluate(() => document.documentElement.scrollHeight);
     for (let top = 0; top === 0 || top < total - VH * 0.4; top += VH - 80) {
@@ -213,7 +253,7 @@ async function sweep(browser, theme, bad) {
     }
   }
   await ctx.close();
-  return { seen, measured, views };
+  return { seen, measured, views, halo };
 }
 
 (async () => {
@@ -239,6 +279,14 @@ async function sweep(browser, theme, bad) {
   const fails = rows.filter(r => r.ratio < MIN && (r.ref == null || r.ratio < r.ref * 0.98));
   // 둘 다 낮은 자리는 **주의**다 — 이번 일과 무관하지만 알고는 있어야 한다
   const note = rows.filter(r => r.ratio < MIN && !fails.includes(r));
+
+  // ─── 테를 두른 자리 ───
+  // ⚠️ 0건이 통과가 아니다 — 선택자를 못 찾았거나 한 요소도 못 만났으면 안 잰 것이다
+  const h = dark.halo;
+  if (!h.sel) bad.push('style.css 에서 `--emoji-edge` 를 쓰는 규칙을 못 찾았다 (테를 두른 자리를 잴 수가 없다)');
+  else if (h.n < 20) bad.push(`테를 두른 요소를 ${h.n}개밖에 못 만났다 (화면을 제대로 못 열었다)`);
+  else console.log(`   테를 두른 자리 — «${h.sel}» · 요소 ${h.n}개를 봤고 글자가 섞인 것 ${h.hits.size}개`);
+  h.hits.forEach(x => bad.push(`테가 «글자»에도 걸려 있다 — ${x} (이모지만 «제 요소»로 떼어 낼 것)`));
 
   // ⚠️ **0건이 통과가 아니다** — 몇 개를 쟀는지 같이 봐야 「한 번도 안 쟀다」와 갈린다
   if (dark.measured < 60 || ref.measured < 60) {

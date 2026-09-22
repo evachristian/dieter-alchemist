@@ -2008,6 +2008,19 @@ function launchOpts() {
             const rows = document.querySelectorAll('#giftSheet .gift-row').length;
             if (rows !== 6) return `물약 줄이 ${rows}개다 (6 기대)`;
             if (!document.querySelector('#giftSheet .gift-tag')) return '딱지가 하나도 없다';
+            // 「선물하기」 알약 — 줄 전체가 버튼인데 **누를 자리가 화면에 안 적혀** 있었다
+            // (「선물하기 버튼처럼 보이지 않는다」로 신고받은 자리다).
+            // ⚠️ 「있는가」만 보면 투명한 span 을 놓아도 통과한다 — **버튼처럼 보이는가**를 잰다
+            const go = document.querySelectorAll('#giftSheet .gift-go');
+            if (go.length !== rows) return `「선물하기」 알약이 ${go.length}개다 (${rows} 기대)`;
+            const gcs = getComputedStyle(go[0]);
+            if (/^(transparent|rgba\(0, 0, 0, 0\))$/.test(gcs.backgroundColor))
+              return '「선물하기」 알약에 바탕이 없다 (버튼으로 안 읽힌다)';
+            if (!gcs.boxShadow || gcs.boxShadow === 'none')
+              return '「선물하기」 알약이 판에서 안 떠 있다 (그림자가 없다 · UI_POLICY 「버튼은 카드에서 떠오른다」)';
+            const gtxt = (go[0].textContent || '').trim();
+            if (!/\d/.test(gtxt)) return `「선물하기」 알약에 오를 점수가 없다 — “${gtxt}”`;
+            if (!gtxt.replace(/[\d+\s]/g, '')) return `「선물하기」 알약이 숫자뿐이다 — “${gtxt}”`;
             return null;
           });
           if (bad) results.push({ 화면: `${t}/선물`, 오류: bad });
