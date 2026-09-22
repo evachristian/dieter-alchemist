@@ -13,11 +13,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260922i">
+<link rel="stylesheet" href="style.css?v=20260922j">
 <!-- ⚠️ UI 색상은 «첫 페인트 전»에 정해져야 한다 — 문서 끝에 두면 기본 색으로
      한 번 그려진 뒤에 얹혀서 다크를 고른 사람에게 흰 화면이 한 번 친다.
      그래서 여기만 `defer` 없이 `<head>` 에서 읽는다 (theme.js 주석 참고) -->
-<script src="theme.js?v=20260922i"></script>
+<script src="theme.js?v=20260922j"></script>
 </head>
 <body>
 
@@ -27,13 +27,17 @@
   #splash {
     position: fixed; inset: 0; z-index: 9999;
     display: flex; align-items: center; justify-content: center;
-    /* ⚠️⚠️ **로고 화면만은 테마를 «안» 탄다 — 고정 흰색이다.**
-       `logo.png` 는 투명 영역이 아예 없는 불투명 이미지고(tRNS 청크가 없다)
-       테두리까지 그림이 닿아 있어서, 바탕이 near-white 가 아니면 **로고가 사각형으로
-       깨져 보인다** (에크루 배경에서 신고받았다).
-       ⚠️ 순백(`#fff`)이 아닌 이유: 로고의 모서리 색이 `#f9f8f9`~`#f6f7f7` 이라
-       `#fff` 로 두면 6/255 만큼 어긋나 오히려 옅은 사각형이 보인다. 이 값이 3/255 다 */
-    background: #F6F6F8; opacity: 1;
+    /* 로고 화면도 **테마를 탄다** — 바탕은 앱 페이지와 «같은 그라데이션»이다.
+       그래야 스플래시가 1.6초에 걸쳐 걷힐 때 색이 한 번 튀지 않는다.
+       (`logo.png` 가 투명 배경이 되기 전까지는 고정 near-white 였다 — 불투명
+        로고를 테마 바탕에 얹으면 사각형으로 깨져 보였다. `tools/genlogo.js` 참고)
+       ⚠️⚠️ **대체값은 `var()` «안»에 적는다.** 앞줄에 `background: #F6F6F8` 를 두고
+       뒷줄에 var() 를 쓰는 흔한 수법은 여기서 안 통한다 — 없는 var() 는 그 선언을
+       «앞 선언으로» 되돌리는 것이 아니라 속성을 통째로 initial(투명)로 만든다.
+       style.css 가 없어도 이 화면은 떠야 하므로(그게 인라인으로 둔 이유다)
+       셋 다 옛 고정색을 대체값으로 달아 둔다 — 그러면 예전 화면 그대로다 */
+    background: linear-gradient(160deg, var(--bg-1, #F6F6F8) 0%, var(--bg-2, #F6F6F8) 55%, var(--bg-3, #F6F6F8) 100%);
+    opacity: 1;
     transition: opacity 1.6s ease;
   }
   #splash.hide { opacity: 0; pointer-events: none; }
@@ -43,13 +47,14 @@
   #splash .splash-logo { width: 190px; height: 190px; display: block; object-fit: contain; }
   #splash .splash-name {
     font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 1.06rem; font-weight: 700; letter-spacing: 0.06em; color: #3f3a44; text-align: center;
+    font-size: 1.06rem; font-weight: 700; letter-spacing: 0.06em; text-align: center;
+    color: var(--ink, #3f3a44);   /* 대체값을 var() 안에 — 위의 바탕과 같은 이유다 */
   }
 </style>
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260922i" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260922j" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -744,7 +749,7 @@
     </div>
     <!-- UI 색상 — 칩이 곧 그 테마의 「주 강조」 색이다 (theme.js 의 sw) -->
     <div class="set-row">
-      <div class="set-label" data-i18n="setting_theme">UI 색상</div>
+      <div class="set-label" data-i18n="setting_theme">테마 색상</div>
       <div id="setThemeList" class="set-opts set-swatches"></div>
     </div>
     <!-- 세이브 · 이어하기 -->
@@ -1078,25 +1083,25 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260922i"></script>
-<script src="intro.js?v=20260922i"></script>
-<script src="data.js?v=20260922i"></script>
-<script src="avatar.js?v=20260922i"></script>
-<script src="village.js?v=20260922i"></script>
-<script src="portrait.js?v=20260922i"></script>
-<script src="creature.js?v=20260922i"></script>
-<script src="cauldron.js?v=20260922i"></script>
-<script src="pumpkin.js?v=20260922i"></script>
-<script src="walnut.js?v=20260922i"></script>
-<script src="rock.js?v=20260922i"></script>
-<script src="fish.js?v=20260922i"></script>
-<script src="sparrow.js?v=20260922i"></script>
-<script src="pinwheel.js?v=20260922i"></script>
-<script src="driller.js?v=20260922i"></script>
-<script src="sfx.js?v=20260922i"></script>
-<script src="sync.js?v=20260922i"></script>
-<script src="game.js?v=20260922i"></script>
-<script src="tutorial.js?v=20260922i"></script>
-<script src="a11y.js?v=20260922i"></script>
+<script src="i18n.js?v=20260922j"></script>
+<script src="intro.js?v=20260922j"></script>
+<script src="data.js?v=20260922j"></script>
+<script src="avatar.js?v=20260922j"></script>
+<script src="village.js?v=20260922j"></script>
+<script src="portrait.js?v=20260922j"></script>
+<script src="creature.js?v=20260922j"></script>
+<script src="cauldron.js?v=20260922j"></script>
+<script src="pumpkin.js?v=20260922j"></script>
+<script src="walnut.js?v=20260922j"></script>
+<script src="rock.js?v=20260922j"></script>
+<script src="fish.js?v=20260922j"></script>
+<script src="sparrow.js?v=20260922j"></script>
+<script src="pinwheel.js?v=20260922j"></script>
+<script src="driller.js?v=20260922j"></script>
+<script src="sfx.js?v=20260922j"></script>
+<script src="sync.js?v=20260922j"></script>
+<script src="game.js?v=20260922j"></script>
+<script src="tutorial.js?v=20260922j"></script>
+<script src="a11y.js?v=20260922j"></script>
 </body>
 </html>

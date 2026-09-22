@@ -1378,7 +1378,7 @@
       settings: '⚙️ 설정', setting_lang: '언어 설정',
       setting_sound: '사운드', sound_on: '켜기', sound_off: '끄기',
       // UI 색상 — 이름은 컬러칩의 `aria-label` 로만 쓰인다 (화면에는 칩만 선다)
-      setting_theme: 'UI 색상',
+      setting_theme: '테마 색상',
       theme_beige: '베이지', theme_ecru: '에크루', theme_blue: '블루',
       theme_pink: '핑크', theme_purple: '퍼플', theme_charcoal: '챠콜',
       setting_intro_replay: '튜토리얼 인트로 다시보기', setting_temp: '(임시)',
@@ -2795,7 +2795,7 @@
       brewq_ap: 'AP needed {n}',
       settings: '⚙️ Settings', setting_lang: 'Language',
       setting_sound: 'Sound', sound_on: 'On', sound_off: 'Off',
-      setting_theme: 'UI colour',
+      setting_theme: 'Theme colour',
       theme_beige: 'Beige', theme_ecru: 'Ecru', theme_blue: 'Blue',
       theme_pink: 'Pink', theme_purple: 'Purple', theme_charcoal: 'Charcoal',
       setting_intro_replay: 'Replay Tutorial Intro', setting_temp: '(temp)',

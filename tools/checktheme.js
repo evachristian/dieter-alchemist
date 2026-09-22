@@ -178,6 +178,9 @@ const PAIRS = [
   ['--ink', '--well'], ['--ink-soft', '--well'],
   // 글자 뒤의 테는 그 글자와 «반대쪽» 이어야 한다 (진행도 숫자가 채운 막대 위에 선다)
   ['--halo', '--text-pink'], ['--halo', '--text-lav'], ['--halo', '--text-mint'],
+  // 페이지 바닥 그라데이션 — 로고 화면의 「Dream Syndicate Studio」가 여기 선다
+  // (카드가 없는 자리라 글자가 **바탕 위에 바로** 얹힌다 · 세 스톱을 다 본다)
+  ['--ink', '--bg-1'], ['--ink', '--bg-2'], ['--ink', '--bg-3'],
 ];
 const BIG = [['--text-pink', '--pink-2'], ['--text-mint', '--mint-2'], ['--text-lav', '--lav-2']];
 // ⚠️⚠️ **잠긴 콘텐츠는 `opacity: 0.8` 로 «흐려진 채» 읽혀야 한다** (style.css 의 잠긴
@@ -427,14 +430,21 @@ async function onScreen() {
     await ctx.close();
   }
 
-  // ⓓ **로고 화면은 테마를 «안» 탄다.** `logo.png` 는 투명 영역이 아예 없는 불투명
-  // 이미지라, 바탕이 near-white 가 아니면 **로고가 사각형으로 깨져 보인다**
-  // (에크루 배경에서 신고받았다). 그래서 여기만은 토큰을 쓰면 «안 된다» —
-  // 여섯에서 같은 색인지, 그 색이 로고 모서리와 가까운지를 본다
+  // ⓓ **로고 화면도 테마를 «탄다»** — `logo.png` 가 투명 배경이 되면서 풀린 자리다.
+  //
+  // 예전에는 정반대였다: 불투명한 로고를 테마 바탕에 얹으면 **사각형으로 깨져 보여서**
+  // 여기만 고정 near-white 였고, 이 검사도 「여섯이 다 같은 색인가」를 봤다.
+  // 지금 볼 것은 셋이다 — ① 여섯이 «서로 다른가» ② 그 색이 정말 그 테마의 것인가
+  // ③ **로고 자리에 사각형이 안 보이는가**(진짜 픽셀).
+  //
+  // ⚠️ ③ 이 없으면 **불투명 로고로 되돌려 놓아도 ①②는 그대로 통과한다** —
+  //    바탕은 테마를 타는데 그 위에 흰 상자가 얹혀 있는 화면이 0건으로 나온다
+  //    (`npm test` 의 `genlogo --check` 와 짝이다: 그쪽은 파일을, 이쪽은 화면을 본다)
   {
-    // ⚠️ **스플래시는 2.5초 뒤 DOM 에서 «완전히 제거»된다** — 다른 검사처럼 기다렸다
-    // 재면 늘 「못 찾았다」가 나온다. 그래서 여기만 **뜨자마자** 잰다
-    const seen = new Set();
+    // ⚠️ **스플래시는 0.9초 뒤 걷히기 시작해 2.5초에 DOM 에서 «완전히 제거»된다** —
+    // 다른 검사처럼 기다렸다 재면 늘 「못 찾았다」가 나온다. 여기만 **뜨자마자** 잰다
+    const seen = new Map();
+    let boxBad = 0, boxSeen = 0;
     for (const t of names) {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 880 } });
       const page = await ctx.newPage();
@@ -443,26 +453,79 @@ async function onScreen() {
         if (th) localStorage.setItem('dieter_alchemist_theme_v1', th);
       }, t);
       await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+      // 그림이 실제로 그려진 뒤에 재야 «상자»를 볼 수 있다 (걷히기 전에 끝난다)
+      await page.waitForFunction(() => {
+        const i = document.getElementById('splashLogoImg');
+        return !i || (i.complete && i.naturalWidth > 0);
+      }, null, { timeout: 4000 }).catch(() => {});
       const got = await page.evaluate(() => {
         const el = document.getElementById('splash');
         if (!el) return null;
         const cs = getComputedStyle(el);
         const nm = document.querySelector('#splash .splash-name');
-        return { bg: cs.backgroundColor, ink: nm ? getComputedStyle(nm).color : '(없음)' };
+        const img = document.getElementById('splashLogoImg');
+        const r = img ? img.getBoundingClientRect() : null;
+        return {
+          bg: cs.backgroundImage && cs.backgroundImage !== 'none' ? cs.backgroundImage : cs.backgroundColor,
+          ink: nm ? getComputedStyle(nm).color : '(없음)',
+          box: r && r.width > 0 ? { x: r.left, y: r.top, w: r.width, h: r.height } : null,
+          opacity: cs.opacity,
+        };
       });
+      if (!got) { bad('로고 화면(#splash)을 못 찾았다'); await ctx.close(); break; }
+      // ⚠️ **바탕만으로 센다.** 글자색까지 묶어 열쇠를 만들면 「바탕은 못 박고 글자만
+      // 테마를 타는」 판에서 여섯이 «다른» 것이 되어 「다 같다」 갈래가 영영 안 돈다
+      // (사보타주 B 에서 실제로 그랬다 — 잡히기는 했지만 다른 줄이 잡았다)
+      seen.set(t, { bg: got.bg, ink: got.ink });
+
+      // ③ 로고 자리의 **네 귀퉁이**가 바탕과 같은가 — 흰 상자면 여기서 갈린다.
+      // ⚠️ 바탕은 그라데이션이라 «바로 옆»과 견준다 (상자 바깥 8px 지점)
+      if (!got.box) { boxBad++; bad(`«${t}» 로고 그림을 못 찾았다 (상자가 0이다)`); }
+      else if (got.opacity !== '1') { boxBad++; bad(`«${t}» 스플래시가 벌써 걷히고 있다 (opacity ${got.opacity})`); }
+      else {
+        const b = got.box, P = 6;
+        const shot = await page.screenshot({ clip: {
+          x: Math.floor(b.x - 10), y: Math.floor(b.y - 10),
+          width: Math.ceil(b.w + 20), height: Math.ceil(b.h + 20) } });
+        const L = pngLums(shot);
+        const W = Math.ceil(b.w + 20);
+        const px = (x, y) => L[y * W + x];
+        // 안쪽 귀퉁이(로고 그림 안) ↔ 바깥(그림 밖) — 둘이 같아야 «상자»가 없는 것이다
+        const pairs = [[10 + P, 10 + P, 2, 2], [W - 11 - P, 10 + P, W - 3, 2]];
+        let worst = 0, at = '';
+        for (const [ix, iy, ox, oy] of pairs) {
+          const a = px(ix, iy), c = px(ox, oy);
+          if (a == null || c == null) continue;
+          const v = (Math.max(a, c) + 0.05) / (Math.min(a, c) + 0.05);
+          if (v > worst) { worst = v; at = `${a.toFixed(3)} ↔ ${c.toFixed(3)}`; }
+        }
+        if (!L.length) { boxBad++; bad(`«${t}» 로고 자리의 픽셀을 한 점도 못 읽었다`); }
+        else if (worst > 1.12) {
+          boxBad++;
+          bad(`«${t}» 로고 귀퉁이가 바탕과 다르다 (${worst.toFixed(2)}배 · ${at})`
+            + ' — 불투명 로고의 «사각형»이 드러난 것이다');
+        } else boxSeen++;
+      }
       await ctx.close();
-      if (!got) { bad('로고 화면(#splash)을 못 찾았다'); break; }
-      seen.add(got.bg + ' / ' + got.ink);
     }
-    if (seen.size > 1) {
-      bad(`로고 화면이 테마마다 다르다 — ${[...seen].join(' · ')} (불투명 로고라 사각형이 드러난다)`);
-    } else if (seen.size === 1) {
-      const [one] = [...seen];
-      const c = rgb(one.split(' / ')[0]);
-      // 로고 모서리가 #f9f8f9~#f6f7f7 이다 — 여기서 멀어지면 사각형이 보인다
-      const far = !c || c.some(v => v < 238 || v > 255);
-      if (far) bad(`로고 화면 바탕이 ${one.split(' / ')[0]} 다 — 로고 모서리(near-white)와 멀어 사각형이 드러난다`);
-      else ok(`로고 화면은 여섯에서 다 같다 (${one})`);
+    const uniq = new Set([...seen.values()].map(v => v.bg));
+    if (uniq.size === 1 && names.length > 1) {
+      bad(`로고 화면 바탕이 여섯에서 다 같다 (${[...uniq][0]}) — 테마를 안 타고 있다`);
+    } else if (uniq.size) {
+      // 그 색이 «정말 그 테마의 것»인가 — 여섯이 다르기만 하면 아무 색이나 통과한다.
+      // ⚠️ 글자로 견주지 않는다: 토큰은 `#dcefff` 인데 화면이 내놓는 것은
+      // `rgb(220, 239, 255)` 라 **무슨 색이든 «없다»로 걸린다** (그렇게 짰다가 6건 났다)
+      let wrong = 0;
+      for (const [t, v] of seen) {
+        const want = rgb((blocks[t] || {})['--bg-1'] || '');
+        const got = (v.bg.match(/rgba?\([^)]+\)/g) || []).map(rgb).filter(Boolean);
+        const hit = want && got.some(c => c.every((n, i) => Math.abs(n - want[i]) <= 1));
+        if (!hit) { wrong++; bad(`«${t}» 로고 화면 바탕에 그 테마의 --bg-1(${(blocks[t] || {})['--bg-1']})이 없다 — ${v.bg}`); }
+      }
+      // ⚠️ **귀퉁이를 «몇 개나» 쟀는지 같이 낸다** — 상자 검사가 하나도 안 돌았는데
+      // 「상자 없음」이라고 적으면 그 줄이 거짓말이 된다 (실제로 한 번 그렇게 적혀 있었다)
+      if (!wrong && !boxBad) ok(`로고 화면이 여섯에서 «다 다르고» 제 테마 색이다 (귀퉁이 ${boxSeen}/${names.length}곳에 상자 없음)`);
+      else if (!wrong) bad(`바탕은 테마를 타는데 로고 귀퉁이가 ${boxBad}곳에서 어긋난다`);
     }
   }
 
