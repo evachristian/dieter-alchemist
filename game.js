@@ -2475,7 +2475,9 @@ function renderQuestSheet() {
   const now = questProgress(q), max = q.goal.n;
   const full = now >= max;
   // 개발용(임시) — 스위치를 켠 사람에게만 보인다. ⚠️ 꺼 두면 **마크업이 한 글자도
-  // 안 바뀐다** (평소 화면에 빈 줄이 남지 않게). 다 찬 뒤에는 할 일이 없으니 접는다
+  // 안 바뀐다** (평소 화면에 빈 줄이 남지 않게). 다 찬 뒤에는 할 일이 없으니 접는다.
+  // ⚠️ **막대 «아래»에 전체 폭으로 선다** — 한때 「n / n」 과 한 줄을 나눠 썼는데,
+  // 진행도 숫자가 막대 «위»로 올라가면서 나눠 쓸 짝이 없어졌다 (사람이 그림으로 정했다)
   const devDone = (S.devQuestBtn && !full)
     ? `<button class="btn btn-dev q-devdone" onclick="devQuestFull()">${T('dev_q_done')}</button>`
     : '';
@@ -2503,10 +2505,9 @@ function renderQuestSheet() {
       </span>
     </div>
     <div class="q-goal">${T(q.id + '_desc')}</div>
-    <div class="q-bar"><span style="width:${Math.round(now / max * 100)}%"></span></div>
-    ${devDone
-      ? `<div class="q-numrow">${devDone}<div class="q-num ${full ? 'ok' : ''}">${now} / ${max}</div></div>`
-      : `<div class="q-num ${full ? 'ok' : ''}">${now} / ${max}</div>`}
+    <div class="q-bar"><span style="width:${Math.round(now / max * 100)}%"></span
+      ><b class="q-num ${full ? 'ok' : ''}">${now} / ${max}</b></div>
+    ${devDone}
     ${where ? `<div class="q-sec">${whereLabel}</div><div class="q-where">${where}</div>` : ''}
     <div class="q-sec">${T('q_reward')}</div>
     <div class="q-reward">${rewardText(q.reward)}</div>

@@ -17,6 +17,60 @@
 // 종료 코드: 0 = 전부 pass, 1 = 통과 못한 화면 있음, 2 = 하네스 자체가 실패
 const BASE = process.env.BASE || 'http://localhost:8080';
 const TABS = process.argv.slice(2);
+const zlib = require('zlib');
+
+// ─── PNG 한 장을 풀어 픽셀마다 «상대 휘도»를 낸다 ────────────────
+//
+// `checkTextStyle()` 이 못 보는 자리를 재려고 둔 것이다 — 글자 뒤가 **형제 요소**면
+// 조상에서 배경을 찾는 방식으로는 영영 안 걸린다 (퀘스트 진행도 숫자가 그렇다:
+// 배경이 「크림색 트랙」으로 읽히고 채워진 분홍은 한 번도 안 본다).
+//
+// ⚠️ 라이브러리를 안 쓴다 — 플레이라이트가 주는 8비트·비인터레이스 PNG 만 풀면
+// 되고 필터 다섯만 되돌리면 된다. 모양이 다르면 **빈 배열을 돌려주고** 부르는 쪽이
+// 「한 점도 못 읽었다」로 실패시킨다 (조용히 통과하지 않게).
+function pngLums(buf) {
+  let pos = 8, w = 0, h = 0, depth = 0, ctype = 0;
+  const idat = [];
+  while (pos + 8 <= buf.length) {
+    const len = buf.readUInt32BE(pos);
+    const type = buf.toString('ascii', pos + 4, pos + 8);
+    if (type === 'IHDR') {
+      const d = buf.slice(pos + 8, pos + 8 + len);
+      w = d.readUInt32BE(0); h = d.readUInt32BE(4); depth = d[8]; ctype = d[9];
+    } else if (type === 'IDAT') idat.push(buf.slice(pos + 8, pos + 8 + len));
+    else if (type === 'IEND') break;
+    pos += 12 + len;
+  }
+  if (depth !== 8 || (ctype !== 2 && ctype !== 6) || !w || !h) return [];
+  const ch = ctype === 6 ? 4 : 3, stride = w * ch;
+  let raw;
+  try { raw = zlib.inflateSync(Buffer.concat(idat)); } catch (e) { return []; }
+  const g = v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const out = [];
+  let prev = Buffer.alloc(stride), p = 0;
+  for (let y = 0; y < h && p + 1 + stride <= raw.length; y++) {
+    const f = raw[p++];
+    const row = Buffer.from(raw.slice(p, p + stride)); p += stride;
+    for (let i = 0; i < stride; i++) {
+      const a = i >= ch ? row[i - ch] : 0, b = prev[i], c = i >= ch ? prev[i - ch] : 0;
+      let v = row[i];
+      if (f === 1) v += a;
+      else if (f === 2) v += b;
+      else if (f === 3) v += (a + b) >> 1;
+      else if (f === 4) {
+        const q = a + b - c, pa = Math.abs(q - a), pb = Math.abs(q - b), pc = Math.abs(q - c);
+        v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? b : c);
+      }
+      row[i] = v & 255;
+    }
+    for (let x = 0; x < w; x++) {
+      const o = x * ch;
+      out.push(0.2126 * g(row[o]) + 0.7152 * g(row[o + 1]) + 0.0722 * g(row[o + 2]));
+    }
+    prev = row;
+  }
+  return out;
+}
 
 let chromium;
 try {
@@ -792,8 +846,18 @@ function launchOpts() {
             if (S.devQuestBtn) return '개발용 스위치가 켜진 채로 평소 화면을 재고 있다';
             if (document.querySelector('#questSheet .q-devdone'))
               return '스위치가 꺼져 있는데 개발용 「퀘스트 완료」 버튼이 보인다';
-            if (document.querySelector('#questSheet .q-numrow'))
-              return '스위치가 꺼져 있는데 진행도 줄이 두 칸으로 갈려 있다';
+            // ⚠️ 예전에는 여기서 `.q-numrow`(두 칸으로 갈린 진행도 줄)가 없는지를
+            // 봤는데, 숫자가 막대 «위»로 올라가면서 그 줄 자체가 없어졌다 —
+            // **그대로 두면 아무것도 안 재고 늘 통과하는 죽은 줄**이 된다.
+            // 지금 잴 것은 「숫자가 막대 위에 얹혀 있는가」다
+            const bar = document.querySelector('#questSheet .q-bar');
+            const num = document.querySelector('#questSheet .q-bar > .q-num');
+            if (!num) return '진행도 숫자가 막대 안에 없다';
+            const br = bar.getBoundingClientRect(), nr = num.getBoundingClientRect();
+            if (nr.top < br.top - 0.5 || nr.bottom > br.bottom + 0.5) {
+              return `진행도 숫자가 막대 밖으로 나갔다 (막대 ${br.top.toFixed(0)}~${br.bottom.toFixed(0)}`
+                + ` · 숫자 ${nr.top.toFixed(0)}~${nr.bottom.toFixed(0)})`;
+            }
             return null;
           });
           if (qsBad) results.push({ 화면: `${t}/퀘스트시트`, 오류: qsBad });
@@ -801,12 +865,67 @@ function launchOpts() {
           const qsBad2 = await page.evaluate(() => window.__cardFits('#questSheet'));
           if (qsBad2) results.push({ 화면: `${t}/퀘스트시트`, 오류: qsBad2 });
 
+          // **진행도 숫자가 «채워진 막대 위»에서도 읽히는가** — 픽셀을 떠서 잰다.
+          //
+          // ⚠️⚠️ **`checkTextStyle()` 은 이것을 영영 못 본다.** 숫자의 배경을 조상에서
+          // 찾으므로 늘 «크림색 트랙»(`--cream`)과 견주고, 채워지는 부분(`.q-bar span`)은
+          // 형제라 한 번도 안 본다. 게다가 **그림자는 대비로 안 쳐 준다** —
+          // 즉 이 자리는 **0건이 「통과」가 아니라 「한 번도 안 쟀다」**인 층이다
+          // (바람개비 HUD 가 1.84:1 로 오래 살아남은 것과 같은 구멍이다).
+          //
+          // 그래서 **채움을 100% 로 만들어 놓고** 숫자 상자를 찍어 본다:
+          //   · 글자(어두운 픽셀)와 **흰 테**(밝은 픽셀)가 같이 있는가
+          //   · 그 둘의 대비가 4.5:1 을 넘는가 ← 흰 테를 떼면 여기서 걸린다
+          // ⚠️ **채움이 100% 인 상태에서 재야 갈린다** — 0% 면 트랙이 원래 크림색이라
+          // 흰 테가 없어도 밝은 픽셀이 잔뜩 나와 무슨 값을 넣어도 통과한다
+          {
+            const box = await page.evaluate(() => {
+              const q = activeQuest();
+              if (!q) return null;
+              questState().n = q.goal.n;            // 막대를 끝까지 채운다
+              renderQuestSheet();
+              const sp = document.querySelector('#questSheet .q-bar span');
+              const n = document.querySelector('#questSheet .q-bar > .q-num');
+              if (!sp || !n) return null;
+              sp.style.transition = 'none'; sp.style.width = '100%';
+              const r = n.getBoundingClientRect(), sr = sp.getBoundingClientRect();
+              return { x: r.x, y: r.y, w: r.width, h: r.height, fill: sr.width,
+                       text: n.textContent.trim(), shadow: getComputedStyle(n).textShadow };
+            });
+            if (!box) {
+              results.push({ 화면: `${t}/퀘스트숫자`, 오류: '퀘스트나 막대를 못 찾아 아무것도 안 쟀다' });
+            } else if (box.fill < box.w) {
+              results.push({ 화면: `${t}/퀘스트숫자`,
+                오류: `채움(${box.fill.toFixed(0)}px)이 숫자(${box.w.toFixed(0)}px)를 안 덮어 잴 수가 없다` });
+            } else {
+              await page.waitForTimeout(80);
+              const shot = await page.screenshot({ clip: {
+                x: Math.floor(box.x), y: Math.floor(box.y),
+                width: Math.max(1, Math.ceil(box.w)), height: Math.max(1, Math.ceil(box.h)) } });
+              const lum = pngLums(shot);
+              const lo = Math.min(...lum), hi = Math.max(...lum);
+              const ratio = (hi + 0.05) / (lo + 0.05);
+              if (!lum.length) {
+                results.push({ 화면: `${t}/퀘스트숫자`, 오류: '픽셀을 한 점도 못 읽었다' });
+              } else if (ratio < 4.5) {
+                results.push({ 화면: `${t}/퀘스트숫자`,
+                  오류: `채운 막대 위에서 「${box.text}」의 대비가 ${ratio.toFixed(2)}:1 이다`
+                    + ` (4.5:1 이상 · 흰 테가 있어야 한다 · 그림자 ${box.shadow})` });
+              } else {
+                console.log(`  퀘스트숫자 — 채움 100% 에서 「${box.text}」 대비 ${ratio.toFixed(2)}:1`
+                  + ` (밝은 ${hi.toFixed(2)} · 어두운 ${lo.toFixed(2)} · ${lum.length}점)`);
+              }
+              await page.evaluate(() => { questState().n = 0; renderQuestSheet(); });
+              await page.waitForTimeout(80);
+            }
+          }
+
           // **개발용(임시) 「퀘스트 완료」 버튼** — 스위치를 켠 사람에게만 보인다.
           //
           // ⚠️ **꺼져 있는 것이 기본이라, 안 켜고 재면 이 줄을 한 번도 안 잰 것이 된다**
           // (개발용 블록을 펼쳐서 재기 시작하자마자 `.tune-label` 이 잡히던 것과 같은
           // 구멍이다 — 출시 전까지는 사람이 실제로 보는 자리다).
-          // 진행도 줄이 **두 칸으로 갈리는** 자리라 265px·영어에서 먼저 터진다
+          // 막대 아래에 **전체 폭**으로 서므로 265px·영어에서 글자가 먼저 터진다
           {
             const dqBad = await page.evaluate(() => {
               S.devQuestBtn = true;
@@ -814,8 +933,25 @@ function launchOpts() {
               renderQuestSheet();
               const b = document.querySelector('#questSheet .q-devdone');
               if (!b) return '스위치를 켰는데 버튼이 안 뜬다';
-              const num = document.querySelector('#questSheet .q-numrow .q-num');
-              if (!num) return '진행도 줄이 그 옆에 안 선다';
+              // ⚠️ **막대 «아래»에 전체 폭으로 선다** (사람이 그림으로 정한 자리다).
+              // 한때 진행도 숫자와 한 줄을 나눠 쓰는 «알약»이었다 — 그 시절 검사는
+              // 「그 옆에 숫자가 있는가」를 봤는데, 지금 그 줄은 없다
+              const bar = document.querySelector('#questSheet .q-bar');
+              const br = bar.getBoundingClientRect(), bb = b.getBoundingClientRect();
+              // ⚠️ **못 재는 상태를 «통과»로 흘리지 않는다.** 시트가 아직 안 떠 있으면
+              // 두 상자가 다 0 이라 아래의 `bb.width < br.width - 1` 이 «거짓»이 되어
+              // 폭을 어떻게 망가뜨려도 그대로 지나간다 (사보타주에서 실제로 그랬다)
+              if (br.width <= 0 || bb.width <= 0) {
+                return `막대(${br.width.toFixed(0)}px)나 버튼(${bb.width.toFixed(0)}px)을 못 재서`
+                  + ' 자리를 한 번도 안 봤다';
+              }
+              if (bb.top < br.bottom - 0.5) {
+                return `버튼이 막대 아래가 아니다 (막대 밑 ${br.bottom.toFixed(0)}`
+                  + ` · 버튼 위 ${bb.top.toFixed(0)})`;
+              }
+              if (bb.width < br.width - 1) {
+                return `버튼이 전체 폭이 아니다 (${bb.width.toFixed(0)}px · 막대 ${br.width.toFixed(0)}px)`;
+              }
               // ⚠️ **눌러 본다** — 「떠 있는가」만 보면 아무 일도 안 하는 버튼이어도 통과한다
               const q = activeQuest();
               const before = questProgress(q);
@@ -828,10 +964,15 @@ function launchOpts() {
               const after = questProgress(q);
               if (after !== q.goal.n) return `눌러도 안 찬다 (${before} → ${after} / ${q.goal.n})`;
               if (!questFull(q)) return '다 찼는데 `questFull` 이 거짓이다';
-              return null;
+              return { w: Math.round(bb.width), barW: Math.round(br.width),
+                       gap: Math.round(bb.top - br.bottom) };
             });
-            if (dqBad) results.push({ 화면: `${t}/퀘스트완료버튼`, 오류: dqBad });
+            if (typeof dqBad === 'string') results.push({ 화면: `${t}/퀘스트완료버튼`, 오류: dqBad });
             else {
+              // **잰 값을 통과할 때도 낸다** — 「전체 폭인가」는 숫자를 안 보여 주면
+              // 통과가 「맞다」인지 「못 쟀다」인지 구별이 안 된다
+              console.log(`  퀘스트완료버튼 — 폭 ${dqBad.w}px (막대 ${dqBad.barW}px)`
+                + ` · 막대 아래 ${dqBad.gap}px`);
               await page.waitForTimeout(200);
               await run(`${t}/퀘스트완료버튼`);
               const b2 = await page.evaluate(() => window.__cardFits('#questSheet'));
