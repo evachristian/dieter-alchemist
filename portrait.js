@@ -56,26 +56,26 @@
   //    옆구리에 혹이 붙는다. 새 스타일을 만들면 265px 에서 눈으로 한 번 본다.
   const HAIR_SPEC = {
     // 짧은 단발 — 헤어라인이 거의 평평하고 관자놀이만 내려온다
-    short: { side: 2.2, top: 3.0, yBot: 58,
+    short: { side: 4.7, top: 8.5, yBot: 58,
       back:   (L, R, d) => `${d} Z`,
       fringe: (L, R) => `C${R - 2},54 78,50 60,50 C42,50 ${L + 2},54 ${L},58 Z` },
     // 긴 머리 — 어깨로 흐른다. 앞머리는 옆으로 흐르는 가르마(한쪽이 더 길다)
-    long: { side: 2.6, top: 3.4, yBot: 60,
+    long: { side: 5.4, top: 9.6, yBot: 60,
       back:   (L, R, d) => `${d} L${R},112 L${R - 10},112 L${R - 8},60 L${L + 8},60 L${L + 10},112 L${L},112 Z`,
       fringe: (L, R) => `C${R - 2},55 80,48 68,50.5 C58,53 44,55.5 38,54 C34,53.5 ${L + 1},56 ${L},60 Z` },
     // 웨이브 — 귀 앞으로 한 가닥이 내려온다
-    wave: { side: 2.8, top: 3.8, yBot: 58,
+    wave: { side: 5.6, top: 9.9, yBot: 58,
       back:   (L, R, d) => `${d} C${R + 2},74 ${R - 4},84 ${R - 2},104 C${R - 8},96 ${R - 10},88 ${R - 8},74` +
         ` C${R - 6},58 ${R - 10},46 60,46 C${L + 10},46 ${L + 6},58 ${L + 8},74` +
         ` C${L + 10},88 ${L + 8},96 ${L + 2},104 C${L},84 ${L - 6},74 ${L},58 Z`,
       fringe: (L, R) => `C${R - 2},53 80,47 71,49.5 C63,52.5 49,52.5 41,49.5 C36,48 ${L + 1},53 ${L},58 Z` },
     // 올림머리 — 매듭은 «머리통이 아니라 얹은 것»이라 호 위로 올라가도 된다
-    updo: { side: 2.0, top: 2.6, yBot: 56,
+    updo: { side: 3.7, top: 6.2, yBot: 56,
       back:   (L, R, d) => `${d} Z`,
       bun:    '<circle cx="60" cy="27" r="11.5"/>',
       fringe: (L, R) => `C${R - 2},52 76,48 60,48 C44,48 ${L + 2},52 ${L},56 Z` },
     // 뻗친 머리 — 가닥은 «호 밖»으로 나가도 된다. 머리통은 그대로다
-    wild: { side: 3.0, top: 4.2, yBot: 58,
+    wild: { side: 5.9, top: 10.2, yBot: 58,
       // ⚠️ 가닥이 «얼굴(x34~86)보다 바깥»으로 안 나가면 얼굴 뒤에 숨어 뻗친 머리가
       //    아니라 평범한 단발이 된다 — 호를 낮추자 실제로 그렇게 됐다. 그래서 가닥만
       //    `SPIKE` 만큼 더 벌린다 (머리통이 아니라 «가닥»이라 호 밖이어도 된다)
@@ -220,9 +220,15 @@
                    <circle cx="60" cy="43" r="4.6" fill="${c}"/>`,
     // ⚠️ 후드의 «안쪽 구멍»도 두개골에서 뽑는다. 손으로 그려 두었더니 구멍이 y24 인데
     //    머리는 y33 이라 **머리와 후드 사이가 벌어져** 아치 안에 머리가 빠져 있었다.
-    //    제일 두꺼운 머리(wild 3.0/4.2)보다 조금 넉넉한 자리가 안쪽 선이다
-    hood:    c => { const i = crown(3.8, 3.8, 66), o = crown(12, 12, 66);
-      return `<path d="${o.d} L${i.R},66 A${i.rx},${i.ry} 0 1 0 ${i.L},66 Z" fill="${c}"/>`; },
+    //    ⚠️ **«그 사람이 쓴 머리»에서 뽑는다** — 숫자를 박아 두면 머리를 두껍게 고치는
+    //       순간 후드가 머리 «안»으로 들어가고, 얇게 고치면 그만큼 벌어진다.
+    //       제일 두꺼운 머리를 기준으로 삼아도 «얇은 머리를 쓴 사람»에게서 벌어진다
+    //       (슈타르크가 short 인데 wild 를 기준으로 뽑았더니 3px 이 비쳤다)
+    hood:    (c, hair) => {
+      const h = HAIR_SPEC[hair] || { side: 3, top: 6 };
+      const i = crown(h.side + 1, h.top + 1, 66), o = crown(h.side + 9, h.top + 9, 66);
+      return `<path data-part="deco-hood" d="${o.d} L${i.R},66 A${i.rx},${i.ry} 0 1 0 ${i.L},66 Z"
+        fill="${c}"/>`; },
     scarf:   c => `<path d="M32,104 Q60,116 88,104 L88,116 Q60,126 32,116 Z" fill="${c}"/>`,
     apron:   c => `<path d="M44,106 L76,106 L80,130 L40,130 Z" fill="${c}"/>
                    <path d="M50,106 q10,8 20,0" stroke="#fff" stroke-width="2" fill="none" opacity="0.7"/>`,
@@ -279,7 +285,7 @@
       ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${W}" height="${H}" rx="18"/></clipPath></defs>`}
       <g ${bare ? '' : `clip-path="url(#ptc_${u})"`}>
         ${bare ? '' : `<rect x="0" y="0" width="${W}" height="${H}" fill="${sp.bg || '#efe6f2'}"/>`}
-        ${sp.deco === 'hood' ? DECO.hood(sp.decoColor || sp.cloth) : ''}
+        ${sp.deco === 'hood' ? DECO.hood(sp.decoColor || sp.cloth, sp.hair) : ''}
         ${hair.back(sp.hairColor)}
         <path d="M34,110 C34,96 46,90 60,90 C74,90 86,96 86,110 L92,130 L28,130 Z" fill="${sp.cloth}"/>
         <path d="M52,88 L68,88 L68,98 C64,102 56,102 52,98 Z" fill="${sp.skin}"/>
