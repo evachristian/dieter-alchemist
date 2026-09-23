@@ -942,6 +942,24 @@ body.has-quest .screen { padding-bottom: 168px; }
 }
 .pg-hintway { font-size: 0.7rem; font-weight: 700; color: var(--ink-soft); }
 
+/* ─── 선물 시트 — 건물 안 시트(#npcSheet)와 «같은 조리법» ───────────
+   ⚠️⚠️ **「나가기」는 굴러가는 자리 «밖»이다.** 예전에는 물약 줄만
+   `max-height: 46vh` 로 묶어 두었는데, 그 붙박이 몫은 **머리(♥ 진행 · 좋아하는 등급 ·
+   「그가 주는 것」)가 접히는 만큼** 늘어난다 — 카드 높이가 `붙박이 + 0.46vh` 라
+   화면이 낮아지면 어느 지점에서 반드시 넘친다. 재 보니 **420px 아래에서 「나가기」가
+   화면 밖**이었다(가로로 든 폰 640×360 에서 399 / 360). 건물 안 시트에서 이미 푼
+   문제라 **같은 짜임을 쓴다** — 카드를 세로 플렉스로 두고 `#giftBody` 만 굴린다.
+   두 벌로 두면 한쪽만 고쳐 갈린다.
+   ⚠️ `text-align` 은 안 건드린다 — 이 시트의 머리 두 줄은 가운데 정렬이 지금 모양이다.
+   ⚠️ **짐을 지는 것은 «위 두 줄»이다** — 카드의 `overflow: hidden` 과 본문의
+   `overflow-y: auto`. 아래 `flex: 0 0 auto` 와 `min-height: 0` 은 지금 «한 픽셀도
+   안 바꾼다»(둘을 떼고 재 봤다 — 굴림 상자라 `min-height` 가 이미 0 이고,
+   제목·「나가기」는 제 내용보다 못 줄어든다). 그래도 남기는 이유는 하나다:
+   건물 안 시트와 **글자 그대로 같은 조리법**이라야 다음 사람이 한쪽만 고치지 않는다 */
+#giftSheet .modal-card { display: flex; flex-direction: column; overflow: hidden; }
+#giftBody { overflow-y: auto; min-height: 0; }
+#giftTitle, #giftSheet .sheet-exit { flex: 0 0 auto; }
+
 .gift-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 4px 10px; margin: 0 0 8px; }
 .gift-need { font-size: 0.76rem; font-weight: 800; color: var(--ink-soft); }
@@ -957,7 +975,9 @@ body.has-quest .screen { padding-bottom: 168px; }
 .give-what { flex: 1 1 auto; min-width: 0; font-size: 0.76rem; font-weight: 700; color: var(--ink); }
 .give-now { flex: 0 0 auto; font-size: 0.78rem; font-weight: 900; color: var(--text-pink); }
 .give-next { flex: 0 0 auto; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft); }
-.gift-list { display: flex; flex-direction: column; gap: 7px; max-height: 46vh; overflow-y: auto; }
+/* ⚠️ **여기에 `max-height`·`overflow` 를 도로 넣지 않는다** — 굴리는 자리는
+   `#giftBody` 하나다. 둘이면 스크롤이 겹쳐 안쪽 줄에 손가락이 갇힌다 */
+.gift-list { display: flex; flex-direction: column; gap: 7px; }
 .gift-none { font-size: 0.82rem; color: var(--ink-soft); padding: 14px 0; text-align: center; }
 /* 한 줄 = 이모지 · 이름(+개수) · 딱지 · 오를 점수.
    이름 칸만 줄어들게 잡아야 265px 에서 점수가 밀려 나가지 않는다 */

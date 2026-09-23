@@ -2215,6 +2215,77 @@ function launchOpts() {
           await page.setViewportSize(vp);
           await page.waitForTimeout(200);
         }
+        // ── 선물 시트도 «같은 조리법»인가 ────────────────────────────
+        // 건물 안 시트와 같은 사고가 여기에도 있었다 — 물약 줄만 `max-height: 46vh` 로
+        // 묶어 두어서 카드 높이가 `붙박이 + 0.46vh` 였고, **420px 아래에서 「나가기」가
+        // 화면 밖**이었다 (가로로 든 폰 640×360 에서 399 / 360).
+        // ⚠️⚠️ **360×640 에서만 재면 이 사고를 못 잡는다** — 옛 CSS 도 거기서는 통과한다.
+        // 가르는 자리는 «낮은 화면»이라 **둘을 다 잰다**: 사람이 말한 폰(360×640)과
+        // 그것을 가로로 든 것(640×360). 가르지 못하는 잣대는 무슨 값을 넣어도 통과한다.
+        // ⚠️ **선물할 수 있는 사람을 «다» 돈다** — 머리줄(♥ 진행 · 좋아하는 등급 ·
+        // 「그가 주는 것」)의 높이가 사람마다 달라서, 하나만 재면 제일 빡빡한 것을
+        // 한 번도 안 재고 통과한다. 몇 명을 쟀는지도 같이 낸다
+        {
+          const vp = page.viewportSize();
+          const keep = await page.evaluate(() => {
+            const before = { potions: S.potions, bond: Object.assign({}, S.bond) };
+            // 가진 물약을 **다** 채운다 — 줄이 짧으면 굴릴 것이 없어 아무것도 안 잰 것이다
+            S.potions = {};
+            D.RECIPES.filter(r => r.result.kind === 'potion')
+              .forEach(r => { S.potions[r.result.id] = 3; });
+            // 단계 이름이 제일 긴 「각별한 사이」로 — 머리줄이 제일 넓어진다
+            D.bondNpcs().forEach(n => { S.bond[n] = D.BOND_TIERS[D.BOND_TIERS.length - 1].at; });
+            return before;
+          });
+          const npcs = await page.evaluate(() => D.bondNpcs());
+          const lang0 = await page.evaluate(() => I18N.getLang());
+          const out = []; const seen = [];
+          // ⚠️ **두 언어로 잰다** — 머리줄(「각별한 사이」 · 「그가 주는 것」)이 영어에서
+          // 더 길어 한 줄씩 더 접힌다. 한 언어만 재면 붙박이 몫이 제일 큰 쪽을
+          // 한 번도 안 재고 통과한다 (`checkUI()` 의 언어 순회는 이 블록을 안 지난다)
+          for (const lang of ['ko', 'en']) {
+           await page.evaluate(l => I18N.setLang(l), lang);
+           for (const [w, h] of [[360, 640], [640, 360]]) {
+            await page.setViewportSize({ width: w, height: h });
+            await page.waitForTimeout(200);
+            for (const npc of npcs) {
+              // ⚠️ **여는 것과 재는 것을 갈라 놓는다** (건물 안 시트에서 배운 자리다) —
+              // `sheetup` 첫 프레임의 `translateY(28px)` 가 상자에 얹혀 멀쩡한 화면이 걸린다
+              await page.evaluate(n => { closeGift(); openGift(n); }, npc);
+              await page.waitForTimeout(340);
+              const r = await page.evaluate(() => {
+                const card = document.querySelector('#giftSheet .modal-card');
+                const exit = document.querySelector('#giftSheet .sheet-exit');
+                const body = document.getElementById('giftBody');
+                if (!card || !exit || !body) return { err: '시트가 안 열렸다' };
+                const b = exit.getBoundingClientRect();
+                if (b.height < 2) return { err: '「나가기」가 안 그려졌다' };
+                if (b.bottom > innerHeight + 0.5 || b.top < -0.5)
+                  return { err: `「나가기」가 화면 밖이다 (${Math.round(b.top)}..${Math.round(b.bottom)} / ${innerHeight})` };
+                // ⚠️ 굴리는 자리는 **하나**여야 한다 — 안쪽 목록까지 굴러가면
+                // 손가락이 그 줄에 갇힌다 (`.gift-list` 에 `max-height` 를 도로 넣은 경우다)
+                const list = document.querySelector('#giftSheet .gift-list');
+                if (list && list.scrollHeight - list.clientHeight > 1)
+                  return { err: '물약 목록이 따로 굴러간다 (굴리는 자리가 둘이다)' };
+                return { err: null, over: Math.max(0, body.scrollHeight - body.clientHeight) };
+              });
+              if (r.err) out.push(`${lang} ${w}×${h} · ${npc} — ${r.err}`);
+              else seen.push(`${lang} ${w}×${h} ${npc} 굴릴 몫 ${r.over}px`);
+            }
+            const gf = await page.evaluate(() => window.__cardFits('#giftSheet'));
+            if (gf) out.push(`${lang} ${w}×${h} · ${gf}`);
+           }
+          }
+          if (!npcs.length) out.push('선물할 수 있는 사람이 하나도 없다 — 아무것도 안 쟀다');
+          results.push(out.length
+            ? { 화면: `${t}/선물시트작은폰`, 오류: out.join(' / ') }
+            : { 화면: `${t}/선물시트작은폰`, pass: true, total: 0,
+                잰것: `ko·en × 360×640·640×360 × 사람 ${npcs.length}명 (${seen.length}번) · ${seen[seen.length - 1]}` });
+          await page.evaluate((a) => { I18N.setLang(a.lang0); closeGift(); leaveSpot();
+            S.potions = a.keep.potions; S.bond = a.keep.bond; }, { keep, lang0 });
+          await page.setViewportSize(vp);
+          await page.waitForTimeout(200);
+        }
         continue;
       }
       // **조합 결과 모달은 지금까지 한 번도 재 본 적이 없다.** 조합에 실패해야만 뜨는
