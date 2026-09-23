@@ -1021,8 +1021,11 @@ body.has-quest .screen { padding-bottom: 168px; }
 /* 초상화 — 실내 그림 위에 세운다. ⚠️ 예전에는 `bottom: 62px` 이었다: 버튼 줄이
    그림 «위에» 얹혀 있어서 그것을 피해 놓은 값이다. 버튼이 그림 밖으로 나가면서
    피할 것이 없어졌으므로 바닥에 붙인다 — 안 내리면 그림 아래가 통째로 빈다 */
-.npc-figure { position: absolute; right: 10px; bottom: 0; width: 33%; max-width: 132px; }
+/* ⚠️ **전신은 «높이»로 맞춘다.** 폭(33%)으로 맞추면 250 짜리 상자가 무대보다
+   길어져 발이 잘린다 — 흉상이 가슴에서 잘리던 것과 같은 사고가 아래쪽에서 난다 */
+.npc-figure { position: absolute; right: 10px; bottom: 0; height: 96%; }
 .pt-svg { display: block; width: 100%; height: auto; }
+.pt-svg.full { width: auto; height: 100%; }
 /* 배경 없이 인물만 세울 때는 그림자를 **모양 그대로** 드리운다.
    상자 그림자가 아니라 실루엣 그림자라야 방 안에 서 있는 것처럼 보인다 */
 .pt-svg.bare { filter: drop-shadow(0 4px 6px rgba(50,35,45,0.32)); }

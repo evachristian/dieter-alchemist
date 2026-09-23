@@ -1239,6 +1239,9 @@
   const BUSTS = {
     fairy: {
       box: [286, 136, 88, 118],
+      // 전신 — NPC 대화 화면은 «서 있는 사람»을 세우는 자리라 흉상 상자로는
+      // 가슴에서 잘린 그림이 250 짜리 상자 한가운데에 뜬다 (`fullBox`)
+      fullBox: [284, 136, 92, 162],
       // 손그림 아홉 + 부품 표 — 목록을 손으로 적어 두면 검사기만 옛 목록으로 돈다
       poses: ['idle', 'smile', 'glance', 'cross', 'laugh', 'wink', 'sad', 'think', 'proud']
              .concat(Object.keys(FZ_FACE)),
@@ -1249,6 +1252,7 @@
     },
     princess: {
       box: [102, 130, 96, 118],
+      fullBox: [100, 116, 100, 188],
       // ⚠️ **손으로 그린 열셋 + 부품 표(`PZ_FACE`)의 스물다섯.**
       // 목록을 손으로 적어 두면 부품 표를 늘렸을 때 검사기만 옛 목록으로 돈다 —
       // 그래서 표에서 «직접» 이어 붙인다
@@ -1269,10 +1273,12 @@
   // 없는 표정 이름을 적으면 **조용히 기본 표정으로 떨어져서** 화면은 멀쩡해 보인다.
   function bustPoses(kind) { return BUSTS[kind] ? BUSTS[kind].poses.slice() : null; }
   // W×H 상자에 맞춘 <g> 하나를 돌려준다 (portrait.js 가 <svg> 안에 그대로 넣는다)
-  function bustArt(kind, pose, W, H) {
+  // ⚠️ `full` 이면 **발끝까지 들어가는 상자**를 쓴다 — 흉상 상자(`box`)로 전신 높이를
+  //   채우면 그림이 상자 한가운데에 떠서 「바닥에 안 서 있는 사람」이 된다
+  function bustArt(kind, pose, W, H, full) {
     const b = BUSTS[kind];
     if (!b) return '';
-    const [x, y, w, h] = b.box;
+    const [x, y, w, h] = (full && b.fullBox) || b.box;
     const s = Math.min(W / w, H / h);
     const tx = (W - w * s) / 2 - x * s;
     const ty = (H - h * s) / 2 - y * s;

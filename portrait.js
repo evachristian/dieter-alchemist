@@ -226,6 +226,59 @@
   const BODY = c => `<path d="M24,130 C24,109 38,99 60,99 C82,99 96,109 96,130 Z" fill="${c}"/>
       <path d="M52,99 C54,105 66,105 68,99 C66,103 54,103 52,99 Z" fill="${dark(c, 0.22)}"/>`;
 
+  // ─── 전신 ─────────────────────────────────────────────────
+  // ⚠️⚠️ **흉상은 «가슴에서 잘린다».** NPC 대화 화면은 그림 위에 사람을 세우는
+  //   자리인데 viewBox 가 130 에서 끝나 어깨가 상자 밖으로 나갔다 — 방 안에 서 있는
+  //   사람이 아니라 «액자에서 잘린 사진»으로 보였다 (신고받은 자리다).
+  //   전신은 **y130 «아래»만 이어 그린다** — 머리·얼굴·표정·머리카락은 한 글자도
+  //   안 건드린다. 그래야 퀘스트 칩(52px)·컷씬의 흉상이 지금 그대로 남는다.
+  //   ⚠️ **부품을 두 벌로 만들지 않는다** — `bust()` 와 같은 함수를 지나고 `H` 만 다르다
+  const FULL_H = 250;
+  // 다리·팔은 몇 안 되는 숫자에서 나온다 — 옮기면 그림 전체가 같이 따라온다
+  const FIG = { hem: 176, hip: 172, knee: 200, foot: 228, legHalf: 6.6, legGap: 12 };
+  // 옷 — 튜닉(기본)과 로브(발까지 오는 긴 옷). `SPEAKERS` 의 `body` 가 고른다.
+  // ⚠️ 로브가 없으면 **여왕이 바지를 입는다** — 그림 하나로 여덟을 다 그릴 수는 없다
+  function bodyFull(sp) {
+    const c = sp.cloth, sk = sp.skin, dk = dark(c, 0.2), dd = dark(c, 0.38);
+    const robe = sp.body === 'robe';
+    const hem = robe ? 224 : FIG.hem;
+    // 몸통 — 어깨는 흉상과 «같은 곡선»이라 이음매가 없다
+    const torso = robe
+      ? `M24,130 C24,109 38,99 60,99 C82,99 96,109 96,130 L104,${hem} C86,${hem + 6} 34,${hem + 6} 16,${hem} Z`
+      : `M24,130 C24,109 38,99 60,99 C82,99 96,109 96,130 L93,${hem} C80,${hem + 4} 40,${hem + 4} 27,${hem} Z`;
+    // 다리 — 로브면 발만 내민다
+    const legs = robe ? '' :
+      [-1, 1].map(f => {
+        const x = 60 + f * FIG.legGap, h = FIG.legHalf;
+        return `<path d="M${x - h},${FIG.hip} C${x - h - 0.6},${FIG.knee} ${x - h - 0.4},${FIG.foot - 8} ${x - h},${FIG.foot}` +
+               ` L${x + h},${FIG.foot} C${x + h + 0.4},${FIG.foot - 8} ${x + h + 0.6},${FIG.knee} ${x + h},${FIG.hip} Z" fill="${dd}"/>`;
+      }).join('');
+    const feet = [-1, 1].map(f => {
+      const x = 60 + f * FIG.legGap;
+      return `<ellipse cx="${x + f * 1.4}" cy="${FIG.foot + 2}" rx="9.5" ry="4.6" fill="${dark(c, 0.5)}"/>`;
+    }).join('');
+    // 팔 — 소매는 옷 색, 손은 살색.
+    // ⚠️ **팔은 몸통 «밖»으로 나와야 팔로 읽힌다.** 처음에는 어깨 안쪽(±33)에서
+    //   시작해 소매가 몸통(±96) 안에 거의 묻혔고, 실루엣이 **판초 한 장**이 됐다.
+    //   지금은 팔꿈치에서 ±44 까지 나간다 — 옷과 팔 사이에 «틈»이 보인다
+    // ⚠️⚠️ **팔은 몸통 «앞»에 그린다.** 뒤에 두면 허리띠가 소매 위를 가로질러
+    //   «몸통에 막대를 얹은» 꼴이 된다 — 띠를 좁혀 피해 봤더니 이번엔 가슴에 뜬
+    //   알약이 됐다 (그려 보고 두 번 되돌린 자리다). 앞에 두면 띠의 양 끝이
+    //   소매에 가려지는데, 그것이 실제로 허리띠가 보이는 모양이다
+    const arms = [-1, 1].map(f => {
+      const el = 60 + f * 37, wr = 60 + f * 35;
+      return `<path d="M${60 + f * 29},116 Q${el},138 ${wr},158" stroke="${dk}" stroke-width="14"` +
+             ` fill="none" stroke-linecap="round"/>` +
+             `<circle cx="${wr}" cy="168" r="6.4" fill="${sk}"/>`;
+    }).join('');
+    // 허리띠 — **이 한 줄이 「옷」과 「자루」를 가른다.** 없으면 어깨에서 밑단까지
+    // 한 색 덩어리라 무엇을 입었는지가 안 읽힌다 (로브는 허리에 매는 띠다)
+    const by = robe ? 148 : 141;
+    const belt = `<rect x="${robe ? 24 : 26}" y="${by}" width="${robe ? 72 : 68}" height="8" rx="2" fill="${dd}"/>` +
+                 `<rect x="55" y="${by - 1}" width="10" height="10" rx="2" fill="${dark(c, 0.06)}"/>`;
+    return `${legs}${feet}<path data-part="body-full" d="${torso}" fill="${c}"/>${belt}${arms}`;
+  }
+
   // ─── 눈 ───────────────────────────────────────────────────
   // 왼눈/오른눈이 같은 모양이라 x 만 바꿔 두 번 그린다
   const EYE = {
@@ -384,9 +437,9 @@
     //    고친 것 셋 — ① 바깥 선이 «어깨로 벌어진다» ② 어깨 판보다 넓게 나와 망토가
     //    보인다 ③ **안쪽 구멍을 머리보다 «작게»** 잡아 흰 틈이 안 생긴다
     //    (후드는 머리 «뒤»에 그려지므로 겹쳐도 안 보인다 — 벌어지는 것만 문제였다)
-    hood:    (c, hair) => {
+    hood:    (c, hair, B) => {
       const h = HAIR_SPEC[hair] || { side: 3, top: 6 };
-      const y = 66, B = 130, FLARE = 16;
+      const y = 66, FLARE = 16;
       const i = crown(h.side - 1, h.top - 1, y), o = crown(h.side + 13, h.top + 13, y);
       return `<path data-part="deco-hood" d="M${o.L - FLARE},${B}` +
         ` C${o.L - FLARE + 4},${B - 26} ${o.L},${B - 44} ${o.L},${y}` +
@@ -396,11 +449,13 @@
         ` A${i.rx},${i.ry} 0 1 0 ${i.L},${y}` +
         ` C${i.L},${B - 44} ${i.L},${B - 26} ${i.L - 3},${B} Z" fill="${c}"/>`; },
     scarf:   c => `<path d="M32,104 Q60,116 88,104 L88,116 Q60,126 32,116 Z" fill="${c}"/>`,
-    apron:   c => `<path d="M44,106 L76,106 L80,130 L40,130 Z" fill="${c}"/>
+    // ⚠️ 앞치마·거울 테는 **상자 끝까지** 내려간다 — 전신에서 가슴에서 끊기면
+    //    「반만 두른 천」이 된다. 그래서 둘 다 높이(`B`)를 받는다
+    apron:   (c, _h, B) => `<path d="M44,106 L76,106 L${80 + (B - 130) * 0.16},${B} L${40 - (B - 130) * 0.16},${B} Z" fill="${c}"/>
                    <path d="M50,106 q10,8 20,0" stroke="#fff" stroke-width="2" fill="none" opacity="0.7"/>`,
     leaf:    c => `<path d="M78,30 q14,-10 16,4 q-12,8 -16,-4 Z" fill="${c}"/>
                    <path d="M30,34 q-13,-8 -15,5 q11,7 15,-5 Z" fill="${c}"/>`,
-    mirror:  c => `<rect x="6" y="8" width="108" height="118" rx="20" fill="none" stroke="${c}" stroke-width="5"/>
+    mirror:  (c, _h, B) => `<rect x="6" y="8" width="108" height="${B - 12}" rx="20" fill="none" stroke="${c}" stroke-width="5"/>
                    <path d="M20,20 q10,-8 22,-6" stroke="#fff" stroke-width="3" fill="none" opacity="0.6"/>`,
   };
 
@@ -413,6 +468,10 @@
   function bust(sp, mood, opts) {
     if (!sp) return '';
     const bare = !!(opts && opts.bare);
+    // **전신** — NPC 대화 화면처럼 «방 안에 서 있는» 자리에서만 쓴다.
+    // y130 아래를 이어 그릴 뿐이라 머리·얼굴은 흉상과 한 글자도 안 다르다
+    const full = !!(opts && opts.full);
+    const H2 = full ? FULL_H : H;
     const u = 'p' + (++uid);
     const m = (sp.moods && sp.moods[mood]) || (sp.moods && sp.moods.def) || { eye: 'normal', mouth: 'calm' };
     // **인트로에 이미 얼굴이 있는 사람은 그 그림을 그대로 쓴다.**
@@ -420,13 +479,13 @@
     // 요정 대모가 실제로 그랬다 (머리 모양이 아예 다르고 정수리가 떨어져 보였다).
     // intro.js 가 없으면(스크립트 누락) 아래의 부품 조합으로 그냥 떨어진다.
     if (sp.introArt && window.Intro && Intro.bustArt) {
-      const art = Intro.bustArt(sp.introArt, m.art, W, H);
+      const art = Intro.bustArt(sp.introArt, m.art, W, H2, full);
       if (art) {
-        return `<svg class="pt-svg ${bare ? 'bare' : ''}" viewBox="0 0 ${W} ${H}"
+        return `<svg class="pt-svg ${bare ? 'bare' : ''} ${full ? 'full' : ''}" viewBox="0 0 ${W} ${H2}"
           xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}">
-          ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${W}" height="${H}" rx="18"/></clipPath></defs>`}
+          ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${W}" height="${H2}" rx="18"/></clipPath></defs>`}
           <g ${bare ? '' : `clip-path="url(#ptc_${u})"`}>
-            ${bare ? '' : `<rect x="0" y="0" width="${W}" height="${H}" fill="${sp.bg || '#efe6f2'}"/>`}
+            ${bare ? '' : `<rect x="0" y="0" width="${W}" height="${H2}" fill="${sp.bg || '#efe6f2'}"/>`}
             ${art}
           </g>
         </svg>`;
@@ -450,14 +509,14 @@
     //    「대노」·「곤란」 같은 얼굴이 그대로 살아난다 (지금 175칸이 제 눈썹을 갖고 있다)
     const browC = dark(sp.hairColor || '#3f3239', 0.25);
     const beard = (sp.beard && BEARD[sp.beard]) ? sp.beard : 'none';
-    return `<svg class="pt-svg ${bare ? 'bare' : ''}" viewBox="0 0 ${W} ${H}"
+    return `<svg class="pt-svg ${bare ? 'bare' : ''} ${full ? 'full' : ''}" viewBox="0 0 ${W} ${H2}"
       xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}">
-      ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${W}" height="${H}" rx="18"/></clipPath></defs>`}
+      ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${W}" height="${H2}" rx="18"/></clipPath></defs>`}
       <g ${bare ? '' : `clip-path="url(#ptc_${u})"`}>
-        ${bare ? '' : `<rect x="0" y="0" width="${W}" height="${H}" fill="${sp.bg || '#efe6f2'}"/>`}
-        ${sp.deco === 'hood' ? DECO.hood(sp.decoColor || sp.cloth, sp.hair) : ''}
+        ${bare ? '' : `<rect x="0" y="0" width="${W}" height="${H2}" fill="${sp.bg || '#efe6f2'}"/>`}
+        ${sp.deco === 'hood' ? DECO.hood(sp.decoColor || sp.cloth, sp.hair, H2) : ''}
         ${hair.back(sp.hairColor)}
-        ${BODY(sp.cloth)}
+        ${full ? bodyFull(sp) : BODY(sp.cloth)}
         ${NECK(sp.skin)}
         ${FACE(sp.skin)}
         ${beard === 'none' && browOf(sp.brows).cheek !== false ? CHEEK(sp.skin) : ''}
@@ -470,7 +529,7 @@
         ${eyeL(50, sp.eyeColor || '#3f3239')}${eyeR(70, sp.eyeColor || '#3f3239')}
         ${NOSE(sp.skin)}
         ${MOUTH[m.mouth] || MOUTH.calm}
-        ${sp.deco && sp.deco !== 'hood' ? DECO[sp.deco](sp.decoColor || '#ffd76a') : ''}
+        ${sp.deco && sp.deco !== 'hood' ? DECO[sp.deco](sp.decoColor || '#ffd76a', sp.hair, H2) : ''}
       </g>
     </svg>`;
   }

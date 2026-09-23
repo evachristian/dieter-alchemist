@@ -4546,10 +4546,10 @@ function renderVillageSpot(v, s) {
 
   el.innerHTML = `
     <div class="npc-stage">
-      ${(window.Village ? Village.interior(s, v.id) : '')}
+      ${(window.Village ? Village.interior(s, v.id, !!sp) : '')}
       ${sp && window.Portrait
         ? `<div class="npc-figure">${Portrait.bust(Object.assign({}, sp, { name: speakerName(sp.id) }),
-             talking ? (moods[talkIdx] || 'def') : greetMood, { bare: true })}</div>`
+             talking ? (moods[talkIdx] || 'def') : greetMood, { bare: true, full: true })}</div>`
         : ''}
     </div>
     <div class="npc-bubble ${talking ? 'live' : ''}"

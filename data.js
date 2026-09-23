@@ -1593,8 +1593,8 @@ const VILLAGES = [
     spots: [
       { id: 'vs_mirror_pond',   emoji: '🪞', name: '거울못',    shape: 'water', x: 26, y: 26, npc: 'sp_yutark', trade: false },
       { id: 'vs_mirror_shrine', emoji: '⛩️', name: '낡은 사당', shape: 'ruin',  x: 74, y: 26 },
-      { id: 'vs_mirror_bridge', emoji: '🌫️', name: '안개 다리', shape: 'well',  x: 26, y: 70 },
-      { id: 'vs_mirror_cairn',  emoji: '🗿', name: '돌무지',    shape: 'tower', x: 74, y: 70 },
+      { id: 'vs_mirror_bridge', emoji: '🌫️', name: '안개 다리', shape: 'water', x: 26, y: 70 },
+      { id: 'vs_mirror_cairn',  emoji: '🗿', name: '돌무지',    shape: 'ruin',  x: 74, y: 70 },
     ] },
   { id: 'vl_hunter',  emoji: '🏹', name: '사냥꾼 쉼터',   desc: '차마 베지 못한 사냥꾼이 머무는 오두막.',
     spots: [
@@ -1607,22 +1607,22 @@ const VILLAGES = [
   // 나오므로(오릭스의 독사과 · 슈타르크의 저주), 2막은 사람과 친해진 뒤에 온다
   { id: 'vl_glass',   emoji: '⚰️', name: '유리관 호수',   desc: '물밑에 유리관이 가라앉아 있다는 호숫가.',
     spots: [
-      { id: 'vs_glass_shore', emoji: '🌊', name: '호숫가',      shape: 'well',  x: 26, y: 26 },
-      { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'house', x: 74, y: 26 },
+      { id: 'vs_glass_shore', emoji: '🌊', name: '호숫가',      shape: 'water', x: 26, y: 26 },
+      { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'water', x: 74, y: 26 },
       { id: 'vs_glass_hut',   emoji: '🎣', name: '어부 오두막', shape: 'shop',  x: 26, y: 70 },
       // 관까지 내려가는 길. **아직 아무것도 없다** — 3막에서 쓸 자리다
-      { id: 'vs_glass_stair', emoji: '🪨', name: '잠긴 계단',   shape: 'mine',  x: 74, y: 70, trade: false },
+      { id: 'vs_glass_stair', emoji: '🪨', name: '잠긴 계단',   shape: 'tower', x: 74, y: 70, trade: false },
     ] },
   { id: 'vl_mine',    emoji: '⛏️', name: '은빛 갱도',     desc: '곡괭이 소리가 밤낮으로 울리는 은광촌.',
     spots: [
       { id: 'vs_mine_adit',  emoji: '⛏️', name: '갱구',      shape: 'mine',  x: 26, y: 26 },
       { id: 'vs_mine_store', emoji: '💎', name: '원석 창고', shape: 'shop',  x: 74, y: 26 },
       { id: 'vs_mine_cut',   emoji: '🔨', name: '세공소',    shape: 'forge', x: 26, y: 70 },
-      { id: 'vs_mine_rail',  emoji: '🚋', name: '광차 선로', shape: 'tower', x: 74, y: 70, trade: false },
+      { id: 'vs_mine_rail',  emoji: '🚋', name: '광차 선로', shape: 'mine',  x: 74, y: 70, trade: false },
     ] },
   { id: 'vl_thorn',   emoji: '🌹', name: '가시덤불 마을', desc: '가시울타리가 성을 통째로 감싼 마을.',
     spots: [
-      { id: 'vs_thorn_gate',    emoji: '🌹', name: '가시울타리 문', shape: 'tower', x: 26, y: 26, trade: false },
+      { id: 'vs_thorn_gate',    emoji: '🌹', name: '가시울타리 문', shape: 'ruin',  x: 26, y: 26, trade: false },
       // **왕자에게는 거래가 없다.** 그가 주는 것은 호위이지 물건이 아니다
       { id: 'vs_thorn_barrack', emoji: '⚔️', name: '병영',         shape: 'house', x: 74, y: 26, npc: 'sp_valen', trade: false },
       { id: 'vs_thorn_armory',  emoji: '🛡️', name: '무기고',       shape: 'forge', x: 26, y: 70 },
@@ -1635,7 +1635,7 @@ const VILLAGES = [
       { id: 'vs_spire_gate',   emoji: '🏰', name: '첨탑 아래',    shape: 'tower', x: 26, y: 26, trade: false },
       // 몇십 년째 무작위 조합 중인 자리 (STORY.md 「그녀는 레시피를 모른다」)
       { id: 'vs_spire_lab',    emoji: '⚗️', name: '왕실 연금실',  shape: 'lab',   x: 74, y: 26 },
-      { id: 'vs_spire_mirror', emoji: '🕯️', name: '거울의 방',    shape: 'house', x: 26, y: 70,
+      { id: 'vs_spire_mirror', emoji: '🕯️', name: '거울의 방',    shape: 'tower', x: 26, y: 70,
         npc: 'sp_ygritte', trade: false },
       { id: 'vs_spire_forge',  emoji: '🔥', name: '화덕',        shape: 'forge', x: 74, y: 70 },
     ] },

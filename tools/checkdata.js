@@ -519,6 +519,38 @@ add('id 가 겹친다', dupId);
   }
 }
 
+// ─── 건물 «안» 그림 ───────────────────────────────────────────
+// ⚠️ `Village.interior()` 는 `spot.shape` 로 방을 고르고 **모르는 모양이면 `house` 로
+//   조용히 떨어진다.** 그래서 오타 하나에 「낡은 나루터」가 여관 거실이 되는데
+//   화면에는 오류가 하나도 안 뜬다 — 실제로 여덟 곳이 그 상태였다.
+// ⚠️ **목록을 손으로 적지 않는다** — `Village.shapes` 를 그대로 읽는다
+//   (`Portrait.hairs` 와 같은 규칙이다)
+{
+  require(path.join(ROOT, 'village.js'));
+  const V = global.window.Village;
+  const bad = [];
+  if (!V || !Array.isArray(V.shapes) || !V.shapes.length) {
+    bad.push('village.js 가 `shapes` 를 안 내놓는다 — 방 모양을 한 가지도 잴 수가 없다');
+  } else {
+    const used = new Map();
+    for (const v of D.VILLAGES) for (const s of (v.spots || [])) {
+      if (!used.has(s.shape)) used.set(s.shape, []);
+      used.get(s.shape).push(`${s.id}(${s.name})`);
+    }
+    for (const [sh, ids] of used) {
+      if (!sh) bad.push(`모양이 아예 없다 — ${ids.join(' · ')}`);
+      else if (!V.shapes.includes(sh)) bad.push(`없는 모양 «${sh}» — ${ids.join(' · ')}`);
+    }
+    // 반대쪽도 본다 — 아무도 안 쓰는 방은 «그려 놓고 영영 못 보는» 그림이다
+    V.shapes.forEach(sh => { if (!used.has(sh)) bad.push(`«${sh}» 방을 쓰는 건물이 하나도 없다`); });
+    if (!bad.length) {
+      console.log(`   건물 안 — 모양 ${V.shapes.length}가지를 건물 ${[...used.values()]
+        .reduce((a, x) => a + x.length, 0)}곳이 다 쓴다`);
+    }
+  }
+  add('건물 안 그림이 어긋난다', bad);
+}
+
 // ─── 결과 ─────────────────────────────────────────────────────
 if (!problems.length) {
   console.log(`✅ 데이터 이상 없음 (레시피 ${D.RECIPES.length} · 맵 ${D.MAPS.length}`
