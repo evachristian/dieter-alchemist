@@ -1719,22 +1719,22 @@ const BASE_MOODS = {
 };
 
 const SPEAKERS = [
-  { id: 'sp_stark', name: '슈타르크', hair: 'crop', hairColor: '#4a3a2e', beard: 'stub',
-    skin: '#e8c3a3', cloth: '#6b5a44', bg: '#dfe6d8', deco: 'hood', decoColor: '#4f5f42',
+  { id: 'sp_stark', name: '슈타르크', hair: 'crop', hairColor: '#4a3a2e', brows: 'slant', beard: 'none',
+    skin: '#e8c3a3', cloth: '#6b5a44', bg: '#dfe6d8', deco: 'none', decoColor: '#4f5f42',
     moods: { def: { eye: 'sharp', mouth: 'flat' }, warm: { eye: 'soft', mouth: 'calm' } } },
-  { id: 'sp_orix', name: '오릭스', hair: 'short', hairColor: '#b4552e', beard: 'full',
+  { id: 'sp_orix', name: '오릭스', hair: 'short', hairColor: '#b4552e', brows: 'thick', beard: 'none',
     skin: '#f0cfae', cloth: '#7b6a4a', bg: '#f2e4cf', deco: 'none',
     moods: { def: { eye: 'smile', mouth: 'grin' }, wink: { eye: 'closed', mouth: 'smirk' } } },
-  { id: 'sp_valen', name: '발렌', hair: 'slick', hairColor: '#e2c473', beard: 'none',
+  { id: 'sp_valen', name: '발렌', hair: 'slick', hairColor: '#e2c473', brows: 'arch', beard: 'none',
     skin: '#f3d7bd', cloth: '#3f5f9e', bg: '#dde5f4', deco: 'circlet', decoColor: '#ffd76a',
     moods: { def: { eye: 'sharp', mouth: 'smirk' }, soft: { eye: 'normal', mouth: 'calm' } } },
-  { id: 'sp_kairos', name: '카이로스', hair: 'wave', hairColor: '#6b4a3a', beard: 'none',
+  { id: 'sp_kairos', name: '카이로스', hair: 'wave', hairColor: '#6b4a3a', brows: 'bold', beard: 'none',
     skin: '#f0d2b6', cloth: '#8a6aa8', bg: '#ece2f4', deco: 'scarf', decoColor: '#c78fb0',
     moods: { def: { eye: 'soft', mouth: 'smile' }, sing: { eye: 'closed', mouth: 'grin' } } },
-  { id: 'sp_clemen', name: '클레멘', hair: 'short', hairColor: '#2f2a2c', beard: 'none',
+  { id: 'sp_clemen', name: '클레멘', hair: 'short', hairColor: '#2f2a2c', brows: 'round', beard: 'none',
     skin: '#eec9a8', cloth: '#c9b39a', bg: '#f4ead9', deco: 'apron', decoColor: '#f6f1e6',
     moods: { def: { eye: 'soft', mouth: 'calm' }, smile: { eye: 'smile', mouth: 'smile' } } },
-  { id: 'sp_yutark', name: '유타르크', hair: 'long', hairColor: '#cfd3de', beard: 'none',
+  { id: 'sp_yutark', name: '유타르크', hair: 'long', hairColor: '#cfd3de', brows: 'thin', beard: 'none',
     skin: '#f2e2dc', cloth: '#4a4257', bg: '#d9dde8', deco: 'mirror', decoColor: '#b9c2d4',
     eyeColor: '#7a4a58',
     moods: { def: { eye: 'smile', mouth: 'smirk' }, true: { eye: 'normal', mouth: 'flat' } } },
@@ -1743,7 +1743,7 @@ const SPEAKERS = [
   // 표정마다 `art` 로 인트로의 어느 표정을 쓸지 적는다 — 여기 없는 이름을 적으면
   // 조용히 기본 표정으로 떨어지므로 checktalk 이 그것을 본다.
   // eye/mouth 는 intro.js 가 없을 때를 위한 대비다 (부품 조합으로 떨어진다).
-  { id: 'sp_althea', name: '알테이아', hair: 'updo', hairColor: '#eeeaf2', beard: 'none',
+  { id: 'sp_althea', name: '알테이아', hair: 'updo', hairColor: '#eeeaf2', brows: 'soft', beard: 'none',
     skin: '#ffdcc4', cloth: '#8fc5e8', bg: '#e6edf4', deco: 'hood', decoColor: '#7fb8de',
     introArt: 'fairy',
     // ⚠️ **인트로 그림에 있는 포즈만 쓸 수 있다** (`idle · smile · glance · cross`).
@@ -1795,7 +1795,7 @@ const SPEAKERS = [
              awe:     { art: 'awe' },
              curious: { art: 'curious' } } },
   // 공주 — 인트로 그림과 같은 갈색 긴 머리 · 연두 드레스
-  { id: 'sp_gwiriel', name: '그위리엘', hair: 'long', hairColor: '#7b5640', beard: 'none',
+  { id: 'sp_gwiriel', name: '그위리엘', hair: 'long', hairColor: '#7b5640', brows: 'soft', beard: 'none',
     skin: '#ffdcc4', cloth: '#7fa06a', bg: '#eef1e6', deco: 'none',
     introArt: 'princess',
     // 공주도 인트로 그림이다. **포즈를 여덟 늘렸다** (`intro.js` 의 princessFace) —
@@ -1846,7 +1846,7 @@ const SPEAKERS = [
              resolve: { art: 'resolve' },
              awe:     { art: 'awe' },
              curious: { art: 'curious' } } },
-  { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', beard: 'full',
+  { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', brows: 'thick', beard: 'full',
     skin: '#e0c09a', cloth: '#6f7f52', bg: '#e2e9d6', deco: 'leaf', decoColor: '#6f9455',
     moods: { def: { eye: 'normal', mouth: 'flat' }, warm: { eye: 'smile', mouth: 'smile' } } },
   { id: 'sp_ygritte', name: '이그리트', hair: 'long', brows: 'soft', hairColor: '#b8442c', beard: 'none',

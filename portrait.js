@@ -180,15 +180,35 @@
   // 그쪽이 이긴다 (아래 `BROW`). 눈썹이 아예 없으면 얼굴이 «아기»로 읽힌다
   // ⚠️ **굵게 + 크게 휘면 «애벌레»가 된다** (3.4 굵기에 아치를 줬더니 그랬다).
   //    남자 눈썹은 «거의 직선»이고 안쪽이 살짝 낮다 — 휨은 1px 안쪽이다
-  // ⚠️⚠️ **굵기는 인물이 정한다** (`SPEAKERS` 의 `brows`). 굵은 직선 눈썹을 여덟에게
-  //    다 붙였더니 **여왕이 남자로 읽혔다** — 눈썹 하나가 얼굴의 «성별»을 뒤집는다.
-  //    `soft` 는 가늘고 살짝 아치다. 기본은 `bold` (남자 일곱)
-  const BROW_W = { bold: 2.7, soft: 1.9 };
-  const BROW_BASE = (x, f, c, k) => k === 'soft'
-    ? `<path d="M${x - 5.6},${59.6 - f * 0.6} q5.6,-3.2 11.2,${f * 1.2 + 1.4}"
-        stroke="${c}" stroke-width="${BROW_W.soft}" fill="none" stroke-linecap="round"/>`
-    : `<path d="M${x - 6},${59.8 - f * 0.8} q6,-1.9 12,${f * 1.4 + 0.6}"
-        stroke="${c}" stroke-width="${BROW_W.bold}" fill="none" stroke-linecap="round"/>`;
+  // ⚠️⚠️ **기본 눈썹은 «인물마다 다르다»** (`SPEAKERS` 의 `brows` · 기본 `bold`).
+  //   한 벌뿐이던 때 **여덟이 전부 같은 눈썹**이었다 — 표정이 제 눈썹을 가진 칸(175개)
+  //   에서만 갈리고 나머지는 다 이 한 줄을 지났다 (「왜 모든 NPC 의 눈썹이 똑같아?」로
+  //   신고받았다). 머리·수염과 같은 축으로 뺐다.
+  //   ⚠️⚠️ **눈썹 하나가 얼굴의 «성별»을 뒤집는다** — 굵은 직선을 여덟에게 다 붙였더니
+  //      여왕이 남자로 읽혔다. 그래서 가는 쪽(`thin`·`soft`)은 **광대 음영도 안 얹는다**
+  //      (`cheek: false`) — 둘 다 「어른 남자」를 만드는 마크라 짝으로 움직여야 한다.
+  //   ⚠️ **표정이 제 눈썹을 가졌으면 그쪽이 이긴다** (아래 `BROW`). 안 그러면
+  //      「대노」·「곤란」이 다 같은 얼굴이 된다
+  const BROWS = {
+    // 굵고 거의 직선 — 기본. ⚠️ 굵게 + 크게 휘면 «애벌레»가 된다 (3.4 에 아치를
+    // 줬더니 그랬다). 남자 눈썹은 휨이 1px 안쪽이다
+    bold:   { w: 2.7, d: (x, f) => `M${x - 6},${59.8 - f * 0.8} q6,-1.9 12,${f * 1.4 + 0.6}` },
+    // 아주 굵고 낮게 — 우직한 인상 (대장장이·농민)
+    thick:  { w: 3.4, d: (x, f) => `M${x - 6.2},${60.4 - f * 0.6} q6.2,-1.6 12.4,${f * 1.2 + 0.4}` },
+    // 높고 둥근 아치 — 밝고 귀한 인상 (기사)
+    arch:   { w: 2.5, d: (x, f) => `M${x - 5.8},60.6 q5.8,-4.2 11.6,${f * 1.0 + 0.6}` },
+    // 바깥이 올라간 «직선» — 날카로운 인상 (암살자)
+    slant:  { w: 2.6, d: (x, f) => `M${x - 6},${59 - f * 1.8} L${x + 6},${59 + f * 1.8}` },
+    // 짧고 둥글게 — 순한 인상 (요리사)
+    round:  { w: 2.8, d: (x)    => `M${x - 5},60.4 q5,-2.6 10,0` },
+    // 가늘고 길게 — 서늘한 인상 (정령)
+    thin:   { w: 1.7, cheek: false, d: (x, f) => `M${x - 6.4},${59.6 - f * 0.6} q6.4,-2.2 12.8,${f * 1.0 + 0.4}` },
+    // 가늘고 살짝 아치 — 여성
+    soft:   { w: 1.9, cheek: false, d: (x, f) => `M${x - 5.6},${59.6 - f * 0.6} q5.6,-3.2 11.2,${f * 1.2 + 1.4}` },
+  };
+  const browOf = k => BROWS[k] || BROWS.bold;
+  const BROW_BASE = (x, f, c, k) => { const b = browOf(k);
+    return `<path d="${b.d(x, f)}" stroke="${c}" stroke-width="${b.w}" fill="none" stroke-linecap="round"/>`; };
 
   // 귀 — **머리 옆이 비면 «덩어리»로 보인다**
   const EAR = c => `<ellipse cx="36" cy="70" rx="3.4" ry="5" fill="${c}"/>
@@ -359,14 +379,22 @@
     //       순간 후드가 머리 «안»으로 들어가고, 얇게 고치면 그만큼 벌어진다.
     //       제일 두꺼운 머리를 기준으로 삼아도 «얇은 머리를 쓴 사람»에게서 벌어진다
     //       (슈타르크가 short 인데 wild 를 기준으로 뽑았더니 3px 이 비쳤다)
-    // ⚠️ **어깨까지 내린다** — 아치 하나로 끊으면 «머리띠»로 보인다 (찍어 보고 알았다)
+    // ⚠️⚠️ **후드는 «천»이라 어깨로 퍼진다.** 두께가 일정한 아치로 두었더니 머리 위에
+    //    걸린 «문틀»로 보였다 (「왜 머리 위에 녹색 둥근 게 있어?」로 신고받았다).
+    //    고친 것 셋 — ① 바깥 선이 «어깨로 벌어진다» ② 어깨 판보다 넓게 나와 망토가
+    //    보인다 ③ **안쪽 구멍을 머리보다 «작게»** 잡아 흰 틈이 안 생긴다
+    //    (후드는 머리 «뒤»에 그려지므로 겹쳐도 안 보인다 — 벌어지는 것만 문제였다)
     hood:    (c, hair) => {
       const h = HAIR_SPEC[hair] || { side: 3, top: 6 };
-      const y = 66, B = 130;
-      const i = crown(h.side + 1, h.top + 1, y), o = crown(h.side + 9, h.top + 9, y);
-      return `<path data-part="deco-hood" d="M${o.L},${B} L${o.L},${y}` +
-        ` A${o.rx},${o.ry} 0 1 1 ${o.R},${y} L${o.R},${B} L${i.R},${B} L${i.R},${y}` +
-        ` A${i.rx},${i.ry} 0 1 0 ${i.L},${y} L${i.L},${B} Z" fill="${c}"/>`; },
+      const y = 66, B = 130, FLARE = 16;
+      const i = crown(h.side - 1, h.top - 1, y), o = crown(h.side + 13, h.top + 13, y);
+      return `<path data-part="deco-hood" d="M${o.L - FLARE},${B}` +
+        ` C${o.L - FLARE + 4},${B - 26} ${o.L},${B - 44} ${o.L},${y}` +
+        ` A${o.rx},${o.ry} 0 1 1 ${o.R},${y}` +
+        ` C${o.R},${B - 44} ${o.R + FLARE - 4},${B - 26} ${o.R + FLARE},${B}` +
+        ` L${i.R + 3},${B} C${i.R},${B - 26} ${i.R},${B - 44} ${i.R},${y}` +
+        ` A${i.rx},${i.ry} 0 1 0 ${i.L},${y}` +
+        ` C${i.L},${B - 44} ${i.L},${B - 26} ${i.L - 3},${B} Z" fill="${c}"/>`; },
     scarf:   c => `<path d="M32,104 Q60,116 88,104 L88,116 Q60,126 32,116 Z" fill="${c}"/>`,
     apron:   c => `<path d="M44,106 L76,106 L80,130 L40,130 Z" fill="${c}"/>
                    <path d="M50,106 q10,8 20,0" stroke="#fff" stroke-width="2" fill="none" opacity="0.7"/>`,
@@ -432,7 +460,7 @@
         ${BODY(sp.cloth)}
         ${NECK(sp.skin)}
         ${FACE(sp.skin)}
-        ${beard === 'none' && sp.brows !== 'soft' ? CHEEK(sp.skin) : ''}
+        ${beard === 'none' && browOf(sp.brows).cheek !== false ? CHEEK(sp.skin) : ''}
         ${BEARD[beard](sp.hairColor)}
         ${beard === 'none' ? '' : BEARD_BED(sp.skin)}
         ${beard === 'full' ? STACHE(sp.hairColor) : ''}

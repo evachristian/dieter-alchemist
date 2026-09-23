@@ -159,10 +159,15 @@ const ANGLES = [-90, -75, -60, -45, -30];
                  lift: +(fTop - hTop).toFixed(2), shell: sh,
                  ratio: +(top / Math.max(temple, 0.01)).toFixed(2) });
     }
-    // ③ 후드 — 쓴 사람마다
+    // ③ 후드 — ⚠️ **«쓰는 사람»으로 재지 않는다.** 슈타르크가 후드를 벗자 남은 착용자가
+    //    인트로 그림을 쓰는 요정 대모뿐이라 **이 줄이 통째로 아무것도 안 재게 됐다**
+    //    (머리에서 `updo` 가 그랬던 것과 같은 구멍이다). 머리 모양마다 «씌워» 본다 —
+    //    후드의 구멍은 그 사람이 쓴 머리에서 뽑히므로 머리마다 달라진다
     const hoods = [];
-    for (const sp of D.SPEAKERS) {
-      if (sp.introArt || sp.deco !== 'hood') continue;
+    const hoodBase = D.SPEAKERS.find(sp => !sp.introArt);
+    for (const hair of Portrait.hairs) {
+      if (hair === 'bald') continue;
+      const sp = Object.assign({}, hoodBase, { hair, deco: 'hood', beard: 'none', id: 'hood/' + hair });
       const hairM = await mask(sp, ['hair-front', 'hair-back']);
       const hood = await mask(sp, ['deco-hood']);
       if (!hairM || !hood) { hoods.push({ id: sp.id, err: '조각을 못 찾았다' }); continue; }
@@ -173,7 +178,7 @@ const ANGLES = [-90, -75, -60, -45, -30];
           if (hood(Portrait.SKULL.cx + Math.cos(a) * r, Portrait.SKULL.cy + Math.sin(a) * r)) return +(r - rh).toFixed(2);
         return null;       // 후드가 머리에 가려 안 보인다
       });
-      hoods.push({ id: sp.id, hair: sp.hair, gaps });
+      hoods.push({ id: sp.id, hair, gaps });
     }
     return { res, hoods };
   }, { ANGLES });
@@ -198,8 +203,8 @@ const ANGLES = [-90, -75, -60, -45, -30];
     if (!r.rows) bad.push(`${r.hair}: 틈을 «한 줄도» 안 쟀다`);
     rows += r.rows;
   });
-  console.log('\n후드와 머리 사이 — 후드가 보이는가 · 벌어지지 않는가');
-  if (!hoods.length) bad.push('후드를 쓴 사람이 하나도 없다 — 이 줄이 아무것도 안 쟀다');
+  console.log(`\n후드와 머리 사이 — 후드가 보이는가 · 벌어지지 않는가 (머리 ${hoods.length}가지에 씌워 봤다)`);
+  if (!hoods.length) bad.push('후드를 한 번도 안 씌워 봤다 — 이 줄이 아무것도 안 쟀다');
   hoods.forEach(h => {
     if (h.err) { bad.push(`${h.id}: 후드 ${h.err}`); return; }
     const hid = h.gaps.filter(g => g === null).length;
