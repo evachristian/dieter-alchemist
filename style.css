@@ -535,7 +535,8 @@ body.has-quest .screen { padding-bottom: 168px; }
 /* 고르기 시트 — 한 줄에 한 마리. 도감처럼 격자로 깔면 「고르는 곳」이 아니라
    「보는 곳」으로 읽힌다 */
 .pal-card { }   /* 폭은 .modal-card(바닥 시트)가 정한다 */
-.pal-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; max-height: 46vh; overflow-y: auto; }
+/* ⚠️ `max-height`·`overflow` 는 여기가 아니라 「바닥 시트의 «굴리는 자리»는 하나다」에 있다 */
+.pal-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .pal-item {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 12px; border: 2px solid transparent; border-radius: 14px;
@@ -867,10 +868,9 @@ body.has-quest .screen { padding-bottom: 168px; }
    ⚠️⚠️ **버튼 줄과 「나가기」는 굴러가는 자리 «밖»이다.** 시트에 들어가는 것이
    그림 · 대사 · 칩이라 사람마다 높이가 다른데(칩이 둘인 사람도 일곱인 사람도 있다),
    1080×1920 폰(360×640 CSS)에서는 일곱 칩이 시트를 105px 넘겼고 그때 화면 밖으로
-   밀려나는 것이 하필 «누르는 자리»였다. 카드를 세로 플렉스로 두고 `#npcBody` 만 굴린다 */
-#npcSheet .modal-card { display: flex; flex-direction: column; overflow: hidden; }
-#npcBody { text-align: left; overflow-y: auto; min-height: 0; }
-#npcTitle, #npcActs, #npcSheet .sheet-exit { flex: 0 0 auto; }
+   밀려나는 것이 하필 «누르는 자리»였다. 카드를 세로 플렉스로 두고 `#npcBody` 만 굴린다.
+   **조리법은 이 파일의 「바닥 시트의 «굴리는 자리»는 하나다」 한 곳에 있다** */
+#npcBody { text-align: left; }
 /* ⚠️ **짧은 화면에서는 «그림»이 먼저 줄어든다** — 글(대사·칩)과 버튼은 줄일 수가 없다.
    그림은 `preserveAspectRatio="… slice"` 라 상자가 낮아지면 잘려서 들어맞는다
    (village.js). 키가 넉넉한 폰에서는 한 픽셀도 안 바뀐다 */
@@ -942,24 +942,6 @@ body.has-quest .screen { padding-bottom: 168px; }
 }
 .pg-hintway { font-size: 0.7rem; font-weight: 700; color: var(--ink-soft); }
 
-/* ─── 선물 시트 — 건물 안 시트(#npcSheet)와 «같은 조리법» ───────────
-   ⚠️⚠️ **「나가기」는 굴러가는 자리 «밖»이다.** 예전에는 물약 줄만
-   `max-height: 46vh` 로 묶어 두었는데, 그 붙박이 몫은 **머리(♥ 진행 · 좋아하는 등급 ·
-   「그가 주는 것」)가 접히는 만큼** 늘어난다 — 카드 높이가 `붙박이 + 0.46vh` 라
-   화면이 낮아지면 어느 지점에서 반드시 넘친다. 재 보니 **420px 아래에서 「나가기」가
-   화면 밖**이었다(가로로 든 폰 640×360 에서 399 / 360). 건물 안 시트에서 이미 푼
-   문제라 **같은 짜임을 쓴다** — 카드를 세로 플렉스로 두고 `#giftBody` 만 굴린다.
-   두 벌로 두면 한쪽만 고쳐 갈린다.
-   ⚠️ `text-align` 은 안 건드린다 — 이 시트의 머리 두 줄은 가운데 정렬이 지금 모양이다.
-   ⚠️ **짐을 지는 것은 «위 두 줄»이다** — 카드의 `overflow: hidden` 과 본문의
-   `overflow-y: auto`. 아래 `flex: 0 0 auto` 와 `min-height: 0` 은 지금 «한 픽셀도
-   안 바꾼다»(둘을 떼고 재 봤다 — 굴림 상자라 `min-height` 가 이미 0 이고,
-   제목·「나가기」는 제 내용보다 못 줄어든다). 그래도 남기는 이유는 하나다:
-   건물 안 시트와 **글자 그대로 같은 조리법**이라야 다음 사람이 한쪽만 고치지 않는다 */
-#giftSheet .modal-card { display: flex; flex-direction: column; overflow: hidden; }
-#giftBody { overflow-y: auto; min-height: 0; }
-#giftTitle, #giftSheet .sheet-exit { flex: 0 0 auto; }
-
 .gift-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 4px 10px; margin: 0 0 8px; }
 .gift-need { font-size: 0.76rem; font-weight: 800; color: var(--ink-soft); }
@@ -976,7 +958,8 @@ body.has-quest .screen { padding-bottom: 168px; }
 .give-now { flex: 0 0 auto; font-size: 0.78rem; font-weight: 900; color: var(--text-pink); }
 .give-next { flex: 0 0 auto; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft); }
 /* ⚠️ **여기에 `max-height`·`overflow` 를 도로 넣지 않는다** — 굴리는 자리는
-   `#giftBody` 하나다. 둘이면 스크롤이 겹쳐 안쪽 줄에 손가락이 갇힌다 */
+   `#giftBody` 하나다 (「바닥 시트의 «굴리는 자리»는 하나다」).
+   둘이면 스크롤이 겹쳐 안쪽 줄에 손가락이 갇힌다 */
 .gift-list { display: flex; flex-direction: column; gap: 7px; }
 .gift-none { font-size: 0.82rem; color: var(--ink-soft); padding: 14px 0; text-align: center; }
 /* 한 줄 = 이모지 · 이름(+개수) · 딱지 · 오를 점수.
@@ -2867,6 +2850,36 @@ button.tm-slot:active { transform: scale(0.94); }
   max-height: 90vh; overflow-y: auto;
   box-shadow: 0 -10px 40px rgba(120,90,110,0.35);
 }
+/* ─── 바닥 시트의 «굴리는 자리»는 하나다 — 「나가기」는 그 «밖» ─────────
+   ⚠️⚠️ **붙박이 몫은 반드시 자란다.** 오래 시트마다 안쪽 목록에만
+   `max-height: 46vh`(`.pal-list`) · `60vh`(`.q-body`) 를 달아 두었는데, 그러면
+   카드 높이가 «붙박이 + 0.Nvh» 라 **붙박이(제목 · 머리줄 · 고정 버튼)가 접히는
+   만큼** 늘고 화면이 낮아지면 어느 지점에서 반드시 넘친다 — 넘칠 때 밀려나는 것이
+   하필 «누르는 자리»다. 실제로 **가로로 든 폰(640×360)에서 셋이 화면 밖**이었다:
+   퀘스트 366 · 부엌 366 · 계정 보관함 466 (「나가기」 · 「가져가기」까지).
+   그래서 **카드를 세로 플렉스로 두고 «목록 하나»만 굴린다** — 높이가 모자라면
+   목록이 먼저 줄고, 제목과 「나가기」는 제자리에 남는다.
+   ⚠️ **굴림 상자 «안»에 또 `max-height` 를 달지 않는다** (`#giftBody` 속의
+   `.gift-list` 같은 자리). 굴리는 자리가 둘이 되어 손가락이 안쪽 줄에 갇힌다.
+   · 굴림 상자 «자체»에 달면(`.pal-list` 처럼) 스크롤이 겹치지는 않는다 — 카드가
+     플렉스라 카드는 못 굴러간다. 그래도 **안 단다**: 목록이 쓸데없이 짧아지고,
+     시트마다 다른 몫을 적어 두면 곧 열여섯 벌이 된다 (그것이 이 블록이 생긴 이유다).
+     ⚠️ 그 경우는 `checkui` 가 «못 잡는다» — 사보타주로 확인했다.
+     잡히는 것은 「나가기가 밀려나는가」이고, 그것이 이 규칙이 지키는 것이다
+   ⚠️ **시트마다 베껴 쓰지 않는다** — 두 벌이 되면 한쪽만 고쳐 갈린다.
+   새 바닥 시트를 만들면 **여기 목록에 한 줄 더한다.**
+   ⚠️ `text-align` 은 안 건드린다 — 가운데 정렬이 바닥 시트의 지금 모양이다 */
+#npcSheet .modal-card, #giftSheet .modal-card, #questSheet .modal-card,
+#kitchenSheet .modal-card, #produceLog .modal-card, #plantPick .modal-card,
+#teamPick .modal-card, #raidPick .modal-card, #palPick .modal-card,
+#devAcctSheet .modal-card, #storySheet .modal-card, #feedPick .modal-card {
+  display: flex; flex-direction: column; overflow: hidden; }
+#npcBody, #giftBody, .q-body, .pal-list, .st-body, .feed-list, #devAcctList {
+  overflow-y: auto; min-height: 0; }
+/* 굴러가지 «않는» 자리를 이름으로 못 박아 둔다 — 지금은 한 픽셀도 안 바꾸지만
+   (제목·버튼은 제 내용보다 못 줄어든다) 여기에 무엇이 남아야 하는지가 곧 규칙이다 */
+#npcActs, #questActs, #feedGo, .modal-card > .sheet-exit, .modal-card > .confirm-text { flex: 0 0 auto; }
+
 /* 올라오는 움직임 — 끝이 있는 애니메이션이라 검증기의 settle() 이 끝 상태로 보낸다 */
 .modal.show .modal-card { animation: sheetup 0.28s cubic-bezier(.2,.9,.3,1); }
 @keyframes sheetup { from { transform: translateY(28px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -4250,7 +4263,8 @@ button.tm-slot:active { transform: scale(0.94); }
   font-size: 0.72rem; font-weight: 900; line-height: 20px; text-align: center;
 }
 /* ─── 퀘스트 시트 ─── */
-.q-body { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; text-align: left; }
+/* ⚠️ `max-height`·`overflow` 는 「바닥 시트의 «굴리는 자리»는 하나다」가 준다 */
+.q-body { display: flex; flex-direction: column; gap: 10px; text-align: left; }
 /* NPC 한 마디 — 초상화 + 말풍선 (튜토리얼 대사와 같은 짜임) */
 .q-say { display: flex; gap: 10px; align-items: flex-start; }
 .q-face { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 14px; overflow: hidden; background: var(--cream); }
@@ -4408,7 +4422,8 @@ button.tm-slot:active { transform: scale(0.94); }
 .cut-next { font-size: 0.82rem; font-weight: 700; color: #d8ccd6; }
 
 /* ─── 스토리 다시보기 ─── */
-.st-body { display: flex; flex-direction: column; gap: 14px; max-height: 56vh; overflow-y: auto; text-align: left; }
+/* ⚠️ `max-height`·`overflow` 는 「바닥 시트의 «굴리는 자리»는 하나다」가 준다 */
+.st-body { display: flex; flex-direction: column; gap: 14px; text-align: left; }
 .st-act { display: flex; flex-direction: column; gap: 6px; }
 .st-actname {
   font-size: 0.86rem; font-weight: 800; color: var(--text-pink);

@@ -2215,74 +2215,124 @@ function launchOpts() {
           await page.setViewportSize(vp);
           await page.waitForTimeout(200);
         }
-        // ── 선물 시트도 «같은 조리법»인가 ────────────────────────────
-        // 건물 안 시트와 같은 사고가 여기에도 있었다 — 물약 줄만 `max-height: 46vh` 로
-        // 묶어 두어서 카드 높이가 `붙박이 + 0.46vh` 였고, **420px 아래에서 「나가기」가
-        // 화면 밖**이었다 (가로로 든 폰 640×360 에서 399 / 360).
+        // ── 바닥 시트 열여섯이 «낮은 화면»에서 나가는 길을 지키는가 ──────
+        // 시트마다 안쪽 목록에만 `max-height: Nvh` 를 달던 옛 조리법은, 카드 높이가
+        // «붙박이 + 0.Nvh» 라 **붙박이가 접히는 만큼** 늘어 어느 높이에서 반드시 넘쳤다.
+        // 실제로 가로로 든 폰(640×360)에서 셋이 화면 밖이었다 — 퀘스트 366 · 부엌 366 ·
+        // 계정 보관함 466. 지금은 style.css 의 「바닥 시트의 «굴리는 자리»는 하나다」
+        // 한 곳이 카드를 세로 플렉스로 두고 목록 하나만 굴린다.
         // ⚠️⚠️ **360×640 에서만 재면 이 사고를 못 잡는다** — 옛 CSS 도 거기서는 통과한다.
-        // 가르는 자리는 «낮은 화면»이라 **둘을 다 잰다**: 사람이 말한 폰(360×640)과
-        // 그것을 가로로 든 것(640×360). 가르지 못하는 잣대는 무슨 값을 넣어도 통과한다.
-        // ⚠️ **선물할 수 있는 사람을 «다» 돈다** — 머리줄(♥ 진행 · 좋아하는 등급 ·
-        // 「그가 주는 것」)의 높이가 사람마다 달라서, 하나만 재면 제일 빡빡한 것을
-        // 한 번도 안 재고 통과한다. 몇 명을 쟀는지도 같이 낸다
+        // 가르는 자리는 «낮은 화면»이라 **사람이 말한 폰(360×640)과 그것을 가로로 든
+        // 것(640×360)을 둘 다**, **두 언어로** 잰다 (영어가 한 줄씩 더 접힌다).
+        // ⚠️ **시트를 늘리면 여기 목록에도 한 줄 더한다** — 안 더하면 그 시트는
+        // 0건이 「통과」가 아니라 「한 번도 안 쟀다」가 된다
         {
           const vp = page.viewportSize();
           const keep = await page.evaluate(() => {
-            const before = { potions: S.potions, bond: Object.assign({}, S.bond) };
+            const before = { potions: S.potions, bond: Object.assign({}, S.bond),
+              miniLog: S.miniLog, seenCuts: S.seenCuts, roomActs: S.roomActs };
             // 가진 물약을 **다** 채운다 — 줄이 짧으면 굴릴 것이 없어 아무것도 안 잰 것이다
             S.potions = {};
             D.RECIPES.filter(r => r.result.kind === 'potion')
               .forEach(r => { S.potions[r.result.id] = 3; });
             // 단계 이름이 제일 긴 「각별한 사이」로 — 머리줄이 제일 넓어진다
             D.bondNpcs().forEach(n => { S.bond[n] = D.BOND_TIERS[D.BOND_TIERS.length - 1].at; });
+            const log = [];
+            for (let i = 0; i < 10; i++) log.push({ t: Date.now() - i * 8e6, s: 18 - i, g: 3 });
+            S.miniLog = { p_walnut: { n: 30, best: 20, log } };
+            S.roomActs = (S.roomActs || []).concat(['kitchen']);
+            S.seenCuts = (S.seenCuts || []).concat(['c_clemen_meet']);
+            const q = activeQuest();
+            if (q && q.cut && q.cut.in) S.seenCuts.push(q.cut.in);
             return before;
           });
-          const npcs = await page.evaluate(() => D.bondNpcs());
+          // **여는 법을 표로 둔다** — 시트를 늘리면 여기 한 줄이다
+          const SHEETS = [
+            ['npcSheet', `setGatherTab('village'); setVillage('vl_chimney');
+                          tapVillageSpot('vl_chimney', 'vs_chimney_forge')`],
+            ['giftSheet', `openGift(D.bondNpcs()[0])`],
+            ['questSheet', `openQuest()`],
+            ['kitchenSheet', `openKitchen()`],
+            ['produceLog', `openProduceLog()`],
+            ['palPick', `openPalPick()`],
+            ['feedPick', `openFeed(S.creatures[0])`],
+            ['devAcctSheet', `openDevAccounts()`],
+            ['storySheet', `openStory()`],
+            ['miniHelpSheet', `openMiniHelp('driller')`],
+            ['miniLogSheet', `openMiniLog('p_walnut')`],
+            ['pageSheet', `openPage(D.RECIPES.slice().sort((a, b) =>
+                Object.keys(b.input || {}).length - Object.keys(a.input || {}).length)[0].result.id)`],
+            ['diaryModal', `openDiary()`],
+            ['restoreSheet', `openRestore()`],
+          ];
           const lang0 = await page.evaluate(() => I18N.getLang());
-          const out = []; const seen = [];
-          // ⚠️ **두 언어로 잰다** — 머리줄(「각별한 사이」 · 「그가 주는 것」)이 영어에서
-          // 더 길어 한 줄씩 더 접힌다. 한 언어만 재면 붙박이 몫이 제일 큰 쪽을
-          // 한 번도 안 재고 통과한다 (`checkUI()` 의 언어 순회는 이 블록을 안 지난다)
+          const out = []; let seen = 0; let last = '';
           for (const lang of ['ko', 'en']) {
-           await page.evaluate(l => I18N.setLang(l), lang);
-           for (const [w, h] of [[360, 640], [640, 360]]) {
-            await page.setViewportSize({ width: w, height: h });
-            await page.waitForTimeout(200);
-            for (const npc of npcs) {
-              // ⚠️ **여는 것과 재는 것을 갈라 놓는다** (건물 안 시트에서 배운 자리다) —
-              // `sheetup` 첫 프레임의 `translateY(28px)` 가 상자에 얹혀 멀쩡한 화면이 걸린다
-              await page.evaluate(n => { closeGift(); openGift(n); }, npc);
-              await page.waitForTimeout(340);
-              const r = await page.evaluate(() => {
-                const card = document.querySelector('#giftSheet .modal-card');
-                const exit = document.querySelector('#giftSheet .sheet-exit');
-                const body = document.getElementById('giftBody');
-                if (!card || !exit || !body) return { err: '시트가 안 열렸다' };
-                const b = exit.getBoundingClientRect();
-                if (b.height < 2) return { err: '「나가기」가 안 그려졌다' };
-                if (b.bottom > innerHeight + 0.5 || b.top < -0.5)
-                  return { err: `「나가기」가 화면 밖이다 (${Math.round(b.top)}..${Math.round(b.bottom)} / ${innerHeight})` };
-                // ⚠️ 굴리는 자리는 **하나**여야 한다 — 안쪽 목록까지 굴러가면
-                // 손가락이 그 줄에 갇힌다 (`.gift-list` 에 `max-height` 를 도로 넣은 경우다)
-                const list = document.querySelector('#giftSheet .gift-list');
-                if (list && list.scrollHeight - list.clientHeight > 1)
-                  return { err: '물약 목록이 따로 굴러간다 (굴리는 자리가 둘이다)' };
-                return { err: null, over: Math.max(0, body.scrollHeight - body.clientHeight) };
-              });
-              if (r.err) out.push(`${lang} ${w}×${h} · ${npc} — ${r.err}`);
-              else seen.push(`${lang} ${w}×${h} ${npc} 굴릴 몫 ${r.over}px`);
+            await page.evaluate(l => I18N.setLang(l), lang);
+            for (const [w, h] of [[360, 640], [640, 360]]) {
+              await page.setViewportSize({ width: w, height: h });
+              await page.waitForTimeout(160);
+              for (const [sid, open] of SHEETS) {
+                // ⚠️⚠️ **여는 것과 재는 것을 갈라 놓는다.** 시트는 `sheetup`(0.28초)으로
+                // 올라오는데, 같은 `evaluate` 안에서 열고 바로 재면 **첫 프레임의
+                // `translateY(28px)` 가 그대로 상자에 얹혀** 멀쩡한 화면이
+                // 「나가기가 화면 밖」으로 잡힌다 (78건 유령과 같은 종류다)
+                try { await page.evaluate(open); }
+                catch (e) { out.push(`${sid} — 못 열었다 (${String(e.message || e).slice(0, 60)})`); continue; }
+                await page.waitForTimeout(330);
+                const r = await page.evaluate(id => {
+                  const m = document.getElementById(id);
+                  if (!m || !m.classList.contains('show')) return { err: '시트가 안 떴다' };
+                  const card = m.querySelector('.modal-card');
+                  const exit = m.querySelector('.sheet-exit');
+                  if (!card || !exit) return { err: '카드나 「나가기」가 없다' };
+                  const b = exit.getBoundingClientRect();
+                  if (b.height < 2) return { err: '「나가기」가 안 그려졌다' };
+                  if (b.bottom > innerHeight + 0.5 || b.top < -0.5)
+                    return { err: `「나가기」가 화면 밖이다 (${Math.round(b.top)}..${Math.round(b.bottom)} / ${innerHeight})` };
+                  // ⚠️ **카드 자체가 굴러가면 안 된다** — 굴러가면 「나가기」가 지금은
+                  // 화면 안이어도 내용이 한 줄만 늘면 바로 밖으로 나간다
+                  const cs = Math.max(0, card.scrollHeight - card.clientHeight);
+                  if (cs > 1) return { err: `카드가 통째로 굴러간다 (${cs}px)` };
+                  // ⚠️ **굴림 상자가 겹치면 안 된다** — 굴리는 것 «안»에 또 굴리는 것이
+                  // 있으면 손가락이 안쪽 줄에 갇힌다 (`#giftBody` 속의 `.gift-list` 가 그랬다).
+                  // ⚠️ **「굴리는 자리가 둘」로 재면 안 된다** — 가로로 미는 띠
+                  // (`.feed-pets` 는 `overflow-x: auto`)는 `overflow-y` 가 «계산상»
+                  // auto 라 같이 걸린다. 나란히 있는 둘은 아무 문제가 없고,
+                  // 겹친 둘만 문제다 (실제로 그렇게 짰다가 멀쩡한 먹이 시트가 걸렸다)
+                  const rolls = Array.from(card.querySelectorAll('*')).filter(el => {
+                    const o = getComputedStyle(el).overflowY;
+                    return (o === 'auto' || o === 'scroll') && el.scrollHeight - el.clientHeight > 1;
+                  });
+                  const nest = rolls.find(a => rolls.some(b => b !== a && a.contains(b)));
+                  if (nest)
+                    return { err: `굴림 상자가 겹쳐 있다 (${nest.id || nest.className} 안에 또 굴러가는 것이 있다)` };
+                  return { err: null, card: Math.round(card.getBoundingClientRect().height),
+                    over: rolls.length ? rolls[0].scrollHeight - rolls[0].clientHeight : 0 };
+                }, sid);
+                if (r.err) out.push(`${lang} ${w}×${h} · ${sid} — ${r.err}`);
+                else { seen++; last = `${lang} ${w}×${h} ${sid} 카드 ${r.card}px · 굴릴 몫 ${r.over}px`; }
+                await page.evaluate(() => {
+                  document.querySelectorAll('.modal.show').forEach(x => x.classList.remove('show'));
+                  if (typeof closeNpcSheet === 'function') closeNpcSheet();
+                });
+                await page.waitForTimeout(80);
+              }
             }
-            const gf = await page.evaluate(() => window.__cardFits('#giftSheet'));
-            if (gf) out.push(`${lang} ${w}×${h} · ${gf}`);
-           }
           }
-          if (!npcs.length) out.push('선물할 수 있는 사람이 하나도 없다 — 아무것도 안 쟀다');
+          const want = SHEETS.length * 4;
+          if (seen + out.length !== want) out.push(`${want} 번 재야 하는데 ${seen + out.length} 번만 쟀다`);
           results.push(out.length
-            ? { 화면: `${t}/선물시트작은폰`, 오류: out.join(' / ') }
-            : { 화면: `${t}/선물시트작은폰`, pass: true, total: 0,
-                잰것: `ko·en × 360×640·640×360 × 사람 ${npcs.length}명 (${seen.length}번) · ${seen[seen.length - 1]}` });
-          await page.evaluate((a) => { I18N.setLang(a.lang0); closeGift(); leaveSpot();
-            S.potions = a.keep.potions; S.bond = a.keep.bond; }, { keep, lang0 });
+            ? { 화면: `${t}/시트낮은화면`, 오류: out.join(' / ') }
+            : { 화면: `${t}/시트낮은화면`, pass: true, total: 0,
+                잰것: `ko·en × 360×640·640×360 × 시트 ${SHEETS.length}개 (${seen}번) · ${last}` });
+          await page.evaluate((a) => {
+            I18N.setLang(a.lang0);
+            document.querySelectorAll('.modal.show').forEach(x => x.classList.remove('show'));
+            if (typeof closeNpcSheet === 'function') closeNpcSheet();
+            S.potions = a.keep.potions; S.bond = a.keep.bond; S.miniLog = a.keep.miniLog;
+            S.seenCuts = a.keep.seenCuts; S.roomActs = a.keep.roomActs;
+          }, { keep, lang0 });
           await page.setViewportSize(vp);
           await page.waitForTimeout(200);
         }

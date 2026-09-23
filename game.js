@@ -2522,7 +2522,11 @@ function renderQuestSheet() {
     ${devDone}
     ${where ? `<div class="q-sec">${whereLabel}</div><div class="q-where">${where}</div>` : ''}
     <div class="q-sec">${T('q_reward')}</div>
-    <div class="q-reward">${rewardText(q.reward)}</div>
+    <div class="q-reward">${rewardText(q.reward)}</div>`;
+  // ⚠️ **누르는 자리는 굴러가는 자리 «밖»이다** (`#questActs` · 건물 안 시트의
+  // `#npcActs` 와 같은 규칙). 몸통 안에 두었더니 낮은 화면에서 이 버튼이 밀려났다
+  const acts = document.getElementById('questActs');
+  if (acts) acts.innerHTML = `
     <button class="btn ${full ? 'btn-primary' : 'btn-ghost'} q-claim"
       data-act="${full ? 'claim' : 'later'}"
       onclick="${full ? 'claimQuest()' : 'questNotYet()'}">
