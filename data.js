@@ -1731,8 +1731,14 @@ const SPEAKERS = [
   { id: 'sp_kairos', name: '카이로스', hair: 'wave', hairColor: '#6b4a3a', brows: 'bold', beard: 'none',
     skin: '#f0d2b6', cloth: '#8a6aa8', bg: '#ece2f4', deco: 'scarf', decoColor: '#c78fb0',
     moods: { def: { eye: 'soft', mouth: 'smile' }, sing: { eye: 'closed', mouth: 'grin' } } },
+  // ⚠️ **그만 눈이 «촉촉»하다** — 「온기만이 등가 교환의 밖에 있다」가 이 인물의 전부라,
+  // 눈이 그것을 먼저 말해야 한다. 표정 표를 덮어쓰지 않고 **눈 부품만 갈아 끼운다**
+  // (`eyes` · 눈썹의 `brows` 와 같은 축) — 그래야 「다정」의 입·눈썹이 공통 표에 한 벌로 남는다.
+  // ⚠️ **`eyeColor` 가 짝이다.** 기본값(`#3f3239`)은 거의 검정이라 눈동자의 밝은 아래쪽도
+  // 동공도 한 점 안 보인다 — 촉촉한 눈은 «색이 있는 눈동자»라야 성립한다
   { id: 'sp_clemen', name: '클레멘', hair: 'short', hairColor: '#2f2a2c', brows: 'round', beard: 'none',
     skin: '#eec9a8', cloth: '#c9b39a', bg: '#f4ead9', deco: 'apron', decoColor: '#f6f1e6',
+    eyeColor: '#6f4630', eyes: { soft: 'dewy' },
     moods: { def: { eye: 'soft', mouth: 'calm' }, smile: { eye: 'smile', mouth: 'smile' } } },
   { id: 'sp_yutark', name: '유타르크', hair: 'long', hairColor: '#cfd3de', brows: 'thin', beard: 'none',
     skin: '#f2e2dc', cloth: '#4a4257', bg: '#d9dde8', deco: 'mirror', decoColor: '#b9c2d4',

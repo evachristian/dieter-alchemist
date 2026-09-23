@@ -298,6 +298,24 @@
     soft:   (x, c) => `<path d="M${x - 5.4},66.6 q5.4,-5 10.8,0 q-5.4,4.6 -10.8,0 Z" fill="#fff"/>`
                     + `<circle cx="${x}" cy="66.4" r="3.2" fill="${c}"/><circle cx="${x + 1.2}" cy="65" r="1.2" fill="#fff"/>`
                     + `<path d="M${x - 5.6},66.2 q5.6,-5 11.2,0" stroke="#3f3239" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
+    // 촉촉한 눈 — `soft` 의 «감성» 쪽 갈래. 「클레멘 눈동자를 더 촉촉하게」로 신고받은 자리다.
+    // ⚠️ **한 겹만으로는 «젖은 눈»이 안 된다 — 넷이 같이 있어야 읽힌다:**
+    //   ① 흰자가 «더 높다» (6.2 · soft 는 4.8) — 눈동자가 다 들어가 «구슬»로 보인다
+    //   ② 눈동자 «아래쪽이 밝다** (`lite`) — 빛이 통과하는 몫. 이것이 평평한 점을 구슬로 바꾼다
+    //   ③ **동공**이 따로 있다 — 없으면 눈동자가 색 동그라미일 뿐이다
+    //   ④ **빛이 두 점** — 큰 것은 위, 작은 것은 «반대쪽 아래». 마주 보는 두 점이 곧 「젖음」이다
+    // ⚠️ **눈동자를 흰자보다 크게 그리지 않는다.** `soft` 는 r3.2 가 4.8 짜리 흰자를 넘쳐서
+    //   위아래로 삐져나오는데, 거의 검정이라 그것이 «속눈썹»으로 읽혀 지나갔다 —
+    //   눈동자에 «색»을 주는 순간 눈 밑에 번진 자국이 된다 (그려 보고 알았다)
+    // ⚠️ **빛 두 점은 양쪽 눈에서 «같은 쪽»이다** — 빛이 하나니까 그것이 맞다 (기존 눈들과 같다)
+    dewy:   (x, c) => `<path d="M${x - 5.6},66.6 q5.6,-6 11.2,0 q-5.6,6 -11.2,0 Z" fill="#fff"/>`
+                    + `<circle cx="${x}" cy="66.7" r="2.9" fill="${c}"/>`
+                    + `<path d="M${x - 2.9},66.7 a2.9,2.9 0 0 0 5.8,0 Z" fill="${lite(c, 0.28)}"/>`
+                    + `<path d="M${x - 2.72},66 a2.9,2.9 0 0 1 5.44,0 Z" fill="${dark(c, 0.4)}"/>`
+                    + `<circle cx="${x}" cy="66.35" r="1.3" fill="${dark(c, 0.72)}"/>`
+                    + `<circle cx="${x + 1.15}" cy="65.2" r="1.45" fill="#fff"/>`
+                    + `<circle cx="${x - 1.3}" cy="67.9" r="0.85" fill="#fff"/>`
+                    + `<path d="M${x - 5.8},66.2 q5.8,-6.2 11.6,0" stroke="#3f3239" stroke-width="1.6" fill="none" stroke-linecap="round"/>`,
     closed: (x)    => `<path d="M${x - 5},66 q5,5 10,0" stroke="#3f3239" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
     // ─ 여기부터는 나중에 늘린 것 ─
     // **눈 하나를 늘리면 표정이 입 수만큼 늘어난다** (지금 눈 11 × 입 12).
@@ -498,8 +516,15 @@
     // 두 눈을 다 감고 입만 씩 웃는 얼굴이다. `eyeL`·`eyeR` 을 적으면 그쪽만 갈아 끼운다
     // (안 적으면 예전 그대로 `eye` 하나로 양쪽을 그린다 — 기존 표정은 한 톨도 안 변한다).
     // ⚠️ **왼쪽/오른쪽은 «보는 사람» 기준이다** (x=50 이 왼쪽).
-    const eyeL = EYE[m.eyeL || m.eye] || EYE.normal;
-    const eyeR = EYE[m.eyeR || m.eye] || EYE.normal;
+    // ⚠️⚠️ **사람마다 «같은 표정»의 눈을 갈아 끼운다** (`SPEAKERS.eyes` · 눈썹의 `brows` 와 같은 축).
+    //   클레멘만 촉촉한 눈으로 만들려고 그의 `moods` 에 `warm`·`def` 를 덮어쓰면
+    //   **공통 표(`BASE_MOODS`)의 사본이 둘 생긴다** — 나중에 「다정」의 입을 고치면
+    //   그 사람만 옛 입에 남는다. 갈아 끼우는 것은 **눈 한 부품**뿐이라 표는 한 벌로 남는다.
+    // ⚠️ 없는 이름을 적으면 `EYE[...] || EYE.normal` 이 조용히 기본 눈으로 떨어뜨린다 —
+    //   `checktalk` 이 표에서 읽어 양쪽(열쇠·값)을 다 본다
+    const swapEye = k => (sp.eyes && sp.eyes[k]) || k;
+    const eyeL = EYE[swapEye(m.eyeL || m.eye)] || EYE.normal;
+    const eyeR = EYE[swapEye(m.eyeR || m.eye)] || EYE.normal;
     // 눈썹은 **없는 것이 기본**이다 — 기본 표정은 눈썹 없이도 읽히고,
     // 있는 쪽이 예외라야 얼굴이 안 시끄럽다. 안쪽 끝을 내리거나 올려 각도를 만든다
     // 눈썹도 좌우를 나눌 수 있다 (눈과 같은 규칙) — 「한쪽만 치켜올림」이 이걸로 난다
@@ -536,5 +561,5 @@
 
   // 검사기가 «표에 있는 머리를 다» 재려면 이름 목록이 필요하다 — 손으로 적으면
   // 새 스타일이 조용히 안 재진다 (`checkglobals` 가 파일 목록에서 겪은 일이다)
-  window.Portrait = { bust, W, H, hairs: Object.keys(HAIR), SKULL };
+  window.Portrait = { bust, W, H, hairs: Object.keys(HAIR), eyes: Object.keys(EYE), SKULL };
 })();

@@ -86,6 +86,20 @@ if (CHIMNEY && (CHIMNEY.spots || []).length !== 7)
     console.error('portrait.js 에서 EYE/MOUTH/BROW 를 못 찾았다 — 이 검사기가 그 구조를 따라가야 한다');
     process.exit(2);
   }
+  // ⚠️ **사람마다 눈을 갈아 끼우는 표**(`SPEAKERS.eyes`)도 같은 구멍이다 —
+  //   `{ soft: 'dwey' }` 처럼 «값»을 틀리면 `EYE[...] || EYE.normal` 이 조용히 기본 눈으로
+  //   떨어뜨리고, «열쇠»를 틀리면 아무 표정에도 안 걸려 **한 픽셀도 안 바뀐다.**
+  //   둘 다 화면에 오류가 안 뜨므로 양쪽을 다 본다
+  let swapN = 0;
+  D.SPEAKERS.forEach(sp => {
+    Object.entries(sp.eyes || {}).forEach(([from, to]) => {
+      swapN++;
+      if (!EYES.has(from)) bad.push(`${sp.id}/eyes: 갈아 끼울 눈이 없다 (${from})`);
+      if (!EYES.has(to)) bad.push(`${sp.id}/eyes: 그런 눈이 없다 (${to})`);
+    });
+  });
+  global.__swapN = swapN;
+
   let moodN = 0;
   D.SPEAKERS.forEach(sp => {
     Object.entries(sp.moods || {}).forEach(([name, m]) => {
@@ -386,7 +400,7 @@ Object.keys(edges).forEach(n => { if (!state[n]) walk(n, []); });
 cyc.forEach(c => bad.push(`순환: 마을이 서로를 연다 (${c}) — 둘 다 영영 안 열린다`));
 
 console.log(`인물 ${D.SPEAKERS.length}명 · 대사 ${Object.keys(D.TALKS).length}묶음 · 앉은 자리 ${placed.size}곳`);
-console.log(`표정 ${global.__moodN}가지 (부품 ${global.__partN})`);
+console.log(`표정 ${global.__moodN}가지 (부품 ${global.__partN} · 눈 갈아끼우기 ${global.__swapN}줄)`);
 console.log(`  그중 호감도가 있어야 열리는 대답 ${D.ASKS.filter(a => D.askNeedBond(a)).length}줄`
   + ` · 퀘스트가 열어 주는 대답 ${D.ASKS.filter(a => D.askNeedQuest(a)).length}줄`);
 // ⚠️ **첫걸음이 어디서 나왔는지를 같이 낸다** — 시작 목록이 비어 있는 것이 지금은

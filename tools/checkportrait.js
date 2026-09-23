@@ -226,9 +226,47 @@ const ANGLES = [-90, -75, -60, -45, -30];
         chin: diff(px, 52, 90, 68, 96) });
     }
 
-    return { res, hoods, beards };
+    // ⑤ 눈 갈아끼우기 — ⚠️⚠️ **표 검사(`checktalk`)로는 «배선이 끊긴 것»을 못 잡는다.**
+    //    `SPEAKERS.eyes` 가 멀쩡해도 `bust()` 의 `swapEye` 를 통째로 지우면 표는 그대로
+    //    통과하고 **그 사람의 눈만 조용히 옛 눈으로 되돌아간다** (사보타주로 확인했다).
+    //    그래서 **그려진 그림**을 본다 — 표를 뗀 같은 얼굴과 눈 언저리가 달라져야 한다
+    async function eyeShot(sp, mood) {
+      const holder = document.createElement('div');
+      holder.innerHTML = Portrait.bust(sp, mood, { bare: true });
+      const svg = holder.querySelector('svg');
+      svg.setAttribute('width', W); svg.setAttribute('height', H);
+      const img = new Image();
+      await new Promise(ok => { img.onload = ok; img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg.outerHTML))); });
+      cx.clearRect(0, 0, W, H); cx.drawImage(img, 0, 0);
+      return cx.getImageData(0, 0, W, H).data;
+    }
+    const eyeSwaps = [];
+    for (const sp of D.SPEAKERS) {
+      const tbl = sp.eyes || {};
+      if (!Object.keys(tbl).length) continue;
+      // 인트로 그림을 쓰는 사람은 부품을 아예 안 그린다 — 여기서 잴 것이 없다
+      if (sp.introArt) { eyeSwaps.push({ id: sp.id, mood: '(인트로 그림)', n: null }); continue; }
+      const plain = Object.assign({}, sp, { eyes: null });
+      for (const [from, to] of Object.entries(tbl)) {
+        // 그 눈을 «실제로 쓰는» 표정을 찾는다 — 아무 표정도 안 쓰면 갈아 끼울 자리가 없다
+        const mood = Object.keys(sp.moods || {}).find(k => {
+          const m = sp.moods[k];
+          return (m.eyeL || m.eye) === from || (m.eyeR || m.eye) === from;
+        });
+        if (!mood) { eyeSwaps.push({ id: sp.id, mood: `(${from} 을 쓰는 표정이 없다)`, n: 0, to }); continue; }
+        const a = await eyeShot(sp, mood), b = await eyeShot(plain, mood);
+        let n = 0;
+        for (let y = 61; y <= 73; y += 0.25) for (let x = 43; x <= 77; x += 0.25) {
+          const i = (Math.round(y * S) * W + Math.round(x * S)) * 4;
+          if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 24) n++;
+        }
+        eyeSwaps.push({ id: sp.id, mood, from, to, n });
+      }
+    }
+
+    return { res, hoods, beards, eyeSwaps };
   }, { ANGLES });
-  const { res: _res, hoods, beards } = out;
+  const { res: _res, hoods, beards, eyeSwaps } = out;
 
   const bad = [];
   let angles = 0, rows = 0;
@@ -267,10 +305,22 @@ const ANGLES = [-90, -75, -60, -45, -30];
     if (b.mouth.n > b.mouth.all * 0.01) bad.push(`${b.kind}: 입술 언저리가 맨얼굴과 ${b.mouth.n}점 다르다 — 입 자리(BEARD_BED)를 안 되판 것이다`);
     if (b.chin.n < b.chin.all * 0.05) bad.push(`${b.kind}: 턱이 맨얼굴과 ${b.chin.n}점밖에 안 다르다 — 수염이 아예 안 그려진 것이다`);
   });
+  // 눈 갈아끼우기 — 표(`SPEAKERS.eyes`)가 «그림»에 정말 닿는가
+  console.log(`\n눈 갈아끼우기 — 표에 적힌 사람의 눈이 «정말» 바뀌는가 (${eyeSwaps.length}줄)`);
+  eyeSwaps.forEach(e => {
+    console.log(`  ${e.id.padEnd(10)} ${e.mood}${e.from ? ` · ${e.from}→${e.to}` : ''}`
+      + (e.n === null ? '' : ` · 눈 언저리 ${e.n}점 달라짐`));
+    if (e.n !== null && e.n < 40) {
+      bad.push(`${e.id}: «${e.from}→${e.to}» 가 그림에 안 닿는다 (${e.n}점) — `
+        + `표만 있고 «갈아 끼우는 줄»(bust 의 swapEye)이 끊겼거나, 두 눈이 사실상 같은 그림이다`);
+    }
+  });
+
   if (errs.length) bad.push('페이지 오류: ' + errs.join(' / '));
   if (!list.length || angles === 0) bad.push('한 스타일도 못 쟀다 — 0건이 통과가 아니다');
 
-  console.log(`\n잰것: 머리 모양 ${list.length}가지 × 각도 ${ANGLES.length} (${angles}번) · 틈은 ${rows}줄`);
+  console.log(`\n잰것: 머리 모양 ${list.length}가지 × 각도 ${ANGLES.length} (${angles}번) · 틈은 ${rows}줄`
+    + ` · 눈 갈아끼우기 ${eyeSwaps.length}줄`);
   if (bad.length) { console.log('\n❌ ' + bad.length + '건\n' + bad.map(b => '  · ' + b).join('\n')); }
   else console.log('\n✅ 머리카락이 머리통에 붙어 있다');
   await br.close();
