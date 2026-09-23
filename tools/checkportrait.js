@@ -130,8 +130,9 @@ const ANGLES = [-90, -75, -60, -45, -30];
       const all = await mask(sp, ['face', 'hair-front', 'hair-back', 'hair-bun']);
       if (!face || !hairM || !all) { res.push({ hair, err: '조각을 못 찾았다' }); continue; }
       const fTop = topOf(face), hTop = topOf(hairM);
-      // 머리 한가운데 — 얼굴 타원의 중심
-      const C = { x: 60, y: 66 };
+      // 머리 한가운데 — 두개골의 중심. ⚠️ **숫자를 박지 않는다**: 얼굴을 고치면
+      // 여기가 같이 움직여야 하는데, 박아 두면 검사기만 옛 자리에서 잰다
+      const C = { x: Portrait.SKULL.cx, y: Portrait.SKULL.cy };
       const sh = ANGLES.map(d => ({ d, t: +(ray(hairM, C.x, C.y, d) - ray(face, C.x, C.y, d)).toFixed(2) }));
       // ② 머리 + 얼굴을 합쳐 놓고 «줄마다» 양옆이 막힌 빈 구간을 센다.
       //    바깥 배경은 한쪽이 그림 끝이라 저절로 빠지고, 얼굴과 머리 사이에 갇힌 것만 남는다
@@ -167,9 +168,9 @@ const ANGLES = [-90, -75, -60, -45, -30];
       if (!hairM || !hood) { hoods.push({ id: sp.id, err: '조각을 못 찾았다' }); continue; }
       const gaps = ANGLES.map(d => {
         const a = d * Math.PI / 180;
-        const rh = ray(hairM, 60, 66, d);
+        const rh = ray(hairM, Portrait.SKULL.cx, Portrait.SKULL.cy, d);
         for (let r = rh; r < 70; r += 0.25)
-          if (hood(60 + Math.cos(a) * r, 66 + Math.sin(a) * r)) return +(r - rh).toFixed(2);
+          if (hood(Portrait.SKULL.cx + Math.cos(a) * r, Portrait.SKULL.cy + Math.sin(a) * r)) return +(r - rh).toFixed(2);
         return null;       // 후드가 머리에 가려 안 보인다
       });
       hoods.push({ id: sp.id, hair: sp.hair, gaps });
@@ -181,7 +182,7 @@ const ANGLES = [-90, -75, -60, -45, -30];
   const bad = [];
   let angles = 0, rows = 0;
   const list = _res;
-  console.log('머리 껍질 — 각도마다 «얼굴 끝에서 머리카락 끝까지» (머리 한가운데 60,66 에서)');
+  console.log('머리 껍질 — 각도마다 «얼굴 끝에서 머리카락 끝까지» (두개골 한가운데에서)');
   list.forEach(r => {
     if (r.err) { bad.push(`${r.hair}: ${r.err}`); console.log(`  ${r.hair.padEnd(6)} ${r.err}`); return; }
     angles += r.shell.length;

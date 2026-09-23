@@ -1719,13 +1719,13 @@ const BASE_MOODS = {
 };
 
 const SPEAKERS = [
-  { id: 'sp_stark', name: '슈타르크', hair: 'short', hairColor: '#4a3a2e', beard: 'stub',
+  { id: 'sp_stark', name: '슈타르크', hair: 'crop', hairColor: '#4a3a2e', beard: 'stub',
     skin: '#e8c3a3', cloth: '#6b5a44', bg: '#dfe6d8', deco: 'hood', decoColor: '#4f5f42',
     moods: { def: { eye: 'sharp', mouth: 'flat' }, warm: { eye: 'soft', mouth: 'calm' } } },
   { id: 'sp_orix', name: '오릭스', hair: 'short', hairColor: '#b4552e', beard: 'full',
     skin: '#f0cfae', cloth: '#7b6a4a', bg: '#f2e4cf', deco: 'none',
     moods: { def: { eye: 'smile', mouth: 'grin' }, wink: { eye: 'closed', mouth: 'smirk' } } },
-  { id: 'sp_valen', name: '발렌', hair: 'short', hairColor: '#e2c473', beard: 'none',
+  { id: 'sp_valen', name: '발렌', hair: 'slick', hairColor: '#e2c473', beard: 'none',
     skin: '#f3d7bd', cloth: '#3f5f9e', bg: '#dde5f4', deco: 'circlet', decoColor: '#ffd76a',
     moods: { def: { eye: 'sharp', mouth: 'smirk' }, soft: { eye: 'normal', mouth: 'calm' } } },
   { id: 'sp_kairos', name: '카이로스', hair: 'wave', hairColor: '#6b4a3a', beard: 'none',
@@ -1849,7 +1849,7 @@ const SPEAKERS = [
   { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', beard: 'full',
     skin: '#e0c09a', cloth: '#6f7f52', bg: '#e2e9d6', deco: 'leaf', decoColor: '#6f9455',
     moods: { def: { eye: 'normal', mouth: 'flat' }, warm: { eye: 'smile', mouth: 'smile' } } },
-  { id: 'sp_ygritte', name: '이그리트', hair: 'long', hairColor: '#b8442c', beard: 'none',
+  { id: 'sp_ygritte', name: '이그리트', hair: 'long', brows: 'soft', hairColor: '#b8442c', beard: 'none',
     skin: '#f4dcc6', cloth: '#6b2a3c', bg: '#eddad4', deco: 'crown', decoColor: '#e8c463',
     eyeColor: '#2f2a30',
     moods: { def: { eye: 'sharp', mouth: 'flat' }, cold: { eye: 'sharp', mouth: 'smirk' } } },
