@@ -1846,7 +1846,7 @@ const SPEAKERS = [
              resolve: { art: 'resolve' },
              awe:     { art: 'awe' },
              curious: { art: 'curious' } } },
-  { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', brows: 'thick', beard: 'full',
+  { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', brows: 'thick', beard: 'none',
     skin: '#e0c09a', cloth: '#6f7f52', bg: '#e2e9d6', deco: 'leaf', decoColor: '#6f9455',
     moods: { def: { eye: 'normal', mouth: 'flat' }, warm: { eye: 'smile', mouth: 'smile' } } },
   { id: 'sp_ygritte', name: '이그리트', hair: 'long', brows: 'soft', hairColor: '#b8442c', beard: 'none',

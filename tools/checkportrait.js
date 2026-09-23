@@ -24,7 +24,13 @@
 //      않는가. 후드의 안쪽 구멍도 `crown()` 에서 뽑는데(그 사람이 «쓴 머리»로), 숫자를
 //      박아 두면 머리를 두껍게 고치는 순간 후드가 머리 «안»으로 들어가 통째로 안 보이고
 //      얇게 고치면 그만큼 벌어진다. 둘 다 화면에 오류 하나 안 뜨는 종류다
-//   ④ **한 스타일도 못 쟀는가** — 0건이 「통과」인지 「한 번도 안 쟀다」인지를 가른다
+//   ④ **수염과 입** : 수염이 «입을 덮지 않는가» · 그런데 «그려지기는 하는가».
+//      옛 `full` 은 y70~108 을 통째로 덮는데 입은 y82~90 이라 **입이 수염 «위에» 떠
+//      있었다** — 지금은 턱수염 → `BEARD_BED`(살색) → 콧수염 → 입 순서로 입 자리를
+//      되판다. ⚠️ **지금 수염을 쓰는 인물이 하나도 없다**(사람이 셋을 다 뺐다) —
+//      그래서 후드와 같이 «가짜 착용자»에 씌워 본다. 안 그러면 이 약속이 아무에게도
+//      안 보이는 채로 조용히 깨진다
+//   ⑤ **한 스타일도 못 쟀는가** — 0건이 「통과」인지 「한 번도 안 쟀다」인지를 가른다
 //
 // ⚠️ **0건이 통과가 아니다** — 몇 스타일 · 몇 각도를 쟀는지를 통과할 때도 낸다.
 //
@@ -180,9 +186,49 @@ const ANGLES = [-90, -75, -60, -45, -30];
       });
       hoods.push({ id: sp.id, hair, gaps });
     }
-    return { res, hoods };
+    // ④ 수염 — ⚠️⚠️ **「수염이 입을 덮는가」를 픽셀로 물으면 답이 안 나온다.**
+    //    입(`MOUTH`)은 수염 «뒤»에 그려지므로 순서상 절대 안 덮이고, 조각 마스크로는
+    //    입 자리를 되파는 `BEARD_BED` 가 안 보인다(`data-part` 가 없다).
+    //    ⚠️ 색으로 세려다 한 번 헛짚었다 — 네모 귀퉁이가 살받침(타원) 밖으로 나가
+    //       **멀쩡한 `full` 이 78점**으로 잡혔고, 반투명한 `stub` 은 색이 섞여
+    //       **턱 0점**이 나왔다. 둘 다 그림이 아니라 잣대의 잘못이다.
+    //    지금은 **「수염 없는 그림과 무엇이 달라졌나」**로 잰다 — 살받침이 제 일을 하면
+    //    입 언저리는 맨얼굴과 «똑같아야» 하고, 턱은 «달라져야» 한다
+    async function shot(kind) {
+      const sp = Object.assign({}, base, { hair: 'short', deco: 'none', beard: kind,
+        moods: { def: { eye: 'normal', mouth: 'calm' } } });
+      const holder = document.createElement('div');
+      holder.innerHTML = Portrait.bust(sp, 'def', { bare: true });
+      const svg = holder.querySelector('svg');
+      svg.setAttribute('width', W); svg.setAttribute('height', H);
+      const img = new Image();
+      await new Promise(ok => { img.onload = ok; img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg.outerHTML))); });
+      cx.clearRect(0, 0, W, H); cx.drawImage(img, 0, 0);
+      return cx.getImageData(0, 0, W, H).data;
+    }
+    const bare = await shot('none');
+    const diff = (px, x0, y0, x1, y1) => {
+      let n = 0, all = 0;
+      for (let y = y0; y <= y1; y += 0.25) for (let x = x0; x <= x1; x += 0.25) {
+        const i = (Math.round(y * S) * W + Math.round(x * S)) * 4;
+        all++;
+        if (Math.abs(px[i] - bare[i]) + Math.abs(px[i + 1] - bare[i + 1]) + Math.abs(px[i + 2] - bare[i + 2]) > 24) n++;
+      }
+      return { n, all };
+    };
+    const beards = [];
+    for (const kind of ['stub', 'full']) {
+      const px = await shot(kind);
+      beards.push({ kind,
+        // 입술 언저리 — 살받침 타원(cx60 cy84.5 rx8.5 ry5.4) «안»쪽만 본다
+        mouth: diff(px, 55, 81.5, 65, 87.5),
+        // 턱 — 수염이 정말 그려지는가
+        chin: diff(px, 52, 90, 68, 96) });
+    }
+
+    return { res, hoods, beards };
   }, { ANGLES });
-  const { res: _res, hoods } = out;
+  const { res: _res, hoods, beards } = out;
 
   const bad = [];
   let angles = 0, rows = 0;
@@ -212,6 +258,14 @@ const ANGLES = [-90, -75, -60, -45, -30];
     console.log(`  ${h.id.padEnd(10)} 머리 ${h.hair} · 틈 ${h.gaps.map(g => g === null ? '가려짐' : g).join(' ')}`);
     if (hid) bad.push(`${h.id}: 후드가 머리에 가려 ${hid}곳에서 안 보인다 — 구멍이 머리보다 좁다`);
     if (mx > HOOD_GAP) bad.push(`${h.id}: 후드와 머리가 ${mx}px 벌어졌다 (${HOOD_GAP} 까지)`);
+  });
+  console.log('\n수염과 입 — 입을 안 덮는가 · 그런데 그려지기는 하는가 (가짜 착용자에 씌운다)');
+  if (!beards.length) bad.push('수염을 한 번도 안 씌워 봤다 — 이 줄이 아무것도 안 쟀다');
+  beards.forEach(b => {
+    console.log(`  ${b.kind.padEnd(5)} 입술 언저리 ${b.mouth.n}/${b.mouth.all} 달라짐 · 턱 ${b.chin.n}/${b.chin.all} 달라짐`);
+    // 안티에일리어싱 몇 점은 넘겨 준다 (1%)
+    if (b.mouth.n > b.mouth.all * 0.01) bad.push(`${b.kind}: 입술 언저리가 맨얼굴과 ${b.mouth.n}점 다르다 — 입 자리(BEARD_BED)를 안 되판 것이다`);
+    if (b.chin.n < b.chin.all * 0.05) bad.push(`${b.kind}: 턱이 맨얼굴과 ${b.chin.n}점밖에 안 다르다 — 수염이 아예 안 그려진 것이다`);
   });
   if (errs.length) bad.push('페이지 오류: ' + errs.join(' / '));
   if (!list.length || angles === 0) bad.push('한 스타일도 못 쟀다 — 0건이 통과가 아니다');
