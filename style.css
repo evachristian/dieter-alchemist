@@ -514,9 +514,10 @@ body.has-quest .screen { padding-bottom: 168px; }
 /* ─── 특별한 맵 배지 ─── UI_POLICY.md 참고
    미니게임이 있는 맵(spot.mini)에만 붙는다. 카드 왼쪽 위 모서리에 얹는다. */
 .spot-card.special { overflow: visible; }
-/* ─── 동행 크리처 한 줄 (탐험 화면) ───
-   **세로를 거의 안 먹는다.** 지대 탭 위에 얇게 얹어서 지도 목록을 밀지 않는다
-   (운동 버튼을 방 그림 위에 얹은 것과 같은 판단 — UI_POLICY) */
+/* ─── 동행 크리처 한 줄 (탐험 화면 · 필드 판 «안») ───
+   **세로를 거의 안 먹는다.** 지대 칩과 카드 목록 사이에 얇게 얹는다
+   (운동 버튼을 방 그림 위에 얹은 것과 같은 판단 — UI_POLICY).
+   ⚠️ 위 여백은 `.zn-tabs` 의 12px, 아래는 이 줄의 8px 이 맡는다 — 새로 주지 않는다 */
 .pal-row {
   width: 100%; display: flex; align-items: center; gap: 8px;
   margin: 0 0 8px; padding: 7px 12px;
@@ -603,8 +604,7 @@ body.has-quest .screen { padding-bottom: 168px; }
    상자 밖으로 2px 나갔다** — 그 폭에서는 글자가 두 줄로 접히는 것이 맞는 모양이다.
    평소(한국어·영어)에는 한 글자도 안 접힌다 */
 .gt-head .diary-btn { flex: 0 1 auto; min-width: 0; margin: 0 0 0 auto; }
-/* `hidden` 은 맨 위의 `[hidden]{display:none!important}` 이 책임진다 —
-   여기에 짝 규칙을 또 두지 않는다 (그 한 줄을 만든 이유가 그것이다) */
+/* 이 줄은 필드 판 안에 살아서 갈래가 바뀌면 판째로 사라진다 — `hidden` 을 쓰지 않는다 */
 .pal-line { display: flex; align-items: stretch; gap: 6px; }
 .pal-line .pal-row { flex: 1 1 auto; min-width: 0; }
 .dp-chip {

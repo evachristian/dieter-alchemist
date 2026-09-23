@@ -5251,11 +5251,12 @@ window.setRoomPet = setRoomPet;
 // 탐험 화면 위쪽 한 줄을 누르면 시트가 뜬다. **가진 것만** 나온다 —
 // 여기는 고르는 곳이지 보는 곳이 아니다 (못 가진 것을 보는 곳은 도감이다)
 function renderPalRow() {
-  // ⚠️ **동행·시간대는 필드 갈래에서만 뜬다.** 일지 옆(탭 «위»)으로 올라오면서
-  // 세 갈래에 다 걸리게 됐는데, 마을·밭에는 데려갈 곳이 없어서 거기서는
-  // 「누구를 데려갈지」가 아무 뜻도 없는 줄이 된다 — 누르면 시트까지 뜬다
-  const line = document.getElementById('palLine');
-  if (line) line.hidden = gatherTab !== 'field';
+  // ⚠️ **동행·시간대가 필드 갈래에서만 뜨는 것은 «구조»가 지킨다** — 이 줄은
+  // `#gatherPanel-field` 안에 살아서 갈래가 바뀌면 판째로 사라진다 (index.html).
+  // 한때 탭 «위»에 두고 여기서 `line.hidden = gatherTab !== 'field'` 로 접었는데,
+  // 그건 **JS 가 지키는 약속**이라 부르는 것을 한 번 빠뜨리면 조용히 어긋났다.
+  // 자리를 옮기며 그 줄을 지웠다 — 안 쓰는 규칙을 남겨 두면 다음 사람이 그것을
+  // 「아직 필요한 것」으로 읽는다 (`.pal-line[hidden]` 짝 CSS 를 지운 것과 같은 자리다)
   const el = document.getElementById('palRow');
   if (!el) return;
   const pet = fieldPet();
