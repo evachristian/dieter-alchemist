@@ -141,8 +141,8 @@ function ok(cond, msg, extra) {
       .forEach(r => { S.potions[r.result.id] = 2; });
     switchTab('gather'); setGatherTab('village'); setVillage('vl_chimney');
     tapVillageSpot('vl_chimney', 'vs_chimney_forge');
-    const pips = document.querySelectorAll('#villageBody .bd-pip.on').length;
-    const btn = [...document.querySelectorAll('#villageBody .npc-act')]
+    const pips = document.querySelectorAll('#npcBody .bd-pip.on').length;
+    const btn = [...document.querySelectorAll('#npcSheet .npc-act')]
       .find(b => b.textContent.trim() === T('npc_gift'));
     if (!btn) return '선물 버튼이 없다';
     openGift('sp_orix');
@@ -176,7 +176,7 @@ function ok(cond, msg, extra) {
       }
       return [255, 255, 255];
     };
-    return [...document.querySelectorAll('#villageBody .bd-pip')].map(e => ({
+    return [...document.querySelectorAll('#npcBody .bd-pip')].map(e => ({
       on: e.classList.contains('on'), fg: rgb(getComputedStyle(e).color), bg: bgOf(e),
     }));
   });

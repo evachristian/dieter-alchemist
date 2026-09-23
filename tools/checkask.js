@@ -196,12 +196,12 @@ function ok(cond, msg, extra) {
   // ⚠️ 퀘스트는 «끝낸 것으로 심는다» — 여기서 볼 것은 퀘스트 진행이 아니라 **문**이다
   // (퀘스트를 진짜로 걷는 것은 `checkstory`·`checkbond` 의 몫이다)
   let gateN = 0;
-  const chipLocked = (kwName) => page.$$eval('#villageBody .ask-chip',
+  const chipLocked = (kwName) => page.$$eval('#npcBody .ask-chip',
     (els, n) => { const e = els.find(x => x.textContent.includes(n)); return e ? e.classList.contains('locked') : null; }, kwName);
   async function openGate(village, spot, kwName, quest) {
     await page.evaluate(([v, s]) => { switchTab('gather'); setGatherTab('village'); setVillage(v); tapVillageSpot(v, s); },
       [village, spot]);
-    await page.waitForSelector('#villageBody .ask-chip', { timeout: 2000 }).catch(() => {});
+    await page.waitForSelector('#npcBody .ask-chip', { timeout: 2000 }).catch(() => {});
     const before = await chipLocked(kwName);
     ok(before === true, `「${kwName}」은 ${quest} 전에는 잠겨 있다`,
        before === null ? '칩이 아예 없다' : '');
@@ -211,7 +211,7 @@ function ok(cond, msg, extra) {
     if (!gateN) {
       await flushToasts();
       const kwBefore = await page.evaluate(() => S.keywords.length);
-      await page.$$eval('#villageBody .ask-chip',
+      await page.$$eval('#npcBody .ask-chip',
         (els, n) => els.find(x => x.textContent.includes(n)).click(), kwName);
       await page.waitForTimeout(160);
       const r = await page.evaluate(() => ({
@@ -233,7 +233,7 @@ function ok(cond, msg, extra) {
       await page.waitForTimeout(120);
       await page.evaluate(([v, s2]) => { switchTab('gather'); setGatherTab('village'); setVillage(v); tapVillageSpot(v, s2); },
         [village, spot]);
-      await page.waitForSelector('#villageBody .ask-chip', { timeout: 2000 }).catch(() => {});
+      await page.waitForSelector('#npcBody .ask-chip', { timeout: 2000 }).catch(() => {});
     }
     await page.evaluate((q) => { questState().done.push(q); render(); }, quest);
     const after = await chipLocked(kwName);
@@ -262,12 +262,12 @@ function ok(cond, msg, extra) {
       [village, spot]);
     // **짧게 기다린다.** 사슬이 끊기면 이 자리는 영영 안 나타나는데, 기본 30초로 두면
     // 검사가 실패 대신 **멈춰 버린다** — 못 갔다는 사실이 결과에 안 나온다
-    try { await page.waitForSelector('#villageBody .ask-chip', { timeout: 2000 }); }
+    try { await page.waitForSelector('#npcBody .ask-chip', { timeout: 2000 }); }
     catch (e) { return null; }
-    const idx = await page.$$eval('#villageBody .ask-chip',
+    const idx = await page.$$eval('#npcBody .ask-chip',
       (els, n) => els.findIndex(e => e.textContent.includes(n)), kwName);
     if (idx < 0) return null;
-    await page.$$eval('#villageBody .ask-chip', (els, i) => els[i].click(), idx);
+    await page.$$eval('#npcBody .ask-chip', (els, i) => els[i].click(), idx);
     await page.waitForTimeout(120);
     // 마을에서도 대답은 **장면**이다.
     // ⚠️ **돌려줄 것은 «둘째 줄»이다** — 첫 줄은 공주의 질문이고, 뒤는 이어지는
@@ -295,7 +295,7 @@ function ok(cond, msg, extra) {
   // **칩이 하나뿐이라 «새 칩» 쪽을 한 번도 안 재는 자리**가 됐다.
   // ⚠️ **양쪽을 몇 개 쟀는지도 같이 낸다.** 한쪽이 0이면 그 방향은 아예 안 잰 것이라
   // 「0건」이 통과가 아니라 「재 본 적 없다」가 된다 (checkavatar 의 발등·부츠와 같은 규칙)
-  const chipDots = await page.$$eval('#villageBody .ask-chip', els => els.map(e => ({
+  const chipDots = await page.$$eval('#npcBody .ask-chip', els => els.map(e => ({
     fresh: e.classList.contains('fresh'),
     dot: !!e.querySelector(".tab-dot"),
     // 절대 배치라도 **가로로 삐져나오면** 칩이 줄 끝에 설 때 넘친다 (`__cardFits` 가 잡는다)
@@ -360,19 +360,19 @@ function ok(cond, msg, extra) {
   // 그 대신 **길잡이 점(●)에는 안 센다** — 점을 따라갔는데 못 여는 것뿐이면 점이 거짓말이 된다
   await page.evaluate(() => { switchTab('gather'); setGatherTab('village');
     setVillage('vl_chimney'); tapVillageSpot('vl_chimney', 'vs_chimney_forge'); });
-  await page.waitForSelector('#villageBody .ask-chip', { timeout: 2000 });
-  let lockTxt = await page.$$eval('#villageBody .ask-chip.locked', els => els.map(e => e.textContent.trim()));
+  await page.waitForSelector('#npcBody .ask-chip', { timeout: 2000 });
+  let lockTxt = await page.$$eval('#npcBody .ask-chip.locked', els => els.map(e => e.textContent.trim()));
   ok(lockTxt.length === 1 && lockTxt[0].includes('🔒'), '아직 못 여는 대답은 🔒 로 보인다 (감추지 않는다)',
      lockTxt.join(' / '));
   ok(lockTxt[0] && lockTxt[0].includes('독사과'), '그것이 「독사과」 줄이다', lockTxt.join(' / '));
   // ⚠️ 자물쇠가 통째로 사라졌으면 **여기서 죽지 말고 그렇다고 알린다** —
   // 크래시는 「무엇이 틀렸나」를 안 알려 준다 (checklore 에서 배운 것과 같다)
-  const dimmed = lockTxt.length ? await page.$eval('#villageBody .ask-chip.locked',
+  const dimmed = lockTxt.length ? await page.$eval('#npcBody .ask-chip.locked',
     e => getComputedStyle(e).filter.includes('saturate')) : false;
   ok(dimmed, '잠긴 콘텐츠 공통 표현(saturate)을 쓴다');
   // ⚠️ **잠긴 칩에는 점이 없다** — 길잡이 점이 「못 여는 것」을 가리키면 거짓말이 된다
   // (바로 아래 `asksNew` 가 안 센다는 것과 같은 규칙이고, 화면 쪽이 이것이다)
-  ok(lockTxt.length ? await page.$eval('#villageBody .ask-chip.locked',
+  ok(lockTxt.length ? await page.$eval('#npcBody .ask-chip.locked',
        e => !e.querySelector(".tab-dot")) : false, '잠긴 칩에는 점이 안 붙는다');
 
   let kwN = await page.evaluate(() => S.keywords.length);
@@ -385,7 +385,7 @@ function ok(cond, msg, extra) {
   const drained = await flushToasts();
   ok(drained, '앞 단계의 예약 토스트가 다 흘러갔다 (안 그러면 남의 말을 읽는다)');
   // 자물쇠가 없으면 그 자리의 칩을 그냥 누른다 — 「막혔는가」는 그래도 재야 한다
-  await page.$$eval('#villageBody .ask-chip',
+  await page.$$eval('#npcBody .ask-chip',
     els => (els.find(e => e.classList.contains('locked')) ||
             els.find(e => e.textContent.includes('독사과')) || els[0]).click());
   // ⚠️ **기다리지 않고 바로 읽는다.** 잠긴 갈래는 동기라 이미 떠 있고, 기다리면
@@ -436,13 +436,13 @@ function ok(cond, msg, extra) {
   await page.evaluate((n) => { S.bond.sp_orix = D.BOND_TIERS[n].at - 1; save();
     tapVillageSpot('vl_chimney', 'vs_chimney_forge'); }, need);
   await page.waitForTimeout(80);
-  ok(await page.$$eval('#villageBody .ask-chip.locked', els => els.length) === 1,
+  ok(await page.$$eval('#npcBody .ask-chip.locked', els => els.length) === 1,
      '문턱 한 점 앞까지는 아직 잠겨 있다',
      `${await page.evaluate(() => bondOf('sp_orix'))}점`);
   await page.evaluate((n) => { S.bond.sp_orix = D.BOND_TIERS[n].at; save();
     tapVillageSpot('vl_chimney', 'vs_chimney_forge'); }, need);
   await page.waitForTimeout(80);
-  ok(await page.$$eval('#villageBody .ask-chip.locked', els => els.length) === 0,
+  ok(await page.$$eval('#npcBody .ask-chip.locked', els => els.length) === 0,
      '그 단계가 되면 자물쇠가 풀린다',
      await page.evaluate((n) => D.BOND_TIERS[n].name, need));
   ok(await page.evaluate(() => asksNew('sp_orix')) === 1, '풀린 순간 길잡이 점이 켜진다');

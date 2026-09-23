@@ -3164,6 +3164,11 @@ function switchTab(tab) {
   // 랭킹은 '여신' 단계부터다. 잠긴 채로 들어오면(옛 세이브의 마지막 탭 등)
   // 빈 화면이 뜨므로 홈으로 돌린다
   if (tab === 'league' && !leagueOpen()) tab = 'showcase';
+  // ⚠️ **건물 안 시트는 «탐험 밖»까지 따라오면 안 된다.** 바닥 시트는 `position: fixed`
+  // 라 탭을 옮겨도 그 자리에 그대로 떠 있고, `render()` 는 탐험 탭일 때만
+  // `renderGather()` 를 부르므로 **아무도 닫아 주지 않는다** (마이 룸 위에 대장간이 뜬다).
+  // 그래서 여기서는 «그리기»에 기대지 않고 그 자리에서 닫는다
+  if (tab !== 'gather') closeNpcSheet();
   currentTab = tab;
   window.currentTab = tab;   // 인트로에서 '이전 화면' 복귀에 사용
   document.querySelectorAll('.tab-btn').forEach(b =>
@@ -4381,9 +4386,14 @@ function renderVillages() {
 
   const v = list.find(x => x.id === villageTab) || list[0];
   if (!v) { el.innerHTML = ''; return; }
-  const spot = villageSpotIn && (v.spots || []).find(x => x.id === villageSpotIn);
-  if (spot) renderVillageSpot(el, v, spot);
-  else renderVillageMap(el, v);
+  // **지도는 늘 그린다.** 건물 안은 그 «위에» 올라오는 바닥 시트라,
+  // 들어가 있는 동안에도 어디서 들어왔는지가 뒤에 남아 있어야 한다.
+  // ⚠️ **마을 갈래일 때만 시트가 뜬다** — 필드·밭으로 옮겼는데 남아 있으면
+  // 데려갈 곳도 물어볼 사람도 없는 화면 위에 대장간이 떠 있게 된다
+  renderVillageMap(el, v);
+  const spot = gatherTab === 'village' && villageSpotIn
+    && (v.spots || []).find(x => x.id === villageSpotIn);
+  renderVillageSpot(v, spot);
 }
 
 // 말풍선에 붙는 이름.
@@ -4469,8 +4479,10 @@ function tapVillageSpot(vid, sid) {
   if (sid === 'vs_mirror_pond' && endingReady()) { playEnding(); return; }
   villageSpotIn = sid;
   talkIdx = null;
+  // ⚠️ **페이지를 맨 위로 굴리지 않는다** — 건물 안은 이제 지도 «위에» 올라오는
+  // 시트라 페이지가 그대로 있어야 한다. 굴려 버리면 나갔을 때 방금 누른 건물이
+  // 화면 밖에 있다 (지도를 갈아 끼우던 시절에 필요했던 줄이다)
   renderGather();
-  window.scrollTo(0, 0);
 }
 window.tapVillageSpot = tapVillageSpot;
 
@@ -4485,7 +4497,21 @@ window.tapVillageSpot = tapVillageSpot;
 // (화면을 떠나면 처음부터 — 진행이 아니라 인사말이라 저장할 것이 없다)
 let talkIdx = null;
 
-function renderVillageSpot(el, v, s) {
+function renderVillageSpot(v, s) {
+  // **바닥 시트다** (UI_POLICY 3-2). 지도를 갈아 끼우는 것이 아니라 그 위에 올라온다 —
+  // 그래서 나가는 길도 제 화살표가 아니라 다른 팝업과 같은 「나가기」 한 줄이고,
+  // 장소 이름은 시트의 제목 자리(`.confirm-text`)가 받는다
+  const sheet = document.getElementById('npcSheet');
+  const el = document.getElementById('npcBody');
+  if (!sheet || !el) return;
+  if (!s) {
+    sheet.classList.remove('show'); el.innerHTML = '';
+    const a0 = document.getElementById('npcActs'); if (a0) a0.innerHTML = '';
+    return;
+  }
+  sheet.classList.add('show');
+  const title = document.getElementById('npcTitle');
+  if (title) title.innerHTML = `<span class="em">${s.emoji}</span> ${escHtml(N(s.id, s.name))}`;
   const trade = s.trade !== false;
   const sp = s.npc && D.speaker(s.npc);
   // 호감도 단계마다 인사말이 갈리고, 잡담이 한 줄 더 붙는다.
@@ -4515,10 +4541,6 @@ function renderVillageSpot(el, v, s) {
         `<span class="npc-dot ${i === talkIdx ? 'on' : ''}"></span>`).join('')}</div>` : '';
 
   el.innerHTML = `
-    <div class="npc-head">
-      <button class="btn-back" onclick="leaveSpot()" aria-label="${T('npc_back_map')}">‹</button>
-      <span class="npc-place">${s.emoji} ${N(s.id, s.name)}</span>
-    </div>
     <div class="npc-stage">
       ${(window.Village ? Village.interior(s, v.id) : '')}
       ${sp && window.Portrait
@@ -4533,7 +4555,13 @@ function renderVillageSpot(el, v, s) {
       ${dots}
       ${more ? '<span class="npc-more">▾</span>' : ''}
     </div>
-    ${sp ? askRowHtml(sp.id) : ''}
+    ${sp ? askRowHtml(sp.id) : ''}`;
+
+  // ⚠️ **버튼 줄은 굴러가는 자리 «밖»에 그린다** (`#npcActs`). 시트 안의 높이는
+  // 사람마다 다른데(칩이 둘인 사람도 일곱인 사람도 있다) 짧은 화면에서 넘치면
+  // 밀려나는 것이 하필 «누르는 자리»다 — 그림과 칩은 굴려도 되고 버튼은 안 된다
+  const acts = document.getElementById('npcActs');
+  if (acts) acts.innerHTML = `
     <div class="npc-acts">
       ${sp && hasBond(sp.id)
         ? `<button class="npc-act" onclick="openGift('${sp.id}')">${T('npc_gift')}</button>`
@@ -5502,7 +5530,16 @@ let villageTab = D.VILLAGES[0].id;
 let villageSpotIn = null;
 function setVillage(id) { villageTab = id; villageSpotIn = null; talkIdx = null; renderGather(); }
 window.setVillage = setVillage;
-function leaveSpot() { villageSpotIn = null; talkIdx = null; renderGather(); }
+// 건물 안 시트를 닫는 문은 **하나**다 — `leaveSpot()`(사람이 나가기를 누름)도,
+// `switchTab()`(탐험을 떠남)도 여기를 지난다. 둘이 따로 닫으면 한쪽만 고쳐 갈린다.
+// ⚠️ **그리기에 기대지 않고 그 자리에서 `.show` 를 뗀다** — 탐험 탭을 떠나면
+// `render()` 가 `renderGather()` 를 안 부르므로 아무도 안 닫아 준다
+function closeNpcSheet() {
+  villageSpotIn = null; talkIdx = null;
+  const sheet = document.getElementById('npcSheet');
+  if (sheet) sheet.classList.remove('show');
+}
+function leaveSpot() { closeNpcSheet(); renderGather(); }
 window.leaveSpot = leaveSpot;
 // 잠긴 마을 카드를 눌렀을 때 — 조건이 정해지면 여기서 조건을 안내한다
 function villageInfo(id, el) {

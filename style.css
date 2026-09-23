@@ -857,19 +857,27 @@ body.has-quest .screen { padding-bottom: 168px; }
   max-height: 2.5em; word-break: keep-all;
 }
 
-/* ─── 건물 안 (NPC 화면) ──────────────────────────────────────
-   장소 이름 → 대사 → 그림 + 버튼. 사람은 아직 없고 자리만 잡아 둔 화면이다. */
-.npc-head { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; min-width: 0; }
-.npc-place { font-size: 0.95rem; font-weight: 800; color: var(--ink); min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 뒤로 — **마을 이름을 넣지 않는다.** 바로 위 탭 줄이 이미 그 이름을 보여 주고 있어서
-   같은 글자가 한 화면에 두 번 나온다. 화살표만 두고 이름은 aria-label 로 읽어 준다 */
-.btn-back {
-  flex: 0 0 auto; border: none; background: var(--cream); color: var(--ink);
-  font-family: inherit; font-weight: 800; font-size: 1.05rem; line-height: 1;
-  padding: 10px 16px; border-radius: 999px; cursor: pointer;
+/* ─── 건물 안 (NPC 시트) ──────────────────────────────────────
+   **마을 지도 «위에» 올라오는 바닥 시트다** (UI_POLICY 3-2 · `#npcSheet`).
+   그림 → 대사 → 물어볼 것 → 버튼 순으로 쌓이고, 장소 이름은 시트의 제목 자리가
+   받는다 (`.confirm-text`). 나가는 길은 다른 팝업과 같은 「나가기」 한 줄이다.
+   ⚠️ 예전에는 제 화살표(`.btn-back`)로 나갔는데, 시트가 되면서 그 자리가 없어졌다 —
+   안 쓰는 규칙을 남겨 두면 다음 사람이 그것을 「아직 필요한 것」으로 읽는다.
+   ⚠️ **시트 카드는 `text-align: center` 다** — 읽을 글(대사·칩·줄)은 왼쪽으로 되돌린다.
+   ⚠️⚠️ **버튼 줄과 「나가기」는 굴러가는 자리 «밖»이다.** 시트에 들어가는 것이
+   그림 · 대사 · 칩이라 사람마다 높이가 다른데(칩이 둘인 사람도 일곱인 사람도 있다),
+   1080×1920 폰(360×640 CSS)에서는 일곱 칩이 시트를 105px 넘겼고 그때 화면 밖으로
+   밀려나는 것이 하필 «누르는 자리»였다. 카드를 세로 플렉스로 두고 `#npcBody` 만 굴린다 */
+#npcSheet .modal-card { display: flex; flex-direction: column; overflow: hidden; }
+#npcBody { text-align: left; overflow-y: auto; min-height: 0; }
+#npcTitle, #npcActs, #npcSheet .sheet-exit { flex: 0 0 auto; }
+/* ⚠️ **짧은 화면에서는 «그림»이 먼저 줄어든다** — 글(대사·칩)과 버튼은 줄일 수가 없다.
+   그림은 `preserveAspectRatio="… slice"` 라 상자가 낮아지면 잘려서 들어맞는다
+   (village.js). 키가 넉넉한 폰에서는 한 픽셀도 안 바뀐다 */
+@media (max-height: 760px) {
+  .npc-svg { max-height: 26vh; }
+  #npcSheet .modal-card { padding-top: 14px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
 }
-.btn-back:active { transform: scale(0.96); }
 /* 말풍선 — 그림 «위에 겹치지» 않는다. 겹쳐 놓으면 대사가 길어질 때
    (영어·2배 확대) 그림과 버튼을 덮는다 (마을 설명에서 같은 문제를 겪었다).
    자리는 **그림 아래**다 — 화면이 「여기가 어디이고 누가 있는가」(그림) →
@@ -2829,6 +2837,7 @@ button.tm-slot:active { transform: scale(0.94); }
    **누구 «위에» 뜨는 것인지를 층으로 적어 둔다** — 그것이 진짜 규칙이다.
    `checkui` 의 「겹친 시트」가 실제로 눌리는 쪽을 hit-test 해서 지킨다 */
 #plantPick, #teamPick { z-index: 55; }   /* 밭 시트 · 이웃 밭 시트 위 */
+#giftSheet { z-index: 55; }              /* 건물 안 시트(#npcSheet) 위 */
 #confirmModal { z-index: 60; }           /* 무엇 위에든 — 마지막 확인이다 */
 .modal.show { display: flex; animation: fade 0.2s ease; }
 .modal-card {

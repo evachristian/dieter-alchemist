@@ -1882,7 +1882,7 @@ function launchOpts() {
             // (위쪽 시드가 사람마다 단계를 돌려 주는데, 유타르크가 마침 열려 있었다)
             S.bond.sp_yutark = 0;
             tapVillageSpot('vl_mirror', 'vs_mirror_pond');           // 유타르크 — 다섯
-            const chips = document.querySelectorAll('#villageBody .ask-chip');
+            const chips = document.querySelectorAll('#npcBody .ask-chip');
             const want = D.asksOf('sp_yutark').length;
             if (chips.length !== want) return `칩이 ${chips.length}개다 (${want} 기대)`;
             // ⚠️ **여기서 `doAsk` 를 부르지 않는다** — 대답이 컷씬으로 바뀌면서
@@ -1890,13 +1890,13 @@ function launchOpts() {
             // **덮개 위에서 재게 된다.** 장면 쪽은 아래 「키워드장면」이 따로 잰다
             // ⚠️ **자물쇠 칩이 이 화면에 있어야 한다.** 없으면 🔒 줄의 대비·넘침을
             // 아무도 안 재는 것이다 — 「0건」이 재 본 적 없다는 뜻이 된다
-            if (!document.querySelector('#villageBody .ask-chip.locked'))
+            if (!document.querySelector('#npcBody .ask-chip.locked'))
               return '잠긴 칩이 하나도 없다 — 그 자리를 재는 화면이 사라졌다';
             return null;
           });
           if (bad) results.push({ 화면: `${t}/물어볼것`, 오류: bad });
           else { await page.waitForTimeout(250); await run(`${t}/물어볼것`); }
-          const askBad = await page.evaluate(() => window.__fits('#villageBody'));
+          const askBad = await page.evaluate(() => window.__fits('#npcSheet'));
           if (askBad) results.push({ 화면: `${t}/물어볼것`, 오류: askBad });
 
           // **칩이 제일 많은 사람** — `checktalk` 의 `ASK_MAX` 가 막으려는 것이
@@ -1926,7 +1926,7 @@ function launchOpts() {
               D.QUESTS.forEach(q => { if (!questState().done.includes(q.id)) questState().done.push(q.id); });
               S.bond[npc] = 9999;
               setGatherTab('village'); setVillage(vi); tapVillageSpot(vi, sp);
-              const got = document.querySelectorAll('#villageBody .ask-chip').length;
+              const got = document.querySelectorAll('#npcBody .ask-chip').length;
               const want = D.asksOf(npc).length;
               if (got !== want) return { err: `${npc} 의 칩이 ${got}개다 (${want} 기대)` };
               return { npc, n: want };
@@ -1935,7 +1935,7 @@ function launchOpts() {
             else {
               await page.waitForTimeout(250);
               await run(`${t}/물어볼것많은사람`);
-              const b2 = await page.evaluate(() => window.__fits('#villageBody'));
+              const b2 = await page.evaluate(() => window.__fits('#npcSheet'));
               if (b2) results.push({ 화면: `${t}/물어볼것많은사람`, 오류: b2 });
               else console.log(`  물어볼것많은사람 — ${top.npc} · 칩 ${top.n}개`);
             }
@@ -2149,9 +2149,71 @@ function launchOpts() {
             return null;
           });
           if (bad2) results.push({ 화면: `${t}/${sid}`, 오류: bad2 });
+          // ⚠️ **새 모달 시트를 만들면 `__cardFits` 도 같이 부른다** (CLAUDE.md).
+          // `checkLayout()` 은 정해진 선택자만 재는데 시트 속의 줄은 대개 그냥 `div` 라
+          // 대상이 아니다 — 밭 시트에서 배운 자리다
+          const npcFit = await page.evaluate(() => window.__cardFits('#npcSheet'));
+          if (npcFit) results.push({ 화면: `${t}/${sid}`, 오류: npcFit });
           await page.evaluate(() => leaveSpot());
           await page.waitForTimeout(120);
           await page.waitForTimeout(150);
+        }
+        // ── 건물 안 시트가 «제일 작은 폰»에서도 안 잘리는가 ──────────────
+        // 1080×1920 폰은 CSS 로 **360×640** 이다 — 앱에서 제일 낮은 화면이고,
+        // 건물 안 시트는 사람마다 높이가 다르다(칩이 둘인 사람도 일곱인 사람도 있다).
+        // ⚠️ **잴 것은 「다 들어가는가」가 아니라 「누르는 자리가 살아 있는가」다** —
+        // 그림과 칩은 굴려도 되지만 버튼 줄과 「나가기」는 늘 손에 닿아야 한다.
+        // ⚠️ **칩이 제일 많은 사람으로 잰다** — 아무나 잡으면 제일 빡빡한 줄을
+        // 한 번도 안 재고 통과한다 (누구인지는 표에서 읽는다)
+        {
+          const vp = page.viewportSize();
+          await page.setViewportSize({ width: 360, height: 640 });
+          await page.waitForTimeout(200);
+          // ⚠️⚠️ **여는 것과 재는 것을 갈라 놓는다.** 시트는 `sheetup`(0.28초)으로
+          // 올라오는데, 같은 `evaluate` 안에서 열고 바로 재면 **첫 프레임의
+          // `translateY(28px)` 가 그대로 상자에 얹혀** 카드가 34px 아래로 나온 것처럼
+          // 보인다 — 멀쩡한 화면이 「나가기가 화면 밖」으로 잡혔다
+          // (78건 유령과 같은 종류다 · CLAUDE.md 「측정 조건은 검증기가 스스로 맞춘다」)
+          const pick = await page.evaluate(() => {
+            let best = null;
+            for (const v of D.VILLAGES) for (const sp of (v.spots || [])) {
+              if (!sp.npc) continue;
+              const n = D.asksOf(sp.npc).length;
+              if (!best || n > best.n) best = { vid: v.id, sid: sp.id, n };
+            }
+            if (!best) return null;
+            setGatherTab('village'); setVillage(best.vid);
+            tapVillageSpot(best.vid, best.sid);
+            return best;
+          });
+          await page.waitForTimeout(450);
+          const small = !pick ? { err: '사람이 있는 건물을 못 찾았다' } : await page.evaluate((best) => {
+            const card = document.querySelector('#npcSheet .modal-card');
+            const acts = document.getElementById('npcActs');
+            const exit = document.querySelector('#npcSheet .sheet-exit');
+            if (!card || !acts || !exit) return { err: '시트가 안 열렸다' };
+            const H = window.innerHeight;
+            const out = [];
+            for (const [nm, el] of [['버튼 줄', acts], ['「나가기」', exit]]) {
+              const r = el.getBoundingClientRect();
+              if (r.height < 2) out.push(`${nm} 이 안 그려졌다`);
+              else if (r.bottom > H + 0.5 || r.top < -0.5)
+                out.push(`${nm} 이 화면 밖이다 (${Math.round(r.top)}..${Math.round(r.bottom)} / ${H})`);
+            }
+            const body = document.getElementById('npcBody');
+            return { err: out.join(' · ') || null, n: best.n, sid: best.sid,
+              over: Math.max(0, body.scrollHeight - body.clientHeight),
+              card: Math.round(card.getBoundingClientRect().height) };
+          }, pick);
+          const fit2 = small.err ? null : await page.evaluate(() => window.__cardFits('#npcSheet'));
+          const smBad = small.err || fit2;
+          results.push(smBad
+            ? { 화면: `${t}/건물안작은폰`, 오류: smBad }
+            : { 화면: `${t}/건물안작은폰`, pass: true, total: 0,
+                잰것: `360×640 · ${small.sid} 칩 ${small.n}개 · 카드 ${small.card}px · 굴릴 몫 ${small.over}px` });
+          await page.evaluate(() => leaveSpot());
+          await page.setViewportSize(vp);
+          await page.waitForTimeout(200);
         }
         continue;
       }

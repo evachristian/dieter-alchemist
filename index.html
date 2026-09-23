@@ -13,11 +13,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260923b">
+<link rel="stylesheet" href="style.css?v=20260923c">
 <!-- ⚠️ UI 색상은 «첫 페인트 전»에 정해져야 한다 — 문서 끝에 두면 기본 색으로
      한 번 그려진 뒤에 얹혀서 다크를 고른 사람에게 흰 화면이 한 번 친다.
      그래서 여기만 `defer` 없이 `<head>` 에서 읽는다 (theme.js 주석 참고) -->
-<script src="theme.js?v=20260923b"></script>
+<script src="theme.js?v=20260923c"></script>
 </head>
 <body>
 
@@ -54,7 +54,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260923b" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260923c" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -889,10 +889,31 @@
   </div>
 </div>
 
+<!-- ── 건물 안 (NPC 를 만나는 화면) ──
+     **마을 지도 «위에» 올라오는 바닥 시트다** (UI_POLICY 3-2 · 사람이 그림으로 정해 줬다).
+     예전에는 `#villageBody` 를 통째로 갈아 끼워 «지도가 사라지는» 화면이었다 —
+     그러면 어디서 들어왔는지가 화면에서 지워지고, 나가는 길도 제 화살표(`‹`)를
+     따로 만들어야 했다. 시트로 두면 지도가 뒤에 남아 있고 나가는 길은
+     다른 팝업과 «같은» 「나가기」 한 줄이다.
+     ⚠️ 꼴을 따로 정하지 않는다 — 폭·모서리·제목·「나가기」를 다른 시트에서 그대로 베꼈다 -->
+<div id="npcSheet" class="modal" onclick="if(event.target===this) leaveSpot()">
+  <!-- ⚠️ **버튼 줄과 「나가기」는 «스크롤 밖»이다.** 시트 안에 들어가는 것이
+       그림 · 대사 · 물어볼 것 칩이라 **사람마다 높이가 다르다** — 오릭스처럼 칩이
+       일곱이면 1080×1920 폰(360×640 CSS)에서 시트가 화면을 넘고, 그때 밀려나는 것이
+       하필 «누르는 자리»였다. 카드를 세로 플렉스로 두고 `#npcBody` 만 굴린다 -->
+  <div class="modal-card farm-card">
+    <div id="npcTitle" class="confirm-text"></div>
+    <div id="npcBody"></div>
+    <div id="npcActs"></div>
+    <button class="sheet-exit" onclick="leaveSpot()" data-i18n="sheet_exit">나가기</button>
+  </div>
+</div>
+
 <!-- ── 선물 (호감도) ──
      **공주가 «주는» 쪽에서 호감도가 오른다** (STORY.md 「남자 NPC 여섯 › 공통 규칙」).
      ⚠️ 매력·비주얼은 여기에 한 톨도 안 들어간다 — 예뻐질수록 좋아해 주는 구조가 되면
-     주제와 정면으로 부딪힌다. 오르는 것은 만들어 준 물약뿐이다 -->
+     주제와 정면으로 부딪힌다. 오르는 것은 만들어 준 물약뿐이다.
+     ⚠️ **건물 안 시트 «위»에 뜬다** — 층은 style.css 에 적어 둔다 (DOM 순서로 안 푼다) -->
 <div id="giftSheet" class="modal" onclick="if(event.target===this) closeGift()">
   <div class="modal-card farm-card">
     <div id="giftTitle" class="confirm-text"></div>
@@ -1092,25 +1113,25 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260923b"></script>
-<script src="intro.js?v=20260923b"></script>
-<script src="data.js?v=20260923b"></script>
-<script src="avatar.js?v=20260923b"></script>
-<script src="village.js?v=20260923b"></script>
-<script src="portrait.js?v=20260923b"></script>
-<script src="creature.js?v=20260923b"></script>
-<script src="cauldron.js?v=20260923b"></script>
-<script src="pumpkin.js?v=20260923b"></script>
-<script src="walnut.js?v=20260923b"></script>
-<script src="rock.js?v=20260923b"></script>
-<script src="fish.js?v=20260923b"></script>
-<script src="sparrow.js?v=20260923b"></script>
-<script src="pinwheel.js?v=20260923b"></script>
-<script src="driller.js?v=20260923b"></script>
-<script src="sfx.js?v=20260923b"></script>
-<script src="sync.js?v=20260923b"></script>
-<script src="game.js?v=20260923b"></script>
-<script src="tutorial.js?v=20260923b"></script>
-<script src="a11y.js?v=20260923b"></script>
+<script src="i18n.js?v=20260923c"></script>
+<script src="intro.js?v=20260923c"></script>
+<script src="data.js?v=20260923c"></script>
+<script src="avatar.js?v=20260923c"></script>
+<script src="village.js?v=20260923c"></script>
+<script src="portrait.js?v=20260923c"></script>
+<script src="creature.js?v=20260923c"></script>
+<script src="cauldron.js?v=20260923c"></script>
+<script src="pumpkin.js?v=20260923c"></script>
+<script src="walnut.js?v=20260923c"></script>
+<script src="rock.js?v=20260923c"></script>
+<script src="fish.js?v=20260923c"></script>
+<script src="sparrow.js?v=20260923c"></script>
+<script src="pinwheel.js?v=20260923c"></script>
+<script src="driller.js?v=20260923c"></script>
+<script src="sfx.js?v=20260923c"></script>
+<script src="sync.js?v=20260923c"></script>
+<script src="game.js?v=20260923c"></script>
+<script src="tutorial.js?v=20260923c"></script>
+<script src="a11y.js?v=20260923c"></script>
 </body>
 </html>

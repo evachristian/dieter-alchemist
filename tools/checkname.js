@@ -119,18 +119,18 @@ rows.push(`문자열 — 허용된 두 곳(설정값) 말고는 없음`);
     }
     await page.waitForTimeout(300);
     // 이름표에 무엇이 떠 있는가
-    const shown = await page.$eval('#villageBody .npc-name', e => e.textContent.trim())
+    const shown = await page.$eval('#npcBody .npc-name', e => e.textContent.trim())
       .catch(() => '(못 찾음)');
     await grab();
     // ⚠️ **「대화」를 눌러야 잡담이 시작된다.** 말풍선만 두드리면 인사말에 머무르고
     // (`.npc-bubble.live` 가 아니다), 잡담 줄은 한 번도 화면에 안 뜬다 —
     // 거기에 이름을 흘려 놓고도 「안 샘」이 나왔다 (사보타주로 확인한 자리다)
-    await page.$eval('#villageBody .npc-act.main', e => e.click()).catch(() => {});
+    await page.$eval('#npcSheet .npc-act.main', e => e.click()).catch(() => {});
     await page.waitForTimeout(250);
     await grab();
     // 인사말 → 잡담을 먼저 다 넘긴다 (칩을 누르면 말풍선이 대답으로 바뀐다)
     for (let i = 0; i < 6; i++) {
-      await page.$eval('#villageBody .npc-bubble', e => e.click()).catch(() => {});
+      await page.$eval('#npcBody .npc-bubble', e => e.click()).catch(() => {});
       await page.waitForTimeout(120);
       await grab();
     }
@@ -140,10 +140,10 @@ rows.push(`문자열 — 허용된 두 곳(설정값) 말고는 없음`);
     // 그려지는 것은 첫 줄(공주의 질문)뿐이고 **그 사람의 대답은 한 번도 안 뜬다** —
     // 그 상태로도 「이름 안 샘」이 나오는데, 그건 안 새는 것이 아니라 **안 잰 것**이다
     // (칩을 누른 직후의 통과가 정확히 그랬다). 그래서 **읽은 줄 수를 같이 낸다**
-    const chips = await page.$$eval('#villageBody .ask-chip', els => els.length);
+    const chips = await page.$$eval('#npcBody .ask-chip', els => els.length);
     let seen = 0, lines = 0;
     for (let i = 0; i < chips; i++) {
-      await page.$$eval('#villageBody .ask-chip', (els, k) => els[k] && els[k].click(), i);
+      await page.$$eval('#npcBody .ask-chip', (els, k) => els[k] && els[k].click(), i);
       await page.waitForTimeout(150);
       await grab();
       // 장면을 끝까지 — 줄마다 훑는다

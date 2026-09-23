@@ -39,7 +39,7 @@
       village_spot_soon: '{name} — 여기서 만날 사람은 아직 준비 중이에요',
       // 건물 안 (NPC 화면)
       npc_trade: '거래', npc_talk: '대화',
-      npc_nobody: '아무도 없다', npc_back_map: '마을 지도로',
+      npc_nobody: '아무도 없다',
       // 대사 — 지금은 인사말뿐이다 (키워드 루트는 STORY.md 참고)
       // 인사말 — 그 자리에 들어섰을 때 건네는 한마디 (대화 첫 줄과 다르다)
       tk_orix_greet: '어이, 어서 와. 불 좀 쬐고 가지 그래?',
@@ -1588,7 +1588,7 @@
       gather_field: '🌿 Field', gather_village: '🏘️ Villages', gather_farm: '🌾 Farm',
       village_spot_soon: "{name} — nobody's here to meet you yet",
       npc_trade: 'Trade', npc_talk: 'Talk',
-      npc_nobody: 'Nobody here', npc_back_map: 'Back to the map',
+      npc_nobody: 'Nobody here',
       tk_orix_greet: 'Hey — come in. Warm yourself by the fire.',
       tk_kairos_greet: 'Just passing through? So am I.',
       tk_sylvan_greet: '…say your business.',
