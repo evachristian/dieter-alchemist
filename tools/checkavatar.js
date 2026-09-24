@@ -2013,6 +2013,103 @@ function launchOpts() {
     return { bad, rows, lines };
   }, BARE_DIFF_MAX);
 
+  // ─── 넥라인이 목을 «연장»하지 않는가 (목 길이) ────────────────
+  //
+  // 2026-09-24. 「목이 신체 비례에 비해 좀 길어진 듯 하고 드레스의 목파임 곡선이
+  // 부자연스럽다」로 신고받았다. 원인은 `NECK_CUT` 의 여유(`pad`)가 0 이었던 것 —
+  // 파낸 입이 **목과 정확히 같은 폭**이라, 옷깃이 목의 밑자락(`neckShape` 의 `mid`
+  // 아래로 벌어지는 부분)을 덮어 버려 **목이 넥라인 바닥까지 같은 폭으로 이어졌다.**
+  // 맨몸의 목은 13px 인데 라운드넥을 입히면 16.5px 에 그 아래로 9px 이 더 뾰족하게
+  // 이어졌다 — 「굴뚝」이다 (스퀘어 줄에 그 말이 이미 적혀 있었는데 나머지 둘이
+  // 그것을 안 지키고 있었다).
+  //
+  // 재는 법 — 턱 밑에서 **살의 반폭이 «목 반폭» 언저리에 머무는 줄 수**(기둥)를
+  // 맨몸과 옷에서 각각 세어 견준다. 옷이 목을 늘리면 그 수가 늘어난다.
+  // ⚠️ **전체 길이로 재면 안 된다** — 맨몸은 어깨까지 살이 이어져 늘 더 길다.
+  // ⚠️ **목 반폭을 검사기에 박지 않는다** — `Avatar.neckCutBox` 가 쓰는 것과 같은
+  // 값을 그림에서 «제일 좁은 줄»로 찾는다 (턱을 되짚지 않는 잣대다)
+  const PILLAR_TOL = 1.5;          // px. 옷이 목을 이만큼 넘게 늘리면 실패
+  const pillar = await page.evaluate(async (TOL) => {
+    const D = window.GameData, bad = [], rows = [];
+    const K = 3, W = 200 * K, H = 348 * K;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    const SK = hex('#ffdcc4'), SH = hex('#f2c6a6');
+    const tw = (v, a, b) => v >= Math.min(a, b) - 6 && v <= Math.max(a, b) + 6;
+    const draw = async (outfit, bw, tune) => {
+      const svg = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, outfit), bw, tune);
+      await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
+        img.onload = () => { ctx.clearRect(0, 0, W, H); __drawAvatar(ctx, img, W, H); ok(); };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+    };
+    const half = (y) => {
+      const d = ctx.getImageData(0, Math.round(y * K), W, 1).data; let m = null;
+      for (let x = 0; x < W; x++) { const i = x * 4;
+        if (d[i + 3] > 200 && tw(d[i], SK[0], SH[0]) && tw(d[i + 1], SK[1], SH[1])
+            && tw(d[i + 2], SK[2], SH[2])) m = Math.max(m == null ? 0 : m, Math.abs(x / K - 99.5)); }
+      return m;
+    };
+    // 턱 밑을 훑어 «목 폭으로 이어지는 길이»를 낸다.
+    // ⚠️⚠️ **옷을 입은 몸에서 «제일 좁은 줄»을 목이라고 하면 안 된다** — 라운드·V 는
+    // 넥라인의 «뾰족한 끝»이 제일 좁아서(0.3px) 기둥이 늘 0 으로 나온다.
+    // 목 폭은 **맨몸에서** 찾고(거기서는 제일 좁은 줄이 곧 목이다), 옷 입은 몸은
+    // «그 폭에 머무는 줄»을 센다 — 두 판을 같은 자로 재는 것이 요점이다
+    const scan = (m, ref) => {
+      const y0 = m.floorY + (92 - m.floorY) * m.ky, y1 = m.floorY + (150 - m.floorY) * m.ky;
+      const prof = [];
+      for (let y = y0; y <= y1; y += 1 / K) prof.push(half(y));
+      const on = prof.filter(v => v != null);
+      if (!on.length) return null;
+      const nk = ref == null ? Math.min.apply(null, on) : ref;
+      // ⚠️⚠️ **턱에서 «이어지는» 한 도막만 센다 — 흩어진 줄을 더하면 안 된다.**
+      // V 넥은 내려가면서 좁아지느라 어느 높이에서 «목 폭을 지나간다» — 그것까지
+      // 더하면 멀쩡한 V 가 +3px 로 걸린다 (실제로 그랬다). 굴뚝은 **폭이 안 변하는
+      // 것**이므로, 턱 밑에서 목 폭에 처음 닿은 줄부터 **벗어나는 순간 멈춘다**
+      let i = 0;
+      while (i < prof.length && !(prof[i] != null && Math.abs(prof[i] - nk) <= 0.7)) i++;
+      let n = 0;
+      while (i < prof.length && prof[i] != null && Math.abs(prof[i] - nk) <= 0.7) { n++; i++; }
+      return { neck: nk, len: n / K };
+    };
+    const BARE = { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', shoes: 'shoes_none' };
+    // 넥라인 종류마다 «실제로 그 종류를 쓰는 옷»을 표에서 고른다 — id 를 박으면
+    // 옷을 갈아끼웠을 때 그 종류가 조용히 안 재진다
+    const pick = k => {
+      const dr = D.WARDROBE.dress.find(t => t.neck === k);
+      if (dr) return { top: 'top_none', bottom: 'bottom_none', dress: dr.id, shoes: 'shoes_none' };
+      const tp = D.WARDROBE.top.find(t => t.neck === k);
+      return tp ? { top: tp.id, bottom: 'bottom_skirt', dress: 'dress_none', shoes: 'shoes_none' } : null;
+    };
+    const KINDS = ['round', 'v', 'square'];
+    let seen = 0;
+    for (const k of [0.75, 1, 1.25]) for (const bw of [0, 1]) {
+      const tune = {}; window.Avatar.TUNE_KEYS.forEach(t => { tune[t] = k; });
+      const m = window.Avatar.bodyMetrics(bw);
+      await draw(BARE, bw, tune);
+      const base = scan(m);
+      if (!base) { bad.push(`바디파츠 ${Math.round(k * 100)}%/체형 ${bw}: 맨몸의 목을 못 쟀다`); continue; }
+      for (const kind of KINDS) {
+        const o = pick(kind);
+        if (!o) { bad.push(`넥라인 «${kind}» 를 쓰는 옷이 하나도 없다 — 그 종류는 한 번도 안 재진다`); continue; }
+        await draw(o, bw, tune);
+        const got = scan(m, base.neck);
+        if (!got) { bad.push(`${kind} ${Math.round(k * 100)}%/${bw}: 목을 못 쟀다`); continue; }
+        seen++;
+        const over = got.len - base.len;
+        rows.push(`${kind} ${Math.round(k * 100)}%/${bw} ${base.len.toFixed(1)}→${got.len.toFixed(1)}`
+          + (kind === KINDS[0] ? ` (목 ${base.neck.toFixed(2)})` : ''));
+        if (over > TOL) {
+          bad.push(`${kind} · 바디파츠 ${Math.round(k * 100)}% · 체형 ${bw}: 옷을 입으니 목의`
+            + ` 기둥이 ${base.len.toFixed(1)}px → ${got.len.toFixed(1)}px (+${over.toFixed(1)}) 로 길어진다`
+            + ` (+${TOL}px 까지) — 넥라인이 목과 같은 폭이라 목이 «굴뚝»처럼 이어진다`);
+        }
+      }
+    }
+    if (seen < 18) bad.push(`잰 조합이 ${seen}개뿐이다 (18개여야 한다)`);
+    return { bad, rows };
+  }, PILLAR_TOL);
+
   // ─── 목이 머리를 따라가는가 ──────────────────────────────────
   //
   // `neckHalfOf` 의 어깨 몫이 얼굴 배율을 안 타서 **바닥** 노릇을 했다 —
@@ -3741,6 +3838,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(gusset.bad.map(m => ({ id: '옷깃 받침', body: '-', where: m, n: '-' })))
     .concat(neckHole.bad.map(m => ({ id: '턱 밑 빈 자리', body: '-', where: m, n: '-' })))
     .concat(bareVsWear.bad.map(m => ({ id: '맨몸↔옷', body: '-', where: m, n: '-' })))
+    .concat(pillar.bad.map(m => ({ id: '목 길이(옷)', body: '-', where: m, n: '-' })))
     .concat(neckAll.bad.map(m => ({ id: '목과 몸', body: '-', where: m, n: '-' })))
     .concat(neckHead.bad.map(m => ({ id: '목과 머리', body: '-', where: m, n: '-' })))
     .concat(backHair.bad.map(m => ({ id: '뒷머리', body: '-', where: m, n: '-' })))
@@ -3794,6 +3892,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` ${collar.rows.join(' · ')} (전부 0/3 이어야 한다 · 닿으면 목깃이 목 양옆에 기둥으로 선다)`);
   console.log(`옷깃 받침: **깃이 높은 옷**(터틀넥) 몸통%/체형 — 턱 밑의 옷이 어깨 밖으로 나온 몫`
     + ` — ${gusset.rows.join(' · ')} (0 이어야 한다 · 나오면 턱 밑에 «날개»가 생긴다)`);
+  console.log(`목 길이(옷): 턱 밑에서 «목 폭으로 이어지는» 길이 — 맨몸→옷 — ${pillar.rows.join(' · ')}`
+    + ` (+${PILLAR_TOL}px 까지 · 넥라인이 목과 같은 폭이면 목이 «굴뚝»처럼 이어진다)`);
   console.log(`맨몸↔옷: 어깨선 위에서 «옷을 입으면 턱 밑 살이 얼마나 달라지나» —`
     + ` ${bareVsWear.rows.join(' · ')} (잰 줄 ${bareVsWear.lines} · 양쪽 다 · ${BARE_DIFF_MAX}px 까지)`);
   console.log(`턱 밑 빈 자리: **깃이 높은 옷** × 바디파츠 6단계 × 체형 2 — 양옆이 막힌 «투명한» 구간의 폭`
