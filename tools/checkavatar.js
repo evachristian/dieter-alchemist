@@ -871,15 +871,16 @@ function launchOpts() {
     const D = window.GameData, bad = [];
     const MIN = 5;                 // 가장 짧은 곳(통통)도 이만큼은 남아야 한다
     const MAX = 16;                // 너무 길어도 이상하다 (기린 목). 위아래로 다 막는다
+    const ATOL = 1.15;             // 바디파츠를 내렸을 때 목÷머리가 벌어져도 되는 몫
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:-9999px;top:0;width:200px';
     document.body.appendChild(host);
     const outfit = Object.assign({}, D.DEFAULT_OUTFIT,
       { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none' });
-    const gaps = [], tgaps = [];
-    // 한 조건을 재는 함수 — 체형(w)과 몸통 배율(kt) 두 축을 같은 코드로 돈다
-    const measure = (w, kt, label, into) => {
-      host.innerHTML = window.Avatar.build(outfit, w, kt == null ? null : { torso: kt });
+    const gaps = [], tgaps = [], agaps = [];
+    // 한 조건을 재는 함수 — 체형(w)과 바디파츠(tune) 두 축을 같은 코드로 돈다
+    const measure = (w, tune, label, into, ref) => {
+      host.innerHTML = window.Avatar.build(outfit, w, tune);
       const svg = host.querySelector('svg');
       const sr = svg.getBoundingClientRect();
       if (!sr.width) { bad.push('아바타 상자가 0폭이다'); return false; }
@@ -899,9 +900,23 @@ function launchOpts() {
         if (d > -0.5) bad.push(`${label}: 턱과 목이 ${d.toFixed(1)}px 떨어져 있다 (겹쳐야 한다)`);
       }
       const gap = box(torso).t - box(head).b;         // 턱끝 ~ 몸통 윗선
-      into.push({ k: kt == null ? w : kt, gap: Math.round(gap * 10) / 10 });
-      if (gap < MIN) bad.push(`${label}: 목이 ${gap.toFixed(1)}px 뿐이다 (${MIN}px 이상)`);
-      if (gap > MAX) bad.push(`${label}: 목이 ${gap.toFixed(1)}px 로 너무 길다 (${MAX}px 이하)`);
+      const hb = box(head), hh = hb.b - hb.t;
+      // ⚠️ **바닥·천장은 «기본 머리»의 값이라, 머리를 줄인 축에서는 같이 줄인다.**
+      //   5px 은 턱이 어깨에 얹히지 않는 몫인데 바디파츠를 반으로 내리면 머리도
+      //   반이라 그 몫도 반이다 — 고정값으로 들이대면 **작은 몸은 무엇을 해도 걸려**
+      //   「목이 머리를 따라간다」를 애초에 만들 수가 없다.
+      // ⚠️⚠️ 그렇다고 **늘 머리로 나누면 안 된다** — 체형·몸통 축은 머리가 기본
+      //   크기인데도 상자 높이가 조금씩 달라(통통이 +18%) 바닥이 5.9px 로 «올라가»
+      //   멀쩡한 통통이 걸렸다. **머리를 줄인 축(`ref` 를 준 쪽)에서만** 줄인다
+      const hk = ref ? hh / ref : 1;
+      into.push({ k: label.replace(/^[^ ]+ /, ''), gap: Math.round(gap * 10) / 10,
+        head: Math.round(hh * 100) / 100 });
+      if (gap < MIN * hk) {
+        bad.push(`${label}: 목이 ${gap.toFixed(1)}px 뿐이다 (${(MIN * hk).toFixed(1)}px 이상)`);
+      }
+      if (gap > MAX * hk) {
+        bad.push(`${label}: 목이 ${gap.toFixed(1)}px 로 너무 길다 (${(MAX * hk).toFixed(1)}px 이하)`);
+      }
       // 머리가 화면 위로 잘리면 안 된다 (목을 빼면 머리가 같이 올라간다)
       let top = 1e9;
       host.querySelectorAll('[data-part="hair"],[data-part="head"]')
@@ -909,14 +924,33 @@ function launchOpts() {
       if (top < 0) bad.push(`${label}: 머리가 화면 위로 ${Math.round(-top)}px 잘렸다`);
       return true;
     };
-    for (const w of [0, 0.25, 0.5, 0.75, 1]) if (!measure(w, null, `체형 ${w}`, gaps)) break;
+    for (const w of [0, 0.25, 0.5, 0.75, 1]) if (!measure(w, null, `체형 ${w}`, gaps, null)) break;
+    // ─── 바디파츠를 «다 같이» 내려도 목이 «머리를 따라» 줄어드는가 ──
+    //
+    // ⚠️⚠️ **목 «길이»를 재는 검사는 전부 바디파츠 100% 에서 돌고 있었다.**
+    // 그 아래는 아무도 안 보는 자리였는데, 하필 거기서 두 힘이 서로를 지운다 —
+    // 머리가 줄면 턱이 이음점 쪽으로 내려오는데 그만큼 몸을 세로로 늘려 머리를
+    // 도로 올린다. 그래서 **턱 y92.25 · 어깨 y105.5 가 50·60·75·100% 에서 «완전히
+    // 같았고»**, 머리만 79 → 39px 로 반이 되어 **목÷머리가 0.165 → 0.338 로 두 배**가
+    // 됐다 (작은 머리에 긴 목 · 「바디파츠 50일 때와 100일 때 목이 좀 긴 것 같다」로
+    // 신고받았다).
+    // ⚠️ **px 로 못 박지 않는다** — 머리가 반이면 목도 반이라야 하므로 «비»로 본다.
+    // 100% 의 비가 기준이고, 거기서 벗어나면 「몸만 줄고 목은 그대로」다
+    // ⚠️ **100% 를 «맨 먼저» 잰다** — 그것이 바닥·비의 기준이다
+    for (const k of [1, 0.75, 0.6, 0.5]) {
+      const tune = {}; window.Avatar.TUNE_KEYS.forEach(t => { tune[t] = k; });
+      const ref = agaps.length ? agaps[0].head : null;
+      if (!measure(0, tune, `바디파츠 ${Math.round(k * 100)}%`, agaps, ref)) break;
+    }
     // ─── 몸통 배율로 가늘게 해도 목이 길어지는가 ────────────────
     //
     // **체형(몸무게)만 보고 있었다.** 몸통 슬라이더로 살을 빼면 어깨 곡선이 가로로
     // 눌려 승모근이 목 바로 옆에서 솟는데, 머리는 제자리라 **목이 어깨에 파묻혔다**
     // (「몸통 % 가 낮아졌을 때 목이 너무 짧다」는 신고가 이것이다).
     // 체형 축과 **같은 방향**이어야 한다 — 가늘수록 목이 길다.
-    for (const kt of [0.5, 0.75, 1, 1.5]) if (!measure(0.5, kt, `몸통 ${kt * 100}%`, tgaps)) break;
+    for (const kt of [0.5, 0.75, 1, 1.5]) {
+      if (!measure(0.5, { torso: kt }, `몸통 ${kt * 100}%`, tgaps, null)) break;
+    }
     // **날씬할수록 길어야 한다.** 뒤집히면 규칙이 반대로 걸린 것이다
     const mono = (list, what) => {
       for (let i = 1; i < list.length; i++) {
@@ -933,8 +967,22 @@ function launchOpts() {
       bad.push(`몸통 50% 의 목(${tgaps[0].gap}px)이 150%(${tgaps[tgaps.length - 1].gap}px)보다`
         + ` 2px 이상 길지 않다 — 몸통을 가늘게 해도 목이 안 길어진다`);
     }
+    // 바디파츠를 다 같이 내렸을 때 **목÷머리**가 100% 와 같은가.
+    // ⚠️ **몇 단계를 쟀는지도 낸다** — 0건이 「통과」인지 「한 번도 안 쟀다」인지를
+    //   가르려면 필요하다 (이 파일에서만 세 번 난 사고다)
+    if (agaps.length < 4) bad.push(`바디파츠를 ${agaps.length}단계밖에 못 쟀다 (4단계)`);
+    else {
+      const r0 = agaps[0].gap / agaps[0].head;          // 바디파츠 100% 가 기준이다
+      agaps.forEach(g => {
+        const r = g.gap / g.head;
+        if (r > r0 * ATOL) {
+          bad.push(`바디파츠 ${g.k}: 목÷머리 ${r.toFixed(3)} 이 100%(${r0.toFixed(3)}) 보다`
+            + ` ${Math.round((r / r0 - 1) * 100)}% 길다 — 몸만 줄고 목은 그대로다`);
+        }
+      });
+    }
     host.remove();
-    return { bad, gaps, tgaps };
+    return { bad, gaps, tgaps, agaps };
   });
 
   // ─── 몸통과 팔 사이로 배경이 비치지 않는가 ───────────────────
@@ -3855,6 +3903,10 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (가늘수록 길어야 한다 · 50% 가 150% 보다 2px 이상)`);
   console.log(`목: 체형별 턱~어깨 ${neck.gaps.map(g => g.gap + 'px').join(' → ')}`
     + ` (날씬할수록 길어야 한다 · 가장 짧은 곳도 5px 이상)`);
+  console.log(`목(바디파츠): 다 같이 내리며 «목÷머리» — `
+    + [...neck.agaps].reverse()
+      .map(g => `${g.k} ${g.gap}px ÷ ${g.head}px = ${(g.gap / g.head).toFixed(3)}`).join(' · ')
+    + ` (100% 의 비에서 +15% 까지 · 벗어나면 작은 머리에 긴 목이 붙는다)`);
   console.log(`몸통↔팔: 체형 ${seam.steps}단계 — 옆구리에 배경이 실처럼 비치지 않는가`);
   console.log(`어깨 홈: 체형별 파임 ${shoulder.worst.map(v => v + 'px').join(' · ')}`
     + ` (목→팔 실루엣이 다시 솟지 않아야 한다 · ${SHOULDER_DIP}px 까지)`);
