@@ -1955,9 +1955,14 @@ function launchOpts() {
   //   · 옷 색으로 메움 → 「초록 기둥이 얼굴까지 이어져 올라온다」
   //   · 위를 살색으로 덮음 → 「목 두께에 비해 동그랗게 파인 부분이 너무 작다」
   //   · 턱 밑 그늘색 → 「옷을 입으면 양옆으로 목이 더 생긴다」
-  // **목 옆에 무엇을 그리든 목이 굵어 보인다.** 그래서 깃이 낮은 옷에서는 아예
-  // 안 메우기로 했고(`avatar.js` 의 `neckGusset` 맨 앞), 그 약속이 이것이다:
-  // **옷을 입는다고 턱 밑의 살이 달라지면 안 된다.**
+  // **목 옆에 «옷 색»으로 무엇을 그리든 목이 굵어 보인다.** 그래서 깃이 낮은 옷에서는
+  // 옷 색으로 안 메우고, 대신 **옷 밑에 «살»을 깐다** (`avatar.js` 의 layers).
+  // 그 약속이 이것이다: **옷을 입는다고 턱 밑의 살이 달라지면 안 된다.**
+  //
+  // ⚠️ 2026-09-24 — 한동안 깃이 낮은 옷에서 **아무것도 안 그렸다.** 그 자리는 옷의
+  // 어깨선(`CLOTH_TOP_Y`)보다 위라 **옷이 닿지도 못하는 자리**인데, 「맨몸과 똑같이
+  // 둔다」고 적어 놓고 실제로는 맨몸에만 살받침이 있었다 — 턱과 어깨 사이가 통째로
+  // 투명이라 방 벽이 비쳤고, 이 검사가 **한쪽만 보고 있어서 그대로 통과했다.**
   //
   // 재는 법 — 맨몸과 옷 입은 몸을 같은 배율로 그려 **어깨선 위의 살 반폭을 줄마다**
   // 견준다. 턱 위쪽은 두 판이 어차피 같으니 턱을 따로 찾을 필요가 없다
@@ -1993,36 +1998,46 @@ function launchOpts() {
     const BARE = { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', shoes: 'shoes_none' };
     const WEAR = [['공주 드레스', { top: 'top_none', bottom: 'bottom_none', dress: 'dress_princess' }],
                   ['티셔츠', { top: 'top_tee', bottom: 'bottom_skirt', dress: 'dress_none' }]];
-    let seen = 0;
+    let seen = 0, lines = 0;
     for (const k of [0.5, 0.75, 1, 1.25, 1.5]) for (const bw of [0, 1]) {
       const tune = {}; window.Avatar.TUNE_KEYS.forEach(t => { tune[t] = k; });
       const m = window.Avatar.bodyMetrics(bw);
-      const top = m.floorY + (window.Avatar.CLOTH_TOP_Y - m.floorY) * m.ky;   // 어깨선
+      // ⚠️ **어깨선에서 1px 물러나 끊는다.** 옷의 어깨 «가장자리»가 딱 그 줄을
+      // 지나서, 앤티에일리어싱으로 살 위에 옷이 섞인 색이 얹힌다 (바디파츠 50% 에서
+      // `#ffdcc4` 가 `#bebe97` 로 · 3.3px). 거기는 옷이 덮는 것이 **맞는** 자리다.
+      // 한 줄만 물리는 이유 — 넉넉히 자르면 「양 끝을 잘라 통째로 건너뛴」
+      // 부츠의 그 사고가 된다. 그래서 **잰 줄 수도 같이 낸다**
+      const top = m.floorY + (window.Avatar.CLOTH_TOP_Y - m.floorY) * m.ky - 1;   // 어깨선 − 1
       await draw(BARE, bw, tune);
       const base = prof(top);
       for (const [wname, wear] of WEAR) {
         await draw(wear, bw, tune);
         const got = prof(top);
-        // ⚠️ **한쪽만 본다 — «더 생기는» 쪽이다.** 맨몸에는 받침이 살색으로 남아
-        // 있어(`NECK_HUG`) 옷 입은 쪽이 오히려 조금 «가는» 것이 지금 모양인데,
-        // 신고받은 것은 늘 「옷을 입으면 목이 **더** 생긴다」였다. 양쪽을 다 막으면
-        // 맨몸 받침까지 같이 지워야 하고, 그것은 신고받은 적이 없는 자리다
-        let worst = 0, at = 0;
+        // ⚠️⚠️ **양쪽을 다 본다.** 오래 「더 생기는」 쪽만 보고 있었고, 그래서
+        // **반대쪽 사고를 한 번도 못 잡았다** — 깃이 낮은 옷에서 받침을 통째로
+        // 안 그리는 바람에 턱과 어깨 사이가 **투명**으로 남아, 바디파츠 100%·날씬
+        // y102 에서 맨몸 13.3 ↔ 옷 0.0 이었다 (「목부분이 옷 벗었을 때랑 다르다」로
+        // 신고받았다 · 2026-09-24). 한쪽만 보는 잣대는 그 절반을 영영 못 본다.
+        // 여기서 보는 구간은 **어깨선 «위»**라, 옷이 애초에 닿지 못하는 자리다 —
+        // 거기의 살은 옷을 입든 벗든 같아야 한다 (어깨선 아래는 옷이 덮는 것이 맞고,
+        // 그래서 이 창에 안 들어온다)
+        let worst = 0, at = 0, dir = '';
         for (let i = 0; i < Math.min(base.length, got.length); i++) {
-          const dd = got[i] - base[i];
-          if (dd > worst) { worst = dd; at = 60 + i / K; }
+          const dd = Math.abs(got[i] - base[i]);
+          if (dd > worst) { worst = dd; at = 60 + i / K; dir = got[i] > base[i] ? '더' : '덜'; }
         }
-        seen++;
+        seen++; lines += Math.min(base.length, got.length);
         rows.push(`${wname} ${Math.round(k * 100)}%/${bw} ${worst.toFixed(1)}px`);
         if (worst > MAX) {
           bad.push(`${wname} · 바디파츠 ${Math.round(k * 100)}% · 체형 ${bw}: 옷을 입으니`
-            + ` 턱 밑의 살이 ${worst.toFixed(1)}px **더 생긴다** (y≈${at.toFixed(1)} · ${MAX}px 까지)`
-            + ` — 옷을 입으면 목이 양옆으로 굵어 보인다`);
+            + ` 턱 밑의 살이 ${worst.toFixed(1)}px **${dir} 생긴다** (y≈${at.toFixed(1)} · ${MAX}px 까지)`
+            + ` — 옷을 입으면 목이 양옆으로 달라 보인다`);
         }
       }
     }
     if (seen < 20) bad.push(`잰 조합이 ${seen}개뿐이다 (20개여야 한다)`);
-    return { bad, rows };
+    if (lines < 20 * 30) bad.push(`잰 줄이 ${lines}줄뿐이다 — 창이 비었으면 0px 은 「안 쟀다」는 뜻이다`);
+    return { bad, rows, lines };
   }, BARE_DIFF_MAX);
 
   // ─── 목이 머리를 따라가는가 ──────────────────────────────────
@@ -3809,7 +3824,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   console.log(`옷깃 띠: 목 옆 띠(좌우 합)가 11줄 내려가며 늘어나는 배수 — ${gusset.spread.join(' · ')}`
     + ` (×1.5 이상 · 끝에서만 꺾이면 작은 몸에서 띠가 «끈»이 된다)`);
   console.log(`맨몸↔옷: 어깨선 위에서 «옷을 입으면 턱 밑 살이 얼마나 달라지나» —`
-    + ` ${bareVsWear.rows.join(' · ')} («더 생기는» 쪽만 · ${BARE_DIFF_MAX}px 까지)`);
+    + ` ${bareVsWear.rows.join(' · ')} (잰 줄 ${bareVsWear.lines} · 양쪽 다 · ${BARE_DIFF_MAX}px 까지)`);
   console.log(`턱 밑 빈 자리: **깃이 높은 옷** × 바디파츠 6단계 × 체형 2 — 양옆이 막힌 «투명한» 구간의 폭`
     + ` — ${neckHole.rows.join(' · ')}`
     + ` (${NECK_HOLE_MAX}px 까지 · 남으면 방 벽이 살색 얼룩처럼 비친다)`);
