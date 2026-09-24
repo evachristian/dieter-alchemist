@@ -1615,7 +1615,14 @@ function launchOpts() {
   const NECK_ALL_TOL = 0.12;
   const neckAll = await page.evaluate(async (TOL) => {
     const D = window.GameData, bad = [], rows = [], K = 3, CW = 200 * K, CH = 348 * K;
-    const SKIN = [255, 220, 196], SKTOL = 26;
+    // ⚠️⚠️ **목은 그라데이션이라 «두 끝 색 사이»로 재야 한다** (`SKIN`↔`SKIN_SH`).
+    // 오래 `SKIN` 한 색 ±26 으로 재고 있었는데, 목의 제일 진한 쪽은 파랑이 30 이나
+    // 달라서 **검사에서 통째로 빠졌다** — 턱 밑 3.5px 이 「살이 없다」로 보였다.
+    // 받침(살색 평면)이 그 자리를 덮고 있던 동안에는 안 드러났고, 받침을 지우자
+    // 검사기가 **턱 끝의 뾰족한 부분**을 목이라고 내놓았다 (100% 에서 6.83 대신 4.50).
+    // 다른 검사들은 이미 `tw(v, SK, SH)` 로 두 끝 사이를 본다 — 여기만 사본이었다
+    const SK = [255, 220, 196], SH = [242, 198, 166];
+    const tw = (v, a, b) => v >= Math.min(a, b) - 6 && v <= Math.max(a, b) + 6;
     const cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
     const ctx = cv.getContext('2d');
     const draw = async (tune) => {
@@ -1630,8 +1637,8 @@ function launchOpts() {
     const skinHalf = (y) => {
       const d = ctx.getImageData(0, y, CW, 1).data; let m = null;
       for (let x = 0; x < CW; x++) { const i = x * 4;
-        if (d[i + 3] > 200 && Math.abs(d[i] - SKIN[0]) <= SKTOL &&
-            Math.abs(d[i + 1] - SKIN[1]) <= SKTOL && Math.abs(d[i + 2] - SKIN[2]) <= SKTOL)
+        if (d[i + 3] > 200 && tw(d[i], SK[0], SH[0]) && tw(d[i + 1], SK[1], SH[1])
+            && tw(d[i + 2], SK[2], SH[2]))
           m = Math.max(m == null ? 0 : m, Math.abs(x / K - 99.5)); }
       return m;
     };
@@ -1787,8 +1794,6 @@ function launchOpts() {
     const MARK = [0, 200, 60];          // 다른 어디에도 없는 색 (옷 = 받침)
     const OUT_TOL = 1.5;                // 어깨보다 이만큼까지는 봐준다 (안티에일리어싱)
     const BAND = 26;                    // 받침 꼭대기부터 몇 줄을 보는가 (어깨 아래까지)
-    const FLOW_MIN = 1.5;               // 11줄 내려가는 동안 띠가 늘어나야 하는 배수
-    const spread = [];
     const cv = document.createElement('canvas'); cv.width = 200; cv.height = 348;
     const ctx = cv.getContext('2d');
     const hex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
@@ -1805,9 +1810,13 @@ function launchOpts() {
     for (const k of [0.5, 0.6, 0.75, 1, 1.25, 1.5]) {
       for (const w of [0, 1]) {
         const tune = {}; window.Avatar.TUNE_KEYS.forEach(t => { tune[t] = k; });
+        // ⚠️⚠️ **깃이 «높은» 옷으로 잰다.** 받침(`neckGusset`)은 이제 터틀넥·폴로
+        // 하나만의 조각이라, 라운드넥 원피스로 재면 **받침이 아예 없는 그림**을
+        // 재게 된다 — 0 이 「통과」가 아니라 「한 번도 안 쟀다」가 되는 자리다
+        // (2026-09-24 에 옮겼다. 그 전에는 `dress_onepiece` 였다)
         const outfit = Object.assign({}, D.DEFAULT_OUTFIT, {
-          top: 'top_none', bottom: 'bottom_none', dress: 'dress_onepiece',
-          shoes: 'shoes_none', colors: { dress: hex(MARK) } });
+          top: 'top_turtle', bottom: 'bottom_none', dress: 'dress_none',
+          shoes: 'shoes_none', colors: { top: hex(MARK) } });
         const svg = window.Avatar.build(outfit, w, tune);
         await new Promise((ok, no) => { const img = new Image(); img.onerror = no;
           img.onload = () => { ctx.clearRect(0, 0, 200, 348); __drawAvatar(ctx, img, 200, 348); ok(); };
@@ -1831,41 +1840,6 @@ function launchOpts() {
         }
         if (band < 10) { bad.push(`몸통 ${Math.round(k * 100)}% · 체형 ${w}: 잰 줄이 ${band}개뿐이다`); continue; }
         seen++;
-        // ── 띠가 «가다가» 벌어지는가 (`GUSSET_FLOW`)
-        //
-        // 옆변의 제어점을 시작점과 같은 x 에 두면 접선이 수직이라, 띠가 어깨 바로
-        // 위까지 «같은 폭»으로 내려가다 끝에서만 꺾인다. 그 폭은 머리를 따라 줄어드는데
-        // 높이는 거의 그대로여서 **바디파츠 최소에서 띠가 «끈»이 된다**
-        // (「목 양옆의 초록 기둥이 이상하다」로 신고받았다).
-        // ⚠️ **폭 자체로는 못 잡는다** — 작은 몸에서 좁은 것은 «맞는» 모양이다.
-        // 잡아야 하는 것은 «벌어지는가»이므로, **목 옆 띠(좌우 합)의 폭**이 밑으로
-        // 내려가며 늘어나는 배수를 본다 (크기와 무관한 잣대다).
-        // ⚠️ **줄에서 옷 색의 «제일 바깥»을 재면 안 된다** — 어깨·소매가 같이 걸려
-        // 띠가 아니라 드레스를 재게 된다 (그렇게 짰다가 0~59% 로 흔들렸다).
-        // 가운데에서 왼쪽으로 걸어 **목에 닿아 있는 한 짝**만 잰다
-        const bandAt = (y) => {
-          const d = ctx.getImageData(0, y, 200, 1).data;
-          const isM = x => { const i = x * 4; return d[i + 3] > 200 && Math.abs(d[i] - MARK[0]) <= 6 &&
-            Math.abs(d[i + 1] - MARK[1]) <= 6 && Math.abs(d[i + 2] - MARK[2]) <= 6; };
-          // **두 짝을 같이 센다** — 캔버스가 1px 단위라 한 짝만 세면 3→5 같은
-          // 성긴 정수가 되어 배수가 튄다. 좌우를 더하면 눈금이 절반이 된다
-          let l = 99; while (l > 0 && !isM(l)) l--;        // 목을 지나 옷을 만날 때까지
-          let r = 100; while (r < 199 && !isM(r)) r++;
-          if (l <= 0 || r >= 199 || 99 - l > 40 || r - 100 > 40) return null;  // 띠가 아니다
-          let n = 0;
-          while (l > 0 && isM(l)) { n++; l--; }
-          while (r < 199 && isM(r)) { n++; r++; }
-          return n;
-        };
-        const b0 = bandAt(top + 1), b1 = bandAt(top + 11);
-        if (b0 && b1) {
-          const g = b1 / b0;
-          spread.push(`${Math.round(k * 100)}%/${w} ×${g.toFixed(2)}`);
-          if (g < FLOW_MIN)
-            bad.push(`몸통 ${Math.round(k * 100)}% · 체형 ${w}: 옷깃 띠가 11줄 내려가는 동안`
-              + ` ${b0}px → ${b1}px (×${g.toFixed(2)}) 밖에 안 벌어졌다 (×${FLOW_MIN} 이상)`
-              + ` — 어깨 바로 위에서만 꺾여 띠가 «끈»으로 보인다`);
-        }
         rows.push(`${Math.round(k * 100)}%/${w} ${worst > 0 ? '+' + worst.toFixed(1) : '0'}`);
         if (worst > OUT_TOL) {
           bad.push(`몸통 ${Math.round(k * 100)}% · 체형 ${w}: 턱 밑의 옷깃 받침이 제 밑의 어깨보다`
@@ -1875,8 +1849,7 @@ function launchOpts() {
     }
     // **몇 조합을 쟀는지도 낸다** — 0건이 「통과」가 아니라 「한 번도 안 쟀다」일 수 있다
     if (seen < 12) bad.push(`잰 조합이 ${seen}개뿐이다 (12개여야 한다)`);
-    if (spread.length < 12) bad.push(`띠가 벌어지는 몫을 ${spread.length}조합만 쟀다`);
-    return { bad, rows, spread };
+    return { bad, rows };
   });
 
   // ─── 턱 밑에 «갇힌 빈 자리»가 없는가 (옷을 입었을 때) ──────────
@@ -3819,10 +3792,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (100% 의 비에서 ±${NECK_HEAD_TOL} · 벗어나면 머리만 줄고 목은 그대로다)`);
   console.log(`목깃: 어깨선 바로 위 세 줄에서 «살이 끝나는 픽셀이 옷인가» —`
     + ` ${collar.rows.join(' · ')} (전부 0/3 이어야 한다 · 닿으면 목깃이 목 양옆에 기둥으로 선다)`);
-  console.log(`옷깃 받침: 몸통%/체형 — 턱 밑의 옷이 어깨 밖으로 나온 몫 — ${gusset.rows.join(' · ')}`
-    + ` (0 이어야 한다 · 나오면 턱 밑에 «날개»가 생긴다)`);
-  console.log(`옷깃 띠: 목 옆 띠(좌우 합)가 11줄 내려가며 늘어나는 배수 — ${gusset.spread.join(' · ')}`
-    + ` (×1.5 이상 · 끝에서만 꺾이면 작은 몸에서 띠가 «끈»이 된다)`);
+  console.log(`옷깃 받침: **깃이 높은 옷**(터틀넥) 몸통%/체형 — 턱 밑의 옷이 어깨 밖으로 나온 몫`
+    + ` — ${gusset.rows.join(' · ')} (0 이어야 한다 · 나오면 턱 밑에 «날개»가 생긴다)`);
   console.log(`맨몸↔옷: 어깨선 위에서 «옷을 입으면 턱 밑 살이 얼마나 달라지나» —`
     + ` ${bareVsWear.rows.join(' · ')} (잰 줄 ${bareVsWear.lines} · 양쪽 다 · ${BARE_DIFF_MAX}px 까지)`);
   console.log(`턱 밑 빈 자리: **깃이 높은 옷** × 바디파츠 6단계 × 체형 2 — 양옆이 막힌 «투명한» 구간의 폭`
