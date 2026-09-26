@@ -3365,6 +3365,101 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     return { bad, kink: +kink.toFixed(2), curve: +curve.toFixed(2), drift: +drift.toFixed(2) };
   }, { kink: INNER_KINK_MAX, curve: INNER_CURVE_MIN });
 
+  // ─── 허벅지↔장딴지 — 허벅지 가운데는 장딴지보다 굵다 ─────────
+  //
+  // ⚠️⚠️ **바디파츠 100% 의 허벅지가 오래 가늘었는데 아무도 안 재고 있었다.**
+  // `thighBul` 이 `overOf` 하나로 서 있어서 **100% 이하에 볼록함이 0** 이었고,
+  // 옆선의 아래 절반이 오목해져 무릎 바로 위가 11.0px 인데 장딴지가 14.3px 였다
+  // (「바디파츠 모두 100% 일 때 허벅지가 너무 가늘다」로 신고받았다).
+  // 위의 검사 어느 것도 이것을 못 본다 — 「상한 두께」는 **윗머리**만 재고,
+  // 「무릎이 허벅지를 따라가는가」는 **무릎÷윗머리**라 그 사이가 오목해도 그대로 통과한다.
+  //
+  // 그래서 **허벅지 «가운데»와 장딴지를 견준다.** 셋을 같이 보는데 방향이 서로 반대라
+  // 하나만 재면 다른 하나를 못 잡는다:
+  //   ① 가늘지 않다   100% 에서 허벅지중 ÷ 장딴지 ≥ `THIGH_CALF_MIN` (옛 코드 1.22)
+  //   ② 통나무가 아니다  허벅지중이 «윗머리»보다 굵어지지 않는다
+  //      (재 보면 `THIGH_BASE` 1.6 쯤에서 뒤집힌다 — 2.0 에서 26.5 > 25.0)
+  //   ③ 눈금에 «죽은 구간»이 없다  칸마다 하는 일이 제일 작은 칸의 4배 안
+  // ⚠️⚠️ ③ 을 **「오름차순인가」로 두면 안 된다** — 옛 코드의 비는 1.02 · 1.04 · 1.06 ·
+  // 1.44 · 1.86 으로 **오름차순이라 그대로 통과한다.** 병은 「뒤로 갔다」가 아니라
+  // **「50~100% 가 한자리에 붙어 있고 100% 를 넘는 순간 튄다」**였다 —
+  // 칸마다 .02 .02 **.38** .42 로, 제일 큰 칸이 제일 작은 칸의 **21배**다.
+  // 반대쪽 과장(`THIGH_BASE` 2.0)도 같은 줄에 걸린다 — 그때는 100% 위가 죽어 24배다
+  // ⚠️ **무릎(y263) 으로 재지 않는다** — 거기는 관절이라 장딴지보다 «가는 것이 맞고»
+  // (`kneeCalfCap` 이 그렇게 잡는다), 그 자리로 재면 어떤 값을 넣어도 통과한다
+  const THIGH_CALF_MIN = 1.25, THIGH_TOP_TOL = 0.5, THIGH_STEP_SPREAD = 4;
+  const thighCalf = await page.evaluate(async (o) => {
+    const D = window.GameData, bad = [], S = 4, W = 200 * S, H = 348 * S;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    // 허벅지·종아리만 남긴다 — 엉덩이가 «윗머리»를 덮어 허벅지의 제 폭을 가린다
+    function legsOnly(svg) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = svg;
+      const root = wrap.firstElementChild;
+      const legs = [...root.querySelectorAll('[data-part="thigh"],[data-part="calf"]')];
+      const only = root.cloneNode(false);
+      legs.forEach(g => only.appendChild(g.cloneNode(true)));
+      return only.outerHTML;
+    }
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT,
+      { top: 'top_none', bottom: 'bot_none', dress: 'dress_none', shoes: 'shoes_none', hair: 'hair_none' });
+    // 오른다리 «바깥» 변 — 그림 끝에서 가운데로 들어오며 첫 살
+    async function widths(t, ys) {
+      const img = new Image();
+      await new Promise((ok, no) => {
+        img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,'
+          + encodeURIComponent(legsOnly(window.Avatar.build(outfit, 0, t)));
+      });
+      ctx.clearRect(0, 0, W, H);
+      __drawAvatar(ctx, img, W, H);
+      const d = ctx.getImageData(0, 0, W, H).data;
+      return ys.map(y => {
+        const row = Math.round(y * S);
+        let x = W - 1;
+        while (x > 100 * S && d[(row * W + x) * 4 + 3] <= 128) x--;
+        return x <= 100 * S ? null : +(x / S - 100).toFixed(1);
+      });
+    }
+    const TOP = 202, MID = 228, CALF = 277;     // 윗머리 밑 · 허벅지 가운데 · 장딴지
+    const T = k => { const t = {}; window.Avatar.TUNE_KEYS.forEach(x => { t[x] = k; }); return t; };
+    const rows = [], ratios = [];
+    for (const k of [0.5, 0.75, 1, 1.25, 1.5]) {
+      const [top, mid, calf] = await widths(T(k), [TOP, MID, CALF]);
+      if (top == null || mid == null || calf == null) {
+        bad.push(`바디파츠 ${k * 100}% 에서 다리를 못 찾았다 — 아무것도 안 쟀다`);
+        continue;
+      }
+      const r = mid / calf;
+      rows.push(`${k * 100}% ${r.toFixed(2)}`);
+      ratios.push(r);
+      if (k === 1 && r < o.min) {
+        bad.push(`바디파츠 100% 에서 허벅지 가운데가 장딴지보다 겨우 ${r.toFixed(2)}배다`
+          + ` (${o.min}배 이상이어야 한다 · 허벅지중 ${mid}px · 장딴지 ${calf}px)`);
+      }
+      if (mid > top + o.tol) {
+        bad.push(`바디파츠 ${k * 100}% 에서 허벅지 가운데(${mid}px)가 윗머리(${top}px)보다`
+          + ` 굵다 — 통나무가 된다`);
+      }
+    }
+    // ③ 눈금에 «죽은 구간»이 없는가 — 칸마다 하는 일을 견준다
+    const steps = ratios.slice(1).map((r, i) => r - ratios[i]);
+    let spread = 0;
+    if (steps.length) {
+      const lo = Math.max(0.01, Math.min(...steps)), hi = Math.max(...steps);
+      spread = hi / lo;
+      if (spread > o.spread) {
+        bad.push(`눈금 한 칸이 하는 일이 ${spread.toFixed(1)}배까지 벌어진다`
+          + ` (${o.spread}배까지 · 칸마다 ${steps.map(v => v.toFixed(2)).join(' ')})`
+          + ` — 눈금 한가운데에 «죽은 구간»이 있다`);
+      }
+    }
+    if (rows.length < 5) bad.push(`다섯 단계를 다 못 쟀다 (${rows.length}/5)`);
+    return { bad, rows, spread: +spread.toFixed(1) };
+  }, { min: THIGH_CALF_MIN, tol: THIGH_TOP_TOL, spread: THIGH_STEP_SPREAD });
+
   // ─── 엉덩이가 하의 밖으로 나오지 않는가 ─────────────────────
   //
   // 커버리지 검사(맨 위)는 **허리까지만** 본다. 허리 아래는 하의가 맡는데 거기를
@@ -3869,6 +3964,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(crotch.bad.map(m => ({ id: '가랑이 홈에 살', body: '-', where: m, n: '-' })))
     .concat(legGap.bad.map(m => ({ id: '다리 사이 틈', body: '-', where: m, n: '-' })))
     .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
+    .concat(thighCalf.bad.map(m => ({ id: '허벅지↔장딴지', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
@@ -3997,6 +4093,10 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   console.log(`다리 안쪽 변: 꺾임 ${legInner.kink}px (${INNER_KINK_MAX}px 까지)`
     + ` · 엉덩이 밑↔발목 틈 차이 ${legInner.curve}px (${INNER_CURVE_MIN}px 이상 — 곧은 선이면 0)`
     + ` · 배율에 따른 흔들림 ${legInner.drift}px`);
+  console.log(`허벅지↔장딴지: 허벅지중÷장딴지 ${thighCalf.rows.join(' · ')}`
+    + ` · 눈금 칸의 들쭉날쭉 ${thighCalf.spread}배 (${THIGH_STEP_SPREAD}배까지)`
+    + ` (100% 는 ${THIGH_CALF_MIN}배 이상 · 단계 ${thighCalf.rows.length}`
+    + ` · 무릎은 관절이라 장딴지보다 가는 것이 맞아 안 잰다)`);
   console.log(`엉덩이↔허벅지 틈: 배율 ${hipSeam.n}조합 — 가장 벌어진 곳 ${hipSeam.worst}px`
     + ` (${SEAM_GAP_MAX}px 까지 · 자락과 허벅지 사이로 배경이 비치면 안 된다)`);
   console.log(`그림 상자: 통통 최대 × 슬라이더 최대에서 오른쪽 끝 ${box.widest}/${box.right}`
