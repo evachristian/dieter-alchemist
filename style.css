@@ -81,6 +81,14 @@
 /* ⚠️ `--float` 는 `--glass` 계열과 «다른 자리»다 — 유리는 페이지 배경 위에 얹히고
    float 은 **방 그림 위**에 뜬다. 다크에서 유리(흰색 14%)를 그대로 쓰면 밝은 방
    그림이 그대로 비쳐 **밝은 글자가 밝은 그림 위**에 앉는다 (찍어 보고 알았다)
+/* ⚠️⚠️ `--bar` 는 유리가 «아니다» — **아래로 지나가는 내용을 가리는 판**이다.
+   하단 탭은 `position: fixed` 라 카드가 그 «밑»으로 흘러가는데, 유리(`--glass-3`)는
+   밝은 다섯에서 0.88 이라 우연히 가려 주고 **챠콜에서는 0.14 라 하나도 안 가린다** —
+   카드 글자가 탭 라벨 위로 그대로 비쳐 「🏠」가 에크루(3.94)보다 못한 2.65:1 이 됐다
+   (`npm run test:emoji` 가 잡았다 · 찍어 보니 카드 설명이 탭바를 통과해 읽혔다).
+   **밝은 다섯은 제 `--glass-3` 와 «같은 값»이라 한 픽셀도 안 바뀐다.**
+   챠콜의 `#3e4147` 은 «지금 깨끗한 자리의 탭바 색을 재서» 넣은 값이라(rgb 62,65,71)
+   판의 «색»은 그대로고 비치는 것만 없어진다 */
 /* ⚠️ 유리는 **세 단계뿐이다**(`--glass` · `-2` · `-3`). 원래 0.42 · 0.5 · 0.55 · 0.7 ·
    0.72 · 0.75 · 0.85 · 0.88 · 0.92 로 아홉 가지가 흩어져 있었는데, 그대로 두면
    **다크에서 뒤집을 자리가 아홉 곳**이 되어 반드시 하나를 빠뜨린다 (실제로 `.gt-box`
@@ -102,6 +110,7 @@
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
+  --bar: rgba(255,255,255,0.88);
   --well: rgba(120,112,92,0.20);
   --btn-shadow: rgba(94,80,44,0.38);
   --btn-grad-a: #f2dc9a; --btn-grad-b: #d2b155; --btn-halo: transparent; --emoji-halo: transparent;
@@ -125,6 +134,7 @@
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
+  --bar: rgba(255,255,255,0.88);
   --well: rgba(130,108,86,0.20);
   --btn-shadow: rgba(104,74,33,0.38);
   --btn-grad-a: #a4b1cd; --btn-grad-b: #cfa368; --btn-halo: transparent; --emoji-halo: transparent;
@@ -148,6 +158,7 @@
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
+  --bar: rgba(255,255,255,0.88);
   --well: rgba(100,116,134,0.20);
   --btn-shadow: rgba(32,88,120,0.38);
   --btn-grad-a: #c4bff0; --btn-grad-b: #aad8f2; --btn-halo: transparent; --emoji-halo: transparent;
@@ -171,6 +182,7 @@
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
+  --bar: rgba(255,255,255,0.88);
   --well: rgba(154,138,149,0.24);
   --btn-shadow: rgba(167,44,101,0.38);
   --btn-grad-a: #c9b6ff; --btn-grad-b: #ffb8d9; --btn-halo: transparent; --emoji-halo: transparent;
@@ -194,6 +206,7 @@
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
+  --bar: rgba(255,255,255,0.88);
   --well: rgba(122,110,140,0.20);
   --btn-shadow: rgba(92,47,176,0.38);
   --btn-grad-a: #b5d4f2; --btn-grad-b: #cbb6f2; --btn-halo: transparent; --emoji-halo: transparent;
@@ -217,6 +230,7 @@
   --blue: #1e3352; --blue-2: #35538a; --text-blue: #a9c9ff;
   --red: #452420; --red-2: #7a3a33; --text-red: #ffaea4;
   --float: rgba(26,29,34,0.88);
+  --bar: #3e4147;
   --well: rgba(255,255,255,0.14);
   --btn-shadow: rgba(0,0,0,0.5);
   --btn-grad-a: #7697c5; --btn-grad-b: #3c659e; --btn-halo: #1a1d21; --emoji-halo: rgba(240,234,228,0.5);
@@ -1907,9 +1921,16 @@ button.tm-slot:active { transform: scale(0.94); }
    챠콜에서 `--ink` 를 두면 **밝은 벽 위 밝은 글자**가 된다.
    ⚠️ 알약 둘은 «유리»가 아니라 `--float` 다 — 유리는 페이지 배경 위의 값이라
    방 그림이 그대로 비친다 (UI_POLICY 0장) */
+/* ⚠️⚠️ **층은 «방 연출 전부»보다 위다** (4 — 크리처 층이 3이다). 1 로 두었더니
+   `placeFigure()` 가 아우라를 25px 올리면서 `.stage-creatures`(inset:0 · z-index 3)가
+   제목 줄의 **아래 절반을 덮었다** — 화면에는 칩도 제목도 멀쩡히 서 있고
+   **손가락만 안 먹는** 종류다 (저장 칩이 실제로 안 눌렸다 · `checkemoji` 가 ☁️ 를
+   「가려졌다」로 걸러 내면서 드러났다).
+   ⚠️ 층을 **덮는 것마다 하나씩 낮추지 않는다** — 방 연출은 넷(그림 0 · 아우라 1 ·
+   슬림 연출 · 크리처 3)이라 하나를 반드시 빠뜨린다. 제목 줄이 «다» 이기게 둔다 */
 .room-head {
   display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
-  position: relative; z-index: 1;
+  position: relative; z-index: 4;
 }
 .room-head .screen-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .room-head .icon-btn { margin-left: auto; }
@@ -2764,7 +2785,8 @@ button.tm-slot:active { transform: scale(0.94); }
 .tab-bar {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 480px; z-index: 30;
-  display: flex; background: var(--glass-3);
+  /* ⚠️ 유리가 아니라 `--bar` 다 — 카드가 이 «밑»으로 흘러가므로 가려야 한다 (맨 위 주석) */
+  display: flex; background: var(--bar);
   backdrop-filter: blur(12px); border-top: 1px solid var(--glass-line);
   padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
 }

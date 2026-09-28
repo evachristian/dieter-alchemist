@@ -81,6 +81,15 @@ const COLLECT = `(() => {
       if (q.width < 6 || q.height < 6) continue;
       // 창 «안»에 온전히 들어온 것만 (잘린 상자는 배경 띠를 못 잰다)
       if (q.left < 6 || q.top < 6 || q.right > innerWidth - 6 || q.bottom > innerHeight - 6) continue;
+      // ⚠️⚠️ **가려진 이모지는 «안 잰다».** 여기서 재는 것은 「찍힌 그림」이라, 다른 것에
+      // 덮여 있으면 **덮은 판의 색을 이모지라고 내놓는다** — 하단 탭을 불투명하게 고치자
+      // 그 밑으로 흘러가던 🔒 · 🖤 · 🧪 · 🏆 · 🌰 다섯이 **1.00~1.09:1 로 «떨어져»**
+      // 실패로 잡혔다 (딱 1.00 이면 상자 안이 통째로 한 색, 곧 아무것도 안 보인다는 뜻이다).
+      // 사람에게 안 보이는 것을 「안 보인다」고 잡는 것은 잣대가 아니다.
+      // ⚠️ display:none 을 거르는 것(shown)과 «다른 축»이다 — 그쪽은 제 스타일을 보고
+      // 이쪽은 **누가 위에 있는가**를 본다. 상자로는 못 본다 (자리는 그대로고 순서만 뒤집힌다)
+      const hit = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
+      if (!hit || !(hit === el || el.contains(hit) || hit.contains(el))) continue;
       out.push({ ch: m[0], sel: nameOf(el), shadow: cs.textShadow,
                  x: q.left, y: q.top, w: q.width, h: q.height });
     }

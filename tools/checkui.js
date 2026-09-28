@@ -3159,17 +3159,42 @@ function launchOpts() {
         overStats: r.bottom - stats.bottom, underInv: inv.top - r.bottom,
         // 화면 꼭대기까지 올라왔는가 (+ 면 덮었다)
         overHead: screen.top - r.top,
-        // ⚠️ **제목 줄이 그 그림에 덮이지 않았는가.** 방 그림은 자리를 가진 요소라
-        //    그냥 두면 제목을 통째로 가린다 — 화면에는 오류 하나 없이 글자만 사라진다
-        //    (실제로 처음에 그렇게 그려졌다). 상자로는 못 본다: 자리는 그대로다
-        headTop: (() => {
-          const t = document.getElementById('roomTitle');
-          if (!t) return 'no';
-          const b = t.getBoundingClientRect();
-          const el = document.elementFromPoint(b.left + 6, b.top + b.height / 2);
-          // ⚠️ SVG 요소의 `className` 은 객체다 — 글자로 찍으려면 속성에서 읽는다
-          return el && el.closest('.room-head') ? 'ok'
-            : (el ? (el.tagName.toLowerCase() + '.' + (el.getAttribute('class') || '')) : 'none');
+        // ⚠️ **제목 «줄»이 방 연출에 덮이지 않았는가.** 방 그림도 크리처 층도 자리를
+        //    가진 요소라 그냥 두면 이 줄을 가린다 — 화면에는 오류 하나 없이 글자가
+        //    사라지거나(처음에 그렇게 그려졌다) **손가락만 안 먹는다**(저장 칩이 실제로
+        //    안 눌렸다). 상자로는 못 본다: 자리는 그대로고 그리는 순서만 뒤집힌다
+        //
+        // ⚠️⚠️ **한 점만 찍으면 못 잡는다 — 실제로 놓쳤다.** 제목 글자 한 곳만 보고
+        //    있었는데, 덮은 것(`.stage-creatures`)이 줄의 **아래 절반**부터라 그 점만
+        //    간발로 비껴갔다. 줄에 선 것을 «다» · 상자의 **네 귀퉁이와 가운데**를 본다.
+        // ⚠️ 빈 자리는 안 본다 — `.room-head` 는 바탕이 없어서 글자 사이로 방 그림이
+        //    보이는 것이 «맞다». 그래서 **글자가 있으면 그 글자의 상자**(Range)로 좁힌다
+        headCover: (() => {
+          const head = document.querySelector('.room-head');
+          if (!head) return { n: 0, hits: ['.room-head 가 없다'] };
+          const hits = new Set();
+          let n = 0;
+          [...head.children].forEach(e => {
+            let b = e.getBoundingClientRect();
+            if ((e.textContent || '').trim()) {
+              const r = document.createRange();
+              r.selectNodeContents(e);
+              const q = r.getBoundingClientRect();
+              if (q.width > 4 && q.height > 4) b = q;
+            }
+            if (b.width < 5 || b.height < 5) return;
+            [[b.left + 3, b.top + 3], [b.right - 3, b.top + 3],
+             [b.left + 3, b.bottom - 3], [b.right - 3, b.bottom - 3],
+             [b.left + b.width / 2, b.top + b.height / 2]].forEach(([x, y]) => {
+              n++;
+              const t = document.elementFromPoint(x, y);
+              if (t && t.closest('.room-head')) return;
+              // ⚠️ SVG 요소의 `className` 은 객체다 — 글자로 찍으려면 속성에서 읽는다
+              const name = t ? (t.tagName.toLowerCase() + '.' + (t.getAttribute('class') || '')) : '없음';
+              hits.add(`${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''} 의 (${Math.round(x)},${Math.round(y)}) 가 «${name}» 에 덮였다`);
+            });
+          });
+          return { n, hits: [...hits].slice(0, 5) };
         })(),
       };
     });
@@ -3218,7 +3243,9 @@ function launchOpts() {
       if (!rise || !flat) bad2.push('방 그림을 못 찾았다');
       else {
         if (rise.overHead < -0.5) bad2.push(`화면 꼭대기까지 ${(-rise.overHead).toFixed(1)}px 모자란다`);
-        if (rise.headTop !== 'ok') bad2.push(`제목 줄이 방 그림에 덮였다 (그 자리의 맨 위가 «${rise.headTop}»)`);
+        // ⚠️ **0건이 통과가 아니다** — 몇 점을 쟀는지 같이 봐야 「한 번도 안 쟀다」와 갈린다
+        if (rise.headCover.n < 10) bad2.push(`제목 줄에서 ${rise.headCover.n}점밖에 못 쟀다 (덮였는지를 잰 적이 없다)`);
+        rise.headCover.hits.forEach(h => bad2.push(`제목 줄이 방 연출에 덮였다 — ${h}`));
         if (rise.overHead - flat.overHead < 10) bad2.push(`천장을 안 올렸다 (${(rise.overHead - flat.overHead).toFixed(1)}px)`);
         if (Math.abs(rise.scale - flat.scale) > 0.005) bad2.push(`천장을 올리며 확대율이 달라졌다 ${flat.scale.toFixed(3)} → ${rise.scale.toFixed(3)}`);
         if (Math.abs(rise.unitsW - flat.unitsW) > 1) bad2.push(`천장을 올리며 좌우 잘림이 달라졌다 ${flat.unitsW.toFixed(1)} → ${rise.unitsW.toFixed(1)} 단위`);
@@ -3232,7 +3259,8 @@ function launchOpts() {
         ? { 화면: '방 배경 올리기', 오류: bad2.join(' · ') }
         : { 화면: '방 배경 올리기', pass: true, total: 0, blocked: false,
             잰것: `화면 꼭대기를 ${rise.overHead.toFixed(1)}px 덮는다 (안 올리면 ${flat.overHead.toFixed(1)}px)`
-              + ` · 확대율 ${rise.scale.toFixed(3)} (그대로) · 좌우 ${rise.unitsW.toFixed(1)}칸` });
+              + ` · 확대율 ${rise.scale.toFixed(3)} (그대로) · 좌우 ${rise.unitsW.toFixed(1)}칸`
+              + ` · 제목 줄 ${rise.headCover.n}점이 안 덮였다` });
     }
   }
 
