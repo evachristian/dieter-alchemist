@@ -4354,11 +4354,9 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
           if (r.width && r.height) ink = Math.min(ink, r.top);
         });
         const ti = document.getElementById('roomTitle');
-        // 방 그림은 위쪽이 투명으로 «사라지며» 시작한다 (`.room-scene` 의 mask) —
+        // 방 그림의 위/아래 «사라지는 띠»(`.room-scene` 의 mask) —
         // ⚠️ 그 폭을 검사기에 «옮겨 적지 않는다**: 실제로 깔린 mask 에서 읽는다
         const mk = getComputedStyle(scene).maskImage || getComputedStyle(scene).webkitMaskImage || '';
-        const st = mk.match(/,\s*rgba?\([^)]*\)\s+([\d.]+)(px|%)/);
-        const fade = st ? (st[2] === '%' ? sr.height * parseFloat(st[1]) / 100 : parseFloat(st[1])) : null;
         // ⚠️⚠️ **아래 띠도 같이 읽는다** — 오래 위쪽 띠만 읽고 있었다.
         //    아래가 `90%` 였을 때 **양탄자의 앞 절반이 통째로 옅어져** 있었는데,
         //    이 검사는 타원의 «상자»만 봐서 한 번도 못 봤다 (0건이 「안 쟀다」였다)
@@ -4367,6 +4365,11 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
         const toPx = v => v.startsWith('calc') ? sr.height - parseFloat(v.match(/-\s*([\d.]+)px/)[1])
           : (v.endsWith('%') ? sr.height * parseFloat(v) / 100 : parseFloat(v));
         const solid = stops.filter(x => !x.clear);
+        // 위쪽 띠 = «처음 진해지는 자리». ⚠️⚠️ 정규식으로 「첫 길이」를 집으면, 띠를 걷어
+        //    첫 스톱이 진해진 뒤에는 **맨 아래의 `100%` 를 읽어** 띠가 화면 높이만 하다고
+        //    말한다 — 멀쩡한 머리가 「띠를 파고든다」로 잡힐 자리다. 지금은 띠가 없어 0 이고,
+        //    다시 두면 그 폭을 그대로 재서 따라온다
+        const fade = solid.length ? toPx(solid[0].pos) : null;
         const fadeBot = solid.length >= 2 ? sr.height - toPx(solid[solid.length - 1].pos) : null;
         const rugBox = rug.el.getBoundingClientRect();
         return { dx: F.x - R.x, dy: F.y - R.y,
@@ -4427,7 +4430,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
       }
       if (lv === 5 && !lite) stand.rows[stand.rows.length - 1] +=
         `(머리 여유 — 제목 ${r.headClear.toFixed(1)} · 벽 ${r.headIn.toFixed(1)}`
-        + ` · 사라지는 띠 ${r.fade}px 의 절반에서 ${r.headWall.toFixed(1)}`
+        + ` · 위 띠 ${r.fade}px (그 절반에서 ${r.headWall.toFixed(1)})`
         + ` · 양탄자 앞 여유 ${r.rugRoomBot.toFixed(1)})`;
     }
   }

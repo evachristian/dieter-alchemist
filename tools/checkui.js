@@ -20,6 +20,9 @@ const TABS = process.argv.slice(2);
 // ⚠️ PNG 픽셀 읽기는 **`tools/pnglum.js` 한 곳**에서 온다 — 테마 검사도 같은 것을
 // 쓰므로, 여기 두면 곧 두 벌이 된다 (한쪽만 고쳐 갈리는 그 사고다)
 const { pngLums } = require('./pnglum');
+// 픽셀을 «색 그대로» 견줘야 하는 자리 하나(헤더 밑의 방 그림)가 쓴다 — 휘도로는
+// 「색만 다르고 밝기가 같은」 경우를 못 가른다
+const { decode } = require('./png');
 
 let chromium;
 try {
@@ -3233,6 +3236,64 @@ function launchOpts() {
       await setLite(false);
       await page.waitForTimeout(150);
       const rise = await geom();
+      // ─── 헤더 «바로 밑»이 방 그림인가 (진짜 픽셀) ─────────────
+      //
+      // ⚠️⚠️ **위의 `overHead` 는 «상자»만 본다.** 상자가 화면 꼭대기에 닿아 있어도
+      //    mask 가 그 띠를 투명으로 만들면 화면에는 **방 그림이 끊긴 줄**이 남는다 —
+      //    위쪽 페이드 18px 이 헤더 바로 밑에 띠를 만들어 **두 번 신고받은** 자리다
+      //    (「이 영역이 마이 룸으로 보이게」 · 「그라데이션 부분이 끊어져 보인다」).
+      //    0건이 「통과」가 아니라 「한 번도 안 쟀다」가 되지 않게 **몇 줄을 쟀는지**도 낸다.
+      // ⚠️ 방 그림을 **껐다 켜서** 견딘다 — 「벽 색인가」로 재면 테마·단계마다 벽 색이
+      //    달라 잣대가 서지 않는다. 끄면 그 자리에 페이지 배경이 남으므로, 두 장이
+      //    같다는 것은 곧 **그 줄에 방 그림이 한 점도 안 그려졌다**는 뜻이다
+      // ⚠️⚠️ **문턱을 «절대값»이나 «아랫줄과의 비»로 두면 안 된다** — 옛 18px 페이드는
+      //    맨 윗줄 하나만 걸렸고, 반쯤 투명한 띠(알파 0.4)는 통째로 지나갔다
+      //    (사보타주로 둘 다 봤다). 벽 색이 줄마다 달라 「얼마나 다른가」로는 못 가른다.
+      //    그래서 **세 장을 찍어 줄마다 «덮인 몫»을 직접 낸다** — 있는 그대로(A) ·
+      //    방 그림을 끈 것(B) · **mask 를 벗긴 것**(C). `|A−B| ÷ |C−B|` 가 곧 그 줄의
+      //    알파라, 같은 줄끼리 견주므로 벽 색이 무엇이든 1.00 이 나와야 한다
+      const BAND_H = 20;            // 옛 페이드가 18px 이었다 — 그보다 넉넉히 본다
+      const BAND_MIN_A = 0.9;       // 줄마다 이만큼은 덮여 있어야 한다
+      const band = await (async () => {
+        const g = await page.evaluate(() => {
+          const sc = document.querySelector('.room-scene');
+          if (!sc) return null;
+          const b = sc.getBoundingClientRect();
+          return { x: Math.round(Math.max(0, b.left)) + 8, y: Math.round(b.top) };
+        });
+        if (!g) return null;
+        const clip = { x: g.x, y: g.y, width: 40, height: BAND_H };
+        const set = (v) => page.evaluate((m) => {
+          const sc = document.querySelector('.room-scene');
+          sc.style.visibility = m === 'off' ? 'hidden' : '';
+          sc.style.webkitMaskImage = m === 'full' ? 'none' : '';
+          sc.style.maskImage = m === 'full' ? 'none' : '';
+        }, v);
+        let A, B, C;
+        try {
+          A = decode(await page.screenshot({ clip }));
+          await set('off'); B = decode(await page.screenshot({ clip }));
+          await set('full'); C = decode(await page.screenshot({ clip }));
+        } finally { await set(''); }
+        if (!A || !B || !C || A.h !== B.h || A.h !== C.h) return null;
+        const dif = (P, Q, y) => {
+          let s = 0;
+          for (let x = 0; x < P.w; x++) {
+            const i = (y * P.w + x) * 4;
+            s += Math.abs(P.px[i] - Q.px[i]) + Math.abs(P.px[i + 1] - Q.px[i + 1])
+               + Math.abs(P.px[i + 2] - Q.px[i + 2]);
+          }
+          return s / (P.w * 3);
+        };
+        const rows = [];
+        for (let y = 0; y < A.h; y++) {
+          const full = dif(C, B, y);
+          // ⚠️ 벽과 페이지 배경이 «마침 같은 색»인 줄은 이 방법으로 못 잰다 — 그런 줄은
+          //    빼고, 대신 **몇 줄을 쟀는지**를 내어 「한 번도 안 쟀다」와 갈린다
+          rows.push(full > 3 ? dif(A, B, y) / full : null);
+        }
+        return rows;
+      })();
       const flat = await page.evaluate(() => {
         const canvas = document.querySelector('.room-canvas');
         canvas.style.setProperty('--room-rise', '0px');
@@ -3251,6 +3312,15 @@ function launchOpts() {
         if (Math.abs(rise.unitsW - flat.unitsW) > 1) bad2.push(`천장을 올리며 좌우 잘림이 달라졌다 ${flat.unitsW.toFixed(1)} → ${rise.unitsW.toFixed(1)} 단위`);
         if (Math.abs(rise.floorY - flat.floorY) > 1.5) bad2.push(`천장을 올리며 그림이 ${(rise.floorY - flat.floorY).toFixed(1)}px 밀렸다`);
       }
+      const bandN = band ? band.filter(v => v != null).length : 0;
+      if (bandN < BAND_H - 4) bad2.push(`헤더 밑의 띠를 ${bandN}/${BAND_H}줄밖에 못 쟀다`
+        + ' — 0건이 「통과」가 아니라 「한 번도 안 쟀다」다');
+      else {
+        const dim = band.map((v, i) => [v, i]).filter(([v]) => v != null && v < BAND_MIN_A);
+        if (dim.length) bad2.push(`헤더 바로 밑 ${dim.length}줄(y+${dim[0][1]}~${dim[dim.length - 1][1]})이`
+          + ` 덜 덮였다 (덮인 몫 ${dim.map(([v]) => v.toFixed(2)).join('·')})`
+          + ' — 마이 룸 배경이 끊긴 띠로 보인다');
+      }
       await page.evaluate(() => { if (typeof renderShowcase === 'function') renderShowcase(); });
       results.push(bad.length
         ? { 화면: '방 배경 늘이기', 오류: bad.join(' · ') }
@@ -3260,7 +3330,9 @@ function launchOpts() {
         : { 화면: '방 배경 올리기', pass: true, total: 0, blocked: false,
             잰것: `화면 꼭대기를 ${rise.overHead.toFixed(1)}px 덮는다 (안 올리면 ${flat.overHead.toFixed(1)}px)`
               + ` · 확대율 ${rise.scale.toFixed(3)} (그대로) · 좌우 ${rise.unitsW.toFixed(1)}칸`
-              + ` · 제목 줄 ${rise.headCover.n}점이 안 덮였다` });
+              + ` · 제목 줄 ${rise.headCover.n}점이 안 덮였다`
+              + ` · 헤더 밑 ${bandN}줄이 다 방 그림이다`
+              + `${bandN ? ` (제일 덜 덮인 줄 ${Math.min(...band.filter(v => v != null)).toFixed(2)})` : ''}` });
     }
   }
 
