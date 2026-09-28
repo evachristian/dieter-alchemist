@@ -1496,6 +1496,121 @@ function launchOpts() {
     return { bad, rows };
   }, ANKLE_BACK_MAX);
 
+  // ─── 무릎이 발목보다 가늘지 않은가 ──────────────────────────
+  //
+  // 「엉덩이 20% · 허벅지 100% 에서 무릎이 신체 비율에 비해 너무 가늘다」로 신고받은 자리다.
+  // ⚠️⚠️ **위의 「무릎이 허벅지를 따라가는가」는 이것을 영영 못 본다** — 그 검사는
+  // «무릎 ÷ 허벅지 윗머리»를 기본값과 견주는데, 골반이 좁아지면 **둘이 같이** 들어와
+  // 비가 그대로다(0.38). 무릎이 절반이 되어도 통과한다.
+  // 잣대는 **몸 안의 다른 관절**이다 — 무릎은 관절 중 제일 굵은 데고 발목이 제일 가는 데라
+  // **무릎 < 발목은 어느 배율에서도 사람 다리가 아니다.** 손대기 전에 세 자리가 뒤집혀 있었다
+  // (엉덩이 20% 9.00 < 11.00 · 엉덩이 50% 10.25 < 11.00 · 바디파츠 150% 10.00 < 11.20).
+  // ⚠️ **화면 좌표로 잰다** — 발목만 몸 축소를 되돌리므로(`ankleX`) 몸 좌표로 재면
+  // 바디파츠 축이 통째로 안 보인다. `isPointInFill` + `getScreenCTM` 이 그 자를 준다
+  // ⚠️ **줄 번호를 박지 않는다** — 조각의 제 상자에서 되짚어 둥근 마개(≤5px)만 피한다
+  // ⚠️⚠️ **위쪽 난간도 같이 둔다.** 바닥을 `Math.min` «밖»에 두는 사보타주는 아래 규칙만으로는
+  // 통째로 통과하는데, 그림은 바뀐다 — 「엉덩이 20% + 허벅지 50%」에서 무릎÷윗머리가
+  // 0.860 → **0.980** 이 되어 다리가 «곤봉»이 됐다 (얇은 허벅지에 같은 굵기의 무릎).
+  // 난간은 코드의 상한(0.85)이 아니라 **사람의 규칙**이다 — 「관절은 근육보다 가늘다」
+  const KNEE_ANKLE_MIN = 1.0;     // 무릎 ≥ 발목
+  const KNEE_THIGH_MAX = 0.9;     // 무릎 ≤ 허벅지 윗머리 × 0.9
+  // ⚠️ **윗머리의 바닥(`THIGH_ANKLE`)이 «멀쩡한 눈금»을 물면 그 칸이 죽는다** — 바닥을
+  // 1.4 → 1.8 로 올리는 사보타주가 위의 둘을 그대로 통과했다 (제일 가는 허벅지가 바닥에
+  // 올라앉아 슬라이더 바닥이 안 움직인다 · 호위 할인의 「평야 바닥에 닿으면 안 된다」와 같은 규칙).
+  // ⚠️ **값을 베껴 적지 않는다** — `avatar.js` 에서 읽는다 (사본을 두면 검사기만 옛 값에 남는다)
+  const THIGH_ANKLE = (require('fs').readFileSync(require('path')
+    .join(__dirname, '..', 'avatar.js'), 'utf8').match(/THIGH_ANKLE = ([\d.]+)/) || [])[1];
+  const kneeAnkle = await page.evaluate(async (o) => {
+    const MIN = o.min, TMAX = o.tmax, FLOOR = o.floor;
+    const D = window.GameData, bad = [], rows = [];
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT,
+      { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', hair: 'hair_none', shoes: 'shoes_none' });
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:-9999px;top:0;width:200px';
+    document.body.appendChild(host);
+    const T = o => { const t = {}; window.Avatar.TUNE_KEYS.forEach(x => { t[x] = 1; });
+                     return Object.assign(t, o); };
+    // 오른쪽 종아리 조각에서 «무릎(위)»과 «발목(아래)»을 화면 좌표로 잰다
+    function measure(tune) {
+      host.innerHTML = window.Avatar.build(outfit, 0, tune);
+      const svg = host.querySelector('svg');
+      const part = k => [...svg.querySelectorAll('[data-part="' + k + '"] path')]
+        .find(e => e.getBBox().x > 99);
+      const q = part('calf'), th = part('thigh');
+      if (!q || !th) return null;
+      const bb = q.getBBox(), tb = th.getBBox(), inv = svg.getScreenCTM().inverse();
+      const at = (e, y) => { const m = e.getScreenCTM();
+        for (let x = 220; x > 100; x -= 0.25)
+          if (e.isPointInFill(new DOMPoint(x, y))) {
+            return new DOMPoint(x, y).matrixTransform(m).matrixTransform(inv).x - 100; }
+        return null; };
+      let knee = null, ankle = null, top = null;
+      for (let dy = 5.5; dy <= 9; dy += 0.5) {         // 마개를 지난 «무릎»에서 제일 가는 줄
+        const v = at(q, bb.y + dy); if (v != null && (knee == null || v < knee)) knee = v; }
+      for (let dy = 2; dy <= 10; dy += 0.5) {          // 마개를 피한 «발목»에서 제일 굵은 줄
+        const v = at(q, bb.y + bb.height - dy); if (v != null && v > ankle) ankle = v; }
+      for (let dy = 5.5; dy <= 9; dy += 0.5) {         // 허벅지 «윗머리»
+        const v = at(th, tb.y + dy); if (v != null && v > top) top = v; }
+      return knee != null && ankle && top ? { knee: knee, ankle: ankle, top: top } : null;
+    }
+    const AXES = [['바디파츠', null, [0.5, 0.75, 1, 1.25, 1.5]],
+                  ['엉덩이', 'hip', [0.2, 0.5, 0.75, 1, 1.25, 1.5]],
+                  ['허벅지', 'thigh', [0.5, 0.75, 1, 1.25, 1.5]],
+                  ['종아리', 'calf', [0.5, 0.75, 1, 1.25, 1.5]],
+                  // ⚠️ 「바디파츠」는 일곱을 «다 같이» 움직이는 축이라 **얼굴만 올린 몸**을
+                  // 한 번도 안 잰다 — 신고의 세 번째 자리(얼굴 150%)가 거기에 있었다
+                  ['얼굴', 'face', [0.5, 0.75, 1, 1.25, 1.5]]];
+    // ⚠️ **둘을 같이 내린 몸**도 본다 — 곤봉은 「가는 골반 + 가는 허벅지」에서만 나오므로
+    // 한 축씩만 도는 위의 목록에서는 한 번도 안 재진다
+    const COMBOS = [['엉덩이20+허벅지50', { hip: 0.2, thigh: 0.5 }],
+                    ['엉덩이20+종아리50', { hip: 0.2, calf: 0.5 }]];
+    let n = 0;
+    function judge(label, v) {
+      if (v.knee < v.ankle * MIN - 0.05)
+        bad.push(`${label} 에서 무릎(${v.knee.toFixed(2)})이`
+          + ` 발목(${v.ankle.toFixed(2)})보다 가늘다 — 관절의 순서가 뒤집혔다`);
+      if (v.knee > v.top * TMAX)
+        bad.push(`${label} 에서 무릎(${v.knee.toFixed(2)})이 허벅지 윗머리(${v.top.toFixed(2)})의`
+          + ` ${(v.knee / v.top).toFixed(3)} 이다 — 관절이 근육만큼 굵으면 곤봉이 된다`);
+    }
+    for (const [label, key, steps] of AXES) {
+      const txt = [];
+      for (const k of steps) {
+        const tune = key ? T({ [key]: k })
+                         : (() => { const t = {}; window.Avatar.TUNE_KEYS.forEach(x => { t[x] = k; }); return t; })();
+        const v = measure(tune);
+        if (!v) { bad.push(`${label} ${k * 100}% 에서 종아리를 못 쟀다`); continue; }
+        n++;
+        txt.push(`${k * 100}% ${v.knee.toFixed(2)}/${v.ankle.toFixed(2)}`);
+        judge(`${label} ${k * 100}%`, v);
+      }
+      rows.push(`${label} ${txt.join(' · ')}`);
+    }
+    // 제일 가는 허벅지(허벅지 눈금 바닥)가 «바닥에 안 닿는가»
+    {
+      const v = measure(T({ thigh: 0.5 }));
+      if (!v) bad.push('허벅지 50% 에서 윗머리를 못 쟀다');
+      else {
+        const r = v.top / v.ankle;
+        rows.push(`허벅지50 윗머리÷발목 ${r.toFixed(2)} (바닥 ${FLOOR})`);
+        if (FLOOR && r < +FLOOR + 0.05)
+          bad.push(`제일 가는 허벅지의 윗머리÷발목이 ${r.toFixed(2)} 로 바닥(${FLOOR})에 올라앉았다`
+            + ` — 그러면 허벅지 눈금의 바닥 칸이 안 움직인다`);
+      }
+    }
+    for (const [label, o] of COMBOS) {
+      const v = measure(T(o));
+      if (!v) { bad.push(`${label} 에서 종아리·허벅지를 못 쟀다`); continue; }
+      n++;
+      rows.push(`${label} ${v.knee.toFixed(2)}/${v.ankle.toFixed(2)}`
+        + ` (윗머리 ${v.top.toFixed(2)} · 비 ${(v.knee / v.top).toFixed(3)})`);
+      judge(label, v);
+    }
+    host.remove();
+    if (n < 28) bad.push(`눈금을 다 못 쟀다 (${n}/28)`);
+    return { bad, rows, n };
+  }, { min: KNEE_ANKLE_MIN, tmax: KNEE_THIGH_MAX, floor: THIGH_ANKLE });
+
   // ─── 팔 끝에 손이 있는가 ────────────────────────────────────
   //
   // 예전에는 손이 아예 없었다. 팔이 손목에서 둥근 마개로 뚝 끝나서 **잘린 것처럼**
@@ -4019,6 +4134,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
     .concat(thighCalf.bad.map(m => ({ id: '허벅지↔장딴지', body: '-', where: m, n: '-' })))
     .concat(ankleScale.bad.map(m => ({ id: '발목(바디파츠)', body: '-', where: m, n: '-' })))
+    .concat(kneeAnkle.bad.map(m => ({ id: '무릎↔발목', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
@@ -4160,6 +4276,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (여백 ${BOX_MARGIN_MIN}px 이상 · 넘으면 viewBox 를 넓혀야 한다)`);
   console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
     + ` (굵어지면 안 된다 — 굵은 종아리에 가는 발목)`);
+  console.log(`무릎↔발목: 화면에서 잰 «무릎/발목» ${kneeAnkle.rows.join(' | ')}`
+    + ` (무릎이 발목보다 가늘면 안 된다 · ${kneeAnkle.n}칸)`);
   console.log(`발목(바디파츠): 화면에서 잰 발목 ${ankleScale.rows.join(' · ')}`
     + ` (${ANKLE_BACK_MAX}px 까지만 뒤로 가도 된다 · 단계 ${ankleScale.rows.length}`
     + ` · 몸 축소를 타면 100% 가 꼭대기가 된다)`);
