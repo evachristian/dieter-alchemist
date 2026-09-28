@@ -3900,6 +3900,13 @@
   // `game.js` 의 `placeFigure()` 가 **이 자리에 인물의 발을 맞춘다** — 두 군데에 적으면
   // 양탄자를 옮겼을 때 인물만 옛 자리에 남는다 (예전에 러그 290 · 마법진 288 로 갈려 있었다)
   const FLOOR_SPOT = 288;   // 방 좌표에서 사람이 서는 높이 (양탄자 한가운데)
+  // ⚠️⚠️ **바닥에 깔리는 타원의 반높이 한계.** `FLOOR_SPOT + FLOOR_RY` 가 방 바닥 끝(320)
+  // «안», 그것도 아래 페이드(`style.css` 의 `.room-scene` mask · 6px)의 «진한 쪽»에
+  // 들어와야 한다 — 앞 테두리가 잘리거나 옅어지면 사람 눈에는 「화면 밖으로 이어지는
+  // 양탄자」가 되어, 발이 기하학적으로 한가운데에 있어도 **인물이 뒤쪽에 선 것으로 읽힌다**
+  // (「양탄자 중심보다 살짝 위에 서 있다」로 신고받았다 · 큰 카펫이 ry 38 이라 6칸 넘쳤다).
+  // `checkavatar` 의 「서는 자리」가 **그려진 상자와 mask 를 읽어** 지킨다
+  const FLOOR_RY = 24;
   // 돌벽 이음새의 «세로 줄» — 60칸짜리 띠 넷이 돌아가며 쓴다 (천장을 올려도 이어진다)
   const SEAM_COLS = [[60, 210, 330], [20, 140, 250], [90, 360], []];
   const ROOM_PROPS = {
@@ -4004,24 +4011,29 @@
       <circle cx="${WIN.fx + WIN.fw / 2}" cy="${WIN.fy - 10}" r="3" fill="#fff2c4"/>`,
     // 작은 러그
     rugSmall: () => `
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="96" ry="26" fill="#8a5f6a" opacity="0.75"/>
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="76" ry="19" fill="none" stroke="rgba(255,235,205,0.4)" stroke-width="2"/>`,
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="96" ry="${FLOOR_RY}" fill="#8a5f6a" opacity="0.75"/>
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="76" ry="17" fill="none" stroke="rgba(255,235,205,0.4)" stroke-width="2"/>`,
     // 큰 카펫
+    // ⚠️⚠️ **바닥 타원은 «방 안에» 다 들어와야 한다** (`FLOOR_SPOT + ry ≤ RUG_ROOM`).
+    //    ry 38 이면 밑끝이 326 이라 바닥 끝(320)을 6칸 넘어서 **앞 테두리가 잘렸고**,
+    //    잘린 양탄자는 「화면 밖으로 이어지는 것」으로 읽혀 **인물이 뒤쪽에 선 것처럼**
+    //    보였다 (「양탄자 중심보다 살짝 위에 서 있다」로 신고받았다).
+    //    26 은 작은 러그·마법진과 같은 값이고, 그려 놓고 넷(38·30·26·22)을 견줘 골랐다
     rugBig: () => `
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="150" ry="38" fill="#8e3f4e"/>
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="150" ry="38" fill="none" stroke="#d9b45f" stroke-width="3"/>
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="120" ry="28" fill="none" stroke="#d9b45f" stroke-width="2" opacity="0.7"/>
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="60" ry="14" fill="#a04d5c"/>`,
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="150" ry="${FLOOR_RY}" fill="#8e3f4e"/>
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="150" ry="${FLOOR_RY}" fill="none" stroke="#d9b45f" stroke-width="3"/>
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="120" ry="17" fill="none" stroke="#d9b45f" stroke-width="2" opacity="0.7"/>
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="60" ry="9" fill="#a04d5c"/>`,
     // 바닥 마법진
     circle: () => `
       <g fill="none" stroke="#cba8f0" stroke-width="2" opacity="0.75">
-        <ellipse cx="200" cy="${FLOOR_SPOT}" rx="104" ry="26"/>
-        <ellipse cx="200" cy="${FLOOR_SPOT}" rx="72" ry="18"/>
-        <path d="M96,${FLOOR_SPOT} L200,${FLOOR_SPOT - 18} L304,${FLOOR_SPOT} L200,${FLOOR_SPOT + 18} Z"/>
+        <ellipse cx="200" cy="${FLOOR_SPOT}" rx="104" ry="${FLOOR_RY}"/>
+        <ellipse cx="200" cy="${FLOOR_SPOT}" rx="72" ry="16"/>
+        <path d="M96,${FLOOR_SPOT} L200,${FLOOR_SPOT - 16} L304,${FLOOR_SPOT} L200,${FLOOR_SPOT + 16} Z"/>
       </g>
       <g fill="#e6d0ff" opacity="0.85">
         <circle cx="96" cy="${FLOOR_SPOT}" r="3"/><circle cx="304" cy="${FLOOR_SPOT}" r="3"/>
-        <circle cx="200" cy="${FLOOR_SPOT - 18}" r="3"/><circle cx="200" cy="${FLOOR_SPOT + 18}" r="3"/>
+        <circle cx="200" cy="${FLOOR_SPOT - 16}" r="3"/><circle cx="200" cy="${FLOOR_SPOT + 16}" r="3"/>
       </g>`,
     // 샹들리에 (천장 · 아바타 머리 위를 피해 위쪽에만)
     chandelier: (k, top) => `

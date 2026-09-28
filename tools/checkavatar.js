@@ -4359,7 +4359,21 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
         const mk = getComputedStyle(scene).maskImage || getComputedStyle(scene).webkitMaskImage || '';
         const st = mk.match(/,\s*rgba?\([^)]*\)\s+([\d.]+)(px|%)/);
         const fade = st ? (st[2] === '%' ? sr.height * parseFloat(st[1]) / 100 : parseFloat(st[1])) : null;
+        // ⚠️⚠️ **아래 띠도 같이 읽는다** — 오래 위쪽 띠만 읽고 있었다.
+        //    아래가 `90%` 였을 때 **양탄자의 앞 절반이 통째로 옅어져** 있었는데,
+        //    이 검사는 타원의 «상자»만 봐서 한 번도 못 봤다 (0건이 「안 쟀다」였다)
+        const stops = [...mk.matchAll(/(rgba?\([^)]*\))\s+(calc\([^)]*\)|[\d.]+(?:px|%))/g)]
+          .map(m => ({ clear: /^rgba\(/.test(m[1]) && /,\s*0\s*\)$/.test(m[1]), pos: m[2] }));
+        const toPx = v => v.startsWith('calc') ? sr.height - parseFloat(v.match(/-\s*([\d.]+)px/)[1])
+          : (v.endsWith('%') ? sr.height * parseFloat(v) / 100 : parseFloat(v));
+        const solid = stops.filter(x => !x.clear);
+        const fadeBot = solid.length >= 2 ? sr.height - toPx(solid[solid.length - 1].pos) : null;
+        const rugBox = rug.el.getBoundingClientRect();
         return { dx: F.x - R.x, dy: F.y - R.y,
+                 fadeBot,
+                 // 양탄자가 «진한 자리» 안에 다 들어오는가 (+ 면 남는 여유 · − 면 먹힌 몫)
+                 rugRoomBot: fadeBot == null ? null : (sr.bottom - fadeBot) - rugBox.bottom,
+                 rugRoomTop: fade == null ? null : rugBox.top - (sr.top + fade),
                  headClear: ti ? ink - ti.getBoundingClientRect().bottom : null,
                  headIn: ink - sr.top,
                  fade,
@@ -4397,9 +4411,24 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
       if (r.fade == null) {
         stand.bad.push(`폭 ${vw}px · ${lv}단계: 방 그림의 mask 를 못 읽었다 — 띠를 한 번도 안 쟀다`);
       }
+      // ⚠️⚠️ **양탄자는 «통째로» 보여야 한다.** 앞 테두리가 잘리거나 옅어지면 사람 눈에는
+      //    「화면 밖으로 이어지는 양탄자」가 되어, 발이 기하학적으로 한가운데에 있어도
+      //    **인물이 뒤쪽에 선 것으로 읽힌다** (「양탄자 중심보다 살짝 위」로 신고받았다).
+      //    위의 `dy` 는 «타원의 상자»만 보므로 이 사고를 영영 못 본다 — 짝으로 둔다
+      if (r.fadeBot == null) {
+        stand.bad.push(`폭 ${vw}px · ${lv}단계: 방 그림의 «아래» 띠를 못 읽었다 — 한 번도 안 쟀다`);
+      } else if (r.rugRoomBot < 0) {
+        stand.bad.push(`폭 ${vw}px · ${lv}단계${lite ? ' · 스탯 접음' : ''}: 양탄자의 앞쪽이`
+          + ` ${(-r.rugRoomBot).toFixed(1)}px 잘리거나 옅어진다 (아래 띠 ${r.fadeBot.toFixed(0)}px)`
+          + ` — 양탄자가 화면 밖으로 이어져 보여 인물이 뒤에 선 것으로 읽힌다`);
+      }
+      if (r.rugRoomTop != null && r.rugRoomTop < 0) {
+        stand.bad.push(`폭 ${vw}px · ${lv}단계: 양탄자의 뒤쪽이 ${(-r.rugRoomTop).toFixed(1)}px 옅어진다`);
+      }
       if (lv === 5 && !lite) stand.rows[stand.rows.length - 1] +=
         `(머리 여유 — 제목 ${r.headClear.toFixed(1)} · 벽 ${r.headIn.toFixed(1)}`
-        + ` · 사라지는 띠 ${r.fade}px 의 절반에서 ${r.headWall.toFixed(1)})`;
+        + ` · 사라지는 띠 ${r.fade}px 의 절반에서 ${r.headWall.toFixed(1)}`
+        + ` · 양탄자 앞 여유 ${r.rugRoomBot.toFixed(1)})`;
     }
   }
   if (stand.n < 25) stand.bad.push(`서는 자리를 ${stand.n}/25 조합만 쟀다`
