@@ -1611,6 +1611,122 @@ function launchOpts() {
     return { bad, rows, n };
   }, { min: KNEE_ANKLE_MIN, tmax: KNEE_THIGH_MAX, floor: THIGH_ANKLE });
 
+  // ─── 벨트 띠가 «허리선»에 걸쳐 있는가 ───────────────────────
+  //
+  // 「벨트 선이 허리 아래부터 배꼽까지 생긴다 · 허리 라인에 맞춰 달라」로 신고받았다.
+  // 재 보니 띠(162.5~176.5)가 통째로 허리 «아래»였다 — 그려진 허리(몸통이 제일 가는
+  // 줄 161.9)보다 가운데가 **7.6px 아래**다. 지금은 `waistY` 에 가운데가 온다.
+  // ⚠️ **셋을 같이 본다 — 하나로는 못 잡는다:**
+  //   ① 허리선이 띠 «안»을 지나는가 (자리)
+  //   ② 허리에서 띠 바깥 변에 턱이 없는가 (허리 위는 상의/맨몸, 아래는 치마를 따라가는데
+  //      둘의 폭이 다르다 — `CLOTH_PAD` 를 안 태우면 맨몸에서 3px 턱이 진다)
+  //   ③ 팔 위에 띠 색이 없는가 (팔이 앞이다 — 띠가 허리 위로 올라가면서 윗 절반만
+  //      팔 «앞»에 오던 자리다. `armsOverSkirt` 가 띠 꼭대기부터 다시 찍어야 한다)
+  const BELT_STRADDLE_MIN = 2;      // 허리선 위·아래로 이만큼은 걸쳐야 한다
+  const BELT_STEP_MAX = 1.5;        // 허리에서 띠 바깥 변의 턱
+  const beltLine = await page.evaluate(async (o) => {
+    const D = window.GameData, bad = [], rows = [];
+    const S = 4, W = 200 * S, H = 348 * S;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const T = x => { const t = {}; window.Avatar.TUNE_KEYS.forEach(k => { t[k] = 1; });
+                     return Object.assign(t, x); };
+    async function draw(svgText) {
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = no;
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText); });
+      ctx.clearRect(0, 0, W, H);
+      window.__drawAvatar(ctx, img, W, H);
+      return ctx.getImageData(0, 0, W, H).data;
+    }
+    const px = (d, x, y) => { const i = ((Math.round(y * S)) * W + Math.round(x * S)) * 4;
+      return [d[i], d[i + 1], d[i + 2], d[i + 3]]; };
+    const hex = c => c[3] < 128 ? null : '#' + c.slice(0, 3)
+      .map(v => v.toString(16).padStart(2, '0')).join('');
+    const outX = (d, y) => { for (let x = 175; x > 100; x -= 0.25)
+      if (px(d, x, y)[3] > 128) return x - 100; return null; };
+    // ⚠️ 팔이 붙어 있으면 실루엣의 옆선이 허리가 아니라 «팔»이다 — 떼고 잰다
+    const stripArms = t => { const w = document.createElement('div'); w.innerHTML = t;
+      w.querySelectorAll('[data-part="arm"]').forEach(e => e.remove());
+      return w.firstElementChild.outerHTML; };
+    const bare = { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none',
+                   hair: 'hair_none', shoes: 'shoes_none' };
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:-9999px;top:0;width:200px';
+    document.body.appendChild(host);
+    let n = 0, seen = 0;
+    for (const topId of ['top_blouse', 'top_sleeveless', 'top_none']) {
+      for (const [tn, bw] of [[{}, 0], [{ torso: 0.5 }, 0], [{ waist: 1.5 }, 0], [{}, 1]]) {
+        const tune = T(tn), label = `${topId} ${JSON.stringify(tn)} 체형${bw}`;
+        // ① 허리선 — **몸통 조각이 끝나는 자리**다 (`BODY.waistY`).
+        // ⚠️ 「제일 가는 줄」로 잡으면 안 된다 — 허리 150%·통통에서는 허리가 가슴보다
+        // 넓어서 제일 가는 데가 «겨드랑이»가 되고, 멀쩡한 띠가 25px 어긋난 것으로 잡힌다
+        // (그렇게 짰다가 6건이 거짓으로 빨개졌다). 조각에서 바로 뽑으면 배율을 다 지난다
+        const noArm = await draw(stripArms(window.Avatar.build(
+          Object.assign({}, D.DEFAULT_OUTFIT, bare), bw, tune)));
+        host.innerHTML = window.Avatar.build(Object.assign({}, D.DEFAULT_OUTFIT, bare), bw, tune);
+        const tq = host.querySelector('[data-part="torso"] path');
+        if (!tq) { bad.push(`${label} 에서 몸통 조각을 못 찾았다`); continue; }
+        const tbb = tq.getBBox();
+        const waist = new DOMPoint(100, tbb.y + tbb.height)
+          .matrixTransform(tq.getScreenCTM())
+          .matrixTransform(host.querySelector('svg').getScreenCTM().inverse()).y;
+        // ② 띠 — x=100 세로줄에서 «치마 색 바로 위»의 칸
+        const skirt = D.WARDROBE.bottom.find(b => b.id === 'bottom_skirt').color.toLowerCase();
+        const wear = Object.assign({}, D.DEFAULT_OUTFIT,
+          { top: topId, bottom: 'bottom_skirt', dress: 'dress_none' });
+        const dressed = await draw(window.Avatar.build(wear, bw, tune));
+        const seq = [];
+        for (let y = 130; y <= 215; y += 0.25) { const c = hex(px(dressed, 100, y));
+          if (!seq.length || seq[seq.length - 1].c !== c) seq.push({ c: c, y0: y, y1: y });
+          else seq[seq.length - 1].y1 = y; }
+        const solid = seq.filter(r => r.y1 - r.y0 >= 1 && r.c);
+        const si = solid.findIndex(r => r.c === skirt);
+        if (si <= 0) { bad.push(`${label} 에서 치마·띠를 못 갈랐다`); continue; }
+        const band = solid[si - 1];
+        if (band.c === skirt) { bad.push(`${label} 에서 띠가 치마와 같은 색이다`); continue; }
+        n++;
+        const up = waist - band.y0, dn = band.y1 - waist;
+        if (up < o.straddle || dn < o.straddle) {
+          bad.push(`${label} — 띠가 ${band.y0}~${band.y1} 인데 허리선은 y${waist.toFixed(2)} 다`
+            + ` (위 ${up.toFixed(2)}px · 아래 ${dn.toFixed(2)}px) — 허리선이 띠 «안»을 지나야 한다`);
+        }
+        // ③ 허리 위·아래에서 띠 바깥 변의 턱 — 팔 밖으로 나온 자리에서만 잴 수 있다
+        const edge = y => { for (let x = 175; x > 100; x -= 0.25)
+          if (hex(px(dressed, x, y)) === band.c) return x - 100; return null; };
+        const eU = edge(waist - 1.5), eD = edge(waist + 1.5);
+        let step = null;
+        if (eU != null && eD != null) { step = Math.abs(eU - eD);
+          if (step > o.stepMax) {
+            bad.push(`${label} — 허리에서 띠 바깥 변이 ${eU.toFixed(2)} → ${eD.toFixed(2)} 로`
+              + ` ${step.toFixed(2)}px 턱이 진다 (위아래가 다른 옆선을 따라간다)`);
+          }
+        }
+        // ④ 팔 위에 띠 색이 없는가 — 팔은 «붙인 그림과 뗀 그림의 차이»로 찾는다
+        const withArm = await draw(window.Avatar.build(
+          Object.assign({}, D.DEFAULT_OUTFIT, bare), bw, tune));
+        const ay = band.y0 + 2;
+        let armHit = 0, armN = 0;
+        for (let x = 101; x < 175; x += 0.25) {
+          if (px(withArm, x, ay)[3] > 128 && px(noArm, x, ay)[3] < 128) {
+            armN++; if (hex(px(dressed, x, ay)) === band.c) armHit++;
+          }
+        }
+        if (armN && armHit) {
+          bad.push(`${label} — 띠 꼭대기(y${ay})에서 팔 위에 띠 색이 ${(armHit / 4).toFixed(2)}px`
+            + ` 덮여 있다 — 팔이 띠 «앞»이어야 한다`);
+        }
+        if (armN) seen++;
+        rows.push(`${label} 띠 ${band.y0}~${band.y1} · 허리 y${waist.toFixed(2)}`
+          + (step == null ? ' · 턱 -' : ` · 턱 ${step.toFixed(2)}px`));
+      }
+    }
+    host.remove();
+    if (n < 12) bad.push(`조합을 다 못 쟀다 (${n}/12)`);
+    if (!seen) bad.push('팔을 한 번도 못 찾았다 — 「팔이 앞인가」를 아무것도 안 쟀다');
+    return { bad, rows, n, seen };
+  }, { straddle: BELT_STRADDLE_MIN, stepMax: BELT_STEP_MAX });
+
   // ─── 팔 끝에 손이 있는가 ────────────────────────────────────
   //
   // 예전에는 손이 아예 없었다. 팔이 손목에서 둥근 마개로 뚝 끝나서 **잘린 것처럼**
@@ -4135,6 +4251,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(thighCalf.bad.map(m => ({ id: '허벅지↔장딴지', body: '-', where: m, n: '-' })))
     .concat(ankleScale.bad.map(m => ({ id: '발목(바디파츠)', body: '-', where: m, n: '-' })))
     .concat(kneeAnkle.bad.map(m => ({ id: '무릎↔발목', body: '-', where: m, n: '-' })))
+    .concat(beltLine.bad.map(m => ({ id: '벨트선', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
@@ -4276,6 +4393,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (여백 ${BOX_MARGIN_MIN}px 이상 · 넘으면 viewBox 를 넓혀야 한다)`);
   console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
     + ` (굵어지면 안 된다 — 굵은 종아리에 가는 발목)`);
+  console.log(`벨트선: ${beltLine.rows.join(' | ')}`
+    + ` (허리선이 띠 안을 지나야 한다 · ${beltLine.n}조합 · 팔을 잰 것 ${beltLine.seen})`);
   console.log(`무릎↔발목: 화면에서 잰 «무릎/발목» ${kneeAnkle.rows.join(' | ')}`
     + ` (무릎이 발목보다 가늘면 안 된다 · ${kneeAnkle.n}칸)`);
   console.log(`발목(바디파츠): 화면에서 잰 발목 ${ankleScale.rows.join(' · ')}`

@@ -1922,6 +1922,21 @@
       </linearGradient>`;
   }
 
+  // 몸통 옆선(어깨 끝 → 허리)의 제어점. **아래 path 와 «같은 값»이어야 한다** —
+  // 벨트가 허리 «위»에서 이 옆선을 따라가야 하는데 좌표를 옮겨 적어 두면
+  // 옆선을 고쳤을 때 벨트만 옛 자리에 남는다 (`sideXAt` 과 같은 규칙이다)
+  function torsoSideC(tune) {
+    const B = BODY, f = shoulderSquash(tune), wR = +(100 + waistHalf(tune)).toFixed(2);
+    return { p0: [sqx(B.shoulderC[2][0], f), B.shoulderC[2][1]],
+             c1: [sqx(B.torsoR, f), +(133 + (B.waistY - 133) * 0.46).toFixed(1)],
+             c2: [wR, +(133 + (B.waistY - 133) * 0.68).toFixed(1)],
+             p3: [wR, B.waistY] };
+  }
+  // 그 옆선의 «절대» x — 몸통 조각은 `sx(kb, 100)` 그룹 안에 그려지므로 그 배율까지 지난다
+  const torsoSideXAt = (tune, y) => {
+    const s = torsoSideC(tune);
+    return 100 + (cubicXAtY([s.p0, s.c1, s.c2, s.p3], y) - 100) * tuneOf(tune, 'torso');
+  };
   function torsoArms(tune, uid, neck) {
     const kb = tuneOf(tune, 'torso');   // 팔 배율은 armShape 이 알아서 따른다
     const B = BODY, wh = waistHalf(tune);
@@ -1971,10 +1986,10 @@
     // **팔보다 튀어나오지 않게 좁힌다** (shoulderSquash 참고). f=1 이면 그대로다
     const f = shoulderSquash(tune);
     const sc = B.shoulderC.map(pt => [sqx(pt[0], f), pt[1]]);
-    const shR = sqx(B.torsoR, f), shL = sqx(B.torsoL, f);
+    const tsc = torsoSideC(tune);             // ⚠️ 제어점은 한 곳에서 나온다 (위 참고)
+    const shR = tsc.c1[0], shL = sqx(B.torsoL, f);
     const mir = (pt) => [200 - pt[0], pt[1]];
-    const cy1 = +(133 + (B.waistY - 133) * 0.46).toFixed(1);
-    const cy2 = +(133 + (B.waistY - 133) * 0.68).toFixed(1);
+    const cy1 = tsc.c1[1], cy2 = tsc.c2[1];
     // 목이 벌어져도 좋은 한계 = 몸통의 어깨 끝(절대 좌표).
     // 몸통은 kb 로 늘어나지만 목은 그 그룹 밖이라 환산해 넘긴다 — **옷깃 받침
     // (`neckGusset`)도 같은 한계를 보므로 값은 `shoulderTipAbs` 한 곳에서 나온다**
@@ -2886,6 +2901,22 @@
   //   `C hR,(WY+6)  hR,(HY-6)  hR,HY`
   // ⚠️ **곡선을 두 번 적지 않는다.** 벨트가 옆선을 따라가야 하는데 좌표를 옮겨
   // 적어 두면 옆선을 고쳤을 때 벨트만 옛 자리에 남는다. 여기 한 곳에서 푼다
+  // 3차 곡선 위에서 주어진 y 의 x. y 가 단조 증가하는 구간에만 쓴다
+  function cubicXAtY(P, y) {
+    const at = t => { const u = 1 - t, w = [u*u*u, 3*u*u*t, 3*u*t*t, t*t*t];
+      return [P.reduce((a, q, i) => a + w[i] * q[0], 0),
+              P.reduce((a, q, i) => a + w[i] * q[1], 0)]; };
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (at(m)[1] < y) lo = m; else hi = m; }
+    return at((lo + hi) / 2)[0];
+  }
+  // 상의 옆선(어깨 끝 → 허리)의 «절대» x — renderTop 의 그 큐빅과 같은 값이어야 한다
+  function clothSideXAt(tune, y) {
+    const B = BODY, wR = 100 + clothWaistHalf(tune);
+    const [eR, eY] = shoulderEndR(clothShoulderK(tune));
+    return cubicXAtY([[eR, eY], [eR, B.waistY - 34],
+                      [clothSideC(eR, wR), B.waistY - 18], [wR, B.waistY]], y);
+  }
   function sideXAt(x0, x1, y0, y1, y) {
     const P = [[x0, y0], [x1, y0 + 6], [x1, y1 - 6], [x1, y1]];
     const at = t => {
@@ -2914,7 +2945,11 @@
 
   // 하의는 허리(몸통) + 자기가 덮는 다리 파츠를 따라간다.
   // 실루엣은 치마 계열과 바지 계열 둘뿐이고, **기장(hemY)·퍼짐(flare)·벌룬·벨트**는 필드가 정한다.
-  function renderBottom(it, tune) {
+  // 벨트 띠 — **가운데가 허리선(`waistY`)에 온다.** 팔을 다시 찍는 자리(`armsOverSkirt`)도
+  // 이 값을 보므로 한 곳에서 내놓는다 (두 벌이면 한쪽만 고쳐 이음매에 턱이 진다)
+  const BELT_H = 14;
+  const beltTopY = () => +(BODY.waistY - BELT_H / 2).toFixed(2);
+  function renderBottom(it, tune, topWorn) {
     if (isNone(it)) return '';
     const B = BODY, c = it.color, c2 = shade(c);
     // 허리춤은 몸의 허리를, 옆선은 **엉덩이**를 따라간다.
@@ -2923,18 +2958,34 @@
     const wL = +(100 - ww).toFixed(2), wR = +(100 + ww).toFixed(2);
     const hL = +(100 - hh).toFixed(2), hR = +(100 + hh).toFixed(2);
     const HY = hipApexY(tune), WY = B.waistY;   // 몸의 엉덩이 봉우리를 그대로 따라간다
-    // 벨트 — **아래 모서리가 옷의 옆선 «위에» 있어야 한다.**
-    // 옆선은 허리(wR, WY)에서 엉덩이(hR, HY)로 가는 큐빅이라 WY+14 에서는 이미
-    // wR 보다 한참 바깥이다. 예전에는 허리 폭에 +1 만 해서 그렸는데,
-    // 그 자리의 옷은 3.5~5.5px 더 넓어서 **띠 양옆에 옷색이 그대로 남았다**
-    // (신고받았다 — 벨트가 허리를 못 두르고 가운데만 지나간 것처럼 보였다)
-    const beltY = WY + 14;
+    // 벨트 — **허리선에 «걸쳐» 앉는다.**
+    // ⚠️⚠️ 예전에는 옷의 위 끝(WY)에서 **아래로만** 14px 을 칠했다. 그러면 띠가 통째로
+    // 허리 «아래»에 있어서, 재 보면 띠(162.5~176.5)의 가운데가 그려진 허리(159.75)보다
+    // **9.75px 아래**다 — 「벨트선이 허리 아래부터 배꼽까지 생긴다」로 신고받은 자리다.
+    // 지금은 **띠의 가운데가 `waistY`** 에 온다 (`beltTop = WY − BELT_H/2`).
+    // ⚠️ **아래 모서리가 옷의 옆선 «위에» 있어야 한다.** 옆선은 허리(wR, WY)에서
+    // 엉덩이(hR, HY)로 가는 큐빅이라 아래로 갈수록 wR 보다 한참 바깥이다. 예전에 허리 폭에
+    // +1 만 해서 그렸더니 그 자리의 옷이 3.5~5.5px 더 넓어 **띠 양옆에 옷색이 남았다**
+    // ⚠️⚠️ **위쪽도 같은 규칙이다 — «밑에 깔린 것»을 따라간다.** 허리 위는 상의(입었으면)
+    // 아니면 맨 몸통인데 **둘의 옆선이 다르다**(기본에서 35.00 ↔ 31.25). 한쪽으로만
+    // 그리면 상의를 벗었을 때 띠가 몸에서 3.75px 씩 떠 보이고, 입었을 때는 띠 옆에
+    // 상의 색이 남는다. 그래서 `clothSideXAt` / `torsoSideXAt` 을 갈라 쓴다
+    const beltTop = beltTopY();
+    const beltY = +(beltTop + BELT_H).toFixed(2);
+    // ⚠️ 맨몸 위에서는 **`CLOTH_PAD` 를 같이 태운다.** 옷은 몸에서 그만큼 떠 있고
+    // 치마의 허리춤(`clothWaistHalf`)도 같은 몫이라, 그래야 WY 에서 **정확히 이어진다** —
+    // 안 태우면 위는 몸 폭(30) 아래는 치마 폭(33)이라 띠 한가운데에 3px 턱이 진다
+    const upX = y => +(topWorn ? clothSideXAt(tune, y)
+                               : torsoSideXAt(tune, y) + CLOTH_PAD).toFixed(2);
     // 옆선을 **훑어서** 따라간다 (직선으로 이으면 가운데가 곡선 안쪽으로 들어간다)
-    const bRun = sideRun(wR, hR, WY, HY, WY, beltY);
+    const up = [];
+    for (let y = beltTop; y < WY; y += 2) up.push([upX(y), +y.toFixed(1)]);
+    const bRun = up.concat(sideRun(wR, hR, WY, HY, WY, beltY));
     const beltR = bRun.map(q => `L${q[0]},${q[1]}`).join('');
     const beltL = bRun.slice().reverse().map(q => `L${(200 - q[0]).toFixed(2)},${q[1]}`).join('');
+    const btx = upX(beltTop);
     const belt = it.belt
-      ? `<path d="M${wL},${WY} L${wR},${WY}${beltR}${beltL} Z" fill="${c2}"/>` : '';
+      ? `<path d="M${(200 - btx).toFixed(2)},${beltTop} L${btx},${beltTop}${beltR}${beltL} Z" fill="${c2}"/>` : '';
 
     if (it.kind === 'skirt') {
       // 밑단은 엉덩이 폭 + flare. 벌룬은 중간이 더 부풀고 밑단이 다시 오므라든다
@@ -3055,13 +3106,17 @@
   // 그 위는 소매를 같은 자리부터 다시 얹어 덮는다.
   const ARM_OVER_LAP = 12;
   const ARM_OVER_MIN = 16;      // armY 에서 이보다 위로는 못 올라간다 (어깨끈·커버리지)
-  function armsOverSkirt(tune, wear) {
+  function armsOverSkirt(tune, wear, fromY) {
     const B = BODY;
     if (!isNone(wear) && wear.kind === 'princess') return '';
     const sh = isNone(wear) ? 0 : sleeveH(wear);
-    const WY = sh > 0
+    let WY = sh > 0
       ? Math.max(B.armY + ARM_OVER_MIN, Math.min(B.waistY, B.armY - SLEEVE_PAD + sh - ARM_OVER_LAP))
       : B.waistY;
+    // ⚠️ **벨트가 허리 «위»로 올라가면 팔도 거기서부터 다시 찍는다.** 안 그러면 띠의
+    // 윗 절반만 팔 «앞»에 오고 아랫 절반은 팔 «뒤»에 와서 이음매에 턱이 진다 —
+    // 민소매·맨몸에서 그렇게 보였다 (소매가 있으면 소매 끝이 이미 그보다 위다)
+    if (fromY != null) WY = Math.max(B.armY + ARM_OVER_MIN, Math.min(WY, fromY));
     const h = B.armY + B.armH - WY;
     if (h <= 0) return '';
     // data-part 를 붙여 둔다 — 검사기가 「팔」을 골라낼 때 이 조각도 같이 잡혀야 한다
@@ -3718,7 +3773,7 @@
       // 덮어 버려, 상의 밑단과 치마 사이로 살이 띠처럼 드러났었다.
       // 상의 밑단(hipY-2)이 하의 허리(waistY)보다 아래라 그 사이에 틈이 생기지 않는다.
       B(hasDress ? '' : renderTop(top, tune, w)),
-      B(hasDress ? '' : renderBottom(bottom, tune)),
+      B(hasDress ? '' : renderBottom(bottom, tune, !isNone(top))),
       // 신발은 **드레스보다 아래** 다 — 위에 그리면 부츠 목이 드레스를 뚫고 나온다.
       // 하의(바지)보다는 위라서 **발끝이 바짓단 밑으로 보인다** — 아래로 내리면
       // 발목까지 오는 청바지(hemY 332)가 발을 통째로 삼켜 맨발도 구두도 안 보인다.
@@ -3733,7 +3788,8 @@
       B(neckGusset(clothColor, neck, clothNeck)),
       // 허리 아래의 팔은 **치마보다 앞**이다 — 안 그러면 퍼진 치마가 팔뚝과 손을
       // 통째로 덮어, 소매 끝 언저리에 살색 조각만 남는다 (armsOverSkirt 참고)
-      B(armsOverSkirt(tune, hasDress ? dress : top)),
+      B(armsOverSkirt(tune, hasDress ? dress : top,
+        !hasDress && bottom && bottom.belt ? beltTopY() : null)),
       H(faceAndExpression(expItem)),
       H(hairFront(hairBangKind, hairColor, hairBackKind)),
       H(faceFx(expItem)),
