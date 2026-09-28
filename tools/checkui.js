@@ -3141,16 +3141,36 @@ function launchOpts() {
       const svg = document.querySelector('.room-svg');
       if (!svg) return null;
       const r = svg.getBoundingClientRect();
-      const H = Number(svg.getAttribute('viewBox').split(' ')[3]);
+      // ⚠️ viewBox 는 이제 **위로도** 열려 있다 (`0 -padTop 400 …`) — 높이만 읽어
+      //    되짚으면 천장을 올린 만큼 그대로 틀린다
+      const vb = svg.getAttribute('viewBox').trim().split(/\s+/).map(Number);
+      const vy = vb[1], H = vb[3];
       const scale = Math.max(r.width / 400, r.height / H);
       const stats = document.getElementById('roomStats').getBoundingClientRect();
       const inv = document.querySelector('.room-inv').getBoundingClientRect();
+      const screen = document.getElementById('screen-showcase').getBoundingClientRect();
       return {
         scale, unitsW: r.width / scale,
-        // 상자 위에서 '원래 바닥 끝(viewBox y=320)' 까지 — 그림이 위아래로 밀렸는지
-        floorY: r.height - (H - 320) * scale,
+        // '원래 바닥 끝(viewBox y=320)' 이 **화면의 어디**인가 — 그림이 밀렸는지.
+        // ⚠️ 상자 «위»에서 재면 안 된다: 천장을 올리면 상자 꼭대기가 같이 올라가서
+        //    멀쩡한 그림이 44px 밀린 것으로 잡힌다 (그렇게 짰다가 걸렸다)
+        floorY: r.top + (320 - vy) * scale,
         // 스탯 글자를 덮었는가 / 인벤토리 카드를 침범하지 않았는가 (상자 바닥 기준)
         overStats: r.bottom - stats.bottom, underInv: inv.top - r.bottom,
+        // 화면 꼭대기까지 올라왔는가 (+ 면 덮었다)
+        overHead: screen.top - r.top,
+        // ⚠️ **제목 줄이 그 그림에 덮이지 않았는가.** 방 그림은 자리를 가진 요소라
+        //    그냥 두면 제목을 통째로 가린다 — 화면에는 오류 하나 없이 글자만 사라진다
+        //    (실제로 처음에 그렇게 그려졌다). 상자로는 못 본다: 자리는 그대로다
+        headTop: (() => {
+          const t = document.getElementById('roomTitle');
+          if (!t) return 'no';
+          const b = t.getBoundingClientRect();
+          const el = document.elementFromPoint(b.left + 6, b.top + b.height / 2);
+          // ⚠️ SVG 요소의 `className` 은 객체다 — 글자로 찍으려면 속성에서 읽는다
+          return el && el.closest('.room-head') ? 'ok'
+            : (el ? (el.tagName.toLowerCase() + '.' + (el.getAttribute('class') || '')) : 'none');
+        })(),
       };
     });
     const setLite = (w) => page.evaluate((want) => {
@@ -3179,9 +3199,40 @@ function launchOpts() {
         if (lite.overStats < 0) bad.push(`스탯 글자를 ${(-lite.overStats).toFixed(1)}px 못 덮었다`);
         if (lite.underInv < 0) bad.push(`인벤토리 카드를 ${(-lite.underInv).toFixed(1)}px 침범했다`);
       }
+      // ─── 위로 늘이기 — 화면 꼭대기까지 올라오되 «확대율은 그대로» ───
+      //
+      // 「머리 위 여백이 좁다」로 늘린 자리다. 아래로 늘이는 것과 **같은 함정**이
+      // 있으므로 같은 방식으로 잰다: 상자만 늘이면 slice 라 좌우가 잘린다.
+      // ⚠️ 천장을 «안 올린» 그림과 견줘야 그것이 보인다 — 지금 화면만 재면
+      //    확대율이 얼마든 「그렇구나」가 되어 무슨 값을 넣어도 통과한다
+      await setLite(false);
+      await page.waitForTimeout(150);
+      const rise = await geom();
+      const flat = await page.evaluate(() => {
+        const canvas = document.querySelector('.room-canvas');
+        canvas.style.setProperty('--room-rise', '0px');
+        document.querySelector('.room-scene').innerHTML =
+          window.Avatar.roomScene(S.roomLevel, null, 0, 0);
+      }).then(() => page.waitForTimeout(80)).then(geom);
+      const bad2 = [];
+      if (!rise || !flat) bad2.push('방 그림을 못 찾았다');
+      else {
+        if (rise.overHead < -0.5) bad2.push(`화면 꼭대기까지 ${(-rise.overHead).toFixed(1)}px 모자란다`);
+        if (rise.headTop !== 'ok') bad2.push(`제목 줄이 방 그림에 덮였다 (그 자리의 맨 위가 «${rise.headTop}»)`);
+        if (rise.overHead - flat.overHead < 10) bad2.push(`천장을 안 올렸다 (${(rise.overHead - flat.overHead).toFixed(1)}px)`);
+        if (Math.abs(rise.scale - flat.scale) > 0.005) bad2.push(`천장을 올리며 확대율이 달라졌다 ${flat.scale.toFixed(3)} → ${rise.scale.toFixed(3)}`);
+        if (Math.abs(rise.unitsW - flat.unitsW) > 1) bad2.push(`천장을 올리며 좌우 잘림이 달라졌다 ${flat.unitsW.toFixed(1)} → ${rise.unitsW.toFixed(1)} 단위`);
+        if (Math.abs(rise.floorY - flat.floorY) > 1.5) bad2.push(`천장을 올리며 그림이 ${(rise.floorY - flat.floorY).toFixed(1)}px 밀렸다`);
+      }
+      await page.evaluate(() => { if (typeof renderShowcase === 'function') renderShowcase(); });
       results.push(bad.length
         ? { 화면: '방 배경 늘이기', 오류: bad.join(' · ') }
         : { 화면: '방 배경 늘이기', pass: true, total: 0, blocked: false });
+      results.push(bad2.length
+        ? { 화면: '방 배경 올리기', 오류: bad2.join(' · ') }
+        : { 화면: '방 배경 올리기', pass: true, total: 0, blocked: false,
+            잰것: `화면 꼭대기를 ${rise.overHead.toFixed(1)}px 덮는다 (안 올리면 ${flat.overHead.toFixed(1)}px)`
+              + ` · 확대율 ${rise.scale.toFixed(3)} (그대로) · 좌우 ${rise.unitsW.toFixed(1)}칸` });
     }
   }
 

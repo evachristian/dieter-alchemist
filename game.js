@@ -4850,16 +4850,43 @@ const SCENE_INSET = { x: 16, top: 14, bottom: 8 };     // .room-scene 이 .char-
 const STAGE_H = 320;                                   // .char-aura 의 높이
 // ↑ 셋 다 style.css 의 값과 짝이다. 한쪽만 고치면 이음매가 어긋난다.
 
-function roomPadBottom(bleed) {
-  if (!bleed) return 0;
+function roomScale() {
   const canvas = document.querySelector('.room-canvas');
   const w = (canvas ? canvas.clientWidth : 360) + SCENE_INSET.x * 2;
   const h = STAGE_H + SCENE_INSET.top + SCENE_INSET.bottom;
-  const scale = Math.max(w / 400, h / 320);            // slice — 상자를 덮는 쪽 배율
-  // 늘어난 픽셀을 **그 배율 그대로** viewBox 단위로 바꾼다. 이렇게 잡으면 확대율도,
-  // 이미 잘려 있던 좌우·위도 그대로라 **그림이 한 칸도 안 움직인다.**
-  // (상자 높이로 되짚어 계산하면 폭이 넓은 화면에서 그림이 40px 쯤 미끄러진다)
-  return Math.max(0, Math.round(bleed / scale));
+  return Math.max(w / 400, h / 320);                   // slice — 상자를 덮는 쪽 배율
+}
+// 늘어난 픽셀을 **그 배율 그대로** viewBox 단위로 바꾼다. 이렇게 잡으면 확대율도,
+// 이미 잘려 있던 좌우도 그대로라 **그림이 한 칸도 안 움직인다.**
+// (상자 높이로 되짚어 계산하면 폭이 넓은 화면에서 그림이 40px 쯤 미끄러진다)
+function roomPadBottom(bleed) {
+  if (!bleed) return 0;
+  return Math.max(0, Math.round(bleed / roomScale()));
+}
+
+// ─── 방 그림을 «화면 꼭대기까지» 끌어올린다 (머리 위 여백) ───────────────
+//
+// 「머리 위 여백이 좁아 보인다 · 방 뷰를 키워 달라」로 신고받았다. 재 보면 머리 끝
+// 위로 벽이 **19.9px** 밖에 없었다 — 제목 줄 바로 밑에서 방이 시작하니 천장이 코앞이다.
+//
+// ⚠️⚠️ **상자만 키우면 안 된다** — 아래로 늘이는 것과 똑같은 함정이다. `slice` 라
+//    상자가 길어지면 배율이 올라가 **좌우가 잘린다.** 늘릴 픽셀을 viewBox 칸으로
+//    바꿔 `roomScene` 에 넘겨 **벽을 진짜로 더 그리게** 한다 (배율이 그대로다)
+// ⚠️ **화면 꼭대기까지**다 — 제목 줄 «뒤»로 올라간다. 그래서 그 줄의 글자는
+//    「스탯 접음」과 같은 처지가 되어 `.on-room-bg` 를 쓴다 (아래 style.css)
+// ⚠️ 몫은 «재서» 구한다 — 제목이 접히는 265px 에서는 머리줄이 두 줄이라 두 배다
+//    (390px 44px · 265px 96px). 상수로 적으면 좁은 화면에서 구멍이 남는다
+function roomRise() {
+  const stage = document.getElementById('charStage');
+  const screen = document.getElementById('screen-showcase');
+  if (!stage || !screen) return 0;
+  // ⚠️ 둘 다 «같은» 변환 속에 있어서 화면이 페이드 인 하는 중에 재도 차가 그대로다
+  const gap = stage.getBoundingClientRect().top - screen.getBoundingClientRect().top;
+  return Math.max(0, Math.round(gap - SCENE_INSET.top));
+}
+function roomPadTop(rise) {
+  if (!rise) return 0;
+  return Math.max(0, Math.round(rise / roomScale()));
 }
 
 // 방에 놓는 애착 크리처 한 마리. **어디에 있느냐(`move`)로 세 갈래다.**
@@ -4968,12 +4995,14 @@ function renderRoomScene() {
   const scene = document.querySelector('.room-scene');
   if (!scene || !window.Avatar || !window.Avatar.roomScene) return;
   const bleed = statsLite() ? ROOM_BLEED : 0;
+  const rise = roomRise();
   const canvas = document.querySelector('.room-canvas');
   if (canvas) {
     canvas.classList.toggle('bleed', !!bleed);
     canvas.style.setProperty('--room-bleed', bleed + 'px');
+    canvas.style.setProperty('--room-rise', rise + 'px');
   }
-  scene.innerHTML = window.Avatar.roomScene(S.roomLevel, null, roomPadBottom(bleed));
+  scene.innerHTML = window.Avatar.roomScene(S.roomLevel, null, roomPadBottom(bleed), roomPadTop(rise));
   // 방 그림이 새로 깔렸으니 «서는 자리»도 다시 맞춘다 (스탯을 접으면 배율이 바뀐다).
   // ⚠️ `renderShowcase()` 는 이 뒤에 `placePet()` 을 부른다 — 크리처는 «옮긴 뒤»의
   // 치마 옆선을 재야 하므로 순서가 이대로여야 한다

@@ -3900,14 +3900,18 @@
   // `game.js` 의 `placeFigure()` 가 **이 자리에 인물의 발을 맞춘다** — 두 군데에 적으면
   // 양탄자를 옮겼을 때 인물만 옛 자리에 남는다 (예전에 러그 290 · 마법진 288 로 갈려 있었다)
   const FLOOR_SPOT = 288;   // 방 좌표에서 사람이 서는 높이 (양탄자 한가운데)
+  // 돌벽 이음새의 «세로 줄» — 60칸짜리 띠 넷이 돌아가며 쓴다 (천장을 올려도 이어진다)
+  const SEAM_COLS = [[60, 210, 330], [20, 140, 250], [90, 360], []];
   const ROOM_PROPS = {
     // 갈라진 금 — 허름한 단계에만
     crack: () => `
       <path d="M46,66 L56,96 L44,124 L56,158" stroke="rgba(40,32,26,0.28)" stroke-width="2.2" fill="none"/>
       <path d="M372,130 L362,160 L374,190" stroke="rgba(40,32,26,0.22)" stroke-width="1.8" fill="none"/>`,
     // 거미줄 (좌상단)
-    cobweb: () => `
-      <g stroke="rgba(255,255,255,0.16)" stroke-width="1.4" fill="none">
+    // ⚠️ **천장에 붙는 것은 «천장 좌표»를 받는다** (`top`) — 숫자를 박아 두면
+    //    천장을 올리는 순간 거미줄이 벽 한가운데에 남고 샹들리에가 허공에 뜬다
+    cobweb: (k, top) => `
+      <g transform="translate(0,${top || 0})" stroke="rgba(255,255,255,0.16)" stroke-width="1.4" fill="none">
         <path d="M0,0 L52,52 M0,26 L52,52 M26,0 L52,52"/>
         <path d="M10,10 Q24,16 28,28 M20,20 Q34,26 38,38"/>
       </g>`,
@@ -4020,8 +4024,8 @@
         <circle cx="200" cy="${FLOOR_SPOT - 18}" r="3"/><circle cx="200" cy="${FLOOR_SPOT + 18}" r="3"/>
       </g>`,
     // 샹들리에 (천장 · 아바타 머리 위를 피해 위쪽에만)
-    chandelier: () => `
-      <line x1="200" y1="0" x2="200" y2="22" stroke="#8a6f4a" stroke-width="3"/>
+    chandelier: (k, top) => `
+      <line x1="200" y1="${top || 0}" x2="200" y2="22" stroke="#8a6f4a" stroke-width="3"/>
       <ellipse cx="200" cy="28" rx="46" ry="9" fill="none" stroke="#d9b45f" stroke-width="4"/>
       <g fill="#ffcf6a">
         <rect x="162" y="16" width="6" height="13" rx="2" fill="#f3ead6"/><ellipse cx="165" cy="12" rx="4" ry="6"/>
@@ -4066,9 +4070,13 @@
   // 늘어난 만큼 **좌우가 잘린다** (선반과 창문이 화면 밖으로 나간다).
   // 그래서 viewBox 자체를 늘리고 **바닥을 진짜로 더 그린다** — 원근선도 기울기를
   // 그대로 이어서 연장하므로 이음매가 생기지 않는다.
-  function roomScene(level, extra, padBottom) {
+  function roomScene(level, extra, padBottom, padTop) {
     const pad = Math.max(0, Math.round(Number(padBottom) || 0));
     const H = 320 + pad;
+    // ⚠️ **천장도 같은 규칙으로 올린다** (padTop · 아래와 짝이다). 상자만 키우면
+    //    `slice` 라 좌우가 잘리므로, 늘린 픽셀을 viewBox 칸으로 바꿔 받아
+    //    **벽을 진짜로 더 그린다** — 배율이 그대로라 그림이 한 칸도 안 움직인다
+    const top = -Math.max(0, Math.round(Number(padTop) || 0));
     const lv = Math.min(ROOM_MAX, Math.max(1, Math.round(Number(level) || ROOM_DEFAULT)));
     // SVG 의 id 는 **문서 전체에서 공유된다.** 방을 두 개 이상 한 화면에 그리면
     // 뒤에 온 쪽이 앞 쪽의 그라디언트를 그대로 써 버려 단계별 색이 전부 같아진다
@@ -4084,13 +4092,19 @@
     const warm = ((phase === 'day') ? 0.30 : (phase === 'dawn' || phase === 'dusk') ? 0.24 : 0.14)
       + (lv - 1) * 0.03;
 
-    // 벽 이음새 — 돌벽은 아래 단계에서만 진하게 보인다
-    const stone = `<g stroke="${k.seam}" stroke-width="2">
-        <line x1="0" y1="60" x2="400" y2="60"/><line x1="0" y1="120" x2="400" y2="120"/><line x1="0" y1="180" x2="400" y2="180"/>
-        <line x1="60" y1="0" x2="60" y2="60"/><line x1="210" y1="0" x2="210" y2="60"/><line x1="330" y1="0" x2="330" y2="60"/>
-        <line x1="20" y1="60" x2="20" y2="120"/><line x1="140" y1="60" x2="140" y2="120"/><line x1="250" y1="60" x2="250" y2="120"/>
-        <line x1="90" y1="120" x2="90" y2="180"/><line x1="360" y1="120" x2="360" y2="180"/>
-      </g>`;
+    // 벽 이음새 — 돌벽은 아래 단계에서만 진하게 보인다.
+    // ⚠️ **무늬를 손으로 적어 두면 천장을 올릴 때마다 위쪽이 민무늬가 된다.**
+    //    60칸짜리 띠 넷이 도는 표에서 뽑아 **천장까지 이어 쌓는다** —
+    //    `padTop` 이 0 이면 예전과 한 줄도 안 다르다 (그려서 대조했다)
+    let stoneL = '';
+    for (let b = Math.floor(top / 60); b < 4; b++) {
+      const y0 = Math.max(b * 60, top), y1 = Math.min(b * 60 + 60, 240);
+      if (y0 > top) stoneL += `<line x1="0" y1="${y0}" x2="400" y2="${y0}"/>`;
+      SEAM_COLS[((b % 4) + 4) % 4].forEach(x => {
+        stoneL += `<line x1="${x}" y1="${y0}" x2="${x}" y2="${y1}"/>`;
+      });
+    }
+    const stone = `<g stroke="${k.seam}" stroke-width="2">${stoneL}</g>`;
 
     // 창문 — 튜토리얼 인트로와 같은 둥근 사각 창
     const win = `
@@ -4119,9 +4133,9 @@
       L${(WIN.ix + WIN.iw + bW).toFixed(1)},${H} L${(WIN.ix - bW).toFixed(1)},${H} Z" fill="url(#${ID('beamG')})"/>`;
 
     const FIXED = { '@window': win, '@floor': floor, '@beam': beam };
-    const body = ROOM_Z.map(id => FIXED[id] || (want.has(id) && ROOM_PROPS[id] ? ROOM_PROPS[id](k) : '')).join('');
+    const body = ROOM_Z.map(id => FIXED[id] || (want.has(id) && ROOM_PROPS[id] ? ROOM_PROPS[id](k, top) : '')).join('');
 
-    return `<svg class="room-svg" viewBox="0 0 400 ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    return `<svg class="room-svg" viewBox="0 ${top} 400 ${H - top}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
       <defs>
         <linearGradient id="${ID('wallG')}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="${k.wall[0]}"/><stop offset="1" stop-color="${k.wall[1]}"/>
@@ -4135,15 +4149,15 @@
         <linearGradient id="${ID('beamG')}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="rgba(255,240,190,${warm})"/><stop offset="1" stop-color="rgba(255,240,190,0)"/>
         </linearGradient>
-        <radialGradient id="${ID('vigG')}" cx="0.5" cy="${(0.42 * 320 / H).toFixed(3)}" r="0.78">
+        <radialGradient id="${ID('vigG')}" cx="0.5" cy="${((0.42 * 320 - top) / (H - top)).toFixed(3)}" r="0.78">
           <stop offset="0.4" stop-color="rgba(0,0,0,0)"/><stop offset="1" stop-color="rgba(12,8,20,${(0.46 - lv * 0.05).toFixed(2)})"/>
         </radialGradient>
       </defs>
 
-      <rect x="0" y="0" width="400" height="240" fill="url(#${ID('wallG')})"/>
+      <rect x="0" y="${top}" width="400" height="${240 - top}" fill="url(#${ID('wallG')})"/>
       ${lv <= 3 ? stone : ''}
       ${body}
-      <rect x="0" y="0" width="400" height="${H}" fill="url(#${ID('vigG')})"/>
+      <rect x="0" y="${top}" width="400" height="${H - top}" fill="url(#${ID('vigG')})"/>
     </svg>`;
   }
 

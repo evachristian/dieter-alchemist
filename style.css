@@ -1900,9 +1900,28 @@ button.tm-slot:active { transform: scale(0.94); }
 
 /* ─── 쇼케이스 ─── */
 /* 제목 · 저장 상태 · 초기화. 제목이 남는 폭을 먹고 저장 상태가 그 옆에 붙는다 */
-.room-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+/* ⚠️⚠️ **이 줄은 방 그림 «위»에 있다** — 배경이 화면 꼭대기까지 올라왔기 때문이다
+   (`--room-rise`). `.room-scene` 이 자리를 가진 요소라 그냥 두면 이 글자를 덮으므로
+   z-index 로 올려 준다 (`.room-stats.lite` 와 똑같은 처지다).
+   ⚠️ 글자는 `.on-room-bg`(흰 글자 + 퍼지는 음영)가 맡는다 — 방 벽은 테마를 안 타서
+   챠콜에서 `--ink` 를 두면 **밝은 벽 위 밝은 글자**가 된다.
+   ⚠️ 알약 둘은 «유리»가 아니라 `--float` 다 — 유리는 페이지 배경 위의 값이라
+   방 그림이 그대로 비친다 (UI_POLICY 0장) */
+.room-head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  position: relative; z-index: 1;
+}
 .room-head .screen-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .room-head .icon-btn { margin-left: auto; }
+/* ⚠️ 알약 둘에는 `.on-room-bg` 를 «안» 붙인다 — 제 바탕이 있으니 흰 글자로 만들면
+   밝은 알약 위 흰 글자가 된다 (붙여 보고 되돌렸다). 바탕만 `--float` 로 바꾼다.
+   ⚠️⚠️ **저장 칩만은 «유리»로 남긴다.** `--float` 로 바꿔 봤더니 다크에서 ☁️ 가
+   «밝은 테마보다» 안 보였다 (2.11 → 1.95 · `npm run test:emoji` 가 잡았다) —
+   0.88 짜리 알약에 밝은 벽이 비쳐 중간 톤이 되고 흰 구름이 거기 묻힌다.
+   이모지 테(`I18N.em`)로도 안 된다: 그 테는 «어두운 이모지»를 살리는 밝은 색이라
+   밝은 구름에는 아무 일도 안 한다 (1.95 → 1.96 · 그려 보고 되돌렸다).
+   아이콘 버튼은 제 색이 진해서 `--float` 가 맞는다 */
+.room-head .icon-btn { background: var(--float); }
 .btn-init {
   border: 1px solid var(--line); background: var(--glass-2);
   color: var(--ink-soft); font-family: inherit; font-weight: 700; font-size: 0.8rem;
@@ -2014,8 +2033,12 @@ button.tm-slot:active { transform: scale(0.94); }
 
 .char-stage { position: relative; display: flex; justify-content: center; margin: 6px 0 10px; }
 /* 배경을 네모 카드에 가두지 않고 전체 폭으로 열린 방처럼. 위/아래는 부드럽게 페이드 */
+/* 위쪽은 **화면 꼭대기까지** 올라간다 (`--room-rise` · game.js 의 roomRise 가 재서 넣는다).
+   ⚠️ 여기서 «상자만» 늘이면 slice 라 좌우가 잘린다 — viewBox 도 같이 늘리는 짝이
+   game.js 의 roomPadTop 이다 (아래로 늘이는 --room-bleed 와 같은 규칙) */
 .room-scene {
-  position: absolute; top: -14px; bottom: -8px; left: -16px; right: -16px; z-index: 0; overflow: hidden;
+  position: absolute; top: calc(-14px - var(--room-rise, 0px));
+  bottom: -8px; left: -16px; right: -16px; z-index: 0; overflow: hidden;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 90%, transparent 100%);
           mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 90%, transparent 100%);
 }
