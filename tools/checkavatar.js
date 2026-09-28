@@ -1443,6 +1443,59 @@ function launchOpts() {
              ankle: +r0.ankle.toFixed(1), ankleMax: +Math.max.apply(null, ankles).toFixed(1) };
   }, GAP_SPREAD_MAX);
 
+  // ─── 발목은 바디파츠를 올려도 «거꾸로» 가지 않는다 ──────────
+  //
+  // ⚠️⚠️ **위의 「발목」은 «종아리 슬라이더»만 움직인다** — 바디파츠를 다 같이 올리는
+  // 축은 한 번도 안 봤다. 그래서 이 사고가 오래 살아 있었다: 재 보면
+  //   바디파츠  50%  75% 100% 125% 150%
+  //   발목     8.25 11.50 **14.00** 13.20 **11.20**   ← 100% 가 꼭대기
+  // 100% 아래에서는 가는 종아리가 상한을 눌러 같이 자라고, 그 위에서는 관절 상한이
+  // 걸리는데 **몸이 상자에 맞춰 가로로 줄어(`bodyShrink`)** 거꾸로 갔다
+  // (「100% 발목이 150% 보다 두껍다」로 신고받았다 — 착시가 아니었다).
+  //
+  // ⚠️ **래스터로 재면 헛짚는다** — 바디파츠는 다리를 «세로로도» 옮겨서 같은 y 줄이
+  // 같은 자리가 아니고, 발·신발이 발목을 덮는다 (그렇게 재다가 두 번 틀렸다).
+  // path 에 **직접** 묻고(`isPointInFill`) **`getScreenCTM` 으로 화면 좌표로 옮긴다** —
+  // 몸 축소가 거기서 비로소 보인다 (지역 좌표로만 보면 셋 다 14.00 으로 «같다»).
+  // ⚠️ **줄 번호를 박지 않는다** — 조각의 제 상자 밑에서 되짚어 둥근 마개만 피한다
+  const ANKLE_BACK_MAX = 0.3;
+  const ankleScale = await page.evaluate(async (MAX) => {
+    const D = window.GameData, bad = [], rows = [], vals = [];
+    const outfit = Object.assign({}, D.DEFAULT_OUTFIT,
+      { top: 'top_none', bottom: 'bottom_none', dress: 'dress_none', hair: 'hair_none', shoes: 'shoes_none' });
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:-9999px;top:0;width:200px';
+    document.body.appendChild(host);
+    const T = k => { const t = {}; window.Avatar.TUNE_KEYS.forEach(x => { t[x] = k; }); return t; };
+    for (const k of [0.5, 0.75, 1, 1.25, 1.5]) {
+      host.innerHTML = window.Avatar.build(outfit, 0, T(k));
+      const svg = host.querySelector('svg');
+      const q = [...svg.querySelectorAll('[data-part="calf"] path')].find(e => e.getBBox().x > 99);
+      if (!q) { bad.push(`바디파츠 ${k * 100}% 에서 오른쪽 종아리를 못 찾았다`); continue; }
+      const bb = q.getBBox(), m = q.getScreenCTM(), inv = svg.getScreenCTM().inverse();
+      let best = 0;
+      for (let dy = 2; dy <= 10; dy += 0.5) {          // 둥근 마개는 빼고 «발목»만
+        const y = bb.y + bb.height - dy;
+        let hit = null;
+        for (let x = 160; x > 100; x -= 0.25) if (q.isPointInFill(new DOMPoint(x, y))) { hit = x; break; }
+        if (hit == null) continue;
+        const p = new DOMPoint(hit, y).matrixTransform(m).matrixTransform(inv);
+        if (p.x - 100 > best) best = p.x - 100;
+      }
+      if (!best) { bad.push(`바디파츠 ${k * 100}% 에서 발목을 못 쟀다`); continue; }
+      vals.push(best); rows.push(`${k * 100}% ${best.toFixed(2)}`);
+    }
+    host.remove();
+    for (let i = 1; i < vals.length; i++) {
+      if (vals[i] < vals[i - 1] - MAX) {
+        bad.push(`바디파츠를 올렸는데 발목이 ${rows[i - 1]} → ${rows[i]} 로 가늘어졌다`
+          + ` — 눈금 한가운데가 꼭대기가 되면 안 된다`);
+      }
+    }
+    if (rows.length < 5) bad.push(`다섯 단계를 다 못 쟀다 (${rows.length}/5)`);
+    return { bad, rows };
+  }, ANKLE_BACK_MAX);
+
   // ─── 팔 끝에 손이 있는가 ────────────────────────────────────
   //
   // 예전에는 손이 아예 없었다. 팔이 손목에서 둥근 마개로 뚝 끝나서 **잘린 것처럼**
@@ -3965,6 +4018,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(legGap.bad.map(m => ({ id: '다리 사이 틈', body: '-', where: m, n: '-' })))
     .concat(legInner.bad.map(m => ({ id: '다리 안쪽 변', body: '-', where: m, n: '-' })))
     .concat(thighCalf.bad.map(m => ({ id: '허벅지↔장딴지', body: '-', where: m, n: '-' })))
+    .concat(ankleScale.bad.map(m => ({ id: '발목(바디파츠)', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
@@ -4106,6 +4160,9 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (여백 ${BOX_MARGIN_MIN}px 이상 · 넘으면 viewBox 를 넓혀야 한다)`);
   console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
     + ` (굵어지면 안 된다 — 굵은 종아리에 가는 발목)`);
+  console.log(`발목(바디파츠): 화면에서 잰 발목 ${ankleScale.rows.join(' · ')}`
+    + ` (${ANKLE_BACK_MAX}px 까지만 뒤로 가도 된다 · 단계 ${ankleScale.rows.length}`
+    + ` · 몸 축소를 타면 100% 가 꼭대기가 된다)`);
   console.log(`크리처 자리: 땅·공중·물 × 하의·원피스 전부 — 화면 폭별 치마와의 틈`
     + ` ${petPlace.rows.join(' · ')} (${PET_GAP_MIN}px 이상 · 치마 위에 올라앉으면 안 된다)`);
   console.log(`어항: 물고기 ${bowl.n}마리 × 헤엄 양 끝 — 유리를 넘지 않는가 · 수면 위로 안 뜨는가`
