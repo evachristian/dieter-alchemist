@@ -4303,6 +4303,108 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
         + ` — 좁은 화면에서는 크기도 같이 줄어야 한다 (--pet)`);
     }
   }
+  // ─── 서는 자리 — 인물은 «양탄자 한가운데»에 선다 ───────────────
+  //
+  // 방 그림은 `slice` 라 화면 폭에 따라 배율이 달라진다(1.068 ↔ 1.200) — 그래서
+  // 필요한 몫이 폭마다 다르고, CSS 상수로는 못 맞춘다. `game.js` 의 `placeFigure()`
+  // 가 «그려진 것»을 재서 맞추는데, 이 검사도 **같은 방식으로 그림에서 잰다**:
+  // 방 그림에서 제일 큰 바닥 타원(양탄자)의 가운데와 아바타의 바닥 그림자를 견준다.
+  // ⚠️ **`Avatar.FLOOR_SPOT` 을 읽어 견주면 안 된다** — 그러면 「양탄자를 옮겼는데
+  //    인물만 옛 자리에 남은」 사고를 통째로 못 본다 (그 상수는 인물 쪽이 이미 보는 값이다)
+  // ⚠️ **1단계는 양탄자가 없다** (`ROOM_LEVELS`) — 잴 것이 없어 건너뛰고,
+  //    그래서 **몇 조합을 쟀는지도 같이 낸다**
+  const STAND_TOL = 1.5;          // px. 양탄자 한가운데와 이만큼 안에서 만나야 한다
+  const HEAD_CLEAR_MIN = 2;       // px. 머리가 화면 제목과 이만큼은 떨어져 있어야 한다
+  const stand = { bad: [], rows: [], n: 0 };
+  for (const vw of [265, 320, 390, 480, 700]) {
+    await page.setViewportSize({ width: vw, height: 820 });
+    // ⚠️ **스탯을 접은 화면도 잰다** — 거기서는 방 그림이 아래로 더 그려져 배율이
+    //    달라진다(`roomPadBottom`). 펼친 화면만 재면 그 자리는 한 번도 안 잰 것이다
+    for (const [lv, lite] of [[2, 0], [3, 0], [4, 0], [5, 0], [5, 1]]) {
+      const r = await page.evaluate(({ lv, lite }) => {
+        S.tutorialDone = true; S.introDone = true; S.roomLevel = lv;
+        const sp = document.getElementById('splash'); if (sp) sp.classList.add('done');
+        const iv = document.getElementById('intro'); if (iv) iv.style.display = 'none';
+        try { localStorage.setItem('dieter_alchemist_stats_lite_v1', lite ? '1' : '0'); } catch (e) {}
+        switchTab('showcase'); renderShowcase();
+        if (typeof applyStatsView === 'function') { applyStatsView(); renderRoomScene(); }
+        const scene = document.querySelector('.room-scene');
+        const av = document.querySelector('.char-body > svg.avatar-svg');
+        if (!scene || !av) return { err: '방 그림이나 아바타를 못 찾았다' };
+        const mid = r => ({ x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 });
+        // 양탄자 — 바닥에 깔린 «제일 넓은» 타원
+        let rug = null;
+        scene.querySelectorAll('ellipse').forEach(e => {
+          const bb = e.getBBox();
+          if (bb.width > 150 && bb.height < 100 && bb.y > 200 && (!rug || bb.width > rug.w))
+            rug = { el: e, w: bb.width };
+        });
+        if (!rug) return { err: '양탄자를 못 찾았다' };
+        // 발이 서는 자리 = 아바타의 바닥 그림자
+        const sh = [...av.querySelectorAll('ellipse')].find(e => {
+          const bb = e.getBBox(); return bb.width > 80 && bb.height < 20 && bb.y > 320; });
+        if (!sh) return { err: '아바타의 바닥 그림자를 못 찾았다' };
+        const R = mid(rug.el.getBoundingClientRect()), F = mid(sh.getBoundingClientRect());
+        const sr = scene.getBoundingClientRect();
+        // ⚠️ **머리는 «상자»가 아니라 «그려진 것»으로 잰다.** 아바타 svg 의 상자는
+        //    위로 36칸(≈32px) 비어 있어서, 상자로 재면 멀쩡한 머리가 「나갔다」로 잡힌다
+        let ink = Infinity;
+        av.querySelectorAll('path,ellipse,circle,rect,line,polygon').forEach(n => {
+          const r = n.getBoundingClientRect();
+          if (r.width && r.height) ink = Math.min(ink, r.top);
+        });
+        const ti = document.getElementById('roomTitle');
+        // 방 그림은 위쪽이 투명으로 «사라지며» 시작한다 (`.room-scene` 의 mask) —
+        // ⚠️ 그 폭을 검사기에 «옮겨 적지 않는다**: 실제로 깔린 mask 에서 읽는다
+        const mk = getComputedStyle(scene).maskImage || getComputedStyle(scene).webkitMaskImage || '';
+        const st = mk.match(/,\s*rgba?\([^)]*\)\s+([\d.]+)(px|%)/);
+        const fade = st ? (st[2] === '%' ? sr.height * parseFloat(st[1]) / 100 : parseFloat(st[1])) : null;
+        return { dx: F.x - R.x, dy: F.y - R.y,
+                 headClear: ti ? ink - ti.getBoundingClientRect().bottom : null,
+                 headIn: ink - sr.top,
+                 fade,
+                 headWall: fade == null ? null : ink - (sr.top + fade / 2) };
+      }, { lv, lite });
+      if (r.err) { stand.bad.push(`폭 ${vw}px · ${lv}단계: ${r.err}`); continue; }
+      stand.n++;
+      if (lv === 5 && !lite) stand.rows.push(`${vw}:${r.dy >= 0 ? '+' : ''}${r.dy.toFixed(1)}px`);
+      if (Math.abs(r.dy) > STAND_TOL) {
+        stand.bad.push(`폭 ${vw}px · ${lv}단계${lite ? ' · 스탯 접음' : ''}: 발이 양탄자 한가운데보다`
+          + ` ${Math.abs(r.dy).toFixed(1)}px ${r.dy > 0 ? '아래' : '위'}에 있다`
+          + ` — 앞(뒤) 테두리에 선 것으로 보인다`);
+      }
+      if (Math.abs(r.dx) > STAND_TOL) {
+        stand.bad.push(`폭 ${vw}px · ${lv}단계: 발이 양탄자 한가운데보다`
+          + ` 가로로 ${Math.abs(r.dx).toFixed(1)}px 어긋나 있다`);
+      }
+      // ⚠️ 올리는 고침이라 **머리가 어디까지 올라갔는지**를 같이 본다 —
+      //    제목 줄을 파고들면 올린 몫이 너무 큰 것이다
+      if (r.headClear != null && r.headClear < HEAD_CLEAR_MIN) {
+        stand.bad.push(`폭 ${vw}px · ${lv}단계: 머리가 화면 제목과 ${r.headClear.toFixed(1)}px`
+          + ` 밖에 안 떨어져 있다 — 인물을 올린 몫이 너무 크다`);
+      }
+      if (r.headIn < 0) {
+        stand.bad.push(`폭 ${vw}px · ${lv}단계: 머리가 방 그림 위로 ${(-r.headIn).toFixed(1)}px`
+          + ` 나갔다 — 벽이 없는 자리에 서 있다`);
+      }
+      // ⚠️ **올리는 고침이라 «머리 뒤에 벽이 있는지»를 같이 본다.** 방 그림의 위쪽은
+      //    사라지며 시작하므로, 머리가 그 띠를 파고들면 벽이 아니라 «페이지 배경» 앞에
+      //    선 것이 된다. 띠의 절반까지를 한계로 잡는다 (띠 폭은 mask 에서 읽는다)
+      if (r.headWall != null && r.headWall < 0) {
+        stand.bad.push(`폭 ${vw}px · ${lv}단계: 머리가 방 그림의 «사라지는 띠»를`
+          + ` ${(-r.headWall).toFixed(1)}px 파고든다 — 머리 뒤에 벽이 없다`);
+      }
+      if (r.fade == null) {
+        stand.bad.push(`폭 ${vw}px · ${lv}단계: 방 그림의 mask 를 못 읽었다 — 띠를 한 번도 안 쟀다`);
+      }
+      if (lv === 5 && !lite) stand.rows[stand.rows.length - 1] +=
+        `(머리 여유 — 제목 ${r.headClear.toFixed(1)} · 벽 ${r.headIn.toFixed(1)}`
+        + ` · 사라지는 띠 ${r.fade}px 의 절반에서 ${r.headWall.toFixed(1)})`;
+    }
+  }
+  if (stand.n < 25) stand.bad.push(`서는 자리를 ${stand.n}/25 조합만 쟀다`
+    + ' — 0건이 「통과」가 아니라 「한 번도 안 쟀다」다');
+
   await page.setViewportSize({ width: 1200, height: 900 });
 
   await browser.close();
@@ -4349,6 +4451,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(kneeAnkle.bad.map(m => ({ id: '무릎↔발목', body: '-', where: m, n: '-' })))
     .concat(beltLine.bad.map(m => ({ id: '벨트선', body: '-', where: m, n: '-' })))
     .concat(idle.bad.map(m => ({ id: '아이들 모션', body: '-', where: m, n: '-' })))
+    .concat(stand.bad.map(m => ({ id: '서는 자리', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
@@ -4491,6 +4594,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
     + ` (굵어지면 안 된다 — 굵은 종아리에 가는 발목)`);
   console.log(`아이들 모션: ${idle.rows.join(' · ')}`);
+  console.log(`서는 자리: 폭 5 × (방 2~5단계 + 스탯 접음) = ${stand.n}조합 — 양탄자 한가운데와 발의 어긋남`
+    + ` (5단계) ${stand.rows.join(' · ')} (${STAND_TOL}px 까지)`);
   console.log(`벨트선: ${beltLine.rows.join(' | ')}`
     + ` (허리선이 띠 안을 지나야 한다 · ${beltLine.n}조합 · 팔을 잰 것 ${beltLine.seen})`);
   console.log(`무릎↔발목: 화면에서 잰 «무릎/발목» ${kneeAnkle.rows.join(' | ')}`

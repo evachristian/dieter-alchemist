@@ -3805,7 +3805,7 @@
 
     return `<svg class="avatar-svg" viewBox="${VB.x} ${VB.y} ${VB.w} ${VB.h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="내 아바타">
       <defs>${neckDefs(uid)}</defs>
-      <ellipse cx="100" cy="342" rx="${(52 * (1 + 0.18 * w)).toFixed(1)}" ry="8" fill="rgba(120,90,110,0.14)"/>
+      <ellipse cx="100" cy="${FLOOR_Y}" rx="${(52 * (1 + 0.18 * w)).toFixed(1)}" ry="8" fill="rgba(120,90,110,0.14)"/>
       ${layers.join('')}
     </svg>`;
   }
@@ -3896,6 +3896,10 @@
   // ─── 소품 ───
   // 값은 「id → SVG 조각을 만드는 함수」. 인자 `k` 는 단계별 색(ROOM_SKIN 의 한 줄).
   // 새 소품을 늘리면 여기에 넣고 ROOM_Z 의 순서에도 끼워 넣는다.
+  // ⚠️⚠️ **방에서 «사람이 서는 자리»는 이 한 줄이다.** 양탄자·마법진이 다 여기 앉고,
+  // `game.js` 의 `placeFigure()` 가 **이 자리에 인물의 발을 맞춘다** — 두 군데에 적으면
+  // 양탄자를 옮겼을 때 인물만 옛 자리에 남는다 (예전에 러그 290 · 마법진 288 로 갈려 있었다)
+  const FLOOR_SPOT = 288;   // 방 좌표에서 사람이 서는 높이 (양탄자 한가운데)
   const ROOM_PROPS = {
     // 갈라진 금 — 허름한 단계에만
     crack: () => `
@@ -3996,24 +4000,24 @@
       <circle cx="${WIN.fx + WIN.fw / 2}" cy="${WIN.fy - 10}" r="3" fill="#fff2c4"/>`,
     // 작은 러그
     rugSmall: () => `
-      <ellipse cx="200" cy="290" rx="96" ry="26" fill="#8a5f6a" opacity="0.75"/>
-      <ellipse cx="200" cy="290" rx="76" ry="19" fill="none" stroke="rgba(255,235,205,0.4)" stroke-width="2"/>`,
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="96" ry="26" fill="#8a5f6a" opacity="0.75"/>
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="76" ry="19" fill="none" stroke="rgba(255,235,205,0.4)" stroke-width="2"/>`,
     // 큰 카펫
     rugBig: () => `
-      <ellipse cx="200" cy="288" rx="150" ry="38" fill="#8e3f4e"/>
-      <ellipse cx="200" cy="288" rx="150" ry="38" fill="none" stroke="#d9b45f" stroke-width="3"/>
-      <ellipse cx="200" cy="288" rx="120" ry="28" fill="none" stroke="#d9b45f" stroke-width="2" opacity="0.7"/>
-      <ellipse cx="200" cy="288" rx="60" ry="14" fill="#a04d5c"/>`,
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="150" ry="38" fill="#8e3f4e"/>
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="150" ry="38" fill="none" stroke="#d9b45f" stroke-width="3"/>
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="120" ry="28" fill="none" stroke="#d9b45f" stroke-width="2" opacity="0.7"/>
+      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="60" ry="14" fill="#a04d5c"/>`,
     // 바닥 마법진
     circle: () => `
       <g fill="none" stroke="#cba8f0" stroke-width="2" opacity="0.75">
-        <ellipse cx="200" cy="288" rx="104" ry="26"/>
-        <ellipse cx="200" cy="288" rx="72" ry="18"/>
-        <path d="M96,288 L200,270 L304,288 L200,306 Z"/>
+        <ellipse cx="200" cy="${FLOOR_SPOT}" rx="104" ry="26"/>
+        <ellipse cx="200" cy="${FLOOR_SPOT}" rx="72" ry="18"/>
+        <path d="M96,${FLOOR_SPOT} L200,${FLOOR_SPOT - 18} L304,${FLOOR_SPOT} L200,${FLOOR_SPOT + 18} Z"/>
       </g>
       <g fill="#e6d0ff" opacity="0.85">
-        <circle cx="96" cy="288" r="3"/><circle cx="304" cy="288" r="3"/>
-        <circle cx="200" cy="270" r="3"/><circle cx="200" cy="306" r="3"/>
+        <circle cx="96" cy="${FLOOR_SPOT}" r="3"/><circle cx="304" cy="${FLOOR_SPOT}" r="3"/>
+        <circle cx="200" cy="${FLOOR_SPOT - 18}" r="3"/><circle cx="200" cy="${FLOOR_SPOT + 18}" r="3"/>
       </g>`,
     // 샹들리에 (천장 · 아바타 머리 위를 피해 위쪽에만)
     chandelier: () => `
@@ -4159,6 +4163,6 @@
              dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
   window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
-    partRatio, bodyScaleX, bodyMetrics, TUNE_MAX,
+    partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT,
     ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
 })();

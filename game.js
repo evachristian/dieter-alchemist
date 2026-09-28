@@ -4932,6 +4932,38 @@ function placePet() {
   }
 }
 
+// ─── 인물은 «방 그림에서 사람이 서는 자리»에 선다 ───────────────
+//
+// 방 그림의 양탄자·마법진은 전부 `Avatar.FLOOR_SPOT`(방 좌표 288)에 앉아 있고,
+// 인물의 발은 `Avatar.bodyMetrics().floorY`(그림 좌표 342)다. 둘은 **서로 다른
+// 좌표계**라 그냥 두면 어긋난다 — 재 보면 발이 양탄자 한가운데보다 25~29px 아래,
+// 즉 앞 테두리에 서 있었다 (「양탄자 중앙에 서 있도록 맞춰 달라」로 신고받았다).
+//
+// ⚠️⚠️ **CSS 상수로는 못 맞춘다.** 방 그림은 `preserveAspectRatio="… slice"` 라
+// 화면 폭에 따라 배율이 달라진다 — 필요한 몫이 390px 에서 **24.8px**, 480px 에서
+// **29.0px** 이다. 그래서 «그려진 것»을 재서 맞춘다 (방의 크리처를 치마 옆선에
+// 맞추는 `placePet()` 과 같은 규칙이다).
+// ⚠️ **`.char-aura` 를 옮긴다** — 인물만 옮기면 빛무리·크리처·살 빠지는 연출이
+//    제자리에 남아 바닥이 둘이 된다
+// ⚠️ **재기 전에 되돌린다** — 안 그러면 다시 그릴 때마다 몫이 겹쳐 쌓인다
+// ⚠️ **졸업 전(인트로 공주 그림)에는 안 건드린다** — 그림의 바닥 좌표가 다르고,
+//    그때 방은 1단계라 양탄자가 아예 없다
+const FIG_LIFT_MAX = 60;        // 이보다 크면 잘못 잰 것이다 — 그대로 둔다
+function placeFigure() {
+  const aura = document.querySelector('.char-aura');
+  const room = document.querySelector('.room-scene svg');
+  const av = document.querySelector('.char-body > svg.avatar-svg');
+  if (!aura || !room || !av || !window.Avatar) return;
+  aura.style.transform = '';
+  const mr = room.getScreenCTM(), ma = av.getScreenCTM();
+  if (!mr || !ma) return;
+  const spot = new DOMPoint(200, window.Avatar.FLOOR_SPOT).matrixTransform(mr).y;
+  const foot = new DOMPoint(100, window.Avatar.bodyMetrics(0).floorY).matrixTransform(ma).y;
+  const lift = foot - spot;
+  if (!isFinite(lift) || Math.abs(lift) > FIG_LIFT_MAX) return;
+  aura.style.transform = `translateY(${(-lift).toFixed(1)}px)`;
+}
+
 function renderRoomScene() {
   const scene = document.querySelector('.room-scene');
   if (!scene || !window.Avatar || !window.Avatar.roomScene) return;
@@ -4942,6 +4974,10 @@ function renderRoomScene() {
     canvas.style.setProperty('--room-bleed', bleed + 'px');
   }
   scene.innerHTML = window.Avatar.roomScene(S.roomLevel, null, roomPadBottom(bleed));
+  // 방 그림이 새로 깔렸으니 «서는 자리»도 다시 맞춘다 (스탯을 접으면 배율이 바뀐다).
+  // ⚠️ `renderShowcase()` 는 이 뒤에 `placePet()` 을 부른다 — 크리처는 «옮긴 뒤»의
+  // 치마 옆선을 재야 하므로 순서가 이대로여야 한다
+  placeFigure();
 }
 
 function renderShowcase() {

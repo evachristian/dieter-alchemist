@@ -2016,8 +2016,8 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 배경을 네모 카드에 가두지 않고 전체 폭으로 열린 방처럼. 위/아래는 부드럽게 페이드 */
 .room-scene {
   position: absolute; top: -14px; bottom: -8px; left: -16px; right: -16px; z-index: 0; overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 13%, #000 90%, transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent 0, #000 13%, #000 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 90%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 90%, transparent 100%);
 }
 /* 스탯을 접으면(.room-stats.lite) 배경이 그 자리까지 내려와 글자를 받아 준다.
    늘이는 양(--room-bleed)과 그림의 viewBox 연장은 game.js 의 ROOM_BLEED · roomPadBottom 이
@@ -2026,8 +2026,8 @@ button.tm-slot:active { transform: scale(0.94); }
    정작 덮으려던 글자가 옅은 자리에 앉는다. */
 .room-canvas.bleed .room-scene {
   bottom: calc(-8px - var(--room-bleed, 0px));
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 18px), transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 18px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
 }
 .room-svg { width: 100%; height: 100%; display: block; }
 .char-aura { position: relative; z-index: 1; width: 240px; height: 320px; display: flex; align-items: center; justify-content: center; }
