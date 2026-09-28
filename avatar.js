@@ -2376,7 +2376,7 @@
         <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
         <ellipse cx="77.68" cy="76.36" rx="8.25" ry="5.52" fill="#ff9db4" opacity="0.6"/>
         <ellipse cx="122.32" cy="76.36" rx="8.25" ry="5.52" fill="#ff9db4" opacity="0.6"/>
-        ${E(82.53, 88.35, 94.18)}${E(105.82, 111.65, 117.47)}
+        <g data-part="eye">${E(82.53, 88.35, 94.18)}${E(105.82, 111.65, 117.47)}</g>
         <path d="M92.24,78.49 Q100,86.97 107.76,78.49" stroke="${LIP}" stroke-width="2.4"
           fill="none" stroke-linecap="round"/>
       </g>`;
@@ -2446,7 +2446,10 @@
         <ellipse cx="81" cy="${AV.MY - 2.5}" rx="8.25" ry="5.52" fill="#ff9db4" opacity="0.6"/>
         <ellipse cx="119" cy="${AV.MY - 2.5}" rx="8.25" ry="5.52" fill="#ff9db4" opacity="0.6"/>
         ${extra}
-        ${eyes}
+        <!-- ⚠️ **눈만 따로 묶는다** (data-part="eye"). 마이 룸의 «눈 깜박임»이
+             이 조각을 세로로 눌러서 감기므로, 눈썹·입이 같이 들어오면 얼굴 전체가
+             찌그러진다. 손잡이는 여기 하나뿐이다 — 표정 서른여덟이 이 자리를 지난다 -->
+        <g data-part="eye">${eyes}</g>
         ${mouth}
       </g>`;
   }

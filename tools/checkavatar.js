@@ -4144,6 +4144,102 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   // ⚠️ 이 검사는 **맨 마지막**이다. 진짜 방 화면을 띄우느라 S(세이브)와 창 크기를
   // 건드리므로, 앞선 검사가 그 영향을 받지 않게 뒤로 뺐다.
   const PET_GAP_MIN = 1;               // px. 치마 옆선과 이만큼은 떨어져 있어야 한다
+  // ─── 아이들(IDLE) 모션 — 숨쉬기와 눈 깜박임 ──────────────────
+  //
+  // ⚠️⚠️ **CSS `transform` 으로 쓰면 아바타가 통째로 어긋난다.** 조각마다
+  // `<g transform="translate… scale…">` 가 열여섯 개 걸려 있는데 CSS `transform` 은
+  // 그 속성을 **덮어쓴다** (재 보면 배율이 0.8773 → 0.8961 로 바뀐다).
+  // 그래서 «애니메이션이 도는 요소는 `transform` 속성을 가지면 안 된다»가 규칙이고,
+  // 지금은 `scale`(개별 속성) 하나만 쓴다 — 그것은 속성 변환에 «더해진다».
+  // ⚠️ **가로로 움직이면 크리처가 따라 흔들린다** — 방의 크리처는 「그려진 치마 옆선」을
+  // 재서 자리를 잡는다(`placePet`). 세로만 움직여야 한다.
+  // ⚠️ **프레임은 `animation-delay` 로 못 멈춘다** — `getAnimations()` 로 seek 한다
+  // (그렇게 짰다가 네 프레임이 전부 «뜬 눈»으로 나왔다).
+  const IDLE_RISE_MIN = 1.2;      // 꼭대기가 이만큼은 오르내려야 «숨»으로 보인다
+  const IDLE_FOOT_MAX = 0.5;      // 발은 바닥에서 안 뜬다
+  const IDLE_BLINK_MAX = 0.35;    // 감긴 눈은 뜬 눈의 이만큼 아래
+  const IDLE_SHUT_MAX = 0.15;     // 감겨 있는 몫이 한 바퀴의 이만큼을 넘으면 경련이다
+  const idle = await page.evaluate(async (o) => {
+    const bad = [], rows = [];
+    S.tutorialDone = true; S.introDone = true;
+    const sp = document.getElementById('splash'); if (sp) sp.classList.add('done');
+    const iv = document.getElementById('intro'); if (iv) iv.style.display = 'none';
+    switchTab('showcase'); renderShowcase();
+    const svg = document.querySelector('.char-body > svg');
+    const eye = document.querySelector('.char-body [data-part="eye"]');
+    if (!svg) { bad.push('방에 아바타가 없다'); return { bad, rows }; }
+    if (!eye) bad.push('눈 조각(data-part="eye")이 없다 — 깜박일 손잡이가 없다');
+    const aB = svg.getAnimations()[0];
+    const aE = eye && eye.getAnimations()[0];
+    if (!aB) bad.push('아바타에 숨쉬기 애니메이션이 없다');
+    if (eye && !aE) bad.push('눈에 깜박임 애니메이션이 없다');
+    // ① 애니메이션이 도는 요소가 «transform 속성»을 갖고 있지 않은가
+    let anim = 0;
+    document.querySelectorAll('.char-body *').forEach(e => {
+      if (!e.getAnimations || !e.getAnimations().length) return;
+      anim++;
+      if (e.getAttribute && e.getAttribute('transform') != null) {
+        bad.push(`<${e.tagName} data-part="${e.getAttribute('data-part')}"> 은 transform 속성을`
+          + ' 갖고 있는데 애니메이션이 걸려 있다 — CSS 가 그 변환을 덮어쓴다');
+      }
+    });
+    rows.push(`애니메이션이 도는 조각 ${anim}`);
+    // ② 한 바퀴를 훑는다 (프레임을 멈춰 놓고)
+    const scan = (a, el, n) => {
+      const d = a.effect.getTiming().duration; a.pause();
+      const out = [];
+      for (let i = 0; i < n; i++) { a.currentTime = d * i / n;
+        const r = el.getBoundingClientRect();
+        out.push({ t: i / n, top: r.top, bottom: r.bottom, left: r.left, right: r.right, h: r.height }); }
+      a.currentTime = 0;
+      return { d: d, f: out };
+    };
+    if (aB) {
+      const b = scan(aB, svg, 40);
+      const tops = b.f.map(x => x.top), bots = b.f.map(x => x.bottom);
+      const lefts = b.f.map(x => x.left), rights = b.f.map(x => x.right);
+      const rise = Math.max.apply(null, tops) - Math.min.apply(null, tops);
+      const foot = Math.max.apply(null, bots) - Math.min.apply(null, bots);
+      const side = Math.max(Math.max.apply(null, lefts) - Math.min.apply(null, lefts),
+                            Math.max.apply(null, rights) - Math.min.apply(null, rights));
+      rows.push(`숨쉬기 ${(b.d / 1000).toFixed(1)}초 · 꼭대기 ${rise.toFixed(2)}px`
+        + ` · 발 ${foot.toFixed(2)}px · 가로 ${side.toFixed(2)}px`);
+      if (rise < o.rise) bad.push(`숨쉬기로 꼭대기가 ${rise.toFixed(2)}px 밖에 안 움직인다`
+        + ` — ${o.rise}px 은 돼야 «숨»으로 보인다`);
+      if (foot > o.foot) bad.push(`숨쉬는 동안 발이 ${foot.toFixed(2)}px 움직인다`
+        + ' — 발은 바닥에 붙어 있어야 한다 (축이 발밑이어야 한다)');
+      if (side > 0.05) bad.push(`숨쉬는 동안 «가로»로 ${side.toFixed(2)}px 움직인다`
+        + ' — 방의 크리처가 치마 옆선을 재서 서므로 따라 흔들린다');
+    }
+    if (aE && eye) {
+      const b = scan(aE, eye, 200);
+      const hs = b.f.map(x => x.h);
+      const open = Math.max.apply(null, hs), shut = Math.min.apply(null, hs);
+      const closedFrac = hs.filter(h => h < open * 0.5).length / hs.length;
+      rows.push(`깜박임 ${(b.d / 1000).toFixed(1)}초 · 뜬 눈 ${open.toFixed(2)}px`
+        + ` → 감긴 눈 ${shut.toFixed(2)}px · 감겨 있는 몫 ${(closedFrac * 100).toFixed(1)}%`);
+      if (shut > open * o.blink) bad.push(`감긴 눈이 ${shut.toFixed(2)}px 로 뜬 눈`
+        + `(${open.toFixed(2)}px)의 ${(shut / open).toFixed(2)} 다 — 눈이 안 감긴다`);
+      if (closedFrac > o.shut) bad.push(`한 바퀴의 ${(closedFrac * 100).toFixed(1)}% 를 감고 있다`
+        + ' — 계속 깜박이면 경련으로 보인다');
+    }
+    return { bad, rows };
+  }, { rise: IDLE_RISE_MIN, foot: IDLE_FOOT_MAX, blink: IDLE_BLINK_MAX, shut: IDLE_SHUT_MAX });
+  // ③ 감속 선호에서는 둘 다 멎는다
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const idleRm = await page.evaluate(() => {
+    renderShowcase();
+    const svg = document.querySelector('.char-body > svg');
+    const eye = document.querySelector('.char-body [data-part="eye"]');
+    const on = [];
+    if (svg && getComputedStyle(svg).animationName !== 'none') on.push('숨쉬기');
+    if (eye && getComputedStyle(eye).animationName !== 'none') on.push('눈 깜박임');
+    return on;
+  });
+  await page.emulateMedia({ reducedMotion: null });
+  idleRm.forEach(n => idle.bad.push(`«움직임 줄이기»를 켰는데 그대로 도는 것이 있다 — ${n}`));
+  idle.rows.push(`움직임 줄이기 — ${idleRm.length ? '안 멎는다' : '둘 다 멎는다'}`);
+
   const petPlace = { bad: [], rows: [] };
   for (const vw of [265, 320, 375, 390, 480, 700]) {
     await page.setViewportSize({ width: vw, height: 820 });
@@ -4252,6 +4348,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(ankleScale.bad.map(m => ({ id: '발목(바디파츠)', body: '-', where: m, n: '-' })))
     .concat(kneeAnkle.bad.map(m => ({ id: '무릎↔발목', body: '-', where: m, n: '-' })))
     .concat(beltLine.bad.map(m => ({ id: '벨트선', body: '-', where: m, n: '-' })))
+    .concat(idle.bad.map(m => ({ id: '아이들 모션', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
@@ -4393,6 +4490,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` (여백 ${BOX_MARGIN_MIN}px 이상 · 넘으면 viewBox 를 넓혀야 한다)`);
   console.log(`발목: 기본 ${legGap.ankle}px · 종아리를 굵게 해도 ${legGap.ankleMax}px`
     + ` (굵어지면 안 된다 — 굵은 종아리에 가는 발목)`);
+  console.log(`아이들 모션: ${idle.rows.join(' · ')}`);
   console.log(`벨트선: ${beltLine.rows.join(' | ')}`
     + ` (허리선이 띠 안을 지나야 한다 · ${beltLine.n}조합 · 팔을 잰 것 ${beltLine.seen})`);
   console.log(`무릎↔발목: 화면에서 잰 «무릎/발목» ${kneeAnkle.rows.join(' | ')}`

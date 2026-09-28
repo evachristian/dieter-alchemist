@@ -2041,6 +2041,46 @@ button.tm-slot:active { transform: scale(0.94); }
 .char-body { position: relative; z-index: 2; font-size: 0; line-height: 0; }
 .avatar-svg { height: 328px; width: auto; display: block; filter: drop-shadow(0 8px 12px rgba(180,140,160,0.28)); }
 
+/* ─── 아이들(IDLE) 모션 — 숨쉬기 + 눈 깜박임 ────────────────────────────
+   마이 룸에 «가만히 서 있는» 동안에만 돈다. 무한 반복이라 `settle()` 이 안 건드리므로
+   `checkUI()` 는 그대로 결정적이다 (끝이 있는 애니메이션만 끝 상태로 보내 준다).
+
+   ⚠️⚠️ **`transform` 으로 쓰면 안 된다.** 아바타는 조각마다 `<g transform="translate…
+   scale…">` 가 열여섯 개 걸려 있는데, CSS `transform` 은 **그 속성을 통째로 덮어쓴다** —
+   걸자마자 배율이 0.8773 → 0.8961 로 바뀌고 몸이 어긋났다 (재 보고 알았다).
+   **개별 속성(`scale`·`translate`·`rotate`)** 은 속성 변환을 그대로 두고 «더해진다».
+   여기서는 `scale` 하나만 쓴다 — `checkavatar` 의 「아이들 모션」이 그것을 지킨다.
+
+   ⚠️ **가로로는 한 픽셀도 안 움직인다.** 방의 크리처는 «그려진 치마 옆선»을 재서
+   자리를 잡으므로(`placePet`), 좌우로 흔들면 크리처가 따라 움직인다. 세로뿐이다.
+
+   ⚠️ **숨쉬기는 «발밑»을 축으로 돈다**(`transform-origin: 50% 100%`) — 가운데를 축으로
+   두면 발이 바닥에서 뜬다. 0.8% 라 머리가 2~3px 오르내린다 */
+.char-body > svg {
+  transform-origin: 50% 100%;
+  animation: avBreathe 4.2s ease-in-out infinite;
+}
+@keyframes avBreathe { 0%, 100% { scale: 1 1; } 50% { scale: 1 1.008; } }
+
+/* 눈 깜박임 — 눈 조각(avatar.js 의 data-part="eye")만 세로로 눌러 감긴다.
+   ⚠️ `transform-box: fill-box` 라야 «제 눈 높이»를 축으로 감긴다 — 안 주면 화면
+   원점을 축으로 돌아 눈이 얼굴 밖으로 날아간다.
+   ⚠️ 주기의 대부분은 «뜬 채»다: 4.9초에 한 번, 감겨 있는 것은 0.15초쯤이다 —
+   계속 깜박이면 경련으로 보인다 */
+.char-body [data-part="eye"] {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: avBlink 4.9s linear infinite;
+}
+@keyframes avBlink {
+  0%, 94%, 100% { scale: 1 1; }
+  96%, 96.8%    { scale: 1 0.06; }
+  98.5%         { scale: 1 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .char-body > svg, .char-body [data-part="eye"] { animation: none; }
+}
+
 /* ─── 살 빠지는 연출 (물약을 마셨을 때) ─── */
 /* 몸이 한 번 쏙 줄었다가 제자리로 — 단계가 내려갈 때만 */
 .char-body.slim-pop { animation: slimPop 1.05s cubic-bezier(.3,1.2,.4,1) both; }
