@@ -2284,7 +2284,8 @@ function launchOpts() {
             ['storySheet', `openStory()`],
             ['miniHelpSheet', `openMiniHelp('driller')`],
             ['miniLogSheet', `openMiniLog('p_walnut')`],
-            ['faceSheet', `openFaceSheet()`],
+            ['slotSheet', `openSlotSheet('expression')`],
+            ['slotSheet', `openSlotSheet('tattoo')`],
             ['pageSheet', `openPage(D.RECIPES.slice().sort((a, b) =>
                 Object.keys(b.input || {}).length - Object.keys(a.input || {}).length)[0].result.id)`],
             ['diaryModal', `openDiary()`],
@@ -2809,42 +2810,52 @@ function launchOpts() {
           await run(`${t}/${name}`);
         }
 
-        // **😊 표정 시트** — 표정은 «옷»이 아니라 «얼굴»이라 옷장 탭 줄에서 나와
-        // 방 그림 왼쪽 아래 버튼 + 제 바닥 시트로 옮겼다.
+        // **옷장에서 나온 칸의 시트** (😊 표정 · ⚜️ 문신) — 둘 다 «옷»이 아니라
+        // 옷장 탭 줄에서 나와 방 그림 왼쪽 아래 버튼 + 바닥 시트로 옮겼다.
         // ⚠️ 위의 `clothes` 탭 0건은 이 층을 **한 번도 안 잰 것**이다 — 시트는
-        // 눌러야만 뜨고, 그 안이 서른여덟 칸으로 이 앱에서 제일 긴 격자다
+        // 눌러야만 뜨고, 표정은 서른여덟 칸으로 이 앱에서 제일 긴 격자다.
+        // ⚠️⚠️ **표를 그대로 돈다** — 칸 하나를 이름으로 박아 두면 다음에 한 칸을
+        // 더 빼냈을 때 그 칸이 통째로 안 재진다. **몇 칸을 쟀는지도 같이 낸다**
         {
-          const bad = await page.evaluate(() => {
-            // 잠긴 칸(🔒)이 하나는 있어야 그 줄의 대비를 재는 것이 된다 —
-            // 다 열어 놓고 재면 자물쇠 층은 영영 안 잰다 (「물어볼것」과 같은 규칙)
-            const all = D.WARDROBE.expression || [];
-            S.unlocked = (S.unlocked || []).concat(
-              all.slice(0, Math.max(1, all.length - 3)).map(x => x.id));
-            // ⚠️ **옷장 탭 줄에 표정이 남아 있으면 안 된다** — 두 자리에서 고르게 되면
-            // 한쪽만 고쳐 갈린다 (`WARDROBE_SLOTS` 의 `sheet: true` 가 그것을 막는다)
-            const inTabs = [...document.querySelectorAll('.wr-tabs .wr-tab')]
-              .some(b => /expression/.test(b.getAttribute('onclick') || ''));
-            if (inTabs) return '표정이 아직 옷장 탭 줄에 서 있다';
-            const fb = document.getElementById('actFace');
-            if (!fb || fb.hidden) return '😊 표정 버튼이 안 보인다 (튜토리얼을 마쳤는데)';
-            openFaceSheet();
-            const m = document.getElementById('faceSheet');
-            if (!m || !m.classList.contains('show')) return '시트가 안 떴다';
-            const n = m.querySelectorAll('.wr-item').length;
-            if (n !== all.length) return `칸이 ${n}개다 (${all.length} 이어야 한다)`;
-            if (!m.querySelector('.wr-item.locked .wr-lock')) return '잠긴 칸이 하나도 없다 — 🔒 줄을 못 잰다';
-            if (!m.querySelector('.sheet-exit')) return '나가는 길이 없다';
-            return null;
-          });
-          if (bad) results.push({ 화면: `${t}/표정시트`, 오류: bad });
-          else {
+          const slots = await page.evaluate(() =>
+            D.WARDROBE_SLOTS.filter(m => m.sheet).map(m => m.slot));
+          if (!slots.length) results.push({ 화면: `${t}/칸시트`, 오류: '시트로 뺀 칸이 하나도 없다 — 아무것도 안 쟀다' });
+          for (const slot of slots) {
+            const bad = await page.evaluate((sl) => {
+              // 잠긴 칸(🔒)이 하나는 있어야 그 줄의 대비를 재는 것이 된다 —
+              // 다 열어 놓고 재면 자물쇠 층은 영영 안 잰다 (「물어볼것」과 같은 규칙)
+              const all = D.WARDROBE[sl] || [];
+              S.unlocked = (S.unlocked || []).concat(
+                all.slice(0, Math.max(1, all.length - 2)).map(x => x.id));
+              // ⚠️ **옷장 탭 줄에 남아 있으면 안 된다** — 두 자리에서 고르게 되면
+              // 한쪽만 고쳐 갈린다 (`WARDROBE_SLOTS` 의 `sheet: true` 가 그것을 막는다)
+              const inTabs = [...document.querySelectorAll('.wr-tabs .wr-tab')]
+                .some(b => new RegExp(`'${sl}'`).test(b.getAttribute('onclick') || ''));
+              if (inTabs) return `${sl} 이 아직 옷장 탭 줄에 서 있다`;
+              // ⚠️ **시트로 뺀 칸은 색을 못 고른다** — 시트에는 팔레트 줄이 없다.
+              // 색이 있는 칸을 여기로 빼면 «고를 수 없는 색»이 조용히 생긴다
+              if ((D.COLORABLE_SLOTS || []).includes(sl)) return `${sl} 은 색을 고르는 칸인데 시트에는 팔레트가 없다`;
+              const fb = document.querySelector(`#roomSolo .room-act[data-slot="${sl}"]`);
+              if (!fb) return `${sl} 버튼이 안 보인다 (튜토리얼을 마쳤는데)`;
+              openSlotSheet(sl);
+              const m = document.getElementById('slotSheet');
+              if (!m || !m.classList.contains('show')) return '시트가 안 떴다';
+              if (!document.getElementById('slotSheetTitle').textContent.trim()) return '머리말이 비었다';
+              const n = m.querySelectorAll('.wr-item').length;
+              if (n !== all.length) return `칸이 ${n}개다 (${all.length} 이어야 한다)`;
+              if (!m.querySelector('.wr-item.locked .wr-lock')) return '잠긴 칸이 하나도 없다 — 🔒 줄을 못 잰다';
+              if (!m.querySelector('.sheet-exit')) return '나가는 길이 없다';
+              return null;
+            }, slot);
+            if (bad) { results.push({ 화면: `${t}/칸시트:${slot}`, 오류: bad }); continue; }
             await page.waitForTimeout(280);
-            await run(`${t}/표정시트`);
-            const fit = await page.evaluate(() => __cardFits('#faceSheet, #faceSheet .wr-item'));
-            if (fit && fit.length) results.push({ 화면: `${t}/표정시트`, 넘침: fit });
+            await run(`${t}/칸시트:${slot}`);
+            const fit = await page.evaluate(() => __cardFits('#slotSheet, #slotSheet .wr-item'));
+            if (fit && fit.length) results.push({ 화면: `${t}/칸시트:${slot}`, 넘침: fit });
+            await page.evaluate(() => closeSlotSheet());
+            await page.waitForTimeout(150);
           }
-          await page.evaluate(() => closeFaceSheet());
-          await page.waitForTimeout(150);
+          if (slots.length) console.log(`  칸시트 — 시트로 뺀 칸을 «다» 쟀다 (${slots.join('·')})`);
         }
         // **먹이주기 팝업** — 눌러야만 뜬다. 크리처 줄 · 먹이 줄 · 수량 · 버튼이
         // 한 화면에 다 들어가는 자리라 265px 영어가 제일 빡빡하다

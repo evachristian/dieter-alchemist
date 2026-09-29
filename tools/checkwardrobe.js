@@ -45,11 +45,11 @@ const TOAST_MAX = 60;    // px. 토스트는 누른 칸 «옆»에 떠야 한다
 
   // 칸이 많을수록 잘 드러난다 — 표정(38)과 목걸이(31)를 본다 (헤어는 축 두 개라 equip 을 안 쓴다)
   // ⚠️⚠️ **표정은 옷장 탭이 아니라 «제 시트»에 있다** (방 그림의 😊 버튼).
-  // 그러면서 **굴림 통이 `.wr-items` 에서 `#faceBody` 로 옮겨 갔다** — 통이 둘이라
+  // 그러면서 **굴림 통이 `.wr-items` 에서 `#slotSheetBody` 로 옮겨 갔다** — 통이 둘이라
   // `equip()` 이 한쪽만 붙들면 여기서 같은 사고가 그대로 되돌아온다.
   // 그래서 이 검사도 **여는 법과 굴림 통을 칸마다 적는다**
   const CASES = [
-    { slot: 'expression', open: 'openFaceSheet()', box: '#faceBody' },
+    { slot: 'expression', open: `openSlotSheet('expression')`, box: '#slotSheetBody' },
     { slot: 'necklace',   open: `setWardrobeTab('necklace')`, box: '.wr-items' },
   ];
   for (const c of CASES) {
@@ -58,7 +58,11 @@ const TOAST_MAX = 60;    // px. 토스트는 누른 칸 «옆»에 떠야 한다
       const sel = `[onclick*="equip('${o.slot}'"]`;
       if (typeof unlockAllOf === 'function') unlockAllOf(o.slot);
       (0, eval)(o.open);
-      await new Promise(r => setTimeout(r, 80));
+      // ⚠️⚠️ **여는 것과 재는 것을 갈라 놓는다.** 시트는 `sheetup`(0.28초)으로 올라오는데,
+      // 80ms 만 기다리고 `scrollIntoView` 를 하면 **아직 움직이는 상자**를 기준으로
+      // 굴려 놓고 재게 되어 멀쩡한 화면이 「5px 밀렸다」로 잡힌다 (78건 유령과 같은
+      // 종류다 · 실제로 그렇게 빨개졌다). 애니메이션이 끝나고 나서 잡는다
+      await new Promise(r => setTimeout(r, 380));
       const at = i => document.querySelectorAll(sel)[i];
       const n = document.querySelectorAll(sel).length;
       const grid = document.querySelector(o.box);
@@ -87,7 +91,7 @@ const TOAST_MAX = 60;    // px. 토스트는 누른 칸 «옆»에 떠야 한다
       // 다음 칸을 위해 되돌린다
       tt.classList.remove('show');
       window.scrollTo(0, 0);
-      if (typeof closeFaceSheet === 'function') closeFaceSheet();
+      if (typeof closeSlotSheet === 'function') closeSlotSheet();
       return { n: n, y0: y0, y1: y1, moved: y1 - y0, toast: d, shown: shown,
                want: want, worn: worn, onIds: onIds };
     }, c);

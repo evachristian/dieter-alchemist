@@ -3043,15 +3043,15 @@ button.tm-slot:active { transform: scale(0.94); }
 #kitchenSheet .modal-card, #produceLog .modal-card, #plantPick .modal-card,
 #teamPick .modal-card, #raidPick .modal-card, #palPick .modal-card,
 #devAcctSheet .modal-card, #storySheet .modal-card, #feedPick .modal-card,
-#faceSheet .modal-card {
+#slotSheet .modal-card {
   display: flex; flex-direction: column; overflow: hidden; }
-#npcBody, #giftBody, .q-body, .pal-list, .st-body, .feed-list, #devAcctList, #faceBody {
+#npcBody, #giftBody, .q-body, .pal-list, .st-body, .feed-list, #devAcctList, #slotSheetBody {
   overflow-y: auto; min-height: 0; }
 /* ⚠️⚠️ 표정 격자는 **옷장에서 빌려 온 것**이라 제 `max-height`(4.5줄)를 갖고 온다 —
    그대로 두면 시트 안에서 **굴리는 자리가 둘**이 되어 손가락이 안쪽 줄에 갇힌다
    (바로 위 블록이 금지하는 그것이고, `checkui` 의 「시트낮은화면」이 잡는다).
    시트에서는 높이를 카드가 정한다 */
-#faceSheet .wr-items { max-height: none; overflow: visible; }
+#slotSheet .wr-items { max-height: none; overflow: visible; }
 /* 굴러가지 «않는» 자리를 이름으로 못 박아 둔다 — 지금은 한 픽셀도 안 바꾸지만
    (제목·버튼은 제 내용보다 못 줄어든다) 여기에 무엇이 남아야 하는지가 곧 규칙이다 */
 #npcActs, #questActs, #feedGo, .modal-card > .sheet-exit, .modal-card > .confirm-text { flex: 0 0 auto; }

@@ -3197,9 +3197,9 @@ function switchTab(tab) {
   // `renderGather()` 를 부르므로 **아무도 닫아 주지 않는다** (마이 룸 위에 대장간이 뜬다).
   // 그래서 여기서는 «그리기»에 기대지 않고 그 자리에서 닫는다
   if (tab !== 'gather') closeNpcSheet();
-  // 😊 표정 시트도 같은 이유로 여기서 닫는다 — 마이 룸의 버튼에서만 여는 시트인데
-  // `position: fixed` 라 탭을 옮겨도 공방 위에 그대로 떠 있다
-  if (tab !== 'showcase') closeFaceSheet();
+  // 😊 표정 · ⚜️ 문신 시트도 같은 이유로 여기서 닫는다 — 마이 룸의 버튼에서만 여는
+  // 시트인데 `position: fixed` 라 탭을 옮겨도 공방 위에 그대로 떠 있다
+  if (tab !== 'showcase') closeSlotSheet();
   currentTab = tab;
   window.currentTab = tab;   // 인트로에서 '이전 화면' 복귀에 사용
   document.querySelectorAll('.tab-btn').forEach(b =>
@@ -5704,7 +5704,7 @@ function setRecipeTab(id) { recipeTab = id; render(); }
 const TUTORIAL_SLOTS = ['dress'];
 function wardrobeSlots() {
   // ⚠️ `sheet: true` 인 칸(표정)은 여기 안 선다 — 옷이 아니라 «얼굴»이라
-  //    방 그림의 😊 버튼에서 제 시트로 연다 (`openFaceSheet`).
+  //    방 그림 왼쪽 아래의 제 버튼에서 제 시트로 연다 (`openSlotSheet`).
   //    표(`WARDROBE_SLOTS`)에서 빼지 않는 이유는 그 표에 적혀 있다
   const all = D.WARDROBE_SLOTS.filter(m => !m.sheet);
   if (S.tutorialDone) return all;
@@ -5750,13 +5750,13 @@ function equip(slot, id, el) {
   const grid = document.querySelector('.wr-items');
   const gridY = grid ? grid.scrollTop : 0;
   renderShowcase();  // 아바타 + 옷장 동시 갱신
-  // 😊 시트가 떠 있으면 그 격자도 같이 그린다 — **고른 테두리(`.on`)가 안 옮겨 가면
+  // 시트가 떠 있으면 그 격자도 같이 그린다 — **고른 테두리(`.on`)가 안 옮겨 가면
   // 「눌렀는데 아무 일도 없다」로 보인다** (아바타만 바뀌고 시트는 옛 칸에 테를 둔 채다).
   // ⚠️ **여기에는 스크롤을 되돌리는 줄이 «없다» — 재 보고 안 넣었다.** 시트의 굴림 통은
-  // `#faceBody` 인데 그것은 제자리에 남고 «자식만» 갈리므로 브라우저가 자리를 그대로
-  // 들고 있다(82 → 82). 옷장 쪽은 통(`.wr-items`)째로 새로 만들어져서 0 으로 돌아간다 —
-  // 그 차이가 아래 두 줄이 있고 여기엔 없는 이유다
-  if (faceSheetOpen()) renderFaceSheet();
+  // `#slotSheetBody` 인데 그것은 제자리에 남고 «자식만» 갈리므로 브라우저가 자리를
+  // 그대로 들고 있다(82 → 82). 옷장 쪽은 통(`.wr-items`)째로 새로 만들어져서 0 으로
+  // 돌아간다 — 그 차이가 아래 두 줄이 있고 여기엔 없는 이유다
+  if (slotSheetOpen()) renderSlotSheet();
   if (sc.scrollTop !== keepY) sc.scrollTop = keepY;
   const grid2 = document.querySelector('.wr-items');
   if (grid2 && gridY) grid2.scrollTop = gridY;
@@ -5940,30 +5940,57 @@ function wardrobeGrid(slot) {
   return `<div class="wr-items">${items}</div>`;
 }
 
-// ─── 😊 표정 고르기 (방 그림 왼쪽 아래) ────────────────────────
-// 표정은 **옷이 아니라 얼굴**이라 옷장 탭 줄에서 나왔다. 여기서 하는 일은
-// 「같은 격자를 시트에 올려 준다」뿐이고, 갈아 끼우는 것은 그대로 `equip()` 이다.
-const FACE_SLOT = 'expression';
-function faceSheetOpen() {
-  const m = document.getElementById('faceSheet');
+// ─── 옷장에서 나온 칸 (😊 표정 · ⚜️ 문신) ──────────────────────
+// 둘 다 **옷이 아니다** — 하나는 얼굴이 짓는 것이고 하나는 몸에 새긴 것이라,
+// 옷장 탭 줄에 서면 무엇을 고르는 칸인지가 흐려진다. 방 그림 왼쪽 아래의 제 버튼에서
+// 바닥 시트로 연다. 여기서 하는 일은 「같은 격자를 시트에 올려 준다」뿐이고,
+// 갈아 끼우는 것은 그대로 `equip()` 이다.
+// ⚠️ **칸마다 시트를 만들지 않는다** — 하나를 돌려 쓴다. 지금 보고 있는 칸이 `soloSlot`
+//    이고, 이것 하나가 제목·격자·다시 그리기를 다 가리킨다
+function soloSlots() { return D.WARDROBE_SLOTS.filter(m => m.sheet); }
+let soloSlot = null;
+function slotSheetOpen() {
+  const m = document.getElementById('slotSheet');
   return !!(m && m.classList.contains('show'));
 }
-function renderFaceSheet() {
-  const b = document.getElementById('faceBody');
-  if (b) b.innerHTML = wardrobeGrid(FACE_SLOT);
+function renderSlotSheet() {
+  const m = soloSlot && slotMeta(soloSlot);
+  if (!m) return;
+  const tt = document.getElementById('slotSheetTitle');
+  // 이모지는 **제 요소로 떼어 낸다**(`I18N.em`) — 테(`--emoji-halo`)가 글자까지
+  // 굵게 만들면 챠콜에서 오히려 안 읽힌다 (i18n.js 의 그 규칙이다)
+  if (tt) tt.innerHTML = I18N.em(`${m.emoji} ${N(m.slot, m.label)}`);
+  const b = document.getElementById('slotSheetBody');
+  if (b) b.innerHTML = wardrobeGrid(m.slot);
 }
-function openFaceSheet() {
-  renderFaceSheet();
-  const m = document.getElementById('faceSheet');
+function openSlotSheet(slot) {
+  if (!slotMeta(slot) || !slotMeta(slot).sheet) return;
+  soloSlot = slot;
+  renderSlotSheet();
+  const m = document.getElementById('slotSheet');
   if (m) m.classList.add('show');
   if (window.Sfx) Sfx.play('pick');
 }
-function closeFaceSheet() {
-  const m = document.getElementById('faceSheet');
+function closeSlotSheet() {
+  const m = document.getElementById('slotSheet');
   if (m) m.classList.remove('show');
 }
-window.openFaceSheet = openFaceSheet;
-window.closeFaceSheet = closeFaceSheet;
+window.openSlotSheet = openSlotSheet;
+window.closeSlotSheet = closeSlotSheet;
+
+// 왼쪽 아래 버튼 줄 — **표에서 뽑는다.** `sheet: true` 를 한 줄 붙이면 버튼도 저절로
+// 생긴다 (목록을 따로 적어 두면 칸을 늘렸을 때 한쪽만 고친다).
+// **여는 조건은 `S.tutorialDone` 하나다** — 다섯 방 버튼(`ROOM_ACTS`)과 달리 이야기가
+// 여는 문이 아니다. 졸업 전에는 방에 인트로 공주 그림이 서 있어서(`roomFigure`)
+// 갈아 끼워도 화면이 하나도 안 바뀐다
+function renderSoloActs() {
+  const box = document.getElementById('roomSolo');
+  if (!box) return;
+  box.innerHTML = !S.tutorialDone ? '' : soloSlots().map(m =>
+    `<button class="room-act" data-slot="${m.slot}" onclick="openSlotSheet('${m.slot}')">
+      <span aria-hidden="true">${m.emoji}</span><span>${escHtml(N(m.slot, m.label))}</span>
+    </button>`).join('');
+}
 
 function renderWardrobe() {
   const el = document.getElementById('wardrobe');
@@ -8185,11 +8212,8 @@ function renderActBadges() {
     const b = document.getElementById(ROOM_ACT_BTN[id]);
     if (b) b.hidden = !actOpen(id);
   });
-  // 😊 표정 — 다섯과 달리 이야기가 여는 문이 아니라 **옷장이 열리면 같이 열린다.**
-  // 졸업 전에는 방에 인트로 공주 그림이 서 있어서(`roomFigure`) 표정을 갈아 끼워도
-  // 화면이 하나도 안 바뀐다 — 그래서 `tutorialDone` 하나가 조건 전부다
-  const fb = document.getElementById('actFace');
-  if (fb) fb.hidden = !S.tutorialDone;
+  // 😊 표정 · ⚜️ 문신 — 다섯과 달리 이야기가 여는 문이 아니다 (조건은 `renderSoloActs`)
+  renderSoloActs();
   // **새로 물어볼 것이 있어도 켠다** — 마을이 전부 잠겨 있을 때 이야기가 시작되는
   // 자리가 여기뿐이라, 「밥은 먹었다」로 점이 꺼지면 갈 곳이 아예 안 보인다
   // ⚠️ **톱니에는 점이 없다.** 「복구 코드를 아직 안 봤다」로 찍어 봤는데, 설정을 한 번
