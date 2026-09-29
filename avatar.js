@@ -4005,15 +4005,20 @@
   // 시작 단계. 1단계는 거미줄·균열까지 있는 '텅 빈 골방' 이라 첫인상으로는 너무 휑하다 —
   // 기본은 선반과 러그가 놓인 2단계로 두고, 1단계는 아래로 내려갈 자리로 남겨 둔다.
   const ROOM_DEFAULT = 2;
-  // ⚠️⚠️ **천장 쪽은 «밝게» 연장한다** (`--room-rise` 로 올린 몫 · roomPadTop).
-  //    올린 자리를 벽과 똑같이 칠해 두었더니, 크림색 헤더 밑에서 벽이 «딱 잘려»
-  //    시작해 한 줄에 휘도 246 → 151 의 **짙은 띠**로 보였다.
-  //    CSS 덮개로 번지게도 해 봤는데 이번에는 **그라데이션이 끝나는 자리에 선**이
-  //    보인다고 신고받았다 — 그림 위에 무엇을 얹든 끝나는 자리가 남는다.
-  //    그래서 **벽 한 장**이 위로 갈수록 밝아진다: 끝나는 자리가 아예 없고,
-  //    빛이 천장에서 드는 그림이라 결도 맞는다.
-  //    ⚠️ y=0 에서는 원래 벽 색 그대로라 **`padTop` 이 0 이면 옛 그림과 한 글자도 안 다르다**
-  const CEIL_LIFT = 52;          // 천장 꼭대기에서 벽을 이만큼 밝힌다
+  // ⚠️⚠️ **방의 맨 위는 «헤더 색»에서 시작한다** (`--room-rise` 로 올린 몫 · roomPadTop).
+  //    한때 벽을 통째로 밝혀 두었는데, 그 값은 **크림색 헤더에서만** 맞는 값이다 —
+  //    벽 그림은 테마를 안 타고 헤더(`--head`)는 타므로, 챠콜에서는 어두운 헤더 밑에
+  //    밝힌 벽이 붙어 **반대쪽으로 더 벌어졌다** (「아직 한 덩어리가 되지 못했다」).
+  //    지금은 색을 «헤더에서 받아» 거기서 벽으로 번진다 — 맞닿는 줄이 헤더와
+  //    정확히 같은 색이라 이음매가 **어느 테마에서도 0** 이다.
+  //    ⚠️ 번짐은 **비네트 «뒤»에** 그린다. 비네트가 위를 어둡게 하므로 그 밑에 두면
+  //    맞닿는 줄이 헤더보다 어두워져 같은 단차가 되돌아온다
+  //    ⚠️ **`padTop` 이 0 이면(과시 카드) 벽은 옛 그림과 한 글자도 안 다르다** —
+  //    번짐만 위쪽 `HEAD_BLEND` 칸에 얹힌다
+  const HEAD_BLEND = 54;         // 헤더 색이 벽으로 번지는 길이 (viewBox 칸)
+  // 래스터화(과시 카드)에서는 CSS 변수가 안 풀리므로 **대체값을 `var()` «안»에** 둔다
+  // (스플래시에서 배운 자리다 — 없는 `var()` 는 그 속성을 통째로 버린다)
+  const HEAD_FALLBACK = 'var(--head, #f8f6f1)';
   const ROOM_SKIN = {
     1: { wall: ['#a8977c', '#7a6a54'], floor: ['#6b4e30', '#452f1b'], seam: 'rgba(40,32,26,0.26)', frame: '#4a3a2c' },
     2: { wall: ['#cbb99c', '#9d8a70'], floor: ['#7d5c39', '#5a4026'], seam: 'rgba(40,32,26,0.22)', frame: '#4a3a2c' },
@@ -4211,7 +4216,10 @@
   // 늘어난 만큼 **좌우가 잘린다** (선반과 창문이 화면 밖으로 나간다).
   // 그래서 viewBox 자체를 늘리고 **바닥을 진짜로 더 그린다** — 원근선도 기울기를
   // 그대로 이어서 연장하므로 이음매가 생기지 않는다.
-  function roomScene(level, extra, padBottom, padTop) {
+  // headColor — 방의 맨 윗줄에 쓸 «헤더 색». 안 주면 `var(--head)` 라 **테마를 저절로
+  //   따라간다**(테마를 고를 때 다시 그리지 않아도 된다). 래스터화하는 쪽만 실제 색을 준다
+  function roomScene(level, extra, padBottom, padTop, headColor) {
+    const headC = String(headColor || HEAD_FALLBACK);
     const pad = Math.max(0, Math.round(Number(padBottom) || 0));
     const H = 320 + pad;
     // ⚠️ **천장도 같은 규칙으로 올린다** (padTop · 아래와 짝이다). 상자만 키우면
@@ -4283,23 +4291,23 @@
     return `<svg class="room-svg" viewBox="0 ${top} 400 ${H - top}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
       <defs>
         <linearGradient id="${ID('wallG')}" x1="0" y1="0" x2="0" y2="1">
-          <!-- ⚠️ 맨 위를 한 단 밝힌다 — 폭이 넓으면 천장 연장이 slice 에 잘려
-               **벽의 맨 윗줄이 헤더와 맞닿는다.** 거기가 벽의 제일 어두운 쪽이면
-               짙은 띠로 읽힌다. 25% 아래로는 옛 색 그대로다 -->
-          <stop offset="0" stop-color="${shade(k.wall[0], -Math.round(CEIL_LIFT * 0.55))}"/>
-          <stop offset="0.25" stop-color="${k.wall[0]}"/>
+          <stop offset="0" stop-color="${k.wall[0]}"/>
           <stop offset="1" stop-color="${k.wall[1]}"/>
         </linearGradient>
-        <linearGradient id="${ID('ceilG')}" x1="0" y1="0" x2="0" y2="1">
-          <!-- ⚠️⚠️ 아래 끝은 **wallG 의 «윗» 색과 같아야 한다** — 벽의 원래 색으로
-               두었더니 y=0 에서 두 그라디언트가 안 맞아 **25 짜리 단차**가 한 줄에
-               생겼다 (헤더 밑의 그 선이 이번에는 여기서 났다).
+        <linearGradient id="${ID('headG')}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${HEAD_BLEND}">
+          <!-- ⚠️⚠️ **userSpaceOnUse 라야 한다.** 그래야 y1 «위»(천장 연장)가 첫 스톱으로
+               채워져, 폭이 넓어 천장이 slice 에 잘려도 **맞닿는 줄이 늘 헤더 색**이다.
+               상자에 맞추는 그라디언트로 두면 잘린 만큼 시작점이 밀려 단차가 되돌아온다.
                ⚠️ 이 주석에는 역따옴표도 붙임표 둘도 쓰지 않는다 — 통째로 템플릿
                문자열 «안»이라 역따옴표 하나가 파일을 깨뜨리고(문법 검사는 통과하고
                브라우저만 죽는다), 붙임표 둘은 XML 주석으로 못 읽혀 «과시 카드»의
                래스터화가 실패한다 (둘 다 여기서 한 번씩 냈다) -->
-          <stop offset="0" stop-color="${shade(k.wall[0], -CEIL_LIFT)}"/>
-          <stop offset="1" stop-color="${shade(k.wall[0], -Math.round(CEIL_LIFT * 0.55))}"/>
+          <stop offset="0" stop-color="${headC}" stop-opacity="1"/>
+          <stop offset="0.25" stop-color="${headC}" stop-opacity="0.76"/>
+          <stop offset="0.5" stop-color="${headC}" stop-opacity="0.44"/>
+          <stop offset="0.74" stop-color="${headC}" stop-opacity="0.18"/>
+          <stop offset="0.89" stop-color="${headC}" stop-opacity="0.05"/>
+          <stop offset="1" stop-color="${headC}" stop-opacity="0"/>
         </linearGradient>
         <linearGradient id="${ID('floorG')}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="${k.floor[0]}"/><stop offset="1" stop-color="${k.floor[1]}"/>
@@ -4315,11 +4323,11 @@
         </radialGradient>
       </defs>
 
-      <rect x="0" y="0" width="400" height="240" fill="url(#${ID('wallG')})"/>
-      ${top < 0 ? `<rect x="0" y="${top}" width="400" height="${-top}" fill="url(#${ID('ceilG')})"/>` : ''}
+      <rect x="0" y="${top}" width="400" height="${240 - top}" fill="url(#${ID('wallG')})"/>
       ${lv <= 3 ? stone : ''}
       ${body}
       <rect x="0" y="${top}" width="400" height="${H - top}" fill="url(#${ID('vigG')})"/>
+      <rect x="0" y="${top}" width="400" height="${HEAD_BLEND - top}" fill="url(#${ID('headG')})"/>
     </svg>`;
   }
 

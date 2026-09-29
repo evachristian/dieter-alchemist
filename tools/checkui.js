@@ -3254,11 +3254,15 @@ function launchOpts() {
       //    알파라, 같은 줄끼리 견주므로 벽 색이 무엇이든 1.00 이 나와야 한다
       const BAND_H = 20;            // 번짐이 끝난 «아래»에서 이만큼을 본다
       const BAND_MIN_A = 0.9;       // 줄마다 이만큼은 덮여 있어야 한다
-      // ⚠️ 번짐의 길이를 **검사기에 옮겨 적지 않는다** — 실제로 깔린 덮개에서 읽는다
+      // ⚠️ 번짐의 길이를 **검사기에 옮겨 적지 않는다** — 그림에 깔린 그라디언트에서
+      //    읽어 화면 배율로 옮긴다 (`HEAD_BLEND` 를 고치면 저절로 따라온다)
       const blendH = await page.evaluate(() => {
-        const sc = document.querySelector('.room-scene');
-        if (!sc) return 0;
-        return Math.round(parseFloat(getComputedStyle(sc, '::before').height) || 0);
+        const svg = document.querySelector('.room-scene .room-svg');
+        if (!svg) return 0;
+        const g = [...svg.querySelectorAll('linearGradient')].find(el => /^headG_/.test(el.id));
+        if (!g) return 0;
+        const m = svg.getScreenCTM();
+        return Math.round((Number(g.getAttribute('y2')) || 0) * (m ? m.d : 1));
       });
       const band = await (async () => {
         const g = await page.evaluate((bh) => {
@@ -3313,9 +3317,15 @@ function launchOpts() {
       //    제목 줄의 글자·🏠·↺ 도 같은 종류의 잡음이라 **제목 «위»에서만** 잰다
       // ⚠️ 가로 자리는 **방 그림의 상자**에서 뽑고 세 자리의 가운뎃값을 쓴다 —
       //    `innerWidth` 로 잡았더니 1280px 에서 양옆이 앱 «밖»이었다
+      // ⚠️⚠️ **여섯 테마에서 «다» 잰다 — 이 축은 오래 한 번도 안 쟀다.**
+      //    벽 그림은 테마를 안 타는데 헤더(`--head`)는 탄다. 그래서 「크림색 헤더에
+      //    맞춘 벽 색」이 챠콜에서는 **반대쪽으로 더 벌어졌고**(어두운 헤더 밑 밝은 벽),
+      //    검사는 기본 테마에서만 돌아 0건을 내고 있었다 (「아직 한 덩어리가 되지 못했다」).
+      //    돌면서 `data-theme` 만 바꾸고 **다시 그리지 않는다** — 색을 `var(--head)` 로
+      //    받는 것이 규칙이라, 리터럴을 구워 넣는 순간 여기서 잡힌다
       const SEAM_MAX = 6;                // 한 줄에 이보다 더 뛰면 «끊긴 선»으로 보인다
-      const SEAM_JUMP = 65;              // 헤더 → 첫 줄. 천장을 안 밝히면 95 가 나온다
-      const seam = await (async () => {
+      const SEAM_JUMP = 12;              // 헤더 → 첫 줄. 헤더 색에서 시작하면 0 에 가깝다
+      const seamOne = async () => {
         // ⚠️ **맨 위로 올려 놓고 잰다** — `page.screenshot({clip})` 은 «문서» 좌표인데
         //    자리는 `getBoundingClientRect`(«화면» 좌표)로 잡는다. 굴러 있으면 둘이
         //    어긋나 엉뚱한 자리를 재고, 그 자리가 어두우면 「단차 23」이 된다
@@ -3373,7 +3383,27 @@ function launchOpts() {
         }
         return { jump, lift: mid[UP] - mid[last], worst, at, seen, head,
                  span: Math.abs(mid[n - 1] - head), n };
+      };
+      // 여섯을 돌고 원래 테마로 되돌린다
+      const seams = await (async () => {
+        const ids = await page.evaluate(() => (window.Theme ? Theme.list().map(t => t.id) : []));
+        const was = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+        const out = [];
+        for (const id of (ids.length ? ids : [was])) {
+          await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), id);
+          await page.waitForTimeout(40);
+          out.push({ id, s: await seamOne() });
+        }
+        await page.evaluate((t) => {
+          if (t) document.documentElement.setAttribute('data-theme', t);
+          else document.documentElement.removeAttribute('data-theme');
+        }, was);
+        await page.waitForTimeout(40);
+        return out;
       })();
+      // 낼 때 쓰는 대표값은 «제일 나쁜» 테마다
+      const seam = seams.every(r => r.s) && seams.length
+        ? seams.reduce((a, r) => (r.s.jump > a.s.jump ? r : a)).s : null;
 
       const flat = await page.evaluate(() => {
         const canvas = document.querySelector('.room-canvas');
@@ -3402,19 +3432,22 @@ function launchOpts() {
           + ` 덜 덮였다 (덮인 몫 ${dim.map(([v]) => v.toFixed(2)).join('·')})`
           + ' — 마이 룸 배경이 끊긴 띠로 보인다');
       }
-      if (!seam) bad2.push('이음매를 못 쟀다 — 0건이 「통과」가 아니다');
-      else {
-        if (seam.seen < 6)
-          bad2.push(`이음매를 ${seam.seen}줄밖에 못 쟀다 — 「한 번도 안 쟀다」다`);
+      if (seams.length < 6)
+        bad2.push(`이음매를 테마 ${seams.length}개에서만 쟀다 — 벽은 테마를 안 타고 헤더는 탄다`);
+      seams.filter(r => !r.s).forEach(r => bad2.push(`이음매를 «${r.id}» 에서 못 쟀다 — 0건이 「통과」가 아니다`));
+      seams.filter(r => r.s).forEach(({ id, s }) => {
+        if (s.seen < 6) bad2.push(`«${id}» 이음매를 ${s.seen}줄밖에 못 쟀다 — 「한 번도 안 쟀다」다`);
+        else if (s.jump > SEAM_JUMP)
+          bad2.push(`«${id}» 에서 헤더와 만나는 줄이 어긋난다 (한 줄에 ${s.jump.toFixed(1)})`
+            + ' — 헤더 밑이 띠로 보인다');
+      });
+      if (seam) {
         // ⚠️⚠️ **헤더 자체의 «경계»를 없애려는 것이 아니다** — 헤더는 제 판을 가진
         //    띠라 거기에 선이 있는 것이 맞다. 문제였던 것은 그 아래가 **벽의 제일
         //    어두운 자리**여서 한 줄에 95 가 떨어지며 「짙은 띠」로 읽히던 것이다.
         // ⚠️ 「천장이 스무 줄 아래보다 밝은가」로 재 보았다가 **버렸다** —
         //    방 그림은 `slice` 라 **폭이 넓으면 천장 연장이 통째로 잘린다**(480px 에서
         //    2px 만 남는다). 그 잣대는 폰에서만 참이라 잣대가 못 된다
-        if (seam.jump > SEAM_JUMP)
-          bad2.push(`헤더와 만나는 줄이 너무 어둡다 (한 줄에 ${seam.jump.toFixed(1)})`
-            + ' — 헤더 밑이 짙은 띠로 보인다');
         if (seam.worst > SEAM_MAX)
           bad2.push(`방 그림 위쪽에 «끝나는 자리»가 있다 (y+${seam.at} 에서 한 줄에 ${seam.worst.toFixed(1)})`
             + ' — 그라데이션이 끊긴 선으로 보인다');
@@ -3433,7 +3466,8 @@ function launchOpts() {
             잰것: `화면 꼭대기를 ${rise.overHead.toFixed(1)}px 덮는다 (안 올리면 ${flat.overHead.toFixed(1)}px)`
               + ` · 확대율 ${rise.scale.toFixed(3)} (그대로) · 좌우 ${rise.unitsW.toFixed(1)}칸`
               + ` · 제목 줄 ${rise.headCover.n}점이 안 덮였다`
-              + ` · 이음매 ${seam ? seam.jump.toFixed(1) : '?'} · 그 아래 제일 큰 한 줄 ${seam ? seam.worst.toFixed(1) : '?'}`
+              + ` · 이음매 테마 ${seams.length}개 (제일 나쁜 곳 ${seam ? seam.jump.toFixed(1) : '?'})`
+              + ` · 그 아래 제일 큰 한 줄 ${seam ? seam.worst.toFixed(1) : '?'}`
               + ` (${seam ? seam.seen : 0}줄을 쟀다 · 벽까지 ${seam ? seam.span.toFixed(0) : '?'})`
               + ` · 번짐 아래 ${bandN}줄이 다 방 그림이다`
               + `${bandN ? ` (제일 덜 덮인 줄 ${Math.min(...band.filter(v => v != null)).toFixed(2)})` : ''}` });

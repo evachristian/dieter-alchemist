@@ -7592,7 +7592,10 @@ async function shareCardBlob() {
     const w = 400 * k, h = 320 * k;
     ctx.save();
     ctx.beginPath(); ctx.rect(0, 0, CARD_W, CARD_ROOM_H); ctx.clip();
-    ctx.drawImage(await svgToImage(Avatar.roomScene(S.roomLevel), Math.round(w), Math.round(h)),
+    // ⚠️ 헤더 색을 **실제 값으로** 넘긴다 — 래스터화하는 SVG 안에서는 `var(--head)` 가
+    //    안 풀려 대체값(에크루)으로 떨어진다
+    ctx.drawImage(await svgToImage(Avatar.roomScene(S.roomLevel, null, 0, 0, cssVar('--head', '#f8f6f1')),
+      Math.round(w), Math.round(h)),
       (CARD_W - w) / 2, CARD_ROOM_H - h, w, h);   // xMid YMax
     ctx.restore();
   }
