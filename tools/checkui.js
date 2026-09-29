@@ -3252,15 +3252,21 @@ function launchOpts() {
       //    그래서 **세 장을 찍어 줄마다 «덮인 몫»을 직접 낸다** — 있는 그대로(A) ·
       //    방 그림을 끈 것(B) · **mask 를 벗긴 것**(C). `|A−B| ÷ |C−B|` 가 곧 그 줄의
       //    알파라, 같은 줄끼리 견주므로 벽 색이 무엇이든 1.00 이 나와야 한다
-      const BAND_H = 20;            // 옛 페이드가 18px 이었다 — 그보다 넉넉히 본다
+      const BAND_H = 20;            // 번짐이 끝난 «아래»에서 이만큼을 본다
       const BAND_MIN_A = 0.9;       // 줄마다 이만큼은 덮여 있어야 한다
+      // ⚠️ 번짐의 길이를 **검사기에 옮겨 적지 않는다** — 실제로 깔린 덮개에서 읽는다
+      const blendH = await page.evaluate(() => {
+        const sc = document.querySelector('.room-scene');
+        if (!sc) return 0;
+        return Math.round(parseFloat(getComputedStyle(sc, '::before').height) || 0);
+      });
       const band = await (async () => {
-        const g = await page.evaluate(() => {
+        const g = await page.evaluate((bh) => {
           const sc = document.querySelector('.room-scene');
           if (!sc) return null;
           const b = sc.getBoundingClientRect();
-          return { x: Math.round(Math.max(0, b.left)) + 8, y: Math.round(b.top) };
-        });
+          return { x: Math.round(Math.max(0, b.left)) + 8, y: Math.round(b.top) + bh };
+        }, blendH);
         if (!g) return null;
         const clip = { x: g.x, y: g.y, width: 40, height: BAND_H };
         const set = (v) => page.evaluate((m) => {
@@ -3294,6 +3300,75 @@ function launchOpts() {
         }
         return rows;
       })();
+      // ─── 헤더 ↔ 방 그림의 이음매에 «단차»가 없는가 (진짜 픽셀) ───
+      //
+      // ⚠️⚠️ 위의 「덮였는가」는 **이 사고를 영영 못 본다** — 방 그림이 꼭대기까지
+      //    꽉 차 있어도, 크림색 헤더 밑에서 벽이 «딱» 시작하면 한 줄 만에 246 → 151 이
+      //    되어 **짙은 띠**로 읽힌다 (「마이룸 위에 짙은 색상 띠가 거슬린다」).
+      //    덮인 몫은 그때도 1.00 이라 0건이 「통과」가 아니라 「그 축은 안 쟀다」였다.
+      // ⚠️ 보는 것은 **«급한» 변화**이지 총 변화가 아니다 — 헤더와 벽이 원래 다른 색이라
+      //    「위아래가 얼마나 다른가」로는 무엇을 해도 크게 나온다
+      // ⚠️⚠️ **창을 좁게 잡는다 — 벽에는 돌 이음새(가로줄)가 있다.** 넓게 훑었더니
+      //    이음새 한 줄이 16~36 을 뛰어 멀쩡한 그림이 「단차」로 잡혔다.
+      //    제목 줄의 글자·🏠·↺ 도 같은 종류의 잡음이라 **제목 «위»에서만** 잰다
+      // ⚠️ 가로 자리는 **방 그림의 상자**에서 뽑고 세 자리의 가운뎃값을 쓴다 —
+      //    `innerWidth` 로 잡았더니 1280px 에서 양옆이 앱 «밖»이었다
+      const SEAM_MAX = 6;                // 한 줄에 이보다 더 뛰면 띠로 보인다
+      const seam = await (async () => {
+        const g = await page.evaluate(() => {
+          const sc = document.querySelector('.room-scene');
+          const hd = document.querySelector('.app-header');
+          const ti = document.querySelector('.room-head');
+          if (!sc || !hd) return null;
+          const b = sc.getBoundingClientRect(), h = hd.getBoundingClientRect();
+          const L = Math.max(0, b.left), R = Math.min(window.innerWidth, b.right);
+          return {
+            top: Math.round(Math.max(b.top, h.bottom)), L: Math.round(L), w: Math.round(R - L),
+            title: ti ? Math.round(ti.getBoundingClientRect().top) : null,
+          };
+        });
+        if (!g || g.w < 120 || g.title == null) return null;
+        const UP = 8;
+        const y0 = Math.max(0, g.top - UP);
+        // 아래 끝은 **번짐이 끝난 뒤 한 뼘** — 거기서 벽이 돌아왔는지를 본다
+        const bot = g.top + blendH + 16;
+        const cols = [[g.L + 8, 40], [g.L + Math.round(g.w / 2) - 20, 40], [g.L + g.w - 48, 40]];
+        const lum = [];
+        for (const [x, w] of cols) {
+          const im = decode(await page.screenshot({ clip: { x, y: y0, width: w, height: bot - y0 + 1 } }));
+          if (!im) return null;
+          const k = Math.max(1, Math.round(im.h / (bot - y0 + 1)));   // 기기 배율
+          const rows = [];
+          for (let y = 0; y < im.h; y += k) {
+            let sum = 0;
+            for (let px = 0; px < im.w; px++) {
+              const i = (y * im.w + px) * 4;
+              sum += 0.2126 * im.px[i] + 0.7152 * im.px[i + 1] + 0.0722 * im.px[i + 2];
+            }
+            rows.push(sum / im.w);
+          }
+          lum.push(rows);
+        }
+        const n = Math.min(...lum.map(r => r.length));
+        const mid = [];
+        for (let y = 0; y < n; y++) mid.push(lum.map(r => r[y]).sort((p, q) => p - q)[1]);
+        // 헤더의 «깨끗한» 색 — 제 테두리 한 줄을 피해 조금 위에서 읽는다
+        const head = mid.slice(0, Math.max(1, UP - 3)).sort((p, q) => p - q)[Math.floor((UP - 3) / 2)];
+        // 창의 아래 끝 — 번짐이 끝나는 자리와 제목이 시작하는 자리 중 «먼저 오는 쪽»
+        const lastRow = Math.min(UP + blendH, g.title - 2 - y0);
+        // ⚠️ **이음매 «그 한 줄»은 따로 낸다** — 번짐을 통째로 걷는 사보타주에서는
+        //    잴 줄이 하나도 안 남아, 하나로 묶어 두면 「못 쟀다」만 뜨고 **정작 얼마나
+        //    뛰는지(95)를 안 말한다.** 그 값이 곧 사람이 본 띠다
+        const jump = Math.abs(mid[UP] - head);
+        let worst = 0, at = 0, seen = 0;
+        for (let y = UP + 1; y <= lastRow && y < n; y++, seen++) {
+          const d = Math.abs(mid[y] - mid[y - 1]);
+          if (d > worst) { worst = d; at = y - UP; }
+        }
+        return { jump, worst, at, seen, head,
+                 span: Math.abs(mid[n - 1] - head), n };
+      })();
+
       const flat = await page.evaluate(() => {
         const canvas = document.querySelector('.room-canvas');
         canvas.style.setProperty('--room-rise', '0px');
@@ -3321,6 +3396,21 @@ function launchOpts() {
           + ` 덜 덮였다 (덮인 몫 ${dim.map(([v]) => v.toFixed(2)).join('·')})`
           + ' — 마이 룸 배경이 끊긴 띠로 보인다');
       }
+      if (!seam) bad2.push('이음매를 못 쟀다 — 0건이 「통과」가 아니다');
+      else {
+        if (seam.jump > SEAM_MAX)
+          bad2.push(`헤더와 방 그림 사이에 단차가 있다 (한 줄에 ${seam.jump.toFixed(1)})`
+            + ' — 방 그림 위에 짙은 띠로 보인다');
+        else if (seam.seen < 6)
+          bad2.push(`이음매를 ${seam.seen}줄밖에 못 쟀다 — 「한 번도 안 쟀다」다`);
+        if (seam.worst > SEAM_MAX)
+          bad2.push(`번짐 안에 단차가 있다 (y+${seam.at} 에서 한 줄에 ${seam.worst.toFixed(1)})`
+            + ' — 방 그림 위에 짙은 띠로 보인다');
+        // ⚠️ **한쪽만 보면 「방 그림을 통째로 지우기」가 통과한다** (단차 0) —
+        //    이음매를 지나는 동안 벽이 실제로 돌아와야 한다
+        if (seam.span < 20)
+          bad2.push(`이음매 아래에서 벽이 안 돌아온다 (${seam.span.toFixed(1)}) — 방 그림이 없는 것과 같다`);
+      }
       await page.evaluate(() => { if (typeof renderShowcase === 'function') renderShowcase(); });
       results.push(bad.length
         ? { 화면: '방 배경 늘이기', 오류: bad.join(' · ') }
@@ -3331,7 +3421,9 @@ function launchOpts() {
             잰것: `화면 꼭대기를 ${rise.overHead.toFixed(1)}px 덮는다 (안 올리면 ${flat.overHead.toFixed(1)}px)`
               + ` · 확대율 ${rise.scale.toFixed(3)} (그대로) · 좌우 ${rise.unitsW.toFixed(1)}칸`
               + ` · 제목 줄 ${rise.headCover.n}점이 안 덮였다`
-              + ` · 헤더 밑 ${bandN}줄이 다 방 그림이다`
+              + ` · 이음매 단차 ${seam ? seam.jump.toFixed(1) : '?'} · 번짐 안 ${seam ? seam.worst.toFixed(1) : '?'}`
+              + ` (번짐 ${blendH}px · ${seam ? seam.seen : 0}줄을 쟀다 · 벽까지 ${seam ? seam.span.toFixed(0) : '?'})`
+              + ` · 번짐 아래 ${bandN}줄이 다 방 그림이다`
               + `${bandN ? ` (제일 덜 덮인 줄 ${Math.min(...band.filter(v => v != null)).toFixed(2)})` : ''}` });
     }
   }
