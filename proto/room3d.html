@@ -9,7 +9,8 @@
   지금 쓰는 아바타 SVG 를 그대로 «빌보드»로 세워 보는 프로토타입이다.
 
   ⚠️⚠️ **게임 본편은 한 줄도 안 건드린다.** index.html 은 이 파일을 안 부르고,
-        이 파일도 game.js 를 안 읽는다. 읽는 것은 `data.js` 와 `avatar.js` 둘뿐이다 —
+        이 파일도 game.js 를 안 읽는다. 읽는 것은 `data.js` · `avatar.js` ·
+        `creature.js` 셋뿐이다 —
         그림이 «그대로» 서는지가 이 프로토타입이 답해야 할 질문이기 때문이다.
 
   ⚠️ three.js 는 `proto/vendor/` 에 **넣어 두었다**(CDN 을 안 쓴다) — 배포 환경에서
@@ -64,25 +65,43 @@
     <button id="bLine" class="on">✒️ 외곽선</button>
     <button id="bSpin" class="on">🔄 자동 회전</button>
     <button id="bCloth">👗 옷 바꾸기</button>
+    <button id="bPet">🦋 크리처 바꾸기</button>
   </div>
   <p id="note" style="margin-top:10px"></p>
 </div>
 <div id="err"></div>
 
-<script src="../data.js"></script>
-<script src="../avatar.js"></script>
+<script>
+// ⚠️⚠️ **게임 파일은 «열 때마다» 새로 받는다.** 서버는 정적 파일에 1년짜리 캐시를
+//    주고(`server/index.js`), 본편은 `index.html` 의 `?v=` 로 그것을 넘긴다 —
+//    여기서 그냥 `<script src="../avatar.js">` 로 두면 **그림을 고쳐도 옛 파일이
+//    계속 온다.** 프로토타입에 캐시 버스터를 «또» 적어 두면 본편과 어긋나므로
+//    (사본이 하나 더 생긴다) 여기서는 시각을 붙여 캐시를 아예 안 쓴다
+window.__deps = (async () => {
+  const q = '?t=' + Date.now();
+  for (const f of ['../data.js', '../avatar.js', '../creature.js']) {
+    await new Promise((ok, no) => {
+      const el = document.createElement('script');
+      el.src = f + q; el.onload = ok; el.onerror = () => no(new Error(f));
+      document.head.appendChild(el);
+    });
+  }
+})();
+</script>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
 </script>
 <script type="module">
 import * as THREE from 'three';
+await window.__deps;          // 위의 세 파일이 다 온 뒤에 시작한다
 
 const errBox = document.getElementById('err');
 function fatal(msg) {
   errBox.style.display = 'block';
   errBox.textContent = '⚠ ' + msg;
 }
-if (!window.Avatar || !window.GameData) fatal('data.js / avatar.js 를 못 읽었다.');
+if (!window.Avatar || !window.GameData || !window.Creature)
+  fatal('data.js / avatar.js / creature.js 를 못 읽었다.');
 
 // ── 셀 셰이딩의 «전부» — 세 칸짜리 그라디언트 맵 ──────────────────
 // 빛을 연속으로 받지 않고 **세 단계로 끊는다.** 그것이 곧 툰 셰이딩이고,
@@ -324,7 +343,7 @@ prop(new THREE.BoxGeometry(1.5, 0.12, 0.9), woodLt, 3.1, 0.92, 0.6, 1.02);
 });
 // 촛불 — 불꽃은 빛을 안 받는다(Basic). 툰으로 두면 «회색 알»이 된다
 const flames = [];
-[[-4.3, 2.4, -1.0], [-4.3, 2.4, 1.6], [3.1, 1.12, 0.6]].forEach(([x, y, z], i) => {
+[[-4.3, 2.4, -1.0], [-4.3, 2.4, 1.6], [3.55, 1.12, 0.75]].forEach(([x, y, z], i) => {
   const c = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.42, 12), toon(0xfdf3e0));
   c.position.set(x, y, z); c.castShadow = true; scene.add(c); outline(c, 1.06);
   const f = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8),
@@ -410,6 +429,115 @@ function redrawFigure() {
 }
 redrawFigure();
 
+// ── 크리처도 «빌보드»다 ───────────────────────────────────────
+// ⚠️⚠️ **인물과 같은 규칙을 지난다** — `creature.js` 가 만든 SVG 를 그대로 세운다.
+//    서른 종을 3D 로 다시 만들면 부품 표(몸통·귀·뿔·날개·꼬리·눈·무늬)가 통째로
+//    날아간다. 빌보드면 **그림이 한 픽셀도 안 바뀐 채** 방 안에 선다.
+// ⚠️ 어디에 서는지는 **`move` 가 정한다** (게임과 같은 규칙) —
+//    물고기는 어항, 날개가 있으면 공중, 나머지는 땅
+const CR_FOOT = 0.88;     // 크리처 그림에서 «발이 닿는» 높이 (그림자 자리 · v)
+const CR_BOWL = 0.96;     // 어항은 «받침»이 바닥이다
+const bills = [];         // 세로축으로 도는 것들 (인물 + 크리처)
+
+// SVG → 텍스처. 인물 쪽과 같은 길이라 **여기 하나만 고치면 둘 다 따라온다**
+function svgTex(svg, px) {
+  return new Promise((ok, no) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = c.height = px;
+      c.getContext('2d').drawImage(img, 0, 0, px, px);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      ok(t);
+    };
+    img.onerror = () => no(new Error('크리처 SVG 래스터화 실패'));
+    img.src = 'data:image/svg+xml;charset=utf-8,'
+      + encodeURIComponent(svg.replace('<svg ', '<svg width="' + px + '" height="' + px + '" '));
+  });
+}
+function billPlane(tex, w, h) {
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02,
+      side: THREE.DoubleSide, toneMapped: false, depthWrite: false }));
+}
+const CREATURES = window.GameData.RECIPES
+  .filter(r => r.result.kind === 'creature').map(r => r.result);
+const pets = new THREE.Group();
+scene.add(pets);
+
+// ⚠️ **어항은 «같은 상자 안»에 그린다** (creature.js 의 그 규칙 그대로) —
+//    유리통(뒤) → 물고기 → 테·반사(앞) 셋을 한 그룹에 겹쳐 세운다.
+//    물고기만 그룹 안에서 헤엄치므로 «유리 너머»로 보인다
+async function addPet(c, spot) {
+  const g = new THREE.Group();
+  g.position.set(spot.x, 0, spot.z);
+  pets.add(g); bills.push(g);
+  const S = spot.h;
+  if (c.move === 'water') {
+    const b = window.Creature.bowl();
+    const [tb, tf, tc] = await Promise.all([
+      svgTex(b.back, 256), svgTex(b.front, 256),
+      svgTex(window.Creature.draw(c, { flat: true, noShadow: true }), 256),
+    ]);
+    const y = (spot.y || 0) + (CR_BOWL - 0.5) * S;
+    const back = billPlane(tb, S, S), front = billPlane(tf, S, S);
+    const fish = billPlane(tc, S * 0.48, S * 0.48);
+    back.position.y = front.position.y = y;
+    fish.position.set(0, y + S * 0.08, 0.012);
+    front.position.z = 0.024;
+    g.add(back, fish, front);
+    g.userData.fish = fish; g.userData.S = S;
+  } else {
+    const t = await svgTex(window.Creature.draw(c, { flat: true, noShadow: true }), 256);
+    const m = billPlane(t, S, S);
+    const air = c.move === 'air';
+    m.position.y = (spot.y || 0) + (CR_FOOT - 0.5) * S + (air ? spot.h * 1.7 : 0);
+    g.add(m);
+    g.userData.air = air ? m : null;
+    g.userData.base = m.position.y;
+    // 발밑 그림자 — 빌보드는 그림자를 못 만든다 (인물과 같은 자리다).
+    // ⚠️ 공중에 뜬 아이도 **바닥에는 그림자가 진다** — 없으면 어디쯤 떠 있는지가 안 읽힌다
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(S * 0.9, S * 0.55),
+      new THREE.MeshBasicMaterial({ map: shTex, transparent: true, depthWrite: false,
+        opacity: air ? 0.5 : 1 }));
+    sh.rotation.x = -Math.PI / 2;
+    sh.position.y = (spot.y || 0) + 0.035;
+    g.add(sh);   // ⚠️ 그림자는 «빌보드가 아니다» — 그룹이 돌 때 같이 돌지 않게 따로 눕힌다
+    g.userData.shadow = sh;
+  }
+  return g;
+}
+// 세이브에 애착 크리처가 있으면 «그 아이»가 땅에 선다 (없으면 표의 첫 아이)
+function savedPet() {
+  try {
+    const raw = localStorage.getItem('dieter_alchemist_save_v1');
+    const st = raw ? JSON.parse(raw) : null;
+    if (st && st.petRoom) return CREATURES.find(c => c.id === st.petRoom) || null;
+  } catch (e) {}
+  return null;
+}
+const byMove = m => CREATURES.filter(c => c.move === m);
+let petIdx = 0;
+async function redrawPets() {
+  // ⚠️ 바꿀 때 **옛 그룹을 통째로 버린다** — 안 지우면 같은 자리에 겹쳐 쌓인다
+  pets.children.slice().forEach(g => {
+    g.traverse(o => { if (o.material) { if (o.material.map && o.material.map !== shTex) o.material.map.dispose(); o.material.dispose(); } });
+    pets.remove(g);
+    const i = bills.indexOf(g); if (i >= 0) bills.splice(i, 1);
+  });
+  const G = byMove('ground'), A = byMove('air'), W = byMove('water');
+  const ground = (petIdx === 0 && savedPet() && savedPet().move === 'ground')
+    ? savedPet() : G[petIdx % G.length];
+  await addPet(ground, { x: -1.55, z: 1.05, h: 0.95 });
+  await addPet(A[petIdx % A.length], { x: 1.75, z: 0.85, h: 0.8 });
+  // 어항은 **탁자 위**다 (바닥에 두면 사람 발치에서 밟힌다).
+  // ⚠️ 촛대와 «같은 자리»에 두었더니 촛불이 어항 «안»에 들어가 있었다 (찍어 보고 갈랐다)
+  await addPet(W[petIdx % W.length], { x: 2.68, z: 0.88, y: 0.98, h: 0.9 });
+}
+redrawPets();
+
 // ── 조작 ──────────────────────────────────────────────────────
 let yaw = 0, pitch = 0.16, dist = 11.2, spin = true, night = false;
 let drag = null;
@@ -456,6 +584,7 @@ bCloth.onclick = () => {
   if (d === 'dress_none') { outfit.top = 'top_blouse'; outfit.bottom = 'skirt_long'; }
   redrawFigure();
 };
+$('bPet').onclick = () => { petIdx++; redrawPets(); };
 $('w').oninput = (e) => {
   weight = e.target.value / 100; $('wv').textContent = weight.toFixed(2); redrawFigure();
 };
@@ -486,7 +615,31 @@ function tick(now) {
   camera.lookAt(0, 1.55, -0.4);
 
   // 빌보드 — **세로축으로만 돈다.** 카메라를 통째로 따라 기울이면 인물이 «눕는다»
-  fig.rotation.y = Math.atan2(camera.position.x - fig.position.x, camera.position.z - fig.position.z);
+  const faceCam = (o) => {
+    o.rotation.y = Math.atan2(camera.position.x - o.position.x, camera.position.z - o.position.z);
+  };
+  faceCam(fig);
+  bills.forEach(g => {
+    faceCam(g);
+    // ⚠️ 바닥 그림자는 **같이 돌면 안 된다** — 누워 있는 판이라 그룹을 따라 돌면
+    //    타원이 바닥에서 빙글빙글 돈다. 그룹이 돈 만큼 되돌린다
+    if (g.userData.shadow) g.userData.shadow.rotation.z = -g.rotation.y;
+  });
+
+  if (!slow) {
+    bills.forEach((g, i) => {
+      // 공중에 뜬 아이는 위아래로 떠다닌다
+      if (g.userData.air) g.userData.air.position.y = g.userData.base + Math.sin(now / 900 + i) * 0.1;
+      // 물고기는 어항 «안»에서만 논다 (style.css 의 swim 과 같은 폭·같은 뒤집기)
+      const f = g.userData.fish;
+      if (f) {
+        const S = g.userData.S, t = (now / 6000) % 1;
+        const k = t < 0.5 ? (t / 0.5) : (1 - (t - 0.5) / 0.5);
+        f.position.x = (k - 0.5) * S * 0.16;
+        f.scale.x = t < 0.5 ? 1 : -1;
+      }
+    });
+  }
 
   if (!slow) {
     glyph.rotation.y += dt * 0.35;
