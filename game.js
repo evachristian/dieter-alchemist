@@ -5986,10 +5986,18 @@ window.closeSlotSheet = closeSlotSheet;
 function renderSoloActs() {
   const box = document.getElementById('roomSolo');
   if (!box) return;
-  box.innerHTML = !S.tutorialDone ? '' : soloSlots().map(m =>
-    `<button class="room-act" data-slot="${m.slot}" onclick="openSlotSheet('${m.slot}')">
-      <span aria-hidden="true">${m.emoji}</span><span>${escHtml(N(m.slot, m.label))}</span>
-    </button>`).join('');
+  box.innerHTML = !S.tutorialDone ? '' : soloSlots().map(m => {
+    // ⚠️ 그림은 **«지금 걸려 있는 것»**이다 — 표에 박힌 그림이 아니다.
+    // 그래야 버튼이 「무엇을 고르는 자리인가」(라벨)와 「지금 무엇인가」(그림)를
+    // 같이 말한다 (「표정 이모지를 현재 아바타의 표정이 나오도록」으로 받은 자리다).
+    // ⚠️ 칸마다 갈래를 두지 않는다 — 「입은 것에 그림이 있으면 그것」 한 줄이다.
+    //    「없음」(문신)처럼 그림이 없는 것은 표의 그림으로 떨어진다
+    const worn = (D.WARDROBE[m.slot] || []).find(x => x.id === S.outfit[m.slot]);
+    const ic = (worn && worn.emoji) || m.emoji;
+    return `<button class="room-act" data-slot="${m.slot}" onclick="openSlotSheet('${m.slot}')">
+      <span class="act-ic" aria-hidden="true">${ic}</span><span>${escHtml(N(m.slot, m.label))}</span>
+    </button>`;
+  }).join('');
 }
 
 function renderWardrobe() {

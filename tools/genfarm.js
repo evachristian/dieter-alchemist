@@ -204,7 +204,7 @@ for (const c of TABLE) {
   potBody +=
     `  { inputs: [${ins}],\n` +
     `    result: { id: '${P.id}', kind: 'potion', grade: 'high', emoji: '${P.emoji}', name: '${P.ko}',\n` +
-    `      desc: '밭에서 기른 ${c.ko} 없이는 빚을 수 없다.', beauty: ${POT_BEAUTY}, charm: ${POT_CHARM} } },\n`;
+    `      desc: '농장에서 기른 ${c.ko} 없이는 빚을 수 없다.', beauty: ${POT_BEAUTY}, charm: ${POT_CHARM} } },\n`;
 }
 
 // ④ 영어 이름 (작물 + 물약). **같은 표에서 나오므로 한쪽만 빠질 수 없다**

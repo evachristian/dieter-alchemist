@@ -13,11 +13,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260929l">
+<link rel="stylesheet" href="style.css?v=20260929m">
 <!-- ⚠️ UI 색상은 «첫 페인트 전»에 정해져야 한다 — 문서 끝에 두면 기본 색으로
      한 번 그려진 뒤에 얹혀서 다크를 고른 사람에게 흰 화면이 한 번 친다.
      그래서 여기만 `defer` 없이 `<head>` 에서 읽는다 (theme.js 주석 참고) -->
-<script src="theme.js?v=20260929l"></script>
+<script src="theme.js?v=20260929m"></script>
 </head>
 <body>
 
@@ -54,7 +54,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260929l" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260929m" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -339,7 +339,7 @@
          「No companion creature」가 석 줄이 됐다. 일지는 **글자가 짧고 갈래와 무관한**
          것이라 제목 줄의 남는 자리가 제자리고, 그러면 동행 줄은 **어느 언어에서나**
          한 줄을 통째로 쓴다 (사람이 그림으로 자리를 정해 줬다).
-         일지가 탭 «위»에 있는 이유는 그대로다 — 세 갈래(필드/마을/밭) 중 어느 쪽 일이든
+         일지가 탭 «위»에 있는 이유는 그대로다 — 세 갈래(필드/마을/농장) 중 어느 쪽 일이든
          다 적히므로 한 갈래 안에 넣으면 다른 갈래에서 온 사람은 있는 줄도 모른다.
          ⚠️ **동행·시간대는 반대다** — 그것은 «필드에서만» 뜻이 있으므로 필드 판 안에 산다
          (아래 `#palLine`) -->
@@ -349,7 +349,7 @@
     </div>
     <p id="gatherSub" class="screen-sub" data-i18n="screen_gather_sub">장소를 골라 채집하세요.</p>
     <!-- 탐험은 세 갈래다 — 필드(재료를 캐는 곳) / 마을(사람을 만나는 곳) /
-         밭(심고 거두고 지키는 곳. 여신 단계부터 · FARM.md).
+         농장(심고 거두고 지키는 곳. 여신 단계부터 · FARM.md).
          고정 칸이라 줄바꿈 칩이 아니라 균등 분할 행을 쓴다 (UI_POLICY 1-1).
          ⚠️ 칸이 셋이 되면서 265px 영어가 훨씬 빡빡해졌다 — 폭을 바꿀 때 반드시 다시 잰다 -->
     <!-- ⚠️ **탭 · 지대 칩 · 카드 목록은 «한 덩어리»다** — 「여기서 갈 수 있는 곳」
@@ -368,7 +368,7 @@
       <button class="room-tab" data-gtab="village" onclick="setGatherTab('village')"><span class="tab-label" data-i18n="gather_village">🏘️ 마을</span></button>
       <!-- 여신 단계 전에는 **그려진 크기가 0 이어야 한다.** `hidden` 속성만으로는
            `.room-tab{display:flex}` 에 져서 안 숨는다 (랭킹 탭에서 실제로 겪었다) -->
-      <button id="gtabFarm" class="room-tab" data-gtab="farm" onclick="setGatherTab('farm')" hidden><span class="tab-label" data-i18n="gather_farm">🌾 밭</span></button>
+      <button id="gtabFarm" class="room-tab" data-gtab="farm" onclick="setGatherTab('farm')" hidden><span class="tab-label" data-i18n="gather_farm">🌾 농장</span></button>
     </div>
 
     <div id="gatherPanel-field" class="room-panel active">
@@ -379,7 +379,7 @@
            오른쪽 끝의 시간대는 **따로 누르는 것**이다. 한 버튼 안에 넣으면
            시각을 보려고 눌렀는데 크리처 고르기 시트가 뜬다.
            ⚠️⚠️ **이 줄은 «필드 갈래»의 것이라 필드 판 «안»에 산다.** 한때 탭 «위»에
-           두었는데, 거기서는 세 갈래에 다 걸려서 마을·밭에서도 떴다 — 데려갈 곳이
+           두었는데, 거기서는 세 갈래에 다 걸려서 마을·농장에서도 떴다 — 데려갈 곳이
            없는 자리라 누르면 뜻 없는 시트가 열렸다. `renderPalRow()` 가 `hidden` 으로
            접고 있었지만 그건 **JS 가 지키는 약속**이고, 판 안에 두면 갈래가 바뀌는
            순간 판째로 사라져 **구조가 지킨다** (사람이 그림으로 자리를 정해 줬다) -->
@@ -396,7 +396,7 @@
       <div id="villageBody" class="spot-list"></div>
     </div>
 
-    <!-- 밭 (FARM.md) — 마이 룸 시트와 **같은 내용을 같은 함수가 그린다**.
+    <!-- 농장 (FARM.md) — 마이 룸 시트와 **같은 내용을 같은 함수가 그린다**.
          두 벌로 두면 한쪽만 고치는 일이 반드시 생긴다 -->
     <div id="gatherPanel-farm" class="room-panel">
       <div id="farmPanelBody" class="farm-body"></div>
@@ -545,11 +545,11 @@
           <span aria-hidden="true">🧺</span><span data-i18n="act_produce">수확</span>
           <span id="produceBadge" class="act-badge" hidden>0</span>
         </button>
-        <!-- 밭 (CREATURE.md 10장) — 생산과 **별개로** 밖에 내놓은 몫이 쌓이는 자리다.
+        <!-- 농장 (CREATURE.md 10장) — 생산과 **별개로** 밖에 내놓은 몫이 쌓이는 자리다.
              안 털리고 거두면 그날 생산이 두 배가 되고, 털리면 그 덤만 잃는다.
              뱃지에는 **안 본 침입 기록 수**를 적는다 (흡입·수확과 같은 규칙) -->
         <button id="actFarm" class="room-act" onclick="openFarm()" hidden>
-          <span aria-hidden="true">🌾</span><span data-i18n="act_farm">밭</span>
+          <span aria-hidden="true">🌾</span><span data-i18n="act_farm">농장</span>
           <span id="farmBadge" class="act-badge" hidden>0</span>
         </button>
       </div>
@@ -1041,9 +1041,9 @@
   </div>
 </div>
 
-<!-- ── 밭 (CREATURE.md 10장) ──
-     **서버가 정본을 갖는 유일한 화면이다.** 그래서 오프라인이면 빈 밭이 아니라
-     「지금은 볼 수 없다」로 말해야 한다 — 빈 밭으로 보이면 털린 줄 안다 -->
+<!-- ── 농장 (CREATURE.md 10장) ──
+     **서버가 정본을 갖는 유일한 화면이다.** 그래서 오프라인이면 빈 농장이 아니라
+     「지금은 볼 수 없다」로 말해야 한다 — 빈 농장으로 보이면 털린 줄 안다 -->
 <div id="farmSheet" class="modal" onclick="if(event.target===this) closeFarm()">
   <div class="modal-card farm-card">
     <div id="farmTitle" class="confirm-text"></div>
@@ -1081,7 +1081,7 @@
   </div>
 </div>
 
-<!-- 이웃 밭 고르기. **남의 playerId 는 절대 안 받는다** — 이름으로만 가리킨다 -->
+<!-- 이웃 농장 고르기. **남의 playerId 는 절대 안 받는다** — 이름으로만 가리킨다 -->
 <div id="raidPick" class="modal" onclick="if(event.target===this) closeRaidPick()">
   <div class="modal-card farm-card">
     <div id="raidTitle" class="confirm-text"></div>
@@ -1138,25 +1138,25 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260929l"></script>
-<script src="intro.js?v=20260929l"></script>
-<script src="data.js?v=20260929l"></script>
-<script src="avatar.js?v=20260929l"></script>
-<script src="village.js?v=20260929l"></script>
-<script src="portrait.js?v=20260929l"></script>
-<script src="creature.js?v=20260929l"></script>
-<script src="cauldron.js?v=20260929l"></script>
-<script src="pumpkin.js?v=20260929l"></script>
-<script src="walnut.js?v=20260929l"></script>
-<script src="rock.js?v=20260929l"></script>
-<script src="fish.js?v=20260929l"></script>
-<script src="sparrow.js?v=20260929l"></script>
-<script src="pinwheel.js?v=20260929l"></script>
-<script src="driller.js?v=20260929l"></script>
-<script src="sfx.js?v=20260929l"></script>
-<script src="sync.js?v=20260929l"></script>
-<script src="game.js?v=20260929l"></script>
-<script src="tutorial.js?v=20260929l"></script>
-<script src="a11y.js?v=20260929l"></script>
+<script src="i18n.js?v=20260929m"></script>
+<script src="intro.js?v=20260929m"></script>
+<script src="data.js?v=20260929m"></script>
+<script src="avatar.js?v=20260929m"></script>
+<script src="village.js?v=20260929m"></script>
+<script src="portrait.js?v=20260929m"></script>
+<script src="creature.js?v=20260929m"></script>
+<script src="cauldron.js?v=20260929m"></script>
+<script src="pumpkin.js?v=20260929m"></script>
+<script src="walnut.js?v=20260929m"></script>
+<script src="rock.js?v=20260929m"></script>
+<script src="fish.js?v=20260929m"></script>
+<script src="sparrow.js?v=20260929m"></script>
+<script src="pinwheel.js?v=20260929m"></script>
+<script src="driller.js?v=20260929m"></script>
+<script src="sfx.js?v=20260929m"></script>
+<script src="sync.js?v=20260929m"></script>
+<script src="game.js?v=20260929m"></script>
+<script src="tutorial.js?v=20260929m"></script>
+<script src="a11y.js?v=20260929m"></script>
 </body>
 </html>

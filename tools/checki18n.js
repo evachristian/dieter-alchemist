@@ -116,6 +116,27 @@ SRC.forEach(f => {
 
 if (missingKeys.length) problems.push(['쓰고 있는데 STRINGS 에 없는 키 (화면에 키 이름이 그대로 나온다)', missingKeys]);
 
+// ── 1-2. 농장의 화면 이름은 «농장»이다 (2026-09-29 · 사람이 정했다)
+// ⚠️⚠️ **「밭」을 온 파일에서 지울 수는 없다.** 그 글자는 «채집지 이름»에도 들어 있고
+// (노을 밀밭 · 호두밭 · 파수꾼의 호박 밭 · 바람개비 밭 — `genmaptype` 이 **이름으로**
+// 미니게임을 고르므로 바꾸면 그 배정이 통째로 달라진다), 실반의 «빼앗긴 사과밭»에도
+// 들어 있다 (「밭을 갈던 사람이오」는 농장으로 못 바꾼다). 그래서 잣대는
+// **「농장 기능의 열쇠에 밭이 남아 있는가」**다 — 새 줄을 옛말로 써도 그 자리에서 잡힌다.
+const FARM_KEY = /^(gather_farm|screen_farm_sub|act_farm|farm_|raid_|rr_|team_title_|pg_from_farm|di_raid_|di_robbed_|di_kept_|dev_farm_)/;
+const oldWord = [];
+{
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'i18n.js'), 'utf8');
+  const ko = src.slice(src.indexOf('    ko: {'), src.indexOf('    en: {'));
+  const RE = /^\s{4,}([a-zA-Z_][\w]*)\s*:\s*'((?:[^'\\]|\\.)*)'/gm;
+  let m;
+  while ((m = RE.exec(ko))) {
+    if (FARM_KEY.test(m[1]) && m[2].includes('밭')) oldWord.push(`${m[1]} — ${m[2].slice(0, 40)}`);
+  }
+}
+if (oldWord.length) {
+  problems.push(['농장인데 아직 「밭」이라고 쓴 줄 (화면 이름은 «농장»이다)', oldWord]);
+}
+
 // ── 2. 데이터 이름
 // 화면에 이름이 나오는 것 전부. N(id, 한국어) 로 부르는 것들이다.
 const dataNames = [];
