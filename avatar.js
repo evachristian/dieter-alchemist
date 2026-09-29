@@ -2283,6 +2283,72 @@
     return `<path d="M${xo},${b[1]} Q${(xi + xo) / 2},${cy.toFixed(1)} ${xi},${b[0]}"`
       + ` stroke="${AV.INK}" stroke-width="2.3" fill="none" stroke-linecap="round"/>`;
   };
+
+  // ─── «입는» 눈썹 — 표정의 눈썹과 다른 축이다 (`WARDROBE.brow`) ───
+  //
+  // ⚠️⚠️ **바로 위의 `BROW` 와 헷갈리지 않는다.** 그쪽은 «표정이 짓는» 눈썹이고
+  // (지금 `SHOW_BROW` 가 꺼져 있다 — 치비 얼굴에서는 없는 쪽이 더 귀엽다),
+  // 이쪽은 **사람이 옷장에서 고른 눈썹**이다. 그래서 표정 서른여덟과 곱해지지 않는다:
+  // 무슨 표정을 지어도 고른 눈썹 그대로다. 둘을 한 표로 묶으면 10 × 7 = 70칸이 되고,
+  // 그 순간 「표정을 바꾸면 눈썹이 제멋대로 바뀐다」가 된다.
+  //
+  // 한 줄이 [안쪽 y, 바깥쪽 y, 휨(음수면 위로 아치), 굵기, 반길이, 봉우리 자리] 다.
+  // ⚠️ **안쪽/바깥쪽을 나눠 적는다** — 좌우 대칭이 저절로 따라온다 (`aBrow` 와 같은
+  //    규칙이다: 안쪽은 `x + len·f` · 바깥쪽은 `x − len·f`).
+  //    팔자 눈썹이 한쪽만 가파르던 사고가 그 한 줄을 안 지켜서 났다
+  // ⚠️ **봉우리 자리(마지막 칸)가 「아치」와 「갈매기」를 가른다.** 가운데(0.5)면
+  //    둥근 아치이고, 바깥으로 밀면(0.7) 꺾인 산이 된다 — 휨만으로는 둘이 안 갈린다
+  const BROW_WEAR = {
+    soft:     [61.4, 62.6, -1.6, 2.3, 7.0, 0.55],   // 자연
+    straight: [61.6, 61.9, -0.4, 2.7, 7.6, 0.50],   // 일자
+    arch:     [62.6, 62.4, -3.2, 2.3, 7.2, 0.58],   // 아치
+    angled:   [63.2, 61.6, -2.6, 2.5, 7.4, 0.70],   // 갈매기
+    round:    [62.8, 63.0, -2.4, 2.9, 6.4, 0.50],   // 둥근
+    droop:    [59.6, 64.8,  0.6, 2.4, 7.2, 0.50],   // 처진 (팔자)
+    up:       [64.2, 58.8, -1.0, 2.5, 7.4, 0.50],   // 올라간
+    thin:     [61.6, 62.8, -1.8, 1.5, 7.4, 0.55],   // 가는
+    bold:     [61.0, 62.2, -1.4, 3.6, 7.6, 0.55],   // 짙은
+    short:    [61.8, 62.6, -1.4, 2.8, 5.2, 0.55],   // 짧은
+  };
+  // 한 짝. x 는 눈 한가운데(`AV.L`·`AV.R`) · f 는 +1 왼눈 · −1 오른눈
+  function browOne(b, x, f, c) {
+    const xi = x + b[4] * f, xo = x - b[4] * f;
+    const xc = xi + (xo - xi) * b[5];
+    const yc = b[0] + (b[1] - b[0]) * b[5] + b[2] * 2;
+    return `<path d="M${xo.toFixed(1)},${b[1]} Q${xc.toFixed(1)},${yc.toFixed(1)} ${xi.toFixed(1)},${b[0]}"`
+      + ` stroke="${c}" stroke-width="${b[3]}" fill="none" stroke-linecap="round"/>`;
+  }
+  // 머리색 — 염색한 색이 있으면 그것, 없으면 헤어의 원래 색.
+  // 마지막은 옛 세이브를 위한 길이다: '헤어컬러' 칸이 따로 있던 시절의 선택은
+  // 마이그레이션이 염색으로 옮기지만, 그 전에 그려질 수도 있다.
+  // ⚠️ **한 곳이다** — `build()` 와 눈썹 칸의 그림(`browIcon`)이 같이 쓴다.
+  //    베껴 두면 염색한 머리에서 «칸의 눈썹만» 옛 색으로 남는다
+  function hairColorOf(outfit) {
+    const o = outfit || {};
+    return (o.colors && o.colors.hair)
+      || getItem('hair', o.hair).color
+      || getItem('hairColor', o.hairColor).color || HAIR_DEF;
+  }
+  // ⚠️ **색은 머리색을 따라간다** — 눈썹만 늘 먹색이면 분홍 머리에서 붙여 놓은 것으로
+  //    보인다. 조금 어둡게(`shade`) 해야 «털»로 읽힌다
+  function browPair(kind, hairColor) {
+    const b = BROW_WEAR[kind];
+    if (!b) return '';
+    const c = shade(hairColor || HAIR_DEF, 22);
+    return browOne(b, AV.L, 1, c) + browOne(b, AV.R, -1, c);
+  }
+  function renderBrow(it, hairColor) {
+    return isNone(it) ? '' : browPair(it.kind, hairColor);
+  }
+  // 옷장 칸의 그림. ⚠️ **이모지로는 열 가지를 못 가른다** — 눈썹 이모지가 아예 없고,
+  // 색 동그라미로 두면 열 칸이 전부 같은 그림이 된다. 머리(`hairIcon`)와 같은 규칙으로
+  // **그리는 함수를 그대로 써서** 작게 보여 준다 — 모양을 고치면 이 그림도 같이 바뀐다
+  function browIcon(it, outfit) {
+    const s = renderBrow(it, hairColorOf(outfit));
+    if (!s) return '';
+    return `<svg class="brow-icon" viewBox="76 50 48 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${s}</svg>`;
+  }
+
   // ─── 만화 기호 — «과장»은 얼굴 밖에서 온다 ──────────────────
   //
   // ⚠️ **눈·입만 키워서는 과장이 안 된다.** 놀란 얼굴과 그냥 눈을 부릅뜬 얼굴이
@@ -3868,12 +3934,7 @@
       || (!isNone(top) && top.neck) || null;
 
     const hairItem = getItem('hair', outfit.hair);
-    // 머리색 — 다른 칸과 같은 규칙이다. 염색한 색이 있으면 그것, 없으면 헤어의 원래 색.
-    // 마지막은 옛 세이브를 위한 길이다: '헤어컬러' 칸이 따로 있던 시절의 선택은
-    // 마이그레이션이 염색으로 옮기지만, 그 전에 그려질 수도 있다
-    const hairColor = (outfit.colors && outfit.colors.hair)
-      || hairItem.color
-      || getItem('hairColor', outfit.hairColor).color || HAIR_DEF;
+    const hairColor = hairColorOf(outfit);
     // 옛 세이브는 kind 하나로만 머리를 정했다 — back 이 없으면 kind 를 그대로 쓴다
     const hairBackKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
     const hairBangKind = hairItem.bang || hairItem.kind;
@@ -3908,6 +3969,10 @@
       B(armsOverSkirt(tune, hasDress ? dress : top,
         !hasDress && bottom && bottom.belt ? beltTopY() : null)),
       H(faceAndExpression(expItem)),
+      // ⚠️ **머리 그룹(`H`) 안이고 앞머리보다 «먼저»다.** 몸통 그룹에 두면 얼굴 배율을
+      // 바꿀 때 눈썹만 제자리에 남고, 앞머리보다 뒤에 두면 앞머리를 덮는다 —
+      // 눈썹은 이마에 난 것이라 머리카락이 그 위를 지나는 것이 맞다
+      H(renderBrow(getItem('brow', outfit.brow), hairColor)),
       H(hairFront(hairBangKind, hairColor, hairBackKind)),
       H(faceFx(expItem)),
       B(renderGlove(pick('glove', outfit.glove), tune)),
@@ -4323,7 +4388,7 @@
     return { w: w, kx: bodyScaleX(w), ky: ky, head: head, floorY: FLOOR_Y,
              dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
-  window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
+  window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, browIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
     heartPath, heartEye, HEART,
     partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT,

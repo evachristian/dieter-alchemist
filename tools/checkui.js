@@ -2829,18 +2829,43 @@ function launchOpts() {
                 all.slice(0, Math.max(1, all.length - 2)).map(x => x.id));
               // ⚠️ **옷장 탭 줄에 남아 있으면 안 된다** — 두 자리에서 고르게 되면
               // 한쪽만 고쳐 갈린다 (`WARDROBE_SLOTS` 의 `sheet: true` 가 그것을 막는다)
-              const inTabs = [...document.querySelectorAll('.wr-tabs .wr-tab')]
+              // ⚠️ **`#wardrobe` 안으로 좁힌다** — 시트의 갈래 탭도 `.wr-tabs .wr-tab`
+              //    라, 넓게 훑으면 «시트 안의 눈썹 탭»을 옷장 탭으로 잘못 읽는다
+              //    (실제로 그렇게 짰다가 멀쩡한 눈썹이 걸렸다)
+              const inTabs = [...document.querySelectorAll('#wardrobe .wr-tabs .wr-tab')]
                 .some(b => new RegExp(`'${sl}'`).test(b.getAttribute('onclick') || ''));
               if (inTabs) return `${sl} 이 아직 옷장 탭 줄에 서 있다`;
               // ⚠️ **시트로 뺀 칸은 색을 못 고른다** — 시트에는 팔레트 줄이 없다.
               // 색이 있는 칸을 여기로 빼면 «고를 수 없는 색»이 조용히 생긴다
               if ((D.COLORABLE_SLOTS || []).includes(sl)) return `${sl} 은 색을 고르는 칸인데 시트에는 팔레트가 없다`;
-              const fb = document.querySelector(`#roomSolo .room-act[data-slot="${sl}"]`);
-              if (!fb) return `${sl} 버튼이 안 보인다 (튜토리얼을 마쳤는데)`;
+              // ⚠️⚠️ **버튼이 서는 것은 «머리 줄»뿐이다** (`under` 가 없는 줄).
+              //    눈썹처럼 시트 «안»의 갈래인 칸은 버튼이 없는 것이 맞고, 대신
+              //    **갈래 탭**으로 닿아야 한다 — 둘 중 하나는 반드시 있어야
+              //    그 칸에 갈 길이 있는 것이다 (없으면 만들어 놓고 못 여는 칸이 된다)
+              const meta = D.WARDROBE_SLOTS.find(x => x.slot === sl);
+              const head = meta.under || sl;
+              const fb = document.querySelector(`#roomSolo .room-act[data-slot="${head}"]`);
+              if (!fb) return `${head} 버튼이 안 보인다 (튜토리얼을 마쳤는데)`;
+              if (meta.under && document.querySelector(`#roomSolo .room-act[data-slot="${sl}"]`))
+                return `${sl} 은 시트 안의 갈래인데 버튼이 따로 섰다 — 두 자리에서 열게 된다`;
               openSlotSheet(sl);
               const m = document.getElementById('slotSheet');
               if (!m || !m.classList.contains('show')) return '시트가 안 떴다';
               if (!document.getElementById('slotSheetTitle').textContent.trim()) return '머리말이 비었다';
+              // 갈래가 둘 이상인 시트는 **탭 줄이 있어야** 하고, 그 탭은
+              // 굴러가는 자리 «밖»이다 (`#slotSheetTabs` · `#npcActs` 와 같은 규칙)
+              const group = D.WARDROBE_SLOTS.filter(x => x.sheet && (x.slot === head || x.under === head));
+              const tabs = [...document.querySelectorAll('#slotSheetTabs .wr-tab')];
+              if (group.length > 1) {
+                if (tabs.length !== group.length) return `갈래가 ${group.length}인데 탭이 ${tabs.length}개다`;
+                if (!tabs.some(b => new RegExp(`'${sl}'`).test(b.getAttribute('onclick') || '')))
+                  return `${sl} 갈래로 가는 탭이 없다`;
+                // ⚠️ 탭 이름이 제목과 같으면 무엇을 고르는 줄인지 안 읽힌다
+                //    (둘 다 「문신」이면 갈래가 갈린 뜻이 없다)
+                const title = document.getElementById('slotSheetTitle').textContent.trim();
+                if (tabs.some(b => title.includes(b.textContent.trim().replace(/^\S+\s*/, ''))))
+                  return `탭 이름이 제목(${title})과 겹친다`;
+              } else if (tabs.length) return `갈래가 하나뿐인데 탭 줄이 섰다 (${tabs.length}개)`;
               const n = m.querySelectorAll('.wr-item').length;
               if (n !== all.length) return `칸이 ${n}개다 (${all.length} 이어야 한다)`;
               if (!m.querySelector('.wr-item.locked .wr-lock')) return '잠긴 칸이 하나도 없다 — 🔒 줄을 못 잰다';
@@ -2856,6 +2881,67 @@ function launchOpts() {
             await page.waitForTimeout(150);
           }
           if (slots.length) console.log(`  칸시트 — 시트로 뺀 칸을 «다» 쟀다 (${slots.join('·')})`);
+          // ── **한 시트의 갈래 둘은 «같이» 걸린다** (2026-09-29 · 사람이 정했다:
+          //    「일반에서 1개, 눈썹에서 1개 고를 수 있도록」)
+          // ⚠️⚠️ **칸이 갈려 있는지를 «표»로만 보면 못 잡는다** — 한쪽을 고르면
+          //    다른 쪽이 벗겨지는 사고는 `S.outfit` 을 한 칸에 몰아 넣었을 때 나는데,
+          //    그때도 표는 멀쩡하다. **둘을 차례로 걸어 보고 둘 다 남는지**를 본다
+          {
+            const nm = `${t}/갈래둘`;
+            const out = await page.evaluate(() => {
+              // ⚠️⚠️ **재고 나서 되돌린다** (「물어볼것」이 유타르크의 호감도를
+              //    되돌리는 것과 같은 규칙이다). 여기서 칸을 «다» 열어 두면 개발용
+              //    패널의 선물 버튼이 `.dev-gift.done` 으로 흐려져(공통 잠금 표현)
+              //    **뒤에 오는 화면 열이 전부 대비 3.87:1 로 빨개진다** — 실제로 그랬다
+              const was = { unlocked: (S.unlocked || []).slice(), outfit: Object.assign({}, S.outfit) };
+              const restore = () => { S.unlocked = was.unlocked; S.outfit = was.outfit; render(); };
+              const heads = D.WARDROBE_SLOTS.filter(m => m.sheet && !m.under);
+              const multi = heads.map(h => D.WARDROBE_SLOTS
+                .filter(x => x.sheet && (x.slot === h.slot || x.under === h.slot)))
+                .filter(g => g.length > 1);
+              if (!multi.length) { restore(); return { err: '갈래가 둘인 시트가 하나도 없다 — 아무것도 안 쟀다' }; }
+              const said = [];
+              for (const g of multi) {
+                const picked = [];
+                for (const x of g) {
+                  const all = (D.WARDROBE[x.slot] || []).filter(i => i.kind !== 'none');
+                  if (!all.length) { restore(); return { err: `${x.slot} 에 고를 것이 없다` }; }
+                  const it = all[all.length - 1];
+                  S.unlocked = (S.unlocked || []).concat(all.map(i => i.id));
+                  openSlotSheet(x.slot);
+                  equip(x.slot, it.id);
+                  if (S.outfit[x.slot] !== it.id) { restore(); return { err: `${x.slot} 이 안 걸렸다` }; }
+                  picked.push([x.slot, it.id]);
+                }
+                // ⚠️ **나중에 고른 것이 앞의 것을 벗기지 않았는가** — 여기가 요점이다
+                for (const [sl, id] of picked)
+                  if (S.outfit[sl] !== id) { restore(); return { err: `${sl} 이 벗겨졌다 (${S.outfit[sl]})` }; }
+                // ⚠️⚠️ **그림도 본다 — 상태만 보면 «안 그리는» 칸을 못 잡는다.**
+                //    칸을 늘려 놓고 `build()` 에 배선을 안 하면 세이브만 바뀌고
+                //    아바타는 한 픽셀도 안 달라진다 (화면에는 오류가 안 뜬다).
+                //    그 칸만 「없음」으로 되돌린 그림과 견줘 **달라져야** 한다
+                for (const [sl] of picked) {
+                  const none = (D.WARDROBE[sl] || []).find(i => i.kind === 'none');
+                  if (!none) { restore(); return { err: `${sl} 에 「없음」 칸이 없다` }; }
+                  // ⚠️⚠️ **꼬리표(uid)를 지우고 견준다.** `build()` 는 부를 때마다
+                  //    `neckG_a12` 처럼 **새 id** 를 박으므로(문서 전체에서 id 가
+                  //    겹치지 않게 하려는 것이다) 두 그림이 «언제나» 다르다 —
+                  //    그대로 견주면 눈썹 배선을 통째로 끊어도 통과한다 (실제로 그랬다)
+                  const norm = s => s.replace(/(a|bt|c)\d+/g, '$1');
+                  const on = norm(Avatar.build(S.outfit, 0));
+                  const off = norm(Avatar.build(Object.assign({}, S.outfit, { [sl]: none.id }), 0));
+                  if (on === off) { restore(); return { err: `${sl} 을 걸어도 아바타가 한 글자도 안 바뀐다` }; }
+                }
+                said.push(picked.map(p => p.join('=')).join(' + '));
+              }
+              closeSlotSheet();
+              restore();
+              return { ok: said.join(' / ') };
+            });
+            if (out.err) results.push({ 화면: nm, 오류: out.err });
+            else results.push({ 화면: nm, pass: true, total: 0, 잰것: out.ok });
+            await page.waitForTimeout(120);
+          }
           // ── **얼굴이 «그대로» 보이는가** (2026-09-29 · 사람이 정했다)
           // 표정·문신은 고르는 동안 **그 결과가 얼굴에 보여야** 한다. 그래서 둘이 한 벌이다:
           // 시트가 턱 밑까지만 올라오고(`fitSlotSheet`), 뒷배경을 **안 흐린다**(style.css).

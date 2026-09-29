@@ -2697,6 +2697,27 @@ const WARDROBE = {
     { id: 'tattoo_heart',slot: 'tattoo', kind: 'heart', name: '하트',   color: '#ff8fb0', emoji: '❤️' },
     { id: 'tattoo_rune', slot: 'tattoo', kind: 'rune',  name: '룬문양', color: '#a98bff', emoji: '✴️' },
   ],
+  // ⚠️ 눈썹은 **문신 시트의 두 번째 갈래**다 (`WARDROBE_SLOTS` 의 `under: 'tattoo'`).
+  //    제 버튼을 따로 두지 않는 이유는 왼쪽 버튼 줄이 그만큼 길어지기 때문이고,
+  //    「일반 하나 + 눈썹 하나」를 같이 고르는 자리라 한 시트에 있는 편이 읽힌다.
+  // ⚠️ **이모지를 안 붙인다** — 눈썹 이모지가 없어서 열 칸이 전부 같은 그림이 된다.
+  //    칸의 그림은 `Avatar.browIcon` 이 «그리는 함수 그대로» 작게 그려 준다
+  // ⚠️ **`brow_none` 이 맨 앞이다.** `getItem` 이 모르는 id 를 첫 줄로 떨어뜨리므로,
+  //    이 칸이 없는 옛 세이브가 저절로 「없음」이 된다 — 그래서 `SAVE_VER` 를 안 올린다
+  //    (지금 화면과 한 픽셀도 안 달라진다)
+  brow: [
+    { id: 'brow_none',     slot: 'brow', kind: 'none',     name: '없음' },
+    { id: 'brow_soft',     slot: 'brow', kind: 'soft',     name: '자연' },
+    { id: 'brow_straight', slot: 'brow', kind: 'straight', name: '일자' },
+    { id: 'brow_arch',     slot: 'brow', kind: 'arch',     name: '아치' },
+    { id: 'brow_angled',   slot: 'brow', kind: 'angled',   name: '갈매기' },
+    { id: 'brow_round',    slot: 'brow', kind: 'round',    name: '둥근' },
+    { id: 'brow_droop',    slot: 'brow', kind: 'droop',    name: '처진' },
+    { id: 'brow_up',       slot: 'brow', kind: 'up',       name: '올라간' },
+    { id: 'brow_thin',     slot: 'brow', kind: 'thin',     name: '가는' },
+    { id: 'brow_bold',     slot: 'brow', kind: 'bold',     name: '짙은' },
+    { id: 'brow_short',    slot: 'brow', kind: 'short',    name: '짧은' },
+  ],
 
   // ── 옷 / 악세사리 ──
   // 상의 — 실루엣은 하나고 **소매·넥라인·단추**로 갈린다 (renderTop 이 이 세 필드를 본다)
@@ -2867,7 +2888,14 @@ const WARDROBE_SLOTS = [
   //    **표는 그대로 남는다**: `isOwned()` 가 `gated` 를 여기서 읽으므로,
   //    줄을 빼면 그 칸이 통째로 «처음부터 가진 것»이 된다
   { slot: 'expression',label: '표정',    emoji: '😊', gated: true, sheet: true },
-  { slot: 'tattoo',    label: '문신',    emoji: '⚜️', gated: true, sheet: true },
+  // ⚠️⚠️ **`under` 가 붙은 줄은 «제 버튼이 없다»** — 그 시트 안의 두 번째 갈래로 선다
+  //    (「문신 팝업에 «일반»·«눈썹» 두 카테고리를 넣어 달라」로 받았다).
+  //    그래서 `tab` 이 따로 있다: 시트의 제목은 머리 줄의 `label`(문신)이고,
+  //    갈래 탭에 서는 것은 `tab`(일반 · 눈썹)이다 — 둘 다 「문신」이면 뭐가 뭔지 모른다
+  // ⚠️ **둘은 서로 다른 칸이라 «하나씩» 같이 걸린다.** 한 칸에 몰아 넣으면
+  //    문신을 고르는 순간 눈썹이 벗겨진다 (`S.outfit` 이 칸마다 하나씩이다)
+  { slot: 'tattoo',    label: '문신',    emoji: '⚜️', tab: '일반', gated: true, sheet: true },
+  { slot: 'brow',      label: '눈썹',    emoji: '✏️', tab: '눈썹', gated: true, sheet: true, under: 'tattoo' },
   // 옷·악세사리도 전부 획득 대상이다. 인트로를 마친 시점에 손에 있는 옷은
   // 인트로에서 입고 있던 '공주 드레스' 한 벌뿐이고, 나머지는 아직 얻지 않았다.
   { slot: 'top',       label: '상의',    emoji: '👕', gated: true },
@@ -3045,6 +3073,7 @@ function loyaltyBonus(v) {
 // 새 캐릭터 기본 착장
 const DEFAULT_OUTFIT = {
   hair: 'hair_long', hairColor: 'hcol_brown', expression: 'exp_puzzled', tattoo: 'tattoo_none',
+  brow: 'brow_none',
   // 시작 착장은 인트로의 공주 그대로 — 원피스 한 벌뿐이고 상·하의는 아직 없다
   top: 'top_none', bottom: 'bottom_none', dress: 'dress_princess',
   circlet: 'circlet_none', earring: 'earring_none', necklace: 'necklace_none',

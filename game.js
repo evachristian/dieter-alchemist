@@ -5922,6 +5922,12 @@ function wardrobeGrid(slot) {
       // 그 머리에 물들여 둔 색으로 그린다 — 염색해 놓고 목록만 브라운이면 무엇을 고르는지 헷갈린다
       ic = Avatar.hairIcon(it, itemHex(it));
     }
+    // 눈썹도 같은 이유로 **그려서** 보여 준다 — 눈썹 이모지가 없어서 색 동그라미로
+    // 두면 열 칸이 전부 같은 그림이 되고, 「모양을 고르는 칸」이 아무것도 안 말한다.
+    // 지금 머리색으로 그리므로 염색하면 이 줄도 같이 물든다
+    else if (slot === 'brow' && window.Avatar && Avatar.browIcon) {
+      ic = Avatar.browIcon(it, S.outfit);
+    }
     else if (it.emoji) ic = it.emoji;
     // **각자 자기 색으로** 보여 준다. 염색이 옷에 붙으므로 칸마다 색이 다르고,
     // 그래서 목록 전체가 같은 색이 되는 일이 없다 (예전에는 칸에 붙어 있어서
@@ -5947,8 +5953,19 @@ function wardrobeGrid(slot) {
 // 갈아 끼우는 것은 그대로 `equip()` 이다.
 // ⚠️ **칸마다 시트를 만들지 않는다** — 하나를 돌려 쓴다. 지금 보고 있는 칸이 `soloSlot`
 //    이고, 이것 하나가 제목·격자·다시 그리기를 다 가리킨다
-function soloSlots() { return D.WARDROBE_SLOTS.filter(m => m.sheet); }
-let soloSlot = null;
+// ⚠️⚠️ **버튼이 서는 것은 «머리 줄»뿐이다** — `under` 가 붙은 줄은 그 시트 «안»의
+//    갈래라 버튼을 안 만든다 (안 거르면 눈썹 버튼이 하나 더 서고, 같은 것을 두 자리에서
+//    열게 된다). 시트 하나가 곧 한 그룹이다
+function soloSlots() { return D.WARDROBE_SLOTS.filter(m => m.sheet && !m.under); }
+// 그 시트가 품는 칸들 — 머리 줄 + 그것을 가리키는 줄들. **표에서 뽑는다**:
+// `under: 'tattoo'` 한 줄을 더하면 갈래 탭도 검사도 저절로 따라온다
+function sheetSlots(head) {
+  return D.WARDROBE_SLOTS.filter(m => m.sheet && (m.slot === head || m.under === head));
+}
+// 그 칸이 어느 시트에 사는가 (버튼도 검사기도 이것으로 연다)
+function sheetHeadOf(slot) { const m = slotMeta(slot); return m && (m.under || m.slot); }
+let soloSlot = null;   // 열려 있는 시트 (= 머리 줄)
+let soloTab = null;    // 그 안에서 지금 보고 있는 갈래
 function slotSheetOpen() {
   const m = document.getElementById('slotSheet');
   return !!(m && m.classList.contains('show'));
@@ -5960,9 +5977,34 @@ function renderSlotSheet() {
   // 이모지는 **제 요소로 떼어 낸다**(`I18N.em`) — 테(`--emoji-halo`)가 글자까지
   // 굵게 만들면 챠콜에서 오히려 안 읽힌다 (i18n.js 의 그 규칙이다)
   if (tt) tt.innerHTML = I18N.em(`${m.emoji} ${N(m.slot, m.label)}`);
+  const group = sheetSlots(soloSlot);
+  if (!group.some(x => x.slot === soloTab)) soloTab = m.slot;
+  // ⚠️ **갈래가 하나뿐이면 탭 줄을 안 그린다** — 누를 것이 하나뿐인 탭 줄은
+  //    자리만 먹고, 시트가 턱 밑까지만 열리는 자리라 그 한 줄이 그대로 칸 한 줄이다
+  //    (표정 시트가 지금 그 경우다)
+  const tabs = group.length < 2 ? '' : `<div class="cat-tabs wr-tabs">${group.map(x => {
+    const on = soloTab === x.slot;
+    const name = N(x.slot + '_tab', x.tab || x.label);
+    return `<button class="cat-tab wr-tab ${on ? 'active' : ''}" onclick="setSlotTab('${x.slot}')"
+      aria-label="${name}"${on ? ' aria-current="true"' : ''}
+      ><span class="em">${x.emoji}</span> ${escHtml(name)}</button>`;
+  }).join('')}</div>`;
+  const tb = document.getElementById('slotSheetTabs');
+  if (tb) tb.innerHTML = tabs;
   const b = document.getElementById('slotSheetBody');
-  if (b) b.innerHTML = wardrobeGrid(m.slot);
+  if (b) b.innerHTML = wardrobeGrid(soloTab);
 }
+// 갈래를 옮기면 **높이를 다시 잰다** — 칸 수가 다르면 시트의 키도 달라진다
+// (문신 다섯 ↔ 눈썹 열하나). 안 재면 턱보다 높이 올라오거나 쓸데없이 짧게 남는다
+function setSlotTab(slot) {
+  if (!slotMeta(slot)) return;
+  soloTab = slot;
+  renderSlotSheet();
+  fitSlotSheet();
+  // 소리는 따로 안 낸다 — 버튼음은 `sfx.js` 가 모든 버튼에 이미 물려 있다
+  // (`setWardrobeTab` 과 같다. 여기서 또 내면 탭만 두 번 울린다)
+}
+window.setSlotTab = setSlotTab;
 // ⚠️⚠️ **시트는 «얼굴이 보이는 데»까지만 올라온다** (사람이 정했다).
 // 표정·문신은 **고르는 동안 그 결과가 얼굴에 보여야** 무엇을 고르는지 알 수 있다 —
 // 그래서 뒷배경도 안 흐린다(`style.css` 의 `#slotSheet`). 둘이 한 벌이다.
@@ -5990,9 +6032,13 @@ function fitSlotSheet() {
   const want = Math.round(window.innerHeight - chin - SLOT_SHEET_GAP);
   card.style.maxHeight = Math.max(min, want) + 'px';
 }
+// ⚠️ **갈래의 이름으로 불러도 열린다** — `openSlotSheet('brow')` 는 문신 시트를
+//    «눈썹 탭»으로 연다. 그래야 부르는 쪽(검사기·앞으로 붙을 안내)이 칸 이름 하나만
+//    알면 되고, 어느 시트에 사는지는 표가 안다
 function openSlotSheet(slot) {
   if (!slotMeta(slot) || !slotMeta(slot).sheet) return;
-  soloSlot = slot;
+  soloSlot = sheetHeadOf(slot);
+  soloTab = slot;
   renderSlotSheet();
   const m = document.getElementById('slotSheet');
   if (m) m.classList.add('show');

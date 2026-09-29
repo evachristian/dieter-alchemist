@@ -2591,6 +2591,9 @@ button.tm-slot:active { transform: scale(0.94); }
 .wr-ic { font-size: 1.25rem; height: 36px; display: flex; align-items: center; justify-content: center; position: relative; }
 /* 머리 실루엣 아이콘 — 이모지 자리에 같은 크기로 들어간다 */
 .hair-icon { height: 36px; width: auto; display: block; }
+/* 눈썹 그림 — ⚠️ **머리와 달리 «폭»으로 맞춘다.** 상자가 가로로 긴 띠(48×24)라
+   `.hair-icon` 처럼 높이로 맞추면 72px 이 되어 격자 칸(4열)을 밀어낸다 */
+.brow-icon { width: 40px; height: auto; display: block; }
 .wr-swatch { width: 22px; height: 22px; border-radius: 7px; display: inline-block; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06); }
 /* ─── 헤어 — 전체 실루엣 × 앞머리 ───────────────────────────
    30벌을 한 줄에 늘어놓는 대신 6 + 5 칸으로 나눈다. 칸이 11개뿐이라
@@ -3052,6 +3055,10 @@ button.tm-slot:active { transform: scale(0.94); }
    (바로 위 블록이 금지하는 그것이고, `checkui` 의 「시트낮은화면」이 잡는다).
    시트에서는 높이를 카드가 정한다 */
 #slotSheet .wr-items { max-height: none; overflow: visible; }
+/* 갈래 탭 줄 — 굴러가지 «않는» 자리 (`#npcActs` 와 같다).
+   ⚠️ `fitSlotSheet()` 가 「카드 − 목록」을 붙박이로 재므로 이 줄도 저절로 셈에 든다 */
+#slotSheetTabs:not(:empty) { flex: 0 0 auto; margin-bottom: 10px; }
+#slotSheetTabs .cat-tabs { margin: 0; }
 /* ⚠️⚠️ **표정·문신 시트만 뒷배경을 안 흐린다** (사람이 정했다).
    고르는 동안 **그 결과가 얼굴에 보여야** 무엇을 고르는지 알 수 있다 — 흐리면
    «무엇을 고르는지»를 못 보고 고르게 된다. 시트가 턱 밑까지만 올라오는 것

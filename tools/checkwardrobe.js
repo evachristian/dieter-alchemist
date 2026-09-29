@@ -113,6 +113,67 @@ const TOAST_MAX = 60;    // px. 토스트는 누른 칸 «옆»에 떠야 한다
     }
   }
 
+  // ─── 한 시트 안의 «갈래 탭» (⚜️ 일반 / ✏️ 눈썹) ─────────────────
+  //
+  // ⚠️⚠️ **`checkui` 의 「갈래둘」은 `setSlotTab()`·`equip()` 을 «직접» 부른다** —
+  //    그래서 탭의 `onclick` 배선이 끊겨도 그대로 통과한다 (`Walnut.start()` 를
+  //    직접 부르면 안 되는 것과 같은 구멍이다). 여기서는 **진짜 마우스로 탭을 눌러**
+  //    갈래가 옮겨 가는지, 그 안의 칸이 갈아 끼워지는지를 본다.
+  // ⚠️ 표에서 뽑는다 — `under` 를 한 줄 더 붙이면 이 검사도 저절로 따라온다
+  {
+    const g = await page.evaluate(() => {
+      const heads = D.WARDROBE_SLOTS.filter(m => m.sheet && !m.under);
+      for (const h of heads) {
+        const sub = D.WARDROBE_SLOTS.filter(x => x.sheet && x.under === h.slot);
+        if (sub.length) return { head: h.slot, sub: sub[0].slot };
+      }
+      return null;
+    });
+    if (!g) bad.push('갈래가 둘인 시트가 하나도 없다 — 탭을 한 번도 안 눌렀다');
+    else {
+      await page.evaluate((o) => {
+        unlockAllOf(o.head); unlockAllOf(o.sub);
+        // ⚠️⚠️ **머리 갈래를 «진짜로 하나 걸어 놓고» 시작한다.** 「없음」인 채로
+        //    재면 벗겨졌는지를 `none → none` 으로 견주게 되어, 눈썹이 문신을
+        //    벗기는 사고를 **무엇을 해도 통과시킨다** (가르지 못하는 잣대다)
+        const first = (D.WARDROBE[o.head] || []).filter(i => i.kind !== 'none')[0];
+        if (first) equip(o.head, first.id);
+        openSlotSheet(o.head);
+      }, g);
+      await page.waitForTimeout(380);          // `sheetup` 이 끝난 뒤에 누른다
+      const tab = await page.$(`#slotSheetTabs .wr-tab[onclick*="'${g.sub}'"]`);
+      if (!tab) bad.push(`${g.sub} 갈래 탭이 없다`);
+      else {
+        await tab.click();
+        await page.waitForTimeout(250);
+        const r = await page.evaluate((o) => {
+          const sel = `#slotSheetBody [onclick*="equip('${o.sub}'"]`;
+          const list = document.querySelectorAll(sel);
+          if (!list.length) return { err: `탭을 눌렀는데 ${o.sub} 칸이 하나도 없다` };
+          // ⚠️ **머리 갈래의 칸이 남아 있으면 탭이 안 옮겨 간 것이다**
+          if (document.querySelector(`#slotSheetBody [onclick*="equip('${o.head}'"]`))
+            return { err: `탭을 눌렀는데 ${o.head} 칸이 그대로 있다` };
+          if (/_none$/.test(S.outfit[o.head] || '')) return { err: `${o.head} 이 「없음」이라 벗겨짐을 못 잰다` };
+          return { n: list.length, kept: S.outfit[o.head] };
+        }, g);
+        if (r.err) bad.push(r.err);
+        else {
+          const cells = await page.$$(`#slotSheetBody [onclick*="equip('${g.sub}'"]`);
+          await cells[cells.length - 1].scrollIntoViewIfNeeded();
+          await page.waitForTimeout(120);
+          await cells[cells.length - 1].click();
+          await page.waitForTimeout(250);
+          const o2 = await page.evaluate((o) => ({ sub: S.outfit[o.sub], head: S.outfit[o.head] }), g);
+          if (!o2.sub || /_none$/.test(o2.sub)) bad.push(`${g.sub} 칸을 눌렀는데 안 걸렸다 (${o2.sub})`);
+          // ⚠️⚠️ **여기가 요점이다** — 「일반 하나 + 눈썹 하나」를 같이 걸 수 있어야 한다
+          if (o2.head !== r.kept) bad.push(`${g.sub} 을 고르자 ${g.head} 이 벗겨졌다 (${r.kept} → ${o2.head})`);
+          rows.push(`갈래탭 ${g.head}→${g.sub} ${r.n}칸 · ${g.head}=${o2.head} + ${g.sub}=${o2.sub}`);
+        }
+      }
+      await page.evaluate(() => closeSlotSheet());
+    }
+  }
+
   await browser.close();
   console.log('옷장 칸을 눌렀을 때 — ' + rows.join(' · '));
   console.log(`  (칸은 ${MOVE_MAX}px 까지만 움직여도 되고, 토스트는 그 칸에서 ${TOAST_MAX}px 안이다)`);

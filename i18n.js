@@ -3391,7 +3391,9 @@
       // 등급
       '새싹': 'Sprout', '꽃봉오리': 'Bud', '요정': 'Fairy', '뮤즈': 'Muse', '여신': 'Goddess',
       // 옷장 슬롯
-      hair: 'Hair', hairColor: 'Hair Color', expression: 'Expression', tattoo: 'Tattoo',
+      hair: 'Hair', hairColor: 'Hair Color', expression: 'Expression', tattoo: 'Tattoo', brow: 'Brows',
+      // 시트 «안»의 갈래 탭 (`WARDROBE_SLOTS` 의 `tab`) — 제목(문신)과 다른 말이다
+      tattoo_tab: 'General', brow_tab: 'Brows',
       top: 'Top', bottom: 'Bottom', dress: 'Dress', circlet: 'Circlet', earring: 'Earring', necklace: 'Necklace',
       glove: 'Gloves', shoes: 'Shoes',
       // 옷장 아이템
@@ -3493,6 +3495,9 @@
       exp_awe: 'Awed',
       exp_curious: 'Curious',
       tattoo_none: 'None', tattoo_star: 'Star', tattoo_tear: 'Teardrop', tattoo_heart: 'Heart', tattoo_rune: 'Rune',
+      brow_none: 'None', brow_soft: 'Natural', brow_straight: 'Straight', brow_arch: 'Arched',
+      brow_angled: 'Angled', brow_round: 'Rounded', brow_droop: 'Drooping', brow_up: 'Upswept',
+      brow_thin: 'Thin', brow_bold: 'Bold', brow_short: 'Short',
       top_none: 'None', top_tee: 'Basic Tee', top_blouse: 'Blouse', top_knit: 'Knit', top_hoodie: 'Hoodie',
       top_shirt: 'Shirt', top_turtle: 'Turtleneck', top_cardigan: 'Cardigan',
       top_sleeveless: 'Sleeveless', top_vneck: 'V-neck Tee',
