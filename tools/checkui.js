@@ -192,7 +192,28 @@ function launchOpts() {
         // 그냥 `overflow: hidden` 으로 «말없이» 자르는 것은 그대로 잡힌다
         if (st.textOverflow === 'ellipsis' && st.overflowX === 'hidden' &&
             (st.whiteSpace === 'nowrap' || st.whiteSpace === 'pre')) continue;
-        const over = el.scrollWidth - el.clientWidth;
+        let over = el.scrollWidth - el.clientWidth;
+        // ⚠️⚠️ **«일부러 걸쳐 놓은» 딱지는 넘침이 아니다.** 옷장의 잠금 자물쇠
+        // (`.wr-lock`)는 `right: -8px` 으로 **아이콘 모서리에 걸치게** 그린 것이라,
+        // 자르는 상자가 없어 화면에는 멀쩡히 보이는데 `scrollWidth` 만 8px 커진다.
+        // **가로 음수 오프셋(`left`/`right`)이 곧 「여기는 걸쳐도 된다」는 선언**이고,
+        // 말줄임표 셋과 같은 규칙이다 — 선언한 것만 빼고 **다시 재서** 그래도 넘치면 잡는다.
+        // ⚠️ 길잡이 점(`.tab-dot`)은 `top: -3px; right: 0` 이라 **그대로 잡힌다** —
+        //    세로로만 걸쳤고 가로로는 안 나갔다. 버튼이 줄 끝에 설 수 있으니 그쪽은
+        //    검사기가 맞다 (「레드닷자리」가 지키는 그 약속이다)
+        if (over > 1) {
+          const hang = [...el.children].filter(c => {
+            const cs = getComputedStyle(c);
+            if (cs.position !== 'absolute' && cs.position !== 'fixed') return false;
+            return parseFloat(cs.left) < 0 || parseFloat(cs.right) < 0;
+          });
+          if (hang.length) {
+            const prev = hang.map(c => c.style.display);
+            hang.forEach(c => { c.style.display = 'none'; });
+            over = el.scrollWidth - el.clientWidth;
+            hang.forEach((c, i) => { c.style.display = prev[i]; });
+          }
+        }
         if (over > 1) {
           const who = el.className || el.tagName.toLowerCase();
           return `${who} 안의 내용이 ${over}px 넘쳤다 (${el.clientWidth}px 칸에 ${el.scrollWidth}px)`;
@@ -2263,6 +2284,7 @@ function launchOpts() {
             ['storySheet', `openStory()`],
             ['miniHelpSheet', `openMiniHelp('driller')`],
             ['miniLogSheet', `openMiniLog('p_walnut')`],
+            ['faceSheet', `openFaceSheet()`],
             ['pageSheet', `openPage(D.RECIPES.slice().sort((a, b) =>
                 Object.keys(b.input || {}).length - Object.keys(a.input || {}).length)[0].result.id)`],
             ['diaryModal', `openDiary()`],
@@ -2785,6 +2807,44 @@ function launchOpts() {
           if (bad) { results.push({ 화면: `${t}/${name}`, 오류: bad }); continue; }
           await page.waitForTimeout(250);
           await run(`${t}/${name}`);
+        }
+
+        // **😊 표정 시트** — 표정은 «옷»이 아니라 «얼굴»이라 옷장 탭 줄에서 나와
+        // 방 그림 왼쪽 아래 버튼 + 제 바닥 시트로 옮겼다.
+        // ⚠️ 위의 `clothes` 탭 0건은 이 층을 **한 번도 안 잰 것**이다 — 시트는
+        // 눌러야만 뜨고, 그 안이 서른여덟 칸으로 이 앱에서 제일 긴 격자다
+        {
+          const bad = await page.evaluate(() => {
+            // 잠긴 칸(🔒)이 하나는 있어야 그 줄의 대비를 재는 것이 된다 —
+            // 다 열어 놓고 재면 자물쇠 층은 영영 안 잰다 (「물어볼것」과 같은 규칙)
+            const all = D.WARDROBE.expression || [];
+            S.unlocked = (S.unlocked || []).concat(
+              all.slice(0, Math.max(1, all.length - 3)).map(x => x.id));
+            // ⚠️ **옷장 탭 줄에 표정이 남아 있으면 안 된다** — 두 자리에서 고르게 되면
+            // 한쪽만 고쳐 갈린다 (`WARDROBE_SLOTS` 의 `sheet: true` 가 그것을 막는다)
+            const inTabs = [...document.querySelectorAll('.wr-tabs .wr-tab')]
+              .some(b => /expression/.test(b.getAttribute('onclick') || ''));
+            if (inTabs) return '표정이 아직 옷장 탭 줄에 서 있다';
+            const fb = document.getElementById('actFace');
+            if (!fb || fb.hidden) return '😊 표정 버튼이 안 보인다 (튜토리얼을 마쳤는데)';
+            openFaceSheet();
+            const m = document.getElementById('faceSheet');
+            if (!m || !m.classList.contains('show')) return '시트가 안 떴다';
+            const n = m.querySelectorAll('.wr-item').length;
+            if (n !== all.length) return `칸이 ${n}개다 (${all.length} 이어야 한다)`;
+            if (!m.querySelector('.wr-item.locked .wr-lock')) return '잠긴 칸이 하나도 없다 — 🔒 줄을 못 잰다';
+            if (!m.querySelector('.sheet-exit')) return '나가는 길이 없다';
+            return null;
+          });
+          if (bad) results.push({ 화면: `${t}/표정시트`, 오류: bad });
+          else {
+            await page.waitForTimeout(280);
+            await run(`${t}/표정시트`);
+            const fit = await page.evaluate(() => __cardFits('#faceSheet, #faceSheet .wr-item'));
+            if (fit && fit.length) results.push({ 화면: `${t}/표정시트`, 넘침: fit });
+          }
+          await page.evaluate(() => closeFaceSheet());
+          await page.waitForTimeout(150);
         }
         // **먹이주기 팝업** — 눌러야만 뜬다. 크리처 줄 · 먹이 줄 · 수량 · 버튼이
         // 한 화면에 다 들어가는 자리라 265px 영어가 제일 빡빡하다

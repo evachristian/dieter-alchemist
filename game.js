@@ -3197,6 +3197,9 @@ function switchTab(tab) {
   // `renderGather()` 를 부르므로 **아무도 닫아 주지 않는다** (마이 룸 위에 대장간이 뜬다).
   // 그래서 여기서는 «그리기»에 기대지 않고 그 자리에서 닫는다
   if (tab !== 'gather') closeNpcSheet();
+  // 😊 표정 시트도 같은 이유로 여기서 닫는다 — 마이 룸의 버튼에서만 여는 시트인데
+  // `position: fixed` 라 탭을 옮겨도 공방 위에 그대로 떠 있다
+  if (tab !== 'showcase') closeFaceSheet();
   currentTab = tab;
   window.currentTab = tab;   // 인트로에서 '이전 화면' 복귀에 사용
   document.querySelectorAll('.tab-btn').forEach(b =>
@@ -5700,8 +5703,12 @@ function setRecipeTab(id) { recipeTab = id; render(); }
 // 튜토리얼 전에는 원피스 하나뿐이다 — 공주가 입고 들어온 그 옷만 갈아입을 수 있다.
 const TUTORIAL_SLOTS = ['dress'];
 function wardrobeSlots() {
-  if (S.tutorialDone) return D.WARDROBE_SLOTS;
-  return D.WARDROBE_SLOTS.filter(m => TUTORIAL_SLOTS.includes(m.slot));
+  // ⚠️ `sheet: true` 인 칸(표정)은 여기 안 선다 — 옷이 아니라 «얼굴»이라
+  //    방 그림의 😊 버튼에서 제 시트로 연다 (`openFaceSheet`).
+  //    표(`WARDROBE_SLOTS`)에서 빼지 않는 이유는 그 표에 적혀 있다
+  const all = D.WARDROBE_SLOTS.filter(m => !m.sheet);
+  if (S.tutorialDone) return all;
+  return all.filter(m => TUTORIAL_SLOTS.includes(m.slot));
 }
 function setWardrobeTab(slot) {
   if (slot !== wardrobeTab) dyeOpen = null;   // 다른 칸으로 가면 펼친 컬러칩은 닫는다
@@ -5743,6 +5750,13 @@ function equip(slot, id, el) {
   const grid = document.querySelector('.wr-items');
   const gridY = grid ? grid.scrollTop : 0;
   renderShowcase();  // 아바타 + 옷장 동시 갱신
+  // 😊 시트가 떠 있으면 그 격자도 같이 그린다 — **고른 테두리(`.on`)가 안 옮겨 가면
+  // 「눌렀는데 아무 일도 없다」로 보인다** (아바타만 바뀌고 시트는 옛 칸에 테를 둔 채다).
+  // ⚠️ **여기에는 스크롤을 되돌리는 줄이 «없다» — 재 보고 안 넣었다.** 시트의 굴림 통은
+  // `#faceBody` 인데 그것은 제자리에 남고 «자식만» 갈리므로 브라우저가 자리를 그대로
+  // 들고 있다(82 → 82). 옷장 쪽은 통(`.wr-items`)째로 새로 만들어져서 0 으로 돌아간다 —
+  // 그 차이가 아래 두 줄이 있고 여기엔 없는 이유다
+  if (faceSheetOpen()) renderFaceSheet();
   if (sc.scrollTop !== keepY) sc.scrollTop = keepY;
   const grid2 = document.querySelector('.wr-items');
   if (grid2 && gridY) grid2.scrollTop = gridY;
@@ -5883,6 +5897,74 @@ function renderRoomDevGift() {
     + `<button class="btn btn-dev" onclick="unlockAllOf('expression')">😄 ${T('dev_all_face')}</button></div>`;
 }
 
+// ─── 한 칸의 목록 격자 ─────────────────────────────────────────
+// ⚠️⚠️ **옷장 탭과 표정 시트가 «같은 것»을 쓴다.** 두 벌로 두면 한쪽만 고쳐 갈린다 —
+// 잠금(🔒) · 염색 색 · 고른 테두리 · aria-label · 누르는 자리가 전부 여기 한 줄에 있고,
+// 표정이 옷장에서 시트로 옮겨 간 뒤에도 **고르는 일은 한 글자도 안 달라졌다**
+// (사람이 요청한 것이 그것이다: 「팝업이 뜬다는 점을 제외하면 기존 UX와 동일」).
+function wardrobeGrid(slot) {
+  // 튜토리얼을 마치기 전에는 **가진 것만** 보여 준다.
+  // 인트로가 끝나고 처음 들어온 화면에 잠긴 칸 여덟 개가 늘어서 있으면
+  // 무엇을 하라는 화면인지 읽히지 않는다. '없음' 도 뺀다 —
+  // 가진 옷이 한 벌뿐이라 벗을 이유가 없고, 눌러도 할 일이 없는 칸이다.
+  const onlyMine = !S.tutorialDone;
+  const list = (D.WARDROBE[slot] || [])
+    .filter(it => !onlyMine || (it.kind !== 'none' && isOwned(slot, it)));
+  const items = list.map(it => {
+    const on = S.outfit[slot] === it.id;
+    const owned = isOwned(slot, it);
+    let ic;
+    if (it.kind === 'none') ic = '🚫';
+    // 머리는 이모지 대신 **실루엣을 작게 그려서** 보여 준다 (아바타와 같은 함수라
+    // 머리 모양을 고치면 이 그림도 같이 바뀐다). 헤어 칸은 보통 아래 두 줄짜리
+    // 축 화면으로 가고, 이 줄은 축 표가 없을 때를 위한 대비다
+    else if (slot === 'hair' && window.Avatar && Avatar.hairIcon) {
+      // 그 머리에 물들여 둔 색으로 그린다 — 염색해 놓고 목록만 브라운이면 무엇을 고르는지 헷갈린다
+      ic = Avatar.hairIcon(it, itemHex(it));
+    }
+    else if (it.emoji) ic = it.emoji;
+    // **각자 자기 색으로** 보여 준다. 염색이 옷에 붙으므로 칸마다 색이 다르고,
+    // 그래서 목록 전체가 같은 색이 되는 일이 없다 (예전에는 칸에 붙어 있어서
+    // 지금 입은 것만 칠했다 — 안 그러면 60벌이 전부 같은 동그라미가 됐다)
+    else ic = `<span class="wr-swatch" style="background:${itemHex(it) || '#ccc'}"></span>`;
+    const lock = owned ? '' : '<span class="wr-lock">🔒</span>';
+    // 이름은 칸에 쓰지 않는다. 30벌짜리 칸에서는 '긴 생머리 시스루뱅' 같은 이름이
+    // 세 줄을 넘겨 잘렸고, 글자는 11px 밑으로 못 줄인다 (TEXT_POLICY 1).
+    // **눌렀을 때 토스트로 알려 준다** — 그림만 남기니 한 화면에 훨씬 많이 들어간다.
+    // aria-label 에는 그대로 넣는다: 화면 낭독기에는 이름이 유일한 단서다
+    return `<button class="wr-item ${on ? 'on' : ''} ${owned ? '' : 'locked'}" data-item="${it.id}"
+      aria-label="${N(it.id, it.name)}${owned ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
+      onclick="equip('${slot}','${it.id}',this)">
+      <span class="wr-ic">${ic}${lock}</span></button>`;
+  }).join('');
+  return `<div class="wr-items">${items}</div>`;
+}
+
+// ─── 😊 표정 고르기 (방 그림 왼쪽 아래) ────────────────────────
+// 표정은 **옷이 아니라 얼굴**이라 옷장 탭 줄에서 나왔다. 여기서 하는 일은
+// 「같은 격자를 시트에 올려 준다」뿐이고, 갈아 끼우는 것은 그대로 `equip()` 이다.
+const FACE_SLOT = 'expression';
+function faceSheetOpen() {
+  const m = document.getElementById('faceSheet');
+  return !!(m && m.classList.contains('show'));
+}
+function renderFaceSheet() {
+  const b = document.getElementById('faceBody');
+  if (b) b.innerHTML = wardrobeGrid(FACE_SLOT);
+}
+function openFaceSheet() {
+  renderFaceSheet();
+  const m = document.getElementById('faceSheet');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeFaceSheet() {
+  const m = document.getElementById('faceSheet');
+  if (m) m.classList.remove('show');
+}
+window.openFaceSheet = openFaceSheet;
+window.closeFaceSheet = closeFaceSheet;
+
 function renderWardrobe() {
   const el = document.getElementById('wardrobe');
   if (!el) return;
@@ -5908,41 +5990,6 @@ function renderWardrobe() {
       ><span class="em">${m.emoji}</span> ${N(m.slot, m.label)}${n}</button>`;
   }).join('');
 
-  // 튜토리얼을 마치기 전에는 **가진 것만** 보여 준다.
-  // 인트로가 끝나고 처음 들어온 화면에 잠긴 칸 여덟 개가 늘어서 있으면
-  // 무엇을 하라는 화면인지 읽히지 않는다. '없음' 도 뺀다 —
-  // 가진 옷이 한 벌뿐이라 벗을 이유가 없고, 눌러도 할 일이 없는 칸이다.
-  const onlyMine = !S.tutorialDone;
-  const list = (D.WARDROBE[wardrobeTab] || [])
-    .filter(it => !onlyMine || (it.kind !== 'none' && isOwned(wardrobeTab, it)));
-  const items = list.map(it => {
-    const on = S.outfit[wardrobeTab] === it.id;
-    const owned = isOwned(wardrobeTab, it);
-    let ic;
-    if (it.kind === 'none') ic = '🚫';
-    // 머리는 이모지 대신 **실루엣을 작게 그려서** 보여 준다 (아바타와 같은 함수라
-    // 머리 모양을 고치면 이 그림도 같이 바뀐다). 헤어 칸은 보통 아래 두 줄짜리
-    // 축 화면으로 가고, 이 줄은 축 표가 없을 때를 위한 대비다
-    else if (wardrobeTab === 'hair' && window.Avatar && Avatar.hairIcon) {
-      // 그 머리에 물들여 둔 색으로 그린다 — 염색해 놓고 목록만 브라운이면 무엇을 고르는지 헷갈린다
-      ic = Avatar.hairIcon(it, itemHex(it));
-    }
-    else if (it.emoji) ic = it.emoji;
-    // **각자 자기 색으로** 보여 준다. 염색이 옷에 붙으므로 칸마다 색이 다르고,
-    // 그래서 목록 전체가 같은 색이 되는 일이 없다 (예전에는 칸에 붙어 있어서
-    // 지금 입은 것만 칠했다 — 안 그러면 60벌이 전부 같은 동그라미가 됐다)
-    else ic = `<span class="wr-swatch" style="background:${itemHex(it) || '#ccc'}"></span>`;
-    const lock = owned ? '' : '<span class="wr-lock">🔒</span>';
-    // 이름은 칸에 쓰지 않는다. 30벌짜리 칸에서는 '긴 생머리 시스루뱅' 같은 이름이
-    // 세 줄을 넘겨 잘렸고, 글자는 11px 밑으로 못 줄인다 (TEXT_POLICY 1).
-    // **눌렀을 때 토스트로 알려 준다** — 그림만 남기니 한 화면에 훨씬 많이 들어간다.
-    // aria-label 에는 그대로 넣는다: 화면 낭독기에는 이름이 유일한 단서다
-    return `<button class="wr-item ${on ? 'on' : ''} ${owned ? '' : 'locked'}" data-item="${it.id}"
-      aria-label="${N(it.id, it.name)}${owned ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
-      onclick="equip('${wardrobeTab}','${it.id}',this)">
-      <span class="wr-ic">${ic}${lock}</span></button>`;
-  }).join('');
-
   const hint = dressed && (wardrobeTab === 'top' || wardrobeTab === 'bottom')
     ? `<div class="wr-hint">${T('dress_hint')}</div>` : '';
 
@@ -5953,7 +6000,7 @@ function renderWardrobe() {
     body = `<div class="wr-sec">${T('wr_sec_back')}</div>${hairAxisRow('back', D.HAIR_AXES.back, cur)}`
          + `<div class="wr-sec">${T('wr_sec_bang')}</div>${hairAxisRow('bang', D.HAIR_AXES.bang, cur)}`;
   } else {
-    body = `<div class="wr-items">${items}</div>`;
+    body = wardrobeGrid(wardrobeTab);
   }
 
   el.innerHTML = `<div class="cat-tabs wr-tabs">${tabs}</div>${hint}${body}`
@@ -8138,6 +8185,11 @@ function renderActBadges() {
     const b = document.getElementById(ROOM_ACT_BTN[id]);
     if (b) b.hidden = !actOpen(id);
   });
+  // 😊 표정 — 다섯과 달리 이야기가 여는 문이 아니라 **옷장이 열리면 같이 열린다.**
+  // 졸업 전에는 방에 인트로 공주 그림이 서 있어서(`roomFigure`) 표정을 갈아 끼워도
+  // 화면이 하나도 안 바뀐다 — 그래서 `tutorialDone` 하나가 조건 전부다
+  const fb = document.getElementById('actFace');
+  if (fb) fb.hidden = !S.tutorialDone;
   // **새로 물어볼 것이 있어도 켠다** — 마을이 전부 잠겨 있을 때 이야기가 시작되는
   // 자리가 여기뿐이라, 「밥은 먹었다」로 점이 꺼지면 갈 곳이 아예 안 보인다
   // ⚠️ **톱니에는 점이 없다.** 「복구 코드를 아직 안 봤다」로 찍어 봤는데, 설정을 한 번

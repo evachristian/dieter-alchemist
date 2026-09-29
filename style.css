@@ -2092,6 +2092,11 @@ button.tm-slot:active { transform: scale(0.94); }
   box-shadow: 0 2px 8px rgba(60,40,55,0.28);
 }
 .room-act:active { transform: scale(0.97); }
+/* 😊 표정은 **왼쪽 아래**에 혼자 선다 (사람이 그림으로 자리를 정해 줬다).
+   ⚠️ 알약의 꼴(`.room-act`)을 베껴 쓰지 않는다 — 여기서 뒤집는 것은 «어느 쪽에
+   붙는가» 하나뿐이라, 오른쪽 줄을 고치면 이쪽도 같이 따라온다.
+   뱃지가 없으니 왼쪽 여백은 시계(`left: 2px`)보다만 안쪽이면 된다 */
+.room-acts-l { right: auto; left: 8px; align-items: flex-start; }
 /* 안 본 밤이 몇 번인지. **레드닷이 아니라 숫자다** — 점 하나로는 「하나 있나 보다」로
    읽혀서 세 밤이 쌓인 것을 못 알린다.
    흰 글자를 얹으므로 바탕은 대비가 나오는 진한 붉은색이어야 한다 (checkTextStyle 이 잰다) */
@@ -3037,10 +3042,16 @@ button.tm-slot:active { transform: scale(0.94); }
 #npcSheet .modal-card, #giftSheet .modal-card, #questSheet .modal-card,
 #kitchenSheet .modal-card, #produceLog .modal-card, #plantPick .modal-card,
 #teamPick .modal-card, #raidPick .modal-card, #palPick .modal-card,
-#devAcctSheet .modal-card, #storySheet .modal-card, #feedPick .modal-card {
+#devAcctSheet .modal-card, #storySheet .modal-card, #feedPick .modal-card,
+#faceSheet .modal-card {
   display: flex; flex-direction: column; overflow: hidden; }
-#npcBody, #giftBody, .q-body, .pal-list, .st-body, .feed-list, #devAcctList {
+#npcBody, #giftBody, .q-body, .pal-list, .st-body, .feed-list, #devAcctList, #faceBody {
   overflow-y: auto; min-height: 0; }
+/* ⚠️⚠️ 표정 격자는 **옷장에서 빌려 온 것**이라 제 `max-height`(4.5줄)를 갖고 온다 —
+   그대로 두면 시트 안에서 **굴리는 자리가 둘**이 되어 손가락이 안쪽 줄에 갇힌다
+   (바로 위 블록이 금지하는 그것이고, `checkui` 의 「시트낮은화면」이 잡는다).
+   시트에서는 높이를 카드가 정한다 */
+#faceSheet .wr-items { max-height: none; overflow: visible; }
 /* 굴러가지 «않는» 자리를 이름으로 못 박아 둔다 — 지금은 한 픽셀도 안 바꾸지만
    (제목·버튼은 제 내용보다 못 줄어든다) 여기에 무엇이 남아야 하는지가 곧 규칙이다 */
 #npcActs, #questActs, #feedGo, .modal-card > .sheet-exit, .modal-card > .confirm-text { flex: 0 0 auto; }

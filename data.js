@@ -2857,9 +2857,14 @@ const HAIR_AXES = {
 
 // 옷장 슬롯 메타 (UI 탭 순서/라벨)
 // gated: true → 잠금/해금 대상 (starter 아이템만 처음 보유, 나머지는 획득 필요)
+// sheet: true → **옷장 탭에 안 선다.** 제 버튼에서 제 바닥 시트로 연다 (아래 표정)
 const WARDROBE_SLOTS = [
   { slot: 'hair',      label: '헤어',    emoji: '💇', gated: true },
-  { slot: 'expression',label: '표정',    emoji: '😊', gated: true },
+  // ⚠️ **표정은 «옷»이 아니다.** 얼굴이 짓는 것이라 헤어·원피스와 한 줄에 서면
+  //    무엇을 고르는 칸인지가 흐려진다 — 방 그림의 😊 버튼에서 제 시트로 연다
+  //    (`openFaceSheet`). **표는 그대로 남는다**: `isOwned()` 가 `gated` 를 여기서
+  //    읽으므로, 줄을 빼면 서른여덟 표정이 통째로 «처음부터 가진 것»이 된다
+  { slot: 'expression',label: '표정',    emoji: '😊', gated: true, sheet: true },
   { slot: 'tattoo',    label: '문신',    emoji: '⚜️', gated: true },
   // 옷·악세사리도 전부 획득 대상이다. 인트로를 마친 시점에 손에 있는 옷은
   // 인트로에서 입고 있던 '공주 드레스' 한 벌뿐이고, 나머지는 아직 얻지 않았다.

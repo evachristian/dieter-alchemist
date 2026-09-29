@@ -337,6 +337,9 @@
       dev_binge_no: '지금은 안 만들어졌어요 (같은 날이거나 배가 부릅니다).',
       act_exercise: '운동', act_binge: '흡입',
       act_binge_n: '흡입 — 안 본 밤 {n}번',
+      // 😊 표정 — 방 그림 왼쪽 아래. 「옷」 탭이 아니라 «얼굴»이라 제 자리로 나왔다
+      act_face: '표정',
+      face_title: '😊 표정',
       // 「흡입」 컷씬 — 겉은 웃기고 안은 아프게. 마지막 줄이 이 장면의 전부다
       bs_none: '이미 벌어진 참사는 모두 목격하셨습니다.',
       bs_ask_all: '혼자 먹은 밤이 {n}번 있었어요.\n연속해서 보시겠습니까?',
@@ -1856,6 +1859,8 @@
       dev_binge_no: 'Nothing happened (same day, or she is full).',
       act_exercise: 'Exercise', act_binge: 'Devour',
       act_binge_n: 'Devour — {n} night(s) unseen',
+      act_face: 'Face',
+      face_title: '😊 Face',
       bs_none: 'You have already witnessed every disaster on record.',
       bs_ask_all: 'She ate alone on {n} nights.\nWatch them one after another?',
       bs_ask_ok: 'Watch',

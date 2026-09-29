@@ -44,19 +44,28 @@ const TOAST_MAX = 60;    // px. 토스트는 누른 칸 «옆»에 떠야 한다
   await page.waitForTimeout(300);
 
   // 칸이 많을수록 잘 드러난다 — 표정(38)과 목걸이(31)를 본다 (헤어는 축 두 개라 equip 을 안 쓴다)
-  for (const slot of ['expression', 'necklace']) {
+  // ⚠️⚠️ **표정은 옷장 탭이 아니라 «제 시트»에 있다** (방 그림의 😊 버튼).
+  // 그러면서 **굴림 통이 `.wr-items` 에서 `#faceBody` 로 옮겨 갔다** — 통이 둘이라
+  // `equip()` 이 한쪽만 붙들면 여기서 같은 사고가 그대로 되돌아온다.
+  // 그래서 이 검사도 **여는 법과 굴림 통을 칸마다 적는다**
+  const CASES = [
+    { slot: 'expression', open: 'openFaceSheet()', box: '#faceBody' },
+    { slot: 'necklace',   open: `setWardrobeTab('necklace')`, box: '.wr-items' },
+  ];
+  for (const c of CASES) {
+    const slot = c.slot;
     const r = await page.evaluate(async (o) => {
       const sel = `[onclick*="equip('${o.slot}'"]`;
       if (typeof unlockAllOf === 'function') unlockAllOf(o.slot);
-      setWardrobeTab(o.slot);
+      (0, eval)(o.open);
       await new Promise(r => setTimeout(r, 80));
       const at = i => document.querySelectorAll(sel)[i];
       const n = document.querySelectorAll(sel).length;
-      const grid = document.querySelector('.wr-items');
-      if (!grid) return { err: '옷장 격자를 못 찾았다' };
+      const grid = document.querySelector(o.box);
+      if (!grid) return { err: `${o.slot}: 굴림 통(${o.box})을 못 찾았다` };
       // **통 밖으로 나가는 칸이 없으면 아무것도 안 잰 것이다** (78건 유령과 같은 함정)
       if (grid.scrollHeight <= grid.clientHeight + 4) {
-        return { err: `${o.slot}: 칸이 ${n}개뿐이라 격자가 안 넘친다 — 잴 수가 없다` };
+        return { err: `${o.slot}: 칸이 ${n}개뿐이라 ${o.box} 가 안 넘친다 — 잴 수가 없다` };
       }
       const i = n - 2;                                  // 맨 아랫줄 — 반드시 통 밖이다
       at(i).scrollIntoView({ block: 'center' });
@@ -65,20 +74,34 @@ const TOAST_MAX = 60;    // px. 토스트는 누른 칸 «옆»에 떠야 한다
       at(i).click();
       await new Promise(r => setTimeout(r, 120));
       const y1 = Math.round(at(i).getBoundingClientRect().top);
+      // **고른 테두리가 «그 자리에서» 옮겨 갔는가.** 아바타만 바뀌고 목록이 옛 칸에
+      // 테를 둔 채면 「눌렀는데 아무 일도 없다」로 보인다 — 표정처럼 «시트»에 사는
+      // 칸은 `renderShowcase()` 가 안 건드리므로 따로 그려 주지 않으면 그렇게 된다
+      const want = at(i).dataset.item;
+      const on = [...document.querySelectorAll(sel)].filter(b => b.classList.contains('on'));
+      const onIds = on.map(b => b.dataset.item);
+      const worn = S.outfit[o.slot];
       const tt = document.getElementById('toast');
       const shown = tt.classList.contains('show');
       const d = shown ? Math.round(Math.abs(tt.getBoundingClientRect().bottom - y0)) : -1;
       // 다음 칸을 위해 되돌린다
       tt.classList.remove('show');
       window.scrollTo(0, 0);
-      return { n: n, y0: y0, y1: y1, moved: y1 - y0, toast: d, shown: shown };
-    }, { slot: slot });
+      if (typeof closeFaceSheet === 'function') closeFaceSheet();
+      return { n: n, y0: y0, y1: y1, moved: y1 - y0, toast: d, shown: shown,
+               want: want, worn: worn, onIds: onIds };
+    }, c);
 
     if (r.err) { bad.push(r.err); continue; }
     rows.push(`${slot} ${r.n}칸 · 누른 칸 ${r.y0} → ${r.y1} · 토스트 ${r.toast}px`);
     if (Math.abs(r.moved) > MOVE_MAX) {
       bad.push(`${slot}: 누른 칸이 ${r.y0} → ${r.y1} 로 ${r.moved}px 밀렸다`
         + ` (${MOVE_MAX}px 까지) — 격자의 scrollTop 이 다시 그리며 0 으로 돌아간 것이다`);
+    }
+    if (r.worn !== r.want) bad.push(`${slot}: 눌렀는데 안 갈아 끼워졌다 (${r.worn})`);
+    if (r.onIds.length !== 1 || r.onIds[0] !== r.want) {
+      bad.push(`${slot}: 고른 테두리가 안 옮겨 갔다 (테가 [${r.onIds.join('·') || '없음'}] 에 있고`
+        + ` 누른 것은 ${r.want} 다) — 그 목록을 다시 안 그린 것이다`);
     }
     if (!r.shown) bad.push(`${slot}: 토스트가 안 떴다`);
     else if (r.toast > TOAST_MAX) {
