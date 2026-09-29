@@ -3325,6 +3325,7 @@ function launchOpts() {
       //    받는 것이 규칙이라, 리터럴을 구워 넣는 순간 여기서 잡힌다
       const SEAM_MAX = 6;                // 한 줄에 이보다 더 뛰면 «끊긴 선»으로 보인다
       const SEAM_JUMP = 12;              // 헤더 → 첫 줄. 헤더 색에서 시작하면 0 에 가깝다
+      const SEAM_RIDGE = 2.5;            // «한 줄만 튀는 줄». 헤더 테두리를 지우기 전에는 5.0 이었다
       const seamOne = async () => {
         // ⚠️ **맨 위로 올려 놓고 잰다** — `page.screenshot({clip})` 은 «문서» 좌표인데
         //    자리는 `getBoundingClientRect`(«화면» 좌표)로 잡는다. 굴러 있으면 둘이
@@ -3381,7 +3382,21 @@ function launchOpts() {
           if (d > worst) { worst = d; at = y - UP; }
           last = y;
         }
+        // ⚠️⚠️ **«한 줄만 튀는 줄»은 위의 둘이 영영 못 본다.** 헤더의 1px 테두리가
+        //    그랬다 — 위도 아래도 246.1 인데 그 줄만 251.1 이라 `jump` 도 `worst` 도
+        //    문턱 아래고, 사람 눈에는 **그림을 가로지르는 선 하나**다.
+        //    이웃 «둘 다»와 같은 쪽으로 어긋난 줄(마루)을 따로 센다 — 매끄러운
+        //    그라디언트는 단조라 마루가 생길 수가 없다.
+        //    창은 헤더의 마지막 몇 줄부터다 (패딩 12px 안쪽이라 알약이 안 걸린다)
+        let ridge = 0, ridgeAt = 0, ridgeSeen = 0;
+        for (let y = Math.max(1, UP - 4); y <= lastRow && y + 1 < n; y++, ridgeSeen++) {
+          const a = mid[y] - mid[y - 1], b = mid[y] - mid[y + 1];
+          if (a * b <= 0) continue;                      // 마루가 아니라 지나가는 줄이다
+          const h = Math.min(Math.abs(a), Math.abs(b));
+          if (h > ridge) { ridge = h; ridgeAt = y - UP; }
+        }
         return { jump, lift: mid[UP] - mid[last], worst, at, seen, head,
+                 ridge, ridgeAt, ridgeSeen,
                  span: Math.abs(mid[n - 1] - head), n };
       };
       // 여섯을 돌고 원래 테마로 되돌린다
@@ -3448,6 +3463,11 @@ function launchOpts() {
         // ⚠️ 「천장이 스무 줄 아래보다 밝은가」로 재 보았다가 **버렸다** —
         //    방 그림은 `slice` 라 **폭이 넓으면 천장 연장이 통째로 잘린다**(480px 에서
         //    2px 만 남는다). 그 잣대는 폰에서만 참이라 잣대가 못 된다
+        if (seam.ridgeSeen < 8)
+          bad2.push(`«한 줄만 튀는 줄»을 ${seam.ridgeSeen}줄밖에 못 쟀다 — 안 쟀다는 뜻이다`);
+        if (seam.ridge > SEAM_RIDGE)
+          bad2.push(`이음매에 «한 줄짜리 선»이 있다 (y+${seam.ridgeAt} 에서 ${seam.ridge.toFixed(1)})`
+            + ' — 방 그림을 가로지르는 줄로 보인다');
         if (seam.worst > SEAM_MAX)
           bad2.push(`방 그림 위쪽에 «끝나는 자리»가 있다 (y+${seam.at} 에서 한 줄에 ${seam.worst.toFixed(1)})`
             + ' — 그라데이션이 끊긴 선으로 보인다');
@@ -3468,6 +3488,7 @@ function launchOpts() {
               + ` · 제목 줄 ${rise.headCover.n}점이 안 덮였다`
               + ` · 이음매 테마 ${seams.length}개 (제일 나쁜 곳 ${seam ? seam.jump.toFixed(1) : '?'})`
               + ` · 그 아래 제일 큰 한 줄 ${seam ? seam.worst.toFixed(1) : '?'}`
+              + ` · 한 줄짜리 선 ${seam ? seam.ridge.toFixed(1) : '?'} (${seam ? seam.ridgeSeen : 0}줄을 쟀다)`
               + ` (${seam ? seam.seen : 0}줄을 쟀다 · 벽까지 ${seam ? seam.span.toFixed(0) : '?'})`
               + ` · 번짐 아래 ${bandN}줄이 다 방 그림이다`
               + `${bandN ? ` (제일 덜 덮인 줄 ${Math.min(...band.filter(v => v != null)).toFixed(2)})` : ''}` });
