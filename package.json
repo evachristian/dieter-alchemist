@@ -31,6 +31,7 @@
     "bundle": "node tools/bundle.js",
     "side": "node tools/side.js",
     "neck": "node tools/neckscan.js",
+    "test:room": "node tools/checkroom.js",
     "test:wardrobe": "node tools/checkwardrobe.js",
     "test:portrait": "node tools/checkportrait.js",
     "gen:wardrobe": "node tools/genwardrobe.js",

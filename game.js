@@ -3189,6 +3189,10 @@ function energyTick() {
 // ═══════════════════════════════════════════════════════════════
 let currentTab = 'showcase';
 function switchTab(tab) {
+  // ⚠️⚠️ **마이 룸을 떠나면 3D 를 멈춘다.** `room3dSync()` 는 마이 룸을 그릴 때만
+  //    불리므로, 여기서 안 끄면 **다른 탭에서도 계속 그린다** — 배터리도 배터리지만
+  //    검사기가 재는 순간이 프레임마다 달라진다 (`checkroom` 이 그것을 잡았다)
+  if (room3d) room3d.run(tab === 'showcase');
   // 랭킹은 '여신' 단계부터다. 잠긴 채로 들어오면(옛 세이브의 마지막 탭 등)
   // 빈 화면이 뜨므로 홈으로 돌린다
   if (tab === 'league' && !leagueOpen()) tab = 'showcase';
@@ -5015,11 +5019,22 @@ function placeFigure() {
   const aura = document.querySelector('.char-aura');
   const room = document.querySelector('.room-scene svg');
   const av = document.querySelector('.char-body > svg.avatar-svg');
-  if (!aura || !room || !av || !window.Avatar) return;
+  if (!aura || !av || !window.Avatar) return;
   aura.style.transform = '';
-  const mr = room.getScreenCTM(), ma = av.getScreenCTM();
-  if (!mr || !ma) return;
-  const spot = new DOMPoint(200, window.Avatar.FLOOR_SPOT).matrixTransform(mr).y;
+  const ma = av.getScreenCTM();
+  if (!ma) return;
+  // ⚠️⚠️ **양탄자가 3D 면 «투영한 자리»를 본다.** 3D 카메라를 옮기면 양탄자가 화면에서
+  //    옮겨 다니는데, 그때 SVG 쪽 상수를 그대로 보면 **인물만 옛 자리에 남는다**
+  //    (SVG 방에서 「양탄자만 옮기기」 사보타주가 잡던 그 사고다)
+  let spot;
+  if (room3d && document.querySelector('.room-scene.is3d')) {
+    const sr = document.querySelector('.room-scene').getBoundingClientRect();
+    spot = sr.top + room3d.floorRect().cy;
+  } else {
+    const mr = room && room.getScreenCTM();
+    if (!mr) return;
+    spot = new DOMPoint(200, window.Avatar.FLOOR_SPOT).matrixTransform(mr).y;
+  }
   const foot = new DOMPoint(100, window.Avatar.bodyMetrics(0).floorY).matrixTransform(ma).y;
   const lift = foot - spot;
   if (!isFinite(lift) || Math.abs(lift) > FIG_LIFT_MAX) return;
@@ -5037,13 +5052,95 @@ function renderRoomScene() {
     canvas.style.setProperty('--room-bleed', bleed + 'px');
     canvas.style.setProperty('--room-rise', rise + 'px');
   }
-  scene.innerHTML = window.Avatar.roomScene(S.roomLevel, null, roomPadBottom(bleed), roomPadTop(rise));
+  // ⚠️⚠️ **SVG 를 «늘» 먼저 깐다.** 3D 는 670KB 를 받아야 서는데 그동안 방이 비어
+  //    있으면 첫 화면이 통째로 늦어지고, WebGL 이 없는 기기에서는 영영 안 선다.
+  //    3D 가 서면 그 «위»를 덮을 뿐이라 이 줄은 어느 쪽이든 그대로 돈다
+  // ⚠️ **겹의 이름은 `.room-2d` 다 — `.room-svg` 를 쓰면 안 된다.** 그 이름은
+  //    `roomScene()` 이 내놓는 `<svg>` 자신이 이미 쓰고 있어서, 겹에 같은 이름을
+  //    주면 검사기의 `querySelector('.room-svg')` 가 **겹을 집어** viewBox 를
+  //    읽다 터진다 (실제로 그렇게 짰다가 하네스가 죽었다)
+  let svg = scene.querySelector('.room-2d');
+  if (!svg) {
+    svg = document.createElement('div');
+    svg.className = 'room-2d';
+    scene.insertBefore(svg, scene.firstChild);
+  }
+  svg.innerHTML = window.Avatar.roomScene(S.roomLevel, null, roomPadBottom(bleed), roomPadTop(rise));
+  room3dSync();
   // 방 그림이 새로 깔렸으니 «서는 자리»도 다시 맞춘다 (스탯을 접으면 배율이 바뀐다).
   // ⚠️ `renderShowcase()` 는 이 뒤에 `placePet()` 을 부른다 — 크리처는 «옮긴 뒤»의
   // 치마 옆선을 재야 하므로 순서가 이대로여야 한다
   placeFigure();
   syncHeadSolid();
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  방을 «종이 공작» 3D 로 (room3d.js · window.Room3D)
+// ═══════════════════════════════════════════════════════════════
+//
+// ⚠️⚠️ **여기서 하는 일은 «덮는 것» 하나뿐이다.** 방을 만드는 것은 room3d.js 이고,
+//    SVG 방은 그 밑에 그대로 깔려 있다 — 3D 가 못 서면 아무 일도 안 일어난다
+//    (오류도 안 띄운다: 사람에게는 그냥 지금까지의 방이다).
+// ⚠️ **캔버스는 다시 그려도 «살아남는다».** `renderRoomScene()` 이 부를 때마다
+//    `innerHTML` 을 갈아 끼우므로 SVG 는 `.room-2d` 한 겹 «안»에 두고,
+//    캔버스는 그 형제로 둔다 — 안 그러면 프레임마다 WebGL 을 다시 켠다
+let room3d = null, room3dCanvas = null, room3dTried = false;
+function room3dSync() {
+  const scene = document.querySelector('.room-scene');
+  if (!scene) return;
+  if (!room3d) {
+    if (room3dTried || !window.Room3D) return;
+    room3dTried = true;
+    try {
+      room3dCanvas = document.createElement('canvas');
+      room3dCanvas.className = 'room-gl';
+      room3dCanvas.setAttribute('aria-hidden', 'true');
+      scene.appendChild(room3dCanvas);
+      room3d = window.Room3D.create(room3dCanvas);
+    } catch (e) { room3d = null; return; }   // WebGL 이 없는 기기 — SVG 그대로다
+  }
+  // ⚠️⚠️ **`renderShowcase()` 는 `.room-scene` 을 통째로 «새로 만든다»** (무대 마크업이
+  //    한 템플릿이다). 그래서 캔버스를 한 번 붙여 두는 것으로는 모자란다 —
+  //    다시 그릴 때마다 **데려와야** 한다. 요소를 옮기면 WebGL 문맥은 그대로 살아 있다.
+  //    이것을 안 하면 첫 화면에만 3D 가 서고, 탭을 한 번 다녀오면 SVG 로 되돌아간다
+  //    (검사가 「3D 가 안 섰다」로 잡았다 — 눈으로는 첫 화면이 멀쩡해서 못 본다)
+  if (room3dCanvas.parentNode !== scene) scene.appendChild(room3dCanvas);
+  scene.classList.add('is3d');
+  const r = scene.getBoundingClientRect();
+  room3d.setLevel(S.roomLevel);
+  room3d.resize(Math.round(r.width), Math.round(r.height));
+  // ⚠️⚠️ **그려진 SVG 방을 재서 3D 를 거기에 맞춘다.** 둘이 같은 자리에 서야
+  //    ① WebGL 이 없는 기기로 떨어질 때 방이 안 튀고 ② SVG 를 재는 검사들
+  //    (`checkavatar` 의 「서는 자리」 · `checkui` 의 「방 배경 올리기」)이
+  //    사람이 보는 것과 «같은 것»을 재게 된다
+  const sr = svgRugRect(scene, r);
+  if (sr) room3d.aim(sr.cy / r.height, sr.half / r.height);
+  room3d.setPhase(skyPhase3d());
+  room3d.run(currentTab === 'showcase');
+  room3d.render();
+}
+// SVG 방의 양탄자 — **제일 넓은 «아래쪽» 바닥 타원**이다.
+// ⚠️ `Avatar.FLOOR_SPOT` 을 읽지 않는다: 그 상수는 그림이 바뀌면 따라오지 않는다
+function svgRugRect(scene, r) {
+  const s = scene.querySelector('.room-2d .room-svg');
+  if (!s) return null;
+  let best = null;
+  s.querySelectorAll('ellipse').forEach(e => {
+    const b = e.getBoundingClientRect();
+    if (b.width > 40 && b.top > r.top + r.height * 0.4 && (!best || b.width > best.width)) best = b;
+  });
+  return best ? { cy: best.top + best.height / 2 - r.top, half: best.width / 2 } : null;
+}
+// 시간대 — ⚠️⚠️ **방의 시계를 두 벌로 두지 않는다.** SVG 방의 창밖 하늘이 쓰는
+// 그 함수(`Avatar.skyPhase`)를 **그대로 부른다** — 여기에 구간을 다시 적으면
+// 3D 가 못 서는 기기에서 **어제까지 보던 것과 다른 시간대**의 방이 뜬다.
+// ⚠️ 인자를 안 넘기는 것도 그 이유다: SVG 쪽이 `skyPhase()` 로 부르므로 개발용
+//    시계(`nowDate`)를 여기만 태우면 **둘이 갈린다** (태우려면 SVG 쪽부터 태운다)
+function skyPhase3d() {
+  return (window.Avatar && Avatar.skyPhase) ? Avatar.skyPhase() : 'day';
+}
+window.addEventListener('resize', () => { if (currentTab === 'showcase') room3dSync(); });
+window.addEventListener('room3d-ready', () => { if (currentTab === 'showcase') renderRoomScene(); });
 
 // ── 마이 룸의 헤더는 «방 그림이 그 자리를 덮고 있는 동안» 비어 있다 ──────
 //

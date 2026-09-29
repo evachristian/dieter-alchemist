@@ -2133,6 +2133,13 @@ button.tm-slot:active { transform: scale(0.94); }
    두꺼워져, 390px 에서 **vb 284 부터** 옅어졌다 — `FLOOR_SPOT`(288) «위»라
    **양탄자의 앞 절반이 통째로** 사라졌고, 그래서 인물이 양탄자 뒤쪽에 선 것처럼 보였다.
    값은 바닥 타원이 다 들어오도록 잡는다: 8px ÷ 배율(1.07~1.20) ≈ 5칸 → vb 315 까지 진하다 (avatar.js 의 FLOOR_RY 와 짝이다) */
+/* ⚠️ **SVG 방은 «한 겹 안»에 산다** — 3D 캔버스가 그 형제로 서고, 다시 그릴 때
+   갈아 끼우는 것은 이 겹뿐이라 캔버스가 살아남는다 (game.js 의 `room3dSync`) */
+.room-2d, .room-gl { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* ⚠️⚠️ **3D 가 서면 SVG 를 «지우지 않고 덮는다».** 지우면 3D 가 한 프레임 늦을 때
+   방이 통째로 비고, 무엇보다 되돌릴 자리가 없어진다 */
+.room-scene.is3d .room-2d { visibility: hidden; }
+.room-gl { display: block; }
 .room-scene {
   position: absolute; top: calc(-14px - var(--room-rise, 0px));
   bottom: -8px; left: -16px; right: -16px; z-index: 0; overflow: hidden;

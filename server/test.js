@@ -641,6 +641,29 @@ async function run(label, env) {
     ok(!leaked, `비공개 경로 ${p} → ${r.status}${leaked ? ' (내용 유출!)' : ''}`);
   }
 
+  // 12-b) ⚠️⚠️ **내보내야 하는 것도 같이 본다.** 위의 목록은 「막는가」만 보므로,
+  //    `HIDDEN` 에 한 낱말을 더해 게임 파일을 통째로 막아도 **한 줄도 안 걸린다** —
+  //    그러면 배포에서만 조용히 죽는다 (로컬은 파일을 직접 열어 보니 멀쩡하다).
+  //    ⚠️ 목록을 손으로 적지 않는다 — `index.html` 이 «읽는 것»을 그대로 훑는다
+  const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const srcs = [...indexHtml.matchAll(/<script\b[^>]*\ssrc="([^"]+)"/g)].map(m => m[1])
+    .concat([...indexHtml.matchAll(/<link\b[^>]*\shref="([^"]+\.css[^"]*)"/g)].map(m => m[1]))
+    .filter(u => !/^https?:/.test(u));
+  ok(srcs.length >= 10, `index.html 이 읽는 파일 ${srcs.length}개를 찾았다`);
+  for (const u of srcs) {
+    const r = await fetch(base + '/' + u.replace(/^\.?\//, ''));
+    const body = await r.text();
+    // SPA 폴백(index.html)이 오면 그 파일은 «없는» 것이다
+    const served = r.status === 200 && !/<!DOCTYPE html>/i.test(body);
+    ok(served, `게임 파일 /${u.split('?')[0]} → ${r.status}${served ? '' : ' (안 내보낸다!)'}`);
+  }
+  // 모듈이 다시 `import` 하는 것도 같이 본다 (`room3d.js` → `vendor/three…`)
+  for (const u of ['/vendor/three.module.min.js']) {
+    const r = await fetch(base + u);
+    const body = await r.text();
+    ok(r.status === 200 && !/<!DOCTYPE html>/i.test(body), `모듈이 부르는 ${u} → ${r.status}`);
+  }
+
   await new Promise(r => server.close(r));
   delete process.env.DATA_DIR;
 }

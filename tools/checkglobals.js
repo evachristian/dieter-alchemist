@@ -23,7 +23,16 @@ const ROOT = path.join(__dirname, '..');
 // 지금은 `index.html` 의 `<script>` 를 그대로 읽는다 — 게임이 읽는 것과 검사가 보는 것이
 // 갈릴 수가 없다. ⚠️ 미니게임들은 IIFE 라 최상위 이름이 없는데, **없다는 것을 여기서 지킨다**
 const HTML = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-const FILES = [...HTML.matchAll(/<script\s+src="([^"?]+\.js)/g)].map(m => m[1]);
+const TAGS = [...HTML.matchAll(/<script\b([^>]*)>/g)]
+  .map(m => ({ attr: m[1], file: (m[1].match(/\bsrc="([^"?]+\.js)/) || [])[1] }))
+  .filter(t => t.file);
+// ⚠️⚠️ **ES 모듈은 «일부러» 뺀다 — 정규식의 «모양»에 기대지 않는다.**
+//    모듈의 최상위 이름은 그 파일 안에만 살아서 애초에 안 겹친다(`room3d.js`).
+//    예전 식은 `<script\s+src=` 라 `type="module"` 이 «끼어 있어서» 빠졌는데,
+//    그건 일부러가 아니라 **우연**이다 — 속성 순서를 바꾸는 순간 모듈이 끼어들어
+//    「최상위 이름이 없다」로 헛짚는다. 그래서 갈라 놓고 **양쪽 수를 같이 낸다**
+const MODS = TAGS.filter(t => /type="module"/.test(t.attr)).map(t => t.file);
+const FILES = TAGS.filter(t => !/type="module"/.test(t.attr)).map(t => t.file);
 if (FILES.length < 10) {
   console.error(`❌ index.html 에서 스크립트를 ${FILES.length}개밖에 못 찾았다 — 읽는 식이 어긋났다`);
   process.exit(2);
@@ -78,7 +87,7 @@ for (const f of FILES) {
 }
 
 if (!clash.length) {
-  console.log(`✅ 전역 이름 안 겹침 (${FILES.length}개 파일 · 최상위 이름 ${owner.size}개)`);
+  console.log(`✅ 전역 이름 안 겹침 (${FILES.length}개 파일 · 최상위 이름 ${owner.size}개${MODS.length ? ` · 모듈 ${MODS.length}개는 제 이름 공간이라 뺐다: ${MODS.join(', ')}` : ''})`);
   process.exit(0);
 }
 console.log('❌ 전역 이름이 겹친다 — 나중에 읽히는 파일이 «통째로» 실행되지 않는다\n');

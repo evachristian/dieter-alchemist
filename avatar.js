@@ -4388,7 +4388,7 @@
     return { w: w, kx: bodyScaleX(w), ky: ky, head: head, floorY: FLOOR_Y,
              dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
-  window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, browIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
+  window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, hairIcon, browIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
     heartPath, heartEye, HEART,
     partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT,
