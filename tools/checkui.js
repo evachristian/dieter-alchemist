@@ -3313,8 +3313,14 @@ function launchOpts() {
       //    제목 줄의 글자·🏠·↺ 도 같은 종류의 잡음이라 **제목 «위»에서만** 잰다
       // ⚠️ 가로 자리는 **방 그림의 상자**에서 뽑고 세 자리의 가운뎃값을 쓴다 —
       //    `innerWidth` 로 잡았더니 1280px 에서 양옆이 앱 «밖»이었다
-      const SEAM_MAX = 6;                // 한 줄에 이보다 더 뛰면 띠로 보인다
+      const SEAM_MAX = 6;                // 한 줄에 이보다 더 뛰면 «끊긴 선»으로 보인다
+      const SEAM_JUMP = 65;              // 헤더 → 첫 줄. 천장을 안 밝히면 95 가 나온다
       const seam = await (async () => {
+        // ⚠️ **맨 위로 올려 놓고 잰다** — `page.screenshot({clip})` 은 «문서» 좌표인데
+        //    자리는 `getBoundingClientRect`(«화면» 좌표)로 잡는다. 굴러 있으면 둘이
+        //    어긋나 엉뚱한 자리를 재고, 그 자리가 어두우면 「단차 23」이 된다
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(60);
         const g = await page.evaluate(() => {
           const sc = document.querySelector('.room-scene');
           const hd = document.querySelector('.app-header');
@@ -3332,40 +3338,40 @@ function launchOpts() {
         const y0 = Math.max(0, g.top - UP);
         // 아래 끝은 **번짐이 끝난 뒤 한 뼘** — 거기서 벽이 돌아왔는지를 본다
         const bot = g.top + blendH + 16;
-        const cols = [[g.L + 8, 40], [g.L + Math.round(g.w / 2) - 20, 40], [g.L + g.w - 48, 40]];
-        const lum = [];
-        for (const [x, w] of cols) {
-          const im = decode(await page.screenshot({ clip: { x, y: y0, width: w, height: bot - y0 + 1 } }));
-          if (!im) return null;
-          const k = Math.max(1, Math.round(im.h / (bot - y0 + 1)));   // 기기 배율
-          const rows = [];
-          for (let y = 0; y < im.h; y += k) {
-            let sum = 0;
-            for (let px = 0; px < im.w; px++) {
-              const i = (y * im.w + px) * 4;
-              sum += 0.2126 * im.px[i] + 0.7152 * im.px[i + 1] + 0.0722 * im.px[i + 2];
-            }
-            rows.push(sum / im.w);
-          }
-          lum.push(rows);
-        }
-        const n = Math.min(...lum.map(r => r.length));
+        // ⚠️⚠️ **줄마다 «가운뎃값»을 쓴다 — 평균이 아니다.** 벽 위쪽에는 거미줄·촛대·
+        //    커튼·창틀이 걸려 있어서, 세 자리만 떠서 평균을 내면 그중 하나가 물린 순간
+        //    멀쩡한 그림이 「단차 20.2」로 잡힌다 (실제로 그랬다). 줄을 통째로 읽고
+        //    가운뎃값을 쓰면 소품이 몇 칸을 물어도 흔들리지 않는다
+        const im = decode(await page.screenshot({ clip: { x: g.L, y: y0, width: g.w, height: bot - y0 + 1 } }));
+        if (!im) return null;
+        const k = Math.max(1, Math.round(im.h / (bot - y0 + 1)));   // 기기 배율
         const mid = [];
-        for (let y = 0; y < n; y++) mid.push(lum.map(r => r[y]).sort((p, q) => p - q)[1]);
+        for (let y = 0; y < im.h; y += k) {
+          const row = [];
+          for (let px = 0; px < im.w; px += k) {
+            const i = (y * im.w + px) * 4;
+            row.push(0.2126 * im.px[i] + 0.7152 * im.px[i + 1] + 0.0722 * im.px[i + 2]);
+          }
+          row.sort((p, q) => p - q);
+          mid.push(row[row.length >> 1]);
+        }
+        const n = mid.length;
         // 헤더의 «깨끗한» 색 — 제 테두리 한 줄을 피해 조금 위에서 읽는다
         const head = mid.slice(0, Math.max(1, UP - 3)).sort((p, q) => p - q)[Math.floor((UP - 3) / 2)];
-        // 창의 아래 끝 — 번짐이 끝나는 자리와 제목이 시작하는 자리 중 «먼저 오는 쪽»
-        const lastRow = Math.min(UP + blendH, g.title - 2 - y0);
+        // 창의 아래 끝 — 제목이 시작하기 «전»까지 (벽의 돌 이음새·글자를 피한다)
+        const lastRow = Math.min(UP + 22, g.title - 2 - y0);
         // ⚠️ **이음매 «그 한 줄»은 따로 낸다** — 번짐을 통째로 걷는 사보타주에서는
         //    잴 줄이 하나도 안 남아, 하나로 묶어 두면 「못 쟀다」만 뜨고 **정작 얼마나
         //    뛰는지(95)를 안 말한다.** 그 값이 곧 사람이 본 띠다
+        // 헤더와 만나는 «첫 줄» — 거기가 벽의 어두운 쪽이면 짙은 띠로 읽힌다
         const jump = Math.abs(mid[UP] - head);
-        let worst = 0, at = 0, seen = 0;
+        let worst = 0, at = 0, seen = 0, last = UP;
         for (let y = UP + 1; y <= lastRow && y < n; y++, seen++) {
           const d = Math.abs(mid[y] - mid[y - 1]);
           if (d > worst) { worst = d; at = y - UP; }
+          last = y;
         }
-        return { jump, worst, at, seen, head,
+        return { jump, lift: mid[UP] - mid[last], worst, at, seen, head,
                  span: Math.abs(mid[n - 1] - head), n };
       })();
 
@@ -3398,14 +3404,20 @@ function launchOpts() {
       }
       if (!seam) bad2.push('이음매를 못 쟀다 — 0건이 「통과」가 아니다');
       else {
-        if (seam.jump > SEAM_MAX)
-          bad2.push(`헤더와 방 그림 사이에 단차가 있다 (한 줄에 ${seam.jump.toFixed(1)})`
-            + ' — 방 그림 위에 짙은 띠로 보인다');
-        else if (seam.seen < 6)
+        if (seam.seen < 6)
           bad2.push(`이음매를 ${seam.seen}줄밖에 못 쟀다 — 「한 번도 안 쟀다」다`);
+        // ⚠️⚠️ **헤더 자체의 «경계»를 없애려는 것이 아니다** — 헤더는 제 판을 가진
+        //    띠라 거기에 선이 있는 것이 맞다. 문제였던 것은 그 아래가 **벽의 제일
+        //    어두운 자리**여서 한 줄에 95 가 떨어지며 「짙은 띠」로 읽히던 것이다.
+        // ⚠️ 「천장이 스무 줄 아래보다 밝은가」로 재 보았다가 **버렸다** —
+        //    방 그림은 `slice` 라 **폭이 넓으면 천장 연장이 통째로 잘린다**(480px 에서
+        //    2px 만 남는다). 그 잣대는 폰에서만 참이라 잣대가 못 된다
+        if (seam.jump > SEAM_JUMP)
+          bad2.push(`헤더와 만나는 줄이 너무 어둡다 (한 줄에 ${seam.jump.toFixed(1)})`
+            + ' — 헤더 밑이 짙은 띠로 보인다');
         if (seam.worst > SEAM_MAX)
-          bad2.push(`번짐 안에 단차가 있다 (y+${seam.at} 에서 한 줄에 ${seam.worst.toFixed(1)})`
-            + ' — 방 그림 위에 짙은 띠로 보인다');
+          bad2.push(`방 그림 위쪽에 «끝나는 자리»가 있다 (y+${seam.at} 에서 한 줄에 ${seam.worst.toFixed(1)})`
+            + ' — 그라데이션이 끊긴 선으로 보인다');
         // ⚠️ **한쪽만 보면 「방 그림을 통째로 지우기」가 통과한다** (단차 0) —
         //    이음매를 지나는 동안 벽이 실제로 돌아와야 한다
         if (seam.span < 20)
@@ -3421,8 +3433,8 @@ function launchOpts() {
             잰것: `화면 꼭대기를 ${rise.overHead.toFixed(1)}px 덮는다 (안 올리면 ${flat.overHead.toFixed(1)}px)`
               + ` · 확대율 ${rise.scale.toFixed(3)} (그대로) · 좌우 ${rise.unitsW.toFixed(1)}칸`
               + ` · 제목 줄 ${rise.headCover.n}점이 안 덮였다`
-              + ` · 이음매 단차 ${seam ? seam.jump.toFixed(1) : '?'} · 번짐 안 ${seam ? seam.worst.toFixed(1) : '?'}`
-              + ` (번짐 ${blendH}px · ${seam ? seam.seen : 0}줄을 쟀다 · 벽까지 ${seam ? seam.span.toFixed(0) : '?'})`
+              + ` · 이음매 ${seam ? seam.jump.toFixed(1) : '?'} · 그 아래 제일 큰 한 줄 ${seam ? seam.worst.toFixed(1) : '?'}`
+              + ` (${seam ? seam.seen : 0}줄을 쟀다 · 벽까지 ${seam ? seam.span.toFixed(0) : '?'})`
               + ` · 번짐 아래 ${bandN}줄이 다 방 그림이다`
               + `${bandN ? ` (제일 덜 덮인 줄 ${Math.min(...band.filter(v => v != null)).toFixed(2)})` : ''}` });
     }

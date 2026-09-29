@@ -428,7 +428,7 @@ body {
   font-size: 0.72rem; font-weight: 700; color: var(--ink-soft);
   padding: 2px 8px; flex: 0 0 auto;
   min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: var(--glass); border-radius: 999px;
+  background: var(--float); border-radius: 999px;
 }
 .sync-chip[data-state="offline"] { color: var(--text-warn); }
 
@@ -2075,19 +2075,16 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 위쪽은 **화면 꼭대기까지** 올라간다 (`--room-rise` · game.js 의 roomRise 가 재서 넣는다).
    ⚠️ 여기서 «상자만» 늘이면 slice 라 좌우가 잘린다 — viewBox 도 같이 늘리는 짝이
    game.js 의 roomPadTop 이다 (아래로 늘이는 --room-bleed 와 같은 규칙) */
-/* ⚠️⚠️ **위쪽은 «투명해지는» 것이 아니라 헤더 색으로 «번진다»** (.room-scene::before).
-   한때 18px 이 투명에서 시작했는데, 그 띠는 헤더 바로 밑이라 **방 그림이 끊긴 자리**로
-   보였다 (「그라데이션 부분이 끊어져 보인다」). 그래서 걷었더니 이번에는 벽이 크림색
-   헤더 밑에서 **딱 잘려** 시작해 248 → 153 의 단차가 한 줄에 생겼다 —
-   「마이룸 위에 짙은 색상 띠가 거슬린다」로 다시 신고받았다.
-   답은 «없애는 것»도 «투명하게 하는 것»도 아니라 **이어 주는 것**이다:
-   · ⚠️ 번지는 색은 `--bg-1`(페이지 배경)이 아니라 **`--head`** 다 — 이음매 위에 있는
-     것이 헤더이지 페이지 배경이 아니다. 마스크로 뚫으면 그 둘의 차이만큼 옅은 선이 남는다
-   · ⚠️ 그래서 **마스크가 아니라 덮개**다. 그림은 그대로 있고 위에 헤더 색이 얹힌다 —
-     `.room-scene` 이 z-index 0 으로 제 층을 만드므로 이 덮개는 인물·크리처 «아래»다
-   · ⚠️ 길이는 그려 보고 골랐다(28 · 48 · 72px) — 28 은 단차가 남고, 72 는 제목 줄이
-     밝은 바탕에 앉아 흰 글자가 묽어진다. **48px** 이면 제목이 시작하는 자리(19.5px)
-     아래에서 벽이 거의 돌아와 있다
+/* ⚠️⚠️ **위쪽에는 페이드도 덮개도 없다 — 그림 쪽이 맡는다.**
+   여기서 세 번 신고받았다:
+   ① 투명에서 시작하는 18px 마스크 → 헤더 바로 밑에 **방 그림이 끊긴 띠**가 보였다
+   ② 그래서 걷었더니 벽이 크림색 헤더 밑에서 **딱 잘려** 시작해 한 줄에 246 → 151 의
+      **짙은 띠**가 됐다
+   ③ 헤더 색으로 번지는 48px 덮개를 깔았더니 **그라데이션이 끝나는 자리에 선**이 보였다
+   셋의 원인이 같다 — **그림 위에 무엇을 얹든 «끝나는 자리»가 남는다.**
+   지금은 `roomScene` 이 **천장 쪽을 밝게 «연장»한다**(avatar.js 의 `CEIL_LIFT`):
+   벽 한 장의 그라디언트라 끝나는 자리가 아예 없고, 헤더와 만나는 줄이 벽의 제일
+   밝은 쪽이라 단차도 작다.
    ⚠️ 아래는 다르다 — 거기는 진짜로 카드와 만나므로 «마스크» 페이드가 그대로 있어야 한다 */
 /* ⚠️⚠️ **아래 페이드는 %가 아니라 px 다** (아래 .bleed 와 같은 이유 · 거기에만 적혀 있었다).
    `90%` 로 두었더니 천장을 화면 꼭대기까지 올리면서 상자가 길어진 만큼 아래 페이드도
@@ -2110,20 +2107,12 @@ button.tm-slot:active { transform: scale(0.94); }
   -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 6px), transparent 100%);
           mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 6px), transparent 100%);
 }
-/* 위쪽 이음매를 이어 주는 덮개 — 헤더 색에서 시작해 벽으로 번진다.
-   ⚠️ 가운데를 «반»보다 옅게 잡아 두 끝이 다 부드럽다 (선형이면 끝나는 자리에 선이 선다) */
-.room-scene::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 0;
-  /* ⚠️ 토큰으로 빼지 않는다 — 아무도 «선언»하지 않는 `var()` 는 `checktheme` 이
-     「선언 안 된 토큰」으로 잡는다 (대체값이 있어도 그렇다). 검사기는 이 높이를
-     **깔린 값에서 읽으므로** 여기 숫자 하나면 족하다 */
-  height: 48px; z-index: 1; pointer-events: none;
-  background: linear-gradient(to bottom,
-    var(--head) 0%,
-    color-mix(in srgb, var(--head) 55%, transparent) 42%,
-    color-mix(in srgb, var(--head) 18%, transparent) 72%,
-    transparent 100%);
-}
+/* ⚠️⚠️ **위쪽에는 «덮개»를 두지 않는다 — 벽을 진짜로 더 그린다.**
+   헤더 색으로 번지는 48px 덮개(`.room-scene::before`)를 한 번 깔아 봤는데,
+   그라데이션이 끝나는 자리에 **선이 보인다**고 신고받았다 — 덮개는 결국 그림 위에
+   얹은 «막»이라, 아무리 매끄럽게 이어도 끝나는 자리가 남는다.
+   지금은 그림 쪽이 맡는다: `roomScene` 이 천장 쪽을 밝게 «연장»한다
+   (avatar.js 의 `CEIL_LIFT` · 벽 한 장이라 끝나는 자리가 아예 없다) */
 .room-svg { width: 100%; height: 100%; display: block; }
 .char-aura { position: relative; z-index: 1; width: 240px; height: 320px; display: flex; align-items: center; justify-content: center; }
 .char-aura::before {

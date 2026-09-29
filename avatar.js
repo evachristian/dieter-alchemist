@@ -16,7 +16,10 @@
     const h = hex.replace('#', '');
     const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
     let r = (n >> 16) - amt, g = ((n >> 8) & 255) - amt, b = (n & 255) - amt;
-    return `rgb(${Math.max(0, r)},${Math.max(0, g)},${Math.max(0, b)})`;
+    // ⚠️ 양 끝을 «다» 막는다 — `amt` 가 음수면 밝히는 쪽인데, 그때 255 를 넘으면
+    //    `rgb(300,...)` 이라 브라우저가 그 선언을 통째로 버린다
+    const cl = v => Math.min(255, Math.max(0, v));
+    return `rgb(${cl(r)},${cl(g)},${cl(b)})`;
   }
 
   function getItem(slot, id) {
@@ -3470,171 +3473,240 @@
     const dress = it('dress'), top = it('top');
     const cloth = (!isNone(dress) && (col.dress || dress.color))
       || (!isNone(top) && (col.top || top.color)) || SKIN;
-    const clothSh = shade(cloth, 16);
+    const clothLt = shade(cloth, -16);     // 위에서 드는 빛
+    const clothSh = shade(cloth, 16);      // 접힌 자리
+    const clothDk = shade(cloth, 34);      // 몸 밑의 골 — 조각이 겹친 것을 말해 준다
     const hairItem = it('hair');
     const hairC = col.hair || hairItem.color || HAIR_DEF;
+    const hairLt = shade(hairC, -12);
+    const hairSh = shade(hairC, 24);
     const backKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
-    // 무릎 색 — **다리를 덮는 옷이면 옷 색이다.** 예전에는 늘 살색이라, 발목까지 오는
-    // 공주 드레스를 입고도 무릎만 맨살 덩어리로 옆에 삐져나와 있었다.
-    // 서 있을 때 무릎은 y≈278 근처다 (엉덩이 아래 214 ~ 발목 331 의 가운데).
-    // 그보다 아래로 내려오는 밑단이면 무릎을 덮는다. `hemY` 가 없는 것(공주 드레스)은
-    // 바닥까지 오는 옷이라 덮는 쪽으로 친다.
-    // (허리를 올리면서 다리가 올라온 만큼 285 → 278 로 같이 옮겼다)
-    const KNEE_Y = 278;
-    const legSlot = !isNone(dress) ? 'dress' : 'bottom';
-    const legWear = legSlot === 'dress' ? dress : it('bottom');
-    const legHem = isNone(legWear) ? null : (Number(legWear.hemY) || 999);
-    const legC = isNone(legWear) ? null : (col[legSlot] || legWear.color);
-    const kneeCovered = legHem !== null && legHem >= KNEE_Y && !!legC;
-    const kneeC = kneeCovered ? legC : SKIN;
-    const kneeSh = shade(kneeC, kneeCovered ? 16 : 10);
     // 신발 — **모양까지 따라간다.** 색만 바꾸면 유리구두를 신고도 맨발과 같은 모양이라,
-    // 「신발이 안 그려진다」로 읽힌다. 뒤에서 보이는 것은 **뒤꿈치**이므로
-    // 목(rise)과 마감(finish) 두 축을 그대로 쓴다 (renderShoes 와 같은 필드)
+    // 「신발이 안 그려진다」로 읽힌다.
+    // ⚠️ 책상다리로 앉았으므로 보이는 것은 뒤꿈치가 아니라 **발 바깥쪽**이다
     const shoes = it('shoes');
     const bare = isNone(shoes);
     const shoeC = (!bare && (col.shoes || shoes.color)) || SKIN;
     const shoeSh = shade(shoeC, 22);
-    const rise = bare ? 0 : (Number(shoes.rise) || 0);
     const fin = bare ? 'plain' : (shoes.finish || 'plain');
-    // 뒤꿈치 한 짝. 앉아 있으므로 발목이 위로 조금 올라온다
-    const heel = (cx) => {
-      let g = '';
-      if (rise > 0) g += `<rect x="${cx - 11}" y="${210 - rise}" width="22" height="${rise + 6}" rx="6" fill="${shoeC}"/>`;
-      g += `<ellipse cx="${cx}" cy="214" rx="15" ry="9" fill="${shoeC}"/>`;
-      if (fin === 'sole')       g += `<ellipse cx="${cx}" cy="218" rx="15" ry="3.6" fill="${shoeSh}"/>`;
-      else if (fin === 'strap') g += `<path d="M${cx - 11},209 L${cx + 11},209" stroke="${shoeSh}" stroke-width="2.4" stroke-linecap="round"/>`;
-      else if (fin === 'ribbon') g += `<path d="M${cx - 8},208 Q${cx},213 ${cx + 8},208" stroke="${shoeSh}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
-        + `<circle cx="${cx}" cy="208" r="2.4" fill="${shoeSh}"/>`;
-      else if (fin === 'gloss') g += `<ellipse cx="${cx - 4}" cy="211" rx="6" ry="2.8" fill="#fff" opacity="0.75"/>`;
-      if (rise > 0) g += `<path d="M${cx - 11},${210 - rise + 6} L${cx + 11},${210 - rise + 6}" stroke="${shoeSh}" stroke-width="2.2" stroke-linecap="round"/>`;
-      // 맨발이면 뒤꿈치에 그늘을 하나 — 안 그러면 살색 덩어리가 두 개 붙은 것으로 보인다
-      if (bare) g += `<ellipse cx="${cx}" cy="217" rx="11" ry="4" fill="${SKIN_SH}"/>`;
-      return g;
-    };
 
     // 통통할수록 등이 넓어진다. 가로만 늘린다 — 앉은 키는 그대로다
     const k = 1 + 0.22 * w;
     const kS = k.toFixed(3);
-    // 웅크린 등의 실루엣. 색을 두 가지로 나눠 칠하려면 같은 모양을 clip 으로도 써야 해서
-    // 한 곳에만 적어 둔다 — 두 벌로 두면 한쪽만 고쳐 놓고 못 알아챈다
-    const BACK_D = 'M70,116 C60,144 54,176 54,200 C72,214 128,214 146,200'
-      + ' C146,176 140,144 130,116 C118,106 82,106 70,116 Z';
-    const SKIRT_Y = 166;                       // 허리 — 여기부터 아래가 치마다
-    const twoTone = legSlot === 'bottom' && kneeCovered && legC !== cloth;
     // SVG 의 id 는 문서 전체에서 공유된다 — 옷장 미리보기처럼 여럿을 한 화면에 그리면
-    // 뒤에 온 것이 앞의 clip 을 덮어쓴다 (roomScene·build 와 같은 이유)
+    // 뒤에 온 것이 앞의 clip·그라디언트를 덮어쓴다 (roomScene·build 와 같은 이유)
     const uid = 'c' + (++avatarUid);
+    const ID = n => n + '_' + uid;
 
-    return `<svg class="cb-svg" viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg"
-      role="img" aria-label="">
-      ${twoTone ? `<defs><clipPath id="cbb_${uid}"><path d="${BACK_D}"/></clipPath></defs>` : ''}
-      <!-- 그림자도 같이 눌린다. 몸만 움직이면 바닥에서 뜬 것처럼 보인다 -->
-      <ellipse class="cb-shadow" cx="100" cy="226"
-        rx="${(66 * (1 + 0.15 * w)).toFixed(1)}" ry="10" fill="rgba(20,10,25,0.28)"/>
+    // ── 웅크린 등의 실루엣 ──────────────────────────────────
+    // ⚠️ **한 곳에만 적는다** — 색을 두 가지로 칠할 때 clip 으로 같은 모양을 다시 쓴다.
+    //    두 벌로 두면 한쪽만 고쳐 놓고 못 알아챈다.
+    // 어깨(y116)에서 엉덩이(y206)로 퍼지고 바닥에 눌려 앉는다
+    const BACK_D = 'M100,102 C84,102 74,108 69,120 C60,144 54,176 53,198'
+      + ' C53,210 74,218 100,218 C126,218 147,210 147,198'
+      + ' C146,176 140,144 131,120 C126,108 116,102 100,102 Z';
+    const SKIRT_Y = 168;                       // 허리 — 여기부터 아래가 치마다
+    const legSlot = !isNone(dress) ? 'dress' : 'bottom';
+    const legWear = legSlot === 'dress' ? dress : it('bottom');
+    const legC = isNone(legWear) ? null : (col[legSlot] || legWear.color);
+    const twoTone = legSlot === 'bottom' && !!legC && legC !== cloth;
 
-      <g transform="translate(100,0) scale(${kS},1) translate(-100,0)">
-        <!-- 씹는 박자에 몸 전체가 아주 살짝 눌렸다 편다 (스쿼시 & 스트레치).
-             **바깥 그룹의 체형 배율과 겹치면 안 되므로** 한 겹 안에서 따로 움직인다 —
-             CSS transform 은 SVG transform 속성을 덮어쓴다 -->
-        <g class="cb-body">
-          <!-- 발 — 등 뒤에서는 발끝이 아니라 **뒤꿈치**가 보인다 -->
-          ${heel(76)}${heel(124)}
+    // ── 발 ──────────────────────────────────────────────────
+    // ⚠️⚠️ **무릎을 그리지 않는다.** 예전에는 등 옆에 큼직한 동그라미 둘이 있었는데,
+    //    엉덩이 높이라 다리가 아니라 **엉덩이가 둘 더 달린 것**으로 보였다
+    //    (「저퀄리티」로 신고받은 자리의 절반이 이것이다).
+    //    한 손으로 먹고 있으니 무릎을 끌어안을 수가 없다 — 이 자세는 **책상다리**이고,
+    //    그때 뒤에서 보이는 것은 **발 바깥쪽**뿐이다. 작고 낮아서 실루엣을 안 해친다
+    const foot = (s) => {
+      // ⚠️⚠️ **옆으로 내보내지 않는다.** 뒤에서 본 책상다리의 발은 어느 각도로 그려도
+      //    «바닥에 놓인 돌»로 읽힌다 — 54 에서도 61 에서도 그랬다 (셋을 그려 보고 정했다).
+      //    치마 «밑»으로 살짝 나온 앞코 둘이면 발인 줄 알아보고, 신발 색도 그대로 보인다
+      const cx = 100 + s * 30, r = -s * 6;
+      return '<g transform="rotate(' + r + ' ' + cx + ' 213)">'
+        + '<ellipse data-part="foot" cx="' + cx + '" cy="213" rx="14" ry="8" fill="' + shoeC + '"/>'
+        // 바닥에 닿는 쪽을 한 단 어둡게 — 안 그러면 덩어리가 바닥에 «뜬다»
+        + '<path d="M' + (cx - 13.6) + ',214 A14,8 0 0 0 ' + (cx + 13.6) + ',214 Z" fill="'
+        + shoeSh + '" opacity="' + (bare ? 0.35 : 0.22) + '"/>'
+        // 윗면에 빛 — 없으면 어두운 신발이 «바닥의 돌»로 보인다
+        + '<ellipse cx="' + (cx - s * 2) + '" cy="210" rx="8" ry="3.4" fill="#fff" opacity="0.18"/>'
+        + (fin === 'sole' ? '<ellipse cx="' + cx + '" cy="217" rx="14" ry="2.8" fill="' + shoeSh + '"/>' : '')
+        + (fin === 'strap' ? '<path d="M' + (cx - 8) + ',209 L' + (cx + 8) + ',209" stroke="'
+          + shoeSh + '" stroke-width="2.4" stroke-linecap="round"/>' : '')
+        + (fin === 'ribbon' ? '<path d="M' + (cx - 6) + ',208 Q' + cx + ',212 ' + (cx + 6) + ',208" stroke="'
+          + shoeSh + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
+          + '<circle cx="' + cx + '" cy="208" r="2.2" fill="' + shoeSh + '"/>' : '')
+        + (fin === 'gloss' ? '<ellipse cx="' + (cx - 4) + '" cy="210" rx="5" ry="2.4" fill="#fff" opacity="0.75"/>' : '')
+        + '</g>';
+    };
 
-          <!-- 무릎 — 쭈그리면 좌우로 벌어져 등 옆으로 삐져나온다.
-               **살짝만 내민다.** 예전에는 엉덩이 높이에서 발보다 넓게 튀어나와,
-               다리라기보다 옆에 놓인 살색 덩어리로 보였다.
-               색은 입은 옷을 따라간다 — 긴 치마 아래로 맨무릎이 나오면 안 된다 -->
-          <ellipse data-part="knee" cx="60" cy="193" rx="15" ry="16" fill="${kneeC}"
-            stroke="${kneeSh}" stroke-width="1.6"/>
-          <ellipse data-part="knee" cx="140" cy="193" rx="15" ry="16" fill="${kneeC}"
-            stroke="${kneeSh}" stroke-width="1.6"/>
+    // ── 머리 뒤쪽의 «커튼» ──────────────────────────────────
+    // ⚠️⚠️ `hairBack` 은 **앞에서 보는 얼굴**의 뒤통수라 가운데가 비어 있다 —
+    //    뒤에서 보면 그 사이로 덮개가 비쳐 **가운데가 밝은 얼굴**처럼 읽혔다
+    //    (긴 머리에서는 양옆 가닥 사이가 그대로 「이마」가 된다).
+    //    그래서 **가닥 사이를 메우는 한 겹**을 먼저 깐다. 길이는 머리 모양을 따라간다
+    const FALL = { long: 142, wave: 140, bob: 112, bun: 98, twin: 104, ponytail: 104 };
+    const fallY = FALL[backKind] || 120;
+    const curtain = '<path d="M63,64 C60,' + (fallY - 44) + ' 62,' + (fallY - 8) + ' 72,' + fallY
+      + ' C86,' + (fallY + 6) + ' 114,' + (fallY + 6) + ' 128,' + fallY
+      + ' C138,' + (fallY - 8) + ' 140,' + (fallY - 44) + ' 137,64 Z" fill="' + hairC + '"/>';
 
-          <!-- 등 — 어깨에서 엉덩이로 퍼지는 웅크린 덩어리 -->
-          <path d="${BACK_D}" fill="${cloth}"/>
-          <!-- 상의와 치마를 따로 입었으면 **아랫도리는 치마 색**이다.
-               한 색으로 칠하면 몸통은 상의 색인데 무릎만 치마 색이 되어,
-               민트 치마에 분홍 몸통 + 민트 무릎이라는 이상한 그림이 나온다.
-               실루엣을 clip 으로 잘라 쓰므로 옷 모양을 다시 그릴 필요가 없다 -->
-          ${twoTone ? `<rect clip-path="url(#cbb_${uid})" x="40" y="${SKIRT_Y}" width="120" height="80" fill="${legC}"/>` : ''}
-          <!-- 등 한가운데 접힌 자국 하나. 없으면 그냥 색 덩어리로 보인다 -->
-          <path d="M100,126 C97,152 97,178 100,198" stroke="${clothSh}" stroke-width="2.4"
-            fill="none" stroke-linecap="round" opacity="0.7"/>
+    return '<svg class="cb-svg" viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg"'
+      + ' role="img" aria-label="">'
+      + '<defs>'
+      + (twoTone ? '<clipPath id="' + ID('cbb') + '"><path d="' + BACK_D + '"/></clipPath>' : '')
+      // 등 — 위에서 빛이 든다. 통짜 한 색이면 «종이 오린 것»으로 보인다
+      + '<linearGradient id="' + ID('backG') + '" x1="0.25" y1="0" x2="0.75" y2="1">'
+      + '<stop offset="0" stop-color="' + clothLt + '"/>'
+      + '<stop offset="0.55" stop-color="' + cloth + '"/>'
+      + '<stop offset="1" stop-color="' + clothSh + '"/></linearGradient>'
+      // 머리 — ⚠️ **가운데를 밝히지 않는다.** 빛은 «왼쪽 위»에서 든다 —
+      // 가운데가 밝으면 그 자리가 이마로 읽혀 얼굴이 되어 버린다
+      + '<linearGradient id="' + ID('hairG') + '" x1="0.18" y1="0" x2="0.9" y2="1">'
+      + '<stop offset="0" stop-color="' + hairLt + '"/>'
+      + '<stop offset="0.5" stop-color="' + hairC + '"/>'
+      + '<stop offset="1" stop-color="' + hairSh + '"/></linearGradient>'
+      + '<radialGradient id="' + ID('shG') + '" cx="0.5" cy="0.5" r="0.5">'
+      + '<stop offset="0" stop-color="rgba(20,10,25,0.34)"/>'
+      + '<stop offset="0.6" stop-color="rgba(20,10,25,0.18)"/>'
+      + '<stop offset="1" stop-color="rgba(20,10,25,0)"/></radialGradient>'
+      + '</defs>'
 
-          <!-- 왼팔 — 앞으로 안고 있어서 팔꿈치만 등 옆으로 삐져나온다.
-               등과 같은 색이라 옆선을 그늘로 잡아 줘야 팔로 읽힌다.
-               **회전축은 어깨**다. 팔꿈치를 축으로 돌리면 어깨가 빠져 보인다.
-               (오른팔은 음식을 들고 있어서 아래 .cb-bite 가 따로 그린다) -->
-          <g class="cb-arm cb-arm-l">
-            <ellipse cx="56" cy="154" rx="12" ry="20" fill="${cloth}"
-              stroke="${clothSh}" stroke-width="1.6" transform="rotate(-12 56 154)"/>
-          </g>
+      // 바닥 그림자 — **두 겹이다.** 한 겹이면 가장자리가 딱 끊겨 스티커로 보인다
+      + '<ellipse class="cb-shadow" cx="100" cy="222" rx="' + (76 * (1 + 0.15 * w)).toFixed(1)
+      + '" ry="13" fill="url(#' + ID('shG') + ')"/>'
+      + '<ellipse class="cb-shadow" cx="100" cy="219" rx="' + (50 * (1 + 0.15 * w)).toFixed(1)
+      + '" ry="7" fill="rgba(20,10,25,0.2)"/>'
 
-          <!-- 목덜미 (머리에 거의 가린다) -->
-          <rect x="88" y="100" width="24" height="20" rx="9" fill="${SKIN_SH}"/>
-        </g>
-      </g>
+      + '<g transform="translate(100,0) scale(' + kS + ',1) translate(-100,0)">'
+      // 씹는 박자에 몸 전체가 아주 살짝 눌렸다 편다 (스쿼시 & 스트레치).
+      // **바깥 그룹의 체형 배율과 겹치면 안 되므로** 한 겹 안에서 따로 움직인다 —
+      // CSS transform 은 SVG transform 속성을 덮어쓴다
+      + '<g class="cb-body">'
+      // 등
+      + '<path d="' + BACK_D + '" fill="url(#' + ID('backG') + ')"/>'
+      // 상의와 치마를 따로 입었으면 **아랫도리는 치마 색**이다. 실루엣을 clip 으로
+      // 잘라 쓰므로 옷 모양을 다시 그릴 필요가 없다
+      + (twoTone ? '<rect data-part="lower" clip-path="url(#' + ID('cbb') + ')" x="40" y="' + SKIRT_Y
+          + '" width="120" height="84" fill="' + legC + '"/>'
+        + '<path clip-path="url(#' + ID('cbb') + ')" d="M40,' + SKIRT_Y + ' L160,' + SKIRT_Y
+          + '" stroke="' + shade(legC, 22) + '" stroke-width="2.4"/>' : '')
+      // 등 한가운데 — 척추 골 하나와 어깨뼈 둘. 없으면 그냥 색 덩어리로 보인다
+      + '<path d="M100,126 C97,150 97,176 100,196" stroke="' + clothSh
+      + '" stroke-width="2.6" fill="none" stroke-linecap="round" opacity="0.7"/>'
+      + '<path d="M84,134 C80,142 79,150 81,158" stroke="' + clothSh
+      + '" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>'
+      + '<path d="M116,134 C120,142 121,150 119,158" stroke="' + clothSh
+      + '" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>'
+      // 발 — ⚠️ **등 «뒤»에 두면 바깥 반쪽만 남아 바닥의 검은 얼룩으로 보인다.**
+      // 옆에 놓인 것이라 앞에 그려야 제 모양이 보인다 (그려 보고 옮겼다)
+      + foot(-1) + foot(1)
+      // 엉덩이가 바닥에 눌린 자리 — 밑에 골이 있어야 «앉아 있다»가 된다
+      + '<path d="M64,206 C80,214 120,214 136,206" stroke="' + clothDk
+      + '" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.45"/>'
+      // 왼팔 — 무릎에 얹은 팔. 어깨에서 나와 옆구리를 따라 내려간다.
+      // ⚠️ **굵기가 변해야 팔이다** — 같은 굵기의 둥근 선 하나면 파이프로 보인다.
+      // **회전축은 어깨**다 (style.css 의 .cb-arm-l) — 팔꿈치를 축으로 돌리면 어깨가 빠진다
+      + '<g class="cb-arm cb-arm-l">'
+      + '<path d="M70,122 C58,132 50,152 49,172 C48,184 54,192 63,192'
+      + ' C70,192 75,188 76,182 C68,180 64,174 64,164 C64,150 69,136 79,128 Z"'
+      + ' fill="' + cloth + '" stroke="' + clothSh + '" stroke-width="2" stroke-linejoin="round"/>'
+      // 소매 끝 — 팔과 손을 가르는 한 줄
+      + '<path d="M64,178 C67,186 72,189 76,182" stroke="' + clothSh
+      + '" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.9"/>'
+      + '</g>'
+      // 목덜미 — 머리에 거의 가린다. 그늘이라 머리와 몸 사이가 이어져 보인다
+      + '<path d="M86,100 C86,114 114,114 114,100 C110,96 90,96 86,100 Z" fill="' + SKIN_SH + '"/>'
+      + '</g></g>'
 
-      <!-- 오른팔 — 음식을 들고 입으로 가져가는 팔. **머리보다 먼저 그린다.**
-           뒤에서 보고 있으니 손은 얼굴 쪽(저쪽 편)에 있고, 뒤통수가 팔을 가려야 맞다.
-           머리 위에 그렸더니 팔이 머리를 가로질러 앞으로 넘어와 보였다.
-           그러면서도 손과 음식은 **머리 옆으로 비켜나** 있어서 가려지지 않는다 —
-           엄밀히는 얼굴 뒤에 숨어야 하지만, 그러면 무엇을 하는 장면인지 안 읽힌다.
+      // ── 오른팔 — 음식을 들고 입으로 가져가는 팔 ─────────────
+      // **머리보다 먼저 그린다.** 뒤에서 보고 있으니 손은 얼굴 쪽(저쪽 편)에 있고,
+      // 뒤통수가 팔을 가려야 맞다. 그러면서도 손과 음식은 **머리 옆으로 비켜나** 있다 —
+      // 엄밀히는 얼굴 뒤에 숨어야 하지만, 그러면 무엇을 하는 장면인지 안 읽힌다.
+      // ⚠️ 가로는 k 를 따라가되 **손과 음식은 그 자리에 놓기만 한다** —
+      //    이모지가 가로로 늘어나면 안 되기 때문이다
+      + (() => {
+        const sx = 100 + 30 * k;    // 어깨
+        const ex = 100 + 54 * k;    // 팔꿈치 — 등 옆으로 나온다
+        const wx = 100 + 43 * k;    // 손목
+        // 굵기가 변하는 팔 — 어깨(11) → 팔꿈치(9) → 손목(7)
+        const d = 'M' + (sx - 11).toFixed(1) + ',124'
+          + ' C' + (ex - 11).toFixed(1) + ',144 ' + (ex - 9).toFixed(1) + ',156 '
+          + (wx - 7).toFixed(1) + ',132'
+          + ' C' + (wx - 3).toFixed(1) + ',124 ' + (wx + 3).toFixed(1) + ',124 '
+          + (wx + 7).toFixed(1) + ',132'
+          + ' C' + (ex + 7).toFixed(1) + ',160 ' + (ex + 3).toFixed(1) + ',166 '
+          + (sx + 11).toFixed(1) + ',128'
+          + ' C' + (sx + 5).toFixed(1) + ',119 ' + (sx - 5).toFixed(1) + ',119 '
+          + (sx - 11).toFixed(1) + ',124 Z';
+        const hx = wx;
+        return '<g class="cb-bite">'
+          + '<path d="' + d + '" fill="' + cloth + '" stroke="' + clothSh
+          + '" stroke-width="2" stroke-linejoin="round"/>'
+          // 소매 끝
+          + '<path d="M' + (wx - 7).toFixed(1) + ',132 A7.5,7.5 0 0 1 ' + (wx + 7).toFixed(1) + ',132"'
+          + ' stroke="' + clothSh + '" stroke-width="2" fill="none"/>'
+          // 손 — **벙어리장갑**이다 (ART_POLICY 「손가락은 4개 이하 · mitten hands」).
+          // 엄지 하나만 얹으면 「쥐고 있다」가 읽힌다
+          + '<path d="M' + (hx - 7).toFixed(1) + ',131 C' + (hx - 8.5).toFixed(1) + ',119 '
+          + (hx + 8.5).toFixed(1) + ',119 ' + (hx + 7).toFixed(1) + ',131 Z" fill="' + SKIN + '"/>'
+          + '<circle cx="' + hx.toFixed(1) + '" cy="122" r="8" fill="' + SKIN + '"/>'
+          + '<path d="M' + (hx + 6).toFixed(1) + ',119 C' + (hx + 10).toFixed(1) + ',115 '
+          + (hx + 10).toFixed(1) + ',110 ' + (hx + 5).toFixed(1) + ',111 Z" fill="' + SKIN + '"/>'
+          + '<path d="M' + (hx - 5).toFixed(1) + ',120 C' + (hx - 2).toFixed(1) + ',117 '
+          + (hx + 2).toFixed(1) + ',117 ' + (hx + 5).toFixed(1) + ',119" stroke="' + SKIN_SH
+          + '" stroke-width="1.6" fill="none" stroke-linecap="round" opacity="0.75"/>'
+          + (foodEmoji ? '<text class="cb-food" x="' + (hx + 4).toFixed(1)
+            + '" y="110" font-size="24" text-anchor="middle">' + foodEmoji + '</text>' : '')
+          + '</g>';
+      })()
 
-           **밑동은 어깨다.** 예전에는 y=168(엉덩이 높이)에서 시작해서, 팔이 허리 뒤에서
-           돋아난 것처럼 보였다 — 팔꿈치 덩어리보다도 아래였다.
-           어깨(위) → 팔꿈치(아래 바깥) → 손목(위) 의 꺾인 선 하나로 그린다.
+      // ── 머리 — 고개를 숙이고 우적우적 ───────────────────────
+      // ⚠️⚠️ **뒤통수는 «꽉 찬 덩어리»여야 한다.** `hairBack` 의 뒤통수는 밑끝이
+      //    y97.6 에서 끝나 그 아래로 **살색이 그대로 비쳤고**, 긴 머리의 양옆 가닥
+      //    사이는 통째로 비어 **가운데가 밝은 «얼굴»**로 읽혔다.
+      //    머리통보다 넉넉한 덮개 → 가닥 사이를 메우는 커튼 → 그 위에 머리 모양 순서다
+      + '<g transform="translate(0,26)"><g class="cb-head">'
+      + '<g transform="rotate(-3 100 105)">'
+      + '<ellipse cx="100" cy="70" rx="33" ry="35" fill="' + SKIN + '"/>'
+      + curtain
+      + '<ellipse cx="100" cy="67" rx="37.5" ry="39.5" fill="' + hairC + '"/>'
+      + hairBack(backKind, hairC)
+      // 덮개·커튼·가닥을 한 덩어리로 묶는 그늘과 빛. ⚠️ **가운데에 선을 긋지 않는다** —
+      // 가르마 한 줄이 그대로 콧날로 읽혀 얼굴이 된다 (그려 보고 지웠다)
+      + '<ellipse cx="100" cy="67" rx="37.5" ry="39.5" fill="url(#' + ID('hairG') + ')" opacity="0.55"/>'
+      + '<path d="M72,46 C82,34 104,32 118,40" stroke="' + hairLt
+      + '" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.45"/>'
+      + '<path d="M124,48 C128,52 130,57 131,62" stroke="' + hairLt
+      + '" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.35"/>'
+      + '<path d="M70,78 C69,' + (fallY - 40) + ' 71,' + (fallY - 16) + ' 76,' + (fallY - 4) + '"'
+      + ' stroke="' + hairSh + '" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.35"/>'
+      + '<path d="M130,78 C131,' + (fallY - 40) + ' 129,' + (fallY - 16) + ' 124,' + (fallY - 4) + '"'
+      + ' stroke="' + hairSh + '" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.35"/>'
+      + '</g></g></g>'
 
-           가로는 k 를 따라가되 손과 음식은 그 자리에 놓기만 한다 —
-           이모지가 가로로 늘어나면 안 되기 때문이다 -->
-      ${(() => {
-        const sx = (100 + 33 * k).toFixed(1);   // 어깨 — 등 실루엣의 오른쪽 끝
-        const ex = (100 + 47 * k).toFixed(1);   // 팔꿈치 — 등 옆으로 조금 나온다
-        const wx = (100 + 43 * k).toFixed(1);   // 손목
-        const arm = `M${sx},128 L${ex},157 L${wx},126`;
-        const hx = Number(wx), fx = hx + 9;
-        return `<g class="cb-bite">
-        <!-- 그늘을 **한 번 더 굵게 깔아** 테두리를 만든다. 같은 굵기로 덧칠하면
-             전체가 어두워질 뿐이고, 몸통과 한 색으로 붙어 버린다 -->
-        <path d="${arm}" stroke="${clothSh}" stroke-width="17.6" fill="none"
-          stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="${arm}" stroke="${cloth}" stroke-width="15" fill="none"
-          stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="${hx}" cy="120" r="9.5" fill="${SKIN}"/>
-        ${foodEmoji ? `<text class="cb-food" x="${fx}" y="114" font-size="28" text-anchor="middle">${foodEmoji}</text>` : ''}
-      </g>`;
-      })()}
+      // 「우적」 — 씹을 때마다 머리 옆에서 톡 터지는 효과선. 애니메이션의 박자를 눈으로
+      // 보여 주는 것이라, 이게 없으면 고개만 까딱이는 것으로 보인다.
+      // 오른쪽은 **든 손을 피해 위로** 뺀다
+      + '<g class="cb-spark cb-spark-l" fill="none" stroke="rgba(120,90,70,0.6)" stroke-width="2.4"'
+      + ' stroke-linecap="round">'
+      + '<path d="M54,92 q-7,-4 -12,-2"/><path d="M56,104 q-8,1 -12,5"/></g>'
+      + '<g class="cb-spark cb-spark-r" fill="none" stroke="rgba(120,90,70,0.6)" stroke-width="2.4"'
+      + ' stroke-linecap="round">'
+      + '<path d="M150,70 q8,-5 13,-3"/><path d="M156,82 q9,-1 13,3"/></g>'
 
-      <!-- 머리 — 고개를 숙이고 우적우적. **뒷머리 함수를 그대로 쓴다**.
-           우적우적은 CSS 로 흔든다 (.cb-head) — 무한 반복이라 검증기가 건드리지 않는다 -->
-      <g transform="translate(0,26)">
-        <g class="cb-head">
-          <g transform="rotate(-3 100 105)">
-            <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
-            ${hairBack(backKind, hairC)}
-          </g>
-        </g>
-      </g>
-
-      <!-- 「우적」 — 씹을 때마다 머리 옆에서 톡 터지는 효과선. 애니메이션의 박자를 눈으로
-           보여 주는 것이라, 이게 없으면 고개만 까딱이는 것으로 보인다.
-           오른쪽은 **든 손을 피해 위로** 뺀다 -->
-      <g class="cb-spark cb-spark-l" fill="none" stroke="rgba(120,90,70,0.6)" stroke-width="2.4"
-        stroke-linecap="round">
-        <path d="M56,92 q-7,-4 -12,-2"/><path d="M58,104 q-8,1 -12,5"/>
-      </g>
-      <g class="cb-spark cb-spark-r" fill="none" stroke="rgba(120,90,70,0.6)" stroke-width="2.4"
-        stroke-linecap="round">
-        <path d="M150,74 q8,-5 13,-3"/><path d="M156,86 q9,-1 13,3"/>
-      </g>
-
-      <!-- 바닥에 남은 것 — 접시가 「몇 번째인지」를 말해 준다 -->
-      ${foodEmoji ? `<text x="34" y="216" font-size="30" text-anchor="middle" opacity="0.9">${foodEmoji}</text>` : ''}
-      <!-- 부스러기 — 씹을 때마다 톡톡 튄다. 시작 시각을 어긋나게 줘야 같이 안 튄다 -->
-      <circle class="cb-crumb cb-crumb1" cx="62" cy="222" r="2.4" fill="rgba(90,60,40,0.55)"/>
-      <circle class="cb-crumb cb-crumb2" cx="72" cy="228" r="1.8" fill="rgba(90,60,40,0.45)"/>
-      <circle class="cb-crumb cb-crumb3" cx="150" cy="224" r="2" fill="rgba(90,60,40,0.5)"/>
-    </svg>`;
+      // ── 바닥에 남은 것 — 「몇 번째인지」를 말해 준다 ─────────
+      // ⚠️ 이모지 하나만 놓으면 **바닥에 떠 있는 그림**이다. 접시를 깔아야 놓인 것이 된다
+      + (foodEmoji
+        ? '<ellipse cx="34" cy="216" rx="21" ry="7" fill="rgba(20,10,25,0.16)"/>'
+        + '<ellipse cx="34" cy="213" rx="20" ry="6.5" fill="#f4eee6"/>'
+        + '<ellipse cx="34" cy="212" rx="13" ry="4" fill="#e6ddd0"/>'
+        + '<text x="34" y="211" font-size="20" text-anchor="middle" opacity="0.95">' + foodEmoji + '</text>'
+        : '')
+      // 부스러기 — 씹을 때마다 톡톡 튄다. 시작 시각을 어긋나게 줘야 같이 안 튄다
+      + '<circle class="cb-crumb cb-crumb1" cx="58" cy="222" r="2.4" fill="rgba(90,60,40,0.55)"/>'
+      + '<circle class="cb-crumb cb-crumb2" cx="68" cy="228" r="1.8" fill="rgba(90,60,40,0.45)"/>'
+      + '<circle class="cb-crumb cb-crumb3" cx="152" cy="224" r="2" fill="rgba(90,60,40,0.5)"/>'
+      + '</svg>';
   }
 
   function build(outfit, body, tune) {
@@ -3933,6 +4005,15 @@
   // 시작 단계. 1단계는 거미줄·균열까지 있는 '텅 빈 골방' 이라 첫인상으로는 너무 휑하다 —
   // 기본은 선반과 러그가 놓인 2단계로 두고, 1단계는 아래로 내려갈 자리로 남겨 둔다.
   const ROOM_DEFAULT = 2;
+  // ⚠️⚠️ **천장 쪽은 «밝게» 연장한다** (`--room-rise` 로 올린 몫 · roomPadTop).
+  //    올린 자리를 벽과 똑같이 칠해 두었더니, 크림색 헤더 밑에서 벽이 «딱 잘려»
+  //    시작해 한 줄에 휘도 246 → 151 의 **짙은 띠**로 보였다.
+  //    CSS 덮개로 번지게도 해 봤는데 이번에는 **그라데이션이 끝나는 자리에 선**이
+  //    보인다고 신고받았다 — 그림 위에 무엇을 얹든 끝나는 자리가 남는다.
+  //    그래서 **벽 한 장**이 위로 갈수록 밝아진다: 끝나는 자리가 아예 없고,
+  //    빛이 천장에서 드는 그림이라 결도 맞는다.
+  //    ⚠️ y=0 에서는 원래 벽 색 그대로라 **`padTop` 이 0 이면 옛 그림과 한 글자도 안 다르다**
+  const CEIL_LIFT = 52;          // 천장 꼭대기에서 벽을 이만큼 밝힌다
   const ROOM_SKIN = {
     1: { wall: ['#a8977c', '#7a6a54'], floor: ['#6b4e30', '#452f1b'], seam: 'rgba(40,32,26,0.26)', frame: '#4a3a2c' },
     2: { wall: ['#cbb99c', '#9d8a70'], floor: ['#7d5c39', '#5a4026'], seam: 'rgba(40,32,26,0.22)', frame: '#4a3a2c' },
@@ -4159,7 +4240,11 @@
     let stoneL = '';
     for (let b = Math.floor(top / 60); b < 4; b++) {
       const y0 = Math.max(b * 60, top), y1 = Math.min(b * 60 + 60, 240);
-      if (y0 > top) stoneL += `<line x1="0" y1="${y0}" x2="400" y2="${y0}"/>`;
+      // ⚠️⚠️ **y=0 에는 가로 이음새를 긋지 않는다.** 거기가 천장과 벽이 만나는 자리인데,
+      //    폭이 넓으면 `slice` 가 위를 잘라 **그 선이 헤더 바로 밑에 걸린다** —
+      //    「그라데이션이 깨지는 선」으로 신고받은 것이 이 한 줄이다.
+      //    (`padTop` 이 0 이면 y0 === top 이라 원래도 안 그렸다 — **옛 그림과 한 글자도 안 다르다**)
+      if (y0 > top && y0 !== 0) stoneL += `<line x1="0" y1="${y0}" x2="400" y2="${y0}"/>`;
       SEAM_COLS[((b % 4) + 4) % 4].forEach(x => {
         stoneL += `<line x1="${x}" y1="${y0}" x2="${x}" y2="${y1}"/>`;
       });
@@ -4198,7 +4283,23 @@
     return `<svg class="room-svg" viewBox="0 ${top} 400 ${H - top}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
       <defs>
         <linearGradient id="${ID('wallG')}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="${k.wall[0]}"/><stop offset="1" stop-color="${k.wall[1]}"/>
+          <!-- ⚠️ 맨 위를 한 단 밝힌다 — 폭이 넓으면 천장 연장이 slice 에 잘려
+               **벽의 맨 윗줄이 헤더와 맞닿는다.** 거기가 벽의 제일 어두운 쪽이면
+               짙은 띠로 읽힌다. 25% 아래로는 옛 색 그대로다 -->
+          <stop offset="0" stop-color="${shade(k.wall[0], -Math.round(CEIL_LIFT * 0.55))}"/>
+          <stop offset="0.25" stop-color="${k.wall[0]}"/>
+          <stop offset="1" stop-color="${k.wall[1]}"/>
+        </linearGradient>
+        <linearGradient id="${ID('ceilG')}" x1="0" y1="0" x2="0" y2="1">
+          <!-- ⚠️⚠️ 아래 끝은 **wallG 의 «윗» 색과 같아야 한다** — 벽의 원래 색으로
+               두었더니 y=0 에서 두 그라디언트가 안 맞아 **25 짜리 단차**가 한 줄에
+               생겼다 (헤더 밑의 그 선이 이번에는 여기서 났다).
+               ⚠️ 이 주석에는 역따옴표도 붙임표 둘도 쓰지 않는다 — 통째로 템플릿
+               문자열 «안»이라 역따옴표 하나가 파일을 깨뜨리고(문법 검사는 통과하고
+               브라우저만 죽는다), 붙임표 둘은 XML 주석으로 못 읽혀 «과시 카드»의
+               래스터화가 실패한다 (둘 다 여기서 한 번씩 냈다) -->
+          <stop offset="0" stop-color="${shade(k.wall[0], -CEIL_LIFT)}"/>
+          <stop offset="1" stop-color="${shade(k.wall[0], -Math.round(CEIL_LIFT * 0.55))}"/>
         </linearGradient>
         <linearGradient id="${ID('floorG')}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="${k.floor[0]}"/><stop offset="1" stop-color="${k.floor[1]}"/>
@@ -4214,7 +4315,8 @@
         </radialGradient>
       </defs>
 
-      <rect x="0" y="${top}" width="400" height="${240 - top}" fill="url(#${ID('wallG')})"/>
+      <rect x="0" y="0" width="400" height="240" fill="url(#${ID('wallG')})"/>
+      ${top < 0 ? `<rect x="0" y="${top}" width="400" height="${-top}" fill="url(#${ID('ceilG')})"/>` : ''}
       ${lv <= 3 ? stone : ''}
       ${body}
       <rect x="0" y="${top}" width="400" height="${H - top}" fill="url(#${ID('vigG')})"/>

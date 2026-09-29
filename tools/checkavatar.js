@@ -813,50 +813,52 @@ function launchOpts() {
     return { bad, n: D.SPEAKERS.length };
   });
 
-  // ─── 웅크린 뒷모습 — 무릎이 입은 옷을 따라가는가 ─────────────
+  // ─── 웅크린 뒷모습 — 신발·아랫도리가 입은 것을 따라가는가 ────
   //
-  // 「혼자 먹은 밤」 컷씬의 무릎은 **늘 살색**이었다. 그래서 발목까지 오는 공주 드레스를
-  // 입고도 무릎만 맨살 덩어리가 되어 치마 옆으로 삐져나왔다 — 서 있는 아바타의
-  // 커버리지 검사는 `build()` 만 보므로 이 그림은 한 번도 검사받은 적이 없었다.
-  //
-  // 규칙: 무릎(서 있을 때 y≈285)보다 아래로 내려오는 밑단이면 무릎은 **옷 색**,
-  // 그보다 짧거나 안 입었으면 **살색**이다. 표가 아니라 **그린 fill 을** 읽는다.
+  // ⚠️⚠️ 예전에는 **무릎**을 봤다 (「무릎이 늘 살색이라 공주 드레스 밖으로 맨살
+  //   덩어리가 삐져나왔다」). 그 무릎은 **없앴다** — 등 옆의 큰 동그라미 둘이
+  //   다리가 아니라 «엉덩이가 둘 더 달린 것»으로 보여서, 자세를 **책상다리**로 바꾸고
+  //   치마 밑으로 나온 앞코 둘만 남겼다 (「저퀄리티」로 신고받은 자리).
+  //   그래서 잣대도 옮겼다 — 검사를 지우면 이 그림은 다시 아무도 안 보게 된다.
+  // ⚠️ 표가 아니라 **그린 fill 을** 읽는다. 신발을 신었는데 맨발색이 나오면
+  //   「신발이 안 그려진다」로 읽히던 그 사고다
   const crouch = await page.evaluate(() => {
     const D = window.GameData, bad = [];
-    const KNEE_Y = 285;
-    const kneeFill = (outfit) => {
+    const KNEE_Y = 278;
+    const draw = (outfit) => {
       const host = document.createElement('div');
       host.innerHTML = Avatar.crouchBack(outfit, 0.4, '🍰');
-      const el = host.querySelector('[data-part="knee"]');
-      const rect = host.querySelector('rect[clip-path]');       // 치마로 갈아 칠한 아랫도리
-      return { knee: el && el.getAttribute('fill'), skirt: rect && rect.getAttribute('fill') };
+      const foot = host.querySelector('[data-part="foot"]');
+      const lower = host.querySelector('[data-part="lower"]');
+      return { foot: foot && foot.getAttribute('fill'), lower: lower && lower.getAttribute('fill') };
     };
-    const SKIN = kneeFill({ dress: 'dress_none', bottom: 'bottom_none' }).knee;   // 아무것도 안 입은 색
-    let n = 0;
-    const check = (label, outfit, wear) => {
+    const SKIN = draw({ shoes: 'shoes_none' }).foot;    // 맨발 색
+    let n = 0, nShoe = 0, nLower = 0;
+    (D.WARDROBE.shoes || []).forEach(sh => {
       n++;
-      const { knee, skirt } = kneeFill(Object.assign({ hair: 'hair_long', colors: {} }, outfit));
-      const hem = wear ? (Number(wear.hemY) || 999) : null;
-      const want = (hem !== null && hem >= KNEE_Y) ? (wear.color || '').toLowerCase() : SKIN.toLowerCase();
-      if ((knee || '').toLowerCase() !== want) {
-        bad.push(`${label}: 무릎이 ${knee} — ${want} 여야 한다 (밑단 ${hem === null ? '없음' : hem})`);
-      }
-      // 상의와 치마를 따로 입었으면 아랫도리도 치마 색이어야 한다
-      if (outfit.bottom && hem !== null && hem >= KNEE_Y) {
-        if (!skirt) bad.push(`${label}: 아랫도리가 상의 색 그대로다 — 치마 색으로 갈아 칠해야 한다`);
-        else if (skirt.toLowerCase() !== want) bad.push(`${label}: 아랫도리가 ${skirt} — ${want} 여야 한다`);
-      }
-    };
-    (D.WARDROBE.dress || []).forEach(dr => {
-      if (dr.kind === 'none') return;
-      check(`드레스 ${dr.id}`, { dress: dr.id }, dr);
+      const got = (draw({ shoes: sh.id, colors: {} }).foot || '').toLowerCase();
+      const want = (sh.kind === 'none' ? SKIN : (sh.color || '')).toLowerCase();
+      if (sh.kind !== 'none') nShoe++;
+      if (got !== want) bad.push(`신발 ${sh.id}: 발이 ${got} — ${want} 여야 한다`);
     });
+    // 상의와 치마를 따로 입었으면 아랫도리는 **치마 색**이다
     (D.WARDROBE.bottom || []).forEach(bt => {
       if (bt.kind === 'none') return;
-      check(`상의+${bt.id}`, { top: 'top_tee', bottom: bt.id }, bt);
+      n++;
+      const got = (draw({ top: 'top_tee', bottom: bt.id, colors: {} }).lower || '').toLowerCase();
+      const want = (bt.color || '').toLowerCase();
+      if (!got) bad.push(`상의+${bt.id}: 아랫도리가 상의 색 그대로다 — 치마 색으로 갈아 칠해야 한다`);
+      else if (got !== want) bad.push(`상의+${bt.id}: 아랫도리가 ${got} — ${want} 여야 한다`);
+      else nLower++;
     });
-    check('아무것도 안 입음', {}, null);
-    return { bad, n };
+    // ⚠️ 원피스는 **한 벌**이라 갈아 칠하지 않는다 — 여기에 아랫도리가 생기면 그것이 버그다
+    (D.WARDROBE.dress || []).forEach(dr => {
+      if (dr.kind === 'none' || (Number(dr.hemY) || 999) < KNEE_Y) return;
+      n++;
+      if (draw({ dress: dr.id, colors: {} }).lower)
+        bad.push(`드레스 ${dr.id}: 한 벌인데 아랫도리를 따로 칠했다`);
+    });
+    return { bad, n, nShoe, nLower };
   });
 
   // ─── 목이 남아 있는가 (체형 5단계) ──────────────────────────
@@ -4513,7 +4515,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     + ` · 다른 옷으로 갈아입어 확인 ${dye.others}회 · 앞머리 ${hair.kinds}종 정수리`);
   console.log(`넥라인: 파낸 자리를 몸통 윗선과 견줌 (그린 path 를 isPointInFill 로 직접 잰다)`);
   console.log(`초상화: 인물 ${face.n}명 — 머리와 얼굴 사이의 틈 · 헤어라인 높이(이마 6~18px)`);
-  console.log(`웅크린 뒷모습: 옷 ${crouch.n}가지 — 무릎이 입은 옷을 따라가는가`);
+  console.log(`웅크린 뒷모습: ${crouch.n}가지 — 신발 ${crouch.nShoe}켤레가 발에, `
+    + `치마 ${crouch.nLower}벌이 아랫도리에 (한쪽이 0이면 그 방향은 아예 안 쟀다)`);
   console.log(`목(몸통 배율): 50→150% 턱~어깨 ${neck.tgaps.map(g => g.gap + 'px').join(' → ')}`
     + ` (가늘수록 길어야 한다 · 50% 가 150% 보다 2px 이상)`);
   console.log(`목: 체형별 턱~어깨 ${neck.gaps.map(g => g.gap + 'px').join(' → ')}`
