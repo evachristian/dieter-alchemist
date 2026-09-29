@@ -2053,6 +2053,51 @@
   // 이 얼굴에는 안 맞아서 원래 자리로 되돌렸다. **다시 옮길 일이 있으면 여기만
   // 고치면 된다** — 표정 서른여덟이 전부 이 다섯 숫자에서 좌표를 받는다
   const AV = { L: 87, R: 113, Y: 75, MX: 100, MY: 89, INK: '#4a3a42', LIP: '#c97b86' };
+
+  // ═══════════════════════════════════════════════════════════════
+  //  하트 — **한 모양이 네 자리를 지난다**
+  // ═══════════════════════════════════════════════════════════════
+  //
+  // 반함(`exp_love`)의 눈 · 튀는 하트(`aFx.hearts`) · NPC 초상화(`portrait.js`) ·
+  // 인트로 요정(`intro.js`). 예전에는 **넷이 저마다 path 를 적어 두어 같은 병을
+  // 넷이 나눠 갖고 있었다** (「반함 표정 하트 눈이 어설프다」로 신고받았다):
+  //
+  //   ① **대칭이 아니었다** — 왼쪽은 `C`, 오른쪽은 `c` 로 따로 적혀 제어점이 8 ↔ 8.4
+  //   ② **가운데 골의 접선이 «수직»이었다** — 두 봉우리가 곧게 내려왔다 곧게 올라가서,
+  //      파인 곳이 하트의 골이 아니라 **금(crack)** 으로 읽혔다
+  //   ③ **봉우리가 작고 꼬리가 길었다** — 실루엣이 하트보다 «스페이드/물방울»이었고,
+  //      반짝이 하나뿐이라 «눈»이 아니라 얹어 놓은 스티커로 보였다
+  //
+  // 지금은 **왼쪽 반만 그리고 오른쪽은 그대로 거울**이다 (제어점까지 짝이 맞는다).
+  // ⚠️ **모양을 여기 말고 다른 데서 그리지 않는다** — 넷이 갈리면 같은 표정의
+  //    하트가 화면마다 다른 모양이 된다 (그것이 애초에 이 병이 생긴 경위다).
+  const HEART = { base: '#e3455a', dark: '#b63047' };
+  const HEART_W = 8.6;      // 반폭 (배율 1)
+  const HEART_TILT = 10;    // 바깥으로 기우는 각 — «넋이 나간» 느낌은 여기서 온다
+  // 배율 하나로만 키우고 줄인다 — 초상화·인트로가 같은 모양을 작게 쓴다
+  function heartPath(s = 1) {
+    const w = HEART_W * s, top = -4.8 * s, tip = 6.6 * s, up = 5.2 * s;
+    const sy = 1.2 * s, sh = 5.2 * s, my = (tip + top) / 2 + 1.0 * s, e = 0.2 * s;
+    return `M0,${top} C${-w * 0.23},${top - up} ${-w},${top - up + e} ${-w},${top + sy}`
+         + ` C${-w},${top + sh} ${-w * 0.6},${my} 0,${tip}`
+         + ` C${w * 0.6},${my} ${w},${top + sh} ${w},${top + sy}`
+         + ` C${w},${top - up + e} ${w * 0.23},${top - up} 0,${top} Z`;
+  }
+  // 하트 «눈» 한 짝 — 밑그늘(두 톤) + 반짝 둘 + 바깥으로 기울임.
+  // ⚠️ **반짝은 봉우리 «안»에 앉힌다.** 크거나 가운데 쪽에 두면 골을 먹어 실루엣이
+  //    깨진다 (시안에서 실제로 그랬다). 큰 것은 오른쪽 위 — 다른 눈들과 «같은 쪽»이다
+  //    (빛이 하나니까 그것이 맞다)
+  // ⚠️ `f` 는 **바깥 방향**이다 (왼눈 −1 · 오른눈 +1). 부르는 쪽이 얼굴 가운데와
+  //    견줘 정하므로 눈 표의 인자(x 하나)가 안 바뀐다
+  function heartEye(x, y, s = 1, f = 1) {
+    const d = heartPath(s);
+    return `<g transform="translate(${x},${y}) rotate(${HEART_TILT * f})">`
+      + `<path d="${d}" fill="${HEART.dark}"/>`
+      + `<path transform="translate(0,${-1.1 * s}) scale(0.9)" d="${d}" fill="${HEART.base}"/>`
+      + `<circle cx="${3.9 * s}" cy="${-3.6 * s}" r="${1.95 * s}" fill="#fff" opacity="0.95"/>`
+      + `<circle cx="${-3.3 * s}" cy="${1.2 * s}" r="${1.0 * s}" fill="#fff" opacity="0.75"/>`
+      + `</g>`;
+  }
   // ─── 눈 — **크고 반짝인다** ──────────────────────────────────
   //
   // 결은 「스파이 패밀리」의 아냐 쪽이다: **눈이 얼굴의 반**이고 하이라이트가 둘 이상,
@@ -2161,8 +2206,8 @@
               + `<path d="M${x - 7},${AV.Y - 6} L${x + 7},${AV.Y - 6}" stroke="${AV.INK}" stroke-width="2.6" stroke-linecap="round"/>`,
     star:  x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.6" ry="8.2" fill="${AV.INK}"/>`
               + `<circle cx="${x + 2}" cy="${AV.Y - 3.2}" r="2.6" fill="#fff"/><circle cx="${x - 2.4}" cy="${AV.Y + 3.2}" r="1.5" fill="#fff"/>`,
-    heart: x => `<path d="M${x},${AV.Y + 6} C${x - 8},${AV.Y - 2} ${x - 7},${AV.Y - 10} ${x - 2.8},${AV.Y - 10} q2.8,0 2.8,3.4 q0,-3.4 2.8,-3.4 c4.2,0 5.6,8 -2.8,16 Z" fill="#e2557f"/>`
-              + `<circle cx="${x - 2}" cy="${AV.Y - 3}" r="1.4" fill="#fff" opacity="0.9"/>`,
+    // 반함 — 모양·색·반짝은 위의 `heartEye` 한 곳에서 나온다 (초상화·인트로와 같은 하트다)
+    heart: x => heartEye(x, AV.Y + 0.6, 1, x < AV.MX ? -1 : 1),
     cross: x => `<path d="M${x - 5},${AV.Y - 4.6} L${x + 5},${AV.Y + 4.6} M${x + 5},${AV.Y - 4.6} L${x - 5},${AV.Y + 4.6}" stroke="${AV.INK}" stroke-width="2.8" stroke-linecap="round"/>`,
     dizzy: x => `<path d="M${x},${AV.Y} m-5.4,0 a5.4,5.4 0 1 1 3.6,5.2 a3.6,3.6 0 1 1 2,-6.8" stroke="${AV.INK}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
     teary: x => `<ellipse cx="${x}" cy="${AV.Y}" rx="6.4" ry="8" fill="${AV.INK}"/>`
@@ -2274,10 +2319,13 @@
     // 💤 — 졸림
     zzz:   `<g stroke="#8fa6bd" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">`
          + `<path d="M${FX_R},62 h4 l-4,4 h4"/><path d="M${FX_R + 5},56 h3 l-3,3 h3"/></g>`,
-    // 하트가 튀어오른다 — 반함
-    hearts: [[FX_L - 3, 62, 1], [FX_R + 3, 65, 0.8], [FX_R - 1, 57, 0.6]]
-      .map(([x, y, k]) => `<path transform="translate(${x},${y}) scale(${k})"`
-        + ` d="M0,4 C-4.4,-0.6 -3.8,-5.2 -1.4,-5.2 q1.4,0 1.4,1.8 q0,-1.8 1.4,-1.8 c2.4,0 3,4.6 -1.4,9.2 Z" fill="#e2557f"/>`).join(''),
+    // 하트가 튀어오른다 — 반함.
+    // ⚠️ **눈과 «같은 모양»을 줄여서 쓴다** (`heartPath`). 예전에는 제 path 를 따로
+    //    적어 두어 눈의 하트를 고쳐도 이쪽만 옛 모양으로 남았다.
+    //    작아서 밑그늘은 안 얹고(뭉개진다) 저마다 조금씩 기울여 «튀는» 결만 준다
+    hearts: [[FX_L - 3, 62, 1, -12], [FX_R + 3, 65, 0.8, 14], [FX_R - 1, 57, 0.6, -8]]
+      .map(([x, y, k, r]) => `<path transform="translate(${x},${y}) rotate(${r})"`
+        + ` d="${heartPath(0.52 * k)}" fill="${HEART.base}"/>`).join(''),
     // 절망의 세로선 — 슬픔·기절. 볼에 드리운다 (이마는 앞머리가 덮는다)
     gloom: `<g stroke="#7d8a99" stroke-width="1.1" stroke-linecap="round" opacity="0.5">`
          + [0, 3.4, 6.8].map(d => `<path d="M${71 + d},84 L${71 + d},93"/><path d="M${122 + d},84 L${122 + d},93"/>`).join('')
@@ -4189,6 +4237,8 @@
              dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
   window.Avatar = { build, crouchBack, getItem, roomScene, hairIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
+    // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
+    heartPath, heartEye, HEART,
     partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT,
     ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
 })();

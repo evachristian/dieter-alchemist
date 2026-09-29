@@ -316,8 +316,59 @@ const ANGLES = [-90, -75, -60, -45, -30];
     }
   });
 
+  // ─── 하트는 «한 모양»이다 — 세 자리가 같은 하트를 쓴다 ─────────
+  //
+  // 반함(`exp_love`)의 하트 눈이 **아바타 · NPC 초상화 · 인트로 요정** 세 곳에 있는데,
+  // 예전에는 셋이 저마다 path 를 적어 두어 **같은 병을 셋이 나눠 갖고 있었다**
+  // (「하트 눈이 어설프다」로 신고받아 한 곳(`Avatar.heartEye`)으로 모았다).
+  // ⚠️ 모양만 고치고 검사를 안 두면 **다음에 누가 제 path 를 도로 넣어도 아무도 모른다** —
+  //    그때 갈리는 것은 「같은 표정인데 얼굴마다 다른 하트」라 화면에 오류가 안 뜬다.
+  // ⚠️ **색으로 먼저 거른다** — 하트 색으로 칠한 path 만 본다. 제 path 를 도로 넣으면
+  //    옛 색이라 한 개도 안 걸리고(「못 찾았다」), 색만 맞춰 넣으면 모양이 갈린다
+  const heart = await pg.evaluate(() => {
+    // 배율을 지운 «모양의 지문» — 초상화·요정은 같은 모양을 0.70 으로 줄여 쓴다
+    const sig = d => {
+      const n = (d.match(/-?[\d.]+/g) || []).map(Number);
+      if (n.length < 4 || !n[1]) return null;
+      const k = Math.abs(n[1]);
+      return n.map(v => (v / k).toFixed(3)).join(' ');
+    };
+    const C = [Avatar.HEART.base, Avatar.HEART.dark];
+    const scan = s => [...s.matchAll(/<path[^>]*\sd="([^"]+)"[^>]*fill="([^"]+)"/g)]
+      .filter(m => C.includes(m[2])).map(m => sig(m[1]));
+    const want = sig(Avatar.heartPath(1));
+    const src = {
+      '아바타': Avatar.build({ ...S.wear, expression: 'exp_love' }, 1, S.hairColor),
+      'NPC 초상화': Portrait.bust(D.speaker('sp_clemen'), 'love'),
+      '인트로 요정': Intro.bustArt('fairy', 'love', 200, 200),
+    };
+    return { want, rows: Object.keys(src).map(k => ({
+      k, sigs: scan(src[k]),
+      // 바깥으로 기울었는가 — 두 눈이 «서로 반대»로 돌아야 한다
+      tilt: [/rotate\(-10\)/.test(src[k]), /rotate\(10\)/.test(src[k])],
+    })) };
+  });
+  console.log('\n하트 — 세 자리가 «같은 모양»을 쓰는가 (모양 · 색 · 바깥으로 기울임)');
+  heart.rows.forEach(r => {
+    const same = r.sigs.filter(s => s === heart.want).length;
+    console.log(`  ${r.k.padEnd(12)} 하트 색 path ${r.sigs.length}개 · 같은 모양 ${same}개`
+      + ` · 기울임 ${r.tilt[0] ? '왼' : '–'}${r.tilt[1] ? '오' : '–'}`);
+    if (r.sigs.length < 2) {
+      bad.push(`${r.k}: 하트 색으로 칠한 path 를 ${r.sigs.length}개밖에 못 찾았다 —`
+        + ' 제 path 를 따로 그리고 있다 (모양은 Avatar.heartEye 한 곳에서 나와야 한다)');
+    } else if (same !== r.sigs.length) {
+      bad.push(`${r.k}: 하트 ${r.sigs.length}개 중 ${r.sigs.length - same}개가 «다른 모양»이다`
+        + ' — 여기만 옛 하트로 남아 있다');
+    }
+    if (!(r.tilt[0] && r.tilt[1])) {
+      bad.push(`${r.k}: 두 눈이 «바깥으로» 안 기울었다 (${r.tilt.join('/')}) —`
+        + ' 왼눈 −1 · 오른눈 +1 을 얼굴 가운데와 견줘 정하는 줄이 끊겼다');
+    }
+  });
+
   if (errs.length) bad.push('페이지 오류: ' + errs.join(' / '));
   if (!list.length || angles === 0) bad.push('한 스타일도 못 쟀다 — 0건이 통과가 아니다');
+  if (!heart.want || heart.rows.length < 3) bad.push('하트를 한 자리도 못 쟀다 — 0건이 통과가 아니다');
 
   console.log(`\n잰것: 머리 모양 ${list.length}가지 × 각도 ${ANGLES.length} (${angles}번) · 틈은 ${rows}줄`
     + ` · 눈 갈아끼우기 ${eyeSwaps.length}줄`);

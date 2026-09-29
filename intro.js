@@ -602,7 +602,9 @@
               + `<path d="M${x - 5},${FZ.Y - 4.6} L${x + 5},${FZ.Y - 4.6}" stroke="${FZ.INK}" stroke-width="2.2" stroke-linecap="round"/>`,
     star:  x => `<ellipse cx="${x}" cy="${FZ.Y}" rx="4.8" ry="5.8" fill="${FZ.INK}"/>`
               + `<circle cx="${x + 1.4}" cy="${FZ.Y - 2.2}" r="1.9" fill="#fff"/><circle cx="${x - 1.7}" cy="${FZ.Y + 2.3}" r="1.1" fill="#fff"/>`,
-    heart: x => `<path d="M${x},${FZ.Y + 4} C${x - 6},${FZ.Y - 2} ${x - 5},${FZ.Y - 8} ${x - 2},${FZ.Y - 8} q2,0 2,2.4 q0,-2.4 2,-2.4 c3,0 4,6 -2,12 Z" fill="#e2557f"/>`,
+    // 하트 눈 — **모양은 `avatar.js` 의 `heartEye` 한 곳에서 나온다**
+    // (아바타의 반함 · NPC 초상화와 «같은 하트»다). 배율 0.70 은 옛 하트와 같은 폭이다
+    heart: x => Avatar.heartEye(x, FZ.Y + 0.4, 0.70, x < FZ.MX ? -1 : 1),
     cross: x => `<path d="M${x - 4.4},${FZ.Y - 4} L${x + 4.4},${FZ.Y + 4} M${x + 4.4},${FZ.Y - 4} L${x - 4.4},${FZ.Y + 4}" stroke="${FZ.INK}" stroke-width="2.4" stroke-linecap="round"/>`,
     dizzy: x => `<path d="M${x},${FZ.Y} m-4.4,0 a4.4,4.4 0 1 1 3,4.2 a3,3 0 1 1 1.6,-5.6" stroke="${FZ.INK}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
     teary: x => `<ellipse cx="${x}" cy="${FZ.Y}" rx="4.6" ry="5.2" fill="${FZ.INK}"/><circle cx="${x + 1.4}" cy="${FZ.Y - 1.8}" r="1.6" fill="#fff"/>`
