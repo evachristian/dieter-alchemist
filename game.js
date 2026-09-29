@@ -5963,14 +5963,44 @@ function renderSlotSheet() {
   const b = document.getElementById('slotSheetBody');
   if (b) b.innerHTML = wardrobeGrid(m.slot);
 }
+// ⚠️⚠️ **시트는 «얼굴이 보이는 데»까지만 올라온다** (사람이 정했다).
+// 표정·문신은 **고르는 동안 그 결과가 얼굴에 보여야** 무엇을 고르는지 알 수 있다 —
+// 그래서 뒷배경도 안 흐린다(`style.css` 의 `#slotSheet`). 둘이 한 벌이다.
+// ⚠️ **높이를 상수로 박지 않는다.** 바디파츠·체형에 따라 턱이 위아래로 옮겨 다니고
+//    (재 보면 200~224px) 화면 폭에 따라 방 그림의 배율도 달라진다 —
+//    `placeFigure()`·`placePet()` 과 같은 규칙으로 **그려진 자리를 재서** 맞춘다.
+// ⚠️ **한 줄도 못 보여 줄 만큼 낮으면 그 아래로는 안 줄인다.** 가로로 든 폰
+//    (640×360)에서는 턱 밑에 140px 밖에 안 남아, 그대로 따르면 「나가기」가 잘린다 —
+//    잘린 시트는 「얼굴이 보이는 것」보다 나쁘다. 바닥은 **카드에서 굴러가지 않는 몫
+//    + 한 줄**을 «재서» 구한다 (숫자를 박으면 글자 크기를 바꿀 때 어긋난다)
+const SLOT_SHEET_GAP = 10;   // 턱과 시트 사이에 남기는 숨 (숨쉬기 모션이 2px 오르내린다)
+function fitSlotSheet() {
+  const card = document.querySelector('#slotSheet .modal-card');
+  const body = document.getElementById('slotSheetBody');
+  if (!card || !body) return;
+  card.style.maxHeight = '';
+  const face = document.querySelector('.char-body > svg.avatar-svg [data-part="head"]');
+  if (!face) return;                        // 졸업 전(인트로 그림)에는 안 건드린다
+  const chin = face.getBoundingClientRect().bottom;
+  if (!chin) return;
+  const fixed = card.getBoundingClientRect().height - body.getBoundingClientRect().height;
+  const row = card.querySelector('.wr-item');
+  const one = row ? row.getBoundingClientRect().height : 58;
+  const min = Math.ceil(fixed + one);
+  const want = Math.round(window.innerHeight - chin - SLOT_SHEET_GAP);
+  card.style.maxHeight = Math.max(min, want) + 'px';
+}
 function openSlotSheet(slot) {
   if (!slotMeta(slot) || !slotMeta(slot).sheet) return;
   soloSlot = slot;
   renderSlotSheet();
   const m = document.getElementById('slotSheet');
   if (m) m.classList.add('show');
+  fitSlotSheet();
   if (window.Sfx) Sfx.play('pick');
 }
+// 화면이 바뀌면 다시 잰다 — 돌려 들면 턱도 남는 높이도 같이 달라진다
+window.addEventListener('resize', () => { if (slotSheetOpen()) fitSlotSheet(); });
 function closeSlotSheet() {
   const m = document.getElementById('slotSheet');
   if (m) m.classList.remove('show');

@@ -2856,6 +2856,81 @@ function launchOpts() {
             await page.waitForTimeout(150);
           }
           if (slots.length) console.log(`  칸시트 — 시트로 뺀 칸을 «다» 쟀다 (${slots.join('·')})`);
+          // ── **얼굴이 «그대로» 보이는가** (2026-09-29 · 사람이 정했다)
+          // 표정·문신은 고르는 동안 **그 결과가 얼굴에 보여야** 한다. 그래서 둘이 한 벌이다:
+          // 시트가 턱 밑까지만 올라오고(`fitSlotSheet`), 뒷배경을 **안 흐린다**(style.css).
+          // ⚠️⚠️ **상자만 견주면 반쪽이다** — 시트가 턱 밑에 있어도 «덮개»가 흐리거나
+          //    어둡게 깔리면 얼굴은 여전히 안 보인다. 그래서 **얼굴 띠를 두 번 찍어**
+          //    (시트 닫힘 ↔ 열림) **한 픽셀도 안 달라지는가**로 잰다 — 흐림·덮개·가림을
+          //    한 줄로 다 잡는다.
+          // ⚠️ **칸을 «다» 돈다** — 하나만 재면 다음에 뺀 칸이 통째로 안 재진다
+          //    (바로 위 「칸시트」와 같은 규칙이다). 몇 칸을 쟀는지도 같이 낸다
+          for (const sl of slots) {
+            const nm = `${t}/얼굴보임:${sl}`;
+            const box = await page.evaluate(() => {
+              closeSlotSheet();
+              const f = document.querySelector('.char-body > svg.avatar-svg [data-part="head"]');
+              if (!f) return null;
+              const r = f.getBoundingClientRect();
+              return { x: Math.floor(r.left), y: Math.floor(r.top),
+                width: Math.ceil(r.width), height: Math.ceil(r.height) };
+            });
+            if (!box || box.width < 8 || box.height < 8) {
+              results.push({ 화면: nm, 오류: '얼굴을 못 찾아 아무것도 안 쟀다' });
+            } else {
+              // ⚠️⚠️ **아이들 모션을 멈춰 놓고 찍는다.** 눈 깜박임은 4.9초에 한 번인데
+              //    두 장 사이에 600ms 가 흘러서, 한 장만 «감긴 눈»이면 휘도가 0.55 나
+              //    벌어진다 — 멀쩡한 화면이 「흐려졌다」로 잡혔다 (실제로 그랬다).
+              //    무한 반복이라 `settle()` 이 안 건드리는 자리다
+              await page.evaluate(() => document.getAnimations().forEach(a => a.pause()));
+              await page.waitForTimeout(120);
+              const before = pngLums(await page.screenshot({ clip: box }));
+              await page.evaluate((s) => openSlotSheet(s), sl);
+              // ⚠️ **여는 것과 재는 것을 갈라 놓는다** — `sheetup`(0.28초) 도중에 재면
+              //    첫 프레임의 `translateY(28px)` 가 상자에 얹혀 「나가기가 화면 밖」이 된다
+              await page.waitForTimeout(420);
+              const after = pngLums(await page.screenshot({ clip: box }));
+              const geo = await page.evaluate(() => {
+                const card = document.querySelector('#slotSheet .modal-card');
+                const exit = document.querySelector('#slotSheet .sheet-exit');
+                const f = document.querySelector('.char-body > svg.avatar-svg [data-part="head"]');
+                const st = getComputedStyle(document.getElementById('slotSheet'));
+                // ⚠️ **다른 시트는 그대로 흐려야 한다** — 한쪽만 보면 `.modal` 을 통째로
+                //    고쳐도 통과한다 (그러면 열네 시트가 다 같이 안 흐려진다)
+                const other = getComputedStyle(document.getElementById('kitchenSheet'));
+                return { chin: f.getBoundingClientRect().bottom,
+                  top: card.getBoundingClientRect().top,
+                  exit: exit.getBoundingClientRect().bottom, H: window.innerHeight,
+                  blur: st.backdropFilter, bg: st.backgroundColor,
+                  otherBlur: other.backdropFilter };
+              });
+              const out = [];
+              if (!before.length || before.length !== after.length) out.push('얼굴 띠를 못 읽었다');
+              else {
+                let worst = 0;
+                for (let i = 0; i < before.length; i++) worst = Math.max(worst, Math.abs(before[i] - after[i]));
+                // 0.01 은 안티에일리어싱·숨쉬기 모션 몫이다 (흐림은 그보다 훨씬 크게 나온다)
+                if (worst > 0.01) out.push(`시트를 열자 얼굴이 달라졌다 (휘도 ${worst.toFixed(3)}) — 흐리거나 덮였다`);
+              }
+              if (geo.blur !== 'none') out.push(`뒷배경을 흐린다 (${geo.blur})`);
+              if (!/, ?0\)$|transparent|rgba\(0, 0, 0, 0\)/.test(geo.bg)) out.push(`덮개가 깔린다 (${geo.bg})`);
+              if (geo.otherBlur === 'none') out.push('다른 시트까지 안 흐려졌다 — `.modal` 을 통째로 고친 것이다');
+              // 턱 밑까지만. ⚠️ 가로로 든 폰에서는 바닥(굴러가지 않는 몫 + 한 줄)에 걸려
+              //    턱을 덮는다 — 잘린 시트가 더 나쁘므로 그때는 「나가기」만 본다
+              if (geo.exit > geo.H + 0.5) out.push(`「나가기」가 화면 밖이다 (${Math.round(geo.exit)} / ${geo.H})`);
+              results.push(out.length ? { 화면: nm, 오류: out.join(' / ') }
+                : { 화면: nm, pass: true, total: 0,
+                    잰것: `${sl} · 턱 ${Math.round(geo.chin)} → 시트 ${Math.round(geo.top)}`
+                      + ` (틈 ${Math.round(geo.top - geo.chin)}px) · 얼굴 ${before.length}점이 그대로다`
+                      + ` · 다른 시트는 ${geo.otherBlur}` });
+              await page.evaluate(() => {
+                closeSlotSheet();
+                document.getAnimations().forEach(a => a.play());   // 멈춰 둔 것을 되돌린다
+              });
+              await page.waitForTimeout(150);
+            }
+          }
+          if (slots.length) console.log(`  얼굴보임 — 칸을 «다» 쟀다 (${slots.join('·')})`);
         }
         // **먹이주기 팝업** — 눌러야만 뜬다. 크리처 줄 · 먹이 줄 · 수량 · 버튼이
         // 한 화면에 다 들어가는 자리라 265px 영어가 제일 빡빡하다
