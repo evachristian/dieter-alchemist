@@ -94,7 +94,16 @@ function launchOpts() {
     const ev = S.binges[S.binges.length - 1];
     ok(ev && ev.happy === 20 && ev.grit === 8,
       `장면에 남은 값 — 행복 −${ev && ev.happy} · 근성 −${ev && ev.grit}`);
-    ok(ev && !!ev.food, `무엇을 먹었는지도 남는다 (${ev && ev.food})`);
+    // ⚠️ **「무엇이든 남았는가」로 보면 안 된다** — 그 자리는 성 부엌의 «접시»여야 한다.
+    // 채집으로 줍는 들음식에서 뽑으면 일지의 「접시가 반짝반짝하다」가 들올리브를
+    // 가리킨다 (조리된 음식을 채집에서 걷어 낸 날, 표가 둘로 갈렸다)
+    {
+      const plate = GameData.BINGE_FOODS.some(f => f.id === (ev || {}).food);
+      const wild = GameData.FOODS.some(f => f.id === (ev || {}).food);
+      ok(ev && plate && !wild,
+        `무엇을 먹었는지도 남는다 — 성 부엌의 접시인가 (${ev && ev.food}`
+        + `${wild ? ' — 이건 채집으로 줍는 들음식이다' : ''})`);
+    }
     ok(Math.floor(fullness()) === 70, `배는 부르다 — 포만감 ${Math.floor(fullness())}`);
     // 같은 날 다시 불러도 두 번 먹지 않는다
     const h = S.aura.happy;

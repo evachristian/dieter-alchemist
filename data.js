@@ -2966,18 +2966,39 @@ const EXERCISE_MINS = [10, 20, 30, 60];
 //   full 포만감 · happy 행복(아우라) · fit 단련
 //   w    채집에서 나오는 가중치 (많이 채우는 것일수록 드물다)
 //
-// 지금은 **채집에서 재료와 함께** 나온다. 요리사 클레멘이 들어오면 그가 주는 것으로
-// 옮긴다 — 폭식 시스템의 반대편이라 서사가 거기에 맞는다 (STORY.md).
+// **채집에서 재료와 함께** 나온다 — 그래서 «들에서 주울 수 있는 것»뿐이다.
+// ⚠️⚠️ 오래 조리된 음식(죽 · 빵 · 샐러드 · 구운 고기 · 케이크)이 여기 있었다.
+//   들판에서 「그릇에 담긴 샐러드」를 줍는 그림이라 신고받은 자리다 — 조리된 것은
+//   **누가 만들어야** 하고, 이 게임에서 그 자리는 성 부엌이다(아래 `BINGE_FOODS`).
+//   수치 다섯 줄은 한 칸도 안 바꿨다 — 갈린 것은 «무엇인가»뿐이라 운동·포만감 밸런스가
+//   그대로다 (옛 id 는 세이브 16 이 같은 줄의 새 id 로 옮겨 준다)
 const FOODS = [
-  { id: 'food_porridge', emoji: '🥣', name: '죽',        full: 15, w: 30 },
-  { id: 'food_bread',    emoji: '🍞', name: '빵',        full: 25, w: 26 },
-  { id: 'food_salad',    emoji: '🥗', name: '샐러드',    full: 20, happy: 5,  w: 20 },
-  { id: 'food_meat',     emoji: '🍗', name: '구운 고기', full: 40, fit: -0.2, w: 16 },
-  { id: 'food_cake',     emoji: '🍰', name: '케이크',    full: 50, happy: 20, fit: -0.5, w: 8 },
+  { id: 'food_olive',    emoji: '🫒', name: '들올리브',  full: 15, w: 30 },
+  { id: 'food_chestnut', emoji: '🌰', name: '알밤',      full: 25, w: 26 },
+  { id: 'food_apple',    emoji: '🍎', name: '들사과',    full: 20, happy: 5,  w: 20 },
+  { id: 'food_peach',    emoji: '🍑', name: '산복숭아',  full: 40, fit: -0.2, w: 16 },
+  { id: 'food_grape',    emoji: '🍇', name: '산포도',    full: 50, happy: 20, fit: -0.5, w: 8 },
 ];
 // 채집 한 번에 음식이 같이 나올 확률. 하루 AP 1000 이면 채집 100번이라
 // 대략 12개가 나온다 — 운동 두어 번 분의 포만감이다
 const FOOD_RATE = 0.12;
+
+// ─── 혼자 먹은 밤의 접시 (STORY.md) ──────────────────────────
+// **가방에 안 들어온다 · 먹을 수도 없다.** 그 밤을 부르는 «이름»일 뿐이다
+// (`S.binges[].food` · 일지의 `{food}`) — 수치는 `BINGE` 가 정한다.
+//
+// ⚠️ **그래서 여기만 조리된 음식이다.** 일지가 「부엌에 갔다」·「접시가 반짝반짝하다」·
+//   「접시는 내가 씻었다」고 말하는데, 그 접시에 들올리브가 놓여 있으면 글이 어긋난다.
+//   채집으로 줍는 것과 성 부엌에서 꺼내 먹는 것은 «다른 것»이다
+// ⚠️ **id 를 바꾸지 않는다** — 옛 세이브의 흡입 기록과 일지가 이 이름들을 가리킨다.
+//   `full` 은 여기서 뽑기 가중치다 (많이 채우는 것일수록 잘 나온다 — 혼자 먹는 밤이다)
+const BINGE_FOODS = [
+  { id: 'food_porridge', emoji: '🥣', name: '죽',        full: 15 },
+  { id: 'food_bread',    emoji: '🍞', name: '빵',        full: 25 },
+  { id: 'food_salad',    emoji: '🥗', name: '샐러드',    full: 20 },
+  { id: 'food_meat',     emoji: '🍗', name: '구운 고기', full: 40 },
+  { id: 'food_cake',     emoji: '🍰', name: '케이크',    full: 50 },
+];
 
 // ═══════════════════════════════════════════════════════════════
 //  먹이 — 크리처가 먹는 것 (CREATURE.md 7장)
@@ -3038,7 +3059,7 @@ window.GameData = {
   KEYWORDS, keyword, ASKS, asksOf, askNeedBond, askNeedQuest, LORE, ingRarity, hideableOf, hiddenOf,
   BOND_TIERS, bondTierOf, BOND_GAIN, BONDS, BOND_GIFTS, bondNpcs, BOND_GIVES, bondGiver, bondTalk,
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
-  EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE,
+  EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE, BINGE_FOODS,
   FEEDS, FEED_RATE, LOYALTY_MAX, LOYALTY_STEPS, loyaltyBonus,
   COLORS, COLORABLE_SLOTS,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,

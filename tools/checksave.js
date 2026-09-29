@@ -48,6 +48,35 @@ const CASES = [
     ],
   },
   {
+    // ⚠️ 채집이 내놓는 음식이 **들에서 주울 수 있는 것**으로 갈렸다 (세이브 16).
+    // 다섯 줄의 수치가 한 칸도 안 바뀌었으므로 **가진 것을 지우지 않고 같은 줄로
+    // 옮겨 담는다** — 안 옮기면 가방의 음식이 목록에 안 뜨고 먹을 수도 없어
+    // 「조용히 사라진 것」이 된다 (화면에는 오류가 안 뜬다).
+    // 접시 이름(흡입 기록 · 일지)은 그대로 남아야 한다 — 그 밤을 부르는 말이다
+    name: '세이브 15 — 가방의 음식을 들음식으로 옮겨 담는다 (접시 이름은 그대로)',
+    save: { ver: 15, name: '식후', nameClaimed: true, tutorialDone: true,
+            foods: { food_cake: 3, food_porridge: 1, food_meat: 2 },
+            binges: [{ food: 'food_cake', happy: 20, grit: 8, fit: 0.8 }],
+            diary: [{ t: Date.now(), y: 227, m: 9, d: 1, k: 'di_binge',
+                      v: { food: 'food_cake', n: 1 } }] },
+    expect: (S) => [
+      (S.foods || {}).food_grape === 3 || `케이크 3개가 산포도로 안 옮겨졌다 (${(S.foods || {}).food_grape})`,
+      (S.foods || {}).food_olive === 1 || `죽 1개가 들올리브로 안 옮겨졌다 (${(S.foods || {}).food_olive})`,
+      (S.foods || {}).food_peach === 2 || `구운 고기 2개가 산복숭아로 안 옮겨졌다 (${(S.foods || {}).food_peach})`,
+      Object.keys(S.foods || {}).every(id => !/porridge|bread|salad|meat|cake/.test(id))
+        || `가방에 조리된 음식이 남아 있다 (${Object.keys(S.foods || {}).join(',')})`,
+      ((S.binges || [])[0] || {}).food === 'food_cake'
+        || '흡입 기록의 접시 이름이 바뀌었다 — 그 밤이 다른 밤이 된다',
+      (((S.diary || [])[0] || {}).v || {}).food === 'food_cake'
+        || '일지의 접시 이름이 바뀌었다',
+      // ⚠️ 표가 둘로 갈렸으니 **이름을 찾는 자리가 둘을 다 보는지**까지 본다 —
+      // 한쪽만 보면 일지의 「{food} 앞에서 잠깐 고민했고」가 빈칸이 된다
+      S.__probe === '케이크' || `화면이 옛 접시 이름을 못 읽는다 (${S.__probe})`,
+    ],
+    // ⚠️ 전역은 «이름»으로 찾는다 — `window.foodOf` 는 늘 undefined 일 수 있다
+    probe: () => (typeof foodOf === 'function' ? (foodOf('food_cake') || {}).name : null),
+  },
+  {
     name: '세이브 1 (버전 표기가 없던 시절)',
     save: { name: '올드원', nameClaimed: true, gathered: 42, inventory: { herb: 7 } },
     expect: (S) => [

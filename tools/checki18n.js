@@ -142,6 +142,9 @@ D.WEATHERS.forEach(x => push(x.id, x.name, '날씨'));
 D.DAYPARTS.forEach(x => push(x.id, x.name, '시간대'));
 D.EXERCISES.forEach(x => push(x.id, x.name, '운동 종목'));
 D.FOODS.forEach(x => push(x.id, x.name, '음식'));
+// 혼자 먹은 밤의 접시도 **화면에 이름이 뜬다** (흡입 장면 · 일지) — 표가 둘이라
+// 여기에 한 줄을 안 늘리면 그 다섯은 번역 검사를 한 번도 안 지난다
+D.BINGE_FOODS.forEach(x => push(x.id, x.name, '혼밥 접시'));
 D.FEEDS.forEach(x => push(x.id, x.name, '먹이'));
 // 리그 이름은 '계열 + 단계' 로, NPC 이름은 '앞말 + 뒷말' 로 조합된다 —
 // 조합 결과가 아니라 **낱말**에 번역이 있어야 한다

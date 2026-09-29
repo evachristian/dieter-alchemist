@@ -20,7 +20,7 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //     `defaultState` 에 두 번 있어서(객체 · 숫자) 뒤의 숫자가 이겼고, 채집할 때마다
 //     `S.gathered++` 가 객체를 NaN 으로 만들어 **숙련이 한 세션도 못 살아남았다**
 //     (외부 비평에서 재현됐다). 총 채집 횟수는 `record.gathered` 가 맡는다
-const SAVE_VER = 15;
+const SAVE_VER = 16;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -675,6 +675,27 @@ function migrate(st, from) {
     Object.keys(st.inventory || {}).forEach(id => {
       st.gathered[id] = Math.max(st.gathered[id] || 0, st.inventory[id] || 0);
     });
+  }
+
+  if (from < 16) {
+    // 채집이 내놓는 음식이 «들에서 주울 수 있는 것»으로 갈렸다 (data.js 의 `FOODS`).
+    // ⚠️ **가진 것을 지우지 않는다** — 다섯 줄의 수치가 한 칸도 안 바뀌었으므로
+    // 같은 줄의 새 id 로 옮겨 담으면 개수도 효과도 그대로다.
+    // 접시 이름(`S.binges[].food` · 일지의 `{food}`)은 **그대로 둔다** —
+    // 그 이름들은 이제 `BINGE_FOODS` 가 갖고 있어서 여전히 풀린다
+    const MOVED = {
+      food_porridge: 'food_olive', food_bread: 'food_chestnut',
+      food_salad: 'food_apple', food_meat: 'food_peach', food_cake: 'food_grape',
+    };
+    if (st.foods && typeof st.foods === 'object') {
+      Object.keys(MOVED).forEach(old => {
+        const n = st.foods[old];
+        if (!n) { delete st.foods[old]; return; }
+        const to = MOVED[old];
+        st.foods[to] = (st.foods[to] || 0) + n;
+        delete st.foods[old];
+      });
+    }
   }
 
   st.ver = SAVE_VER;
@@ -2932,11 +2953,14 @@ function checkBinge() {
 // 그날 밤 먹은 것. **많이 채우는 것일수록 잘 나온다** — 혼자 먹는 밤엔 큰 걸 먹는다.
 // ⚠️ 무엇을 먹었느냐는 **수치에 영향을 주지 않는다.** 판정 기준은 「혼자 먹었느냐」다
 // (STORY.md). 음식 이름은 그 밤을 부르는 말일 뿐이다.
+// ⚠️ **채집으로 줍는 들음식이 아니라 «성 부엌의 접시»에서 고른다** (`BINGE_FOODS`) —
+// 일지가 「부엌에 갔다」·「접시는 내가 씻었다」고 말하는 밤이다
 function pickBingeFood() {
-  const total = D.FOODS.reduce((n, f) => n + f.full, 0);
+  const P = D.BINGE_FOODS;
+  const total = P.reduce((n, f) => n + f.full, 0);
   let r = Math.random() * total;
-  for (const f of D.FOODS) { r -= f.full; if (r <= 0) return f; }
-  return D.FOODS[D.FOODS.length - 1];
+  for (const f of P) { r -= f.full; if (r <= 0) return f; }
+  return P[P.length - 1];
 }
 
 // 날짜 키(YYYYMMDD 정수) 두 개 사이의 날 수. 정수 뺄셈이 안 되므로 날짜로 되돌린다
@@ -7972,7 +7996,13 @@ function confirmYes() {
 // ═══════════════════════════════════════════════════════════════
 //  음식 (EXERCISE.md) — 먹으면 포만감이 찬다
 // ═══════════════════════════════════════════════════════════════
-function foodOf(id) { return D.FOODS.find(x => x.id === id) || null; }
+// ⚠️ **표가 둘이다** — 가방에 들어오는 들음식(`FOODS`)과 혼자 먹은 밤의 접시(`BINGE_FOODS`).
+// 이름을 찾는 자리는 둘을 다 봐야 한다: 일지의 `{food}` 와 흡입 장면이 **옛 기록의
+// 접시 이름**을 가리키는데, 한쪽만 보면 그 줄이 조용히 빈칸이 된다
+// (「{food} 앞에서 잠깐 고민했고」). 먹는 쪽(`eatFood`)은 들음식만 본다
+function foodOf(id) {
+  return D.FOODS.find(x => x.id === id) || D.BINGE_FOODS.find(x => x.id === id) || null;
+}
 function foodCount(id) { return (S.foods || {})[id] || 0; }
 
 function renderFoods() {
@@ -8043,7 +8073,10 @@ function showFoodEffect(id, anchor) {
 window.showFoodEffect = showFoodEffect;
 
 function eatFood(id) {
-  const f = foodOf(id);
+  // ⚠️ **먹는 것은 «들음식»뿐이다** (`foodOf` 는 접시 이름까지 찾아 준다).
+  // 접시는 가방에 안 들어오므로 개수 검사로도 막히는데, 여기서 갈라 두면
+  // 나중에 누가 접시를 가방에 넣어도 먹을 수 있는 것이 되지 않는다
+  const f = D.FOODS.find(x => x.id === id);
   if (!f || foodCount(id) <= 0) return;
   tickBody();
   // **절반 넘게 버려질 상황이면 안 먹는다.** 넘치는 만큼은 그냥 사라지는데,
@@ -9393,7 +9426,7 @@ function playBinge() {
 function renderBinge() {
   const e = (S.binges || [])[0];
   if (!e) { closeBingeScene(); return; }
-  const f = foodOf(e.food) || D.FOODS[0];
+  const f = foodOf(e.food) || D.BINGE_FOODS[0];
   const name = N(f.id, f.name);
   const art = document.getElementById('bsArt');
   // **지금 그 캐릭터의 뒷모습이다** — 착장·머리·체형을 그대로 따라간다

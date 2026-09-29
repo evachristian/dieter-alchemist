@@ -382,7 +382,7 @@
       gather_go: '채집',
       // 마이 룸 하위 탭
       room_clothes: '👗 옷', room_stuff: '🎒 잡화', room_creatures: '🦋 크리처',
-      stuff_potions: '🧴 물약', stuff_foods: '🍞 음식', stuff_feeds: '🦴 먹이',
+      stuff_potions: '🧴 물약', stuff_foods: '🍎 음식', stuff_feeds: '🦴 먹이',
       // 꾹 누르면 계속 마신다는 것을 여기서 말한다 — 탐험 화면의 설명 줄과 같은 규칙이다
       // (안 적으면 손가락을 떼기 전에는 아무도 그것을 알 길이 없다)
       hint_dress: '👆 눌러서 착용', hint_drink: '👆 눌러서 마시기 · 꾹 누르면 계속', hint_eat: '👆 눌러서 먹기',
@@ -1892,7 +1892,7 @@
       recipe_book: '📖 Recipe Book', btn_clear: 'Clear', btn_brew: '✨ Brew',
       gather_go: 'Gather',
       room_clothes: '👗 Outfit', room_stuff: '🎒 Items', room_creatures: '🦋 Creatures',
-      stuff_potions: '🧴 Potions', stuff_foods: '🍞 Food', stuff_feeds: '🦴 Feed',
+      stuff_potions: '🧴 Potions', stuff_foods: '🍎 Food', stuff_feeds: '🦴 Feed',
       hint_dress: '👆 Tap to wear', hint_drink: '👆 Tap to drink · hold to keep going', hint_eat: '👆 Tap to eat',
       hint_feed: '👆 Tap to feed',
       dye_use: 'Use Magic Dye', dye_have: 'Owned: {n}',
@@ -3525,6 +3525,10 @@
 
       // ─── 음식 ───
       feed_grass: 'Grass Bundle', feed_dew: 'Dewberry', feed_star: 'Starlight Candy',
+      // 채집으로 줍는 들음식
+      food_olive: 'Wild Olive', food_chestnut: 'Chestnut', food_apple: 'Wild Apple',
+      food_peach: 'Wild Peach', food_grape: 'Wild Grapes',
+      // 혼자 먹은 밤의 접시 — 성 부엌에서 꺼내 먹은 것이라 조리된 음식이다
       food_porridge: 'Porridge', food_bread: 'Bread', food_salad: 'Salad',
       food_meat: 'Roast', food_cake: 'Cake',
     },

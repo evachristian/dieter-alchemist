@@ -21,6 +21,10 @@ const I = global.window.I18N;
 
 const problems = [];
 const add = (title, list) => { if (list.length) problems.push([title, list]); };
+// 통과할 때도 «무엇을 쟀는지»를 낸다 — 0건이 「통과」인지 「한 번도 안 쟀다」인지를 가른다
+const measured = [];
+// 영어 이름. ⚠️ **사본을 만들지 않는다** — `I18N.n()` 이 화면에 쓰는 그 함수다
+const nameEn = (id) => { I.setLang('en'); const v = I.n(id, ''); I.setLang('ko'); return v; };
 
 // ─── 1. 레시피 ────────────────────────────────────────────────
 const byCombo = new Map();      // 조합 → 결과 id 들
@@ -269,6 +273,58 @@ add('맵의 지대가 ZONES 에 없다',
   add('밭 물약이 들어갈 솥이 없다', tooBig);
 }
 
+// ─── 2-3. 음식 — 들에서 «주울 수 있는» 것만 (data.js 의 FOODS) ──
+//
+// 채집은 들판에서 재료를 줍는 일인데, 오래 그 자리에서 **조리된 음식**이 나왔다
+// (죽 그릇 · 구워진 빵 · 그릇에 담긴 샐러드 · 케이크) — 「들판에서 어떻게 죽 그릇을
+// 획득하느냐」로 신고받은 자리다. 조리된 것은 누가 만들어야 하고, 이 게임에서
+// 그 자리는 성 부엌이다 — 그래서 표가 둘이다.
+//
+// ⚠️⚠️ **양쪽을 다 본다.** 「채집 음식에 조리된 것이 없는가」만 보면
+//   접시 표를 통째로 비우거나 거기까지 들음식으로 바꿔 놓는 사보타주가 그대로
+//   통과한다 — 그러면 일지의 「접시가 반짝반짝하다」가 들올리브를 가리킨다.
+// ⚠️ **두 언어를 다 본다** — 한국어만 고치면 영어 화면에 'Cake' 가 그대로 남는다
+{
+  const COOKED_EM = ['🥣', '🍞', '🥗', '🍰', '🍗', '🍲', '🥘', '🍚', '🍜', '🥞', '🍪',
+                     '🧁', '🥖', '🍩', '🫕', '🍛', '🧇', '🍔', '🍕', '🥧', '🍖', '🥩', '🧀'];
+  const COOKED_KO = ['죽', '빵', '샐러드', '케이크', '구운', '구이', '스프', '수프', '볶은',
+                     '삶은', '튀긴', '조림', '찜', '파이', '쿠키', '과자', '요리', '그릇', '접시'];
+  const COOKED_EN = ['bread', 'cake', 'porridge', 'soup', 'salad', 'roast', 'baked', 'pie',
+                     'cookie', 'stew', 'pasta', 'pudding', 'grill', 'fried', 'bowl', 'dish',
+                     'cheese', 'jam'];
+  // 셋을 **따로** 본다 (이모지 · 한국어 이름 · 영어 이름).
+  // ⚠️⚠️ 「셋 중 하나라도 조리된 것이면 접시로 친다」로 두었더니 **사보타주가 지나갔다** —
+  //   접시의 한국어 이름과 이모지를 들음식으로 바꿔 놔도 영어가 'Cake' 로 남아 통과했다.
+  //   채집 쪽은 «하나라도 걸리면» 실패고, 접시 쪽은 «셋이 다» 조리된 것이어야 한다
+  const signals = (x) => {
+    const en = String(nameEn(x.id) || '');
+    return {
+      [`이모지 ${x.emoji}`]: COOKED_EM.includes(x.emoji),
+      [`「${x.name}」`]: !!COOKED_KO.find(w => String(x.name).includes(w)),
+      [`“${en}”`]: !!COOKED_EN.find(w => en.toLowerCase().includes(w)),
+    };
+  };
+  const cooked = [], plain = [];
+  D.FOODS.forEach(x => {
+    const hit = Object.entries(signals(x)).filter(([, v]) => v).map(([k]) => k);
+    if (hit.length) cooked.push(`${x.id} — ${hit.join(' · ')}`);
+  });
+  D.BINGE_FOODS.forEach(x => {
+    const miss = Object.entries(signals(x)).filter(([, v]) => !v).map(([k]) => k);
+    if (miss.length) plain.push(`${x.id} — ${miss.join(' · ')} 가 조리된 것이 아니다`);
+  });
+  add('채집에서 «조리된 음식»이 나온다 (들에서 주울 수 있는 것만 둔다)', cooked);
+  add('혼자 먹은 밤의 접시가 조리된 음식이 아니다 (일지가 「접시」라고 말한다)', plain);
+  // 채집이 뽑을 수 있어야 한다 — `w` 가 없으면 그 줄은 영영 안 나온다
+  add('들음식에 채집 가중치(w)가 없다',
+      D.FOODS.filter(x => !(x.w > 0)).map(x => x.id));
+  // 표가 둘이라 **줄 수가 어긋나면** 세이브 16 의 옮겨 담기가 짝을 잃는다
+  add('두 표의 줄 수가 다르다',
+      D.FOODS.length === D.BINGE_FOODS.length ? []
+        : [`들음식 ${D.FOODS.length}줄 · 접시 ${D.BINGE_FOODS.length}줄`]);
+  measured.push(`음식: 들음식 ${D.FOODS.length}가지 · 접시 ${D.BINGE_FOODS.length}가지 (두 언어로 쟀다)`);
+}
+
 // ─── 3. id 중복 ───────────────────────────────────────────────
 // **id 가 겹치면 세이브가 엉킨다.** 옷은 생성기가 보지만, 그 밖은 아무도 안 봤다
 const seen = new Map();
@@ -283,6 +339,7 @@ D.RECIPES.forEach(r => take(r.result.id, '레시피 결과물'));
 D.MAPS.forEach(x => take(x.id, '맵'));
 D.CAULDRONS.forEach(x => take(x.id, '솥'));
 D.FOODS.forEach(x => take(x.id, '음식'));
+D.BINGE_FOODS.forEach(x => take(x.id, '혼밥 접시'));
 D.EXERCISES.forEach(x => take(x.id, '운동'));
 Object.values(D.WARDROBE).forEach(list => (list || []).forEach(x => take(x.id, '옷')));
 D.COLORS.forEach(x => take(x.id, '색'));
@@ -553,6 +610,7 @@ add('id 가 겹친다', dupId);
 
 // ─── 결과 ─────────────────────────────────────────────────────
 if (!problems.length) {
+  measured.forEach(x => console.log('   ' + x));
   console.log(`✅ 데이터 이상 없음 (레시피 ${D.RECIPES.length} · 맵 ${D.MAPS.length}`
     + ` · 재료 ${Object.keys(D.INGREDIENTS).length} · id ${seen.size}`
     + ` · 크리처를 재료로 먹는 레시피 ${MELT_N})`);
