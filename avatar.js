@@ -3478,8 +3478,6 @@
     const clothDk = shade(cloth, 34);      // 몸 밑의 골 — 조각이 겹친 것을 말해 준다
     const hairItem = it('hair');
     const hairC = col.hair || hairItem.color || HAIR_DEF;
-    const hairLt = shade(hairC, -12);
-    const hairSh = shade(hairC, 24);
     const backKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
     // 신발 — **모양까지 따라간다.** 색만 바꾸면 유리구두를 신고도 맨발과 같은 모양이라,
     // 「신발이 안 그려진다」로 읽힌다.
@@ -3539,17 +3537,6 @@
         + '</g>';
     };
 
-    // ── 머리 뒤쪽의 «커튼» ──────────────────────────────────
-    // ⚠️⚠️ `hairBack` 은 **앞에서 보는 얼굴**의 뒤통수라 가운데가 비어 있다 —
-    //    뒤에서 보면 그 사이로 덮개가 비쳐 **가운데가 밝은 얼굴**처럼 읽혔다
-    //    (긴 머리에서는 양옆 가닥 사이가 그대로 「이마」가 된다).
-    //    그래서 **가닥 사이를 메우는 한 겹**을 먼저 깐다. 길이는 머리 모양을 따라간다
-    const FALL = { long: 142, wave: 140, bob: 112, bun: 98, twin: 104, ponytail: 104 };
-    const fallY = FALL[backKind] || 120;
-    const curtain = '<path d="M63,64 C60,' + (fallY - 44) + ' 62,' + (fallY - 8) + ' 72,' + fallY
-      + ' C86,' + (fallY + 6) + ' 114,' + (fallY + 6) + ' 128,' + fallY
-      + ' C138,' + (fallY - 8) + ' 140,' + (fallY - 44) + ' 137,64 Z" fill="' + hairC + '"/>';
-
     return '<svg class="cb-svg" viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg"'
       + ' role="img" aria-label="">'
       + '<defs>'
@@ -3559,12 +3546,6 @@
       + '<stop offset="0" stop-color="' + clothLt + '"/>'
       + '<stop offset="0.55" stop-color="' + cloth + '"/>'
       + '<stop offset="1" stop-color="' + clothSh + '"/></linearGradient>'
-      // 머리 — ⚠️ **가운데를 밝히지 않는다.** 빛은 «왼쪽 위»에서 든다 —
-      // 가운데가 밝으면 그 자리가 이마로 읽혀 얼굴이 되어 버린다
-      + '<linearGradient id="' + ID('hairG') + '" x1="0.18" y1="0" x2="0.9" y2="1">'
-      + '<stop offset="0" stop-color="' + hairLt + '"/>'
-      + '<stop offset="0.5" stop-color="' + hairC + '"/>'
-      + '<stop offset="1" stop-color="' + hairSh + '"/></linearGradient>'
       + '<radialGradient id="' + ID('shG') + '" cx="0.5" cy="0.5" r="0.5">'
       + '<stop offset="0" stop-color="rgba(20,10,25,0.34)"/>'
       + '<stop offset="0.6" stop-color="rgba(20,10,25,0.18)"/>'
@@ -3603,17 +3584,40 @@
       // 엉덩이가 바닥에 눌린 자리 — 밑에 골이 있어야 «앉아 있다»가 된다
       + '<path d="M64,206 C80,214 120,214 136,206" stroke="' + clothDk
       + '" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.45"/>'
-      // 왼팔 — 무릎에 얹은 팔. 어깨에서 나와 옆구리를 따라 내려간다.
-      // ⚠️ **굵기가 변해야 팔이다** — 같은 굵기의 둥근 선 하나면 파이프로 보인다.
+      // ── 왼팔 — 바닥을 짚은 팔 ───────────────────────────────
+      // ⚠️⚠️ **덩어리 하나로 그리지 않는다.** 한때 닫힌 곡선 한 장이었는데, 몸 옆에
+      //    붙은 «지느러미»로 읽혔다 (「왼팔이 이상하다」로 신고받았다).
+      //    팔은 **마디 둘**이다 — 어깨→팔꿈치(위팔) · 팔꿈치→손목(아래팔).
+      //    둘을 굵기가 다른 선으로 긋고 둥근 마개로 이으면 관절이 저절로 생긴다
+      // ⚠️ 그늘(테두리)을 **둘 다 먼저** 깐다. 마디마다 「그늘 → 칠」로 그리면
+      //    뒤 마디의 그늘이 앞 마디의 칠을 덮어 팔꿈치에 검은 띠가 생긴다
       // **회전축은 어깨**다 (style.css 의 .cb-arm-l) — 팔꿈치를 축으로 돌리면 어깨가 빠진다
-      + '<g class="cb-arm cb-arm-l">'
-      + '<path d="M70,122 C58,132 50,152 49,172 C48,184 54,192 63,192'
-      + ' C70,192 75,188 76,182 C68,180 64,174 64,164 C64,150 69,136 79,128 Z"'
-      + ' fill="' + cloth + '" stroke="' + clothSh + '" stroke-width="2" stroke-linejoin="round"/>'
-      // 소매 끝 — 팔과 손을 가르는 한 줄
-      + '<path d="M64,178 C67,186 72,189 76,182" stroke="' + clothSh
-      + '" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.9"/>'
-      + '</g>'
+      + (() => {
+        // ⚠️ **팔꿈치는 실루엣 «밖»으로 나와야 한다.** 등과 같은 색이라, 안에 있으면
+        //    테두리만 희미하게 남아 팔로 안 읽힌다 (55 에서 47 로 8px 내보냈다)
+        const up = 'M71,120 C60,134 50,148 47,164';      // 위팔
+        const fo = 'M47,164 C46,178 48,188 52,194';      // 아래팔
+        return '<g class="cb-arm cb-arm-l">'
+          + '<path d="' + up + '" stroke="' + clothSh + '" stroke-width="18.4" fill="none"'
+          + ' stroke-linecap="round"/>'
+          + '<path d="' + fo + '" stroke="' + clothSh + '" stroke-width="15.4" fill="none"'
+          + ' stroke-linecap="round"/>'
+          + '<path d="' + up + '" stroke="' + cloth + '" stroke-width="16" fill="none"'
+          + ' stroke-linecap="round"/>'
+          + '<path d="' + fo + '" stroke="' + cloth + '" stroke-width="13" fill="none"'
+          + ' stroke-linecap="round"/>'
+          // 소매 끝 — 팔과 손을 가르는 한 줄. 없으면 손이 소매에서 «돋아난다»
+          + '<path d="M46,188 A6.5,6.5 0 0 0 58,191" stroke="' + clothSh
+          + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
+          // 손 — 벙어리장갑 (ART_POLICY 「손가락은 4개 이하」). 바닥을 짚고 있다
+          // ⚠️ **발(cx 70)과 접시(cx 34) 사이에 둔다** — 겹치면 바닥의 «살색 얼룩»이 된다
+          + '<ellipse cx="52" cy="199" rx="7.6" ry="6.2" fill="' + SKIN + '"'
+          + ' transform="rotate(-18 52 199)"/>'
+          // 엄지 하나 — 「짚었다」가 읽힌다
+          + '<ellipse cx="59" cy="195" rx="3.4" ry="2.6" fill="' + SKIN + '"'
+          + ' transform="rotate(-28 59 195)"/>'
+          + '</g>';
+      })()
       // 목덜미 — 머리에 거의 가린다. 그늘이라 머리와 몸 사이가 이어져 보인다
       + '<path d="M86,100 C86,114 114,114 114,100 C110,96 90,96 86,100 Z" fill="' + SKIN_SH + '"/>'
       + '</g></g>'
@@ -3622,66 +3626,56 @@
       // **머리보다 먼저 그린다.** 뒤에서 보고 있으니 손은 얼굴 쪽(저쪽 편)에 있고,
       // 뒤통수가 팔을 가려야 맞다. 그러면서도 손과 음식은 **머리 옆으로 비켜나** 있다 —
       // 엄밀히는 얼굴 뒤에 숨어야 하지만, 그러면 무엇을 하는 장면인지 안 읽힌다.
+      // ⚠️⚠️ **마디 둘로 긋는다**(왼팔과 같은 규칙). 닫힌 곡선 한 장으로 그렸더니
+      //    제어점이 서로를 먹어 **옆구리에 붙은 얇은 조각**이 됐다 (「오른팔도 이상하다」).
+      //    어깨(위) → 팔꿈치(아래 바깥) → 손목(위) 의 꺾인 두 마디라야 «들어 올린 팔»이다
       // ⚠️ 가로는 k 를 따라가되 **손과 음식은 그 자리에 놓기만 한다** —
       //    이모지가 가로로 늘어나면 안 되기 때문이다
       + (() => {
-        const sx = 100 + 30 * k;    // 어깨
-        const ex = 100 + 54 * k;    // 팔꿈치 — 등 옆으로 나온다
-        const wx = 100 + 43 * k;    // 손목
-        // 굵기가 변하는 팔 — 어깨(11) → 팔꿈치(9) → 손목(7)
-        const d = 'M' + (sx - 11).toFixed(1) + ',124'
-          + ' C' + (ex - 11).toFixed(1) + ',144 ' + (ex - 9).toFixed(1) + ',156 '
-          + (wx - 7).toFixed(1) + ',132'
-          + ' C' + (wx - 3).toFixed(1) + ',124 ' + (wx + 3).toFixed(1) + ',124 '
-          + (wx + 7).toFixed(1) + ',132'
-          + ' C' + (ex + 7).toFixed(1) + ',160 ' + (ex + 3).toFixed(1) + ',166 '
-          + (sx + 11).toFixed(1) + ',128'
-          + ' C' + (sx + 5).toFixed(1) + ',119 ' + (sx - 5).toFixed(1) + ',119 '
-          + (sx - 11).toFixed(1) + ',124 Z';
+        const sx = 100 + 29 * k;    // 어깨 — 등 실루엣의 오른쪽 끝
+        const ex = 100 + 50 * k;    // 팔꿈치 — 등 옆으로 나온다
+        const wx = 100 + 42 * k;    // 손목 — 머리 옆으로 올라온다
+        const f = n => n.toFixed(1);
+        const up = 'M' + f(sx) + ',120 C' + f(sx + 12) + ',134 ' + f(ex) + ',146 ' + f(ex + 1) + ',160';
+        const fo = 'M' + f(ex + 1) + ',160 C' + f(ex + 1) + ',146 ' + f(wx + 2) + ',134 ' + f(wx) + ',126';
         const hx = wx;
         return '<g class="cb-bite">'
-          + '<path d="' + d + '" fill="' + cloth + '" stroke="' + clothSh
-          + '" stroke-width="2" stroke-linejoin="round"/>'
+          + '<path d="' + up + '" stroke="' + clothSh + '" stroke-width="18.4" fill="none"'
+          + ' stroke-linecap="round"/>'
+          + '<path d="' + fo + '" stroke="' + clothSh + '" stroke-width="15.4" fill="none"'
+          + ' stroke-linecap="round"/>'
+          + '<path d="' + up + '" stroke="' + cloth + '" stroke-width="16" fill="none"'
+          + ' stroke-linecap="round"/>'
+          + '<path d="' + fo + '" stroke="' + cloth + '" stroke-width="13" fill="none"'
+          + ' stroke-linecap="round"/>'
           // 소매 끝
-          + '<path d="M' + (wx - 7).toFixed(1) + ',132 A7.5,7.5 0 0 1 ' + (wx + 7).toFixed(1) + ',132"'
-          + ' stroke="' + clothSh + '" stroke-width="2" fill="none"/>'
-          // 손 — **벙어리장갑**이다 (ART_POLICY 「손가락은 4개 이하 · mitten hands」).
-          // 엄지 하나만 얹으면 「쥐고 있다」가 읽힌다
-          + '<path d="M' + (hx - 7).toFixed(1) + ',131 C' + (hx - 8.5).toFixed(1) + ',119 '
-          + (hx + 8.5).toFixed(1) + ',119 ' + (hx + 7).toFixed(1) + ',131 Z" fill="' + SKIN + '"/>'
-          + '<circle cx="' + hx.toFixed(1) + '" cy="122" r="8" fill="' + SKIN + '"/>'
-          + '<path d="M' + (hx + 6).toFixed(1) + ',119 C' + (hx + 10).toFixed(1) + ',115 '
-          + (hx + 10).toFixed(1) + ',110 ' + (hx + 5).toFixed(1) + ',111 Z" fill="' + SKIN + '"/>'
-          + '<path d="M' + (hx - 5).toFixed(1) + ',120 C' + (hx - 2).toFixed(1) + ',117 '
-          + (hx + 2).toFixed(1) + ',117 ' + (hx + 5).toFixed(1) + ',119" stroke="' + SKIN_SH
-          + '" stroke-width="1.6" fill="none" stroke-linecap="round" opacity="0.75"/>'
-          + (foodEmoji ? '<text class="cb-food" x="' + (hx + 4).toFixed(1)
-            + '" y="110" font-size="24" text-anchor="middle">' + foodEmoji + '</text>' : '')
+          + '<path d="M' + f(hx - 6.5) + ',128 A6.5,6.5 0 0 1 ' + f(hx + 6.5) + ',126"'
+          + ' stroke="' + clothSh + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
+          // 손 — 벙어리장갑. 쥔 것을 입으로 올리는 중이라 손등이 이쪽을 본다
+          + '<ellipse cx="' + f(hx) + '" cy="119" rx="8.2" ry="7.6" fill="' + SKIN + '"/>'
+          // 엄지 — 하나만 얹으면 「쥐고 있다」가 읽힌다
+          + '<ellipse cx="' + f(hx - 6.5) + '" cy="116" rx="3.4" ry="2.8" fill="' + SKIN + '"'
+          + ' transform="rotate(-28 ' + f(hx - 6.5) + ' 116)"/>'
+          // 손가락 마디 한 줄
+          + '<path d="M' + f(hx - 4) + ',114 C' + f(hx - 1) + ',112 ' + f(hx + 2) + ',112 '
+          + f(hx + 5) + ',114" stroke="' + SKIN_SH + '" stroke-width="1.5" fill="none"'
+          + ' stroke-linecap="round" opacity="0.7"/>'
+          + (foodEmoji ? '<text class="cb-food" x="' + f(hx + 8)
+            + '" y="110" font-size="26" text-anchor="middle">' + foodEmoji + '</text>' : '')
           + '</g>';
       })()
 
       // ── 머리 — 고개를 숙이고 우적우적 ───────────────────────
-      // ⚠️⚠️ **뒤통수는 «꽉 찬 덩어리»여야 한다.** `hairBack` 의 뒤통수는 밑끝이
-      //    y97.6 에서 끝나 그 아래로 **살색이 그대로 비쳤고**, 긴 머리의 양옆 가닥
-      //    사이는 통째로 비어 **가운데가 밝은 «얼굴»**로 읽혔다.
-      //    머리통보다 넉넉한 덮개 → 가닥 사이를 메우는 커튼 → 그 위에 머리 모양 순서다
+      // ⚠️⚠️ **`hairBack` «하나»만 쓴다.** 한때 그 위에 머리통보다 넉넉한 덮개와
+      //    가닥 사이를 메우는 커튼을 덧댔는데(「가운데가 얼굴로 읽힌다」), 그러면
+      //    **여섯 머리가 전부 같은 갈색 덩어리**가 된다 — 단발도 올림머리도
+      //    포니테일도 구별이 안 갔다 (「헤어 고친 것도 잘못되었다」로 신고받았다).
+      //    가닥 사이로 등이 비치는 것이 이 그림에서 맞는 모양이고, 그래야
+      //    **머리를 바꾸면 뒷모습도 바뀐다**
       + '<g transform="translate(0,26)"><g class="cb-head">'
       + '<g transform="rotate(-3 100 105)">'
       + '<ellipse cx="100" cy="70" rx="33" ry="35" fill="' + SKIN + '"/>'
-      + curtain
-      + '<ellipse cx="100" cy="67" rx="37.5" ry="39.5" fill="' + hairC + '"/>'
       + hairBack(backKind, hairC)
-      // 덮개·커튼·가닥을 한 덩어리로 묶는 그늘과 빛. ⚠️ **가운데에 선을 긋지 않는다** —
-      // 가르마 한 줄이 그대로 콧날로 읽혀 얼굴이 된다 (그려 보고 지웠다)
-      + '<ellipse cx="100" cy="67" rx="37.5" ry="39.5" fill="url(#' + ID('hairG') + ')" opacity="0.55"/>'
-      + '<path d="M72,46 C82,34 104,32 118,40" stroke="' + hairLt
-      + '" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.45"/>'
-      + '<path d="M124,48 C128,52 130,57 131,62" stroke="' + hairLt
-      + '" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.35"/>'
-      + '<path d="M70,78 C69,' + (fallY - 40) + ' 71,' + (fallY - 16) + ' 76,' + (fallY - 4) + '"'
-      + ' stroke="' + hairSh + '" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.35"/>'
-      + '<path d="M130,78 C131,' + (fallY - 40) + ' 129,' + (fallY - 16) + ' 124,' + (fallY - 4) + '"'
-      + ' stroke="' + hairSh + '" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.35"/>'
       + '</g></g></g>'
 
       // 「우적」 — 씹을 때마다 머리 옆에서 톡 터지는 효과선. 애니메이션의 박자를 눈으로
