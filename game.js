@@ -6805,24 +6805,17 @@ function devToggleTutorial() {
   toast(T(S.tutorialDone ? 'dev_tut_done' : 'dev_tut_undone'));
   render();
 }
-// 방 배경 단계를 골라 본다. 아직 올려 주는 게임 조건이 없어서 눈으로 확인할 길이
-// 이것뿐이다. 단계는 세이브에 들어간다 (튜토리얼 스위치와 같은 이유 — 진짜 진행 값이다).
-function devRoomLevel(n) {
-  S.roomLevel = Math.min(roomMax(), Math.max(1, n | 0));
-  save();
-  toast(T('dev_room_lv_done', { n: S.roomLevel }));
-  renderShowcase();
-}
-window.devRoomLevel = devRoomLevel;
+// ⚠️ **개발용 「🏠 방 배경」 5단계 버튼은 걷었다** (2026-09-29 · 사람이 정했다).
+// 그 버튼이 있던 이유는 「아직 올려 주는 게임 조건이 없어서」였는데 지금은 있다 —
+// `q_seal` 이 `reward.room` 으로 공방을 5단계로 올린다. 그리고 방의 «모습»을 사람이
+// 정하는 자리는 앞으로 **방 꾸미기**가 맡는다 (`ROOM.md`).
+// ⚠️ **`roomLevel` 자체는 그대로다** — 엔딩 조건(`sealReady`)이 그것을 본다.
+//    단계를 눈으로 보려면 개발용 「(임시) 퀘스트 완료」로 `q_seal` 을 깨면 된다
 
 function renderRoomDevTail() {
   const el = document.getElementById('roomDevTail');
   if (!el) return;
   const on = !!S.tutorialDone;
-  const lv = S.roomLevel || roomDefault();
-  const bgBtns = Array.from({ length: roomMax() }, (_, i) => i + 1).map(n =>
-    `<button class="btn btn-dev${n === lv ? ' on' : ''}" onclick="devRoomLevel(${n})"
-      aria-label="${T('dev_room_lv')} ${n}">${n}</button>`).join('');
   el.innerHTML =
     devGroup(T('dev_g_act')) +
     devActs([
@@ -6855,8 +6848,7 @@ function renderRoomDevTail() {
     // ⚠️ 부엌도 넣어 둔다 — 첫 퀘스트를 안 지나고 부엌 화면만 보고 싶을 때가 있다
     devGroup(T('dev_g_acts')) +
     devSws(ROOM_ACTS.map(id =>
-      devSw(actOpen(id), T('act_' + id), `devToggleAct('${id}')`))) +
-    `<div class="dev-row dev-roomlv"><span class="dev-roomlv-t">🏠 ${T('dev_room_lv')}</span>${bgBtns}</div>`;
+      devSw(actOpen(id), T('act_' + id), `devToggleAct('${id}')`)));
 }
 // 개발용: 방 안에서 하는 일을 하나씩 켜고 끈다.
 // ⚠️ **부엌을 끄는 것은 「개발용으로 켠 것」만 끈다** — 첫 퀘스트를 이미 지났으면

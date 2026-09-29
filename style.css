@@ -3977,12 +3977,7 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 켜져 있는 스위치 (모든 맵 오픈 등) */
 .btn-dev.on { background: linear-gradient(135deg, #ffd06a, #ffb066); border-style: solid; }
 /* 방 배경 단계 고르기 — 제목 한 칸 + 숫자 버튼 다섯 개 */
-.dev-roomlv { align-items: center; }
-.dev-roomlv-t {
-  font-size: 0.8rem; font-weight: 800; color: var(--ink); white-space: nowrap;
-}
 /* 숫자 하나뿐이라 좌우 여백을 줄이면 다섯 개가 좁은 화면에서도 한 줄에 들어간다 */
-.dev-roomlv .btn-dev { padding: 9px 0; min-width: 34px; text-align: center; }
 /* 호감도 단계 — 사람마다 한 줄. 이름이 길어져도(영어·2배 확대) 숫자 다섯을
    밀어내지 않게 이름 쪽만 줄어든다 (UI_POLICY.md 「가변 폭」) */
 .dev-bond { align-items: center; }
