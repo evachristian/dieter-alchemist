@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>마이 룸 · 셀 셰이딩 3D 프로토타입</title>
+<!--
+  다이어터 연금술사 — 마이 룸 «한 장면»만 셀 셰이딩 3D 로 띄우고,
+  지금 쓰는 아바타 SVG 를 그대로 «빌보드»로 세워 보는 프로토타입이다.
+
+  ⚠️⚠️ **게임 본편은 한 줄도 안 건드린다.** index.html 은 이 파일을 안 부르고,
+        이 파일도 game.js 를 안 읽는다. 읽는 것은 `data.js` 와 `avatar.js` 둘뿐이다 —
+        그림이 «그대로» 서는지가 이 프로토타입이 답해야 할 질문이기 때문이다.
+
+  ⚠️ three.js 는 `proto/vendor/` 에 **넣어 두었다**(CDN 을 안 쓴다) — 배포 환경에서
+     바깥으로 못 나가는 경우가 있고, 무엇보다 **검사기가 확인할 수 없는 의존은
+     이 저장소의 규칙에 안 맞는다**.
+
+  여는 법 — `npm start` 뒤에 http://localhost:8080/proto/room3d.html
+-->
+<style>
+  :root{
+    --ink:#4a3a44; --ink-soft:#6e5d69; --card:#fffdfa; --line:rgba(90,70,85,0.14);
+    --pink-2:#f2a3bd; --on-accent:#fff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#1a1620;color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+  #stage{position:fixed;inset:0;touch-action:none;cursor:grab}
+  #stage.drag{cursor:grabbing}
+  #panel{position:fixed;left:12px;top:12px;width:250px;max-width:calc(100vw - 24px);
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;
+    box-shadow:0 8px 24px rgba(30,20,35,.28);font-size:13px;line-height:1.5;
+    max-height:calc(100vh - 24px);overflow:auto}
+  #panel h1{font-size:14px;margin:0 0 2px}
+  #panel p{margin:0 0 10px;color:var(--ink-soft);font-size:11.5px;line-height:1.45}
+  .row{display:flex;align-items:center;gap:8px;margin:7px 0}
+  .row label{flex:0 0 58px;color:var(--ink-soft);font-size:11.5px}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--pink-2)}
+  .row output{flex:0 0 34px;text-align:right;font-variant-numeric:tabular-nums;font-size:11.5px}
+  .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  button{border:0;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;
+    background:#efe7ee;color:var(--ink);cursor:pointer}
+  button.on{background:var(--pink-2);color:var(--on-accent)}
+  #fps{position:fixed;right:12px;top:12px;background:rgba(0,0,0,.45);color:#fff;
+    padding:5px 10px;border-radius:999px;font-size:11px;font-variant-numeric:tabular-nums}
+  #err{position:fixed;inset:auto 12px 12px 12px;background:#fff;border-radius:14px;padding:14px;
+    font-size:13px;display:none}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="fps">—</div>
+<div id="panel">
+  <h1>마이 룸 · 셀 셰이딩 3D</h1>
+  <p>방은 3D, <b>인물은 지금 쓰는 아바타 SVG 그대로</b>입니다 (빌보드).
+     끌어서 돌리고 휠로 당깁니다.</p>
+  <div class="row"><label>몸무게</label>
+    <input id="w" type="range" min="0" max="100" value="55"><output id="wv">0.55</output></div>
+  <div class="row"><label>바디파츠</label>
+    <input id="t" type="range" min="50" max="150" value="100"><output id="tv">100%</output></div>
+  <div class="btns">
+    <button id="bNight">🌙 밤</button>
+    <button id="bLine" class="on">✒️ 외곽선</button>
+    <button id="bSpin" class="on">🔄 자동 회전</button>
+    <button id="bCloth">👗 옷 바꾸기</button>
+  </div>
+  <p id="note" style="margin-top:10px"></p>
+</div>
+<div id="err"></div>
+
+<script src="../data.js"></script>
+<script src="../avatar.js"></script>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const errBox = document.getElementById('err');
+function fatal(msg) {
+  errBox.style.display = 'block';
+  errBox.textContent = '⚠ ' + msg;
+}
+if (!window.Avatar || !window.GameData) fatal('data.js / avatar.js 를 못 읽었다.');
+
+// ── 셀 셰이딩의 «전부» — 세 칸짜리 그라디언트 맵 ──────────────────
+// 빛을 연속으로 받지 않고 **세 단계로 끊는다.** 그것이 곧 툰 셰이딩이고,
+// ⚠️ 보간을 끄지 않으면(`NearestFilter`) 그냥 부드러운 음영으로 되돌아간다
+function toonRamp(steps) {
+  const tex = new THREE.DataTexture(new Uint8Array(steps), steps.length, 1, THREE.RedFormat);
+  tex.minFilter = tex.magFilter = THREE.NearestFilter;
+  tex.needsUpdate = true;
+  return tex;
+}
+const RAMP = toonRamp([96, 168, 255]);
+
+// 2D 의 결을 그대로 가져오려고 무늬는 **캔버스에 직접 그린다** (외부 이미지가 없다)
+function paint(w, h, draw, rep) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  if (rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]); }
+  return t;
+}
+
+// 돌벽 — roomScene 의 「60칸짜리 띠 넷이 도는」 이음새를 그대로 옮겼다
+const wallTex = paint(256, 256, (g, w, h) => {
+  g.fillStyle = '#cbb99c'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = 'rgba(40,32,26,0.20)'; g.lineWidth = 3;
+  const rows = 4, rh = h / rows;
+  for (let r = 0; r < rows; r++) {
+    const y = r * rh;
+    g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+    const off = (r % 2) ? w / 3 : 0;
+    for (let i = 0; i < 3; i++) {
+      const x = ((off + i * w / 3) % w);
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + rh); g.stroke();
+    }
+  }
+}, [2, 1]);
+
+// 마룻바닥 — 널빤지
+const floorTex = paint(256, 256, (g, w, h) => {
+  g.fillStyle = '#8a663f'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = 'rgba(50,30,16,0.35)'; g.lineWidth = 2.5;
+  for (let i = 1; i < 6; i++) {
+    const y = i * h / 6;
+    g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+  }
+  g.lineWidth = 1.6; g.strokeStyle = 'rgba(50,30,16,0.22)';
+  for (let i = 0; i < 6; i++) {
+    const y = i * h / 6, x = ((i % 2) ? w * 0.55 : w * 0.2);
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + h / 6); g.stroke();
+  }
+}, [3, 3]);
+
+// 창밖 하늘 — 낮/밤 두 장
+function skyTex(night) {
+  return paint(128, 160, (g, w, h) => {
+    const lg = g.createLinearGradient(0, 0, 0, h);
+    if (night) { lg.addColorStop(0, '#2a2b57'); lg.addColorStop(1, '#4a4a7d'); }
+    else { lg.addColorStop(0, '#8fd0f5'); lg.addColorStop(1, '#d8eefc'); }
+    g.fillStyle = lg; g.fillRect(0, 0, w, h);
+    if (night) {
+      g.fillStyle = '#f7f0c8';
+      g.beginPath(); g.arc(w * 0.66, h * 0.26, 15, 0, 7); g.fill();
+      g.fillStyle = '#3a3a68';
+      g.beginPath(); g.arc(w * 0.58, h * 0.22, 14, 0, 7); g.fill();
+      g.fillStyle = '#fff';
+      [[0.2, 0.15], [0.35, 0.34], [0.8, 0.52], [0.15, 0.6], [0.5, 0.12]]
+        .forEach(([x, y]) => { g.beginPath(); g.arc(w * x, h * y, 1.6, 0, 7); g.fill(); });
+    } else {
+      g.fillStyle = '#ffe9a8';
+      g.beginPath(); g.arc(w * 0.66, h * 0.26, 17, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.9)';
+      g.beginPath(); g.ellipse(w * 0.32, h * 0.44, 22, 9, 0, 0, 7); g.fill();
+      g.beginPath(); g.ellipse(w * 0.72, h * 0.62, 18, 7, 0, 0, 7); g.fill();
+    }
+  });
+}
+const SKY = { day: skyTex(false), night: skyTex(true) };
+
+// ── 장면 ──────────────────────────────────────────────────────
+const canvas = document.getElementById('stage');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+} catch (e) { fatal('WebGL 을 못 켰다: ' + e.message); }
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#1a1620');
+const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+
+// 빛 — 툰은 «한 방향 빛 + 넉넉한 환경광»이 제일 읽힌다.
+// 환경광이 모자라면 그늘 칸이 새까매져 셀 셰이딩이 아니라 «실루엣»이 된다
+const key = new THREE.DirectionalLight(0xfff1dc, 2.1);
+key.position.set(-4.2, 6.4, 4.6);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.camera.left = -6; key.shadow.camera.right = 6;
+key.shadow.camera.top = 7; key.shadow.camera.bottom = -2;
+key.shadow.bias = -0.0015;
+scene.add(key);
+const amb = new THREE.AmbientLight(0xffe8d8, 0.85);
+scene.add(amb);
+const win = new THREE.PointLight(0xbfd8ff, 0, 9);   // 창에서 드는 빛 (밤에 켠다)
+win.position.set(3.4, 3.1, -1.2);
+scene.add(win);
+
+// ── 외곽선 — «뒤집힌 껍질» ────────────────────────────────────
+// 조각을 한 벌 더 만들어 «안쪽 면»만 그리고 조금 부풀린다. 후처리가 필요 없고
+// 두께가 화면이 아니라 «물체» 기준이라 만화 선처럼 보인다.
+// ⚠️ 평면(벽·바닥)에는 안 건다 — 두께가 화면을 덮어 방이 통째로 검어진다
+const LINE = new THREE.MeshBasicMaterial({ color: 0x4a3226, side: THREE.BackSide });
+const lines = new THREE.Group();
+scene.add(lines);
+function outline(mesh, grow = 1.035) {
+  const m = new THREE.Mesh(mesh.geometry, LINE);
+  m.position.copy(mesh.position);
+  m.rotation.copy(mesh.rotation);
+  m.scale.copy(mesh.scale).multiplyScalar(grow);
+  lines.add(m);
+  return m;
+}
+function toon(color, opts) {
+  return new THREE.MeshToonMaterial(Object.assign({ color, gradientMap: RAMP }, opts || {}));
+}
+// 조각 하나 = 「몸 + 외곽선」. 두 곳에 적지 않으려고 한 함수를 지난다
+function prop(geo, mat, x, y, z, grow) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  m.castShadow = true; m.receiveShadow = true;
+  scene.add(m);
+  outline(m, grow);
+  return m;
+}
+
+// ── 방 ────────────────────────────────────────────────────────
+const ROOM_W = 9, ROOM_D = 8, ROOM_H = 6;
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D),
+  toon(0xffffff, { map: floorTex }));
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+function wall(w, h, x, y, z, ry) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), toon(0xffffff, { map: wallTex.clone() }));
+  m.material.map.wrapS = m.material.map.wrapT = THREE.RepeatWrapping;
+  m.material.map.repeat.set(w / 4.5, h / 4.5);
+  m.material.map.needsUpdate = true;
+  m.position.set(x, y, z); m.rotation.y = ry;
+  m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+wall(ROOM_W, ROOM_H, 0, ROOM_H / 2, -ROOM_D / 2, 0);                 // 뒤
+wall(ROOM_D, ROOM_H, -ROOM_W / 2, ROOM_H / 2, 0, Math.PI / 2);        // 왼
+wall(ROOM_D, ROOM_H, ROOM_W / 2, ROOM_H / 2, 0, -Math.PI / 2);        // 오른
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), toon(0x7a6a54));
+ceil.rotation.x = Math.PI / 2; ceil.position.y = ROOM_H;
+scene.add(ceil);
+
+// 창 — 오른쪽 벽. 하늘 판은 빛을 안 받아야 «바깥»으로 보인다(Basic)
+const skyMat = new THREE.MeshBasicMaterial({ map: SKY.day });
+const skyPlane = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.6), skyMat);
+skyPlane.position.set(ROOM_W / 2 - 0.03, 3.1, -1.2);
+skyPlane.rotation.y = -Math.PI / 2;
+scene.add(skyPlane);
+const frameMat = toon(0x4a3a2c);
+[[2.3, 0.18, 0, 1.42], [2.3, 0.18, 0, -1.42], [0.18, 2.9, 1.16, 0], [0.18, 2.9, -1.16, 0]]
+  .forEach(([w, h, dz, dy]) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, h, w === 2.3 ? 2.3 : 0.18), frameMat);
+    if (w === 2.3) m.geometry = new THREE.BoxGeometry(0.16, 0.18, 2.3);
+    m.position.set(ROOM_W / 2 - 0.1, 3.1 + dy, -1.2 + dz);
+    scene.add(m); outline(m, 1.06);
+  });
+
+// 카펫 — 서는 자리. 2D 의 「인물은 양탄자 한가운데에 선다」를 그대로 옮겼다
+const rug = new THREE.Mesh(new THREE.CircleGeometry(2.1, 40), toon(0xc86a86));
+rug.rotation.x = -Math.PI / 2; rug.position.y = 0.012;
+rug.receiveShadow = true;
+scene.add(rug);
+const rugIn = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.68, 40), toon(0xf0c0d0));
+rugIn.rotation.x = -Math.PI / 2; rugIn.position.y = 0.02;
+scene.add(rugIn);
+
+// 마법진 — 바닥에 뜬 고리 둘 (빛을 안 받는다)
+const glyph = new THREE.Group();
+[[1.05, 1.11], [0.72, 0.76]].forEach(([a, b]) => {
+  const r = new THREE.Mesh(new THREE.RingGeometry(a, b, 48),
+    new THREE.MeshBasicMaterial({ color: 0x9fe6d0, transparent: true, opacity: 0.85 }));
+  r.rotation.x = -Math.PI / 2; glyph.add(r);
+});
+glyph.position.y = 0.03;
+scene.add(glyph);
+
+// 책장 · 솥 · 탁자 · 촛대
+const wood = toon(0x6b4a30), woodLt = toon(0x8a6544);
+// ⚠️ **책장을 «통짜 상자»로 두면 책이 안 보인다.** 앞판이 책보다 앞에 있어서
+//    통째로 가린다 (그려 보고 알았다). 뒤판 · 옆판 · 칸막이로 «속이 빈» 상자를 만든다
+const SHX = -2.9, SHZ = -3.4;
+prop(new THREE.BoxGeometry(2.4, 2.6, 0.08), wood, SHX, 1.3, SHZ - 0.25, 1.02);        // 뒤판
+[-1.16, 1.16].forEach(dx => prop(new THREE.BoxGeometry(0.1, 2.6, 0.5), wood, SHX + dx, 1.3, SHZ, 1.03));
+prop(new THREE.BoxGeometry(2.4, 0.12, 0.54), woodLt, SHX, 2.6, SHZ, 1.02);            // 천판
+prop(new THREE.BoxGeometry(2.4, 0.12, 0.54), woodLt, SHX, 0.06, SHZ, 1.02);           // 밑판
+for (let r = 0; r < 3; r++) {
+  const y = 0.6 + r * 0.8;
+  const b = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 0.5), woodLt);
+  b.position.set(SHX, y, SHZ); scene.add(b);
+  const cols = [0xe0687a, 0x6a9fe0, 0x7cc08a, 0xe0b45c, 0xa07ad0];
+  for (let i = 0; i < 7; i++) {
+    const hgt = 0.44 + (i % 3) * 0.08;
+    const bk = new THREE.Mesh(new THREE.BoxGeometry(0.15, hgt, 0.32),
+      toon(cols[(i + r) % cols.length]));
+    bk.position.set(SHX - 0.9 + i * 0.3, y + 0.04 + hgt / 2, SHZ + 0.02);
+    bk.rotation.z = (i === 4 ? 0.22 : 0);
+    bk.castShadow = true; scene.add(bk); outline(bk, 1.05);
+  }
+}
+// 솥 — 원기둥 + 테두리 고리 + 빛나는 물약
+const pot = prop(new THREE.CylinderGeometry(0.62, 0.48, 0.66, 24), toon(0x3c3540), 2.15, 0.4, -2.7, 1.04);
+const rim = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.07, 10, 26), toon(0x5a5060));
+rim.rotation.x = Math.PI / 2; rim.position.set(2.15, 0.72, -2.7);
+scene.add(rim); outline(rim, 1.05);
+const brew = new THREE.Mesh(new THREE.CircleGeometry(0.56, 24),
+  new THREE.MeshBasicMaterial({ color: 0x8ee6c8 }));
+brew.rotation.x = -Math.PI / 2; brew.position.set(2.15, 0.73, -2.7);
+scene.add(brew);
+const brewLight = new THREE.PointLight(0x8ee6c8, 2.2, 4.5);
+brewLight.position.set(2.15, 1.0, -2.7);
+scene.add(brewLight);
+// 탁자
+prop(new THREE.BoxGeometry(1.5, 0.12, 0.9), woodLt, 3.1, 0.92, 0.6, 1.02);
+[[-0.62, -0.34], [0.62, -0.34], [-0.62, 0.34], [0.62, 0.34]].forEach(([dx, dz]) => {
+  const l = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.12), wood);
+  l.position.set(3.1 + dx, 0.45, 0.6 + dz); l.castShadow = true;
+  scene.add(l); outline(l, 1.05);
+});
+// 촛불 — 불꽃은 빛을 안 받는다(Basic). 툰으로 두면 «회색 알»이 된다
+const flames = [];
+[[-4.3, 2.4, -1.0], [-4.3, 2.4, 1.6], [3.1, 1.12, 0.6]].forEach(([x, y, z], i) => {
+  const c = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.42, 12), toon(0xfdf3e0));
+  c.position.set(x, y, z); c.castShadow = true; scene.add(c); outline(c, 1.06);
+  const f = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffd76a }));
+  f.position.set(x, y + 0.3, z); f.scale.y = 1.7; scene.add(f);
+  const pl = new THREE.PointLight(0xffc46a, 1.5, 4.2);
+  pl.position.set(x, y + 0.34, z); scene.add(pl);
+  flames.push({ f, pl, seed: i * 2.1 });
+});
+
+// ── 인물 — 지금 쓰는 아바타 SVG 를 «그대로» 세운다 ───────────────
+// ⚠️⚠️ **이것이 이 프로토타입의 요점이다.** 캐릭터를 3D 로 다시 만들면 옷 150벌 ·
+//    표정 서른여덟 · 체형 다섯이 통째로 날아간다. 방만 3D 로 두고 인물은 빌보드로
+//    세우면 **지금 그림이 한 픽셀도 안 바뀐 채로** 3D 방 안에 선다.
+const FIG_H = 3.05;                       // 세계에서의 키 (바닥 ~ 그림 꼭대기 비율대로)
+const figMat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.35,
+  side: THREE.DoubleSide, toneMapped: false });
+const fig = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), figMat);
+scene.add(fig);
+// 발밑 그림자 — 빌보드는 그림자를 못 만든다. 없으면 인물이 바닥에서 «뜬다»
+const shTex = paint(128, 128, (g, w, h) => {
+  const rg = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+  rg.addColorStop(0, 'rgba(20,10,25,0.5)');
+  rg.addColorStop(0.55, 'rgba(20,10,25,0.22)');
+  rg.addColorStop(1, 'rgba(20,10,25,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, w, h);
+});
+const figSh = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.0),
+  new THREE.MeshBasicMaterial({ map: shTex, transparent: true, depthWrite: false }));
+figSh.rotation.x = -Math.PI / 2; figSh.position.y = 0.04;
+scene.add(figSh);
+
+// 세이브가 있으면 그 사람의 옷을 입힌다 (없으면 기본 차림)
+function savedOutfit() {
+  try {
+    const raw = localStorage.getItem('dieter_alchemist_save_v1');
+    const st = raw ? JSON.parse(raw) : null;
+    if (st && st.outfit) return Object.assign({}, st.outfit, { colors: st.outfitColors || {} });
+  } catch (e) {}
+  return null;
+}
+const D = window.GameData;
+let outfit = savedOutfit() || { hair: 'hair_long', dress: 'dress_princess', shoes: 'shoes_maryjane' };
+let weight = 0.55, tuneK = 1;
+
+function tuneOf(k) {
+  const t = {};
+  (window.Avatar.TUNE_KEYS || []).forEach(n => { t[n] = k; });
+  return t;
+}
+// SVG → 캔버스 텍스처. ⚠️ **뷰박스를 읽어서** 판의 비율과 «발의 높이»를 맞춘다 —
+// 숫자를 박아 두면 아바타 상자를 고치는 순간 인물이 바닥을 뚫거나 뜬다
+let figToken = 0;
+function redrawFigure() {
+  const my = ++figToken;
+  const svg = window.Avatar.build(outfit, weight, tuneOf(tuneK));
+  const vb = (svg.match(/viewBox="([^"]+)"/) || [])[1];
+  if (!vb) return fatal('아바타 SVG 에 viewBox 가 없다');
+  const [vx, vy, vw, vh] = vb.split(/\s+/).map(Number);
+  const floorY = window.Avatar.bodyMetrics(weight).floorY;   // 그림 좌표의 «바닥»
+  const PX = 3;                                             // 래스터 배율
+  const img = new Image();
+  img.onload = () => {
+    if (my !== figToken) return;                            // 사이에 또 바뀌었다
+    const c = document.createElement('canvas');
+    c.width = Math.round(vw * PX); c.height = Math.round(vh * PX);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    if (figMat.map) figMat.map.dispose();
+    figMat.map = tex; figMat.needsUpdate = true;
+    // 판의 크기·자리 — 바닥선(floorY)이 y=0 에 오게 맞춘다
+    const scale = FIG_H / vh;
+    fig.scale.set(vw * scale, vh * scale, 1);
+    const below = (vy + vh - floorY) * scale;               // 바닥선 «아래»로 남은 몫
+    fig.position.set(0, vh * scale / 2 - below, 0);
+    figSh.scale.set(Math.max(0.55, 0.9 + weight * 0.35), 1, 1);
+  };
+  img.onerror = () => fatal('아바타 SVG 래스터화 실패');
+  img.src = 'data:image/svg+xml;charset=utf-8,'
+    + encodeURIComponent(svg.replace('<svg ', '<svg width="' + (vw * PX) + '" height="' + (vh * PX) + '" '));
+}
+redrawFigure();
+
+// ── 조작 ──────────────────────────────────────────────────────
+let yaw = 0, pitch = 0.16, dist = 11.2, spin = true, night = false;
+let drag = null;
+canvas.addEventListener('pointerdown', (e) => {
+  drag = { x: e.clientX, y: e.clientY }; spin = false; setBtn(bSpin, false);
+  canvas.classList.add('drag'); canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  yaw += (e.clientX - drag.x) * 0.006;
+  pitch = Math.max(-0.05, Math.min(0.62, pitch + (e.clientY - drag.y) * 0.003));
+  yaw = Math.max(-0.85, Math.min(0.85, yaw));
+  drag = { x: e.clientX, y: e.clientY };
+});
+addEventListener('pointerup', () => { drag = null; canvas.classList.remove('drag'); });
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  dist = Math.max(6.2, Math.min(15, dist + e.deltaY * 0.012));
+}, { passive: false });
+
+const $ = id => document.getElementById(id);
+function setBtn(b, on) { b.classList.toggle('on', on); }
+const bSpin = $('bSpin'), bLine = $('bLine'), bNight = $('bNight'), bCloth = $('bCloth');
+bSpin.onclick = () => { spin = !spin; setBtn(bSpin, spin); };
+bLine.onclick = () => { lines.visible = !lines.visible; setBtn(bLine, lines.visible); };
+bNight.onclick = () => {
+  night = !night;
+  bNight.textContent = night ? '☀️ 낮' : '🌙 밤';
+  setBtn(bNight, night);
+  skyMat.map = night ? SKY.night : SKY.day; skyMat.needsUpdate = true;
+  key.intensity = night ? 0.55 : 2.1;
+  amb.intensity = night ? 0.38 : 0.85;
+  amb.color.set(night ? 0x8090c0 : 0xffe8d8);
+  win.intensity = night ? 1.6 : 0;
+  scene.background.set(night ? '#0e0c16' : '#1a1620');
+};
+const DRESS = ['dress_princess', 'dress_short', 'dress_onepiece', 'dress_none'];
+const HAIR = ['hair_long', 'hair_bob', 'hair_twin', 'hair_ponytail', 'hair_wave', 'hair_bun'];
+let ci = 0;
+bCloth.onclick = () => {
+  ci++;
+  const d = DRESS[ci % DRESS.length];
+  outfit = Object.assign({}, outfit, { hair: HAIR[ci % HAIR.length], dress: d });
+  if (d === 'dress_none') { outfit.top = 'top_blouse'; outfit.bottom = 'skirt_long'; }
+  redrawFigure();
+};
+$('w').oninput = (e) => {
+  weight = e.target.value / 100; $('wv').textContent = weight.toFixed(2); redrawFigure();
+};
+$('t').oninput = (e) => {
+  tuneK = e.target.value / 100; $('tv').textContent = e.target.value + '%'; redrawFigure();
+};
+
+// ── 돌린다 ────────────────────────────────────────────────────
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+const slow = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let last = performance.now(), frames = 0, fpsAt = last;
+function tick(now) {
+  requestAnimationFrame(tick);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (spin && !slow) yaw = Math.sin(now / 5200) * 0.42;
+
+  camera.position.set(
+    Math.sin(yaw) * dist * Math.cos(pitch),
+    1.7 + Math.sin(pitch) * dist,
+    Math.cos(yaw) * dist * Math.cos(pitch));
+  camera.lookAt(0, 1.55, -0.4);
+
+  // 빌보드 — **세로축으로만 돈다.** 카메라를 통째로 따라 기울이면 인물이 «눕는다»
+  fig.rotation.y = Math.atan2(camera.position.x - fig.position.x, camera.position.z - fig.position.z);
+
+  if (!slow) {
+    glyph.rotation.y += dt * 0.35;
+    brewLight.intensity = 2.0 + Math.sin(now / 420) * 0.5;
+    flames.forEach(({ f, pl, seed }) => {
+      const s = 1 + Math.sin(now / 130 + seed) * 0.16;
+      f.scale.set(1, 1.7 * s, 1);
+      pl.intensity = 1.35 + Math.sin(now / 150 + seed) * 0.3;
+    });
+  }
+  renderer.render(scene, camera);
+
+  frames++;
+  if (now - fpsAt > 500) {
+    $('fps').textContent = Math.round(frames * 1000 / (now - fpsAt)) + ' fps · '
+      + renderer.info.render.triangles.toLocaleString() + ' tri';
+    frames = 0; fpsAt = now;
+  }
+}
+requestAnimationFrame(tick);
+
+$('note').innerHTML = '방은 three.js · <b>인물은 avatar.js 의 SVG 그대로</b>입니다. '
+  + '게임 본편은 한 줄도 안 바뀝니다.';
+</script>
+</body>
+</html>
