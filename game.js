@@ -3206,6 +3206,7 @@ function switchTab(tab) {
   render();
   // 튜토리얼 신호는 **화면을 다 그린 뒤에** 보낸다 — 튜토리얼이 다음 단계의
   // 구멍을 뚫으려면 그 버튼이 이미 문서에 있어야 한다
+  syncHeadSolid();
   if (window.Tut) Tut.fire('tab:' + tab);
   // **봉인은 공방에서 풀린다** (STORY.md 「5단계 공방은 봉인을 푸는 자리다」).
   // ⚠️ `render()` 안에서 트지 않는다 — 렌더는 수시로 돌아서 컷씬이 화면을 덮은 채
@@ -4906,7 +4907,14 @@ function roomRise() {
   if (!stage || !screen) return 0;
   // ⚠️ 둘 다 «같은» 변환 속에 있어서 화면이 페이드 인 하는 중에 재도 차가 그대로다
   const gap = stage.getBoundingClientRect().top - screen.getBoundingClientRect().top;
-  return Math.max(0, Math.round(gap - SCENE_INSET.top));
+  // ⚠️⚠️ **헤더 높이까지 더한다 — 그림이 헤더 «밑»으로 들어가야 한다.**
+  //    「마이룸 BG를 헤더까지 연장해 달라」가 사람이 말한 것인데, 오래 이 값이
+  //    «화면(screen)의 꼭대기»까지만이라 그림의 윗변이 **헤더 바로 밑에서 딱 끝났다**
+  //    (재 보면 헤더 밑변 59 = 그림 윗변 59). 헤더를 비워도 거기엔 그릴 것이 없었다.
+  //    ⚠️ 둘 다 화면 좌표라 굴려도 차가 그대로다 (`gap` 과 같은 이유다)
+  const hd = document.querySelector('.app-header');
+  const head = hd ? hd.getBoundingClientRect().height : 0;
+  return Math.max(0, Math.round(gap - SCENE_INSET.top + head));
 }
 function roomPadTop(rise) {
   if (!rise) return 0;
@@ -5031,7 +5039,28 @@ function renderRoomScene() {
   // ⚠️ `renderShowcase()` 는 이 뒤에 `placePet()` 을 부른다 — 크리처는 «옮긴 뒤»의
   // 치마 옆선을 재야 하므로 순서가 이대로여야 한다
   placeFigure();
+  syncHeadSolid();
 }
+
+// ── 마이 룸의 헤더는 «방 그림이 그 자리를 덮고 있는 동안» 비어 있다 ──────
+//
+// ⚠️⚠️ **켜는 것이 아니라 «되돌리는» 쪽을 JS 가 맡는다.** 기본(클래스 없음)이
+// 「비어 있음」이라, `switchTab()` 을 한 번도 안 지나는 **첫 화면**에서도 맞는다
+// (마이 룸이 곧 첫 화면이다 — `style.css` 의 그 블록에 같은 주석이 있다).
+// ⚠️ 판단은 **그려진 자리**로 한다 — 굴린 픽셀 수를 세면 방 그림의 높이가
+// 폭·스탯 접힘에 따라 달라지는 것을 못 따라간다
+function syncHeadSolid() {
+  const sc = document.querySelector('.room-scene');
+  const hd = document.querySelector('.app-header');
+  let solid = true;
+  if (sc && hd && currentTab === 'showcase') {
+    const r = sc.getBoundingClientRect(), h = hd.getBoundingClientRect();
+    solid = r.bottom <= h.bottom + 2;    // 방 그림이 헤더 자리를 다 비웠다
+  }
+  document.body.classList.toggle('head-solid', solid);
+}
+window.addEventListener('scroll', syncHeadSolid, { passive: true });
+window.addEventListener('resize', syncHeadSolid);
 
 function renderShowcase() {
   const total = totalCharm();
@@ -7592,10 +7621,7 @@ async function shareCardBlob() {
     const w = 400 * k, h = 320 * k;
     ctx.save();
     ctx.beginPath(); ctx.rect(0, 0, CARD_W, CARD_ROOM_H); ctx.clip();
-    // ⚠️ 헤더 색을 **실제 값으로** 넘긴다 — 래스터화하는 SVG 안에서는 `var(--head)` 가
-    //    안 풀려 대체값(에크루)으로 떨어진다
-    ctx.drawImage(await svgToImage(Avatar.roomScene(S.roomLevel, null, 0, 0, cssVar('--head', '#f8f6f1')),
-      Math.round(w), Math.round(h)),
+    ctx.drawImage(await svgToImage(Avatar.roomScene(S.roomLevel), Math.round(w), Math.round(h)),
       (CARD_W - w) / 2, CARD_ROOM_H - h, w, h);   // xMid YMax
     ctx.restore();
   }
