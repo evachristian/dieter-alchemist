@@ -5320,8 +5320,9 @@ function svgFloorMark(scene, r) {
 // 시간대 — ⚠️⚠️ **방의 시계를 두 벌로 두지 않는다.** SVG 방의 창밖 하늘이 쓰는
 // 그 함수(`Avatar.skyPhase`)를 **그대로 부른다** — 여기에 구간을 다시 적으면
 // 3D 가 못 서는 기기에서 **어제까지 보던 것과 다른 시간대**의 방이 뜬다.
-// ⚠️ 인자를 안 넘기는 것도 그 이유다: SVG 쪽이 `skyPhase()` 로 부르므로 개발용
-//    시계(`nowDate`)를 여기만 태우면 **둘이 갈린다** (태우려면 SVG 쪽부터 태운다)
+// ⚠️ 인자를 안 넘기는 것도 그 이유다: SVG 쪽이 `skyPhase()` 로 부르므로 여기서만
+//    다른 시각을 넘기면 **둘이 갈린다.** 개발용 시계는 이제 `skyPhase` 가 «안에서»
+//    탄다(`nowDate`) — 그래서 3D 도 SVG 도 넘길 것이 없다
 function skyPhase3d() {
   return (window.Avatar && Avatar.skyPhase) ? Avatar.skyPhase() : 'day';
 }
@@ -7318,6 +7319,9 @@ function renderRoomDevTail() {
       // 하루를 기다려야만 보이는 것이 여럿이다 (AP 자정 충전 · 포만감 · 방치 감소 ·
       // 혼자 먹은 밤 · 크리처 생산 · 날씨). **시계를 옮겨 한 번에** 본다
       devAct(T('dev_skip_day'), 'devSkipDay()'),
+      // ⚠️ 「하루」로는 창밖이 한 번도 안 바뀐다 (24시간이라 시(時)가 그대로다) —
+      // 방의 하늘 다섯을 보려면 **경계로 데려가는** 버튼이 따로 있어야 한다
+      devAct(T('dev_skip_phase'), 'devSkipPhase()'),
       // 「창문 하나만 있는 방」은 새 플레이어가 처음 보는 화면인데, 단계가 오르면
       // 선물이 **저절로 놓여서** 한 번 지나가면 다시 볼 길이 없었다
       devAct(T('dev_decor_off'), 'devClearDecor()'),
@@ -7470,6 +7474,46 @@ function devSkipDay() {
   if (window.Sfx) Sfx.play('success');
 }
 window.devSkipDay = devSkipDay;
+
+// 개발용: **마이 룸의 시간대를 한 칸 넘긴다.**
+//
+// 방의 창밖 하늘은 다섯 가지인데(`Avatar.SKY_BANDS` — 새벽 05 · 낮 08 · 노을 16 ·
+// 초저녁 19 · 밤 21), 그림을 고치고 나서 확인하려면 **그 시각까지 기다려야 했다.**
+// 「하루가 지나갔다고 치기」는 24시간을 통째로 더하므로 시(時)가 그대로라
+// **창밖이 한 번도 안 바뀐다** — 그래서 버튼이 따로 필요하다.
+//
+// ⚠️⚠️ **하늘을 «심지» 않고 시계를 옮긴다** (`devSkipDay` 에서 배운 그 자리다).
+//    `S.devSky = 'night'` 처럼 하늘만 박아 두면 그 순간 **방의 시계가 두 벌**이 되어,
+//    창밖은 밤인데 채집 시간대(`daypartNow`)·운동 구간·날씨는 낮으로 남는다.
+//    시계는 `nowMs()` 한 곳이므로 거기를 옮기면 다섯이 «다» 따라온다.
+// ⚠️⚠️ **경계는 `Avatar.SKY_BANDS` 에서 읽는다 — 여기에 숫자를 옮겨 적지 않는다.**
+//    베껴 두면 구간을 옮겼을 때 **버튼이 데려가는 자리와 창밖 하늘이 갈린다**
+//    (3D 가 구간을 다시 안 적고 `Avatar.skyPhase` 를 그대로 부르는 것과 같은 규칙이다).
+// ⚠️ **경계의 정각으로** 데려간다 — 분·초를 남겨 두면 누를 때마다 조금씩 어긋나서
+//    다섯 번에 한 바퀴가 안 돈다. 다섯 번 누르면 하루가 지나가는 것이 맞는 동작이다
+//    (시계가 진짜로 그만큼 갔다).
+// ⚠️ 정산은 `devSkipDay` 와 같은 `refreshEnergy()` 다 — 자정을 넘는 칸이 하나 있다.
+function devSkipPhase() {
+  const A = window.Avatar;
+  if (!A || !A.SKY_BANDS) { toast('avatar.js'); return; }
+  // 하늘이 보는 시계는 **한국시간**이라 여기서도 그 자정을 기준으로 잰다
+  const d = nowDate();
+  const kst = new Date(d.getTime() + d.getTimezoneOffset() * 60000 + 9 * 3600000);
+  const cur = ((kst.getHours() * 60 + kst.getMinutes()) * 60 + kst.getSeconds()) * 1000
+    + kst.getMilliseconds();
+  let want = Infinity;
+  A.SKY_BANDS.forEach(b => { const t = b.h * 3600000; if (t > cur && t < want) want = t; });
+  // 오늘 남은 경계가 없으면(21시 이후) 내일 첫 경계로 간다
+  if (!isFinite(want)) want = A.SKY_BANDS[0].h * 3600000 + DAY_MS;
+  setDevClock((S.devClock || 0) + (want - cur));
+  S.devClock = devClock;
+  refreshEnergy();                 // 부팅·자정·복귀가 지나는 그 자리
+  save();
+  render();
+  toast(T('dev_phase_done', { p: T('sky_' + A.skyPhase()), h: A.skyHour() }), null, 3200);
+  if (window.Sfx) Sfx.play('success');
+}
+window.devSkipPhase = devSkipPhase;
 
 window.devToggleTutorial = devToggleTutorial;
 // 튜토리얼 되감기 — 인트로 다시보기와 짝이 되는 개발용 버튼

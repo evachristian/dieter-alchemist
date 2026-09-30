@@ -4026,15 +4026,35 @@
   };
 
   // 시간대별 창밖 하늘 (한국시간 UTC+9 기준) — 아이폰 날씨 앱처럼 시간에 따라 변화
-  function skyPhase(now) {
-    const d = now || new Date();
+  //
+  // ⚠️⚠️ **구간을 «표 하나»에 적는다.** 예전에는 `if` 다섯 줄이었는데, 개발용
+  //    「시간대 넘기기」가 다음 경계를 알아야 해서 game.js 가 같은 숫자를 한 벌 더
+  //    적을 뻔했다 — 그러면 경계를 옮겼을 때 **버튼이 데려가는 자리와 하늘이 갈린다**
+  //    (3D 가 `Avatar.skyPhase` 를 그대로 부르는 것과 같은 이유다). 표를 내보낸다
+  const SKY_BANDS = [
+    { h: 5,  k: 'dawn' },     // 새벽/일출
+    { h: 8,  k: 'day' },      // 낮
+    { h: 16, k: 'dusk' },     // 노을
+    { h: 19, k: 'evening' },  // 초저녁
+    { h: 21, k: 'night' },    // 밤
+  ];
+  // 이 방의 «시각» — 한국시간의 시(時) 하나다. 개발용 시계를 태우는 자리이기도 하다
+  //
+  // ⚠️⚠️ **게임 시계(`nowMs`)를 탄다 — `Date.now()` 를 직접 안 부른다.**
+  //    방의 하늘은 «게임 안의 시간»이지 현실 시계가 아니다 (「마지막 저장 n분 전」
+  //    과는 반대쪽이다). 여기만 현실 시계로 두었더니 개발용으로 시계를 옮겨도
+  //    **방만 제자리**여서, 하루를 넘겨 봐도 창밖은 어제 그 하늘이었다.
+  // ⚠️ game.js 가 아직 안 읽혔을 때만 현실 시계로 떨어진다 — avatar.js 가 먼저
+  //    실행되기 때문이고, 그때는 아직 세이브도 없어서 개발용 시계가 0 이다
+  function skyHour(now) {
+    const d = now || (typeof nowDate === 'function' ? nowDate() : new Date());
     const utc = d.getTime() + d.getTimezoneOffset() * 60000;
-    const h = new Date(utc + 9 * 3600000).getHours();
-    if (h >= 5 && h < 8)   return 'dawn';    // 새벽/일출
-    if (h >= 8 && h < 16)  return 'day';     // 낮
-    if (h >= 16 && h < 19) return 'dusk';    // 노을
-    if (h >= 19 && h < 21) return 'evening'; // 초저녁
-    return 'night';                          // 밤
+    return new Date(utc + 9 * 3600000).getHours();
+  }
+  function skyPhase(now) {
+    const h = skyHour(now);
+    for (let i = SKY_BANDS.length - 1; i >= 0; i--) if (h >= SKY_BANDS[i].h) return SKY_BANDS[i].k;
+    return 'night';                          // 00~05 시 = 전날 밤
   }
 
   // 창 안쪽(하늘 + 천체) 그리기. skyId = 하늘 그라디언트의 id (호출마다 다르다)
@@ -4405,7 +4425,8 @@
     return { w: w, kx: bodyScaleX(w), ky: ky, head: head, floorY: FLOOR_Y,
              dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
-  window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, hairIcon, browIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
+  window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, skyHour, SKY_BANDS,
+    hairIcon, browIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
     heartPath, heartEye, HEART,
     partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT, FLOOR_HALF, floorMark,

@@ -511,12 +511,115 @@ function launchOpts() {
     await ctx.close();
   }
 
+  // ── 개발용 「시간대 넘기기」 ──────────────────────────────────
+  //
+  // 「하루」로는 창밖이 **한 번도 안 바뀐다** (24시간이라 시(時)가 그대로다) — 방의
+  // 하늘 다섯(`Avatar.SKY_BANDS`)을 보려면 경계로 데려가는 버튼이 따로 있어야 한다.
+  //
+  // ⚠️⚠️ **여기서도 옮기는 것은 «시계»지 하늘이 아니다.** `S.devSky = 'night'` 처럼
+  // 하늘만 박으면 그 순간 방의 시계가 두 벌이 되어, 창밖은 밤인데 채집 시간대·운동
+  // 구간·날씨는 낮으로 남는다. 그래서 보는 것 넷:
+  //   ① **방의 하늘이 게임 시계를 타는가** ← `Date.now()` 를 직접 부르던 자리다.
+  //      시계를 옮겨도 창밖만 제자리이던 것을 콕 집어 잰다
+  //   ② 버튼을 **찾아서 눌러** 다섯을 다 지나가는가 (직접 부르면 배선을 안 잰다)
+  //   ③ **시계가 그만큼 진짜로 갔는가** — 하늘만 심는 사보타주는 여기서 걸린다
+  //   ④ 새로고침해도 그대로인가
+  let phaseLines = '';
+  {
+    const ctx = await browser.newContext();
+    const p = await ctx.newPage();
+    const perr = [];
+    p.on('pageerror', e => perr.push(String(e)));
+    await p.goto(BASE, { waitUntil: 'load' });
+    await p.waitForTimeout(2200);
+    const ls = [];
+
+    // ① 하늘이 게임 시계를 타는가 — 개발용 시계로 KST 시각을 다섯 자리에 세워 본다
+    const ride = await p.evaluate(() => {
+      const A = window.Avatar;
+      const want = { 6: 'dawn', 12: 'day', 17: 'dusk', 20: 'evening', 23: 'night' };
+      const got = {};
+      Object.keys(want).forEach(h => {
+        // 지금 KST 시각에서 h 시 정각까지의 몫을 개발용 시계에 싣는다
+        const d = new Date();
+        const kst = new Date(d.getTime() + d.getTimezoneOffset() * 60000 + 9 * 3600000);
+        const cur = ((kst.getHours() * 60 + kst.getMinutes()) * 60 + kst.getSeconds()) * 1000;
+        let delta = Number(h) * 3600000 - cur;
+        if (delta < 0) delta += 86400000;
+        setDevClock(delta);
+        got[h] = `${A.skyHour()}:${A.skyPhase()}`;
+      });
+      setDevClock(0);
+      return { want, got };
+    });
+    const rideBad = Object.keys(ride.want).filter(h => ride.got[h] !== `${h}:${ride.want[h]}`);
+    ls.push((rideBad.length ? '❌ ' : '✅ ')
+      + '개발용 시간대 넘기기 — 방의 하늘이 «게임 시계»를 탄다'
+      + ` (${Object.keys(ride.want).map(h => ride.got[h]).join(' · ')})`);
+
+    // ②③ 버튼을 «찾아서» 다섯 번 누른다
+    const opened = await p.evaluate(() => {
+      S.tutorialDone = true; S.devClock = 0; setDevClock(0);
+      if (typeof render === 'function') render();
+      if (typeof toggleDevTools === 'function') toggleDevTools('room');
+      return [...document.querySelectorAll('#roomDevTail button')]
+        .some(e => e.getAttribute('onclick') === 'devSkipPhase()');
+    });
+    ls.push((opened ? '✅ ' : '❌ ')
+      + '개발용 시간대 넘기기 — 개발용 패널에 버튼이 있다');
+    if (opened) {
+      // ⚠️⚠️ **한 번은 «버리고» 잰다.** 처음 누를 때는 아무 시각에서 출발하므로
+      //    첫 걸음만 반 칸이라, 다섯 번을 더해도 하루가 안 된다 (1278분이 나왔다).
+      //    경계에 한 번 올라선 뒤부터 재야 「다섯 칸 = 하루」가 성립한다
+      const seen = [], jump = [];
+      for (let i = -1; i < 5; i++) {
+        const r2 = await p.evaluate(() => {
+          const A = window.Avatar, c0 = S.devClock || 0;
+          const b = [...document.querySelectorAll('#roomDevTail button')]
+            .find(e => e.getAttribute('onclick') === 'devSkipPhase()');
+          if (b) b.click();
+          const d = new Date(nowMs());
+          const kst = new Date(d.getTime() + d.getTimezoneOffset() * 60000 + 9 * 3600000);
+          return { sky: A.skyPhase(), h: A.skyHour(), moved: (S.devClock || 0) - c0,
+            onHour: kst.getMinutes() === 0 && kst.getSeconds() === 0,
+            band: A.SKY_BANDS.some(x => x.h === A.skyHour()) };
+        });
+        await p.waitForTimeout(150);
+        if (i < 0) continue;                 // 경계에 올라서는 한 걸음
+        seen.push(r2.sky); jump.push(r2);
+      }
+      const bands = await p.evaluate(() => window.Avatar.SKY_BANDS.map(b => b.k));
+      const all = new Set(seen);
+      ls.push((all.size === bands.length ? '✅ ' : '❌ ')
+        + `개발용 시간대 넘기기 — 다섯 번에 다섯을 다 지난다 (${seen.join('→')} · ${bands.length} 기대)`);
+      ls.push((jump.every(x => x.band && x.onHour) ? '✅ ' : '❌ ')
+        + `개발용 시간대 넘기기 — 늘 «경계의 정각»에 선다 (${jump.map(x => x.h + '시').join(' · ')})`);
+      // ⚠️ 하늘만 심는 사보타주는 여기서 걸린다 — 시계가 한 톨도 안 움직인다
+      const sum = Math.round(jump.reduce((s, x) => s + x.moved, 0) / 60000);
+      ls.push((jump.every(x => x.moved > 0) && sum === 1440 ? '✅ ' : '❌ ')
+        + `개발용 시간대 넘기기 — 시계가 그만큼 «진짜로» 간다 (다섯 번에 ${sum}분 · 1440 기대)`);
+    }
+
+    // ④ 새로고침해도 그대로인가 (되돌아가는 시간대는 시간대가 아니다)
+    const before = await p.evaluate(() => Avatar.skyHour());
+    await p.reload({ waitUntil: 'load' });
+    await p.waitForTimeout(2200);
+    const after = await p.evaluate(() => Avatar.skyHour());
+    ls.push((before === after ? '✅ ' : '❌ ')
+      + `개발용 시간대 넘기기 — 새로고침해도 그대로다 (${before}시 → ${after}시)`);
+    if (perr.length) ls.push('❌ 개발용 시간대 넘기기 — 오류 ' + perr[0]);
+    phaseLines = ls.join('\n');
+    await ctx.close();
+  }
+
   await browser.close();
   console.log(lines);
   console.log(bootLine);
   console.log(dayLines);
+  console.log(phaseLines);
   errs.forEach(e => console.log(e));
-  const bad = lines.split('\n').concat([bootLine]).concat(dayLines.split('\n'))
+  const bad = lines.split('\n').concat([bootLine])
+    .concat(dayLines.split('\n')).concat(phaseLines.split('\n'))
     .filter(l => l.startsWith('\u274c')).length + errs.length;
   console.log(bad ? `\n\u274c ${bad}건` : '\n\u2705 시간이 흐르는 값 전부 통과');
   process.exit(bad ? 1 : 0);
