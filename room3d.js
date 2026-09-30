@@ -367,6 +367,14 @@ export function createRoom(canvas, opt) {
   //    판정은 표에서 나온다 (칸의 밑변이 바닥 근처인가 · 무엇 위에 놓이는가)
   const onFloor = (slot) => !slot.on && (slot.p3.y - slot.p3.h / 2) < 0.5;
   const units = {};
+  // 불빛이 흔들리는 «폭»과 «가운데» — 아래 프레임 루프가 쓴다.
+  //
+  // ⚠️⚠️ **둘은 짝이다.** 가운데(`MID`)가 곧 평균 밝기라 그대로 두면 **방의 밝기는
+  //    한 자리도 안 바뀌고 «흔들리는 폭»만 준다** — 「덜 심하게」는 어두워지라는
+  //    말이 아니다. 폭만 건드릴 것.
+  // ⚠️ 「깜박임을 1/3 로」로 받아 **0.14 → 0.047**(1/3)이다 (2026-09-30).
+  //    ±0.14 는 0.74~1.02 를 오갔고 지금은 0.833~0.927 이다
+  const FLICKER_MID = 0.88, FLICKER_AMP = 0.047;
   // 흔들릴 광원 목록 — **씨앗이 짝마다 다르다**(아래 프레임 루프가 쓴다)
   const LIT = [];
   SLOTS.forEach((s, si) => {
@@ -701,7 +709,7 @@ export function createRoom(canvas, opt) {
       //    「밝아질 때 빛무리도 밝아진다」가 저절로 맞는다
       LIT.forEach(({ grp, light, glow, ga, seed, base }) => {
         if (!grp.visible) return;
-        const k = 0.88 + Math.sin(now / 140 + seed) * 0.14;
+        const k = FLICKER_MID + Math.sin(now / 140 + seed) * FLICKER_AMP;
         light.intensity = base * k;
         if (glow) glow.material.opacity = ga * k;
       });
