@@ -430,9 +430,13 @@ function launchOpts() {
       // ⚠️ `bingeDay` 를 0 으로 두면 「처음 들어온 사람」으로 보고 그 자리에서
       // 기준만 잡고 돌아간다 — 밤이 하나도 안 세어진다. **오늘로** 세워야 한다
       S.record.aloneNights = 0; S.binges = []; S.kitchenDay = 0; S.bingeDay = dayKey();
-      const d0 = dayKey(), f0 = fullness(), n0 = S.record.aloneNights || 0;
+      const t0 = nowMs(), f0 = fullness(), n0 = S.record.aloneNights || 0;
       devSkipDay();
-      out.push({ k: '날짜가 하루 간다', v: dayKey() - d0, want: 1 });
+      // ⚠️⚠️ **`dayKey()` 는 «YYYYMMDD» 라 빼면 1 이 아니다.** 「− d0 === 1」로 두었더니
+      //    달을 넘는 날(9/30 → 10/1)에 **71** 이 나와 멀쩡한 코드가 빨갰다 —
+      //    일 년에 열이틀쯤 거짓으로 실패하는 잣대였다 (2026-09-30 에 실제로 걸렸다).
+      //    하루 뒤의 «날짜»를 같은 함수로 만들어 견준다 — 달도 해도 저절로 넘어간다
+      out.push({ k: '날짜가 하루 간다', v: dayKey(), want: dayKey(new Date(t0 + 86400000)) });
       out.push({ k: 'AP 가 상한까지 찬다', v: S.energy, want: energyCap() });
       // ⚠️⚠️ **「조금이라도 줄었나」로 재면 못 가른다.** 시계를 반만 옮겨도
       // (몸의 시계가 진짜 `Date.now()` 를 보면) 버튼을 누르는 동안 흐른 몇 ms 만큼은

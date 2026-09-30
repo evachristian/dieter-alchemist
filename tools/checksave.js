@@ -58,6 +58,56 @@ const CASES = [
     ],
   },
   {
+    // ⚠️⚠️ **마이 룸 꾸미기가 생긴 자리** (세이브 18). 방의 소품이 «단계가 보여 주는 것»
+    // 에서 «사람이 고르는 것»으로 옮겨 갔다 — 마이그레이션이 없으면 3단계까지 온 사람의
+    // 방에서 **러그·책장·탁자·커튼·화분이 한꺼번에 사라진다.** 그건 새 기능이 아니라
+    // 뺏는 것이다 (화면에는 오류가 한 줄도 안 뜬다: 그냥 빈 방이 된다).
+    name: '세이브 17 — 여태 지나온 단계의 소품을 채워 주고 놓아 준다',
+    save: { ver: 17, name: '3단계방', nameClaimed: true, tutorialDone: true, roomLevel: 3 },
+    // ⚠️ **표는 «화면 안»에서 읽는다**(`probe`) — `expect()` 는 노드에서 도는
+    //    JSON 사본만 보므로 `window.GameData` 가 없다 (그렇게 짰다가 하네스가 죽었다)
+    probe: () => {
+      const D = window.GameData;
+      const want = [].concat(D.ROOM_LEVEL_GIFT[2], D.ROOM_LEVEL_GIFT[3]);
+      return {
+        miss: want.filter(id => !(S.roomOwned || []).includes(id)),
+        placed: want.filter(id => (S.roomProps || {})[D.ROOM_DECOR[id].slot] === id).length,
+        want: want.length,
+        early: (S.roomOwned || []).includes('rp_chandelier_plain'),
+        wall: (S.roomOwned || []).includes(D.ROOM_START.wall),
+        floor: (S.roomOwned || []).includes(D.ROOM_START.floor),
+      };
+    },
+    expect: (S) => {
+      const p = S.__probe || {};
+      return [
+        !(p.miss || []).length || `2·3단계의 선물이 안 들어왔다 (${(p.miss || []).join(', ')})`,
+        // **놓아 준다** — 얻어도 안 놓이면 방은 그대로 비어 있고 「뺏겼다」가 그대로다
+        p.placed === p.want || `얻기만 하고 안 놓였다 (${p.placed}/${p.want})`,
+        // 4·5단계의 몫은 «아직» 오면 안 된다 (그 단계를 안 지났다)
+        !p.early || '안 지난 단계의 선물이 들어왔다',
+        // 자재를 못 가지면 벽·바닥을 못 바꾼다
+        !!p.wall || '시작 벽지가 없다',
+        !!p.floor || '시작 바닥재가 없다',
+      ];
+    },
+  },
+  {
+    // ⚠️ **안 가진 것을 놓고 있을 수는 없다** — 표에서 빠졌거나 개발용으로 심어 놓은
+    //    소품이 그대로 서 있으면 「저건 어디서 얻었지」가 된다. 자재는 못 찾으면
+    //    시작 자재로 떨어진다 (벽과 바닥이 «없는» 방은 그릴 수가 없다)
+    name: '세이브 18 — 없는 소품·안 가진 소품은 자리에서 내린다',
+    save: { ver: 18, name: '수상한방', nameClaimed: true, tutorialDone: true, roomLevel: 2,
+            roomWall: 'rw_nope', roomFloor: 'rf_pine', roomOwned: ['rf_pine', 'rp_rug_plain'],
+            roomProps: { rug: 'rp_rug_plain', shelf: 'rp_shelf_royal', table: 'rp_nope' } },
+    expect: (S) => [
+      (S.roomProps || {}).rug === 'rp_rug_plain' || '가진 소품까지 내려갔다',
+      !(S.roomProps || {}).shelf || '안 가진 소품이 그대로 놓여 있다',
+      !(S.roomProps || {}).table || '없는 소품이 그대로 놓여 있다',
+      S.roomWall === 'rw_lime' || `없는 벽지가 남았다 (${S.roomWall})`,
+    ],
+  },
+  {
     // ⚠️⚠️ **「정신적 허기」가 `defaultState` 의 기본값이던 시절.** 지금은 첫 퀘스트의
     // 보상이라 기본값이 **빈 배열**인데, 그 말은 **이 칸이 한 번이라도 비워지면
     // 진행 전체가 날아간다**는 뜻이다 — 키워드가 없으면 아무에게도 못 묻고,

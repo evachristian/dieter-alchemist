@@ -23,124 +23,39 @@
 //  그래서 **SVG 를 먼저 깔고, 3D 가 준비되면 그 «위»를 덮는다.**
 import * as THREE from './vendor/three.module.min.js';
 
-const PAL = {
-  ink:  '#2f2230',           // 잉크 — «먹»색이다. 새까만 선은 인쇄물로 보인다
-  cut:  '#f7f0e2',           // 재단면 — 오려 낸 종이의 «흰 테». 이것이 곧 종이의 증거다
-  wall: ['#d9c7a6', '#b9a184'],
-  wood: ['#9a6b45', '#6f4a2e'],
-  woodL:['#c08d5e', '#8a5f3c'],
-  cloth:['#c86a86', '#a04f6a'],
-  leaf: ['#7fa86a', '#55794a'],
-  brew: '#8ee6c8',
-  dark: '#3c3540',
-};
+// ⚠️⚠️ **잉크와 종이 네 함수는 `roomart.js` 로 옮겼다** (`window.RoomArt`).
+//    SVG 폴백이 «같은 그림»을 써야 하기 때문이다 — 소품 하나를 예쁘게 고치면
+//    3D 방과 SVG 방에 같이 온다. 여기서 한 벌 더 두면 그 순간 사본이 갈린다.
+// ⚠️ 모듈은 평범한 스크립트보다 «늦게» 도므로 여기서 `window` 를 읽는 것이 안전하다
+//    (`index.html` 에도 순서를 적어 뒀다). 없으면 방을 아예 못 그리니 그 자리에서 알린다
+// ⚠️ **터질 때는 «왜»를 들고 터진다.** 예전에는 없는 `fatal()` 을 부르고 있어서,
+//    WebGL 이 안 켜지는 기기에서 `ReferenceError: fatal is not defined` 가 났다 —
+//    게임은 SVG 방으로 잘 떨어지지만 **원인이 로그에 안 남았다**
+function fatal(msg) { throw new Error('room3d: ' + msg); }
+// ⚠️⚠️ **모듈이 «돌 때»가 아니라 «방을 만들 때» 읽는다.** 프로토타입
+//    (`proto/room3d.html`)은 의존 파일을 **비동기로** 받아 놓고 나중에 `createRoom()`
+//    을 부르는데, 여기서 최상위로 읽으면 그 순간에는 `window.RoomArt` 가 아직 없어
+//    **프로토타입이 통째로 안 뜬다** (게임에서는 순서가 맞아서 안 드러난다 —
+//    「한쪽에서만 나는 사고」의 그 종류다)
+let ART = null, PAL, inkStroke, paperShape, rect, roundRect, blob, grainOver;
+function useArt() {
+  if (ART) return;
+  ART = window.RoomArt;
+  if (!ART) fatal('roomart.js 가 먼저 와야 한다 (window.RoomArt 가 없다)');
+  ({ PAL, inkStroke, paperShape, rect, roundRect, blob, grainOver } = ART);
+}
+// 프로토타입이 이것을 import 한다 — 사본을 만들지 않고 그대로 넘긴다
+export const rnd = (seed) => { useArt(); return ART.rnd(seed); };
 
-// 결정적인 잡음 — 손그림의 «떨림»을 만든다. 매번 다르면 프레임마다 지글거린다
-export function rnd(seed) { let t = (seed * 16807) % 2147483647 || 7; return () => (t = t * 16807 % 2147483647) / 2147483647; }
-
-// ⚠️⚠️ **선 굵기는 «픽셀»이 아니라 «세상의 길이»로 정해야 한다.**
-//    카드마다 텍스처 해상도가 달라서(벽 1024px/9.6칸 · 책장 640px/2.6칸) 같은 숫자 5 가
-//    화면에서 두 배 넘게 차이 났다 — 책장 선만 가늘어 종이가 아니라 «사진»으로 보인다.
-//    그리기 직전에 칸당 픽셀(PPU)을 넣어 두고, 그 값으로 환산해서 긋는다.
-const INK_REF = 100;                     // 기준 — 숫자 6 은 「세상에서 0.06칸 굵기」라는 뜻이다
-let PPU = INK_REF;                       // 지금 그리는 텍스처의 «칸당 픽셀»
-const ink2px = (n) => n * PPU / INK_REF;
-
-// ── 손으로 그은 잉크선 ────────────────────────────────────────
-// ⚠️⚠️ **굵기가 변해야 «그은 선»이다.** 같은 굵기로 stroke 하면 벡터 클립아트가 된다 —
-//    양 끝이 가늘고 가운데가 굵은 «붓»을 다각형으로 직접 만든다
-function inkStroke(g, pts, opt) {
-  const o = Object.assign({ w: 7, close: false, jitter: 1.6, seed: 7, color: PAL.ink }, opt);
-  o.w = ink2px(o.w);
-  const r = rnd(o.seed);
-  const p = pts.map(([x, y], i) => {
-    const k = i / (pts.length - 1 || 1);
-    return [x + (r() - 0.5) * o.jitter, y + (r() - 0.5) * o.jitter, k];
-  });
-  if (o.close) p.push([p[0][0], p[0][1], 1]);
-  const L = [], R = [];
-  for (let i = 0; i < p.length; i++) {
-    const a = p[Math.max(0, i - 1)], b = p[Math.min(p.length - 1, i + 1)];
-    let dx = b[0] - a[0], dy = b[1] - a[1];
-    const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
-    // 양 끝이 가늘어지는 붓 — 닫힌 선은 고르게 둔다
-    const t = o.close ? 1 : Math.sin(Math.PI * p[i][2]) * 0.75 + 0.35;
-    const w = o.w * t * 0.5;
-    L.push([p[i][0] - dy * w, p[i][1] + dx * w]);
-    R.push([p[i][0] + dy * w, p[i][1] - dx * w]);
-  }
-  g.beginPath();
-  L.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
-  for (let i = R.length - 1; i >= 0; i--) g.lineTo(R[i][0], R[i][1]);
-  g.closePath(); g.fillStyle = o.color; g.fill();
-}
-
-// ── 종이 카드 한 장 ──────────────────────────────────────────
-// 오려 낸 종이 = **재단면(크림 테) → 칠 → 잉크선** 순서다.
-// ⚠️ 잉크선을 «먼저» 그으면 재단면이 그 위를 덮어 테만 남는다
-function bbox(pts) {
-  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
-  return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
-}
-function paperShape(g, pts, fill, opt) {
-  const o = Object.assign({ cut: 9, ink: 6, seed: 3, shade: null }, opt);
-  const path = () => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); };
-  if (o.cut) {   // 재단면 — 굵게 한 번 긋고 그 위를 칠이 덮는다
-    path(); g.lineJoin = 'round'; g.lineCap = 'round';
-    g.strokeStyle = PAL.cut; g.lineWidth = ink2px(o.cut) * 2; g.stroke();
-  }
-  path(); g.fillStyle = fill; g.fill();
-  if (o.shade) {   // 아래쪽 그늘 — 종이가 «면»으로 읽힌다
-    g.save(); path(); g.clip();
-    const b = bbox(pts);
-    const lg = g.createLinearGradient(0, b.y0, 0, b.y1);
-    lg.addColorStop(0, 'rgba(255,255,255,0)');
-    lg.addColorStop(1, o.shade);
-    g.fillStyle = lg; g.fillRect(b.x0 - 4, b.y0 - 4, b.x1 - b.x0 + 8, b.y1 - b.y0 + 8);
-    g.restore();
-  }
-  if (o.ink) inkStroke(g, pts, { w: o.ink, close: true, seed: o.seed, jitter: 1.4 });
-}
-function rect(x, y, w, h) { return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]; }
-// 모서리가 살짝 둥근 네모 — 가위로 오린 종이는 각이 날카롭지 않다
-function roundRect(x, y, w, h, r) {
-  const p = [];
-  const arc = (cx, cy, a0, a1) => {
-    for (let i = 0; i <= 4; i++) { const a = a0 + (a1 - a0) * i / 4; p.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
-  };
-  arc(x + w - r, y + r, -Math.PI / 2, 0); arc(x + w - r, y + h - r, 0, Math.PI / 2);
-  arc(x + r, y + h - r, Math.PI / 2, Math.PI); arc(x + r, y + r, Math.PI, Math.PI * 1.5);
-  return p;
-}
-function blob(cx, cy, rx, ry, n, seed) {
-  const r = rnd(seed), p = [];
-  for (let i = 0; i < n; i++) {
-    const a = i / n * Math.PI * 2, k = 1 + (r() - 0.5) * 0.09;
-    p.push([cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k]);
-  }
-  return p;
-}
-// 종이결 — 아주 옅은 잡티. 없으면 «플라스틱»으로 보인다
-function grainOver(g, w, h, seed, amt) {
-  const r = rnd(seed);
-  g.save(); g.globalAlpha = amt || 0.05;
-  for (let i = 0; i < w * h / 110; i++) {
-    g.fillStyle = r() < 0.5 ? '#000' : '#fff';
-    g.fillRect(r() * w, r() * h, 1 + r() * 1.5, 1 + r() * 1.5);
-  }
-  g.restore();
-}
+// 캔버스 한 장을 three 텍스처로 굽는다.
+// ⚠️ **캔버스를 만드는 것은 `RoomArt.canvasOf` 다** — 선 굵기를 «세상의 길이»로
+//    환산하는 그 한 줄이 거기 있고, SVG 폴백도 같은 함수를 지난다
 function tex(w, h, draw, opt) {
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  // ⚠️ 이 카드가 세상에서 몇 칸인지(`units`)를 주면 선 굵기가 저절로 맞는다.
-  //    안 주면 기준값이라 옛날처럼 «픽셀»로 긋는다
-  // ⚠️⚠️ **한계를 안 씌우면 «작은 카드»가 통째로 잉크가 된다.** 굵기를 세상의 길이로
-  //    못 박으면 0.86칸짜리 촛대에서 그 선이 카드 폭의 7% 라 등잔이 «덩어리»로 보였다
-  //    (그려 보고 알았다). 화면에서 3~4px 이 되는 띠로 자른다
-  PPU = (opt && opt.units) ? Math.max(70, Math.min(150, w / opt.units)) : INK_REF;
-  draw(c.getContext('2d'), w, h);
-  PPU = INK_REF;
+  useArt();
+  const c = ART.canvasOf(w, h, draw, opt && opt.units);
+  return bake(c, opt);
+}
+function bake(c, opt) {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
@@ -150,6 +65,7 @@ function tex(w, h, draw, opt) {
 
 
 export function createRoom(canvas, opt) {
+  useArt();
   const O = Object.assign({ autorun: true }, opt);
   let renderer;
   try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); }
@@ -244,82 +160,58 @@ export function createRoom(canvas, opt) {
   // ══ 세트 — 종이 극장 ═══════════════════════════════════════════
   // ⚠️ **벽을 프로토타입보다 높였다(6.4 → 7.6).** 게임의 방 상자는 세로로 길고
   //    바닥선이 92% 에 있어서, 6.4 로는 화면 꼭대기에 **천장 너머의 빈 곳**이 비친다.
-  //    ⚠️ 높이만 올리면 돌이 세로로 늘어난다 — 텍스처 높이도 «같이» 간다(`wallTex`)
+  //    ⚠️ 높이만 올리면 돌이 세로로 늘어난다 — 텍스처 높이도 «같이» 간다(`WALL_TEX_H`)
   const ROOM_W = 9.6, ROOM_D = 8.4, WALL_H = 7.6;
 
-  // ── 바닥 ──────────────────────────────────────────────────────
-  // 널빤지마다 «잉크 이음새»와 결이 있다. 한 색 판은 바닥이 아니라 색종이다
-  const floorTex = tex(1024, 1024, (g, w, h) => {
-    g.fillStyle = '#a9754c'; g.fillRect(0, 0, w, h);
-    const r = rnd(11);
-    for (let i = 0; i < 8; i++) {
-      const y = i * h / 8;
-      g.fillStyle = ['#b07c52', '#a4714a', '#ab7750', '#9d6b45'][i % 4];
-      g.fillRect(0, y, w, h / 8);
-      g.save(); g.globalAlpha = 0.15;
-      for (let k = 0; k < 6; k++) {
-        const yy = y + 10 + r() * (h / 8 - 20);
-        inkStroke(g, [[0, yy], [w * 0.4, yy + (r() - 0.5) * 8], [w, yy + (r() - 0.5) * 10]],
-          { w: 2.4, seed: i * 9 + k + 1, jitter: 3, color: '#5e3a20' });
-      }
-      g.restore();
-      inkStroke(g, [[0, y], [w * 0.5, y + 1.5], [w, y]], { w: 4, seed: i + 3, jitter: 2, color: '#4d2e19' });
-      const off = (i % 2) ? w * 0.42 : w * 0.08;
-      [off, off + w * 0.5].forEach((x, j) => {
-        inkStroke(g, [[x, y + 2], [x + 1.5, y + h / 16], [x, y + h / 8 - 2]],
-          { w: 3, seed: i * 5 + j + 2, jitter: 1.4, color: '#4d2e19' });
-      });
-    }
-    grainOver(g, w, h, 5, 0.07);
-  }, { units: ROOM_W + 5 });
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W + 5, ROOM_D + 5), toon({ map: floorTex }));
+  // ── 바닥과 벽 — **자재는 «사람이 고른 것»이다** ────────────────
+  //
+  // ⚠️⚠️ **무늬를 여기서 그리지 않는다.** 벽지 다섯 · 바닥재 다섯의 그림은
+  //    `roomart.js` 의 `wallArt`·`floorArt` 한 곳이고 SVG 폴백도 그것을 쓴다 —
+  //    색은 표(`D.ROOM_WALLS`·`D.ROOM_FLOORS`)가 갖는다.
+  // ⚠️ 벽 셋이 «같은» 텍스처를 쓴다. 예전에는 씨앗을 달리해 셋을 따로 구웠는데,
+  //    옆벽은 이 카메라에서 거의 «모서리»만 보여서 눈에 안 띄고, 한 장이면
+  //    자재를 갈아 끼울 때 캐시가 한 번만 돌아간다
+  const WALL_TEX_W = 1024, WALL_TEX_H = Math.round(1024 * WALL_H / ROOM_W);
+  const FLOOR_SPAN = ROOM_W + 5;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR_SPAN, ROOM_D + 5), toon({}));
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // ── 벽 — 종이 극장의 «판» 셋 ──────────────────────────────────
-  function wallTex(seed) {
-    return tex(1024, Math.round(1024 * WALL_H / ROOM_W), (g, w, h) => {
-      const lg = g.createLinearGradient(0, 0, 0, h);
-      lg.addColorStop(0, PAL.wall[0]); lg.addColorStop(1, PAL.wall[1]);
-      g.fillStyle = lg; g.fillRect(0, 0, w, h);
-      g.save(); g.globalAlpha = 0.06;                      // 벽지 세로 줄
-      for (let x = 0; x < w; x += 46) { g.fillStyle = '#fff'; g.fillRect(x, 0, 16, h); }
-      g.restore();
-      const r = rnd(seed);
-      for (let i = 1; i < 5; i++) {                        // 돌 이음새 (손으로 그은 것)
-        const y = i * h / 5;
-        inkStroke(g, [[0, y], [w * 0.33, y + (r() - 0.5) * 6], [w * 0.66, y + (r() - 0.5) * 6], [w, y]],
-          { w: 3.4, seed: seed * 3 + i, jitter: 2.4, color: 'rgba(62,44,34,0.40)' });
-        const off = (i % 2) ? w / 6 : 0;
-        for (let k = 0; k < 3; k++) {
-          const x = off + k * w / 3;
-          if (x < 8 || x > w - 8) continue;
-          inkStroke(g, [[x, y], [x + (r() - 0.5) * 4, y + h / 10], [x, y + h / 5]],
-            { w: 3, seed: seed * 7 + i * 4 + k, jitter: 2, color: 'rgba(62,44,34,0.32)' });
-        }
-      }
-      paperShape(g, rect(-10, h - 70, w + 20, 84), '#8d6a49', { cut: 0, ink: 5, seed: seed + 2 });
-      paperShape(g, rect(-10, -14, w + 20, 44), '#8d6a49', { cut: 0, ink: 5, seed: seed + 5 });
-      // 천장 쪽 그늘 — 위가 어두워야 방이 «상자»로 읽힌다 (돈 스타브의 그 어둠이다)
-      const tg = g.createLinearGradient(0, 0, 0, h * 0.62);
-      tg.addColorStop(0, 'rgba(38,22,36,0.46)'); tg.addColorStop(1, 'rgba(38,22,36,0)');
-      g.fillStyle = tg; g.fillRect(0, 0, w, h * 0.62);
-      grainOver(g, w, h, seed, 0.05);
-    }, { units: ROOM_W });
-  }
-  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, WALL_H), toon({ map: wallTex(1) }));
+  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, WALL_H), toon({}));
   backWall.position.set(0, WALL_H / 2, -ROOM_D / 2);
   backWall.receiveShadow = true;
   scene.add(backWall);
   const sideWalls = [-1, 1].map(s => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_D, WALL_H), toon({ map: wallTex(2 + s) }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_D, WALL_H), toon({}));
     m.position.set(s * ROOM_W / 2, WALL_H / 2, 0);
     m.rotation.y = -s * Math.PI / 2;
     m.receiveShadow = true;
     scene.add(m);
     return m;
   });
+  const walls = [backWall].concat(sideWalls);
+
+  // ⚠️ **옛 텍스처는 버린다**(`dispose`). 자재를 다섯 번 갈아 끼우면 GPU 에 다섯 장이
+  //    남는데, `RoomArt` 쪽 캔버스는 캐시라 다시 구워도 그림은 한 번만 그려진다
+  let wallId = '', floorId = '';
+  function setWall(id) {
+    if (id === wallId) return;
+    const c = ART.wallCanvas(id, WALL_TEX_W, WALL_TEX_H, ROOM_W);
+    if (!c) return;
+    wallId = id;
+    const t = bake(c, null);
+    walls.forEach(m => { if (m.material.map) m.material.map.dispose(); m.material.map = t; m.material.needsUpdate = true; });
+  }
+  function setFloor(id) {
+    if (id === floorId) return;
+    const c = ART.floorCanvas(id, 1024, 1024, FLOOR_SPAN);
+    if (!c) return;
+    floorId = id;
+    if (floor.material.map) floor.material.map.dispose();
+    floor.material.map = bake(c, null);
+    floor.material.needsUpdate = true;
+  }
 
   // ── 창 — 뒷벽에 «붙인» 카드 ───────────────────────────────────
   function windowTex(night) {
@@ -378,26 +270,9 @@ export function createRoom(canvas, opt) {
   shaft.rotation.set(-0.34, 0.52, 0.16);
   scene.add(shaft);
 
-  // ── 양탄자와 마법진 — 바닥에 «깐» 종이 ────────────────────────
-  const rugTex = tex(768, 768, (g, w) => {
-    g.clearRect(0, 0, w, w);
-    const c = w / 2, R = w / 2 - 16;
-    [[R, PAL.cloth[0], 1, 10], [R * 0.79, '#e9a9bd', 2, 0], [R * 0.62, PAL.cloth[0], 3, 0],
-     [R * 0.36, '#f3c7d4', 4, 0]].forEach(([rad, fill, seed, cut]) => {
-      paperShape(g, blob(c, c, rad, rad, 64, seed + 30), fill, { cut, ink: 5, seed: seed + 30 });
-    });
-    for (let i = 0; i < 48; i++) {                        // 술
-      const a = i / 48 * Math.PI * 2;
-      inkStroke(g, [[c + Math.cos(a) * R, c + Math.sin(a) * R],
-                    [c + Math.cos(a) * (R + 12), c + Math.sin(a) * (R + 12)]],
-        { w: 4, seed: 40 + i, jitter: 1.2, color: '#ece0cd' });
-    }
-    grainOver(g, w, w, 9, 0.05);
-  }, { units: 4.7 });
-  const rug = new THREE.Mesh(new THREE.PlaneGeometry(4.7, 4.7),
-    new THREE.MeshBasicMaterial({ map: rugTex, transparent: true, depthWrite: false }));
-  rug.rotation.x = -Math.PI / 2; rug.position.y = 0.015;
-  scene.add(rug);
+  // ── 바닥에 «깐» 마법진 — 공방 5단계의 껍데기다 ────────────────
+  // ⚠️ **양탄자는 여기 없다** — 「러그」 자리의 «소품»으로 옮겨 갔다 (사람이 고른다).
+  //    마법진만은 단계가 정하는 것이라 남는다 (`Avatar.ROOM_LEVELS[5]` 의 `circle`)
   const glyphTex = tex(512, 512, (g, w) => {
     g.clearRect(0, 0, w, w);
     const c = w / 2;
@@ -416,143 +291,97 @@ export function createRoom(canvas, opt) {
   glyph.rotation.x = -Math.PI / 2; glyph.position.y = 0.03;
   scene.add(glyph);
 
-  // ── 소품 카드들 ───────────────────────────────────────────────
-  const shelfTex = tex(640, 820, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    paperShape(g, roundRect(10, 10, w - 20, h - 20, 16), PAL.wood[1],
-      { cut: 10, ink: 7, seed: 31, shade: 'rgba(40,20,10,0.35)' });
-    const cols = ['#d4607a', '#5f95d8', '#71b389', '#dcae57', '#9a7ad0', '#d8825a'];
-    for (let row = 0; row < 4; row++) {
-      const y = 52 + row * 188;
-      paperShape(g, rect(44, y, w - 88, 152), '#59391f', { cut: 0, ink: 4, seed: 40 + row });
-      const rr = rnd(row * 13 + 1);
-      let x = 62;
-      while (x < w - 82) {
-        const bw = 26 + rr() * 22, bh = 98 + rr() * 40, lean = (rr() - 0.5) * 0.2;
-        const by = y + 150 - bh, cx = x + bw / 2;
-        g.save(); g.translate(cx, y + 150); g.rotate(lean); g.translate(-cx, -(y + 150));
-        paperShape(g, rect(x, by, bw, bh), cols[Math.floor(rr() * cols.length)],
-          { cut: 4, ink: 4, seed: 50 + row * 7 + Math.round(x), shade: 'rgba(0,0,0,0.25)' });
-        inkStroke(g, [[x + 6, by + 14], [x + bw - 6, by + 14]],
-          { w: 3, seed: Math.round(x) + row + 1, jitter: 1, color: 'rgba(255,255,255,0.4)' });
-        g.restore();
-        x += bw + 5 + rr() * 6;
-      }
-      paperShape(g, rect(34, y + 148, w - 68, 20), PAL.woodL[0], { cut: 5, ink: 5, seed: 60 + row });
-    }
-    grainOver(g, w, h, 12, 0.06);
-  }, { units: 2.6 });
-  const gShelf = stand(paperCard(shelfTex, 2.6, 3.34, { curl: 0.02 }), -3.0, 1.67, -3.5, { yaw: 0.07 });
 
-  const tableTex = tex(768, 520, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    paperShape(g, rect(30, 300, 54, 202), PAL.wood[1], { cut: 7, ink: 6, seed: 71, shade: 'rgba(0,0,0,0.3)' });
-    paperShape(g, rect(w - 84, 300, 54, 202), PAL.wood[1], { cut: 7, ink: 6, seed: 72, shade: 'rgba(0,0,0,0.3)' });
-    paperShape(g, roundRect(6, 250, w - 12, 62, 12), PAL.woodL[0], { cut: 9, ink: 7, seed: 73, shade: 'rgba(60,32,14,0.32)' });
-    const pot = [[196, 252], [176, 178], [188, 132], [246, 106], [330, 106], [388, 132], [400, 178], [380, 252]];
-    paperShape(g, pot, PAL.dark, { cut: 9, ink: 7, seed: 74, shade: 'rgba(0,0,0,0.45)' });
-    paperShape(g, roundRect(164, 94, 248, 34, 16), '#57505f', { cut: 6, ink: 6, seed: 75 });
-    paperShape(g, [[192, 118], [242, 102], [330, 102], [386, 118], [340, 134], [242, 134]], PAL.brew,
-      { cut: 0, ink: 4, seed: 76 });
-    [[230, 82, 11], [290, 62, 14], [346, 78, 9]].forEach(([x, y, rr], i) =>
-      paperShape(g, blob(x, y, rr, rr, 18, 80 + i), 'rgba(152,240,212,0.88)', { cut: 0, ink: 3, seed: 80 + i }));
-    paperShape(g, [[470, 252], [470, 178], [486, 162], [486, 140], [516, 140], [516, 162], [532, 178], [532, 252]],
-      '#cfe8f2', { cut: 7, ink: 6, seed: 84, shade: 'rgba(60,90,110,0.3)' });
-    paperShape(g, rect(474, 202, 54, 48), '#e58aa6', { cut: 0, ink: 4, seed: 85 });
-    paperShape(g, [[570, 252], [566, 192], [584, 174], [584, 152], [612, 152], [612, 174], [630, 192], [626, 252]],
-      '#e9dcc4', { cut: 7, ink: 6, seed: 86, shade: 'rgba(90,70,40,0.3)' });
-    paperShape(g, rect(570, 210, 54, 40), '#8fd48f', { cut: 0, ink: 4, seed: 87 });
-    grainOver(g, w, h, 15, 0.06);
-  }, { units: 3.1 });
-  const gTable = stand(paperCard(tableTex, 3.1, 2.1, { curl: 0.02 }), 3.05, 1.05, -1.5, { yaw: -0.18 });
-  const brewLight = new THREE.PointLight(PAL.brew, 1.7, 5.5);
+  // ══ 꾸미기 — 자리 아홉에 카드를 갈아 끼운다 ═══════════════════
+  //
+  // ⚠️⚠️ **자리를 여기 적지 않는다** — `D.ROOM_SLOTS` 를 그대로 읽는다. 자리가 두 곳에
+  //    적혀 있으면 자리를 옮겼을 때 3D 와 SVG 폴백이 **서로 다른 방**이 된다
+  //    (`ROOM.md` 3장의 그 규칙이고, 이 파일이 `Avatar.ROOM_LEVELS` 를 읽는 것과 같다).
+  // ⚠️ 표가 없으면 소품이 하나도 안 선다 — 그때도 방(벽·바닥·창)은 그대로 선다
+  const SLOTS = ((window.GameData && window.GameData.ROOM_SLOTS) || []);
+  const brewLight = new THREE.PointLight(PAL.brew, 0, 5.5);
   brewLight.position.set(2.4, 1.7, -1.2);
   scene.add(brewLight);
 
-  // 벽 촛대 — 받침판 · 팔 · 접시 · 초 · 불꽃 다섯이 «다» 있어야 촛대로 읽힌다
-  // (처음에는 네모 기둥에 노랑 조각 하나였고, 그건 벽에 붙은 «덩어리»였다)
-  function sconceTex() {
-    return tex(256, 420, (g, w, h) => {
-      g.clearRect(0, 0, w, h);
-      paperShape(g, roundRect(88, 250, 80, 152, 18), '#8a6a44',            // 벽 받침판
-        { cut: 6, ink: 5, seed: 90, shade: 'rgba(40,20,8,0.4)' });
-      inkStroke(g, [[128, 268], [128, 388]], { w: 3, seed: 97, jitter: 1, color: 'rgba(60,34,14,0.55)' });
-      paperShape(g, [[104, 258], [152, 258], [160, 236], [96, 236]], '#a07a4c',   // 팔
-        { cut: 5, ink: 5, seed: 91 });
-      paperShape(g, [[72, 236], [184, 236], [170, 212], [86, 212]], '#c39a62',   // 접시
-        { cut: 6, ink: 5, seed: 92, shade: 'rgba(60,34,14,0.3)' });
-      paperShape(g, roundRect(100, 96, 56, 120, 10), '#f6eddc',                  // 초
-        { cut: 6, ink: 5, seed: 93, shade: 'rgba(120,96,60,0.34)' });
-      paperShape(g, [[100, 128], [92, 166], [101, 186], [110, 158], [110, 128]], '#fbf5e8',  // 촛농
-        { cut: 0, ink: 3, seed: 94 });
-      inkStroke(g, [[128, 96], [128, 80]], { w: 3, seed: 98, jitter: 0.6, color: PAL.ink }); // 심지
-      paperShape(g, [[128, 14], [152, 58], [148, 84], [128, 96], [108, 84], [104, 58]],      // 불꽃
-        '#ffc94a', { cut: 0, ink: 4, seed: 95 });
-      paperShape(g, [[128, 42], [142, 70], [128, 88], [114, 70]], '#fff6cc', { cut: 0, ink: 0, seed: 96 });
-    }, { units: 0.86 });
+  // 한 자리의 «한 짝». 벽등은 짝이 둘이고(`pair`) 나머지는 하나다
+  function makeUnit(slot, sign) {
+    const grp = new THREE.Group();
+    grp.position.set(slot.p3.x * sign, 0, slot.p3.z);
+    grp.rotation.y = (slot.p3.yaw || 0) * sign;
+    grp.visible = false;
+    scene.add(grp); cards.push(grp);
+    let light = null;
+    if (slot.light) {
+      // ⚠️ **불빛은 카드 «앞»에서 난다.** 카드와 같은 자리에 두면 뒷벽만 밝히고
+      //    방은 그대로 어둡다 (옛 촛대가 z+1.0 에 불을 둔 이유가 그것이다)
+      light = new THREE.PointLight(0xffb45e, 0, 7.2);
+      light.position.set(slot.p3.x * sign, slot.p3.y + slot.p3.h * 0.2, slot.p3.z + 1.0);
+      scene.add(light);
+    }
+    return { grp, light, mesh: null, shadow: null };
   }
-  // ⚠️⚠️ **옆벽에 붙이면 «모서리»만 보인다.** 빌보드가 아니라 «붙박이» 카드라
-  //    옆벽에 90° 로 세우는 순간 카메라에서 두께 0 이 된다 — 처음에 그렇게 두었다가
-  //    화면에 촛대가 셋 다 안 보였다 (등불이 켜져 있는데 등잔이 없는 방이었다).
-  //    **뒷벽에 붙인다** — 종이 극장에서 보이는 것은 뒷벽 한 장이다
-  const flames = [];
-  [[-4.15, 3.15], [0.85, 3.15], [4.35, 3.05]].forEach(([x, y], i) => {
-    const c = stand(paperCard(sconceTex(), 0.86, 1.41, { curl: 0.02 }), x, y, -ROOM_D / 2 + 0.07,
-      { shadow: 0 });
-    const pl = new THREE.PointLight(0xffb45e, 2.3, 7.2);
-    pl.position.set(x, y + 0.55, -ROOM_D / 2 + 1.0);
-    scene.add(pl);
-    flames.push({ card: c, pl, seed: i * 2.3 });
+  // ⚠️ **접지 그림자는 «바닥에 서는 것»만** — 자국이 없으면 종이가 공중에 뜨고,
+  //    벽에 붙은 것·매달린 것·탁자 위의 것에 깔면 바닥에 유령 자국이 남는다.
+  //    판정은 표에서 나온다 (칸의 밑변이 바닥 근처인가 · 무엇 위에 놓이는가)
+  const onFloor = (slot) => !slot.on && (slot.p3.y - slot.p3.h / 2) < 0.5;
+  const units = {};
+  // 흔들릴 광원 목록 — **씨앗이 짝마다 다르다**(아래 프레임 루프가 쓴다)
+  const LIT = [];
+  SLOTS.forEach((s, si) => {
+    const us = s.kind === 'pair' ? [makeUnit(s, 1), makeUnit(s, -1)] : [makeUnit(s, 1)];
+    us.forEach((u, ui) => {
+      if (u.light) LIT.push({ grp: u.grp, light: u.light, base: s.light, seed: si * 1.7 + ui * 2.3 });
+    });
+    units[s.id] = { slot: s, cur: null, us };
   });
 
-  const herbTex = tex(320, 430, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    inkStroke(g, [[160, 0], [160, 62]], { w: 6, seed: 101, jitter: 1, color: '#7a5a3a' });
-    const r = rnd(3);
-    for (let i = 0; i < 9; i++) {
-      const a = -0.9 + i * 0.22, L = 220 + r() * 90;
-      const x2 = 160 + Math.sin(a) * L, y2 = 72 + Math.cos(a) * L;
-      inkStroke(g, [[160, 68], [160 + Math.sin(a) * L * 0.5, 72 + Math.cos(a) * L * 0.5], [x2, y2]],
-        { w: 5, seed: 110 + i, jitter: 2.4, color: PAL.leaf[1] });
-      for (let k = 1; k <= 4; k++) {
-        const t = 0.3 + k * 0.17;
-        const lx = 160 + Math.sin(a) * L * t, ly = 72 + Math.cos(a) * L * t, s = 15 + r() * 9;
-        paperShape(g, [[lx, ly - s], [lx + s * 0.8, ly], [lx, ly + s], [lx - s * 0.8, ly]],
-          k % 2 ? PAL.leaf[0] : PAL.leaf[1], { cut: 0, ink: 3, seed: 120 + i * 5 + k });
-      }
+  function clearUnit(u) {
+    if (u.mesh) {
+      u.grp.remove(u.mesh);
+      u.mesh.geometry.dispose();
+      if (u.mesh.material.map) u.mesh.material.map.dispose();
+      u.mesh.material.dispose();
+      u.mesh = null;
     }
-    paperShape(g, roundRect(126, 52, 68, 30, 10), '#c8956a', { cut: 5, ink: 5, seed: 130 });
-  }, { units: 0.86 });
-  const gHerb = stand(paperCard(herbTex, 0.92, 1.24, { curl: 0.03 }), -2.85, 4.72, -ROOM_D / 2 + 0.09, { shadow: 0 });
-
-  const frameTex = tex(420, 340, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    paperShape(g, roundRect(8, 8, w - 16, h - 16, 12), '#8a5f3c', { cut: 9, ink: 7, seed: 141, shade: 'rgba(0,0,0,0.3)' });
-    paperShape(g, rect(40, 40, w - 80, h - 80), '#cfe3f2', { cut: 0, ink: 5, seed: 142 });
-    paperShape(g, [[40, h - 40], [150, 120], [230, h - 40]], '#8fae86', { cut: 0, ink: 4, seed: 143 });
-    paperShape(g, [[180, h - 40], [280, 150], [380, h - 40]], '#a7c297', { cut: 0, ink: 4, seed: 144 });
-    paperShape(g, blob(300, 98, 26, 26, 20, 145), '#f6d87a', { cut: 0, ink: 4, seed: 145 });
-  }, { units: 1.35 });
-  const gFrame = stand(paperCard(frameTex, 1.5, 1.22, { curl: 0.02 }), -0.55, 3.35, -ROOM_D / 2 + 0.07, { shadow: 0 });
-
-  const plantTex = tex(420, 540, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    const r = rnd(8);
-    for (let i = 0; i < 7; i++) {
-      const a = -1.0 + i * 0.33, L = 200 + r() * 120;
-      const x2 = 210 + Math.sin(a) * L, y2 = 366 - Math.cos(a) * L;
-      inkStroke(g, [[210, 372], [210 + Math.sin(a) * L * 0.5, 372 - Math.cos(a) * L * 0.55], [x2, y2]],
-        { w: 6, seed: 150 + i, jitter: 2.6, color: PAL.leaf[1] });
-      const s = 38 + r() * 22;
-      paperShape(g, [[x2, y2 - s], [x2 + s * 0.62, y2], [x2, y2 + s * 0.7], [x2 - s * 0.62, y2]],
-        i % 2 ? PAL.leaf[0] : '#95bd7c', { cut: 5, ink: 4, seed: 160 + i });
+    if (u.shadow) { u.grp.remove(u.shadow); u.shadow.geometry.dispose(); u.shadow = null; }
+    u.grp.visible = false;
+    if (u.light) u.light.intensity = 0;
+  }
+  function mountUnit(u, slot, texture) {
+    if (slot.kind === 'floor') {   // 바닥에 «깐다» — 세우지 않는다
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(slot.p3.w, slot.p3.h),
+        new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }));
+      m.rotation.x = -Math.PI / 2;
+      m.position.y = slot.p3.y;
+      u.grp.add(m); u.mesh = m; u.grp.visible = true;
+      return;
     }
-    paperShape(g, [[126, 372], [294, 372], [272, 522], [148, 522]], '#c07a52',
-      { cut: 9, ink: 7, seed: 170, shade: 'rgba(60,24,10,0.35)' });
-    paperShape(g, rect(118, 358, 184, 34), '#d08e60', { cut: 6, ink: 6, seed: 171 });
-    grainOver(g, w, h, 21, 0.05);
-  }, { units: 1.15 });
-  const gPlant = stand(paperCard(plantTex, 1.3, 1.67, { curl: 0.03 }), 4.1, 0.84, -0.45, { yaw: -0.34 });
+    const m = paperCard(texture, slot.p3.w, slot.p3.h, { curl: 0.02 });
+    // ⚠️ 매달린 것·창에 붙은 것은 «투명한 데»가 많다 — alphaTest 를 낮춰야 줄이 안 끊긴다
+    if (slot.kind === 'hang' || slot.id === 'curtain') m.material.alphaTest = 0.2;
+    m.position.y = slot.p3.y;
+    u.grp.add(m); u.mesh = m; u.grp.visible = true;
+    if (onFloor(slot)) {
+      const sw = slot.p3.w * 1.2;
+      const sh = new THREE.Mesh(new THREE.PlaneGeometry(sw, sw * 0.42),
+        new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
+      sh.rotation.x = -Math.PI / 2; sh.position.set(0, 0.02, 0.08);
+      u.grp.add(sh); u.shadow = sh;
+    }
+    if (u.light) u.light.intensity = slot.light;
+  }
+  // 한 자리에 소품 하나를 놓는다 (`null` 이면 비운다)
+  function setProp(sid, id) {
+    const S = units[sid];
+    if (!S || S.cur === id) return;
+    S.cur = id;
+    S.us.forEach(clearUnit);
+    const c = id ? ART.propCanvas(id) : null;
+    if (!c) return;
+    // ⚠️ 짝마다 텍스처를 따로 굽지 않는다 — 벽등 둘이 같은 종이다
+    const t = bake(c, null);
+    S.us.forEach(u => mountUnit(u, S.slot, t));
+  }
 
   // ── 벽과 바닥이 만나는 자리의 그늘 ────────────────────────────
   // ⚠️⚠️ **앞쪽에 «무대 앞막» 카드를 세워 보고 되돌렸다** — 이 카메라(화각 32° · 거리 11.6)
@@ -607,12 +436,18 @@ export function createRoom(canvas, opt) {
   //    어긋나면 **인물이 방 한가운데로 떠오르고** 제목 줄과 부딪힌다.
   //    그래서 상수를 박지 않고 **원하는 자리에 오도록 카메라를 푼다**(`aimFloor`)
   let FLOOR_AT = 0.92;      // 양탄자 한가운데가 설 «세로» 자리 (상자 높이의 비율)
-  // 양탄자의 반폭 — **상자 «높이»에 대한 비율**이다.
+  // ⚠️⚠️ **기준은 «양탄자»가 아니라 «보이지 않는 자리»다** (`FLOOR_R`). 양탄자가
+  //    사람이 고르는 소품이 되면서 **없을 수도 있는 것**이 됐는데, 그것을 재서
+  //    카메라를 맞추면 러그를 걷는 순간 카메라 기준이 통째로 사라진다
+  //    (SVG 쪽 짝은 `Avatar.floorMark()` 다 — 거기도 상수로 못 박혀 있다).
+  // ⚠️ 값은 큰 카펫이 갖던 그 반폭(4.7/2)이라 **양탄자를 깐 방은 한 픽셀도 안 바뀐다**
+  const FLOOR_R = 2.35;
+  // 기준 반폭 — **상자 «높이»에 대한 비율**이다.
   // ⚠️⚠️ **폭이 아니라 높이로 잡는 것이 요점이다.** SVG 방은 `preserveAspectRatio="…slice"`
-  //    라 **높이로 꽉 채우고 좌우가 잘린다** — 그래서 265px 과 390px 에서 양탄자가
-  //    320.5px · 320.9px 로 «같다». 3D 도 같아야 폭을 바꿔도 방이 안 확대된다.
+  //    라 **높이로 꽉 채우고 좌우가 잘린다** — 그래서 265px 과 390px 에서 기준이
+  //    «같다». 3D 도 같아야 폭을 바꿔도 방이 안 확대된다.
   //    three.js 의 화각은 «세로»라 거리만 맞추면 그 성질이 저절로 따라온다
-  let RUG_AT = 0.361;       // 321px ÷ 445px ÷ 2 — 지금 SVG 방에서 재서 나온 값 (기본값)
+  let MARK_AT = 0.337;      // 150 ÷ 445 — `Avatar.floorMark()` 를 SVG 에서 재서 나온 값
   // ⚠️ 카메라 높이는 못 박는다 — **푸는 것은 «고개 각도»와 «거리» 둘**이다.
   //    셋을 다 풀면 답이 한 줄이 아니라 면이 되어 값이 판마다 널뛴다
   const CAM_Y = 2.6;
@@ -658,23 +493,20 @@ export function createRoom(canvas, opt) {
     for (let k = 0; k < 4; k++) {
       // 바닥선 — 고도를 «올리면» 바닥이 화면 위로 온다 (y 가 준다)
       solve(() => toScreen(ORIGIN).y, FLOOR_AT, -0.40, 0.90, v => { pitch = v; });
-      // 양탄자 폭 — 멀어지면 작아진다
-      solve(() => rugHalf() / H, RUG_AT, 5, 30, v => { dist = v; });
+      // 기준 반폭 — 멀어지면 작아진다
+      solve(() => markHalf() / H, MARK_AT, 5, 30, v => { dist = v; });
     }
   }
-  // ⚠️ **지금 깔린 양탄자의 «제» 폭으로 잰다**(`rug.scale`) — 단계마다 크기가 다르다.
-  //    못 박으면 작은 러그를 깐 방에서 카메라가 통째로 당겨진다
-  function rugHalf() {
-    const c = toScreen(ORIGIN), e = toScreen(rugEdge());
+  function markHalf() {
+    const c = toScreen(ORIGIN), e = toScreen(markEdge());
     return Math.abs(e.x - c.x) * W;
   }
-  // 양탄자의 «가로» 끝 — ⚠️⚠️ **시선에 수직인 쪽으로 잡는다**(카메라의 오른쪽 벡터).
+  // 기준의 «가로» 끝 — ⚠️⚠️ **시선에 수직인 쪽으로 잡는다**(카메라의 오른쪽 벡터).
   //    x 축에 못 박으면 둘러볼 때 그 점이 **비스듬해져** 화면에서 짧아지고,
   //    `aimFloor` 가 그만큼 카메라를 당겨 **돌릴 때마다 방이 확대된다.**
   //    yaw 0 에서는 (1,0,0) 이라 지금과 같은 값이다
-  function rugEdge() {
-    const r = rug.scale.x * 2.35;
-    return new THREE.Vector3(Math.cos(yaw) * r, 0, -Math.sin(yaw) * r);
+  function markEdge() {
+    return new THREE.Vector3(Math.cos(yaw) * FLOOR_R, 0, -Math.sin(yaw) * FLOOR_R);
   }
 
   // ⚠️⚠️ **SVG 방에 «맞춰» 조준한다 — 상수로 두지 않는다.**
@@ -684,11 +516,12 @@ export function createRoom(canvas, opt) {
   //    **통째로 다른 자리**에 서고, SVG 를 재는 검사들이 3D 와 다른 것을 재게 된다.
   //    그래서 «이미 깔려 있는 그림»을 재서 거기에 맞춘다 (`placeFigure`·`placePet` 과
   //    같은 규칙이다: 상수가 아니라 그려진 자리).
-  // ⚠️ 1단계에는 양탄자가 아예 없다 — 그때는 기본값 그대로다
-  function aim(floorRel, rugRel) {
-    const f = Number(floorRel), r = Number(rugRel);
+  // ⚠️ **재는 것은 «보이지 않는 기준»이다** (`Avatar.floorMark()`) — 그려진 양탄자가
+  //    아니다. 양탄자는 없을 수도 있고, 없는 방에서도 인물은 같은 자리에 서야 한다
+  function aim(floorRel, markRel) {
+    const f = Number(floorRel), r = Number(markRel);
     if (isFinite(f) && f > 0.4 && f < 1.2) FLOOR_AT = f;
-    if (isFinite(r) && r > 0.05 && r < 1.5) RUG_AT = r;
+    if (isFinite(r) && r > 0.05 && r < 1.5) MARK_AT = r;
     aimFloor();
   }
 
@@ -701,34 +534,43 @@ export function createRoom(canvas, opt) {
     aimFloor();
   }
 
-  // ── 단계 — **방의 «껍데기»는 그대로고 «놓인 것»만 갈린다** (`ROOM.md` 1장)
+  // ── 단계 — **방의 «껍데기»만 정한다** (`ROOM.md` 1장)
+  //
+  // ⚠️⚠️ **소품은 더 이상 단계가 정하지 않는다** — 사람이 고른다(`setDecor`).
+  //    3D 세트에서 단계가 남긴 일은 **마법진 하나**다. 굽도리·몰딩은 벽 텍스처에
+  //    이미 구워져 있고, 금·거미줄·아치는 SVG 방에만 있다 (`ROOM.md` 9장 — 3D 껍데기
+  //    조각을 늘리는 것은 남은 일로 적어 뒀다).
   // ⚠️ 목록을 여기 적지 않는다 — `Avatar.ROOM_LEVELS` 를 그대로 읽는다.
   //    베껴 두면 단계를 고쳤을 때 SVG 방과 3D 방이 서로 다른 방이 된다
-  const PROP = {
-    shelf: [gShelf], bookshelf: [gShelf], frame: [gFrame], plant: [gPlant],
-    candle: flames.map(f => f.card), chandelier: flames.map(f => f.card),
-    circle: [glyph], curtain: [gHerb],
-  };
   let level = 0;
   function setLevel(lv) {
     lv = Math.max(1, Math.min(5, Math.round(Number(lv) || 1)));
     if (lv === level) return;
     level = lv;
     const want = new Set((window.Avatar && Avatar.ROOM_LEVELS && Avatar.ROOM_LEVELS[lv]) || []);
-    Object.keys(PROP).forEach(k => {
-      const on = want.has(k);
-      PROP[k].forEach(o => { if (on || !o.visible) o.visible = o.visible || on; });
+    glyph.visible = want.has('circle');
+  }
+
+  // ── 꾸민 것을 방에 놓는다 ─────────────────────────────────────
+  //
+  // ⚠️⚠️ **여기가 «놓는» 유일한 문이다.** 벽지·바닥재·소품 아홉이 한 함수를 지난다 —
+  //    자리마다 부르는 곳을 두면 하나를 빠뜨렸을 때 그 자리만 조용히 안 바뀐다.
+  // ⚠️ 기본값은 표(`D.ROOM_START`)가 갖는다 — 여기서 고르면 SVG 폴백과 갈린다
+  function setDecor(decor) {
+    const D = window.GameData || {};
+    const st = D.ROOM_START || {};
+    const d = decor && typeof decor === 'object' ? decor : {};
+    setWall(d.wall || st.wall);
+    setFloor(d.floor || st.floor);
+    const props = d.props || {};
+    SLOTS.forEach(s => {
+      // ⚠️ **무엇 위에 놓이는 것은 받침이 없으면 안 보인다** (촛불·실험 도구 ↔ 탁자).
+      //    이 판정은 SVG 폴백에도 있는데(`decorImage`), 둘 다 **표의 `on`** 을 읽는다
+      const ok = !s.on || props[s.on];
+      setProp(s.id, (ok && props[s.id]) || null);
     });
-    // ⚠️ 두 번 도는 이유 — 한 이름이 여러 조각을 가리키고(`candle`·`chandelier` 가
-    //    같은 촛대다) 한 조각이 여러 이름에 걸린다. 「하나라도 원하면 켠다」라서
-    //    끄는 쪽을 먼저 돌면 켠 것을 도로 끈다
-    const keep = new Set();
-    want.forEach(k => (PROP[k] || []).forEach(o => keep.add(o)));
-    Object.values(PROP).flat().forEach(o => { o.visible = keep.has(o); });
-    // 양탄자는 «크기»가 갈린다 — 작은 러그와 큰 카펫은 같은 종이다
-    rug.visible = want.has('rugSmall') || want.has('rugBig');
-    rug.scale.setScalar(want.has('rugBig') ? 1 : 0.72);
-    brewLight.visible = gTable.visible = true;     // 공방의 솥은 늘 있다
+    // 솥은 「실험 도구」 자리에 들어 있다 — 그것이 없으면 약물의 빛도 없다
+    brewLight.intensity = units.gear && units.gear.cur ? 1.7 : 0;
   }
 
   // ── 낮과 밤 — 창과 빛만 갈린다 (방은 같은 방이다)
@@ -757,7 +599,7 @@ export function createRoom(canvas, opt) {
   //    「양탄자만 옮기기」 사보타주가 잡던 바로 그 사고다)
   function floorRect() {
     const c = toScreen(ORIGIN);
-    const e = toScreen(rugEdge());     // 시선에 수직 — 둘러봐도 값이 안 흔들린다
+    const e = toScreen(markEdge());    // 시선에 수직 — 둘러봐도 값이 안 흔들린다
     return { cx: c.x * W, cy: c.y * H, half: Math.abs(e.x - c.x) * W };
   }
 
@@ -800,10 +642,13 @@ export function createRoom(canvas, opt) {
     if (!slow) {
       glyph.rotation.z += 0.005;
       glyph.material.opacity = 0.58 + Math.sin(now / 1400) * 0.16;
-      brewLight.intensity = 1.5 + Math.sin(now / 430) * 0.45;
-      flames.forEach(({ card, pl, seed }) => {
-        card.scale.y = 1 + Math.sin(now / 150 + seed) * 0.012;
-        pl.intensity = 1.3 + Math.sin(now / 140 + seed) * 0.32;
+      if (brewLight.intensity) brewLight.intensity = 1.5 + Math.sin(now / 430) * 0.45;
+      // 불꽃이 흔들린다 — **광원이 있는 자리만**. 자리마다 씨앗이 달라야
+      // 벽등 둘과 촛불이 «같이» 깜박이지 않는다 (그러면 전등 스위치로 보인다)
+      LIT.forEach(({ grp, light, seed, base }) => {
+        if (!grp.visible) return;
+        grp.scale.y = 1 + Math.sin(now / 150 + seed) * 0.012;
+        light.intensity = base * (0.88 + Math.sin(now / 140 + seed) * 0.14);
       });
       const P = dustGeo.attributes.position;
       for (let i = 0; i < DUST; i++) {
@@ -838,15 +683,15 @@ export function createRoom(canvas, opt) {
     });
   }
 
-  setPhase('day'); setLevel(1);
+  setPhase('day'); setLevel(1); setDecor(null);
   if (O.autorun) run(true);
   // ⚠️ **프로토타입은 제 돌리기를 쓴다**(궤도·펼쳐 보기·빌보드가 거기 있다) —
   //    그래서 조각들을 같이 내놓는다. 감춰 두면 프로토타입이 세트를 다시 짜게 되고,
   //    그 순간 이 파일이 「유일한 곳」이 아니게 된다
-  return { scene, camera, renderer, cards, resize, aim, setLevel, setPhase, floorRect, spin, spinAt, run, dispose,
+  return { scene, camera, renderer, cards, resize, aim, setLevel, setDecor, setPhase, floorRect, spin, spinAt, run, dispose,
     render: () => renderer.render(scene, camera),
-    parts: { glyph, rug, backWall, floor, walls: [backWall].concat(sideWalls), shaft, winMat, moon, key, amb, brewLight, flames, shadowTex,
-      dust, dustGeo, dpos, dphase, DUST, ROOM_W, ROOM_D, WALL_H },
+    parts: { glyph, backWall, floor, walls, shaft, winMat, moon, key, amb, brewLight, shadowTex,
+      units, SLOTS, LIT, dust, dustGeo, dpos, dphase, DUST, ROOM_W, ROOM_D, WALL_H, FLOOR_R },
     get slow() { return slow; } };
 }
 

@@ -438,6 +438,50 @@ add('id 가 겹친다', dupId);
     if (lo && hi) measured.push(`공방 단계: ${lo}(시작)부터 ${hi}까지 빈 칸 없이 걸려 있다 (퀘스트 ${seen}개)`);
   }
 
+  // ═══ 마이 룸 꾸미기 — **표 · 그리는 순서 · 그림 셋이 맞물려 있는가** ═══
+  //
+  // ⚠️⚠️ **셋 중 하나만 빠져도 그 소품은 «조용히» 안 보인다.** 자리를 표에 늘려 놓고
+  //    `ROOM_Z`(그리는 순서)에 안 넣으면 SVG 폴백에서 통째로 안 그려지고,
+  //    `roomart.js` 의 `SLOT_ART` 에 그림이 없으면 3D 에서도 빈 자리다 —
+  //    둘 다 화면에 오류를 한 줄도 안 띄운다. 그래서 **셋을 같이** 본다.
+  // ⚠️ 그림의 목록은 `roomart.js` «소스»에서 읽는다 (브라우저 없이 도는 검사다)
+  {
+    const art = fs.readFileSync(path.join(ROOT, 'roomart.js'), 'utf8');
+    const drawn = new Set([...art.matchAll(/^\s{4}(\w+)\(g, w, h, t\)/gm)].map(m => m[1]));
+    const avz = fs.readFileSync(path.join(ROOT, 'avatar.js'), 'utf8');
+    const zm = avz.match(/const ROOM_Z = \[([\s\S]*?)\];/);
+    const zs = new Set([...(zm ? zm[1] : '').matchAll(/'#(\w+)'/g)].map(m => m[1]));
+    let n = 0;
+    (D.ROOM_SLOTS || []).forEach(sl => {
+      n++;
+      if (!drawn.has(sl.id)) bad.push(`꾸미기 — «${sl.name}» 의 그림이 roomart.js 에 없다 (SLOT_ART.${sl.id})`);
+      if (!zs.has(sl.id)) bad.push(`꾸미기 — «${sl.name}» 가 ROOM_Z 에 없다 (SVG 폴백에서 안 그려진다)`);
+      if (!sl.p2 || sl.p2.length !== 4) bad.push(`꾸미기 — «${sl.name}» 에 SVG 자리(p2)가 없다`);
+    });
+    // ⚠️ **반대쪽도 본다** — `ROOM_Z` 에만 있고 표에 없는 자리는 영영 빈 줄이다
+    zs.forEach(id => {
+      if (!(D.ROOM_SLOTS || []).some(x => x.id === id)) bad.push(`꾸미기 — ROOM_Z 의 «#${id}» 가 표에 없다`);
+    });
+    // ⚠️⚠️ **이름이 두 언어에 다 있어야 한다.** 탭 라벨이 `room_slot_<id>` 인데
+    //    영어가 빠지면 `N()` 이 한국어를 그대로 돌려줘 **동작은 하고 번역만 조용히 빠진다**.
+    // ⚠️ `I.n()` 은 «지금 언어»가 한국어면 무조건 한국어를 돌려준다 — 영어로 바꿔 놓고
+    //    물어야 갈린다 (그냥 물었더니 아홉이 «다» 없다고 나왔다). 재고 나서 되돌린다
+    {
+      const was = I.getLang();
+      I.setLang('en');
+      (D.ROOM_SLOTS || []).forEach(sl => {
+        const k = 'room_slot_' + sl.id;
+        if (I.n(k, '\u0000') === '\u0000') bad.push(`꾸미기 — «${sl.name}» 의 영어 이름이 없다 (${k})`);
+      });
+      I.setLang(was);
+    }
+    // 소품 서른여섯이 다 «얻는 길»을 갖는가는 생성기가 본다 (`tools/genroom.js`)
+    if (!bad.length) {
+      measured.push(`꾸미기: 자리 ${n}개가 표·그리는 순서·그림 셋에 다 있다`
+        + ` (소품 ${Object.keys(D.ROOM_DECOR || {}).length}개)`);
+    }
+  }
+
   // **여는 순서가 오름차순이어야 한다.** 큐가 표 순서대로 쌓이므로, 뒤에 있는 것이
   // 더 낮은 조건이면 「나중 이야기가 먼저 온다」
   D.QUESTS.forEach((q, i) => {

@@ -20,7 +20,7 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //     `defaultState` 에 두 번 있어서(객체 · 숫자) 뒤의 숫자가 이겼고, 채집할 때마다
 //     `S.gathered++` 가 객체를 NaN 으로 만들어 **숙련이 한 세션도 못 살아남았다**
 //     (외부 비평에서 재현됐다). 총 채집 횟수는 `record.gathered` 가 맡는다
-const SAVE_VER = 17;
+const SAVE_VER = 18;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -279,12 +279,20 @@ const defaultState = () => ({
   // 튜토리얼 진행 (tutorial.js). 중간에 창을 닫아도 그 자리에서 이어지도록 세이브에 둔다.
   //  step = 몇 번째 단계 / beat = 그 단계의 몇 번째 대사 / did = 한 번만 도는 효과의 표시
   tut: { step: 0, beat: 0, done: false, did: {} },
-  // 마이 룸 배경 단계 (1~5). 기본은 2단계다 — 1단계는 거미줄까지 있는 '텅 빈 골방'
-  // 이라 첫인상이 너무 휑하다. 기본값은 avatar.js 한 곳(ROOM_DEFAULT)에서만 정한다.
-  // 새로 생긴 칸이라 마이그레이션이 필요 없다 — 이 칸이 처음 나가는 판에서 기본값도
-  // 같이 나가므로, 옛 기본값(1)을 들고 있는 세이브가 세상에 없다.
-  // 아직 올려 주는 게임 조건은 없고 개발용 스위치로만 바뀐다.
+  // 마이 룸의 «껍데기» 단계 (1~5). 기본값은 avatar.js 한 곳(`ROOM_DEFAULT`)에서만 정한다.
+  // ⚠️⚠️ **1단계가 곧 「창문 하나만 있는 방」이다** — 소품은 이제 여기가 아니라
+  //    꾸미기(`roomProps`)가 정한다. 단계가 하는 일은 껍데기와 **오를 때의 선물** 둘이다
   roomLevel: roomDefault(),
+  // ─── 마이 룸 꾸미기 ───
+  // ⚠️⚠️ **기본값은 «표»가 갖는다**(`D.ROOM_START`) — 여기에 id 를 적으면 사본이 생겨,
+  //    시작 자재를 바꿀 때 한쪽만 바뀐다. 소품은 **하나도 없이** 시작한다
+  roomWall:  (D.ROOM_START || {}).wall,
+  roomFloor: (D.ROOM_START || {}).floor,
+  // 자리 → 지금 놓은 소품 id. 비어 있으면 그 자리는 빈 자리다
+  roomProps: {},
+  // 가진 자재·소품 id 목록. ⚠️ **같은 것을 둘 가질 수 없다** — 「갈아 끼우기」가
+  //    이 기능의 전부라 개수는 뜻이 없다 (옷장과 같은 결이다)
+  roomOwned: [(D.ROOM_START || {}).wall, (D.ROOM_START || {}).floor].filter(Boolean),
   // 아우라 세부 수치 (각 0~1000)
   aura:      { happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 },
   cauldronId: 'cd_iron_old',  // 사용 중인 마법 솥 (시작은 튜토리얼용 2구)
@@ -437,6 +445,23 @@ function normalizeState(st) {
   st.roomLevel = Math.min(roomMax(), Math.max(1, Math.round(Number(st.roomLevel) || roomDefault())));
   // 리그 — 사다리 밖의 값이 들어오면 그릴 것이 없어 화면이 비어 버린다
   const lgMax = (D.LEAGUES ? D.LEAGUES.length : 32) - 1;
+  // ─── 꾸미기 ───
+  // ⚠️ **없는 id 를 들고 있으면 조용히 빈 자리가 된다** (표에서 소품을 지웠을 때).
+  //    그래서 «지금 표에 있는 것»만 남기고, 자재는 못 찾으면 시작 자재로 떨어진다 —
+  //    벽과 바닥이 «없는» 방은 그릴 수가 없다
+  const DEC = D.ROOM_DECOR || {}, st0 = D.ROOM_START || {};
+  st.roomOwned = (Array.isArray(st.roomOwned) ? st.roomOwned : []).filter(id => DEC[id]);
+  [st0.wall, st0.floor].forEach(id => { if (id && !st.roomOwned.includes(id)) st.roomOwned.push(id); });
+  st.roomWall = DEC[st.roomWall] ? st.roomWall : st0.wall;
+  st.roomFloor = DEC[st.roomFloor] ? st.roomFloor : st0.floor;
+  const props = (st.roomProps && typeof st.roomProps === 'object') ? st.roomProps : {};
+  st.roomProps = {};
+  (D.ROOM_SLOTS || []).forEach(sl => {
+    const id = props[sl.id];
+    // ⚠️ **안 가진 것을 놓고 있을 수는 없다** — 개발용으로 심어 놓은 값이나
+    //    표에서 빠진 소품이 그대로 서 있으면 「어디서 얻었지」가 된다
+    if (id && DEC[id] && DEC[id].slot === sl.id && st.roomOwned.includes(id)) st.roomProps[sl.id] = id;
+  });
   st.league = Math.max(0, Math.min(lgMax, Math.round(Number(st.league) || 0)));
   if (!st.week || typeof st.week !== 'object') st.week = { key: '', score: 0 };
   st.week.key = String(st.week.key || '');
@@ -450,7 +475,55 @@ function roomMax() {
   return (window.Avatar && Avatar.ROOM_MAX) || 5;
 }
 function roomDefault() {
-  return (window.Avatar && Avatar.ROOM_DEFAULT) || 2;
+  return (window.Avatar && Avatar.ROOM_DEFAULT) || 1;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  마이 룸 꾸미기 — 자리 아홉 + 벽지·바닥재 (ROOM.md)
+// ═══════════════════════════════════════════════════════════════
+//
+// ⚠️⚠️ **두 renderer 가 «같은 한 덩어리»를 받는다** — SVG 방(`Avatar.roomScene`)과
+//    3D 방(`room3d.setDecor`)이 이 함수의 결과를 그대로 읽는다. 자리마다 세이브를
+//    따로 읽게 두면 한쪽만 고쳤을 때 두 화면이 다른 방이 된다.
+// ⚠️ **`load()` 보다 아래에 둬도 된다** — `migrate` 가 쓰는 것은 `D.ROOM_*`(표)뿐이고
+//    이 함수들은 게임이 돌기 시작한 뒤에만 불린다 (그 구분을 지키는 것이 1번 항이다)
+function roomDecorState() {
+  return { wall: S.roomWall, floor: S.roomFloor, props: S.roomProps || {} };
+}
+function roomOwns(id) { return !!id && (S.roomOwned || []).includes(id); }
+// 하나 얻는다. **이미 가진 것은 «안 준다»** — 개수가 없는 목록이라 두 번 넣으면 중복이다
+function grantDecor(id) {
+  if (!id || !(D.ROOM_DECOR || {})[id] || roomOwns(id)) return false;
+  if (!Array.isArray(S.roomOwned)) S.roomOwned = [];
+  S.roomOwned.push(id);
+  return true;
+}
+// 단계가 `from` → `to` 로 올랐을 때 그 사이 단계의 선물을 다 준다.
+// ⚠️⚠️ **한 단계씩 준다.** `to` 것만 주면 2 → 5 로 뛰는 보상(`q_seal`)에서 3·4 의
+//    소품이 통째로 사라진다 — 그 자리는 영영 빈 자리가 된다 (얻는 다른 길이 없다).
+// ⚠️ **빈 자리면 놓아 준다.** 얻어도 안 놓이면 방이 그대로라 「받았는데 아무 일도
+//    안 일어났다」가 된다. 이미 놓인 자리는 안 덮는다 — 사람이 고른 것이 이긴다
+function grantLevelDecor(from, to) {
+  const got = [];
+  for (let n = Math.max(2, (Number(from) || 0) + 1); n <= (Number(to) || 0); n++) {
+    ((D.ROOM_LEVEL_GIFT || {})[n] || []).forEach(id => {
+      if (!grantDecor(id)) return;
+      got.push(id);
+      const d = D.ROOM_DECOR[id];
+      if (d.slot === 'wall' || d.slot === 'floor') return;
+      if (!S.roomProps[d.slot]) S.roomProps[d.slot] = id;
+    });
+  }
+  return got;
+}
+// 얻은 것을 «이름»으로 알린다 (여러 개면 첫 이름 + 나머지 수)
+function decorToast(ids) {
+  if (!ids || !ids.length) return;
+  const d = D.ROOM_DECOR[ids[0]];
+  const nm = N(ids[0], d ? d.name : ids[0]);
+  toast(ids.length > 1
+    ? T('decor_got_more', { name: nm, nj: josa(nm, '을를'), n: ids.length - 1 })
+    : T('decor_got', { name: nm, nj: josa(nm, '을를') }), null, 3600);
 }
 
 function load() {
@@ -709,6 +782,31 @@ function migrate(st, from) {
       const lv = (q.reward || {}).room;
       if (lv && done.includes(q.id)) st.roomLevel = Math.max(st.roomLevel || 0, lv);
     });
+  }
+
+  if (from < 18) {
+    // **마이 룸 꾸미기가 생겼다** — 방의 소품이 «단계가 보여 주는 것»에서
+    // «사람이 고르는 것»으로 옮겨 갔다 (`D.ROOM_SLOTS` · `D.ROOM_LEVEL_GIFT`).
+    // ⚠️⚠️ **하던 사람에게서 뺏지 않는다.** 예전에는 2단계에 러그·책장이, 3단계에
+    // 커튼·화분이 «보이고» 있었다 — 그 사람의 방이 갑자기 비면 그건 뺏는 것이다.
+    // 그래서 **여태 지나온 단계의 선물을 다 채워 주고 그대로 놓아 준다.**
+    // ⚠️ 시작 자재도 같이 채운다 — 없으면 벽지·바닥재를 고를 수가 없다
+    if (!Array.isArray(st.roomOwned)) st.roomOwned = [];
+    const st0 = D.ROOM_START || {};
+    if (!st.roomWall) st.roomWall = st0.wall;
+    if (!st.roomFloor) st.roomFloor = st0.floor;
+    [st0.wall, st0.floor].forEach(id => { if (id && !st.roomOwned.includes(id)) st.roomOwned.push(id); });
+    if (!st.roomProps || typeof st.roomProps !== 'object') st.roomProps = {};
+    const lv = Math.max(1, Math.round(Number(st.roomLevel) || 1));
+    for (let n = 2; n <= lv; n++) {
+      ((D.ROOM_LEVEL_GIFT || {})[n] || []).forEach(id => {
+        if (!st.roomOwned.includes(id)) st.roomOwned.push(id);
+        const d = (D.ROOM_DECOR || {})[id];
+        // ⚠️ **더 좋은 것이 이미 놓여 있으면 안 덮는다** — 선물 순서가 뒤에서 앞으로
+        //    돌지 않으므로, 「그 자리가 비었을 때만」이 곧 「위 단계가 이긴다」다
+        if (d && d.slot && !st.roomProps[d.slot]) st.roomProps[d.slot] = id;
+      });
+    }
   }
 
   st.ver = SAVE_VER;
@@ -1428,9 +1526,14 @@ function claimQuest() {
   if (gotPage) S.discovered.push(gotPage);
   // 단계가 «실제로» 올랐는지는 올리기 전에 잡아 둔다 — 이미 그 단계 위면 알리지 않는다
   const gotRoom = !!(r.room && (S.roomLevel || 0) < r.room && r.room <= roomMax());
-  // **공방 단계** — 지금은 이 퀘스트 하나가 유일한 길이다 (개발용 스위치 말고는).
+  // **공방 단계** — 껍데기가 번듯해지고, **그 단계의 소품 한 벌이 선물로 들어온다**
+  // (`D.ROOM_LEVEL_GIFT`). ⚠️ 예전에 그 단계에서 «보이던» 소품이 그대로 그 목록이라
+  // 하던 사람에게서 뺏는 것이 없다.
   // ⚠️ **내려가지 않게 `max` 로 올린다** — 보상이 진행을 되돌리면 그건 벌이다
-  if (r.room) S.roomLevel = Math.min(roomMax(), Math.max(S.roomLevel || 0, r.room));
+  const roomFrom = S.roomLevel || 0;
+  if (r.room) S.roomLevel = Math.min(roomMax(), Math.max(roomFrom, r.room));
+  const gotDecor = grantLevelDecor(roomFrom, S.roomLevel)
+    .concat((r.decor || []).map(id => grantDecor(id) ? id : null).filter(Boolean));
   if (r.crystal) S.crystal = (S.crystal || 0) + r.crystal;
   if (r.energy) S.energy = Math.min(energyCap(), (S.energy || 0) + r.energy);
   if (r.items) Object.keys(r.items).forEach(id => addInv(id, r.items[id]));
@@ -1456,13 +1559,19 @@ function claimQuest() {
   // 보고 있어서, 안 알리면 다음에 마이 룸에 들어갔을 때 «왜 달라졌는지»를 모른다
   if (gotRoom) setTimeout(() => toast(T('q_room_toast'), null, 3600),
     1400 + (gotPage ? 1 : 0) * 700);
+  // **꾸미기 소품도 «이름»으로 알린다** — 「소품 4개」는 숫자이고, 「나무 벽등을
+  // 얻었어요」는 물건이다 (비법서 장에서 배운 그 자리다).
+  // ⚠️ 여러 개면 **첫 이름 + 나머지 수**로 한 줄에 담는다 — 넷을 네 줄로 띄우면
+  //    토스트가 화면을 먹고, 정작 퀘스트가 끝난 것이 안 읽힌다
+  if (gotDecor.length) setTimeout(() => decorToast(gotDecor),
+    1400 + ((gotPage ? 1 : 0) + (gotRoom ? 1 : 0)) * 700);
   // 키워드도 **따로 알린다** — 그것이 곧 「이제 누구에게 무엇을 물을 수 있다」라서
   // 결정·재료와 한 줄에 섞이면 이야기가 열린 것이 안 읽힌다.
   // ⚠️ `doAsk` 가 쓰는 것과 **같은 문자열**이다 (뜻이 같은 것을 두 벌로 쓰지 않는다)
   gotKw.forEach((id, i) => {
     const k = D.keyword(id);
     setTimeout(() => toast(T('ask_new', { name: N(id, k ? k.name : id) }), null, 3600),
-      1400 + ((gotPage ? 1 : 0) + (gotRoom ? 1 : 0)) * 700 + i * 700);
+      1400 + ((gotPage ? 1 : 0) + (gotRoom ? 1 : 0) + (gotDecor.length ? 1 : 0)) * 700 + i * 700);
   });
   if (window.Sfx) Sfx.play('success');
   render();
@@ -3212,6 +3321,7 @@ function switchTab(tab) {
   //    불리므로, 여기서 안 끄면 **다른 탭에서도 계속 그린다** — 배터리도 배터리지만
   //    검사기가 재는 순간이 프레임마다 달라진다 (`checkroom` 이 그것을 잡았다)
   if (room3d) room3d.run(tab === 'showcase');
+  closeDecorSheet();
   // 랭킹은 '여신' 단계부터다. 잠긴 채로 들어오면(옛 세이브의 마지막 탭 등)
   // 빈 화면이 뜨므로 홈으로 돌린다
   if (tab === 'league' && !leagueOpen()) tab = 'showcase';
@@ -5031,8 +5141,9 @@ function placePet() {
 // ⚠️ **`.char-aura` 를 옮긴다** — 인물만 옮기면 빛무리·크리처·살 빠지는 연출이
 //    제자리에 남아 바닥이 둘이 된다
 // ⚠️ **재기 전에 되돌린다** — 안 그러면 다시 그릴 때마다 몫이 겹쳐 쌓인다
-// ⚠️ **졸업 전(인트로 공주 그림)에는 안 건드린다** — 그림의 바닥 좌표가 다르고,
-//    그때 방은 1단계라 양탄자가 아예 없다
+// ⚠️ **졸업 전(인트로 공주 그림)에는 안 건드린다** — 그림의 바닥 좌표가 다르다
+// ⚠️⚠️ **기준은 양탄자가 «아니다»** — 양탄자는 사람이 고르는 소품이라 없을 수도 있다.
+//    `Avatar.floorMark()`(SVG) · `room3d.floorRect()`(3D)가 그 «보이지 않는 자리»다
 const FIG_LIFT_MAX = 60;        // 이보다 크면 잘못 잰 것이다 — 그대로 둔다
 function placeFigure() {
   const aura = document.querySelector('.char-aura');
@@ -5084,7 +5195,7 @@ function renderRoomScene() {
     svg.className = 'room-2d';
     scene.insertBefore(svg, scene.firstChild);
   }
-  svg.innerHTML = window.Avatar.roomScene(S.roomLevel, null, roomPadBottom(bleed), roomPadTop(rise));
+  svg.innerHTML = window.Avatar.roomScene(S.roomLevel, roomDecorState(), roomPadBottom(bleed), roomPadTop(rise));
   room3dSync();
   // 방 그림이 새로 깔렸으니 «서는 자리»도 다시 맞춘다 (스탯을 접으면 배율이 바뀐다).
   // ⚠️ `renderShowcase()` 는 이 뒤에 `placePet()` 을 부른다 — 크리처는 «옮긴 뒤»의
@@ -5116,6 +5227,7 @@ function room3dSync() {
       room3dCanvas.setAttribute('aria-hidden', 'true');
       scene.appendChild(room3dCanvas);
       room3d = window.Room3D.create(room3dCanvas);
+      window.__r3d = room3d;   // 검사기가 카메라를 물어보는 손잡이
     } catch (e) { room3d = null; return; }   // WebGL 이 없는 기기 — SVG 그대로다
   }
   // ⚠️⚠️ **`renderShowcase()` 는 `.room-scene` 을 통째로 «새로 만든다»** (무대 마크업이
@@ -5127,29 +5239,41 @@ function room3dSync() {
   scene.classList.add('is3d');
   const r = scene.getBoundingClientRect();
   room3d.setLevel(S.roomLevel);
+  // ⚠️ **꾸민 것도 같이 내려보낸다** — 여기를 빠뜨리면 3D 방만 예전 모습에 남는다
+  //    (SVG 쪽은 `roomScene` 이 받으므로, 폴백만 바뀌고 3D 는 안 바뀐다)
+  room3d.setDecor(roomDecorState());
   room3d.resize(Math.round(r.width), Math.round(r.height));
   // ⚠️⚠️ **그려진 SVG 방을 재서 3D 를 거기에 맞춘다.** 둘이 같은 자리에 서야
   //    ① WebGL 이 없는 기기로 떨어질 때 방이 안 튀고 ② SVG 를 재는 검사들
   //    (`checkavatar` 의 「서는 자리」 · `checkui` 의 「방 배경 올리기」)이
   //    사람이 보는 것과 «같은 것»을 재게 된다
-  const sr = svgRugRect(scene, r);
+  const sr = svgFloorMark(scene, r);
   if (sr) room3d.aim(sr.cy / r.height, sr.half / r.height);
   room3d.setPhase(skyPhase3d());
   room3d.run(currentTab === 'showcase');
   room3d.render();
   renderSpin();
 }
-// SVG 방의 양탄자 — **제일 넓은 «아래쪽» 바닥 타원**이다.
-// ⚠️ `Avatar.FLOOR_SPOT` 을 읽지 않는다: 그 상수는 그림이 바뀌면 따라오지 않는다
-function svgRugRect(scene, r) {
+// SVG 방에서 «사람이 서는 자리» — `Avatar.floorMark()` 를 그림의 변환에 태운다.
+//
+// ⚠️⚠️ **예전에는 «그려진 양탄자»(제일 넓은 바닥 타원)를 찾아 재고 있었다.** 양탄자가
+//    사람이 고르는 소품이 되면서 **없을 수도 있는 것**이 됐고, 없으면 기준이 통째로
+//    사라져 인물이 방 한가운데로 떠오른다. 그래서 «보이지 않는 기준»을 둘이 같이
+//    읽는다 — SVG 는 `Avatar.floorMark()` · 3D 는 `FLOOR_R` (둘이 짝이다).
+// ⚠️ 그러면 「양탄자를 옮겼는데 인물만 옛 자리에 남는」 사고는 누가 보는가 —
+//    **검사가 본다**: `checkavatar` 의 「서는 자리」와 `checkroom` 이 **그려진 러그**를
+//    찾아 이 기준과 견준다 (잣대를 화면 쪽에 두는 것이 요점이다)
+function svgFloorMark(scene, r) {
   const s = scene.querySelector('.room-2d .room-svg');
-  if (!s) return null;
-  let best = null;
-  s.querySelectorAll('ellipse').forEach(e => {
-    const b = e.getBoundingClientRect();
-    if (b.width > 40 && b.top > r.top + r.height * 0.4 && (!best || b.width > best.width)) best = b;
-  });
-  return best ? { cy: best.top + best.height / 2 - r.top, half: best.width / 2 } : null;
+  if (!s || !window.Avatar || !Avatar.floorMark) return null;
+  const m = s.getScreenCTM();
+  if (!m) return null;
+  const k = Avatar.floorMark();
+  const c = new DOMPoint(k.cx, k.cy).matrixTransform(m);
+  const e = new DOMPoint(k.cx + k.half, k.cy).matrixTransform(m);
+  const half = Math.abs(e.x - c.x);
+  if (!(half > 1)) return null;
+  return { cy: c.y - r.top, half: half };
 }
 // 시간대 — ⚠️⚠️ **방의 시계를 두 벌로 두지 않는다.** SVG 방의 창밖 하늘이 쓰는
 // 그 함수(`Avatar.skyPhase`)를 **그대로 부른다** — 여기에 구간을 다시 적으면
@@ -6197,6 +6321,161 @@ function closeSlotSheet() {
 window.openSlotSheet = openSlotSheet;
 window.closeSlotSheet = closeSlotSheet;
 
+// ═══════════════════════════════════════════════════════════════
+//  🪄 방 꾸미기 시트 — 벽지 · 바닥재 + 자리 아홉 (ROOM.md)
+// ═══════════════════════════════════════════════════════════════
+//
+// ⚠️⚠️ **탭도 칸도 «표»에서 뽑는다**(`D.ROOM_SLOTS` · `D.roomTiersOf`). 자리를 하나
+//    늘리면 탭·격자·검사가 저절로 따라온다 — 목록을 여기 적어 두면 늘릴 때마다
+//    한 곳을 빠뜨린다 (옷장 칸 시트에서 배운 그 규칙 그대로다).
+// ⚠️ **꼴은 칸 시트를 그대로 베꼈다** — 폭·모서리·「나가기」를 따로 정하지 않는다
+//    (`UI_POLICY.md` 3-2). 새 팝업을 만드는 것이 아니라 같은 바닥 시트 하나다
+let decorTab = 'wall';
+function decorSheetOpen() {
+  const m = document.getElementById('decorSheet');
+  return !!(m && m.classList.contains('show'));
+}
+// 탭 열하나 — 자재 둘이 앞이고 자리 아홉이 뒤다.
+// ⚠️ 자재를 앞에 두는 이유: 소품이 하나도 없는 첫 화면에서 **누를 것이 있는 탭**이
+//    먼저 서야 한다 (자물쇠만 넷인 탭으로 시작하면 「아직 못 하는 기능」으로 읽힌다)
+function decorTabList() {
+  return [{ id: 'wall', emoji: '🧱', name: T('decor_wall') },
+    { id: 'floor', emoji: '🪵', name: T('decor_floor') }]
+    .concat((D.ROOM_SLOTS || []).map(s => ({ id: s.id, emoji: s.emoji,
+      name: N('room_slot_' + s.id, s.name) })));
+}
+function decorItemsOf(tab) {
+  if (tab === 'wall') return D.ROOM_WALLS || [];
+  if (tab === 'floor') return D.ROOM_FLOORS || [];
+  return (D.roomTiersOf || (() => []))(tab);
+}
+// 값 — 자재는 한 값, 소품은 «단계»가 값을 갖는다. **0 은 「상점에 없다」는 뜻이다**
+// (첫 단계 아홉은 선물로만 들어온다 · `tools/genroom.js` 가 그것을 못 박는다)
+function decorCostOf(id) {
+  const d = (D.ROOM_DECOR || {})[id];
+  if (!d) return 0;
+  if (d.slot === 'wall' || d.slot === 'floor') return D.ROOM_MAT_COST || 0;
+  const t = (D.ROOM_TIERS || []).find(x => x.id === d.tier);
+  return (t && t.cost) || 0;
+}
+// 지금 그 자리에 놓여 있는가 (자재는 「고른 것」이다)
+function decorWorn(id) {
+  const d = (D.ROOM_DECOR || {})[id];
+  if (!d) return false;
+  if (d.slot === 'wall') return S.roomWall === id;
+  if (d.slot === 'floor') return S.roomFloor === id;
+  return (S.roomProps || {})[d.slot] === id;
+}
+function renderDecorSheet() {
+  const tabs = decorTabList();
+  if (!tabs.some(x => x.id === decorTab)) decorTab = tabs[0].id;
+  const tt = document.getElementById('decorSheetTitle');
+  // 이모지는 **제 요소로 떼어 낸다**(`I18N.em`) — 테가 글자까지 굵게 만들면
+  // 챠콜에서 오히려 안 읽힌다 (i18n.js 의 그 규칙이다)
+  if (tt) tt.innerHTML = I18N.em(`🪄 ${T('decor_title')}`);
+  const tb = document.getElementById('decorSheetTabs');
+  if (tb) {
+    tb.innerHTML = `<div class="cat-tabs wr-tabs">${tabs.map(x => {
+      const on = decorTab === x.id;
+      return `<button class="cat-tab wr-tab ${on ? 'active' : ''}" onclick="setDecorTab('${x.id}')"
+        aria-label="${escHtml(x.name)}"${on ? ' aria-current="true"' : ''}
+        ><span class="em">${x.emoji}</span> ${escHtml(x.name)}</button>`;
+    }).join('')}</div>`;
+  }
+  const b = document.getElementById('decorSheetBody');
+  if (!b) return;
+  const list = decorItemsOf(decorTab);
+  const slot = (D.roomSlot || (() => null))(decorTab);
+  const own = list.filter(it => roomOwns(it.id)).length;
+  // 자리에는 **「비우기」 칸**이 하나 앞선다. 「누르면 벗겨진다」로 두면 그 길이
+  // 화면에 안 적혀 있어서 아무도 못 찾는다 (옷장의 '없음' 칸과 같은 자리다).
+  // ⚠️ 자재에는 안 둔다 — 벽과 바닥이 «없는» 방은 그릴 수가 없다
+  const empty = slot ? `<button class="wr-item decor-item ${!(S.roomProps || {})[decorTab] ? 'on' : ''}"
+    data-item="none" aria-label="${T('decor_empty')}" onclick="pickDecor('${decorTab}','')">
+    <span class="wr-ic">🚫</span></button>` : '';
+  const cells = list.map(it => {
+    const owned = roomOwns(it.id), on = decorWorn(it.id);
+    const cost = decorCostOf(it.id);
+    const nm = N(it.id, it.name);
+    // ⚠️ **그림은 소품 그림 그대로다**(`RoomArt.iconSvg`) — 이모지로 두면 단계 넷이
+    //    전부 같은 그림이 되어 「무엇이 달라지는가」를 아무것도 안 말한다
+    //    (머리·눈썹 칸에서 배운 그 규칙이다)
+    const ic = (window.RoomArt && RoomArt.iconSvg(it.id, 48))
+      || `<span class="wr-swatch" style="background:${(it.c && it.c[0]) || '#ccc'}"></span>`;
+    const lock = owned ? '' : `<span class="wr-lock">🔒</span>`;
+    // 값은 잠긴 칸에만 적는다 — 가진 것에 값이 붙어 있으면 또 살 수 있는 것처럼 보인다
+    const tag = (!owned && cost) ? `<span class="decor-cost">💎${cost}</span>` : '';
+    return `<button class="wr-item decor-item ${on ? 'on' : ''} ${owned ? '' : 'locked'}"
+      data-item="${it.id}" aria-label="${escHtml(nm)}${owned ? '' : ' 🔒'}"${on ? ' aria-current="true"' : ''}
+      onclick="pickDecor('${decorTab}','${it.id}')">
+      <span class="wr-ic">${ic}${lock}</span>${tag}</button>`;
+  }).join('');
+  // ⚠️ **받침이 없으면 안 보인다는 것을 «적어 준다»** (촛불·실험 도구 ↔ 탁자).
+  //    놓았는데 방이 그대로면 「고장 났다」로 읽힌다 — 판정은 표의 `on` 한 곳이다
+  const need = (slot && slot.on && !(S.roomProps || {})[slot.on])
+    ? `<div class="decor-note">${escHtml(T('decor_need_base',
+        { name: N('room_slot_' + slot.on, (D.roomSlot(slot.on) || {}).name || slot.on) }))}</div>`
+    : '';
+  b.innerHTML = `<div class="wr-head"><span class="wr-count">${T('decor_own',
+    { n: own, m: list.length })}</span><span class="wr-crystal">💎 ${(S.crystal || 0).toLocaleString()}</span></div>`
+    + need + `<div class="wr-items decor-items">${empty}${cells}</div>`;
+}
+function setDecorTab(tab) {
+  decorTab = tab;
+  renderDecorSheet();
+}
+window.setDecorTab = setDecorTab;
+// 하나를 고른다 — 가진 것이면 «놓고», 아니면 «산다». `id` 가 빈 문자열이면 비운다
+//
+// ⚠️⚠️ **놓는 문이 하나다.** 자재와 소품이 갈래는 달라도 여기 한 곳을 지나므로,
+//    다시 그리기(`render`)와 저장(`save`)을 빠뜨릴 데가 없다 — 자리마다 따로 두면
+//    한 자리만 조용히 안 바뀐다 (`equip()` 이 시트를 다시 그리는 것과 같은 자리다)
+function pickDecor(tab, id) {
+  const d = id ? (D.ROOM_DECOR || {})[id] : null;
+  if (id && !d) return;
+  if (id && !roomOwns(id)) {
+    const cost = decorCostOf(id);
+    // 값이 0 이면 상점에 없는 것이다 — 선물로만 들어온다 (표가 그렇게 못 박혀 있다)
+    if (!cost) { toast(T('decor_gift_only'), null, 2600); return; }
+    if ((S.crystal || 0) < cost) { openDiamondShop(); return; }
+    S.crystal -= cost;
+    grantDecor(id);
+    const nm = N(id, d.name);
+    toast(T('decor_bought', { name: nm, nj: josa(nm, '을를'), n: cost }), null, 3000);
+    if (window.Sfx) Sfx.play('success');
+  }
+  if (!id) {
+    delete S.roomProps[tab];
+    toast(T('decor_off'), null, 2000);
+  } else if (d.slot === 'wall') S.roomWall = id;
+  else if (d.slot === 'floor') S.roomFloor = id;
+  else {
+    S.roomProps[d.slot] = id;
+    const nm = N(id, d.name);
+    toast(T('decor_put', { name: nm, nj: josa(nm, '을를') }), null, 2000);
+  }
+  save();
+  // ⚠️⚠️ **시트도 같이 다시 그린다.** `render()` 는 방과 버튼만 갈아 끼우므로,
+  //    안 부르면 **고른 칸에 테가 안 옮겨 간다** — 「눌렀는데 아무 일도 없다」로 보인다
+  //    (`equip()` 이 칸 시트를 다시 그리는 그 자리와 같은 사고다)
+  render();
+  renderDecorSheet();
+}
+window.pickDecor = pickDecor;
+function openDecorSheet(tab) {
+  if (tab) decorTab = tab;
+  renderDecorSheet();
+  const m = document.getElementById('decorSheet');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+}
+function closeDecorSheet() {
+  const m = document.getElementById('decorSheet');
+  if (m) m.classList.remove('show');
+}
+window.openDecorSheet = openDecorSheet;
+window.closeDecorSheet = closeDecorSheet;
+
 // 왼쪽 아래 버튼 줄 — **표에서 뽑는다.** `sheet: true` 를 한 줄 붙이면 버튼도 저절로
 // 생긴다 (목록을 따로 적어 두면 칸을 늘렸을 때 한쪽만 고친다).
 // **여는 조건은 `S.tutorialDone` 하나다** — 다섯 방 버튼(`ROOM_ACTS`)과 달리 이야기가
@@ -6205,7 +6484,13 @@ window.closeSlotSheet = closeSlotSheet;
 function renderSoloActs() {
   const box = document.getElementById('roomSolo');
   if (!box) return;
-  box.innerHTML = !S.tutorialDone ? '' : soloSlots().map(m => {
+  // ⚠️⚠️ **🪄 꾸미기가 맨 앞이다.** 표정·문신은 «사람»을 고치고 이쪽은 «방»을 고치는데,
+  //    여기는 마이 룸이라 방이 먼저다. 표에서 뽑지 않는 유일한 버튼이라 이 한 줄이다 —
+  //    꾸미기는 옷장 칸이 아니고(`WARDROBE_SLOTS` 에 없다) 시트도 따로다
+  const decorBtn = `<button class="room-act" data-slot="decor" onclick="openDecorSheet()">
+    <span class="act-ic" aria-hidden="true">🪄</span><span>${escHtml(T('act_decor'))}</span>
+  </button>`;
+  box.innerHTML = !S.tutorialDone ? '' : decorBtn + soloSlots().map(m => {
     // ⚠️ 그림은 **«지금 걸려 있는 것»**이다 — 표에 박힌 그림이 아니다.
     // 그래야 버튼이 「무엇을 고르는 자리인가」(라벨)와 「지금 무엇인가」(그림)를
     // 같이 말한다 (「표정 이모지를 현재 아바타의 표정이 나오도록」으로 받은 자리다).
@@ -7914,7 +8199,7 @@ async function shareCardBlob() {
     const w = 400 * k, h = 320 * k;
     ctx.save();
     ctx.beginPath(); ctx.rect(0, 0, CARD_W, CARD_ROOM_H); ctx.clip();
-    ctx.drawImage(await svgToImage(Avatar.roomScene(S.roomLevel), Math.round(w), Math.round(h)),
+    ctx.drawImage(await svgToImage(Avatar.roomScene(S.roomLevel, roomDecorState()), Math.round(w), Math.round(h)),
       (CARD_W - w) / 2, CARD_ROOM_H - h, w, h);   // xMid YMax
     ctx.restore();
   }

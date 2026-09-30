@@ -580,7 +580,12 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
     pot: S.cauldronId, shoes: S.outfit.shoes,
     layerOn: document.getElementById('tut').classList.contains('on'),
     creatureOpen: !document.querySelector('.room-tab[data-rtab="creatures"]').classList.contains('locked'),
-    wardrobeTabs: document.querySelectorAll('.wr-tab').length,
+    // ⚠️⚠️ **몇 칸이어야 하는지를 «박지 않는다» — 표에 물어본다.** 11 을 적어 두었다가
+    //    표정·문신·눈썹이 옷장 탭 줄에서 제 시트로 나간 뒤(`sheet: true`) 아홉이 됐고,
+    //    **그날부터 이 검사가 계속 빨갰다** (그 고침과 상관없는 자리인데 그랬다).
+    // ⚠️ `#wardrobe` 안으로 좁힌다 — 칸 시트·꾸미기 시트의 갈래 탭도 `.wr-tab` 이다
+    wardrobeTabs: document.querySelectorAll('#wardrobe .wr-tab').length,
+    wardrobeWant: (window.GameData.WARDROBE_SLOTS || []).filter(m => !m.sheet).length,
     brews: S.record.brews, drinks: S.record.drinks, gathered: S.record.gathered,
     // 바디파츠 — 졸업할 때 «전부 상한»에서 시작해야 한다.
     // ⚠️ 상한은 부위마다 다를 수 있으므로 `tuneMaxOf` 에게 물어본다 (150 을 안 박는다)
@@ -642,7 +647,9 @@ const CLICKABLE = '.tab-btn, .room-tab, .recipe-row, .cauldron-actions .btn-prim
   // 졸업 선물은 **신발**이다 — 아바타가 맨발(`shoes_none`)로 서 있던 자리를 채운다
   if (fin.shoes !== 'shoes_maryjane') bad.push('선물받은 구두를 신지 않았다 (' + fin.shoes + ')');
   if (!fin.creatureOpen) bad.push('크리처 탭이 안 열렸다');
-  if (fin.wardrobeTabs < 11) bad.push('옷장 칸이 안 열렸다 (' + fin.wardrobeTabs + '칸)');
+  if (fin.wardrobeTabs < fin.wardrobeWant) {
+    bad.push(`옷장 칸이 안 열렸다 (${fin.wardrobeTabs}칸 · ${fin.wardrobeWant}칸이어야 한다)`);
+  }
   if (fin.pot !== 'cd_iron') bad.push('3구 무쇠 솥으로 안 바뀌었다 (' + fin.pot + ')');
   bad.push(...errs);
 

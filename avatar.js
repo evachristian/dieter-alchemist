@@ -3992,16 +3992,16 @@
   // ═══════════════════════════════════════════════════════════════
   //  마이 룸 배경 — 5단계로 커지는 방
   //
-  //  구조는 **껍데기(shell) + 소품(prop)** 두 겹이다.
-  //  · 껍데기 = 벽 · 창문 · 바닥. 단계에 따라 색만 바뀌고 형태는 그대로다
-  //  · 소품   = 이름이 붙은 조각들(`ROOM_PROPS`). 단계마다 어떤 소품을 놓을지
-  //             `ROOM_LEVELS` 가 id 목록으로 정한다
+  //  구조는 **껍데기(shell) + 꾸민 것(decor)** 두 겹이다.
+  //  · 껍데기 = 벽 · 창문 · 바닥 + 단계가 정하는 조각들(`ROOM_PROPS` · `ROOM_LEVELS`) —
+  //             금 · 거미줄 · 굽도리 · 몰딩 · 아치 · 창틀 금장식 · 마법진
+  //  · 꾸민 것 = **사람이 고른 것**이다 — 벽지 · 바닥재 · 자리 아홉의 소품
+  //             (`D.ROOM_SLOTS` · `D.ROOM_DECOR` · 세이브의 `S.roomWall/roomFloor/roomProps`)
   //
-  //  **추후 '마이 룸 꾸미기' 를 붙일 자리가 여기다.** 소품이 id 로 구분돼 있으므로
-  //  플레이어가 고른 소품 id 목록을 `roomScene(level, extra)` 의 `extra` 로 넘기면
-  //  그대로 얹힌다 — 단계별 기본 소품은 건드리지 않는다.
-  //  그리는 순서는 `ROOM_Z`(뒤→앞)가 정한다. 목록에 넣은 순서와 무관하게
-  //  항상 같은 앞뒤 관계로 겹치게 하려는 것이다.
+  //  ⚠️⚠️ **꾸민 소품의 «그림»은 여기 없다** — `roomart.js` 의 `SLOT_ART` 한 곳이고,
+  //  여기서는 그 캔버스를 data URL 로 `<image>` 에 얹는다. 3D 방(`room3d.js`)이
+  //  **같은 캔버스**를 텍스처로 굽는다 — 그래서 WebGL 이 없는 기기에서도 같은 방이다.
+  //  그리는 순서는 `ROOM_Z`(뒤→앞)가 정하고, `#자리` 가 꾸미기 자리를 가리킨다.
   //
   //  (viewBox를 넓게 잡고 CSS에서 전체 폭으로 슬라이스 → 네모 프레임 없이 열린 방)
   //  가운데(x 150~250)는 아바타가 서는 자리라 소품을 놓지 않는다.
@@ -4061,9 +4061,13 @@
 
   // ─── 단계별 색 (벽 위/아래, 바닥 위/아래, 벽 이음새, 창틀) ───
   const ROOM_MAX = 5;
-  // 시작 단계. 1단계는 거미줄·균열까지 있는 '텅 빈 골방' 이라 첫인상으로는 너무 휑하다 —
-  // 기본은 선반과 러그가 놓인 2단계로 두고, 1단계는 아래로 내려갈 자리로 남겨 둔다.
-  const ROOM_DEFAULT = 2;
+  // ⚠️⚠️ **시작은 «창문 하나만 있는 방»이다** (사람이 그렇게 정했다 — 「공주는 처음에
+  //    창문 하나만 있는 방으로 진입하고, 나머지 벽과 바닥은 모두 비어 있도록」).
+  //    예전에는 2단계(선반 + 러그)로 시작했는데, 그러면 **꾸미기가 시작될 자리가 없다** —
+  //    이미 놓여 있는 방을 「꾸민다」고 하면 갈아 끼우기밖에 남지 않는다.
+  // ⚠️ 그래서 «빼앗는 것»이 아니다: 예전에 2단계에서 보이던 러그·책장은 이제
+  //    2단계에 «선물로 들어온다»(`D.ROOM_LEVEL_GIFT`) — 놓는 것은 사람이 정한다
+  const ROOM_DEFAULT = 1;
   // ⚠️⚠️ **마이 룸에서는 헤더가 «비어» 있다 — 이 그림이 화면 꼭대기까지 그대로 간다.**
   //    한때 방의 맨 윗줄을 `--head` 로 칠해 헤더와 색을 맞췄는데(`HEAD_BLEND`),
   //    그것은 **불투명한 헤더가 그림을 덮고 있다는 전제**에서 나온 고침이었다.
@@ -4092,6 +4096,14 @@
   // (「양탄자 중심보다 살짝 위에 서 있다」로 신고받았다 · 큰 카펫이 ry 38 이라 6칸 넘쳤다).
   // `checkavatar` 의 「서는 자리」가 **그려진 상자와 mask 를 읽어** 지킨다
   const FLOOR_RY = 24;
+  // ⚠️⚠️ **인물과 카메라의 기준은 «양탄자»가 아니라 이 자리다** (`floorMark`).
+  //    예전에는 3D 카메라와 `placeFigure` 가 **그려진 양탄자**를 재서 맞췄는데,
+  //    양탄자가 «사람이 고르는 소품»이 되면서 **없을 수도 있는 것**이 됐다 —
+  //    없으면 기준이 통째로 사라진다 (그러면 인물이 방 한가운데로 떠오른다).
+  //    그래서 «보이지 않는 기준»을 못 박는다: 가운데 (200, FLOOR_SPOT) · 반폭 FLOOR_HALF.
+  // ⚠️ 값은 큰 카펫의 그 폭(rx 150)이다 — 그래서 **양탄자를 깐 방은 한 픽셀도 안 바뀐다**
+  const FLOOR_HALF = 150;
+  function floorMark() { return { cx: 200, cy: FLOOR_SPOT, half: FLOOR_HALF }; }
   // 돌벽 이음새의 «세로 줄» — 60칸짜리 띠 넷이 돌아가며 쓴다 (천장을 올려도 이어진다)
   const SEAM_COLS = [[60, 210, 330], [20, 140, 250], [90, 360], []];
   const ROOM_PROPS = {
@@ -4133,85 +4145,12 @@
       }
       return s;
     },
-    // 액자 (좌측 벽)
-    frame: k => `
-      <rect x="86" y="70" width="46" height="56" rx="3" fill="${k.frame}"/>
-      <rect x="92" y="76" width="34" height="44" rx="2" fill="#cfd9e8"/>
-      <path d="M92,120 L104,98 L114,110 L122,92 L126,120 Z" fill="#8aa87e"/>
-      <circle cx="116" cy="88" r="5" fill="#f5e08a"/>`,
-    // 벽 촛대
-    candle: () => `
-      <g>
-        <rect x="46" y="96" width="6" height="16" rx="2" fill="#8a6f4a"/>
-        <rect x="40" y="76" width="18" height="22" rx="3" fill="#f3ead6"/>
-        <ellipse cx="49" cy="70" rx="5" ry="8" fill="#ffcf6a"/>
-        <ellipse cx="49" cy="70" rx="11" ry="15" fill="#ffcf6a" opacity="0.22"/>
-        <rect x="366" y="96" width="6" height="16" rx="2" fill="#8a6f4a"/>
-        <rect x="360" y="76" width="18" height="22" rx="3" fill="#f3ead6"/>
-        <ellipse cx="369" cy="70" rx="5" ry="8" fill="#ffcf6a"/>
-        <ellipse cx="369" cy="70" rx="11" ry="15" fill="#ffcf6a" opacity="0.22"/>
-      </g>`,
-    // 낡은 선반 + 약병 (좌측)
-    shelf: k => `
-      <rect x="24" y="176" width="92" height="7" rx="2" fill="${k.frame}"/>
-      <rect x="38" y="152" width="13" height="24" rx="4" fill="#5f7a6a"/>
-      <rect x="60" y="158" width="12" height="18" rx="5" fill="#7a5f6a"/>
-      <rect x="82" y="148" width="12" height="28" rx="4" fill="#6a6a4a"/>`,
-    // 책장 (좌측 바닥까지)
-    bookshelf: k => `
-      <rect x="12" y="118" width="86" height="122" rx="4" fill="${k.frame}"/>
-      <rect x="18" y="124" width="74" height="110" fill="rgba(0,0,0,0.28)"/>
-      <g>
-        <rect x="22" y="128" width="9" height="32" fill="#a8556a"/><rect x="33" y="132" width="8" height="28" fill="#5f7a9a"/>
-        <rect x="43" y="126" width="10" height="34" fill="#6a8a5f"/><rect x="55" y="134" width="8" height="26" fill="#c08a4a"/>
-        <rect x="65" y="130" width="9" height="30" fill="#8a6a9a"/>
-        <rect x="22" y="172" width="8" height="30" fill="#7a9a8a"/><rect x="32" y="176" width="10" height="26" fill="#b06a6a"/>
-        <rect x="44" y="170" width="9" height="32" fill="#5f6a9a"/><rect x="55" y="178" width="8" height="24" fill="#9a8a4a"/>
-      </g>
-      <rect x="18" y="162" width="74" height="6" fill="${k.frame}"/>
-      <rect x="18" y="204" width="74" height="6" fill="${k.frame}"/>`,
-    // 화분 (우측 창 아래)
-    plant: () => `
-      <path d="M356,240 L352,214 L382,214 L378,240 Z" fill="#a86a4a"/>
-      <rect x="350" y="208" width="34" height="9" rx="3" fill="#bd7a56"/>
-      <g fill="#6f9a63">
-        <ellipse cx="358" cy="196" rx="8" ry="14" transform="rotate(-24 358 196)"/>
-        <ellipse cx="374" cy="196" rx="8" ry="14" transform="rotate(24 374 196)"/>
-        <ellipse cx="366" cy="188" rx="7" ry="16"/>
-      </g>`,
-    // 창문 커튼
-    curtain: () => `
-      <rect x="${WIN.fx - 14}" y="${WIN.fy - 12}" width="${WIN.fw + 28}" height="7" rx="3" fill="#8a6f4a"/>
-      <path d="M${WIN.fx - 12},${WIN.fy - 8} L${WIN.fx + 12},${WIN.fy - 8} L${WIN.fx + 6},${WIN.fy + WIN.fh + 8}
-        Q${WIN.fx - 2},${WIN.fy + WIN.fh + 2} ${WIN.fx - 12},${WIN.fy + WIN.fh + 8} Z" fill="#9a5f72"/>
-      <path d="M${WIN.fx + WIN.fw - 12},${WIN.fy - 8} L${WIN.fx + WIN.fw + 12},${WIN.fy - 8}
-        L${WIN.fx + WIN.fw + 12},${WIN.fy + WIN.fh + 8}
-        Q${WIN.fx + WIN.fw + 2},${WIN.fy + WIN.fh + 2} ${WIN.fx + WIN.fw - 6},${WIN.fy + WIN.fh + 8} Z" fill="#9a5f72"/>
-      <g stroke="rgba(0,0,0,0.16)" stroke-width="2" fill="none">
-        <path d="M${WIN.fx - 4},${WIN.fy - 6} L${WIN.fx + 1},${WIN.fy + WIN.fh}"/>
-        <path d="M${WIN.fx + WIN.fw + 4},${WIN.fy - 6} L${WIN.fx + WIN.fw - 1},${WIN.fy + WIN.fh}"/>
-      </g>`,
     // 창틀 황금 장식
     goldTrim: () => `
       <rect x="${WIN.fx - 4}" y="${WIN.fy - 4}" width="${WIN.fw + 8}" height="${WIN.fh + 8}" rx="10"
         fill="none" stroke="#d9b45f" stroke-width="3"/>
       <circle cx="${WIN.fx + WIN.fw / 2}" cy="${WIN.fy - 10}" r="7" fill="#d9b45f"/>
       <circle cx="${WIN.fx + WIN.fw / 2}" cy="${WIN.fy - 10}" r="3" fill="#fff2c4"/>`,
-    // 작은 러그
-    rugSmall: () => `
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="96" ry="${FLOOR_RY}" fill="#8a5f6a" opacity="0.75"/>
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="76" ry="17" fill="none" stroke="rgba(255,235,205,0.4)" stroke-width="2"/>`,
-    // 큰 카펫
-    // ⚠️⚠️ **바닥 타원은 «방 안에» 다 들어와야 한다** (`FLOOR_SPOT + ry ≤ RUG_ROOM`).
-    //    ry 38 이면 밑끝이 326 이라 바닥 끝(320)을 6칸 넘어서 **앞 테두리가 잘렸고**,
-    //    잘린 양탄자는 「화면 밖으로 이어지는 것」으로 읽혀 **인물이 뒤쪽에 선 것처럼**
-    //    보였다 (「양탄자 중심보다 살짝 위에 서 있다」로 신고받았다).
-    //    26 은 작은 러그·마법진과 같은 값이고, 그려 놓고 넷(38·30·26·22)을 견줘 골랐다
-    rugBig: () => `
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="150" ry="${FLOOR_RY}" fill="#8e3f4e"/>
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="150" ry="${FLOOR_RY}" fill="none" stroke="#d9b45f" stroke-width="3"/>
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="120" ry="17" fill="none" stroke="#d9b45f" stroke-width="2" opacity="0.7"/>
-      <ellipse cx="200" cy="${FLOOR_SPOT}" rx="60" ry="9" fill="#a04d5c"/>`,
     // 바닥 마법진
     circle: () => `
       <g fill="none" stroke="#cba8f0" stroke-width="2" opacity="0.75">
@@ -4223,46 +4162,79 @@
         <circle cx="96" cy="${FLOOR_SPOT}" r="3"/><circle cx="304" cy="${FLOOR_SPOT}" r="3"/>
         <circle cx="200" cy="${FLOOR_SPOT - 16}" r="3"/><circle cx="200" cy="${FLOOR_SPOT + 16}" r="3"/>
       </g>`,
-    // 샹들리에 (천장 · 아바타 머리 위를 피해 위쪽에만)
-    chandelier: (k, top) => `
-      <line x1="200" y1="${top || 0}" x2="200" y2="22" stroke="#8a6f4a" stroke-width="3"/>
-      <ellipse cx="200" cy="28" rx="46" ry="9" fill="none" stroke="#d9b45f" stroke-width="4"/>
-      <g fill="#ffcf6a">
-        <rect x="162" y="16" width="6" height="13" rx="2" fill="#f3ead6"/><ellipse cx="165" cy="12" rx="4" ry="6"/>
-        <rect x="197" y="14" width="6" height="15" rx="2" fill="#f3ead6"/><ellipse cx="200" cy="9" rx="4" ry="6"/>
-        <rect x="232" y="16" width="6" height="13" rx="2" fill="#f3ead6"/><ellipse cx="235" cy="12" rx="4" ry="6"/>
-      </g>
-      <ellipse cx="200" cy="24" rx="62" ry="24" fill="#ffcf6a" opacity="0.16"/>
-      <g fill="#ffe9a8" opacity="0.8">
-        <circle cx="176" cy="38" r="2.5"/><circle cx="200" cy="42" r="2.5"/><circle cx="224" cy="38" r="2.5"/>
-      </g>`,
   };
 
   // 그리는 순서(뒤 → 앞). 벽 → 창문 → 바닥 → 천장 순서로 겹친다.
+  //
+  // ⚠️⚠️ **`#` 로 시작하는 것은 «꾸미기 자리»다** (`D.ROOM_SLOTS` 의 id). 그 자리에
+  //    무엇이 놓이는지는 사람이 정하므로 여기서는 «순서»만 말한다 — 표에 자리를
+  //    늘리면 여기에도 한 줄 넣는다 (안 넣으면 그 소품이 조용히 안 그려진다 ·
+  //    `checkdata` 가 그것을 잡는다)
   const ROOM_Z = [
-    'wainscot', 'moulding', 'arches', 'crack', 'cobweb', 'frame', 'candle', 'bookshelf', 'shelf',
+    'wainscot', 'moulding', 'arches', 'crack', 'cobweb', '#shelf', '#sconce',
     '@window',
-    'curtain', 'goldTrim', 'plant',
+    '#curtain', 'goldTrim',
     '@floor',
-    'rugSmall', 'rugBig', 'circle',
+    '#rug', 'circle',
     '@beam',
-    'chandelier',
+    '#winplant', '#table', '#gear', '#candle',
+    '#chandelier',
   ];
 
-  // 단계별 기본 소품. 위 단계라고 아래 것을 다 물려받지는 않는다 —
-  // 거미줄·균열은 방이 좋아지면 사라지고, 작은 러그는 큰 카펫으로 바뀐다.
+  // ─── 단계는 «껍데기»만 정한다 ─────────────────────────────────
+  //
+  // ⚠️⚠️ **예전에는 여기가 소품 목록이었다.** 그러면 단계가 「무엇이 놓이는가」를
+  //    정해 버려서 사람이 고를 자리가 없다 — 그래서 소품은 통째로 꾸미기 쪽으로
+  //    옮겼고(`S.roomProps`), 단계가 남긴 일은 둘이다:
+  //      ① 방의 «껍데기» — 금 · 거미줄 · 굽도리 · 몰딩 · 아치 · 창틀 금장식 · 마법진
+  //      ② 오를 때 **소품 한 벌을 선물한다** (`D.ROOM_LEVEL_GIFT` · game.js 가 준다)
+  // ⚠️ 위 단계라고 아래 것을 다 물려받지는 않는다 — 거미줄·균열은 방이 좋아지면 사라진다
   const ROOM_LEVELS = {
     1: ['crack', 'cobweb'],
-    2: ['crack', 'shelf', 'rugSmall'],
-    3: ['wainscot', 'shelf', 'frame', 'curtain', 'plant', 'rugSmall'],
-    4: ['wainscot', 'moulding', 'bookshelf', 'shelf', 'frame', 'candle', 'curtain', 'plant', 'rugBig'],
-    5: ['wainscot', 'moulding', 'arches', 'bookshelf', 'frame', 'candle', 'curtain', 'goldTrim',
-        'plant', 'rugBig', 'circle', 'chandelier'],
+    2: ['crack'],
+    3: ['wainscot'],
+    4: ['wainscot', 'moulding'],
+    5: ['wainscot', 'moulding', 'arches', 'goldTrim', 'circle'],
   };
+
+  // ─── 꾸민 것을 그림으로 ───────────────────────────────────────
+  //
+  // ⚠️⚠️ **소품 그림은 `RoomArt` 한 곳에서 온다.** 3D 방이 텍스처로 굽는 그 캔버스를
+  //    여기서는 data URL 로 얹는다 — 그래서 **WebGL 이 없는 기기에서도 같은 방**이고,
+  //    소품을 예쁘게 고치면 두 화면에 같이 온다. SVG 로 한 벌 더 그리면 사본이 갈린다
+  //    (`ROOM.md` 3장 · 이 저장소에서 사본이 갈린 사고가 몇 번인지 세기도 어렵다).
+  // ⚠️ `RoomArt` 가 없으면(파일이 안 왔거나 캔버스를 못 만들면) **그 자리만 빈다** —
+  //    방 자체는 그대로 선다. 대체 그림을 두지 않는 이유는 `escHtml` 에서 배운 그것이다:
+  //    보조 길이 있으면 배선이 끊겼을 때 조용히 다른 모양으로 떨어진다
+  function decorImage(slotId, decor) {
+    const D = window.GameData;
+    if (!D || !window.RoomArt) return '';
+    const slot = (D.roomSlot || (() => null))(slotId);
+    if (!slot) return '';
+    const id = (decor.props || {})[slotId];
+    if (!id) return '';
+    // ⚠️ **무엇 위에 놓이는 것은 받침이 없으면 안 보인다** (촛불·실험 도구 ↔ 탁자).
+    //    이 판정을 두 renderer 가 따로 하면 한쪽에서만 공중에 뜬다 — 표의 `on` 한 곳이다
+    if (slot.on && !(decor.props || {})[slot.on]) return '';
+    const u = window.RoomArt.url(id);
+    if (!u) return '';
+    const [x, y, w, h] = slot.p2;
+    const one = (xx) => `<image href="${u}" x="${xx}" y="${y}" width="${w}" height="${h}"`
+      + ` preserveAspectRatio="none"/>`;
+    // 벽등은 «한 쌍»이다 — 좌우 대칭으로 둘을 찍는다 (3D 도 같다)
+    return slot.kind === 'pair' ? one(x) + one(400 - x - w) : one(x);
+  }
+  // 세이브의 꾸미기 상태를 그리기에 쓸 모양으로 — **기본값은 표가 갖는다**
+  function decorOf(decor) {
+    const D = window.GameData || {};
+    const st = D.ROOM_START || {};
+    const d = decor && typeof decor === 'object' ? decor : {};
+    return { wall: d.wall || st.wall, floor: d.floor || st.floor, props: d.props || {} };
+  }
 
   // 마이 룸 배경 — 텔레포트해 온 연금술 공방이 단계에 따라 번듯해진다 (창문은 우측)
   // level : 1~5 (기본 1)
-  // extra : 추가로 얹을 소품 id 목록 — 추후 '마이 룸 꾸미기' 가 쓸 자리
+  // decor : 꾸미기 상태 `{ wall, floor, props: { 자리: 소품id } }`
   // padBottom — **방을 아래로 더 그린다.** 스탯을 접었을 때 그 자리를 방 배경이
   // 이어받게 하려는 것이다.
   //
@@ -4270,7 +4242,7 @@
   // 늘어난 만큼 **좌우가 잘린다** (선반과 창문이 화면 밖으로 나간다).
   // 그래서 viewBox 자체를 늘리고 **바닥을 진짜로 더 그린다** — 원근선도 기울기를
   // 그대로 이어서 연장하므로 이음매가 생기지 않는다.
-  function roomScene(level, extra, padBottom, padTop) {
+  function roomScene(level, decor, padBottom, padTop) {
     const pad = Math.max(0, Math.round(Number(padBottom) || 0));
     const H = 320 + pad;
     // ⚠️ **천장도 같은 규칙으로 올린다** (padTop · 아래와 짝이다). 상자만 키우면
@@ -4283,8 +4255,17 @@
     // (5단계 미리보기를 나란히 놓다가 실제로 겪었다). 그래서 부를 때마다 꼬리표를 붙인다.
     const u = 'r' + (++roomUid);
     const ID = n => `${n}_${u}`;
-    const k = ROOM_SKIN[lv];
-    const want = new Set(ROOM_LEVELS[lv].concat(Array.isArray(extra) ? extra : []));
+    // ⚠️⚠️ **벽지·바닥재는 «사람이 고른 것»이 이긴다.** 단계의 색(`ROOM_SKIN`)은
+    //    창틀(`frame`)에만 남는다 — 벽과 바닥을 단계가 정하면 고른 자재가 안 보인다.
+    //    자재를 못 찾으면 단계 색으로 떨어진다 (표가 비어도 방은 선다)
+    const dec = decorOf(decor);
+    const GD = window.GameData || {};
+    const wallDef = (GD.ROOM_WALLS || []).find(x => x.id === dec.wall);
+    const floorDef = (GD.ROOM_FLOORS || []).find(x => x.id === dec.floor);
+    const k = Object.assign({}, ROOM_SKIN[lv],
+      wallDef ? { wall: wallDef.c, seam: wallDef.seam } : null,
+      floorDef ? { floor: [floorDef.c[0], floorDef.c[floorDef.c.length - 1]] } : null);
+    const want = new Set(ROOM_LEVELS[lv]);
 
     const phase = skyPhase();
     const sky = skyView(phase, ID('skyDyn'));
@@ -4337,7 +4318,11 @@
       L${(WIN.ix + WIN.iw + bW).toFixed(1)},${H} L${(WIN.ix - bW).toFixed(1)},${H} Z" fill="url(#${ID('beamG')})"/>`;
 
     const FIXED = { '@window': win, '@floor': floor, '@beam': beam };
-    const body = ROOM_Z.map(id => FIXED[id] || (want.has(id) && ROOM_PROPS[id] ? ROOM_PROPS[id](k, top) : '')).join('');
+    const body = ROOM_Z.map(id => {
+      if (FIXED[id]) return FIXED[id];
+      if (id[0] === '#') return decorImage(id.slice(1), dec);
+      return want.has(id) && ROOM_PROPS[id] ? ROOM_PROPS[id](k, top) : '';
+    }).join('');
 
     return `<svg class="room-svg" viewBox="0 ${top} 400 ${H - top}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
       <defs>
@@ -4391,6 +4376,6 @@
   window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, hairIcon, browIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
     heartPath, heartEye, HEART,
-    partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT,
-    ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS };
+    partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT, FLOOR_HALF, floorMark,
+    ROOM_MAX, ROOM_DEFAULT, ROOM_PROPS, ROOM_LEVELS, ROOM_Z };
 })();

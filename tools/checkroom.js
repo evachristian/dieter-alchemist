@@ -28,6 +28,7 @@ const WALL_MIN = 0.6;   // 머리 위 띠에서 벽이 덮는 몫
 // ⚠️ 문턱을 0.02 로 두면 **그림자가 번진 몫까지** 잡혀 방 전체가 양탄자가 된다
 //    (265px 에서 264px 짜리 「양탄자」가 나왔다)
 const DIFF = 0.06, RUN = 30;
+const SPIN_DIFF = 0.012;   // 둘러보기는 «같은 벽이 미끄러지는» 것이라 차이가 작다
 
 function mask(A, B) {
   const rows = [];
@@ -52,7 +53,22 @@ function mask(A, B) {
     await page.addInitScript(() => {
       localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
       localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
-        { ver: 8, name: 'Tester', nameClaimed: true, tutorialDone: true, roomLevel: 5 }));
+        // ⚠️⚠️ **양탄자를 «깔아 놓고» 잰다.** 양탄자는 이제 사람이 고르는 소품이라
+        //    기본 방에는 아예 없다 — 안 깔면 아래의 「양탄자 찾기」가 0줄을 내고
+        //    **이 검사가 통째로 아무것도 안 잰다** (0건이 「통과」가 아닌 그 자리다).
+        // ⚠️ 카메라·인물의 기준은 양탄자가 «아니라» 못 박은 자리(`Avatar.floorMark`)다.
+        //    그래서 여기서 재는 것은 **「그려진 양탄자가 그 기준과 맞는가」**이고,
+        //    맞지 않으면 ①(발)·②(SVG)가 잡는다 — 잣대를 화면 쪽에 두는 것이 요점이다
+        // ⚠️ **아홉을 «다» 놓는다** — 빈 방은 벽과 바닥뿐이라 거의 좌우 대칭이어서,
+        //    둘러봐도 그림이 0.2% 밖에 안 달라진다 (「돌았는가」를 못 가른다)
+        { ver: 18, name: 'Tester', nameClaimed: true, tutorialDone: true, roomLevel: 5,
+          roomOwned: ['rw_lime', 'rf_pine', 'rp_rug_royal', 'rp_shelf_royal', 'rp_sconce_royal',
+            'rp_table_royal', 'rp_candle_royal', 'rp_gear_royal', 'rp_curtain_royal',
+            'rp_winplant_royal', 'rp_chandelier_royal'],
+          roomProps: { rug: 'rp_rug_royal', shelf: 'rp_shelf_royal', sconce: 'rp_sconce_royal',
+            table: 'rp_table_royal', candle: 'rp_candle_royal', gear: 'rp_gear_royal',
+            curtain: 'rp_curtain_royal', winplant: 'rp_winplant_royal',
+            chandelier: 'rp_chandelier_royal' } }));
     });
     await page.goto(BASE, { waitUntil: 'load' });
     // ⚠️ 3D 는 670KB 를 받고 서므로 **기다린다** — 안 기다리면 SVG 를 재고 통과한다
@@ -62,6 +78,15 @@ function mask(A, B) {
       const s = document.getElementById('splash'); if (s) s.remove();
       const i = document.getElementById('intro'); if (i) i.style.display = 'none';
       switchTab('showcase');
+      // ⚠️⚠️ **방 위에 얹힌 «버튼 줄»을 치우고 잰다.** 🪄 꾸미기·표정·문신 버튼이
+      //    방 그림 왼쪽 아래에 불투명하게 앉아 있어서 **양탄자의 왼쪽 자락을 덮는다** —
+      //    그대로 재면 diff 의 가운데가 오른쪽으로 밀려 **발이 16.5px 벗어난 것으로**
+      //    잡히고(390px), 265px 에서는 남는 줄이 다섯뿐이라 **아무것도 못 잰다.**
+      //    그림이 틀린 것이 아니라 잰 조건이 틀린 것이다 (78건 유령의 그 종류다).
+      //    ⚠️ 이 버튼들이 «방을 가린다»는 것 자체는 사람이 정한 배치라 여기서 안 본다
+      ['roomSolo', 'roomSpin'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.style.visibility = 'hidden';
+      });
     });
     await page.waitForTimeout(500);
     if (!await page.evaluate(() => !!document.querySelector('.room-scene.is3d'))) {
@@ -79,17 +104,41 @@ function mask(A, B) {
         width: Math.round(r.width), height: Math.round(r.height) };
     });
     const shot = async (c) => pngLumGrid(await page.screenshot({ clip: c || box }));
+    // ⚠️ 소품은 «자리»에 들어 있다 — 조각을 이름으로 바로 집지 않는다
+    //    (`room3d.parts.units[자리].us[].grp`). 표에서 자리를 늘려도 따라온다
     const show = (what, on) => page.evaluate(([w, o]) => {
-      const p = room3d.parts[w];
-      (Array.isArray(p) ? p : [p]).forEach(m => { m.visible = o; });
+      const u = room3d.parts.units[w];
+      const list = u ? u.us.map(x => x.grp) : [].concat(room3d.parts[w] || []);
+      list.forEach(m => { if (m) m.visible = o; });
       room3d.render();
     }, [what, on]);
+    // ⚠️⚠️ **소품을 껐다 켜고 잰다 — 안 그러면 다른 소품이 양탄자·벽을 «가린다».**
+    //    탁자와 화분이 러그의 오른쪽 자락 위에 서 있어서, 그대로 러그만 껐다 켜면
+    //    diff 에 왼쪽 자락만 남아 **가운데가 16.5px 왼쪽으로 밀렸다**(390px).
+    //    샹들리에는 머리 «뒤»에 걸려 「벽이 덮는 몫」을 29% 로 떨어뜨렸다 —
+    //    둘 다 그림이 틀린 것이 아니라 **잰 조건이 틀린 것**이다 (78건 유령의 그 종류다)
+    const setProps = (on, except) => page.evaluate(([o, ex]) => {
+      Object.keys(room3d.parts.units).forEach(k => {
+        if (k === ex) return;
+        room3d.parts.units[k].us.forEach(u => { u.grp.visible = !!(o && u.mesh); });
+      });
+      room3d.render();
+    }, [on, except || '']);
+    // ⚠️⚠️ **인물도 잠시 치운다 — 265px 에서는 인물이 방 폭의 «83%» 를 덮는다.**
+    //    (아바타 상자가 23~242px · 방이 265px) 그래서 양탄자가 치마 뒤로 통째로
+    //    숨어 **잴 줄이 아홉뿐**이었다. 자리를 재는 데 인물은 상관이 없고,
+    //    `visibility` 라 상자는 그대로 남아 **발은 그대로 잰다**
+    const setFigure = (on) => page.evaluate((o) => {
+      const a = document.querySelector('.char-aura');
+      if (a) a.style.visibility = o ? '' : 'hidden';
+    }, on);
 
-    // ── 양탄자 찾기
+    // ── 양탄자 찾기 (다른 소품은 잠시 치운다)
+    await setProps(false, 'rug'); await setFigure(false); await page.waitForTimeout(60);
     const A = await shot();
     await show('rug', false); await page.waitForTimeout(60);
     const B = await shot();
-    await show('rug', true); await page.waitForTimeout(60);
+    await show('rug', true); await setProps(true); await setFigure(true); await page.waitForTimeout(60);
     if (!A || !B || A.l.length !== B.l.length) { bad.push(`${W}px: 방을 못 찍었다`); await page.close(); continue; }
     const rows = mask(A, B);
     if (rows.length < 10) { bad.push(`${W}px: 양탄자를 못 찾았다 (${rows.length}줄)`); await page.close(); continue; }
@@ -119,8 +168,10 @@ function mask(A, B) {
       const r = document.querySelector('.room-scene').getBoundingClientRect();
       const s = document.querySelector('.room-2d .room-svg');
       if (!s) return null;
+      // ⚠️ SVG 의 양탄자는 이제 «이모지도 타원도 아니라» 소품 그림(`<image>`)이다 —
+      //    `RoomArt` 가 구운 캔버스를 data URL 로 얹은 것이라 3D 와 같은 그림이다
       let best = null;
-      s.querySelectorAll('ellipse').forEach(e => {
+      s.querySelectorAll('image').forEach(e => {
         const b = e.getBoundingClientRect();
         if (b.width > 40 && b.top > r.top + r.height * 0.4 && (!best || b.width > best.width)) best = b;
       });
@@ -156,10 +207,11 @@ function mask(A, B) {
     else {
       const band = { x: Math.round(Math.max(0, head.x)), width: Math.round(Math.min(head.w, W - Math.max(0, head.x))),
         y: Math.round(Math.max(0, head.top - 22)), height: 12 };
+      await setProps(false); await page.waitForTimeout(60);
       const T1 = await shot(band);
       await show('walls', false); await page.waitForTimeout(60);
       const T2 = await shot(band);
-      await show('walls', true); await page.waitForTimeout(60);
+      await show('walls', true); await setProps(true); await page.waitForTimeout(60);
       let diff = 0;
       for (let i = 0; i < T1.l.length; i++) if (Math.abs(T1.l[i] - T2.l[i]) > 0.02) diff++;
       share = diff / T1.l.length;
@@ -177,6 +229,10 @@ function mask(A, B) {
     {
       const half0 = await page.evaluate(() => room3d.floorRect().half);
       const at0 = await page.evaluate(() => room3d.spinAt());
+      // ⚠️⚠️ **돌리기 «직전»의 그림을 찍어 둔다.** 위의 `A` 는 러그만 세워 놓고 찍은
+      //    것이라, 그것과 견주면 「돌아서 달라진 몫」에 **소품이 다시 선 몫**이 통째로
+      //    섞여 들어 돌리기를 끊어도 통과한다
+      const C0 = await shot();
       // 끝까지 눌러 본다 — **멈추는지**도 같이 본다 (앞벽이 없어 끝까지는 못 돈다)
       const at = await page.evaluate(async () => {
         for (let i = 0; i < 12; i++) spinRoom(1);
@@ -194,17 +250,28 @@ function mask(A, B) {
       if (at.off[0]) bad.push(`${W}px: 되돌아올 수 있는데 그쪽 버튼이 잠겼다`);
       const dHalf = Math.abs(at.half - half0);
       if (dHalf > 1.2) bad.push(`${W}px: 둘러보니 양탄자가 ${dHalf.toFixed(1)}px 달라졌다 — 방이 확대·축소된다`);
-      // **그림이 진짜로 달라졌는가** — 안 달라지면 버튼이 하는 일이 없는 것이다
+      // **그림이 진짜로 달라졌는가** — 안 달라지면 버튼이 하는 일이 없는 것이다.
+      // ⚠️⚠️ **견줄 짝은 «돌리기 직전»의 그림이다.** 위의 `A` 는 러그만 세워 놓고
+      //    찍은 것이라, 그것과 견주면 「돌아서 달라진 몫」에 **소품이 다시 선 몫**이
+      //    통째로 섞인다 — 돌리기를 끊어도 통과한다 (사보타주가 그것을 찾아냈다)
       const C = await shot();
+      // ⚠️⚠️ **여기만 문턱이 «낮다**»(`SPIN_DIFF`). 양탄자를 찾을 때 쓰는 0.06 은
+      //    「조각이 있고 없고」를 가르는 값인데, 둘러보기는 **같은 벽이 옆으로 미끄러지는**
+      //    것이라 밝기 차이가 그보다 작다 — 265px 에서 0.6% 로 나와 멀쩡한 방이 걸렸다.
+      //    낮춰도 «안 도는 방»은 여전히 **정확히 0.0%** 라 가르는 데는 아무 문제가 없다
       let moved = 0;
-      for (let i = 0; i < A.l.length; i++) if (Math.abs(A.l[i] - C.l[i]) > DIFF) moved++;
-      const mShare = moved / A.l.length;
-      if (mShare < 0.06) bad.push(`${W}px: 둘러봐도 그림이 거의 그대로다 (${(mShare * 100).toFixed(1)}%)`);
+      for (let i = 0; i < C0.l.length; i++) if (Math.abs(C0.l[i] - C.l[i]) > SPIN_DIFF) moved++;
+      const mShare = moved / C0.l.length;
+      // ⚠️ 문턱은 **돌리기를 끊은 방이 0.0%** 라는 데서 나온다 — 좁은 화면일수록
+      //    보이는 벽이 줄어 달라지는 몫도 준다 (265px 8% · 480px 30%)
+      if (mShare < 0.03) bad.push(`${W}px: 둘러봐도 그림이 거의 그대로다 (${(mShare * 100).toFixed(1)}%)`);
       // **돌린 자리에서 양탄자를 다시 찾아** 발과 견준다
+      await setProps(false, 'rug'); await setFigure(false); await page.waitForTimeout(60);
+      const C2 = await shot();
       await show('rug', false); await page.waitForTimeout(60);
       const D = await shot();
-      await show('rug', true); await page.waitForTimeout(60);
-      const rows2 = mask(C, D);
+      await show('rug', true); await setProps(true); await setFigure(true); await page.waitForTimeout(60);
+      const rows2 = mask(C2, D);
       if (rows2.length < 10) bad.push(`${W}px: 돌린 뒤 양탄자를 못 찾았다 (${rows2.length}줄) — 아무것도 안 쟀다`);
       else {
         const w2 = rows2.reduce((m, r) => (r.w > m.w ? r : m), rows2[0]);
@@ -253,8 +320,65 @@ function mask(A, B) {
     await page.close();
   }
 
+  // ═══ 단계가 «주는» 선물 — 퀘스트를 깨면 소품이 들어오고 «놓인다» ═══
+  //
+  // ⚠️⚠️ **위의 픽셀 검사는 이것을 영영 못 본다** — 거기서는 소품을 손으로 심어 놓고
+  //    자리를 재기 때문이다. 「얻는 길이 진짜로 있는가」는 **보상을 받아 봐야** 안다:
+  //    선물이 안 들어오면 첫 단계 아홉은 상점에도 없으니 **영영 못 얻는 소품**이 되고,
+  //    들어와도 안 놓이면 방이 그대로라 「받았는데 아무 일도 안 일어났다」가 된다.
+  // ⚠️ `claimQuest()` 를 그대로 부른다 — 보상 줄을 손으로 흉내 내면 그 줄을 지워도 통과한다
+  let gift = '';
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 820 } });
+    await page.addInitScript(() => {
+      localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+      localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
+        { ver: 18, name: 'Tester', nameClaimed: true, tutorialDone: true, roomLevel: 1 }));
+    });
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForFunction(() => typeof S !== 'undefined' && typeof claimQuest === 'function');
+    const r = await page.evaluate(() => {
+      const D = window.GameData;
+      // 공방 단계를 주는 퀘스트를 «표에서» 고른다 — id 를 박으면 표를 고쳤을 때 안 따라온다
+      const qs = (D.QUESTS || []).filter(q => (q.reward || {}).room)
+        .sort((a, b) => a.reward.room - b.reward.room);
+      if (!qs.length) return { err: '공방 단계를 주는 퀘스트가 하나도 없다' };
+      const got = [], placed = [], lv = [];
+      // ⚠️⚠️ **완료 컷씬을 «본 것»으로 해 둔다.** `claimQuest()` 는 못 본 컷씬이 있으면
+      //    그것부터 틀고 «되돌아간다»(`claiming`) — 그대로 부르면 한 걸음도 안 나간다
+      S.seenCuts = (S.seenCuts || []).concat(qs.map(q => q.cut && q.cut.out).filter(Boolean));
+      for (const q of qs) {
+        S.quest = { active: q.id, n: q.goal.n, done: S.quest.done || [], queue: [],
+          devFull: q.id };                     // 진행도를 다 채운 것으로 친다
+        claimQuest();
+        lv.push(S.roomLevel);
+      }
+      // 1 → 5 를 다 지났으면 선물이 «다» 들어와 있어야 한다
+      Object.keys(D.ROOM_LEVEL_GIFT).forEach(n => {
+        (D.ROOM_LEVEL_GIFT[n] || []).forEach(id => {
+          if ((S.roomOwned || []).includes(id)) got.push(id);
+          const d = D.ROOM_DECOR[id];
+          if (d && (S.roomProps || {})[d.slot]) placed.push(id);
+        });
+      });
+      const want = Object.keys(D.ROOM_LEVEL_GIFT).flatMap(n => D.ROOM_LEVEL_GIFT[n]);
+      return { lv, got: got.length, placed: placed.length, want: want.length,
+        slots: Object.keys(S.roomProps || {}).length, room: S.roomLevel };
+    });
+    if (r.err) bad.push(r.err);
+    else {
+      if (r.got !== r.want) bad.push(`단계 선물이 ${r.got}/${r.want} 만 들어왔다 (단계 ${r.lv.join('→')})`);
+      // ⚠️ **놓이기까지 해야 한다** — 얻어도 안 놓이면 방은 그대로 비어 있다
+      if (r.placed !== r.want) bad.push(`선물이 ${r.placed}/${r.want} 만 놓였다`);
+      if (r.room !== 5) bad.push(`공방이 ${r.room}단계에서 멈췄다 (5까지 가야 한다)`);
+      gift = `단계 선물 ${r.got}/${r.want} 개가 들어와 자리 ${r.slots}곳에 놓였다 (단계 ${r.lv.join('→')})`;
+    }
+    await page.close();
+  }
+
   await browser.close();
   console.log('3D 방 — ' + out.join(' | '));
+  if (gift) console.log('  ' + gift);
   console.log(`  (발 ${FOOT_MAX}px · SVG 와 ${SVG_MAX}px · 머리 뒤 벽 ${WALL_MIN * 100}% 까지 · 폭 셋을 다 쟀다)`);
   if (bad.length) {
     console.log(`❌ ${bad.length}건`);

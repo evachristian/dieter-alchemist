@@ -1156,9 +1156,16 @@ const QUESTS = [
   { id: 'q_first', npc: 'sp_althea', act: 1, at: 0,
     goal: { kind: 'brew', id: 'vitality', n: 2 },
     reward: { page: 'p_07', crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },
+  // ⚠️⚠️ **여기가 공방 «2단계»다 — 꾸미기가 처음 열리는 자리.** 공주는 「창문 하나만
+  // 있는 방」으로 들어오고(`ROOM_DEFAULT` 1), 이 퀘스트를 깨면 단계가 2 가 되면서
+  // **러그와 책장이 선물로 들어온다**(`D.ROOM_LEVEL_GIFT[2]`). 처음 나갔다 돌아온 자리에
+  // 방에 놓을 것이 생기는 셈이라, 「채집 여덟 번」의 보상으로도 결이 맞는다.
+  // ⚠️ 단계를 «안 주는» 퀘스트로 두면 시작값 1 에서 3(`q_egg`)으로 뛰어 2단계의 선물
+  // 둘이 통째로 사라진다 — 얻는 다른 길이 없어 **영영 못 얻는 소품**이 된다
+  // (`checkdata` 의 「공방 단계」가 빈 칸을 잡는다)
   { id: 'q_walk', npc: 'sp_althea', act: 1, at: 6,
     goal: { kind: 'visit', n: 8 },
-    reward: { page: 'dandelion_hare', crystal: 60 }, cut: { in: 'c_walk_in', out: 'c_walk_out' } },
+    reward: { page: 'dandelion_hare', room: 2, crystal: 60 }, cut: { in: 'c_walk_in', out: 'c_walk_out' } },
   // 요리사 클레멘 (STORY.md 1순위). **부엌 자체는 퀘스트와 상관없이 열려 있다** —
   // 「혼자 먹은 밤」의 페널티를 피할 길을 선택 콘텐츠 뒤에 숨기면 안 된다
   { id: 'q_kitchen', npc: 'sp_clemen', act: 1, at: 10,
@@ -1167,10 +1174,10 @@ const QUESTS = [
   { id: 'q_bring', npc: 'sp_althea', act: 1, at: 14,
     goal: { kind: 'deliver', id: 'herb', n: 10 },
     reward: { page: 'p_14', crystal: 80, items: { berry: 6 } }, cut: { in: 'c_bring_in', out: 'c_bring_out' } },
-  // ⚠️⚠️ **여기가 공방 «3단계»다.** `roomLevel` 은 시작값이 2(`ROOM_DEFAULT`)이고
-  // 올리는 길이 `q_seal`(=5) 하나뿐이라, 오래 **2 에서 5 로 뛰고 3·4단계의 방은
-  // 개발용 말고는 한 번도 안 보였다** — 그려 놓고 아무도 못 보는 그림이었고,
-  // 방 꾸미기(`ROOM.md`)가 자리를 단계로 여는 순간 그것이 곧 「꾸밀 자리가 없다」가 된다.
+  // ⚠️⚠️ **여기가 공방 «3단계»다.** 올리는 길이 `q_seal`(=5) 하나뿐이던 때는
+  // **2 에서 5 로 뛰고 3·4단계의 방은 개발용 말고는 한 번도 안 보였다** —
+  // 그려 놓고 아무도 못 보는 그림이었고, 지금은 그 단계마다 **소품 한 벌이 선물로
+  // 들어오므로**(`D.ROOM_LEVEL_GIFT`) 빈 칸이 곧 「영영 못 얻는 소품」이다.
   // **크리처 한 마리가 곧 «사는 방»**이다 — 3단계에서 징두리 판자가 깔리고 액자·허브·
   // 화분이 들어오면서 금이 사라진다. 방에 사는 것이 하나 생기는 자리와 짝이 맞는다
   { id: 'q_egg', npc: 'sp_althea', act: 1, at: 22,
@@ -3093,6 +3100,136 @@ const DEFAULT_OUTFIT = {
   glove: 'glove_none', shoes: 'shoes_none',
 };
 
+// ─── 마이 룸 꾸미기 ───────────────────────────────────────────
+//
+// **자리 아홉 × 단계 넷 + 벽지 다섯 + 바닥재 다섯 = 46개.**
+// 축 표는 `tools/genroom.js` 하나이고 아래 `<<<GEN:room-*` 구간은 **손으로 고치지 않는다**
+// (`npm run gen:room`). 그림은 `roomart.js` 의 `SLOT_ART` 한 곳이다 — 3D 방과 SVG
+// 폴백이 그 함수를 같이 쓴다 (`ROOM.md` 3장).
+//
+// ⚠️⚠️ **자리는 고정이고, 갈리는 것은 «그 자리에 무엇을 놓는가»다.**
+//    `p3` 는 3D 방의 자리(three 좌표) · `p2` 는 SVG 폴백의 자리(방 좌표 400×320)다.
+//    **둘을 같은 줄에 둔 이유**는 자리를 옮길 때 한쪽만 옮기는 일을 막는 것이다 —
+//    한쪽만 고치면 WebGL 이 없는 기기에서 소품이 엉뚱한 데 선다
+// <<<GEN:room-slots
+const ROOM_SLOTS = [
+  { id: 'rug', emoji: '🟠', name: '러그', kind: 'floor',
+    p3: { x: 0, y: 0.016, z: 0, w: 3.9, h: 3.9 }, p2: [76, 268, 248, 40] },
+  { id: 'shelf', emoji: '📚', name: '책장', kind: 'card',
+    p3: { x: -2.22, y: 1.67, z: -3.5, yaw: 0.07, w: 2.4, h: 3.08 }, p2: [16, 116, 96, 116] },
+  { id: 'sconce', emoji: '🔆', name: '벽등', kind: 'card', light: 2.3,
+    p3: { x: -2.35, y: 4.05, z: -4.13, w: 0.86, h: 1.41 }, p2: [50, 52, 34, 56] },
+  { id: 'table', emoji: '🪵', name: '탁자', kind: 'card',
+    p3: { x: 1.85, y: 0.82, z: -1.5, yaw: -0.18, w: 2.4, h: 1.63 }, p2: [232, 210, 112, 66] },
+  { id: 'candle', emoji: '🕯️', name: '촛불', kind: 'card', light: 1.7, on: 'table',
+    p3: { x: 2.5, y: 1.22, z: -1.36, yaw: -0.18, w: 0.5, h: 0.74 }, p2: [306, 212, 20, 30] },
+  { id: 'gear', emoji: '⚗️', name: '실험 도구', kind: 'card', on: 'table',
+    p3: { x: 1.5, y: 1.275, z: -1.36, yaw: -0.18, w: 1.1, h: 0.85 }, p2: [246, 206, 46, 36] },
+  { id: 'curtain', emoji: '🪟', name: '커튼', kind: 'card',
+    p3: { x: 2.5, y: 3.74, z: -4.02, w: 3, h: 3.62 }, p2: [242, 86, 120, 130] },
+  { id: 'winplant', emoji: '🪴', name: '화분', kind: 'card',
+    p3: { x: 2.35, y: 0.62, z: -0.75, yaw: -0.34, w: 0.96, h: 1.24 }, p2: [344, 224, 44, 56] },
+  { id: 'chandelier', emoji: '💠', name: '샹들리에', kind: 'hang', light: 2.6,
+    p3: { x: 0, y: 4.7, z: -1.9, w: 1.7, h: 1.7 }, p2: [152, 4, 96, 74] },
+];
+// GEN:room-slots>>>
+const roomSlot = id => ROOM_SLOTS.find(s => s.id === id) || null;
+
+// <<<GEN:room-tiers
+const ROOM_TIERS = [
+  { id: 'plain', name: '소박한', cost: 0 },
+  { id: 'wood', name: '나무', cost: 60 },
+  { id: 'ornate', name: '장식된', cost: 140 },
+  { id: 'royal', name: '왕실', cost: 260 },
+];
+// GEN:room-tiers>>>
+
+// ⚠️ **벽지 다섯 × 바닥재 다섯이 «다» 호환된다** — 그래서 자재에는 단계가 없다.
+//    취향이지 등급이 아니다 (사람이 그렇게 요청했다).
+// `c` 는 두 renderer 가 «같이» 읽는 색이다 — 3D 는 이 색으로 무늬를 굽고,
+// SVG 폴백은 같은 색으로 그라데이션을 깐다. 색이 한 곳이라 폴백도 «같은 방»이다
+// <<<GEN:room-mats
+const ROOM_WALLS = [
+  { id: 'rw_lime', emoji: '🤍', name: '흰 회벽', c: ['#efe3d2', '#d8c6ad'], seam: 'rgba(62,44,34,0.40)' },
+  { id: 'rw_rose', emoji: '🩷', name: '장미 벽지', c: ['#f0d3dc', '#d3a4b6'], seam: 'rgba(120,58,86,0.34)' },
+  { id: 'rw_sage', emoji: '💚', name: '세이지 벽지', c: ['#dce6d2', '#a8bd9c'], seam: 'rgba(52,80,52,0.32)' },
+  { id: 'rw_indigo', emoji: '💙', name: '쪽빛 벽지', c: ['#cdd6ef', '#8d9ac6'], seam: 'rgba(44,52,96,0.36)' },
+  { id: 'rw_gold', emoji: '💛', name: '금박 벽지', c: ['#f4e3bc', '#d8b978'], seam: 'rgba(120,88,28,0.34)' },
+];
+const ROOM_FLOORS = [
+  { id: 'rf_pine', emoji: '🟨', name: '소나무 널', c: ['#c79b6b', '#b68a5c', '#c0925f', '#b0834f'] },
+  { id: 'rf_oak', emoji: '🟫', name: '떡갈나무 널', c: ['#a9754c', '#9d6b45', '#ab7750', '#94643f'] },
+  { id: 'rf_walnut', emoji: '🟤', name: '호두나무 널', c: ['#7b5238', '#6d4830', '#815740', '#674230'] },
+  { id: 'rf_tile', emoji: '⬛', name: '검고 흰 타일', c: ['#e6ded0', '#4b4650', '#ded5c6', '#413d47'] },
+  { id: 'rf_marble', emoji: '⬜', name: '대리석', c: ['#e9e6ee', '#dcd6e4', '#efecf3', '#d3cddd'] },
+];
+const ROOM_START = { wall: 'rw_lime', floor: 'rf_pine' };
+const ROOM_MAT_COST = 90;
+const ROOM_PET_SPOT = { p2: [90, 236, 80, 68], p3: { x: -2.6, z: 0.6 } };
+const ROOM_LEVEL_GIFT = {
+  2: ['rp_rug_plain', 'rp_shelf_plain'],
+  3: ['rp_table_plain', 'rp_curtain_plain', 'rp_winplant_plain'],
+  4: ['rp_sconce_plain', 'rp_candle_plain', 'rp_gear_plain'],
+  5: ['rp_chandelier_plain'],
+};
+// GEN:room-mats>>>
+
+// <<<GEN:room-decor
+const ROOM_DECOR = {
+  rp_rug_plain: { id: 'rp_rug_plain', slot: 'rug', tier: 'plain', emoji: '🟠', name: '소박한 러그' },
+  rp_rug_wood: { id: 'rp_rug_wood', slot: 'rug', tier: 'wood', emoji: '🟠', name: '나무 러그' },
+  rp_rug_ornate: { id: 'rp_rug_ornate', slot: 'rug', tier: 'ornate', emoji: '🟠', name: '장식된 러그' },
+  rp_rug_royal: { id: 'rp_rug_royal', slot: 'rug', tier: 'royal', emoji: '🟠', name: '왕실 러그' },
+  rp_shelf_plain: { id: 'rp_shelf_plain', slot: 'shelf', tier: 'plain', emoji: '📚', name: '소박한 책장' },
+  rp_shelf_wood: { id: 'rp_shelf_wood', slot: 'shelf', tier: 'wood', emoji: '📚', name: '나무 책장' },
+  rp_shelf_ornate: { id: 'rp_shelf_ornate', slot: 'shelf', tier: 'ornate', emoji: '📚', name: '장식된 책장' },
+  rp_shelf_royal: { id: 'rp_shelf_royal', slot: 'shelf', tier: 'royal', emoji: '📚', name: '왕실 책장' },
+  rp_sconce_plain: { id: 'rp_sconce_plain', slot: 'sconce', tier: 'plain', emoji: '🔆', name: '소박한 벽등' },
+  rp_sconce_wood: { id: 'rp_sconce_wood', slot: 'sconce', tier: 'wood', emoji: '🔆', name: '나무 벽등' },
+  rp_sconce_ornate: { id: 'rp_sconce_ornate', slot: 'sconce', tier: 'ornate', emoji: '🔆', name: '장식된 벽등' },
+  rp_sconce_royal: { id: 'rp_sconce_royal', slot: 'sconce', tier: 'royal', emoji: '🔆', name: '왕실 벽등' },
+  rp_table_plain: { id: 'rp_table_plain', slot: 'table', tier: 'plain', emoji: '🪵', name: '소박한 탁자' },
+  rp_table_wood: { id: 'rp_table_wood', slot: 'table', tier: 'wood', emoji: '🪵', name: '나무 탁자' },
+  rp_table_ornate: { id: 'rp_table_ornate', slot: 'table', tier: 'ornate', emoji: '🪵', name: '장식된 탁자' },
+  rp_table_royal: { id: 'rp_table_royal', slot: 'table', tier: 'royal', emoji: '🪵', name: '왕실 탁자' },
+  rp_candle_plain: { id: 'rp_candle_plain', slot: 'candle', tier: 'plain', emoji: '🕯️', name: '소박한 촛불' },
+  rp_candle_wood: { id: 'rp_candle_wood', slot: 'candle', tier: 'wood', emoji: '🕯️', name: '나무 촛불' },
+  rp_candle_ornate: { id: 'rp_candle_ornate', slot: 'candle', tier: 'ornate', emoji: '🕯️', name: '장식된 촛불' },
+  rp_candle_royal: { id: 'rp_candle_royal', slot: 'candle', tier: 'royal', emoji: '🕯️', name: '왕실 촛불' },
+  rp_gear_plain: { id: 'rp_gear_plain', slot: 'gear', tier: 'plain', emoji: '⚗️', name: '소박한 실험 도구' },
+  rp_gear_wood: { id: 'rp_gear_wood', slot: 'gear', tier: 'wood', emoji: '⚗️', name: '나무 실험 도구' },
+  rp_gear_ornate: { id: 'rp_gear_ornate', slot: 'gear', tier: 'ornate', emoji: '⚗️', name: '장식된 실험 도구' },
+  rp_gear_royal: { id: 'rp_gear_royal', slot: 'gear', tier: 'royal', emoji: '⚗️', name: '왕실 실험 도구' },
+  rp_curtain_plain: { id: 'rp_curtain_plain', slot: 'curtain', tier: 'plain', emoji: '🪟', name: '소박한 커튼' },
+  rp_curtain_wood: { id: 'rp_curtain_wood', slot: 'curtain', tier: 'wood', emoji: '🪟', name: '나무 커튼' },
+  rp_curtain_ornate: { id: 'rp_curtain_ornate', slot: 'curtain', tier: 'ornate', emoji: '🪟', name: '장식된 커튼' },
+  rp_curtain_royal: { id: 'rp_curtain_royal', slot: 'curtain', tier: 'royal', emoji: '🪟', name: '왕실 커튼' },
+  rp_winplant_plain: { id: 'rp_winplant_plain', slot: 'winplant', tier: 'plain', emoji: '🪴', name: '소박한 화분' },
+  rp_winplant_wood: { id: 'rp_winplant_wood', slot: 'winplant', tier: 'wood', emoji: '🪴', name: '나무 화분' },
+  rp_winplant_ornate: { id: 'rp_winplant_ornate', slot: 'winplant', tier: 'ornate', emoji: '🪴', name: '장식된 화분' },
+  rp_winplant_royal: { id: 'rp_winplant_royal', slot: 'winplant', tier: 'royal', emoji: '🪴', name: '왕실 화분' },
+  rp_chandelier_plain: { id: 'rp_chandelier_plain', slot: 'chandelier', tier: 'plain', emoji: '💠', name: '소박한 샹들리에' },
+  rp_chandelier_wood: { id: 'rp_chandelier_wood', slot: 'chandelier', tier: 'wood', emoji: '💠', name: '나무 샹들리에' },
+  rp_chandelier_ornate: { id: 'rp_chandelier_ornate', slot: 'chandelier', tier: 'ornate', emoji: '💠', name: '장식된 샹들리에' },
+  rp_chandelier_royal: { id: 'rp_chandelier_royal', slot: 'chandelier', tier: 'royal', emoji: '💠', name: '왕실 샹들리에' },
+  rw_lime: { id: 'rw_lime', slot: 'wall', emoji: '🤍', name: '흰 회벽' },
+  rw_rose: { id: 'rw_rose', slot: 'wall', emoji: '🩷', name: '장미 벽지' },
+  rw_sage: { id: 'rw_sage', slot: 'wall', emoji: '💚', name: '세이지 벽지' },
+  rw_indigo: { id: 'rw_indigo', slot: 'wall', emoji: '💙', name: '쪽빛 벽지' },
+  rw_gold: { id: 'rw_gold', slot: 'wall', emoji: '💛', name: '금박 벽지' },
+  rf_pine: { id: 'rf_pine', slot: 'floor', emoji: '🟨', name: '소나무 널' },
+  rf_oak: { id: 'rf_oak', slot: 'floor', emoji: '🟫', name: '떡갈나무 널' },
+  rf_walnut: { id: 'rf_walnut', slot: 'floor', emoji: '🟤', name: '호두나무 널' },
+  rf_tile: { id: 'rf_tile', slot: 'floor', emoji: '⬛', name: '검고 흰 타일' },
+  rf_marble: { id: 'rf_marble', slot: 'floor', emoji: '⬜', name: '대리석' },
+};
+// GEN:room-decor>>>
+const roomDecor = id => ROOM_DECOR[id] || null;
+// 그 자리의 단계 넷을 «소박한 것부터» 낸다 (화면의 칸 순서가 곧 이 순서다)
+function roomTiersOf(slot) {
+  return ROOM_TIERS.map(t => ROOM_DECOR[`rp_${slot}_${t.id}`]).filter(Boolean);
+}
+
 // 조합 판정용: 재료 id 배열을 정렬해 문자열 키로
 function recipeKey(ids) {
   return [...ids].sort().join('+');
@@ -3117,5 +3254,7 @@ window.GameData = {
   FARM_CROPS, farmCrop, PLOT_COST, QUESTS, questOf, CUTS, cutOf, PAGE_TIERS, pagesForSpec,
   PAGE_DRIP, pageFlow,
   WEATHERS, WEATHER_HOURS, DAYPARTS, SPECIAL_TIERS, specialTier,
+  ROOM_SLOTS, roomSlot, ROOM_TIERS, ROOM_WALLS, ROOM_FLOORS, ROOM_START, ROOM_LEVEL_GIFT,
+  ROOM_DECOR, roomDecor, roomTiersOf, ROOM_MAT_COST, ROOM_PET_SPOT,
   getTier, recipeKey,
 };

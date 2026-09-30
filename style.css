@@ -2765,6 +2765,11 @@ button.tm-slot:active { transform: scale(0.94); }
 .wr-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-top: 10px; gap: 8px; min-width: 0; }
 .wr-foot > * { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wr-count { font-size: 0.72rem; font-weight: 800; color: var(--ink-soft); }
+/* 목록 «위»에 서는 줄 (가진 수 ↔ 결정). `.wr-foot` 와 같은 짜임이고 여백만 반대다 —
+   베끼지 않고 그 줄을 물려받는다 */
+.wr-head { display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; min-width: 0; margin: 0 2px 8px; }
+.wr-head > * { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wr-gift {
   border: none; background: linear-gradient(135deg, var(--btn-grad-a), var(--btn-grad-b)); color: var(--ink);
   text-shadow: var(--btn-ink-edge);
@@ -3082,19 +3087,43 @@ button.tm-slot:active { transform: scale(0.94); }
 #kitchenSheet .modal-card, #produceLog .modal-card, #plantPick .modal-card,
 #teamPick .modal-card, #raidPick .modal-card, #palPick .modal-card,
 #devAcctSheet .modal-card, #storySheet .modal-card, #feedPick .modal-card,
-#slotSheet .modal-card {
+#slotSheet .modal-card, #decorSheet .modal-card {
   display: flex; flex-direction: column; overflow: hidden; }
-#npcBody, #giftBody, .q-body, .pal-list, .st-body, .feed-list, #devAcctList, #slotSheetBody {
+#npcBody, #giftBody, .q-body, .pal-list, .st-body, .feed-list, #devAcctList, #slotSheetBody,
+#decorSheetBody {
   overflow-y: auto; min-height: 0; }
 /* ⚠️⚠️ 표정 격자는 **옷장에서 빌려 온 것**이라 제 `max-height`(4.5줄)를 갖고 온다 —
    그대로 두면 시트 안에서 **굴리는 자리가 둘**이 되어 손가락이 안쪽 줄에 갇힌다
    (바로 위 블록이 금지하는 그것이고, `checkui` 의 「시트낮은화면」이 잡는다).
    시트에서는 높이를 카드가 정한다 */
-#slotSheet .wr-items { max-height: none; overflow: visible; }
+#slotSheet .wr-items, #decorSheet .wr-items { max-height: none; overflow: visible; }
 /* 갈래 탭 줄 — 굴러가지 «않는» 자리 (`#npcActs` 와 같다).
    ⚠️ `fitSlotSheet()` 가 「카드 − 목록」을 붙박이로 재므로 이 줄도 저절로 셈에 든다 */
-#slotSheetTabs:not(:empty) { flex: 0 0 auto; margin-bottom: 10px; }
-#slotSheetTabs .cat-tabs { margin: 0; }
+#slotSheetTabs:not(:empty), #decorSheetTabs:not(:empty) { flex: 0 0 auto; margin-bottom: 10px; }
+#slotSheetTabs .cat-tabs, #decorSheetTabs .cat-tabs { margin: 0; }
+/* ⚠️⚠️ **꾸미기 시트도 뒷배경을 안 흐린다** — 표정·문신과 «같은 이유»다: 고르는 동안
+   **그 결과가 방에 보여야** 무엇을 고르는지 알 수 있다. 벽지를 흐린 화면에서 고르면
+   다섯이 다 같은 색으로 보인다 (찍어 보고 알았다).
+   ⚠️ 다만 **턱까지 올리지는 않는다**(`fitSlotSheet` 를 안 부른다) — 여기서 보는 것은
+   얼굴이 아니라 «방»이고, 방은 화면 위쪽을 통째로 쓴다. 시트는 평소 높이로 두고
+   위쪽 벽·창·천장이 그대로 보이게 한다 */
+#decorSheet { background: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+#decorSheet .modal-card { box-shadow: none; border-top: 1px solid var(--glass-line); }
+/* 꾸미기 칸 — 그림이 이모지가 아니라 «그려진 소품»이라 한 칸이 조금 더 크다.
+   ⚠️ 줄 높이는 `.wr-items` 의 `--wr-row` 를 덮어써서 한 곳에서 정한다 (베끼지 않는다) */
+#decorSheet .wr-items { --wr-row: 72px; }
+.decor-icon { height: 38px; width: auto; display: block; }
+/* 값 딱지 — **잠긴 칸에만** 붙는다. 칸 안에 들어가므로 절대 배치가 아니다.
+   ⚠️ **0.7rem 밑으로 못 내린다** — 11px 이 글자의 바닥이다(`TEXT_POLICY.md` 1).
+   0.6rem(9.6px)으로 뒀더니 잠긴 칸마다 한 건씩, 탭 열하나에서 여든 건이 났다 */
+.decor-cost { font-size: 0.7rem; font-weight: 800; color: var(--text-lav); line-height: 1; }
+/* 「먼저 탁자를 놓아야 보여요」 — 안내 한 줄 */
+.decor-note {
+  font-size: 0.7rem; color: var(--ink-soft); line-height: 1.35;
+  background: var(--well); border-radius: 10px; padding: 7px 9px; margin: 0 2px 8px;
+}
+/* 가진 수와 결정 — 한 줄에 좌우로 */
+.wr-crystal { font-size: 0.72rem; font-weight: 800; color: var(--text-lav); }
 /* ⚠️⚠️ **표정·문신 시트만 뒷배경을 안 흐린다** (사람이 정했다).
    고르는 동안 **그 결과가 얼굴에 보여야** 무엇을 고르는지 알 수 있다 — 흐리면
    «무엇을 고르는지»를 못 보고 고르게 된다. 시트가 턱 밑까지만 올라오는 것

@@ -2286,6 +2286,7 @@ function launchOpts() {
             ['miniLogSheet', `openMiniLog('p_walnut')`],
             ['slotSheet', `openSlotSheet('expression')`],
             ['slotSheet', `openSlotSheet('tattoo')`],
+            ['decorSheet', `openDecorSheet('rug')`],
             ['pageSheet', `openPage(D.RECIPES.slice().sort((a, b) =>
                 Object.keys(b.input || {}).length - Object.keys(a.input || {}).length)[0].result.id)`],
             ['diaryModal', `openDiary()`],
@@ -2881,6 +2882,79 @@ function launchOpts() {
             await page.waitForTimeout(150);
           }
           if (slots.length) console.log(`  칸시트 — 시트로 뺀 칸을 «다» 쟀다 (${slots.join('·')})`);
+
+        // **🪄 방 꾸미기 시트** — 벽지 · 바닥재 + 자리 아홉 (`ROOM.md`).
+        // ⚠️⚠️ **탭을 표 그대로 돈다** — 자리를 하나 늘렸을 때 그 탭이 통째로 안 재지면
+        //    0건이 「통과」가 아니라 「한 번도 안 쟀다」가 된다. 몇 탭을 쟀는지도 낸다.
+        // ⚠️ **잠긴 칸(🔒)과 값(💎)이 둘 다 있는 탭**을 반드시 지난다 — 다 열어 놓고
+        //    재면 자물쇠 층도 값 딱지도 영영 안 잰다 (「물어볼것」과 같은 규칙)
+        {
+          const tabs = await page.evaluate(() => {
+            // 첫 단계 한 벌만 가진 «막 시작한» 사람으로 세운다 — 나머지는 잠긴 칸이다
+            S.tutorialDone = true;
+            S.roomOwned = ['rw_lime', 'rf_pine', 'rp_rug_plain', 'rp_table_plain'];
+            S.roomWall = 'rw_lime'; S.roomFloor = 'rf_pine';
+            S.roomProps = { rug: 'rp_rug_plain', table: 'rp_table_plain' };
+            S.crystal = 500;
+            render();
+            return decorTabList().map(x => x.id);
+          });
+          if (tabs.length < 3) results.push({ 화면: `${t}/꾸미기시트`, 오류: `탭이 ${tabs.length}개다 — 표를 못 읽었다` });
+          let lockSeen = 0, noteSeen = 0;
+          for (const tab of tabs) {
+            const bad = await page.evaluate((tb) => {
+              // ⚠️ **버튼이 방 그림 위에 서 있어야 한다** — 시트로 가는 유일한 길이다
+              if (!document.querySelector('#roomSolo .room-act[data-slot="decor"]')) {
+                return '🪄 꾸미기 버튼이 안 보인다 (튜토리얼을 마쳤는데)';
+              }
+              openDecorSheet(tb);
+              const m = document.getElementById('decorSheet');
+              if (!m || !m.classList.contains('show')) return '시트가 안 떴다';
+              if (!document.getElementById('decorSheetTitle').textContent.trim()) return '머리말이 비었다';
+              const tt = [...document.querySelectorAll('#decorSheetTabs .wr-tab')];
+              if (tt.length !== decorTabList().length) return `탭이 ${tt.length}개다 (${decorTabList().length} 이어야 한다)`;
+              const n = m.querySelectorAll('.wr-item').length;
+              const want = decorItemsOf(tb).length + (D.roomSlot(tb) ? 1 : 0);   // 자리에는 「비우기」가 하나 더
+              if (n !== want) return `칸이 ${n}개다 (${want} 이어야 한다)`;
+              if (!m.querySelector('.sheet-exit')) return '나가는 길이 없다';
+              return null;
+            }, tab);
+            if (bad) { results.push({ 화면: `${t}/꾸미기시트:${tab}`, 오류: bad }); continue; }
+            const seenHere = await page.evaluate(() => ({
+              lock: !!document.querySelector('#decorSheet .wr-item.locked .wr-lock'),
+              cost: !!document.querySelector('#decorSheet .decor-cost'),
+              note: !!document.querySelector('#decorSheet .decor-note'),
+            }));
+            if (seenHere.lock && seenHere.cost) lockSeen++;
+            if (seenHere.note) noteSeen++;
+            await page.waitForTimeout(280);
+            await run(`${t}/꾸미기시트:${tab}`);
+            const fit = await page.evaluate(() => __cardFits('#decorSheet, #decorSheet .wr-item'));
+            if (fit && fit.length) results.push({ 화면: `${t}/꾸미기시트:${tab}`, 넘침: fit });
+            await page.evaluate(() => closeDecorSheet());
+            await page.waitForTimeout(120);
+          }
+          if (!lockSeen) results.push({ 화면: `${t}/꾸미기시트`, 오류: '잠긴 칸(🔒)과 값(💎)이 있는 탭을 한 번도 안 쟀다' });
+          // ⚠️ **「탁자를 먼저 놓아야 보여요」 줄도 한 번은 재야 한다** — 받침이 없는
+          //    자리에만 뜨는 줄이라, 안 재면 그 줄의 대비를 한 번도 안 본 것이다
+          // ⚠️⚠️ **여기서는 `render()` 에 기대지 않는다.** 앞의 상태가 무엇이든 상관없이
+          //    「탁자가 없는 방」을 **통째로 새로 세우고** 시트만 다시 그린다 —
+          //    `render()` 를 지나면 그사이에 서버 동기화가 세이브를 갈아 끼울 수 있어
+          //    **가끔 안 뜨는** 줄이 된다 (실제로 한 번 걸렸다). 간헐 실패는 잣대가 아니다
+          const noteBad = await page.evaluate(() => {
+            S.roomProps = { rug: 'rp_rug_plain' };   // 탁자가 없으니 촛불·실험 도구는 안 보인다
+            openDecorSheet('candle');
+            renderDecorSheet();
+            const el = document.querySelector('#decorSheet .decor-note');
+            return el ? null : `받침 안내 줄이 안 떴다 (탭 ${decorTab} · 탁자 ${S.roomProps.table || '없음'})`;
+          });
+          if (noteBad) results.push({ 화면: `${t}/꾸미기시트:받침안내`, 오류: noteBad });
+          else { await page.waitForTimeout(280); await run(`${t}/꾸미기시트:받침안내`); }
+          await page.evaluate(() => { closeDecorSheet(); S.roomProps.table = 'rp_table_plain'; render(); });
+          await page.waitForTimeout(150);
+          console.log(`  꾸미기시트 — 탭 ${tabs.length}개를 «다» 쟀다`
+            + ` (잠긴 칸이 있는 탭 ${lockSeen} · 받침 안내 ${noteSeen + (noteBad ? 0 : 1)})`);
+        }
           // ── **한 시트의 갈래 둘은 «같이» 걸린다** (2026-09-29 · 사람이 정했다:
           //    「일반에서 1개, 눈썹에서 1개 고를 수 있도록」)
           // ⚠️⚠️ **칸이 갈려 있는지를 «표»로만 보면 못 잡는다** — 한쪽을 고르면
@@ -2968,7 +3042,18 @@ function launchOpts() {
               //    두 장 사이에 600ms 가 흘러서, 한 장만 «감긴 눈»이면 휘도가 0.55 나
               //    벌어진다 — 멀쩡한 화면이 「흐려졌다」로 잡혔다 (실제로 그랬다).
               //    무한 반복이라 `settle()` 이 안 건드리는 자리다
-              await page.evaluate(() => document.getAnimations().forEach(a => a.pause()));
+              await page.evaluate(() => {
+                document.getAnimations().forEach(a => a.pause());
+                // ⚠️⚠️ **3D 방도 멈춘다.** 방이 도는 동안에는 촛불·샹들리에의 불빛이
+                //    프레임마다 흔들려 **머리 둘레의 벽**이 같이 밝아졌다 어두워진다 —
+                //    얼굴 띠에는 머리 «바깥»도 들어오므로 두 장이 0.070 만큼 달라져
+                //    멀쩡한 시트가 「흐리거나 덮였다」로 잡혔다 (꾸미기로 광원이
+                //    놓이기 시작하면서 드러난 자리다). CSS 애니메이션을 멈추는 것과
+                //    **같은 이유**이고, 재고 나서 되돌린다
+                // ⚠️ **전역은 «이름»으로 찾는다** — `let` 은 `window` 에 안 붙는다
+                //    (`window.room3d` 는 늘 undefined 라 이 줄이 통째로 안 돈다)
+                if (typeof room3d !== 'undefined' && room3d) { room3d.run(false); room3d.render(); }
+              });
               await page.waitForTimeout(120);
               const before = pngLums(await page.screenshot({ clip: box }));
               await page.evaluate((s) => openSlotSheet(s), sl);

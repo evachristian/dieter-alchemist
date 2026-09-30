@@ -4313,8 +4313,12 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   // 방 그림에서 제일 큰 바닥 타원(양탄자)의 가운데와 아바타의 바닥 그림자를 견준다.
   // ⚠️ **`Avatar.FLOOR_SPOT` 을 읽어 견주면 안 된다** — 그러면 「양탄자를 옮겼는데
   //    인물만 옛 자리에 남은」 사고를 통째로 못 본다 (그 상수는 인물 쪽이 이미 보는 값이다)
-  // ⚠️ **1단계는 양탄자가 없다** (`ROOM_LEVELS`) — 잴 것이 없어 건너뛰고,
-  //    그래서 **몇 조합을 쟀는지도 같이 낸다**
+  // ⚠️⚠️ **양탄자를 «깔아 놓고» 잰다.** 양탄자는 이제 단계가 주는 것이 아니라
+  //    **사람이 고르는 소품**이라(`ROOM.md`) 기본 방에는 아예 없다 — 안 깔면 다섯 폭
+  //    × 네 단계가 전부 「양탄자를 못 찾았다」로 나온다 (실제로 15건이 났다).
+  // ⚠️ 그래도 **그림에서 찾는다**(`Avatar.floorMark()` 를 읽지 않는다) — 그 값은
+  //    인물 쪽이 이미 보는 기준이라, 「양탄자를 옮겼는데 인물만 옛 자리에 남은」
+  //    사고를 통째로 못 본다. 몇 조합을 쟀는지도 같이 낸다
   const STAND_TOL = 1.5;          // px. 양탄자 한가운데와 이만큼 안에서 만나야 한다
   const HEAD_CLEAR_MIN = 2;       // px. 머리가 화면 제목과 이만큼은 떨어져 있어야 한다
   const stand = { bad: [], rows: [], n: 0 };
@@ -4325,6 +4329,9 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     for (const [lv, lite] of [[2, 0], [3, 0], [4, 0], [5, 0], [5, 1]]) {
       const r = await page.evaluate(({ lv, lite }) => {
         S.tutorialDone = true; S.introDone = true; S.roomLevel = lv;
+        if (!Array.isArray(S.roomOwned)) S.roomOwned = [];
+        if (!S.roomOwned.includes('rp_rug_royal')) S.roomOwned.push('rp_rug_royal');
+        S.roomProps = Object.assign({}, S.roomProps, { rug: 'rp_rug_royal' });
         const sp = document.getElementById('splash'); if (sp) sp.classList.add('done');
         const iv = document.getElementById('intro'); if (iv) iv.style.display = 'none';
         try { localStorage.setItem('dieter_alchemist_stats_lite_v1', lite ? '1' : '0'); } catch (e) {}
@@ -4334,9 +4341,11 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
         const av = document.querySelector('.char-body > svg.avatar-svg');
         if (!scene || !av) return { err: '방 그림이나 아바타를 못 찾았다' };
         const mid = r => ({ x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 });
-        // 양탄자 — 바닥에 깔린 «제일 넓은» 타원
+        // 양탄자 — 바닥에 깔린 «제일 넓은» 그림.
+        // ⚠️ 예전에는 `<ellipse>` 였다 — 지금은 `roomart.js` 가 구운 캔버스를 얹은
+        //    `<image>` 다 (3D 와 «같은 그림»을 쓰려고 그렇게 했다 · `ROOM.md` 3장)
         let rug = null;
-        scene.querySelectorAll('ellipse').forEach(e => {
+        scene.querySelectorAll('.room-2d image').forEach(e => {
           const bb = e.getBBox();
           if (bb.width > 150 && bb.height < 100 && bb.y > 200 && (!rug || bb.width > rug.w))
             rug = { el: e, w: bb.width };
