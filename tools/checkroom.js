@@ -28,6 +28,19 @@ const WALL_MIN = 0.6;   // 머리 위 띠에서 벽이 덮는 몫
 //    잘 나오는 자리가 +0.47 이다. 낮에는 벽이 이미 환해서 더하는 몫이 덜 보인다
 const GLOW_MIN = 0.03;
 const GLOW_PAD = 12;    // px. 광원의 화면 자리에서 이만큼 네모로 떠서 잰다
+// 낮이 밤보다 이만큼은 밝아야 «낮»이다. ⚠️ **사보타주를 돌려 보고 고른 값이다** —
+// 옛 두 갈래 조명이 **1.52배**이고 지금이 **2.37배**라 그 사이다 (창밖만 한낮이고
+// 방은 저녁이던 화면이 1.52 다). 처음에 2.5 로 적었다가 **멀쩡한 방이 걸렸다**:
+// 짐작으로 적은 문턱은 고친 쪽을 잡는다
+const DAY_NIGHT = 2.0;
+// 낮이 새벽·노을보다 이만큼은 밝아야 «셋이 다른 시간대»다. 예전에는 셋이 한 방이라
+// 1.00배였다 (창밖 그림만 갈렸다) — 지금 1.27~1.41배다.
+// ⚠️ **1.3 으로 두었다가 멀쩡한 방이 걸렸다** — 촛불이 깜박이는 자리에서 멈추므로
+// 새벽 값이 판마다 0.03 쯤 흔들린다. 사보타주(1.00)와는 여전히 멀다
+const DAY_SOFT = 1.2;
+const EVE_SAME = 0.02;   // 초저녁과 밤은 «같아야» 한다 (고친 적이 없는 자리다)
+// 표(`Avatar.SKY_LIGHT`)의 낮을 0 으로 꺾으면 방이 밤만큼 어두워져야 한다
+const TABLE_OBEY = 1.15;
 
 // 「달라진 점이 한 줄에 30px 넘게 이어진 곳」만 양탄자로 친다.
 // ⚠️ 문턱을 0.02 로 두면 **그림자가 번진 몫까지** 잡혀 방 전체가 양탄자가 된다
@@ -535,6 +548,131 @@ function mask(A, B) {
         + ` · 시계와 ${g.cGap == null ? '?' : g.cGap.toFixed(0)}px`;
     }
 
+    // ── ⑧ 낮에는 방이 «밝다» (2026-09-30)
+    //
+    // 「낮에 방 너무 어둡다」로 신고받은 자리다. `setPhase` 가 **밤이냐 아니냐** 둘로만
+    // 갈려서 새벽·낮·노을이 **한 방**이었고, 창밖은 한낮인데 방은 저녁이라
+    // **창만 환한 방**으로 보였다 (재 보면 평균 휘도 0.254 · 밤이 0.125 라 2.0배뿐).
+    //
+    // ⚠️⚠️ **위의 ①~⑦ 은 이것을 영영 못 본다** — ①②는 «자리», ③은 벽이 덮는 «몫»,
+    //    ⑥은 빛무리를 껐다 켠 «차»라 전부 방이 통째로 어두워도 그대로 통과한다.
+    //    방의 «밝기»를 절대값으로 보는 줄이 한 줄도 없었다.
+    // ⚠️ **폭을 안 탄다** — 빛은 카메라 폭과 무관하므로 한 폭(390px)에서만 잰다.
+    //    대신 **다섯 시간대를 다 돈다** (하나만 재면 「낮이 밤보다 밝은가」를 못 묻는다)
+    let lightOut = '';
+    if (W === 390) {
+      // 그 시간대의 «안쪽»(구간 시작 + 1시간)으로 게임 시계를 옮긴다.
+      // ⚠️ 값을 심지 않고 «시계»를 옮긴다 — 개발용 「시간대 넘기기」와 같은 규칙이다
+      const goPhase = async (k) => {
+        await page.evaluate((w) => {
+          const A = window.Avatar;
+          const b = A.SKY_BANDS.find(x => x.k === w);
+          const d = new Date();
+          const kst = new Date(d.getTime() + d.getTimezoneOffset() * 60000 + 9 * 3600000);
+          const cur = ((kst.getHours() * 60 + kst.getMinutes()) * 60 + kst.getSeconds()) * 1000;
+          let delta = (b.h + 1) * 3600000 - cur;
+          if (delta < 0) delta += 86400000;
+          S.devClock = delta; setDevClock(delta);
+          render();
+        }, k);
+        await page.waitForTimeout(280);
+        // 다시 그리면 3D 가 새로 붙는다 — 재기 전에 «멈추고» 인물을 치운다
+        await page.evaluate(() => { room3d.run(false); room3d.render(); });
+        await setFigure(false);
+        await page.evaluate(() => ['roomSolo', 'roomSpin'].forEach(id => {
+          const el = document.getElementById(id); if (el) el.style.visibility = 'hidden';
+        }));
+      };
+      // ⚠️⚠️ **제목 줄 «위»는 빼고 잰다.** 방 그림은 헤더 자리까지 올라가는데(`--room-rise`)
+      //    거기에는 AP 알약·저장 칩이 깔려 있다 — 그 띠는 시간대를 안 타서 **밤의 평균을
+      //    통째로 끌어올린다** (그대로 재면 낮÷밤이 3.3배가 아니라 2.07배로 나왔다).
+      //    ⚠️ 몇 px 인지를 박지 않는다 — 제목 줄의 «밑변»에서 잘라 낸다
+      const lightBox = await page.evaluate(() => {
+        const sc = document.querySelector('.room-scene').getBoundingClientRect();
+        const hd = document.querySelector('.room-head');
+        const top = hd ? hd.getBoundingClientRect().bottom : sc.top;
+        return { x: Math.round(sc.left), y: Math.round(top),
+          width: Math.round(sc.width), height: Math.round(sc.bottom - top) - 8 };
+      });
+      const meanOf = (g) => {
+        let s = 0, n = 0;
+        for (let i = 0; i < g.l.length; i++) if (g.l[i] != null) { s += g.l[i]; n++; }
+        return n ? s / n : null;
+      };
+      const lum = {};
+      const bands = await page.evaluate(() => window.Avatar.SKY_BANDS.map(b => b.k));
+      for (const k of bands) { await goPhase(k); lum[k] = meanOf(await shot(lightBox)); }
+
+      if (bands.some(k => lum[k] == null)) bad.push('낮과 밤: 방을 못 찍었다 (밝기를 잴 수가 없다)');
+      else {
+        if (lum.day < lum.night * DAY_NIGHT)
+          bad.push(`낮이 밤보다 충분히 안 밝다 (${lum.day.toFixed(3)} ÷ ${lum.night.toFixed(3)}`
+            + ` = ${(lum.day / lum.night).toFixed(2)}배 · ${DAY_NIGHT}배 기대)`);
+        ['dawn', 'dusk'].forEach(k => {
+          if (lum.day < lum[k] * DAY_SOFT)
+            bad.push(`낮이 «${k}» 와 거의 같다 (${lum.day.toFixed(3)} ÷ ${lum[k].toFixed(3)}`
+              + ` = ${(lum.day / lum[k]).toFixed(2)}배 · ${DAY_SOFT}배 기대)`);
+        });
+        // ⚠️ 밤·초저녁은 **고친 적이 없다** — 여기가 흔들리면 밤 화면까지 같이 옮긴 것이다
+        if (Math.abs(lum.evening - lum.night) > EVE_SAME)
+          bad.push(`초저녁이 밤과 달라졌다 (${lum.evening.toFixed(3)} ↔ ${lum.night.toFixed(3)})`);
+        lightOut = bands.map(k => `${k} ${lum[k].toFixed(3)}`).join(' · ');
+      }
+
+      // ── 표가 «유일한 원본»인가 — `Avatar.SKY_LIGHT` 를 0 으로 두면 둘 다 따라오는가
+      //
+      // ⚠️⚠️ **위의 밝기만 보면 「3D 가 제 표를 따로 갖는」 사고를 못 본다.** 값이
+      //    마침 비슷하면 통과하고, 그러면 WebGL 이 없는 기기에서 **다른 밝기의 방**이
+      //    뜬다 (시간대의 «이름»을 한 곳에서 받아 오는 것과 같은 자리다).
+      //    표를 억지로 꺾어 **그림이 진짜 따라오는지** 본다
+      if (lum.day != null) {
+        await goPhase('day');
+        const dark = await page.evaluate(async () => {
+          const A = window.Avatar, keep = A.SKY_LIGHT.day;
+          A.SKY_LIGHT.day = 0;
+          room3d.setPhase('night'); room3d.setPhase('day');   // 같은 이름이면 안 다시 잡는다
+          room3d.render();
+          return keep;
+        });
+        await setFigure(false);
+        const off = meanOf(await shot(lightBox));
+        await page.evaluate((keep) => {
+          window.Avatar.SKY_LIGHT.day = keep;
+          room3d.setPhase('night'); room3d.setPhase('day');
+          room3d.render();
+        }, dark);
+        if (off == null) bad.push('낮과 밤: 표를 꺾은 방을 못 찍었다');
+        else if (off > lum.night * TABLE_OBEY)
+          bad.push(`3D 방이 «SKY_LIGHT» 를 안 본다 (낮을 0 으로 두어도 ${off.toFixed(3)}`
+            + ` · 밤 ${lum.night.toFixed(3)})`);
+        else lightOut += ` · 표를 0 으로 두면 ${off.toFixed(3)}`;
+      }
+
+      // SVG 폴백도 같은 표를 읽는가 — 볕(`beamG`)의 알파가 따라 내려가는가
+      const svg = await page.evaluate(() => {
+        const A = window.Avatar;
+        const pick = (s) => {
+          const m = /rgba\(255,240,190,([\d.]+)\)/.exec(s);
+          return m ? Number(m[1]) : null;
+        };
+        const keep = A.SKY_LIGHT.day;
+        const on = pick(A.roomScene(5, null, 0, 0));
+        A.SKY_LIGHT.day = 0;
+        const off = pick(A.roomScene(5, null, 0, 0));
+        A.SKY_LIGHT.day = keep;
+        return { on, off };
+      });
+      if (svg.on == null || svg.off == null) bad.push('낮과 밤: SVG 방의 볕을 못 읽었다');
+      else if (!(svg.on > svg.off))
+        bad.push(`SVG 방이 «SKY_LIGHT» 를 안 본다 (볕 ${svg.on} → ${svg.off})`);
+      else lightOut += ` · SVG 볕 ${svg.on.toFixed(2)} → ${svg.off.toFixed(2)}`;
+
+      // 시계를 되돌린다 — 뒤에 오는 것이 옮겨 놓은 시계를 물려받지 않게
+      await page.evaluate(() => { S.devClock = 0; setDevClock(0); render(); });
+      await page.waitForTimeout(200);
+      await page.evaluate(() => { room3d.run(false); room3d.render(); });
+    }
+
     out.push(`${W}px 양탄자 ${rug.w}px · 발 ${dFoot == null ? '?' : dFoot.toFixed(1)}px`
       + ` · SVG 와 폭 ${dW == null ? '?' : dW.toFixed(1)} · 앞자락 ${dB == null ? '?' : dB.toFixed(1)}`
       + ` · 머리 뒤 벽 ${(share * 100).toFixed(0)}%`
@@ -542,7 +680,8 @@ function mask(A, B) {
         + ` · 양탄자 ${spun.dHalf.toFixed(1)}px · 그림 ${(spun.mShare * 100).toFixed(0)}% 달라짐` : '?'}`
       + ` · 광원 ${still.n}개가 ${still.shots || 0}프레임 동안 가만히 있고 빛만 흔들린다`
       + ` · 빛무리 ${glowOut.length ? glowOut.join(' · ') : '?'}`
-      + ` · 둘러보기↔방 버튼 ${spinGap || '?'}`);
+      + ` · 둘러보기↔방 버튼 ${spinGap || '?'}`
+      + (lightOut ? ` · 방 밝기 ${lightOut}` : ''));
     await page.close();
   }
 

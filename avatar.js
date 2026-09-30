@@ -4038,6 +4038,24 @@
     { h: 19, k: 'evening' },  // 초저녁
     { h: 21, k: 'night' },    // 밤
   ];
+  // 시간대마다 **방에 든 햇빛** — 0(밤) ~ 1(한낮). 창 «밖»의 그림은 위의 표가 정하고,
+  // 창 «안»이 얼마나 밝은가는 이 표가 정한다.
+  //
+  // ⚠️⚠️ **3D 와 SVG 폴백이 같은 표를 읽는다** (`SLOT_GLOW` 와 같은 규칙이다) —
+  //    한쪽에만 적으면 WebGL 이 없는 기기에서 **다른 밝기의 방**이 뜬다.
+  //    3D 는 빛 셋(주광·환경광·안개)을, SVG 는 볕 한 줄기(`warm`)를 여기서 뽑는다.
+  // ⚠️⚠️ **「밤이냐 아니냐」와 다른 축이다.** 창 그림(해 ↔ 달)과 달빛은 둘 중 하나라
+  //    그대로 «켜고 끄는» 값으로 두고, **얼마나 밝은가**만 이 눈금이 맡는다 —
+  //    섞으면 노을(0.5)의 방에 달빛이 반쯤 든다.
+  // ⚠️ **밤·초저녁이 0 이라 그 두 화면은 한 픽셀도 안 바뀐다** (고친 것은 낮이다).
+  //    초저녁은 창밖이 이미 어두우므로 햇살이 한 톨도 없는 것이 맞는다
+  // ⚠️ 새벽·노을은 **한낮의 절반**이다 — 예전에는 셋이 다 «같은 낮»이라
+  //    창밖만 갈리고 방은 똑같았다 (노을인데 한낮의 빛이 들었다)
+  const SKY_LIGHT = { dawn: 0.5, day: 1, dusk: 0.5, evening: 0, night: 0 };
+  const skyLightOf = (p) => {
+    const v = SKY_LIGHT[p];
+    return typeof v === 'number' ? v : 1;
+  };
   // 이 방의 «시각» — 한국시간의 시(時) 하나다. 개발용 시계를 태우는 자리이기도 하다
   //
   // ⚠️⚠️ **게임 시계(`nowMs`)를 탄다 — `Date.now()` 를 직접 안 부른다.**
@@ -4316,9 +4334,11 @@
 
     const phase = skyPhase();
     const sky = skyView(phase, ID('skyDyn'));
-    // 낮일수록, 방이 좋을수록 실내도 조금 밝게
-    const warm = ((phase === 'day') ? 0.30 : (phase === 'dawn' || phase === 'dusk') ? 0.24 : 0.14)
-      + (lv - 1) * 0.03;
+    // 낮일수록, 방이 좋을수록 실내도 조금 밝게.
+    // ⚠️ **햇빛의 몫은 `SKY_LIGHT` 한 표에서 온다** — 3D 가 읽는 그 줄이다.
+    //    여기에 시간대를 다시 적으면 WebGL 이 없는 기기의 방만 옛 밝기로 남는다
+    //    (밤 0.14 · 한낮 0.30 은 예전 값 그대로다)
+    const warm = 0.14 + 0.16 * skyLightOf(phase) + (lv - 1) * 0.03;
 
     // 벽 이음새 — 돌벽은 아래 단계에서만 진하게 보인다.
     // ⚠️ **무늬를 손으로 적어 두면 천장을 올릴 때마다 위쪽이 민무늬가 된다.**
@@ -4425,7 +4445,7 @@
     return { w: w, kx: bodyScaleX(w), ky: ky, head: head, floorY: FLOOR_Y,
              dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
-  window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, skyHour, SKY_BANDS,
+  window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, skyHour, SKY_BANDS, SKY_LIGHT,
     hairIcon, browIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
     heartPath, heartEye, HEART,

@@ -631,17 +631,39 @@ export function createRoom(canvas, opt) {
   //    기기에서 **다른 시간대의 방**이 뜬다 — 이름을 받아 «이 세트가 무엇을 하는지»만 정한다.
   // ⚠️ **「초저녁」도 밤 쪽이다** — 창밖이 이미 어두운데 햇살 기둥이 서 있으면
   //    오후 여덟 시의 방에 해가 든다 (밤과 갈리는 것은 창 그림과 빛뿐이다)
+  //
+  // ⚠️⚠️ **축이 둘이다 — 섞지 않는다.**
+  //    ① 「밤이냐」는 **둘 중 하나**다: 창 그림(해 ↔ 달)과 달빛이 여기 붙는다.
+  //       반쪽짜리 달은 없고, 창에 해와 달이 같이 뜰 수도 없다
+  //    ② 「얼마나 밝은가」는 **눈금**이다(`Avatar.SKY_LIGHT` · 0 밤 ~ 1 한낮) —
+  //       주광·환경광·안개·햇살 기둥이 그 사이를 탄다
+  //    섞어서 달빛까지 눈금에 태웠더니 노을(0.5)의 방에 달빛이 반쯤 들었다
+  // ⚠️⚠️ **표는 `avatar.js` 한 곳이다** — SVG 폴백이 읽는 그 줄이다. 여기에 시간대를
+  //    다시 적으면 WebGL 이 없는 기기에서 **다른 밝기의 방**이 뜬다
+  //    (시간대의 «이름»을 거기서 받아 오는 것과 같은 이유다)
+  // ⚠️⚠️ **낮의 끝은 «재서» 골랐다** — 「낮에 방 너무 어둡다」로 신고받아 넷을 나란히
+  //    그려 놓고 고른 값이다(평균 휘도 0.254 → **0.414**). 창밖은 한낮인데 방은
+  //    저녁이라 **창만 환한 방**으로 보였다. 밤 끝(0.62 · 0.55 · `#1b1526`)은
+  //    **예전 값 그대로**라 밤·초저녁 화면은 한 픽셀도 안 바뀐다
+  // ⚠️ 안개 색도 같이 탄다 — 빛만 올리고 안개를 어둡게 두면 그 몫이 그대로 남는다
+  //    (재 보면 안개를 옛 색에 둔 판이 0.414 대신 0.341 이었다)
+  const AMB = [0.62, 2.10], KEY = [0.55, 2.40];
+  const FOG_N = new THREE.Color('#1b1526'), FOG_D = new THREE.Color('#53424d');
   let phase = '';
   function setPhase(p) {
     if (p === phase) return;
     phase = p;
     const night = (p === 'night' || p === 'evening');
+    const A = window.Avatar || {};
+    const t = (A.SKY_LIGHT || {})[p];
+    const d = typeof t === 'number' ? t : (night ? 0 : 1);   // 방에 든 햇빛
     winMat.map = night ? WIN_NIGHT : WIN_DAY; winMat.needsUpdate = true;
-    shaft.visible = !night;
     moon.intensity = night ? 1.5 : 0;
-    key.intensity = night ? 0.55 : 1.5;
-    amb.intensity = night ? 0.62 : 1.05;
-    scene.fog.color.set(night ? '#1b1526' : '#241b26');
+    shaft.visible = d > 0.02;
+    shaft.material.opacity = d;
+    amb.intensity = AMB[0] + (AMB[1] - AMB[0]) * d;
+    key.intensity = KEY[0] + (KEY[1] - KEY[0]) * d;
+    scene.fog.color.copy(FOG_N).lerp(FOG_D, d);
   }
 
   // ── 양탄자가 화면에서 차지하는 자리 (게임의 `placeFigure` 가 이것을 본다)
