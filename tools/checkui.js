@@ -3104,6 +3104,8 @@ function launchOpts() {
           //    한 줄로 다 잡는다.
           // ⚠️ **칸을 «다» 돈다** — 하나만 재면 다음에 뺀 칸이 통째로 안 재진다
           //    (바로 위 「칸시트」와 같은 규칙이다). 몇 칸을 쟀는지도 같이 낸다
+          const LIFT_MIN = 0.008;   // 턱 밑 띠가 이만큼은 어두워져야 그림자가 진 것이다
+          let liftSeen = 0;
           for (const sl of slots) {
             const nm = `${t}/얼굴보임:${sl}`;
             const box = await page.evaluate(() => {
@@ -3134,12 +3136,36 @@ function launchOpts() {
                 if (typeof room3d !== 'undefined' && room3d) { room3d.run(false); room3d.render(); }
               });
               await page.waitForTimeout(120);
+              // ⚠️⚠️ **턱 «바로 밑» 띠도 같이 찍는다 — 그림자가 진짜로 지는가.**
+              //    이 시트는 뒤를 안 흐리므로 배경과 가르는 것이 윗변의 그림자 하나다.
+              //    「얼굴이 안 달라진다」만 보면 **그림자를 통째로 꺼도 통과한다** —
+              //    오히려 «더» 통과한다. 두 축이 서로 반대라 짝으로 둔다.
+              //    ⚠️⚠️ **띠는 «턱»이 아니라 «카드 꼭대기»에서 되짚는다.** 칸이 적은
+              //    시트(문신 5칸 · 눈썹 11칸)는 내용이 짧아 한계에 안 걸리고 **카드가
+              //    한참 아래에 선다** — 턱 밑에 띠를 박아 두면 그림자가 거기까지 안 올라와
+              //    **멀쩡한 그림자가 0.000 으로 잡힌다** (실제로 둘이 그렇게 걸렸다).
+              //    그래서 **한 번 열어 카드 자리를 재고 닫은 뒤** 그 위에 띠를 잡는다
+              //    ⚠️ **카드 자리를 «올라오는 도중»에 읽으면 안 된다** — `sheetup` 첫
+              //    프레임의 `translateY(28px)` 가 얹혀 28px 아래를 돌려주고, 그 자리에
+              //    띠를 잡으면 **카드 «안»**이 되어 열었을 때 크림색 판이 찍힌다
+              //    (휘도가 −0.653 으로 «밝아지는» 것으로 잡혔다). 여는 것과 재는 것을
+              //    갈라 놓는 규칙이 여기에도 그대로 든다
+              await page.evaluate((s) => openSlotSheet(s), sl);
+              await page.waitForTimeout(420);
+              const probe = await page.evaluate(() =>
+                document.querySelector('#slotSheet .modal-card').getBoundingClientRect().top);
+              await page.evaluate(() => closeSlotSheet());
+              await page.waitForTimeout(220);
+              const lift = { x: box.x, y: Math.round(probe) - 15, width: box.width, height: 12 };
+              const liftOk = lift.y >= box.y + box.height;   // 띠가 턱 «밑»인가
               const before = pngLums(await page.screenshot({ clip: box }));
+              const liftBefore = liftOk ? pngLums(await page.screenshot({ clip: lift })) : [];
               await page.evaluate((s) => openSlotSheet(s), sl);
               // ⚠️ **여는 것과 재는 것을 갈라 놓는다** — `sheetup`(0.28초) 도중에 재면
               //    첫 프레임의 `translateY(28px)` 가 상자에 얹혀 「나가기가 화면 밖」이 된다
               await page.waitForTimeout(420);
               const after = pngLums(await page.screenshot({ clip: box }));
+              const liftAfter = liftOk ? pngLums(await page.screenshot({ clip: lift })) : [];
               const geo = await page.evaluate(() => {
                 const card = document.querySelector('#slotSheet .modal-card');
                 const exit = document.querySelector('#slotSheet .sheet-exit');
@@ -3162,6 +3188,17 @@ function launchOpts() {
                 // 0.01 은 안티에일리어싱·숨쉬기 모션 몫이다 (흐림은 그보다 훨씬 크게 나온다)
                 if (worst > 0.01) out.push(`시트를 열자 얼굴이 달라졌다 (휘도 ${worst.toFixed(3)}) — 흐리거나 덮였다`);
               }
+              // 카드 꼭대기 바로 위가 어두워졌는가 — 카드가 턱까지 올라와 띠가 얼굴에
+              // 걸리는 화면(가로로 든 폰)에서는 건너뛰고, **몇 번 쟀는지를 센다**
+              const mean = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1);
+              let liftD = null;
+              if (liftOk && liftBefore.length && liftBefore.length === liftAfter.length) {
+                liftD = mean(liftBefore) - mean(liftAfter);
+                liftSeen++;
+                if (liftD < LIFT_MIN) out.push(
+                  `턱 밑에 그림자가 안 진다 (휘도 ${liftD.toFixed(3)} · ${LIFT_MIN} 이상)`
+                  + ' — 시트가 뒷 레이어와 구별이 안 된다');
+              }
               if (geo.blur !== 'none') out.push(`뒷배경을 흐린다 (${geo.blur})`);
               if (!/, ?0\)$|transparent|rgba\(0, 0, 0, 0\)/.test(geo.bg)) out.push(`덮개가 깔린다 (${geo.bg})`);
               if (geo.otherBlur === 'none') out.push('다른 시트까지 안 흐려졌다 — `.modal` 을 통째로 고친 것이다');
@@ -3172,6 +3209,7 @@ function launchOpts() {
                 : { 화면: nm, pass: true, total: 0,
                     잰것: `${sl} · 턱 ${Math.round(geo.chin)} → 시트 ${Math.round(geo.top)}`
                       + ` (틈 ${Math.round(geo.top - geo.chin)}px) · 얼굴 ${before.length}점이 그대로다`
+                      + ` · 턱 밑 그림자 ${liftD == null ? '못 쟀다(카드가 덮었다)' : liftD.toFixed(3)}`
                       + ` · 다른 시트는 ${geo.otherBlur}` });
               await page.evaluate(() => {
                 closeSlotSheet();
@@ -3180,7 +3218,13 @@ function launchOpts() {
               await page.waitForTimeout(150);
             }
           }
-          if (slots.length) console.log(`  얼굴보임 — 칸을 «다» 쟀다 (${slots.join('·')})`);
+          if (slots.length) {
+            console.log(`  얼굴보임 — 칸을 «다» 쟀다 (${slots.join('·')})`
+              + ` · 턱 밑 그림자를 ${liftSeen}/${slots.length}칸에서 쟀다`);
+            // ⚠️ 한 칸도 못 쟀으면 그 축은 **아예 안 본 것**이다 (0건이 통과가 아니다)
+            if (!liftSeen) results.push({ 화면: `${t}/얼굴보임`,
+              오류: '턱 밑 그림자를 한 칸도 못 쟀다 — 그 축은 한 번도 안 봤다' });
+          }
         }
         // **먹이주기 팝업** — 눌러야만 뜬다. 크리처 줄 · 먹이 줄 · 수량 · 버튼이
         // 한 화면에 다 들어가는 자리라 265px 영어가 제일 빡빡하다

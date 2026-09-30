@@ -1021,7 +1021,7 @@
       // 「방이 달라졌다」가 안 읽힌다 (비법서 장·키워드와 같은 규칙이다)
       q_room_toast: '공방이 넓어졌어요! 마이 룸을 보세요', 
       // ─── 마이 룸 꾸미기 ───
-      act_decor: '꾸미기',
+      act_decor: '방꾸',
       decor_title: '방 꾸미기',
       decor_wall: '벽지',
       decor_floor: '바닥재',
@@ -1035,8 +1035,8 @@
       // 「놓아 두면 도는 것」 — 둘 다 «덜 잃는» 쪽이라 화면에 표시가 안 남는다.
       // 적어 두지 않으면 붙여 놓고 아무도 모른다 (ROOM.md 「효과」)
       decor_cozy: '🛋️ 아늑함 {p}% — 방치 감소 −{d}% · 쉴 때 회복 +{r}%',
-      decor_got: '{name}{nj} 얻었어요! 🪄 꾸미기에서 놓아 보세요',
-      decor_got_more: '{name}{nj} 비롯해 {n}개를 더 얻었어요! 🪄 꾸미기를 보세요',
+      decor_got: '{name}{nj} 얻었어요! 🪄 방꾸에서 놓아 보세요',
+      decor_got_more: '{name}{nj} 비롯해 {n}개를 더 얻었어요! 🪄 방꾸를 보세요',
       // 둘러보기 화살표 — 화면에 «글자»로는 안 뜬다 (흐린 버튼이라 그림이다).
       // 이름을 읽어 주는 자리(aria-label)에만 쓰인다
       spin_left: '왼쪽으로 둘러보기',
@@ -2490,7 +2490,7 @@
       q_done_toast: 'Finished "{name}"!',
       q_room_toast: 'Your atelier has grown! Take a look at My Room', 
       // ─── My Room decorating ───
-      act_decor: 'Decorate',
+      act_decor: 'Decor',
       decor_title: 'Decorate the Room',
       decor_wall: 'Wallpaper',
       decor_floor: 'Flooring',
@@ -2502,8 +2502,8 @@
       decor_gift_only: 'This one arrives as a gift as the story goes on',
       decor_need_base: 'Place the {name} first to see this',
       decor_cozy: '🛋️ Cozy {p}% — idle loss −{d}% · rest +{r}%',
-      decor_got: 'Got the {name}! Place it from 🪄 Decorate',
-      decor_got_more: 'Got the {name} and {n} more! Take a look at 🪄 Decorate',
+      decor_got: 'Got the {name}! Place it from 🪄 Decor',
+      decor_got_more: 'Got the {name} and {n} more! Take a look at 🪄 Decor',
       spin_left: 'Look left', spin_right: 'Look right', 
       q_first_name: "Mother's Cauldron",
       q_first_desc: 'Brew 2 Vitality Potions.',

@@ -6324,7 +6324,12 @@ window.setSlotTab = setSlotTab;
 //    (640×360)에서는 턱 밑에 140px 밖에 안 남아, 그대로 따르면 「나가기」가 잘린다 —
 //    잘린 시트는 「얼굴이 보이는 것」보다 나쁘다. 바닥은 **카드에서 굴러가지 않는 몫
 //    + 한 줄**을 «재서» 구한다 (숫자를 박으면 글자 크기를 바꿀 때 어긋난다)
-const SLOT_SHEET_GAP = 10;   // 턱과 시트 사이에 남기는 숨 (숨쉬기 모션이 2px 오르내린다)
+// ⚠️⚠️ **이 틈은 «그림자가 닿는 거리»와 짝이다.** 시트는 뒤를 안 흐리므로
+//    배경과 가르는 것이 윗변의 그림자 하나인데(`style.css` 의 `#slotSheet .modal-card`),
+//    그 그림자가 턱까지 올라가면 **얼굴이 어두워진다** — 고르는 동안 얼굴이 그대로
+//    보이는 것이 이 시트의 전부다. 지금 그림자가 위로 가는 몫이 최대 5+16 = 21px 이라
+//    그보다 넓게 잡는다. **그림자를 넓히려면 여기부터 벌린다** (숨쉬기 모션 2px 도 여기 든다)
+const SLOT_SHEET_GAP = 26;   // 턱과 시트 사이에 남기는 숨
 function fitSlotSheet() {
   const card = document.querySelector('#slotSheet .modal-card');
   const body = document.getElementById('slotSheetBody');
