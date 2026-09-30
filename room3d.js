@@ -349,7 +349,7 @@ export function createRoom(canvas, opt) {
     // ⚠️ **`grp` 의 자식으로 단다** — 그러면 카드의 자리·기울기·«보임»이 그대로
     //    따라온다 (소품을 내리면 `clearUnit` 이 `grp.visible` 을 내리는 그 한 줄이
     //    빛무리도 같이 끈다 · 밖에 두면 끄는 줄을 하나 더 두게 되고 곧 어긋난다)
-    let glow = null, ga = 0;
+    let glow = null, ga = 0, gr = 0;
     const gs = (ART.SLOT_GLOW || {})[slot.id];
     if (gs && slot.light) {
       ga = gs.a;
@@ -359,8 +359,11 @@ export function createRoom(canvas, opt) {
       glow.scale.set(r * 2, r * 2, 1);
       glow.position.set((gs.x - 0.5) * slot.p3.w, slot.p3.y + slot.p3.h * (0.5 - gs.y), 0.12);
       grp.add(glow);
+      // ⚠️ **밑크기를 들고 있는다** — 밤에는 여기에 `lampHalo` 가 곱해지는데
+      //    (`setPhase`), 지금 크기에 곱하면 시간대를 옮길 때마다 불어난다
+      gr = r * 2;
     }
-    return { grp, light, glow, ga, mesh: null, shadow: null };
+    return { grp, light, glow, ga, gr, mesh: null, shadow: null };
   }
   // ⚠️ **접지 그림자는 «바닥에 서는 것»만** — 자국이 없으면 종이가 공중에 뜨고,
   //    벽에 붙은 것·매달린 것·탁자 위의 것에 깔면 바닥에 유령 자국이 남는다.
@@ -375,12 +378,16 @@ export function createRoom(canvas, opt) {
   // ⚠️ 「깜박임을 1/3 로」로 받아 **0.14 → 0.047**(1/3)이다 (2026-09-30).
   //    ±0.14 는 0.74~1.02 를 오갔고 지금은 0.833~0.927 이다
   const FLICKER_MID = 0.88, FLICKER_AMP = 0.047;
+  // 밤에는 등불이 «더 세게 탄다» — 표는 `avatar.js` 의 `LAMP_NIGHT` 한 곳이고
+  // `setPhase` 가 시간대마다 이 둘을 잡는다 (낮은 1 · 1 이라 낮 화면은 그대로다).
+  // ⚠️ **밑값에 곱한다** — 지금 값에 곱하면 시간대를 옮길 때마다 불어난다
+  let lampLit = 1, lampHalo = 1;
   // 흔들릴 광원 목록 — **씨앗이 짝마다 다르다**(아래 프레임 루프가 쓴다)
   const LIT = [];
   SLOTS.forEach((s, si) => {
     const us = s.kind === 'pair' ? [makeUnit(s, 1), makeUnit(s, -1)] : [makeUnit(s, 1)];
     us.forEach((u, ui) => {
-      if (u.light) LIT.push({ grp: u.grp, light: u.light, glow: u.glow, ga: u.ga,
+      if (u.light) LIT.push({ grp: u.grp, light: u.light, glow: u.glow, ga: u.ga, gr: u.gr,
         base: s.light, seed: si * 1.7 + ui * 2.3 });
     });
     units[s.id] = { slot: s, cur: null, us };
@@ -419,7 +426,9 @@ export function createRoom(canvas, opt) {
       sh.rotation.x = -Math.PI / 2; sh.position.set(0, 0.02, 0.08);
       u.grp.add(sh); u.shadow = sh;
     }
-    if (u.light) u.light.intensity = slot.light;
+    // ⚠️ **여기도 `lampLit` 을 탄다.** 루프가 멎어 있으면(움직임 줄이기 · 검사기)
+    //    이 한 줄이 곧 그 자리의 밝기라, 빠뜨리면 **밤에 소품을 놓는 순간만** 낮 세기가 된다
+    if (u.light) u.light.intensity = slot.light * lampLit;
   }
   // 한 자리에 소품 하나를 놓는다 (`null` 이면 비운다)
   function setProp(sid, id) {
@@ -664,6 +673,16 @@ export function createRoom(canvas, opt) {
     amb.intensity = AMB[0] + (AMB[1] - AMB[0]) * d;
     key.intensity = KEY[0] + (KEY[1] - KEY[0]) * d;
     scene.fog.color.copy(FOG_N).lerp(FOG_D, d);
+    // ── 그리고 **등불이 그 반대로 탄다** — 햇빛이 물러난 만큼 방을 등불이 맡는다.
+    //    ⚠️ 표는 `avatar.js` 의 `LAMP_NIGHT` 한 곳이다 (위의 `SKY_LIGHT` 와 같은 규칙).
+    //    ⚠️ **빛무리의 «크기»는 여기서만 움직인다** — 프레임마다 흔들면 그 밑의 카드까지
+    //       맥박치는 것으로 보인다 (아래 루프의 그 경고다). 시간대가 바뀔 때 한 번이다
+    const g = A.lampGainOf ? A.lampGainOf(p) : { lit: 1, halo: 1 };
+    lampLit = g.lit; lampHalo = g.halo;
+    LIT.forEach(L => {
+      if (L.glow) { const r = L.gr * lampHalo; L.glow.scale.set(r, r, 1); }
+      if (L.grp.visible) L.light.intensity = L.base * FLICKER_MID * lampLit;
+    });
   }
 
   // ── 양탄자가 화면에서 차지하는 자리 (게임의 `placeFigure` 가 이것을 본다)
@@ -732,7 +751,7 @@ export function createRoom(canvas, opt) {
       LIT.forEach(({ grp, light, glow, ga, seed, base }) => {
         if (!grp.visible) return;
         const k = FLICKER_MID + Math.sin(now / 140 + seed) * FLICKER_AMP;
-        light.intensity = base * k;
+        light.intensity = base * k * lampLit;
         if (glow) glow.material.opacity = ga * k;
       });
       const P = dustGeo.attributes.position;

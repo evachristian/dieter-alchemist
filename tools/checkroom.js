@@ -41,6 +41,15 @@ const DAY_SOFT = 1.2;
 const EVE_SAME = 0.02;   // 초저녁과 밤은 «같아야» 한다 (고친 적이 없는 자리다)
 // 표(`Avatar.SKY_LIGHT`)의 낮을 0 으로 꺾으면 방이 밤만큼 어두워져야 한다
 const TABLE_OBEY = 1.15;
+// 밤의 등불이 더하는 몫이 «낮 세기의 등불»보다 이 배는 돼야 한다 (⑨).
+// ⚠️ **사보타주를 돌려 보고 고른 값이다** — 등불이 시간대를 아예 안 보던 옛 코드가
+//    **1.00배**이고 지금이 **1.64~1.68배**라 그 사이다 (짐작으로 적은 문턱은
+//    고친 쪽을 잡는다 — 바로 위의 `DAY_NIGHT` 에서 두 번 겪었다)
+const LAMP_MORE = 1.35;
+// 낮은 표가 1 배라 «표를 꺾어도» 한 픽셀도 안 바뀌어야 한다 (더하는 몫의 차 · 지금 0.001)
+const LAMP_FLAT = 0.02;
+// 밤에 소품을 다시 놓아도 등불이 이만큼은 그대로여야 한다 (`putUnit` 이 세기를 타는가)
+const LAMP_REPUT = 0.9;
 
 // 「달라진 점이 한 줄에 30px 넘게 이어진 곳」만 양탄자로 친다.
 // ⚠️ 문턱을 0.02 로 두면 **그림자가 번진 몫까지** 잡혀 방 전체가 양탄자가 된다
@@ -583,6 +592,21 @@ function mask(A, B) {
           const el = document.getElementById(id); if (el) el.style.visibility = 'hidden';
         }));
       };
+      // 등불(벽등·촛불·샹들리에)을 통째로 껐다 켠다 — ⑧ 과 ⑨ 가 같이 쓴다.
+      //
+      // ⚠️⚠️ **다시 그릴 때마다 되살아난다.** `render()` 가 `setDecor`·`setPhase` 를
+      //    지나며 세기를 도로 잡으므로 **찍기 직전마다** 불러야 한다
+      //    (인물을 「찍기 직전마다」 치우는 것과 같은 자리다)
+      // ⚠️ `glow` 를 `false` 로 주면 **빛무리는 끈 채로** 둔다 — 그러면 남는 것이
+      //    «비추는 몫»(`PointLight`)뿐이라 그쪽만 따로 잴 수 있다 (아래 ⑨의 세 번째 줄)
+      const lamps = (on, glow) => page.evaluate(([v, g]) => {
+        room3d.parts.LIT.forEach(L => {
+          if (L.glow) L.glow.visible = v && g !== false;
+          if (v) { if (L.__on != null) L.light.intensity = L.__on; }
+          else { if (L.light.intensity > 0) L.__on = L.light.intensity; L.light.intensity = 0; }
+        });
+        room3d.render();
+      }, [on, glow]);
       // ⚠️⚠️ **제목 줄 «위»는 빼고 잰다.** 방 그림은 헤더 자리까지 올라가는데(`--room-rise`)
       //    거기에는 AP 알약·저장 칩이 깔려 있다 — 그 띠는 시간대를 안 타서 **밤의 평균을
       //    통째로 끌어올린다** (그대로 재면 낮÷밤이 3.3배가 아니라 2.07배로 나왔다).
@@ -599,9 +623,15 @@ function mask(A, B) {
         for (let i = 0; i < g.l.length; i++) if (g.l[i] != null) { s += g.l[i]; n++; }
         return n ? s / n : null;
       };
+      // ⚠️⚠️ **등불을 끄고 잰다 — 여기서 묻는 것은 «햇빛»이다.**
+      //    켜 두고 재면 축이 둘 섞인다: 밤에는 등불이 더 세게 타므로(`LAMP_NIGHT`)
+      //    밤의 평균이 그만큼 올라가 **낮÷밤이 2.37 → 2.02 로 내려앉았다** —
+      //    등불을 밝게 한 것이 「낮이 안 밝다」로 잡히는 꼴이다.
+      //    문턱을 낮춰서 맞추면 그건 잣대를 결과에 맞춘 것이라, **잴 수 있는 자리로
+      //    옮겼다**: 햇빛은 여기가, 등불은 아래 ⑨ 가 본다 (둘 다 사보타주로 확인했다)
       const lum = {};
       const bands = await page.evaluate(() => window.Avatar.SKY_BANDS.map(b => b.k));
-      for (const k of bands) { await goPhase(k); lum[k] = meanOf(await shot(lightBox)); }
+      for (const k of bands) { await goPhase(k); await lamps(false); lum[k] = meanOf(await shot(lightBox)); }
 
       if (bands.some(k => lum[k] == null)) bad.push('낮과 밤: 방을 못 찍었다 (밝기를 잴 수가 없다)');
       else {
@@ -635,6 +665,7 @@ function mask(A, B) {
           return keep;
         });
         await setFigure(false);
+        await lamps(false);
         const off = meanOf(await shot(lightBox));
         await page.evaluate((keep) => {
           window.Avatar.SKY_LIGHT.day = keep;
@@ -666,6 +697,153 @@ function mask(A, B) {
       else if (!(svg.on > svg.off))
         bad.push(`SVG 방이 «SKY_LIGHT» 를 안 본다 (볕 ${svg.on} → ${svg.off})`);
       else lightOut += ` · SVG 볕 ${svg.on.toFixed(2)} → ${svg.off.toFixed(2)}`;
+
+      // ── ⑨ 밤에는 «등불이 더 세게 탄다» (2026-09-30)
+      //
+      // 「밤에는 샹들리에, 벽등, 촛불이 더 밝게 빛나게 해줘」로 받은 자리다. 등불의
+      // 세기는 시간대를 **한 번도 안 봤다** — 낮이든 밤이든 `slot.light` 그대로라,
+      // 방만 어두워지고 등불은 제자리여서 밤에는 촛불이 «켜진 그림»으로만 서 있었다.
+      //
+      // ⚠️⚠️ **⑥ 「빛무리」는 이것을 영영 못 본다** — 거기서 보는 것은 「빛무리를 껐다
+      //    켜면 밝아지는가」라 **밤낮이 같아도 통과한다.** ⑧ 도 이제 등불을 끄고 재므로
+      //    이 축을 보는 줄은 여기뿐이다 (0건이 「통과」가 아닌 그 자리다).
+      // ⚠️⚠️ **방의 «절대 밝기»로 재면 안 된다** — 밤은 방이 어두워서 등불이 아무리
+      //    세도 낮보다 어둡다. 재는 것은 **「등불이 «더하는» 몫」**이다
+      //    (끈 방 ↔ 켠 방의 차) — 그래야 방의 밑밝기와 무관해진다.
+      // ⚠️⚠️ **그래도 «밤의 몫 ↔ 낮의 몫»을 바로 견주면 안 된다.** 빛무리는 더하기
+      //    합성이라 밝은 낮의 벽 위에서는 중심이 1 에서 잘리고, 그 잘린 몫이 그대로
+      //    「낮이 더 세다」로 나온다 (그렇게 짰더니 **멀쩡한 코드가 0.80배로 걸렸다**).
+      //    견줄 것은 **같은 밤 안에서 «표를 1 로 꺾은 방»**이다 — 조건이 같아야 잣대가 선다
+      let lampOut = '';
+      {
+        const P = GLOW_PAD * 3;    // ⚠️ 빛무리의 «중심»은 밤낮 다 흰색으로 잘려 못 가른다.
+        const near = (g, b, cx, cy) => {         //   갈리는 것은 둘레에 깔리는 «빛웅덩이»다
+          const X = cx - b.x, Y = cy - b.y;
+          const x0 = Math.max(0, Math.round(X - P)), x1 = Math.min(g.w, Math.round(X + P));
+          const y0 = Math.max(0, Math.round(Y - P)), y1 = Math.min(g.h, Math.round(Y + P));
+          if (x1 - x0 < 4 || y1 - y0 < 4) return null;
+          let s = 0, n = 0;
+          for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { s += g.l[y * g.w + x]; n++; }
+          return s / n;
+        };
+        // 지금 시간대에서 「등불이 더하는 몫」 — 광원마다 재어 평균한다
+        const liftNow = async (glow) => {
+          const spots = await page.evaluate(() => {
+            const R = room3d, rc = R.renderer.domElement.getBoundingClientRect();
+            const V = new R.camera.position.constructor();
+            return R.parts.LIT.filter(x => x.grp.visible && x.glow).map(({ grp, glow }) => {
+              glow.getWorldPosition(V); V.project(R.camera);
+              return { id: grp.userData.slot || '광원',
+                x: rc.left + (V.x * 0.5 + 0.5) * rc.width, y: rc.top + (-V.y * 0.5 + 0.5) * rc.height };
+            });
+          });
+          await lamps(false, glow); const off = await shot();
+          await lamps(true, glow); const on = await shot();
+          if (!off || !on) return null;
+          let s = 0, n = 0;
+          spots.forEach(p => {
+            const a = near(off, box, p.x, p.y), b = near(on, box, p.x, p.y);
+            if (a == null || b == null) return;        // 상자 밖으로 나간 자리
+            s += b - a; n++;
+          });
+          return n ? { lift: s / n, n } : null;
+        };
+        // 표를 1 로 꺾어 놓고 같은 것을 잰다 — 그것이 곧 «낮 세기의 등불»이다.
+        //
+        // ⚠️⚠️ **이것이 「표가 유일한 원본인가」도 같이 본다.** room3d 안에 숫자를 박으면
+        //    꺾어도 밤이 안 어두워져 두 값이 같아지고, 그 자리에서 잡힌다
+        //    (`SKY_LIGHT` 에서 배운 자리다 — 그러면 SVG 폴백만 옛 밝기로 남는다)
+        const flatLift = async (ph) => {
+          await page.evaluate((q) => {
+            const L = window.Avatar.LAMP_NIGHT;
+            window.__lampBak = { lit: L.lit, halo: L.halo };
+            L.lit = 1; L.halo = 1;
+            room3d.setPhase(q === 'night' ? 'day' : 'night'); room3d.setPhase(q);  // 같은 이름이면 안 다시 잡는다
+          }, ph);
+          const v = await liftNow();
+          await page.evaluate((q) => {
+            const L = window.Avatar.LAMP_NIGHT, b = window.__lampBak;
+            L.lit = b.lit; L.halo = b.halo;
+            room3d.setPhase(q === 'night' ? 'day' : 'night'); room3d.setPhase(q);
+          }, ph);
+          return v;
+        };
+        await goPhase('night');
+        const nOn = await liftNow(), nFlat = await flatLift('night');
+        // ⚠️ **낮도 같이 잰다** — 「낮은 한 픽셀도 안 바뀐다」가 이 고침의 절반이다.
+        //    밤만 보면 낮까지 같이 밝혀 놓아도 그대로 통과한다
+        await goPhase('day');
+        const dOn = await liftNow(), dFlat = await flatLift('day');
+        if (!nOn || !nFlat || !dOn || !dFlat) bad.push('밤의 등불: 광원을 한 자리도 못 쟀다');
+        else {
+          if (nOn.lift < nFlat.lift * LAMP_MORE)
+            bad.push(`밤에도 등불이 낮 세기 그대로다 (+${nOn.lift.toFixed(3)}`
+              + ` ÷ +${nFlat.lift.toFixed(3)} = ${(nOn.lift / nFlat.lift).toFixed(2)}배 · ${LAMP_MORE}배 기대)`);
+          if (Math.abs(dOn.lift - dFlat.lift) > LAMP_FLAT)
+            bad.push(`낮의 등불이 달라졌다 (+${dOn.lift.toFixed(3)} ↔ 표를 1 로 두면`
+              + ` +${dFlat.lift.toFixed(3)} · 낮은 1 배라 같아야 한다)`);
+          lampOut = `밤 +${nOn.lift.toFixed(3)} ↔ 낮 세기 +${nFlat.lift.toFixed(3)}`
+            + ` (${nOn.n}곳) · 낮 +${dOn.lift.toFixed(3)} ↔ +${dFlat.lift.toFixed(3)}`;
+
+          // ── 밤에 소품을 «다시 놓아도» 밤 세기인가 (`putUnit`)
+          //
+          // ⚠️⚠️ **위의 둘은 이것을 영영 못 본다.** 세기를 잡는 자리가 둘이라 그렇다 —
+          //    `setPhase` 가 이미 서 있는 등불을 잡고, **새로 놓이는 등불은 `putUnit`** 이
+          //    잡는다. 그런데 `setPhase` 는 시간대 «이름이 같으면 그 자리에서 돌아가므로»,
+          //    꾸미기 시트에서 소품을 놓으면 그 등불만 **낮 세기로 남는다**
+          //    (루프가 돌고 있으면 한 프레임 만에 덮여서 눈에는 안 보인다).
+          //    여기서는 루프가 멎어 있으니 그대로 드러난다
+          // ⚠️⚠️ **빛무리를 «끄고» 잰다.** `putUnit` 이 잡는 것은 `light.intensity`
+          //    하나뿐인데, 빛무리를 켜 두면 그 몫이 훨씬 커서 **묻힌다** — 실제로
+          //    사보타주가 **그대로 통과했다**(0.315 → 0.305 · 3% 밖에 안 떨어진다).
+          //    빛무리를 끄면 남는 것이 «비추는 몫»뿐이라 그 자리에서 드러난다.
+          // ⚠️ **광원 소품을 «다» 다시 놓는다** — 하나만 내렸다 놓으면 나머지 둘이
+          //    평균을 받쳐 준다 (그것이 3% 였던 또 다른 이유다)
+          await goPhase('night');
+          const poolBefore = await liftNow(false);
+          await page.evaluate(() => {
+            const d = roomDecorState();
+            const gone = Object.assign({}, d, { props: Object.assign({}, d.props) });
+            ['candle', 'sconce', 'chandelier'].forEach(k => { delete gone.props[k]; });
+            room3d.setDecor(gone);      // 내렸다가
+            room3d.setDecor(d);         // 같은 자리에 도로 놓는다 — `putUnit` 을 다시 지난다
+            room3d.render();
+          });
+          const poolAfter = await liftNow(false);
+          await lamps(true, true);      // 빛무리를 도로 켜 놓는다
+          if (!poolBefore || !poolAfter) bad.push('밤의 등불: 다시 놓은 방을 못 쟀다');
+          else if (poolAfter.lift < poolBefore.lift * LAMP_REPUT)
+            bad.push(`밤에 소품을 다시 놓으면 등불이 낮 세기로 떨어진다`
+              + ` (비추는 몫 +${poolBefore.lift.toFixed(3)} → +${poolAfter.lift.toFixed(3)})`);
+          else lampOut += ` · 다시 놓아도 비추는 몫 +${poolAfter.lift.toFixed(3)}`;
+        }
+
+        // SVG 폴백도 같은 표를 읽는가 — 빛무리의 «반지름»이 밤에 커지는가.
+        // ⚠️ 폴백에는 빛의 «모형»이 없어 `PointLight` 에 해당하는 것이 없다 —
+        //    그쪽이 받는 손잡이는 이것 하나뿐이다
+        const rOf = () => page.evaluate(() => {
+          const A = window.Avatar;
+          const m = /<circle[^>]*r="([\d.]+)"[^>]*plus-lighter/.exec(
+            A.roomScene(5, { props: S.roomProps }, 0, 0));
+          return m ? Number(m[1]) : null;
+        });
+        await goPhase('night'); const rN = await rOf();
+        await goPhase('day'); const rD = await rOf();
+        const rFlat = await page.evaluate(() => {
+          const A = window.Avatar, L = A.LAMP_NIGHT, b = { lit: L.lit, halo: L.halo };
+          L.lit = 1; L.halo = 1;
+          const m = /<circle[^>]*r="([\d.]+)"[^>]*plus-lighter/.exec(
+            A.roomScene(5, { props: S.roomProps }, 0, 0));
+          L.lit = b.lit; L.halo = b.halo;
+          return m ? Number(m[1]) : null;
+        });
+        if (rN == null || rD == null || rFlat == null) bad.push('밤의 등불: SVG 빛무리를 못 읽었다');
+        else if (!(rN > rD)) bad.push(`SVG 방의 등불이 밤에 안 커진다 (밤 r${rN} · 낮 r${rD})`);
+        else if (Math.abs(rFlat - rD) > 0.15)
+          bad.push(`SVG 방이 «LAMP_NIGHT» 를 안 본다 (1 로 꺾어도 밤이 r${rFlat} · 낮 r${rD})`);
+        else lampOut += ` · SVG 빛무리 r${rD} → r${rN}`;
+      }
+      if (lampOut) lightOut += ` | 등불 ${lampOut}`;
 
       // 시계를 되돌린다 — 뒤에 오는 것이 옮겨 놓은 시계를 물려받지 않게
       await page.evaluate(() => { S.devClock = 0; setDevClock(0); render(); });

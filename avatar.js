@@ -4056,6 +4056,28 @@
     const v = SKY_LIGHT[p];
     return typeof v === 'number' ? v : 1;
   };
+  // 밤에는 **등불이 더 세게 탄다** (벽등 · 촛불 · 샹들리에 · 2026-09-30).
+  // 낮이 1 — **낮 화면은 한 픽셀도 안 바뀐다** — 이고 밤이 이 값이다.
+  //
+  //   lit  : 방을 비추는 몫 (3D 의 `PointLight`)
+  //   halo : 빛무리가 «퍼지는» 몫 — 두 renderer 가 같이 쓰는 유일한 손잡이다
+  //
+  // ⚠️⚠️ **`SKY_LIGHT` 의 «반대쪽»이라 표를 따로 안 둔다.** 햇빛이 물러난 만큼
+  //    등불이 방을 맡는 것이라, 눈금 하나에서 둘을 다 뽑으면 새벽·노을을 옮겼을 때
+  //    등불이 저절로 따라온다 (표가 둘이면 한쪽만 고쳐 어긋난다).
+  // ⚠️⚠️ **빛무리의 «불투명도»는 안 건드린다.** 중심이 이미 거의 흰색이라 올려 봐야
+  //    1 에서 잘리는데(재 보면 방 평균이 0.165 → 0.172 뿐이다), **잘리는 순간
+  //    깜박임이 멎는다** — 「빛무리가 흔들리는가」(`checkroom` ④-2)가 지키는 그 줄이
+  //    조용히 죽는다. 밝아지는 것은 «퍼지는 몫»과 «비추는 몫»이다.
+  // ⚠️ **`halo` 를 크게 잡으면 빛이 아니라 «안개»가 된다** — 1.6 을 그려 봤더니
+  //    샹들리에가 윗벽을 덮는 허연 원반이 되어 불빛의 «모양»이 사라졌다.
+  //    1.15 는 그려 놓고 고른 값이다 (1.0 · 1.15 · 1.3 · 1.6 을 나란히 찍었다)
+  const LAMP_NIGHT = { lit: 4, halo: 1.15 };
+  // 그 시간대의 등불 세기 — 낮 1 · 새벽·노을은 그 절반쯤 · 밤·초저녁이 끝값이다
+  const lampGainOf = (p) => {
+    const n = 1 - skyLightOf(p);       // 「밤인 정도」 (낮 0 · 밤 1)
+    return { lit: 1 + (LAMP_NIGHT.lit - 1) * n, halo: 1 + (LAMP_NIGHT.halo - 1) * n };
+  };
   // 이 방의 «시각» — 한국시간의 시(時) 하나다. 개발용 시계를 태우는 자리이기도 하다
   //
   // ⚠️⚠️ **게임 시계(`nowMs`)를 탄다 — `Date.now()` 를 직접 안 부른다.**
@@ -4266,7 +4288,11 @@
   //    재 보면 낮의 벽등이 0.693 → 0.698(+0.005)이라 **빛이 난다고 할 수가 없었다.**
   //    빛은 «섞이는 것»이 아니라 «더해지는 것»이라 이쪽이 3D 와 같은 규칙이기도 하다.
   //    ⚠️ 못 알아듣는 브라우저에서는 평범한 알파로 떨어진다 — 옅어질 뿐 안 깨진다
-  function decorImage(slotId, decor, glowId) {
+  // ⚠️ **`lampHalo` 는 시간대가 정하는 «빛무리가 퍼지는 몫»이다** (`lampGainOf`).
+  //    여기서 `skyPhase()` 를 다시 부르지 않고 «받는다» — 부르는 쪽(`roomScene`)이
+  //    이미 그 시간대를 알고 있어서, 두 번 물으면 그리는 도중에 시각이 넘어갈 때
+  //    창밖과 등불이 갈린다
+  function decorImage(slotId, decor, glowId, lampHalo) {
     const D = window.GameData;
     if (!D || !window.RoomArt) return '';
     const slot = (D.roomSlot || (() => null))(slotId);
@@ -4280,9 +4306,10 @@
     if (!u) return '';
     const [x, y, w, h] = slot.p2;
     const gs = (window.RoomArt.SLOT_GLOW || {})[slotId];
+    const gk = typeof lampHalo === 'number' ? lampHalo : 1;
     const halo = (xx) => (!gs || !glowId) ? '' :
       `<circle cx="${(xx + gs.x * w).toFixed(1)}" cy="${(y + gs.y * h).toFixed(1)}"`
-      + ` r="${(w * gs.r).toFixed(1)}" fill="url(#${glowId})" opacity="${gs.a}"`
+      + ` r="${(w * gs.r * gk).toFixed(1)}" fill="url(#${glowId})" opacity="${gs.a}"`
       + ` style="mix-blend-mode:plus-lighter"/>`;
     const one = (xx) => halo(xx) + `<image href="${u}" x="${xx}" y="${y}" width="${w}" height="${h}"`
       + ` preserveAspectRatio="none"/>`;
@@ -4339,6 +4366,9 @@
     //    여기에 시간대를 다시 적으면 WebGL 이 없는 기기의 방만 옛 밝기로 남는다
     //    (밤 0.14 · 한낮 0.30 은 예전 값 그대로다)
     const warm = 0.14 + 0.16 * skyLightOf(phase) + (lv - 1) * 0.03;
+    // 등불 — 여기에는 빛의 «모형»이 없어서 3D 의 `PointLight` 에 해당하는 것이 없다.
+    // 그래서 폴백이 받는 것은 **빛무리가 퍼지는 몫** 하나뿐이다 (`decorImage` 로 내려간다)
+    const lamp = lampGainOf(phase);
 
     // 벽 이음새 — 돌벽은 아래 단계에서만 진하게 보인다.
     // ⚠️ **무늬를 손으로 적어 두면 천장을 올릴 때마다 위쪽이 민무늬가 된다.**
@@ -4387,7 +4417,7 @@
     const FIXED = { '@window': win, '@floor': floor, '@beam': beam };
     const body = ROOM_Z.map(id => {
       if (FIXED[id]) return FIXED[id];
-      if (id[0] === '#') return decorImage(id.slice(1), dec, ID('glowG'));
+      if (id[0] === '#') return decorImage(id.slice(1), dec, ID('glowG'), lamp.halo);
       return want.has(id) && ROOM_PROPS[id] ? ROOM_PROPS[id](k, top) : '';
     }).join('');
 
@@ -4446,6 +4476,7 @@
              dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
   window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, skyHour, SKY_BANDS, SKY_LIGHT,
+    LAMP_NIGHT, lampGainOf,
     hairIcon, browIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
     heartPath, heartEye, HEART,
