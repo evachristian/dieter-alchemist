@@ -3137,11 +3137,12 @@ const roomSlot = id => ROOM_SLOTS.find(s => s.id === id) || null;
 
 // <<<GEN:room-tiers
 const ROOM_TIERS = [
-  { id: 'plain', name: '소박한', cost: 0 },
-  { id: 'wood', name: '나무', cost: 60 },
-  { id: 'ornate', name: '장식된', cost: 140 },
-  { id: 'royal', name: '왕실', cost: 260 },
+  { id: 'plain', name: '소박한', cost: 0, cozy: 1 },
+  { id: 'wood', name: '나무', cost: 60, cozy: 2 },
+  { id: 'ornate', name: '장식된', cost: 140, cozy: 3 },
+  { id: 'royal', name: '왕실', cost: 260, cozy: 4 },
 ];
+const ROOM_COZY = { decay: 25, rest: 15 };
 // GEN:room-tiers>>>
 
 // ⚠️ **벽지 다섯 × 바닥재 다섯이 «다» 호환된다** — 그래서 자재에는 단계가 없다.
@@ -3230,6 +3231,28 @@ function roomTiersOf(slot) {
   return ROOM_TIERS.map(t => ROOM_DECOR[`rp_${slot}_${t.id}`]).filter(Boolean);
 }
 
+// ─── 아늑함 — 「놓아 두면 도는 것」 (ROOM.md 「효과」) ───────────
+//
+// ⚠️⚠️ **세는 곳이 여기 한 곳이다.** 게임(`roomCozy()`)과 검사기(`checkbalance`)가
+//    같은 함수를 부른다 — 화면에 적힌 %와 실제로 먹는 몫이 갈릴 데가 없다.
+// ⚠️ **자재는 안 센다** — 다섯 × 다섯이 다 호환되는 «취향»이라 등급이 없다.
+//    세는 순간 「아늑한 벽지」가 생겨 그것이 곧 등급이 된다 (`tools/genroom.js`)
+function roomCozyMax() {
+  const top = ROOM_TIERS.reduce((a, t) => Math.max(a, t.cozy || 0), 0);
+  return ROOM_SLOTS.length * top;
+}
+// 놓인 소품(`{자리: 소품id}`)으로 0~1 을 낸다. **단계가 높을수록 아늑하다**
+function roomCozyOf(props) {
+  let n = 0;
+  ROOM_SLOTS.forEach(s => {
+    const d = ROOM_DECOR[(props || {})[s.id]];
+    const t = d && ROOM_TIERS.find(x => x.id === d.tier);
+    if (t) n += t.cozy || 0;
+  });
+  const max = roomCozyMax();
+  return max > 0 ? Math.min(1, n / max) : 0;
+}
+
 // 조합 판정용: 재료 id 배열을 정렬해 문자열 키로
 function recipeKey(ids) {
   return [...ids].sort().join('+');
@@ -3256,5 +3279,6 @@ window.GameData = {
   WEATHERS, WEATHER_HOURS, DAYPARTS, SPECIAL_TIERS, specialTier,
   ROOM_SLOTS, roomSlot, ROOM_TIERS, ROOM_WALLS, ROOM_FLOORS, ROOM_START, ROOM_LEVEL_GIFT,
   ROOM_DECOR, roomDecor, roomTiersOf, ROOM_MAT_COST, ROOM_PET_SPOT,
+  ROOM_COZY, roomCozyMax, roomCozyOf,
   getTier, recipeKey,
 };

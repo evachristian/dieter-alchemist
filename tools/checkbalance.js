@@ -70,6 +70,39 @@ const numIn = (re, what) => {
     `퀘스트 ${byQuest}장 < 흘림 ${rest}장 이어야 한다`);
 }
 
+// ─── ⓪-2 아늑함 — 「놓아 두면 도는 것」 (ROOM.md 「효과」) ───────
+//
+// 꾸미기의 효과는 **방치 감소를 덜 받고 쉴 때 조금 더 찬다** 둘뿐인데, 둘 다
+// 수치라 다른 수치와 관계를 맺는다. 표(`genroom.js`)는 「25% 천장」만 지키므로
+// **그 25% 가 다른 시스템과 견줘 적당한지**는 여기서 본다.
+{
+  const cozy = D.ROOM_COZY;
+  // ① **방이 «사람»을 못 이긴다.** 호감도가 주는 상시 효과가 이 게임의 간판
+  //    상시 효과다(최대 40%) — 방이 그것을 넘으면 「사람과 친해지는 것」의 값이
+  //    흐려지고, 무엇보다 꾸미기가 «해야 하는 일»로 올라선다
+  const bondTop = Math.max(...Object.keys(D.BOND_GIVES)
+    .map(k => (D.BOND_GIVES[k].kind === 'pct' ? Math.max(...D.BOND_GIVES[k].v) : 0)));
+  const roomTop = Math.max(...Object.keys(cozy).map(k => cozy[k]));
+  ok('방이 사람을 못 이긴다', roomTop < bondTop,
+    `아늑함 최대 ${roomTop}% < 호감도 최대 ${bondTop}% 이어야 한다`);
+
+  // ② **만점까지 «한 달 안»에 닿는가.** 못 닿으면 효과가 장식이다 —
+  //    첫 단계 아홉은 선물이라 값이 0 이고, 만점은 제일 높은 단계 아홉이다.
+  //    ⚠️ 결정은 조합에서만 들어온다(`brewReward`) — 비법서와 같은 자로 잰다
+  const { cost, cap, capPerTier, brewReward } = D.ENERGY;
+  const dayAp = cap + (D.TIERS.length - 1) * (capPerTier || 0);
+  const crystalDay = Math.floor(dayAp * 0.3 / cost.brew) * brewReward;
+  const top = D.ROOM_TIERS[D.ROOM_TIERS.length - 1];
+  const full = D.ROOM_SLOTS.length * top.cost;
+  const days = crystalDay > 0 ? full / crystalDay : Infinity;
+  ok('아늑함 만점에 한 달 안에 닿는다', days <= 31,
+    `${top.name} 아홉 = 💎${full} ÷ 하루 💎${crystalDay} = ${days.toFixed(1)}일 (결정을 여기만 쓸 때)`);
+  // ③ **하루 만에 닿아서도 안 된다** — 꾸미기의 재미는 «모아서 사는» 데서 온다
+  //    (그래서 첫 벌만 선물이다). 이틀이면 그 재미가 없다
+  ok('아늑함 만점이 며칠은 걸린다', days >= 3,
+    `${days.toFixed(1)}일 — 사흘보다는 걸려야 한다`);
+}
+
 // ─── ① AP — 조합을 돌려서 AP 를 버는 고리가 없는가 ────────────
 //
 // 현자의 결정은 **AP 와 1:1 로 바꿀 수 있다**(`chargeCost / cap`). 그러니 조합

@@ -81,6 +81,54 @@ function launchOpts() {
     d = decayIdle();
     ok(d && d.days === 7, `두 달 방치해도 7일치까지만 (${d && d.days}일)`);
 
+    // ── 🛋️ 아늑함 — 꾸민 방은 «덜 잃는다» (ROOM.md 「효과」) ──
+    //
+    // ⚠️⚠️ **두 조건을 «같은 자로» 두 번 재서 견준다.** 한 번만 재면 값이 얼마든
+    //    「그렇구나」가 되어 **배선을 끊어도 통과한다** (천장을 올린 방 그림에서
+    //    배운 그 규칙이다).
+    // ⚠️ 시계를 옮겨야만 보이는 자리라 여기가 집이다 — 지금 화면만 보면 둘이 똑같다
+    {
+      const decayOf = () => {
+        S.aura.grit = 1000; S.fit = 20;
+        S.lastWorkoutTs = Date.now(); S.decayTs = Date.now();
+        jumpH(24 * 4);
+        const r = decayIdle();
+        return r ? r.grit : 0;
+      };
+      // ⚠️ **가득 차기 «전»에 잰다**(4시간). 가득 차면 둘이 같은 값이 되어 못 가른다.
+      // ⚠️ 근성을 고정한다 — 상한이 근육량을 보므로 안 고정하면 두 판의 «자»가 다르다
+      const restOf = () => {
+        S.aura.grit = 500; S.aura.happy = 500;
+        S.fullness = 100; S.stamina = 0; S.bodyTs = Date.now();
+        jumpH(4); tickBody();
+        return stamina();
+      };
+      S.roomProps = {};
+      const bareCozy = roomCozyPct(), bareRest = restOf(), bareDecay = decayOf();
+      // 자리 아홉에 제일 높은 단계를 다 놓는다 → 아늑함 만점
+      D.ROOM_SLOTS.forEach(s => { S.roomProps[s.id] = `rp_${s.id}_royal`; });
+      const fullCozy = roomCozyPct(), fullRest = restOf(), fullDecay = decayOf();
+      out.push(`아늑함 ${bareCozy}% → ${fullCozy}% · 방치 감소 −${bareDecay} → −${fullDecay}`
+        + ` · 4시간 회복 ${bareRest.toFixed(1)} → ${fullRest.toFixed(1)}`);
+      ok(bareCozy === 0 && fullCozy === 100,
+        `빈 방은 0% · 왕실 아홉은 100% (${bareCozy} / ${fullCozy})`);
+      ok(fullDecay < bareDecay, `꾸민 방은 방치 감소를 덜 받는다 (${bareDecay} → ${fullDecay})`);
+      ok(fullRest > bareRest + 0.5, `꾸민 방에서는 더 잘 쉰다 (${bareRest.toFixed(1)} → ${fullRest.toFixed(1)})`);
+      // ⚠️⚠️ **감소를 «지우지» 않는다.** 방치 감소는 이 게임에서 수치가 내려가는
+      //    유일한 자리라, 꾸미기로 0 이 되면 그 시스템이 통째로 없어진다
+      ok(fullDecay > 0, `만점이어도 방치 감소가 남는다 (−${fullDecay})`);
+      // 화면에 적는 값과 실제로 먹는 몫이 같은가 — 시트의 그 줄이 여기서 나온다
+      const cut = Math.round(100 * (1 - fullDecay / bareDecay));
+      ok(Math.abs(cut - cozyDecayCut()) <= 1,
+        `시트에 적힌 −${cozyDecayCut()}% 와 실제로 깎인 −${cut}% 가 같다`);
+      // 선물 한 벌(소박한 것 아홉)만으로는 만점의 절반에 못 미친다 —
+      // ⚠️ 여기가 뒤집히면 «사서 모으는» 이유가 사라진다
+      D.ROOM_SLOTS.forEach(s => { S.roomProps[s.id] = `rp_${s.id}_plain`; });
+      const giftCozy = roomCozyPct();
+      ok(giftCozy > 0 && giftCozy < 50, `선물 한 벌은 ${giftCozy}% (0 초과 · 50 미만)`);
+      S.roomProps = {};
+    }
+
     // ── 혼자 먹은 밤 (STORY.md) ──
     // **날이 바뀔 때만 판정한다.** 낮에 포만감이 0 이 돼도 아무 일도 없어야 한다
     S.aura.happy = 500; S.aura.grit = 500; S.fit = 0; S.binges = [];

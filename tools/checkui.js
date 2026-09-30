@@ -2917,6 +2917,10 @@ function launchOpts() {
               const want = decorItemsOf(tb).length + (D.roomSlot(tb) ? 1 : 0);   // 자리에는 「비우기」가 하나 더
               if (n !== want) return `칸이 ${n}개다 (${want} 이어야 한다)`;
               if (!m.querySelector('.sheet-exit')) return '나가는 길이 없다';
+              // ⚠️ **🛋️ 아늑함 줄은 «탭마다» 서 있어야 한다** — 꾸미기의 결과는
+              //    방 전체라 한 탭의 것이 아니고, 둘 다 «덜 잃는» 쪽이라 이 줄이
+              //    없으면 효과가 화면 어디에도 안 적힌다 (ROOM.md 「효과」)
+              if (!m.querySelector('.decor-cozy')) return '🛋️ 아늑함 줄이 없다';
               return null;
             }, tab);
             if (bad) { results.push({ 화면: `${t}/꾸미기시트:${tab}`, 오류: bad }); continue; }
@@ -2954,6 +2958,81 @@ function launchOpts() {
           await page.waitForTimeout(150);
           console.log(`  꾸미기시트 — 탭 ${tabs.length}개를 «다» 쟀다`
             + ` (잠긴 칸이 있는 탭 ${lockSeen} · 받침 안내 ${noteSeen + (noteBad ? 0 : 1)})`);
+
+          // ── 🛋️ 아늑함 줄이 «진짜 값»을 적는가 ────────────────
+          //
+          // ⚠️⚠️ **「줄이 있는가」만 보면 0 을 박아 놔도 통과한다.** 세 값이 놓은
+          //    것에 따라 «움직이는지»를 본다 — 빈 방과 왕실 아홉이 같은 줄이면
+          //    그 줄은 장식이다 (화면과 실제가 갈리던 자리들과 같은 사고다).
+          // ⚠️ 여기서 재는 것은 «글자»다. 몫이 맞는지는 `checktime` 이 시계를
+          //    옮겨 놓고 잰다 — 둘이 짝이고 보는 것이 다르다
+          {
+            const nm = `${t}/꾸미기아늑함`;
+            const out = await page.evaluate(() => {
+              const line = () => {
+                openDecorSheet('rug'); renderDecorSheet();
+                const el = document.querySelector('#decorSheet .decor-cozy');
+                return { txt: el ? el.textContent.trim() : '', pct: roomCozyPct(),
+                  d: cozyDecayCut(), r: cozyRestAdd() };
+              };
+              const props = S.roomProps;
+              S.roomProps = {};
+              const bare = line();
+              S.roomProps = {};
+              D.ROOM_SLOTS.forEach(s => { S.roomProps[s.id] = `rp_${s.id}_royal`; });
+              const full = line();
+              closeDecorSheet();
+              S.roomProps = props; render();
+              return { bare, full };
+            });
+            const { bare, full } = out;
+            if (!bare.txt || !full.txt) results.push({ 화면: nm, 오류: '아늑함 줄이 비었다' });
+            else if (bare.txt === full.txt) {
+              results.push({ 화면: nm, 오류: `빈 방과 왕실 아홉이 같은 줄이다 («${full.txt}»)` });
+            } else if (!(full.pct > bare.pct && full.d > bare.d && full.r > bare.r)) {
+              results.push({ 화면: nm,
+                오류: `세 값이 다 안 움직인다 (${bare.pct}%/${bare.d}/${bare.r} → ${full.pct}%/${full.d}/${full.r})` });
+            } else if (full.txt.indexOf(String(full.pct)) < 0 || full.txt.indexOf(String(full.d)) < 0) {
+              results.push({ 화면: nm, 오류: `줄에 적힌 값이 셈과 다르다 («${full.txt}» · ${full.pct}% / ${full.d})` });
+            } else {
+              console.log(`  꾸미기아늑함 — 빈 방 «${bare.txt}» → 왕실 아홉 «${full.txt}»`);
+            }
+          }
+
+          // ── 🧹 개발용 「꾸미기 해제」 ───────────────────────────
+          //
+          // ⚠️⚠️ **「버튼이 있는가」만 보면 아무 일도 안 하는 버튼이 통과한다.**
+          //    눌러서 ① 소품이 다 내려가고 ② 자재가 시작값이 되고
+          //    ③ **가진 것은 그대로인지**를 본다 — ③ 이 없으면 「해제」를
+          //    「회수」로 만드는 사보타주가 지나간다 (되돌릴 길이 없는 쪽이다)
+          {
+            const nm = `${t}/꾸미기해제`;
+            const out = await page.evaluate(() => {
+              S.roomOwned = ['rw_lime', 'rw_gold', 'rf_pine', 'rf_marble',
+                'rp_rug_royal', 'rp_table_royal'];
+              S.roomWall = 'rw_gold'; S.roomFloor = 'rf_marble';
+              S.roomProps = { rug: 'rp_rug_royal', table: 'rp_table_royal' };
+              render();
+              const btn = [...document.querySelectorAll('#roomDevTail .btn-dev')]
+                .find(b => (b.getAttribute('onclick') || '').indexOf('devClearDecor') >= 0);
+              if (!btn) return { bad: '개발용 「꾸미기 해제」 버튼이 없다' };
+              const own0 = (S.roomOwned || []).length;
+              btn.click();
+              return { props: Object.keys(S.roomProps || {}).length,
+                wall: S.roomWall, floor: S.roomFloor,
+                own0, own: (S.roomOwned || []).length,
+                start: D.ROOM_START };
+            });
+            if (out.bad) results.push({ 화면: nm, 오류: out.bad });
+            else if (out.props !== 0) results.push({ 화면: nm, 오류: `소품이 ${out.props}개 남았다` });
+            else if (out.wall !== out.start.wall || out.floor !== out.start.floor) {
+              results.push({ 화면: nm, 오류: `자재가 시작값이 아니다 (${out.wall} / ${out.floor})` });
+            } else if (out.own !== out.own0) {
+              results.push({ 화면: nm, 오류: `가진 것이 ${out.own0} → ${out.own} 로 줄었다 — 「해제」가 「회수」가 됐다` });
+            } else {
+              console.log(`  꾸미기해제 — 소품 0 · 자재 ${out.wall}/${out.floor} · 가진 것 ${out.own}개 그대로`);
+            }
+          }
         }
           // ── **한 시트의 갈래 둘은 «같이» 걸린다** (2026-09-29 · 사람이 정했다:
           //    「일반에서 1개, 눈썹에서 1개 고를 수 있도록」)

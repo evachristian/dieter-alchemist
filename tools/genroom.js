@@ -67,12 +67,38 @@ const SLOTS = [
 //    숫자이고, 「나무 러그」라야 물건이다 (비법서 장이 「6장」에서 이름으로
 //    바뀐 것과 같은 자리다).
 // `cost` 는 상점에서 사는 값(현자의 결정). 첫 단계는 **보상으로만** 들어온다(0)
+// `cozy` 는 **아늑함 몫**이다 — 아래 `COZY` 항을 볼 것
 const TIERS = [
-  { id: 'plain', ko: '소박한', en: 'Humble', cost: 0 },
-  { id: 'wood', ko: '나무', en: 'Wooden', cost: 60 },
-  { id: 'ornate', ko: '장식된', en: 'Ornate', cost: 140 },
-  { id: 'royal', ko: '왕실', en: 'Royal', cost: 260 },
+  { id: 'plain', ko: '소박한', en: 'Humble', cost: 0, cozy: 1 },
+  { id: 'wood', ko: '나무', en: 'Wooden', cost: 60, cozy: 2 },
+  { id: 'ornate', ko: '장식된', en: 'Ornate', cost: 140, cozy: 3 },
+  { id: 'royal', ko: '왕실', en: 'Royal', cost: 260, cozy: 4 },
 ];
+
+// ─── 아늑함 — 「놓아 두면 도는 것」 ────────────────────────────
+//
+// 아늑함 = 놓인 소품의 `cozy` 합 ÷ 만점(자리 아홉 × 제일 높은 단계). 0~100% 다.
+//
+// ⚠️⚠️ **자재(벽지·바닥재)는 안 센다.** 다섯 × 다섯이 다 호환되는 «취향»이라
+//    등급이 없고, 세는 순간 「아늑한 벽지」가 생겨 그것이 곧 등급이 된다 —
+//    사람이 「다 호환된다」고 정한 것과 정면으로 부딪힌다.
+//
+// ⚠️⚠️ **효과는 둘 다 «덜 잃는» 쪽이다** — 방은 «쉬는 곳»이라 그것이 맞고,
+//    무엇보다 **더 얻는 쪽으로 두면 꾸미기가 숙제가 된다**: 「오늘 방을 꾸며야
+//    이만큼 더 번다」가 되는 순간 코지 게임에서 제일 나쁜 관리 압박이다.
+//    그래서 ① 방치 감소를 덜 받고 ② 쉬는 동안 스태미나가 조금 더 찬다.
+//
+// ⚠️⚠️ **포만감에는 안 붙인다 — 일부러 뺐다.** 「아늑한 방에서는 덜 허기진다」가
+//    제일 그럴듯한데, 그러면 방이 **혼자 먹은 밤을 막아 준다** — 「덜 먹는 게임이
+//    아니라 혼자 먹지 않는 게임이다」(EXERCISE.md)가 통째로 무너진다.
+//    방이 «연결»의 대체물이 되면 안 된다 (그것이 이 게임의 주제다).
+//
+// ⚠️ 수치는 **작게** 둔다. 만점에서도 둘 다 4분의 1 안쪽이라, 안 꾸민 사람이
+//    손해라고 느끼지 않는다 — 꾸미기는 여전히 «하고 싶어서 하는 일»이다
+const COZY = {
+  decay: 25,   // 방치 감소(근성·단련)를 만점에서 이만큼 깎아 준다 (%)
+  rest: 15,    // 쉬는 동안 스태미나 회복이 만점에서 이만큼 더 붙는다 (%)
+};
 
 // 벽지·바닥재 한 장의 값. ⚠️ **단계가 없으니 값도 하나다** — 취향이지 등급이 아니라
 // 「비싼 벽지」가 있으면 그게 곧 등급이 된다 (사람이 「다 호환된다」고 정했다)
@@ -182,6 +208,19 @@ const problems = [];
     if (t.cost > 0 && gifted.has(id)) problems.push(`선물인데 값도 붙어 있다: ${id}`);
   }
   if (MAT_COST <= 0) problems.push('자재 값이 0 이다 — 시작 자재 둘 말고는 못 얻는다');
+  // ─── 아늑함 ───────────────────────────────────────────────
+  // ⚠️ **몫이 «오르지 않으면» 단계가 아늑함에 아무 일도 안 한다** — 왕실 러그와
+  //    소박한 러그가 같은 값이면 비싼 것을 살 이유가 하나 줄어든다
+  for (let i = 1; i < TIERS.length; i++) {
+    if (!(TIERS[i].cozy > TIERS[i - 1].cozy)) problems.push(`아늑함 몫이 안 오른다: ${TIERS[i].id}`);
+  }
+  if (!(TIERS[0].cozy > 0)) problems.push('첫 단계의 아늑함 몫이 0 이다 — 선물 한 벌이 아무 일도 안 한다');
+  // ⚠️⚠️ **효과가 커지면 꾸미기가 숙제가 된다.** 4분의 1 을 천장으로 못 박아 둔다 —
+  //    수치를 올리고 싶어질 때 이 줄이 먼저 막는다 (코지 게임에서 관리 압박은 독이다)
+  for (const k of Object.keys(COZY)) {
+    if (!(COZY[k] > 0)) problems.push(`아늑함 효과가 0 이다: ${k} — 붙여 놓고 아무 일도 안 한다`);
+    if (COZY[k] > 25) problems.push(`아늑함 효과가 너무 크다: ${k} ${COZY[k]}% (천장 25%)`);
+  }
   // ⚠️⚠️ **어항 자리를 소품이 물면 안 된다.** 바닥에 «깔리는» 것(러그)은 어항 «밑»이라
   //    괜찮고, 세우는 것만 본다 — 여기가 겹치면 어항이 소품 뒤로 숨는다
   {
@@ -227,8 +266,11 @@ slotBody += '];\n';
 
 // ② 단계 표
 let tierBody = 'const ROOM_TIERS = [\n';
-for (const t of TIERS) tierBody += `  { id: '${t.id}', name: '${t.ko}', cost: ${t.cost} },\n`;
+for (const t of TIERS) {
+  tierBody += `  { id: '${t.id}', name: '${t.ko}', cost: ${t.cost}, cozy: ${t.cozy} },\n`;
+}
 tierBody += '];\n';
+tierBody += `const ROOM_COZY = { decay: ${COZY.decay}, rest: ${COZY.rest} };\n`;
 
 // ③ 자재 표 둘
 let matBody = 'const ROOM_WALLS = [\n';
@@ -295,4 +337,7 @@ if (CHECK) {
 console.log(`✅ 방 꾸미기 ${total}개 — 자리 ${SLOTS.length} × 단계 ${TIERS.length}`
   + ` = 소품 ${SLOTS.length * TIERS.length} · 벽지 ${WALLS.length} · 바닥재 ${FLOORS.length}`
   + `\n   시작: 창문 하나 + ${START_WALL} + ${START_FLOOR} (소품 0)`
-  + `\n   단계 선물: ${Object.keys(LEVEL_GIFT).map(lv => `${lv}단계 ${LEVEL_GIFT[lv].length}개`).join(' · ')}`);
+  + `\n   단계 선물: ${Object.keys(LEVEL_GIFT).map(lv => `${lv}단계 ${LEVEL_GIFT[lv].length}개`).join(' · ')}`
+  + `\n   아늑함: 만점 ${SLOTS.length * TIERS[TIERS.length - 1].cozy}`
+  + ` (선물 한 벌이면 ${Math.round(100 * SLOTS.length * TIERS[0].cozy / (SLOTS.length * TIERS[TIERS.length - 1].cozy))}%)`
+  + ` → 방치 감소 −${COZY.decay}% · 스태미나 회복 +${COZY.rest}%`);

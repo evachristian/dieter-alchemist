@@ -248,6 +248,15 @@ async function sweep(browser, theme, bad) {
       await page.waitForTimeout(90);
       const spots = await page.evaluate(COLLECT);
       if (!spots.length) continue;
+      // ⚠️⚠️ **저장 칩이 가라앉기를 기다린다.** 그 칩은 상태에 따라 글자가 갈리는데
+      //    (☁️ ↔ 🔄 · `SYNC_ICON`) 여기서 하는 일이 «두 테마를 견주는 것»이라,
+      //    한쪽만 저장 중에 찍히면 짝이 없는 글자가 생겨 **「ecru 에서는 ?:1」이라는
+      //    말이 안 되는 실패**가 난다 (실제로 네 번에 한 번쯤 빨갰다).
+      //    간헐 실패는 잣대가 아니다 — 재는 조건을 결정적으로 정하는 것이 답이다
+      await page.waitForFunction(() => {
+        const c = document.getElementById('syncChip');
+        return !c || c.dataset.state !== 'saving';
+      }, null, { timeout: 4000 }).catch(() => {});
       const grid = pngLumGrid(await page.screenshot());
       if (!grid) { bad.push(`«${theme}» 의 «${label}» 화면을 한 점도 못 읽었다`); break; }
       for (const s of spots) {
@@ -283,11 +292,22 @@ async function sweep(browser, theme, bad) {
   if (process.env.VERBOSE) rows.forEach(r => console.log('   ' + line(r)));
   else rows.slice(0, 5).forEach(r => console.log('   제일 낮은 쪽 ' + line(r)));
 
+  // ⚠️⚠️ **글자가 «바뀌는» 자리는 견줄 수가 없다 — 빼고 «몇 개를 뺐는지» 알린다.**
+  //    저장 칩(`#syncChip`)은 상태에 따라 ☁️ ↔ 🔄 로 갈리므로, 두 테마를 차례로
+  //    열면 같은 선택자에서 «다른 글자»를 만난다. 그러면 짝이 없어 절대 기준으로
+  //    떨어지고 **「ecru 에서는 ?:1 이다」라는 말이 안 되는 실패**가 난다
+  //    (실제로 그렇게 빨갰다 — 잣대가 아니라 잣대의 사고다).
+  // ⚠️ **선택자가 «아예 없는» 자리와는 다르다** — 그쪽은 다크에만 있는 화면이라
+  //    절대 기준으로 보는 것이 맞다. 둘을 갈라야 한 쪽만 건너뛴다
+  const refSels = new Set([...ref.seen.values()].map(r => r.sel));
+  const moving = rows.filter(r => r.ref == null && refSels.has(r.sel));
+  const cmp = rows.filter(r => !moving.includes(r));
+
   // **다크가 밝은 테마보다 못한 자리**만 실패다 (머리말의 이유 참고).
   // 견줄 짝을 못 찾은 자리(다크에만 있는 화면)는 절대 기준으로 본다
-  const fails = rows.filter(r => r.ratio < MIN && (r.ref == null || r.ratio < r.ref * 0.98));
+  const fails = cmp.filter(r => r.ratio < MIN && (r.ref == null || r.ratio < r.ref * 0.98));
   // 둘 다 낮은 자리는 **주의**다 — 이번 일과 무관하지만 알고는 있어야 한다
-  const note = rows.filter(r => r.ratio < MIN && !fails.includes(r));
+  const note = cmp.filter(r => r.ratio < MIN && !fails.includes(r));
 
   // ─── 테를 두른 자리 ───
   // ⚠️ 0건이 통과가 아니다 — 선택자를 못 찾았거나 한 요소도 못 만났으면 안 잰 것이다
@@ -303,6 +323,15 @@ async function sweep(browser, theme, bad) {
   }
   if (rows.some(r => r.ref == null) && rows.filter(r => r.ref != null).length < 40) {
     bad.push('두 테마에서 같이 잰 자리가 너무 적다 (견주기가 성립하지 않는다)');
+  }
+  // ⚠️ **건너뛴 것을 «말한다».** 조용히 빼면 「테마마다 글자가 갈리는 자리」가
+  //    늘어도 아무도 모르고, 0건이 「통과」인지 「통째로 건너뛰었다」인지 갈리지 않는다
+  if (moving.length) {
+    console.log(`   ※ 글자가 바뀌어 견줄 수 없는 자리 ${moving.length}곳 (상태에 따라 글리프가 갈린다)`);
+    moving.forEach(r => console.log(`      ${r.ch} ${r.sel} — «${DARK}» 만 ${r.ratio.toFixed(2)}:1`));
+  }
+  if (moving.length > 4) {
+    bad.push(`글자가 바뀌어 건너뛴 자리가 ${moving.length}곳이다 — 너무 많다 (화면이 안 가라앉았다)`);
   }
   fails.forEach(r => bad.push(
     `${r.ch} 가 «${r.label}» 의 ${r.sel} 에서 ${r.ratio.toFixed(2)}:1`

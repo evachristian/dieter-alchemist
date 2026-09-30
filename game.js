@@ -491,6 +491,32 @@ function roomDecorState() {
   return { wall: S.roomWall, floor: S.roomFloor, props: S.roomProps || {} };
 }
 function roomOwns(id) { return !!id && (S.roomOwned || []).includes(id); }
+
+// ── 아늑함 — 「놓아 두면 도는 것」 (ROOM.md 「효과」) ───────────
+//
+// ⚠️⚠️ **효과는 «이미 있는 함수 한 곳»에 곱해 붙는다** — 새 경로를 만들면 화면에
+//    적힌 값과 실제로 먹는 값이 갈린다 (호감도가 「주는 것」에서 배운 그 규칙이고,
+//    그 앞에는 지대별 AP 가 있었다). 지금 붙는 자리는 둘뿐이다:
+//      · `decayIdle()` — 방치 감소(근성·단련)를 덜 받는다
+//      · `tickBody()`  — 쉬는 동안 스태미나가 조금 더 찬다
+// ⚠️⚠️ **둘 다 «덜 잃는» 쪽이다.** 더 얻는 쪽으로 두면 「오늘 방을 꾸며야 이만큼
+//    더 번다」가 되어 꾸미기가 숙제가 된다 — 코지 게임에서 관리 압박은 독이다.
+// ⚠️⚠️ **포만감에는 «일부러» 안 붙였다** — 「아늑한 방에서는 덜 허기진다」가 제일
+//    그럴듯한데, 그러면 방이 **혼자 먹은 밤을 막아 준다**: 「덜 먹는 게임이 아니라
+//    혼자 먹지 않는 게임이다」(EXERCISE.md)가 통째로 무너진다. 방이 «연결»의
+//    대체물이 되면 안 된다 — 그것이 이 게임의 주제다 (`STORY.md` 의 정신적 허기)
+// ⚠️ 세는 식은 `D.roomCozyOf` 한 곳이다 (검사기도 그것을 부른다)
+function roomCozy() {
+  return D.roomCozyOf((S.roomProps || {}));
+}
+// 화면에 적는 값들 — **아늑함 하나에서 셋이 다 나온다**
+function roomCozyPct() { return Math.round(roomCozy() * 100); }
+function cozyDecayCut() { return Math.round(roomCozy() * (D.ROOM_COZY.decay || 0)); }
+function cozyRestAdd() { return Math.round(roomCozy() * (D.ROOM_COZY.rest || 0)); }
+// 방치 감소에 곱하는 몫 (1.0 = 아무것도 안 놓은 방)
+function cozyDecayMult() { return 1 - roomCozy() * (D.ROOM_COZY.decay || 0) / 100; }
+// 스태미나 회복에 곱하는 몫 (1.0 = 아무것도 안 놓은 방)
+function cozyRestMult() { return 1 + roomCozy() * (D.ROOM_COZY.rest || 0) / 100; }
 // 하나 얻는다. **이미 가진 것은 «안 준다»** — 개수가 없는 목록이라 두 번 넣으면 중복이다
 function grantDecor(id) {
   if (!id || !(D.ROOM_DECOR || {})[id] || roomOwns(id)) return false;
@@ -2955,7 +2981,9 @@ function tickBody() {
   // **굶으면 스태미나가 안 찬다.** 포만감이 도중에 바닥나면 그 전까지만 회복한다 —
   // 이 한 줄을 빼면 굶은 채로 오래 두는 것이 오히려 이득이 된다
   const fedH = drop > 0 ? Math.min(h, f0 / drop) : h;
-  S.stamina = Math.min(staminaMax(), st0 + STAMINA.perHour * fedH);
+  // **아늑한 방에서는 조금 더 잘 쉰다** (`cozyRestMult` · ROOM.md 「효과」).
+  // ⚠️ 여기 한 곳이라 화면에 적힌 %와 실제로 찬 몫이 갈릴 수가 없다
+  S.stamina = Math.min(staminaMax(), st0 + STAMINA.perHour * cozyRestMult() * fedH);
   return Math.abs(fullness() - f0) > 0.01 || Math.abs(stamina() - st0) > 0.01;
 }
 
@@ -3000,8 +3028,11 @@ function decayIdle() {
   if (days <= 0) return null;
 
   const g0 = auraVal('grit'), f0 = S.fit || 0;
-  addAura('grit', -Math.round(DECAY.gritPerDay * days));
-  S.fit = +(f0 - DECAY.fitPerDay * days).toFixed(3);
+  // **아늑한 방은 덜 처지게 해 준다** (`cozyDecayMult` · ROOM.md 「효과」).
+  // ⚠️ 깎는 자리가 여기 한 곳이라 둘(근성·단련)이 같이 따라온다
+  const k = cozyDecayMult();
+  addAura('grit', -Math.round(DECAY.gritPerDay * k * days));
+  S.fit = +(f0 - DECAY.fitPerDay * k * days).toFixed(3);
   const dg = g0 - auraVal('grit'), df = +(f0 - S.fit).toFixed(2);
   if (dg <= 0 && df <= 0) return null;
   return { grit: dg, fit: df, days: Math.floor(days) };
@@ -6416,9 +6447,15 @@ function renderDecorSheet() {
     ? `<div class="decor-note">${escHtml(T('decor_need_base',
         { name: N('room_slot_' + slot.on, (D.roomSlot(slot.on) || {}).name || slot.on) }))}</div>`
     : '';
+  // ⚠️⚠️ **효과를 «글자로» 적는다.** 방치 감소와 스태미나 회복은 둘 다 «덜 잃는» 쪽이라
+  //    화면에 아무 표시도 안 남는다 — 적어 두지 않으면 붙여 놓고 아무도 모른다
+  //    (호감도의 보석·지식을 선물 시트에 적은 것과 같은 자리다).
+  // ⚠️ 탭마다 다시 그려도 늘 서 있다 — 꾸미기의 결과는 «방 전체»라 한 탭의 것이 아니다
+  const cozy = `<div class="decor-cozy">${escHtml(T('decor_cozy',
+    { p: roomCozyPct(), d: cozyDecayCut(), r: cozyRestAdd() }))}</div>`;
   b.innerHTML = `<div class="wr-head"><span class="wr-count">${T('decor_own',
     { n: own, m: list.length })}</span><span class="wr-crystal">💎 ${(S.crystal || 0).toLocaleString()}</span></div>`
-    + need + `<div class="wr-items decor-items">${empty}${cells}</div>`;
+    + cozy + need + `<div class="wr-items decor-items">${empty}${cells}</div>`;
 }
 function setDecorTab(tab) {
   decorTab = tab;
@@ -7265,6 +7302,9 @@ function renderRoomDevTail() {
       // 하루를 기다려야만 보이는 것이 여럿이다 (AP 자정 충전 · 포만감 · 방치 감소 ·
       // 혼자 먹은 밤 · 크리처 생산 · 날씨). **시계를 옮겨 한 번에** 본다
       devAct(T('dev_skip_day'), 'devSkipDay()'),
+      // 「창문 하나만 있는 방」은 새 플레이어가 처음 보는 화면인데, 단계가 오르면
+      // 선물이 **저절로 놓여서** 한 번 지나가면 다시 볼 길이 없었다
+      devAct(T('dev_decor_off'), 'devClearDecor()'),
     ]) +
     devGroup(T('dev_g_open')) +
     // ⚠️ 「퀘스트 완료 버튼」은 **켜고 끄는 것**이라 실행 줄이 아니라 여기다 —
@@ -7290,6 +7330,27 @@ function devToggleAct(id) {
   render();
 }
 window.devToggleAct = devToggleAct;
+
+// 개발용: **꾸미기를 통째로 걷는다** — 소품을 다 내리고 자재를 시작값으로 되돌린다.
+//
+// 「창문 하나만 있는 방」이 새 플레이어가 처음 보는 화면인데, 단계가 오르면 선물이
+// **저절로 놓여서**(`grantLevelDecor`) 한 번 지나가면 다시 볼 길이 없었다.
+// ⚠️ **가진 것(`roomOwned`)은 안 건드린다** — 이것은 「해제」이지 「회수」가 아니다.
+//    지우면 사서 모은 것이 통째로 날아가고 되돌릴 길이 없다 (되돌릴 수 있는 일만
+//    묻지 않고 한다는 규칙이 여기서 갈린다).
+// ⚠️ **`pickDecor()` 와 같은 자리를 지난다** — 저장하고 방을 다시 그리고 **시트도**
+//    다시 그린다. 시트가 열린 채로 누를 수 있어서다 (`devToggleQuestBtn` 과 같다)
+function devClearDecor() {
+  const n = Object.keys(S.roomProps || {}).length;
+  S.roomProps = {};
+  S.roomWall = D.ROOM_START.wall;
+  S.roomFloor = D.ROOM_START.floor;
+  save();
+  render();
+  if (decorSheetOpen()) renderDecorSheet();
+  toast(T('dev_decor_off_done', { n }), null, 2600);
+}
+window.devClearDecor = devClearDecor;
 
 // 개발용: 퀘스트 시트의 「(임시) 퀘스트 완료」 버튼을 켜고 끈다.
 function devToggleQuestBtn() {

@@ -3117,6 +3117,13 @@ button.tm-slot:active { transform: scale(0.94); }
    ⚠️ **0.7rem 밑으로 못 내린다** — 11px 이 글자의 바닥이다(`TEXT_POLICY.md` 1).
    0.6rem(9.6px)으로 뒀더니 잠긴 칸마다 한 건씩, 탭 열하나에서 여든 건이 났다 */
 .decor-cost { font-size: 0.7rem; font-weight: 800; color: var(--text-lav); line-height: 1; }
+/* 🛋️ 아늑함 — 「놓아 두면 도는 것」 한 줄 (ROOM.md 「효과」).
+   ⚠️ **접히게 둔다**(nowrap 이 아니다) — 265px 영어에서 한 줄에 안 들어간다.
+   여기서 줄어들 것은 없다: 세 값이 다 뜻을 지고 있어서 말줄임을 달면 사라진다 */
+.decor-cozy {
+  font-size: 0.7rem; font-weight: 800; color: var(--text-pink); line-height: 1.35;
+  background: var(--tint); border-radius: 10px; padding: 7px 9px; margin: 0 2px 8px;
+}
 /* 「먼저 탁자를 놓아야 보여요」 — 안내 한 줄 */
 .decor-note {
   font-size: 0.7rem; color: var(--ink-soft); line-height: 1.35;

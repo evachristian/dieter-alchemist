@@ -475,10 +475,39 @@ add('id 가 겹친다', dupId);
       });
       I.setLang(was);
     }
+    // ── 🛋️ 아늑함 — **세는 함수가 실제로 오르는가** (ROOM.md 「효과」) ──
+    //
+    // ⚠️⚠️ 몫 표(`cozy`)는 생성기가 보지만, **그것을 «세는» 함수**(`D.roomCozyOf`)는
+    //    아무도 안 봤다 — 자리 이름을 한 글자 틀리거나 단계를 못 찾으면 **늘 0** 이
+    //    되고, 화면에는 「아늑함 0%」가 멀쩡히 적힌 채로 효과만 사라진다.
+    // ⚠️ 여기서 재는 것은 «식»이다. 실제로 덜 깎이는지는 `checktime` 이 시계를
+    //    옮겨 놓고 잰다 — 둘이 짝이고 보는 것이 다르다
+    let cozyNote = '';
+    if (typeof D.roomCozyOf === 'function') {
+      const put = t => {
+        const p = {};
+        (D.ROOM_SLOTS || []).forEach(s => { p[s.id] = `rp_${s.id}_${t}`; });
+        return D.roomCozyOf(p);
+      };
+      const zero = D.roomCozyOf({});
+      const vals = (D.ROOM_TIERS || []).map(t => put(t.id));
+      const up = vals.every((v, i) => !i || v > vals[i - 1]);
+      if (zero !== 0) bad.push(`꾸미기 — 빈 방의 아늑함이 ${zero} 다 (0 이어야 한다)`);
+      if (!up) bad.push(`꾸미기 — 단계를 올려도 아늑함이 안 오른다 (${vals.join(' → ')})`);
+      const topV = vals[vals.length - 1];
+      if (topV !== 1) bad.push(`꾸미기 — 제일 높은 단계 아홉이 만점이 아니다 (${topV})`);
+      // 한 자리만 놓은 방이 0 이면 자리 이름이 어긋난 것이다 (그 경우가 제일 흔하다)
+      const one = D.roomCozyOf({ [(D.ROOM_SLOTS || [{}])[0].id]: `rp_${(D.ROOM_SLOTS || [{}])[0].id}_plain` });
+      if (!(one > 0)) bad.push('꾸미기 — 소품 하나를 놓아도 아늑함이 0 이다 (자리 이름이 어긋났다)');
+      cozyNote = ` · 아늑함 ${vals.map(v => Math.round(v * 100) + '%').join('→')}`
+        + ` (방치 −${D.ROOM_COZY.decay}% · 회복 +${D.ROOM_COZY.rest}%)`;
+    } else {
+      bad.push('꾸미기 — D.roomCozyOf 가 없다 (아늑함을 셀 곳이 없다)');
+    }
     // 소품 서른여섯이 다 «얻는 길»을 갖는가는 생성기가 본다 (`tools/genroom.js`)
     if (!bad.length) {
       measured.push(`꾸미기: 자리 ${n}개가 표·그리는 순서·그림 셋에 다 있다`
-        + ` (소품 ${Object.keys(D.ROOM_DECOR || {}).length}개)`);
+        + ` (소품 ${Object.keys(D.ROOM_DECOR || {}).length}개)${cozyNote}`);
     }
   }
 

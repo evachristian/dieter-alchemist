@@ -300,6 +300,8 @@
       dev_kitchen: '🍲 부엌 다녀왔다고 치기',
       dev_skip_day: '⏩ 하루가 지나갔다고 치기',
       dev_day_done: '⏩ 하루가 지나갔어요 (옮겨 놓은 시계 {d}일)',
+      dev_decor_off: '🧹 꾸미기 해제',
+      dev_decor_off_done: '🧹 꾸미기를 걷었어요 (소품 {n}개를 내렸어요 · 가진 것은 그대로예요)',
       dev_acct: '🧪 계정 보관함',
       dev_acct_title: '🧪 계정 보관함 (개발용)',
       dev_acct_help: '지금 계정을 담아 두면, 게임을 초기화하고 새 캐릭터로 시험한 뒤에도 다시 꺼내 올 수 있습니다. 담기는 것은 세이브가 아니라 복구 코드입니다.',
@@ -1030,6 +1032,9 @@
       decor_bought: '{name}{nj} 얻었어요 (💎{n})',
       decor_gift_only: '이건 이야기를 따라가면 선물로 들어와요',
       decor_need_base: '{name}을(를) 먼저 놓아야 보여요',
+      // 「놓아 두면 도는 것」 — 둘 다 «덜 잃는» 쪽이라 화면에 표시가 안 남는다.
+      // 적어 두지 않으면 붙여 놓고 아무도 모른다 (ROOM.md 「효과」)
+      decor_cozy: '🛋️ 아늑함 {p}% — 방치 감소 −{d}% · 쉴 때 회복 +{r}%',
       decor_got: '{name}{nj} 얻었어요! 🪄 꾸미기에서 놓아 보세요',
       decor_got_more: '{name}{nj} 비롯해 {n}개를 더 얻었어요! 🪄 꾸미기를 보세요',
       // 둘러보기 화살표 — 화면에 «글자»로는 안 뜬다 (흐린 버튼이라 그림이다).
@@ -1842,6 +1847,8 @@
       dev_kitchen: '🍲 Mark kitchen as visited',
       dev_skip_day: '⏩ Skip a day',
       dev_day_done: '⏩ A day has passed (clock moved {d} day(s))',
+      dev_decor_off: '🧹 Undecorate',
+      dev_decor_off_done: '🧹 Cleared the room ({n} prop(s) taken down · you still own them)',
       dev_acct: '🧪 Account vault',
       dev_acct_title: '🧪 Account vault (dev)',
       dev_acct_help: 'Stash the current account so you can come back to it after resetting and testing a new character. What is stored is the recovery code, not the save.',
@@ -2494,6 +2501,7 @@
       decor_bought: 'Got the {name} (💎{n})',
       decor_gift_only: 'This one arrives as a gift as the story goes on',
       decor_need_base: 'Place the {name} first to see this',
+      decor_cozy: '🛋️ Cozy {p}% — idle loss −{d}% · rest +{r}%',
       decor_got: 'Got the {name}! Place it from 🪄 Decorate',
       decor_got_more: 'Got the {name} and {n} more! Take a look at 🪄 Decorate',
       spin_left: 'Look left', spin_right: 'Look right', 
