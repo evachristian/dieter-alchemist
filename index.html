@@ -13,11 +13,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260930n">
+<link rel="stylesheet" href="style.css?v=20260930o">
 <!-- ⚠️ UI 색상은 «첫 페인트 전»에 정해져야 한다 — 문서 끝에 두면 기본 색으로
      한 번 그려진 뒤에 얹혀서 다크를 고른 사람에게 흰 화면이 한 번 친다.
      그래서 여기만 `defer` 없이 `<head>` 에서 읽는다 (theme.js 주석 참고) -->
-<script src="theme.js?v=20260930n"></script>
+<script src="theme.js?v=20260930o"></script>
 </head>
 <body>
 
@@ -54,7 +54,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260930n" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260930o" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -287,6 +287,45 @@
     </div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     페이퍼돌 — 방에 선 아바타에 얹는 «종이 결 + 조각 그림자»
+     ═══════════════════════════════════════════════════════════════
+     ⚠️⚠️ **여기 있는 이유** — `avatar.js` 의 `build()` 안에 넣으면 `checkavatar` 가
+     그 SVG 를 캔버스에 그려 재는 순간 «살색»이 결에 흔들려, 색으로 살을 찾는
+     검사 열 몇 개가 한꺼번에 어긋난다. 그림은 그대로 두고 **방에 선 것에만**
+     style.css 가 `.char-body > svg.avatar-svg > g.doll` 로 건다.
+
+     ⚠️⚠️ **결은 «가운데가 0.5» 인 잡음을 `overlay` 로 얹는다 — 곱하지 않는다.**
+     예전 시안은 `0.22·n + 0.78` 을 multiply 했는데, 잡음의 평균이 0.5 라
+     **평균 배율이 0.89** 였다 — 결과 함께 «11% 어두워지는» 것이 같이 들어가서
+     「종이 재질이 들어가서 그런가 캐릭터의 얼굴 톤이 어두워졌어」로 신고받았다.
+     `overlay` 는 밑색에 대해 **잡음 쪽이 선형**이라(밑색>0.5 면 1−2(1−Cb)(1−Cs)),
+     0.5 를 가운데로 대칭인 잡음은 평균 밝기를 **한 자리도 안 바꾼다.**
+     · `GRAIN_A`(0.44)가 세기이고 `(1−A)/2` 가 짝이다 — **둘이 같이 움직여야**
+       가운데가 0.5 에 남는다. 한쪽만 고치면 다시 조용히 어두워진다
+     · 살색만 빼내서 고치지 않았다 — 옷·머리·크리처도 같이 어두워지는 것이라
+       «결 자체»가 중립이어야 맞는다 (그리고 빼낼 손잡이가 아예 없다)
+
+     ⚠️ 그림자는 **왼쪽 아래**로 진다 — 방의 빛(창문)이 오른쪽 위다.
+        오른쪽 아래로 두면 빛과 그림자가 같은 쪽에서 난다
+-->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="pdPaper" x="-14%" y="-8%" width="132%" height="124%" color-interpolation-filters="sRGB">
+    <!-- ① 조각 그림자 — 오려 낸 종이가 배경에서 «떠 있게» 한다 -->
+    <feOffset in="SourceAlpha" dx="-2.4" dy="4.4" result="s0"/>
+    <feGaussianBlur in="s0" stdDeviation="3.2" result="s1"/>
+    <feComponentTransfer in="s1" result="sh"><feFuncA type="linear" slope="0.34"/></feComponentTransfer>
+    <!-- ② 종이 결 — 평균 0.5 짜리 회색 잡음을 overlay 로 (밝기는 안 바뀐다) -->
+    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="n"/>
+    <feColorMatrix in="n" type="saturate" values="0" result="ng"/>
+    <feColorMatrix in="ng" type="matrix" result="gm"
+      values="0.44 0 0 0 0.28  0 0.44 0 0 0.28  0 0 0.44 0 0.28  0 0 0 0 1"/>
+    <feBlend in="gm" in2="SourceGraphic" mode="overlay" result="gb"/>
+    <feComposite in="gb" in2="SourceAlpha" operator="in" result="doll"/>
+    <feMerge><feMergeNode in="sh"/><feMergeNode in="doll"/></feMerge>
+  </filter>
+</svg>
 
 <div class="app">
   <!-- ── 상단바 (헤더 + 에너지) ── -->
@@ -1171,33 +1210,33 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260930n"></script>
-<script src="intro.js?v=20260930n"></script>
-<script src="data.js?v=20260930n"></script>
+<script src="i18n.js?v=20260930o"></script>
+<script src="intro.js?v=20260930o"></script>
+<script src="data.js?v=20260930o"></script>
 <!-- ⚠️⚠️ **`roomart.js` 는 «모듈보다 먼저»** 와야 한다. 방과 소품의 그림이 여기
      한 곳에 있고, 3D 방(room3d.js · ES 모듈)이 `window.RoomArt` 로 그것을 읽는다 —
      SVG 폴백(avatar.js)도 같은 캔버스를 data URL 로 쓴다.
      (평범한 스크립트가 모듈보다 먼저 도는 것이 규칙이지만, 순서로도 적어 둔다) -->
-<script src="roomart.js?v=20260930n"></script>
-<script src="avatar.js?v=20260930n"></script>
-<script src="village.js?v=20260930n"></script>
-<script src="portrait.js?v=20260930n"></script>
-<script src="creature.js?v=20260930n"></script>
-<script src="cauldron.js?v=20260930n"></script>
-<script src="pumpkin.js?v=20260930n"></script>
-<script src="walnut.js?v=20260930n"></script>
-<script src="rock.js?v=20260930n"></script>
-<script src="fish.js?v=20260930n"></script>
-<script src="sparrow.js?v=20260930n"></script>
-<script src="pinwheel.js?v=20260930n"></script>
-<script src="driller.js?v=20260930n"></script>
-<script src="sfx.js?v=20260930n"></script>
-<script src="sync.js?v=20260930n"></script>
+<script src="roomart.js?v=20260930o"></script>
+<script src="avatar.js?v=20260930o"></script>
+<script src="village.js?v=20260930o"></script>
+<script src="portrait.js?v=20260930o"></script>
+<script src="creature.js?v=20260930o"></script>
+<script src="cauldron.js?v=20260930o"></script>
+<script src="pumpkin.js?v=20260930o"></script>
+<script src="walnut.js?v=20260930o"></script>
+<script src="rock.js?v=20260930o"></script>
+<script src="fish.js?v=20260930o"></script>
+<script src="sparrow.js?v=20260930o"></script>
+<script src="pinwheel.js?v=20260930o"></script>
+<script src="driller.js?v=20260930o"></script>
+<script src="sfx.js?v=20260930o"></script>
+<script src="sync.js?v=20260930o"></script>
 <!-- 방을 3D 로 그리는 모듈. **모듈이라 미뤄져 실행된다** — 그래서 게임은
      이것이 «없어도» 돈다 (SVG 방 그대로). 준비되면 room3d-ready 로 알린다 -->
-<script type="module" src="room3d.js?v=20260930n"></script>
-<script src="game.js?v=20260930n"></script>
-<script src="tutorial.js?v=20260930n"></script>
-<script src="a11y.js?v=20260930n"></script>
+<script type="module" src="room3d.js?v=20260930o"></script>
+<script src="game.js?v=20260930o"></script>
+<script src="tutorial.js?v=20260930o"></script>
+<script src="a11y.js?v=20260930o"></script>
 </body>
 </html>

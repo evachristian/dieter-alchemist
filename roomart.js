@@ -31,6 +31,29 @@
     dark: '#3c3540',
   };
 
+  // ⚠️⚠️ **방은 «평면 벡터»다 — 종이의 «증거»를 안 쓴다** (2026-09-30 · 사람이 골랐다).
+  //
+  //    배경과 인물의 아트 컨셉이 어긋난다는 신고를 받아 시안 셋을 그려 놓고 골랐다.
+  //    **고른 것은 「배경에서 종이를 걷고, 인물에 종이를 입힌다」**다 — 종이의 결은
+  //    이제 **인물 한 곳**(`#pdPaper`)에만 있고, 방은 그 조각이 «앞에 서는 무대»다.
+  //    (그 반대 — 인물을 방 쪽으로 끌어오는 것 — 은 실루엣이 굵어져 `checkavatar` 의
+  //    못 박은 수치 열 몇 개를 같이 옮겨야 해서, 사람이 이쪽을 골랐다)
+  //
+  //    종이의 증거를 내던 곳이 넷이고 **넷 다 여기서 끈다** — 되돌릴 자리가 한 곳이다:
+  //      ① `paperShape` 의 재단면(크림 테)  ② `paperShape` 의 조각 윤곽선
+  //      ③ `grainOver` 의 잡티             ④ `blob` 의 «가위 떨림»
+  //    call site 의 숫자(`cut: 7` 등)는 **종이였을 때의 몫**이라 그대로 두었다 —
+  //    다시 종이로 가고 싶으면 이 넷을 1(④는 0.09)로 올리면 그 그림이 돌아온다.
+  //
+  // ⚠️⚠️ **`inkStroke` 는 «끄지 않는다».** 그것은 윤곽선 도구가 아니라 **그리는 도구**다 —
+  //    샹들리에 팔 · 화분 줄기 · 커튼 주름 · 책등 · 돌 이음새 · 마법진이 그것으로
+  //    «그려진다». 통째로 끈 시안(배경C)은 촛불이 허공에 뜨고 화분이 사라져 버렸다
+  //    (그려 보고 되돌렸다). 여기서 걷는 것은 **조각의 «테»**뿐이다.
+  const PAPER_CUT = 0;      // 재단면 — 0 이면 크림 테를 안 두른다
+  const PAPER_INK = 0;      // 조각 윤곽선 — 0 이면 칠만 남는다
+  const PAPER_GRAIN = 0;    // 종이 결(잡티) — 0 이면 안 얹는다
+  const SCISSOR_W = 0;      // 가위 떨림 — blob 의 반지름이 흔들리는 폭 (종이였을 때 0.09)
+
   // 결정적인 잡음 — 손그림의 «떨림»을 만든다. 매번 다르면 프레임마다 지글거린다
   function rnd(seed) {
     let t = (seed * 16807) % 2147483647 || 7;
@@ -82,6 +105,8 @@
   }
   function paperShape(g, pts, fill, opt) {
     const o = Object.assign({ cut: 9, ink: 6, seed: 3, shade: null }, opt);
+    // 종이의 증거 둘은 «한 곳»에서 걷는다 (위의 「방은 평면 벡터다」)
+    o.cut *= PAPER_CUT; o.ink *= PAPER_INK;
     const path = () => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); };
     if (o.cut) {
       path(); g.lineJoin = 'round'; g.lineCap = 'round';
@@ -113,15 +138,16 @@
   function blob(cx, cy, rx, ry, n, seed) {
     const r = rnd(seed), p = [];
     for (let i = 0; i < n; i++) {
-      const a = i / n * Math.PI * 2, k = 1 + (r() - 0.5) * 0.09;
+      const a = i / n * Math.PI * 2, k = 1 + (r() - 0.5) * SCISSOR_W;
       p.push([cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k]);
     }
     return p;
   }
-  // 종이결 — 아주 옅은 잡티. 없으면 «플라스틱»으로 보인다
+  // 종이결 — 아주 옅은 잡티. 지금은 안 얹는다 (위의 「방은 평면 벡터다」)
   function grainOver(g, w, h, seed, amt) {
+    if (!PAPER_GRAIN) return;
     const r = rnd(seed);
-    g.save(); g.globalAlpha = amt || 0.05;
+    g.save(); g.globalAlpha = (amt || 0.05) * PAPER_GRAIN;
     for (let i = 0; i < w * h / 110; i++) {
       g.fillStyle = r() < 0.5 ? '#000' : '#fff';
       g.fillRect(r() * w, r() * h, 1 + r() * 1.5, 1 + r() * 1.5);

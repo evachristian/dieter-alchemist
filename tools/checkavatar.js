@@ -61,6 +61,27 @@ function launchOpts() {
       // 캔버스의 y=0 이 아니게 됐다 — 안 밀면 모든 검사가 36px 아래를 보게 된다
       ctx.drawImage(img, vb.x * k, vb.y * k, vb.w * k, vb.h * k);
     };
+
+    // ─── 「조각 하나만 남긴다」 — 자리를 «그림에서 되짚지» 않는다 ─────
+    //
+    // ⚠️⚠️ **몸은 이제 `g.doll` 한 겹에 싸여 있다** (페이퍼돌 필터의 손잡이 · avatar.js).
+    //    그전에는 조각 그룹이 `<svg>` 의 «바로 밑»이라 여섯 자리가
+    //    `closest('svg > g')` 로 집고 있었는데, 겹이 하나 끼면 그것이 **doll 통째**를
+    //    돌려준다 — 「하나만 남긴다」가 **「다 남긴다」**가 되어 검사가 조용히
+    //    아무것도 안 가른다 (0건이 「통과」가 아닌 그 자리다).
+    //    ⚠️ **바닥 그림자 타원은 doll «밖»**이라 따로 지운다 — 안 지우면
+    //       「살색을 찾는」 검사가 발밑 타원을 같이 센다
+    window.__keepOnly = (root, sel) => {
+      const el = root.querySelector(sel);
+      if (!el) return null;
+      const keep = el.closest('g.doll > g') || el.closest('svg > g');
+      const host = keep.parentNode;
+      [...host.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+      [...root.children].forEach(c => {
+        if (c.tagName !== 'defs' && c !== host && c !== keep) c.remove();
+      });
+      return keep;
+    };
   });
 
   const res = await page.evaluate(async () => {
@@ -1116,8 +1137,7 @@ function launchOpts() {
       const wrap = document.createElement('div');
       wrap.innerHTML = svg;
       const root = wrap.firstElementChild;
-      const keep = root.querySelector('[data-part="torso"]').closest('svg > g');
-      [...root.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+      __keepOnly(root, '[data-part="torso"]');
       return root.outerHTML;
     }
     const bare = { top: 'top_none', bottom: 'bot_none', dress: 'dress_none',
@@ -1169,8 +1189,7 @@ function launchOpts() {
       const wrap = document.createElement('div');
       wrap.innerHTML = svg;
       const root = wrap.firstElementChild;
-      const keep = root.querySelector('[data-part="torso"]').closest('svg > g');
-      [...root.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+      const keep = __keepOnly(root, '[data-part="torso"]');
       [...keep.children].forEach(g => { if (sel === 'arm' ? !g.matches('[data-part="arm"]')
                                                           : g.matches('[data-part="arm"]')) g.remove(); });
       return root.outerHTML;
@@ -1248,8 +1267,7 @@ function launchOpts() {
       const wrap = document.createElement('div');
       wrap.innerHTML = svg;
       const root = wrap.firstElementChild;
-      const keep = root.querySelector('[data-part="torso"]').closest('svg > g');
-      [...root.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+      const keep = __keepOnly(root, '[data-part="torso"]');
       [...keep.children].forEach(g => { if (!g.matches('[data-part="arm"]')) g.remove(); });
       return root.outerHTML;
     }
@@ -3780,8 +3798,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
       const root = wrap.firstElementChild;
       root.querySelectorAll('[data-part="arm"]').forEach(e => e.remove());
       if (only) {
-        const keep = root.querySelector(only).closest('svg > g');
-        [...root.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+        const keep = __keepOnly(root, only);
         [...keep.children].forEach(g => { if (!g.matches(only)) g.remove(); });
       }
       return root.outerHTML;
@@ -4041,8 +4058,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
       const wrap = document.createElement('div');
       wrap.innerHTML = svg;
       const root = wrap.firstElementChild;
-      const keep = root.querySelector('[data-part="arm"]').closest('svg > g');
-      [...root.children].forEach(c => { if (c.tagName !== 'defs' && c !== keep) c.remove(); });
+      const keep = __keepOnly(root, '[data-part="arm"]');
       [...keep.children].forEach(g => { if (!g.matches('[data-part="arm"]')) g.remove(); });
       return root.outerHTML;
     }
@@ -4448,6 +4464,187 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   if (stand.n < 25) stand.bad.push(`서는 자리를 ${stand.n}/25 조합만 쟀다`
     + ' — 0건이 「통과」가 아니라 「한 번도 안 쟀다」다');
 
+  // ─── 페이퍼돌 — 종이 결을 얹되 «얼굴 톤은 그대로» ───────────────
+  //
+  // 방에 선 아바타에는 `#pdPaper`(종이 결 + 조각 그림자)가 걸린다(style.css).
+  // 「종이 재질이 들어가서 그런가 캐릭터의 얼굴 톤이 어두워졌어」로 신고받은
+  // 자리라, **밝기가 안 바뀌는 것**이 이 필터의 약속이다.
+  //
+  // ⚠️⚠️ **셋을 «같이» 본다 — 하나로는 못 잡는다.**
+  //   ① 얼굴 «속»의 평균 밝기가 그대로인가  ← 옛 시안(multiply)이 여기서 −11.2% 로 잡힌다
+  //   ② 그런데 결이 실제로 얹혀 있는가(흩어짐이 커진다) ← 없으면 필터를 통째로 꺼도 ①이 통과한다
+  //   ③ 조각 그림자가 «왼쪽 아래»로 지는가             ← 없으면 결만 남고 종이가 안 뜬다
+  //
+  // ⚠️ **캔버스가 아니라 «찍은 화면»이라야 한다** — CSS 필터는 `build()` 문자열을
+  //    캔버스에 그리는 길로는 아예 안 걸린다 (그 길은 필터 없는 그림을 재는 쪽이다).
+  // ⚠️ **눈 깜박임을 멈춰 놓고 찍는다** — 4.9초에 한 번이라 두 장 사이에 한쪽만
+  //    감기면 얼굴이 통째로 달라진다 (「얼굴보임」에서 배운 자리다).
+  const TONE_MAX = 1.0;     // %. 얼굴 «속»의 평균 밝기가 이 안에서 같아야 한다
+  const GRAIN_K = 1.8;      // 몸 «속»의 「이웃과의 차이」가 이 배는 커져야 결이 얹힌 것이다
+  const SHADOW_MIN = 150;   // px. 몸 «밖»에서 이만큼은 어두워져야 조각이 뜬 것이다
+  const PAPER_SKIN = [255, 220, 196];   // avatar.js 의 `SKIN`
+  const paper = { bad: [], note: '' };
+  try {
+    const { decode } = require('./png');
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.evaluate(() => {
+      S.tutorialDone = true; S.introDone = true; S.roomLevel = 5;
+      switchTab('showcase'); renderShowcase();
+      document.getAnimations().forEach(a => {
+        const inf = a.effect && a.effect.getTiming().iterations === Infinity;
+        if (inf) { a.pause(); a.currentTime = 0; } else { try { a.finish(); } catch (e) {} }
+      });
+      if (window.room3d) { try { room3d.run(false); room3d.render(); } catch (e) {} }
+      ['roomSolo', 'roomSpin'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.style.visibility = 'hidden';
+      });
+      // ⚠️⚠️ **앞의 검사가 열어 둔 시트를 닫고 찍는다.** `.modal.show` 가 하나라도
+      //    떠 있으면 `backdrop-filter: blur(3px)` 가 **화면 전체**에 걸려, 찍은 그림의
+      //    살색이 통째로 흐려진다 — 살색으로 잡히는 픽셀이 **0개**가 되어
+      //    「얼굴 속을 0픽셀밖에 못 잡았다」가 나왔다 (찍어 보고 알았다).
+      //    ⚠️ 색을 재는 검사는 「무엇이 위에 덮여 있는가」부터 본다
+      document.querySelectorAll('.modal.show').forEach(m => m.classList.remove('show'));
+      // ⚠️ **맨 위로 올려 놓고 찍는다** — 앞의 검사들이 화면을 굴려 놓으면
+      //    `.char-body` 의 상자가 음수 y 로 나오고, 찍는 자리를 0 으로 자르면
+      //    얼굴이 아닌 데를 찍게 된다
+      window.scrollTo(0, 0);
+    });
+    await page.waitForTimeout(250);
+    const geo = await page.evaluate(() => {
+      const doll = document.querySelector('.char-body > svg.avatar-svg > g.doll');
+      const head = document.querySelector('.char-body > svg.avatar-svg [data-part="head"]');
+      if (!doll || !head) return null;
+      const b = document.querySelector('.char-body').getBoundingClientRect();
+      const h = head.getBoundingClientRect();
+      const W = document.documentElement.clientWidth, H = window.innerHeight;
+      if (h.top < 0 || h.bottom > H || b.top < 0) return { off: `얼굴이 화면 밖이다 (y ${h.top.toFixed(0)}~${h.bottom.toFixed(0)} · 화면 ${H})` };
+      const R = r => ({ x: Math.max(0, Math.round(r.left)), y: Math.max(0, Math.round(r.top)),
+        width: Math.round(Math.min(r.width, W - Math.max(0, r.left))),
+        height: Math.round(Math.min(r.height, H - Math.max(0, r.top))) });
+      return { all: R({ left: b.left - 26, top: b.top - 12,
+        width: b.width + 52, height: b.height + 28 }), face: R(h) };
+    });
+    if (!geo) paper.bad.push('방에 선 아바타에서 `g.doll` 이나 머리를 못 찾았다 — 아무것도 안 쟀다');
+    else if (geo.off) paper.bad.push(geo.off + ' — 아무것도 안 쟀다');
+    else {
+      const dollStyle = (v) => page.evaluate((vv) => {
+        document.querySelectorAll('.char-body > svg.avatar-svg > g.doll')
+          .forEach(g => { g.style.filter = vv; });
+      }, v);
+      const hideDoll = (v) => page.evaluate((vv) => {
+        document.querySelectorAll('.char-body > svg.avatar-svg > g.doll')
+          .forEach(g => { g.style.visibility = vv ? 'hidden' : ''; });
+      }, v);
+      const shoot = async (clip) => decode(await page.screenshot({ clip }));
+      await dollStyle('none'); await page.waitForTimeout(120);
+      if (process.env.PAPER_DUMP) {
+        await page.screenshot({ path: process.env.PAPER_DUMP + '/얼굴.png', clip: geo.face });
+        await page.screenshot({ path: process.env.PAPER_DUMP + '/몸.png', clip: geo.all });
+        await page.screenshot({ path: process.env.PAPER_DUMP + '/화면.png' });
+      }
+      const faceA = await shoot(geo.face);
+      const bodyA = await shoot(geo.all);
+      await dollStyle(''); await page.waitForTimeout(120);
+      const faceB = await shoot(geo.face);
+      const bodyB = await shoot(geo.all);
+      await hideDoll(true); await page.waitForTimeout(120);
+      const bodyC = await shoot(geo.all);      // 인물을 뺀 «배경만»
+      await hideDoll(false);
+
+      const lumAt = (d, i) => 0.2126 * d.px[i * 4] + 0.7152 * d.px[i * 4 + 1] + 0.0722 * d.px[i * 4 + 2];
+      // ① · ② 얼굴 «속» — 살색으로 잡되 둘레 두 겹은 뺀다 (머리카락·윤곽과 섞인 줄)
+      const skin = new Set();
+      for (let i = 0; i < faceA.w * faceA.h; i++) {
+        const o = i * 4;
+        if (Math.abs(faceA.px[o] - PAPER_SKIN[0]) < 40 && Math.abs(faceA.px[o + 1] - PAPER_SKIN[1]) < 40
+          && Math.abs(faceA.px[o + 2] - PAPER_SKIN[2]) < 40) skin.add(i);
+      }
+      const inside = [];
+      for (const i of skin) {
+        const x = i % faceA.w, y = (i - x) / faceA.w;
+        let ok = true;
+        for (let dy = -2; dy <= 2 && ok; dy++) for (let dx = -2; dx <= 2; dx++) {
+          if (!skin.has((y + dy) * faceA.w + (x + dx))) { ok = false; break; }
+        }
+        if (ok) inside.push(i);
+      }
+      const stat = (d) => {
+        let s = 0; for (const i of inside) s += lumAt(d, i);
+        return { m: s / inside.length };
+      };
+      if (inside.length < 400) {
+        let r = 0, g = 0, b = 0;
+        for (let i = 0; i < faceA.w * faceA.h; i++) { r += faceA.px[i * 4]; g += faceA.px[i * 4 + 1]; b += faceA.px[i * 4 + 2]; }
+        const n = faceA.w * faceA.h;
+        paper.bad.push(`얼굴 속을 ${inside.length}픽셀밖에 못 잡았다 — 잰 것이 없다`
+          + ` (살색 ${skin.size} · 찍은 자리 ${faceA.w}×${faceA.h} @${geo.face.x},${geo.face.y}`
+          + ` · 평균 R${(r / n).toFixed(0)} G${(g / n).toFixed(0)} B${(b / n).toFixed(0)})`);
+      } else {
+        const a = stat(faceA), b = stat(faceB);
+        const dPct = (b.m / a.m - 1) * 100;
+        if (Math.abs(dPct) > TONE_MAX) paper.bad.push(
+          `결을 얹자 얼굴 톤이 ${dPct.toFixed(2)}% 바뀐다 (${TONE_MAX}% 까지)`
+          + ` — 밝기 ${a.m.toFixed(1)} → ${b.m.toFixed(1)}`);
+        paper.note = `얼굴 속 ${inside.length}픽셀 · 톤 ${dPct >= 0 ? '+' : ''}${dPct.toFixed(2)}%`;
+      }
+      // ②③ 몸을 «배경과 견줘» 가른다 — 몸 속에서 결을, 몸 밖에서 조각 그림자를 본다.
+      // ⚠️⚠️ **결을 «얼굴»에서 재면 안 된다.** 얼굴은 거의 흰색(R254)이라 overlay 의
+      //    기울기가 0.02 밖에 안 돼 결이 거의 안 얹힌다 — 그것이 곧 얼굴 톤이 그대로인
+      //    이유이기도 하다. 결이 사는 곳은 **중간 톤**(옷·머리)이다
+      const W2 = bodyC.w, H2 = bodyC.h;
+      const body = new Set();
+      let dark = 0, sx = 0, cxBody = 0, nBody = 0;
+      for (let i = 0; i < W2 * H2; i++) {
+        const lc = lumAt(bodyC, i), la = lumAt(bodyA, i), lb = lumAt(bodyB, i);
+        if (Math.abs(la - lc) > 6) { nBody++; cxBody += i % W2; body.add(i); continue; }  // 몸
+        // ⚠️ **그림자는 «필터 없는 그림(A)»과 견딘다.** 배경(C)과 견디면 지금 이미
+        //    깔려 있는 CSS `drop-shadow` 까지 세어, **필터를 통째로 꺼도 1009px 이
+        //    남는다** (사보타주에서 그랬다). A↔B 로 재면 필터를 끄는 순간 정확히 0 이다
+        if (la - lb > 2) { dark++; sx += i % W2; }
+      }
+      // 둘레 두 겹을 뺀 «몸 속»에서만 잰다 (윤곽의 안티에일리어싱이 섞이면 안 된다)
+      const core = [];
+      for (const i of body) {
+        const x = i % W2, y = (i - x) / W2;
+        if (x < 2 || y < 2 || x >= W2 - 2 || y >= H2 - 2) continue;
+        let ok = true;
+        for (let dy = -2; dy <= 2 && ok; dy++) for (let dx = -2; dx <= 2; dx++) {
+          if (!body.has((y + dy) * W2 + (x + dx))) { ok = false; break; }
+        }
+        if (ok) core.push(i);
+      }
+      const hf1 = (d, i) => {
+        const nb = (lumAt(d, i - 1) + lumAt(d, i + 1) + lumAt(d, i - W2) + lumAt(d, i + W2)) / 4;
+        return lumAt(d, i) - nb;
+      };
+      // ⚠️⚠️ **«원래 평평하던 자리»에서만 잰다.** 몸 속에는 옷 솔기 · 머리카락 · 눈처럼
+      //    그려 넣은 잔가지가 잔뜩이라, 그대로 재면 밑바탕이 4.8 이나 돼서
+      //    결을 얹어도 5.9 (1.24배) 밖에 안 오른다 — 가르지 못하는 잣대가 된다.
+      //    필터 없는 그림에서 이웃과 거의 같은 픽셀만 골라, 그 자리가 «텄는가»를 본다
+      const flat = core.filter(i => Math.abs(hf1(bodyA, i)) < 1.5);
+      const hfOf = (d) => {
+        let v = 0;
+        for (const i of flat) v += hf1(d, i) ** 2;
+        return Math.sqrt(v / flat.length);
+      };
+      if (flat.length < 2000) {
+        paper.bad.push(`몸 속의 «평평한» 자리를 ${flat.length}픽셀밖에 못 잡았다 — 결을 잰 것이 없다`);
+      } else {
+        const ga = hfOf(bodyA), gb = hfOf(bodyB);
+        if (gb < ga * GRAIN_K) paper.bad.push(
+          `결이 안 얹혀 있다 — 몸 속의 «이웃과의 차이»가 ${ga.toFixed(2)} → ${gb.toFixed(2)}`
+          + ` (${GRAIN_K}배 이상 커져야 한다)`);
+        paper.note += ` · 몸 속 «평평한» ${flat.length}픽셀에서 결 ${ga.toFixed(2)} → ${gb.toFixed(2)}`;
+      }
+      if (dark < SHADOW_MIN) paper.bad.push(
+        `조각 그림자가 안 진다 — 몸 밖에서 어두워진 자리가 ${dark}px (${SHADOW_MIN} 이상)`);
+      else if (nBody && sx / dark > cxBody / nBody) paper.bad.push(
+        `조각 그림자가 «오른쪽»으로 진다 (그림자 x̄ ${(sx / dark).toFixed(0)} > 몸 x̄`
+        + ` ${(cxBody / nBody).toFixed(0)}) — 방의 빛은 오른쪽 위다`);
+      paper.note += ` · 그림자 ${dark}px`;
+    }
+  } catch (e) { paper.bad.push('페이퍼돌을 재다 터졌다 — ' + e.message); }
+
   await page.setViewportSize({ width: 1200, height: 900 });
 
   await browser.close();
@@ -4495,6 +4692,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     .concat(beltLine.bad.map(m => ({ id: '벨트선', body: '-', where: m, n: '-' })))
     .concat(idle.bad.map(m => ({ id: '아이들 모션', body: '-', where: m, n: '-' })))
     .concat(stand.bad.map(m => ({ id: '서는 자리', body: '-', where: m, n: '-' })))
+    .concat(paper.bad.map(m => ({ id: '페이퍼돌', body: '-', where: m, n: '-' })))
     .concat(hipBulge.bad.map(m => ({ id: '허벅지 윗머리', body: '-', where: m, n: '-' })))
     .concat(legLine.bad.map(m => ({ id: '다리 옆선', body: '-', where: m, n: '-' })))
     .concat(box.bad.map(m => ({ id: '그림 상자', body: '-', where: m, n: '-' })))
@@ -4640,6 +4838,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   console.log(`아이들 모션: ${idle.rows.join(' · ')}`);
   console.log(`서는 자리: 폭 5 × (방 2~5단계 + 스탯 접음) = ${stand.n}조합 — 양탄자 한가운데와 발의 어긋남`
     + ` (5단계) ${stand.rows.join(' · ')} (${STAND_TOL}px 까지)`);
+  console.log(`페이퍼돌: ${paper.note || '못 쟀다'}`
+    + ` (톤 ${TONE_MAX}% 까지 · 결 ${GRAIN_K}배 이상 · 그림자 ${SHADOW_MIN}px 이상 · 왼쪽 아래로)`);
   console.log(`벨트선: ${beltLine.rows.join(' | ')}`
     + ` (허리선이 띠 안을 지나야 한다 · ${beltLine.n}조합 · 팔을 잰 것 ${beltLine.seen})`);
   console.log(`무릎↔발목: 화면에서 잰 «무릎/발목» ${kneeAnkle.rows.join(' | ')}`

@@ -2203,6 +2203,23 @@ button.tm-slot:active { transform: scale(0.94); }
 .char-body { position: relative; z-index: 2; font-size: 0; line-height: 0; }
 .avatar-svg { height: 328px; width: auto; display: block; filter: drop-shadow(0 8px 12px rgba(180,140,160,0.28)); }
 
+/* ─── 페이퍼돌 — 방에 선 아바타는 «오려 낸 종이 조각»이다 ──────────────
+   종이 결 + 조각 그림자를 얹는다. 필터는 `index.html` 의 `#pdPaper` 한 곳이고
+   («왜 SVG 안이 아닌가»도 거기 적어 뒀다), 여기서는 **방에 선 것에만** 건다.
+
+   ⚠️⚠️ **거는 자리가 `g.doll` 이지 `svg` 가 아니다.** svg 에 걸면 그 안의
+   **발밑 그림자 타원**까지 조각 그림자가 왼쪽 아래로 옮겨 발이 바닥에서 떠 보인다.
+   ⚠️ 이것을 잡는 검사는 «없다» — 「서는 자리」는 발밑 타원을 DOM 상자로 찾아서
+   필터를 안 탄다 (사보타주로 재 보니 0.0px 로 통과했다). 구조로 막는 자리다.
+
+   ⚠️ **졸업 전(인트로 공주 그림)에는 안 걸린다** — 그 그림에는 `g.doll` 이 없다
+      (`roomFigure` 가 인트로 SVG 를 그대로 쓴다 · `placeFigure` 와 같은 갈래다).
+
+   ⚠️ 숨쉬기는 **이 겹의 조상**(`.char-body > svg`)에 걸려 있다 — 조상의 변환만
+      바뀌면 브라우저가 필터 결과를 다시 안 만들고 그대로 늘린다. 반대로 결을
+      이 겹 «안»의 조각에 걸면 눈 깜박임마다 필터가 다시 돈다 */
+.char-body > svg.avatar-svg > g.doll { filter: url(#pdPaper); }
+
 /* ─── 아이들(IDLE) 모션 — 숨쉬기 + 눈 깜박임 ────────────────────────────
    마이 룸에 «가만히 서 있는» 동안에만 돈다. 무한 반복이라 `settle()` 이 안 건드리므로
    `checkUI()` 는 그대로 결정적이다 (끝이 있는 애니메이션만 끝 상태로 보내 준다).

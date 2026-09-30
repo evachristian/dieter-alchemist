@@ -3982,10 +3982,20 @@
       H(renderCirclet(pick('circlet', outfit.circlet))),
     ];
 
+    // ⚠️⚠️ **몸은 `g.doll` 한 겹으로 묶는다 — «종이 조각»의 손잡이다.**
+    //    방에서는 여기에 종이 결과 조각 그림자가 얹힌다(`#pdPaper` · style.css).
+    //    · **필터를 이 SVG 안에 넣지 않는다.** 그러면 `checkavatar` 가 `build()` 를
+    //      캔버스에 그려 재는 순간 «살색»이 통째로 결에 흔들려, 색으로 살을 찾는
+    //      검사 열 몇 개가 한꺼번에 어긋난다. 필터는 `index.html` 에 두고
+    //      **방에 선 아바타에만** CSS 로 건다 — 그림 자체는 한 글자도 안 바뀐다
+    //    · ⚠️ **바닥 그림자 타원은 이 겹 «밖»이다** — 안에 넣으면 조각 그림자가
+    //      **발밑 타원까지 왼쪽 아래로 옮겨** 발이 바닥에서 떠 보인다.
+    //      ⚠️ 이것을 잡는 검사는 «없다» — 「서는 자리」는 발밑 타원을 DOM 상자로
+    //      찾아서 필터를 안 탄다(사보타주로 재 보니 0.0px 로 통과했다). 구조로 막는다
     return `<svg class="avatar-svg" viewBox="${VB.x} ${VB.y} ${VB.w} ${VB.h}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="내 아바타">
       <defs>${neckDefs(uid)}</defs>
       <ellipse cx="100" cy="${FLOOR_Y}" rx="${(52 * (1 + 0.18 * w)).toFixed(1)}" ry="8" fill="rgba(120,90,110,0.14)"/>
-      ${layers.join('')}
+      <g class="doll">${layers.join('')}</g>
     </svg>`;
   }
 
