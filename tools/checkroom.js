@@ -475,13 +475,74 @@ function mask(A, B) {
       await measure('SVG', spotsSvg, svgToggle);
     }
 
+    // ── ⑦ 둘러보기 버튼이 «방 버튼 줄»과 안 겹치는가
+    //
+    // ⚠️⚠️ **위의 어느 줄도 이것을 영영 못 본다** — ①~⑥ 은 방 «그림»을 재는데
+    //    이 둘은 그림 «위»에 얹힌 DOM 이고, `checkui` 의 넘침 검사도 절대 배치라
+    //    상자끼리 포개지는 것은 한 번도 안 본다. 실제로 오래 포개져 있었다
+    //    (「카메라 움직이는 버튼 … 운동, 흡입 버튼이랑 겹치네」로 신고받았다).
+    // ⚠️ **다섯을 «다» 열어 놓고 잰다.** 방 버튼은 하나씩 열리므로(`actOpen`) 한둘만
+    //    켜진 화면에서는 줄이 짧아 **겹칠 수가 없다** — 0건이 「통과」가 아니라
+    //    「제일 긴 줄을 한 번도 안 쟀다」가 된다.
+    // ⚠️ **두 언어로 본다** — 영어 라벨이 길어 알약이 접히면 줄의 키가 달라진다.
+    // ⚠️ 위쪽 이웃인 **시계와의 틈도 같이 낸다** — 위로 붙이다 시계를 파고들면
+    //    그것은 겹침을 «옮긴» 것이지 고친 것이 아니다.
+    let spinGap = '';
+    for (const lang of ['ko', 'en']) {
+      const g = await page.evaluate((lg) => {
+        I18N.setLang(lg);
+        S.roomActs = ['exercise', 'binge', 'kitchen', 'produce', 'farm'];   // 개발용 스위치
+        render();
+        const box = (el) => { const q = el.getBoundingClientRect();
+          return { t: (el.textContent || el.getAttribute('aria-label') || '')
+              .replace(/\s+/g, ' ').trim().slice(0, 12),
+            x: q.left, r: q.right, y: q.top, b: q.bottom }; };
+        const shown = (sel) => [...document.querySelectorAll(sel)]
+          .filter(e => e.offsetParent !== null).map(box);
+        // 겹침은 «양쪽 줄»을 다 본다 (왼쪽의 🪄 방꾸 · 😯 표정 · ⚜️ 문신도 같은 그림 위다).
+        // 다만 「다 열렸는가」는 **오른쪽 줄**로 센다 — 왼쪽 셋은 늘 서 있어서
+        // 통째로 세면 다섯을 안 열어도 여덟이 되어 이 빗장이 헐거워진다
+        const spin = shown('.spin-btn'), acts = shown('.room-act');
+        const right = shown('.room-acts:not(.room-acts-l) .room-act').length;
+        const clock = document.getElementById('clockKST');
+        const ov = (a, c) => Math.min(a.r, c.r) - Math.max(a.x, c.x) > 0
+          && Math.min(a.b, c.b) - Math.max(a.y, c.y) > 0;
+        const hit = [];
+        let gap = 1e9, gapWith = '';
+        spin.forEach(s => acts.forEach(a => {
+          if (ov(s, a)) hit.push(`${a.t}`);
+          else if (Math.min(s.r, a.r) - Math.max(s.x, a.x) > 0) {       // 가로로 겹치는 짝만
+            const d = Math.max(a.y - s.b, s.y - a.b);
+            if (d < gap) { gap = d; gapWith = a.t; }
+          }
+        }));
+        const c = clock && clock.offsetParent !== null ? box(clock) : null;
+        let cGap = null;
+        if (c) spin.forEach(s => {
+          if (Math.min(s.r, c.r) - Math.max(s.x, c.x) > 0) {
+            const d = Math.max(c.y - s.b, s.y - c.b);
+            if (cGap == null || d < cGap) cGap = d;
+          }
+        });
+        return { n: spin.length, acts: right, hit, gap, gapWith, cGap };
+      }, lang);
+      if (!g.n) { bad.push(`${W}px/${lang}: 둘러보기 버튼이 없다 (겹침을 잴 수가 없다)`); continue; }
+      if (g.acts < 5) { bad.push(`${W}px/${lang}: 방 버튼이 ${g.acts}개뿐이다 — 다섯을 다 열어야 잰 것이다`); continue; }
+      if (g.hit.length) bad.push(`${W}px/${lang}: 둘러보기 버튼이 ${[...new Set(g.hit)].join('·')} 와 겹친다`);
+      if (g.cGap != null && g.cGap < 4) bad.push(`${W}px/${lang}: 둘러보기 버튼이 시계와 ${g.cGap.toFixed(1)}px 밖에 안 떨어졌다`);
+      if (lang === 'ko') spinGap = `${g.gap === 1e9 ? '?' : g.gap.toFixed(0)}px(${g.gapWith})`;
+      if (lang === 'en') spinGap += ` · en ${g.gap === 1e9 ? '?' : g.gap.toFixed(0)}px`
+        + ` · 시계와 ${g.cGap == null ? '?' : g.cGap.toFixed(0)}px`;
+    }
+
     out.push(`${W}px 양탄자 ${rug.w}px · 발 ${dFoot == null ? '?' : dFoot.toFixed(1)}px`
       + ` · SVG 와 폭 ${dW == null ? '?' : dW.toFixed(1)} · 앞자락 ${dB == null ? '?' : dB.toFixed(1)}`
       + ` · 머리 뒤 벽 ${(share * 100).toFixed(0)}%`
       + ` · 둘러보기 ${spun ? `${(spun.yaw * 180 / Math.PI).toFixed(0)}° 에서 발 ${spun.d.toFixed(1)}px`
         + ` · 양탄자 ${spun.dHalf.toFixed(1)}px · 그림 ${(spun.mShare * 100).toFixed(0)}% 달라짐` : '?'}`
       + ` · 광원 ${still.n}개가 ${still.shots || 0}프레임 동안 가만히 있고 빛만 흔들린다`
-      + ` · 빛무리 ${glowOut.length ? glowOut.join(' · ') : '?'}`);
+      + ` · 빛무리 ${glowOut.length ? glowOut.join(' · ') : '?'}`
+      + ` · 둘러보기↔방 버튼 ${spinGap || '?'}`);
     await page.close();
   }
 

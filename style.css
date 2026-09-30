@@ -2087,10 +2087,22 @@ button.tm-slot:active { transform: scale(0.94); }
    화살표는 그림(svg)이고 이름은 `aria-label` 이 맡는다 (헤더의 ↺ 와 같은 조리법).
    ⚠️ 방 벽은 **테마를 안 탄다** — 그래서 여기 색만은 토큰이 아니라 흰색 고정이다
    (`.on-room-bg` 와 같은 자리다) */
+/* ⚠️⚠️ **세로 가운데가 아니라 «시계 바로 밑»이다.** 가운데(`align-items: center`)에
+   두었더니 오른쪽 버튼이 **🏃 운동 · 🍗 흡입 알약과 통째로 포개졌다** — 방 버튼 줄은
+   아래에서 위로 쌓이는데(`.room-acts` · bottom 6px) 다섯이 다 열리면 맨 위가
+   상자 위에서 130px 자리까지 올라오고, 가운데에 선 버튼은 137~183px 이라 그 사이다
+   (재 봤다 · 700px² · 420px² 가 겹쳤다 · 「운동, 흡입 버튼이랑 겹치네」로 신고받았다).
+   ⚠️ **위로 붙이는 쪽이 맞다 — 아래는 늘어난다.** 방 버튼은 다섯까지 하나씩 열리므로
+   그 줄의 «키»가 진행에 따라 변한다: 아래쪽에 두면 어느 단계에서는 반드시 다시 포개진다.
+   위에 있는 것은 시계 하나뿐이고 그것은 늘 한 줄이다.
+   ⚠️ 그래서 **위 여백은 시계에서 «재서» 나온 값이다** — 시계가 상자 위 8px 에서
+   14px 을 쓰므로(`.room-clock`) 그 아래로 12px 을 띄운 34px 이다. 지금 버튼이
+   34~80px 에 서서 시계와 12px · 방 버튼 줄과 50px 이 뜬다 (`checkroom` 의 「버튼 겹침」).
+   ⚠️ 시계를 키우거나 내리면 이 값도 같이 본다 — 짝이다 */
 .room-spin {
   position: absolute; inset: 0; z-index: 4;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 2px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 34px 2px 0;
   pointer-events: none;            /* 가운데(인물·크리처)는 그대로 눌린다 */
 }
 .spin-btn {
