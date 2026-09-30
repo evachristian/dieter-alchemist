@@ -618,9 +618,19 @@ export function createRoom(canvas, opt) {
   const CAM_Y = 2.6;
   let dist = 16.7, pitch = 0, W = 1, H = 1;
 
+  // ── 둘러보기 — **양탄자의 «세로축»을 도는 궤도다** (`spin`)
+  //
+  // ⚠️⚠️ **한가운데(ORIGIN)를 축으로 돌아야 인물이 안 흔들린다.** 인물은 DOM 의 SVG 라
+  //    3D 가 아니고, `placeFigure` 가 **양탄자 한가운데의 화면 자리**(`floorRect().cy`)
+  //    에 발을 맞춘다. 카메라 «장비»를 통째로 그 축에서 돌리면 — 자리도 돌고 yaw 도
+  //    같은 각으로 돌면 — 카메라 좌표에서 본 ORIGIN 이 **한 픽셀도 안 움직인다.**
+  //    다른 점을 축으로 잡으면 양탄자가 화면에서 좌우로 미끄러지고, 인물은 세로만
+  //    맞추므로 **발이 양탄자 밖으로 나간다** (`checkroom` 이 그것을 잡는다).
+  // ⚠️ **yaw 0 에서는 지금과 한 글자도 안 달라진다** — sin0=0 · cos0=1 이다
+  let yaw = 0, yawTo = 0;
   function place() {
-    camera.position.set(0, CAM_Y, dist);
-    camera.rotation.set(-pitch, 0, 0, 'YXZ');     // pitch>0 이면 «내려다본다»
+    camera.position.set(Math.sin(yaw) * dist, CAM_Y, Math.cos(yaw) * dist);
+    camera.rotation.set(-pitch, yaw, 0, 'YXZ');   // pitch>0 이면 «내려다본다»
     camera.updateMatrixWorld();
   }
   // 세상의 한 점이 상자 안에서 «어디»인가 (0~1)
@@ -655,8 +665,16 @@ export function createRoom(canvas, opt) {
   // ⚠️ **지금 깔린 양탄자의 «제» 폭으로 잰다**(`rug.scale`) — 단계마다 크기가 다르다.
   //    못 박으면 작은 러그를 깐 방에서 카메라가 통째로 당겨진다
   function rugHalf() {
-    const c = toScreen(ORIGIN), e = toScreen(new THREE.Vector3(rug.scale.x * 2.35, 0, 0));
+    const c = toScreen(ORIGIN), e = toScreen(rugEdge());
     return Math.abs(e.x - c.x) * W;
+  }
+  // 양탄자의 «가로» 끝 — ⚠️⚠️ **시선에 수직인 쪽으로 잡는다**(카메라의 오른쪽 벡터).
+  //    x 축에 못 박으면 둘러볼 때 그 점이 **비스듬해져** 화면에서 짧아지고,
+  //    `aimFloor` 가 그만큼 카메라를 당겨 **돌릴 때마다 방이 확대된다.**
+  //    yaw 0 에서는 (1,0,0) 이라 지금과 같은 값이다
+  function rugEdge() {
+    const r = rug.scale.x * 2.35;
+    return new THREE.Vector3(Math.cos(yaw) * r, 0, -Math.sin(yaw) * r);
   }
 
   // ⚠️⚠️ **SVG 방에 «맞춰» 조준한다 — 상수로 두지 않는다.**
@@ -739,9 +757,40 @@ export function createRoom(canvas, opt) {
   //    「양탄자만 옮기기」 사보타주가 잡던 바로 그 사고다)
   function floorRect() {
     const c = toScreen(ORIGIN);
-    const e = toScreen(new THREE.Vector3(rug.scale.x * 2.35, 0, 0));
+    const e = toScreen(rugEdge());     // 시선에 수직 — 둘러봐도 값이 안 흔들린다
     return { cx: c.x * W, cy: c.y * H, half: Math.abs(e.x - c.x) * W };
   }
+
+  // ── 둘러보기 한 걸음
+  //
+  // ⚠️⚠️ **끝까지 못 돈다 — 이 방에는 «앞벽»이 없다.** 뒷벽과 옆벽 셋뿐이라
+  //    많이 돌면 열린 앞으로 시야가 빠져 방이 통째로 깨진다. 그래서 ±`YAW_MAX` 다.
+  //    ⚠️ 값은 **찍어 보고** 골랐다 — 옆벽의 앞 모서리가 화면에 안 들어오는 한계다
+  // ⚠️ **한 걸음이 `YAW_STEP` 인 이유**: 끌기(drag)로 두면 폰에서 방을 쓸어 내리려다
+  //    카메라가 돌아간다. 버튼 두 개로 한 칸씩 도는 것이 이 화면에 맞는 손짓이다
+  const YAW_MAX = 0.40, YAW_STEP = 0.20;         // ±23° · 한 걸음 11.5°
+  // ⚠️⚠️ **제 걸음으로 돈다 — 방의 «도는 루프»에 기대지 않는다.** 처음에는 `frame()`
+  //    안에서만 따라가게 했는데, 그러면 **루프가 멎어 있을 때 눌러도 아무 일이
+  //    안 일어난다**(검사기가 재려고 멈춰 둔 자리에서 그대로 걸렸다).
+  //    버튼이 하는 일이 «다른 것이 돌고 있는가»에 달려 있으면 그건 배선이 끊긴 것과 같다
+  let spinRaf = 0;
+  function spinStep() {
+    spinRaf = 0;
+    if (dead) return;
+    const d = yawTo - yaw;
+    yaw = Math.abs(d) < 0.0015 ? yawTo : yaw + d * 0.16;
+    place(); renderer.render(scene, camera);
+    if (yaw !== yawTo) spinRaf = requestAnimationFrame(spinStep);
+  }
+  function spin(dir) {
+    yawTo = Math.max(-YAW_MAX, Math.min(YAW_MAX, yawTo + (Number(dir) || 0) * YAW_STEP));
+    // ⚠️ **움직임 줄이기에서는 «즉시»다** — 기능을 빼는 것이 아니라 도는 모습을 뺀다
+    if (slow) { yaw = yawTo; place(); renderer.render(scene, camera); }
+    else if (!spinRaf) spinRaf = requestAnimationFrame(spinStep);
+    return yawTo;
+  }
+  // 「지금 어디까지 돌아가 있나」 — 버튼을 흐리게 할지 검사기가 볼 값이다
+  function spinAt() { return { yaw, to: yawTo, max: YAW_MAX, step: YAW_STEP }; }
 
   // ── 돈다
   const slow = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -772,6 +821,12 @@ export function createRoom(canvas, opt) {
     if (dead) return;
     if (on && !raf) raf = requestAnimationFrame(frame);
     if (!on && raf) { cancelAnimationFrame(raf); raf = 0; }
+    // ⚠️ 멈출 때 **돌다 만 것은 끝까지 옮겨 놓는다** — 안 그러면 다음에 들어왔을 때
+    //    카메라가 어정쩡한 각도에 서 있고, 「몇 프레임 더 그렸나」를 재는 검사도 흔들린다
+    if (!on && spinRaf) {
+      cancelAnimationFrame(spinRaf); spinRaf = 0;
+      yaw = yawTo; place(); renderer.render(scene, camera);
+    }
   }
   function dispose() {
     run(false); dead = true;
@@ -788,7 +843,7 @@ export function createRoom(canvas, opt) {
   // ⚠️ **프로토타입은 제 돌리기를 쓴다**(궤도·펼쳐 보기·빌보드가 거기 있다) —
   //    그래서 조각들을 같이 내놓는다. 감춰 두면 프로토타입이 세트를 다시 짜게 되고,
   //    그 순간 이 파일이 「유일한 곳」이 아니게 된다
-  return { scene, camera, renderer, cards, resize, aim, setLevel, setPhase, floorRect, run, dispose,
+  return { scene, camera, renderer, cards, resize, aim, setLevel, setPhase, floorRect, spin, spinAt, run, dispose,
     render: () => renderer.render(scene, camera),
     parts: { glyph, rug, backWall, floor, walls: [backWall].concat(sideWalls), shaft, winMat, moon, key, amb, brewLight, flames, shadowTex,
       dust, dustGeo, dpos, dphase, DUST, ROOM_W, ROOM_D, WALL_H },

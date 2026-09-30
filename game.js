@@ -5137,6 +5137,7 @@ function room3dSync() {
   room3d.setPhase(skyPhase3d());
   room3d.run(currentTab === 'showcase');
   room3d.render();
+  renderSpin();
 }
 // SVG 방의 양탄자 — **제일 넓은 «아래쪽» 바닥 타원**이다.
 // ⚠️ `Avatar.FLOOR_SPOT` 을 읽지 않는다: 그 상수는 그림이 바뀌면 따라오지 않는다
@@ -5158,6 +5159,32 @@ function svgRugRect(scene, r) {
 function skyPhase3d() {
   return (window.Avatar && Avatar.skyPhase) ? Avatar.skyPhase() : 'day';
 }
+// ── 둘러보기 — 좌우로 한 칸씩 (`room3d.spin`)
+//
+// ⚠️⚠️ **3D 가 섰을 때만 버튼이 선다.** WebGL 이 없는 기기는 SVG 방이라 돌릴 것이
+//    없는데, 그때도 버튼이 서 있으면 **눌러도 아무 일이 안 일어나는 자리**가 된다.
+// ⚠️ **끝에 닿으면 «안 눌리게» 한다** — 이 방에는 앞벽이 없어 끝까지는 못 도는데
+//    (`YAW_MAX`), 그것을 안 알리면 「버튼이 고장 났다」로 읽힌다
+function renderSpin() {
+  const box = document.getElementById('roomSpin');
+  if (!box) return;
+  const on = !!(room3d && document.querySelector('.room-scene.is3d'));
+  box.hidden = !on;
+  if (!on) return;
+  const at = room3d.spinAt();
+  box.querySelectorAll('.spin-btn').forEach(b => {
+    const dir = Number(b.dataset.dir) || 0;
+    // 한 걸음 더 갈 자리가 남았는가 (부동소수 여유 한 톨)
+    b.disabled = Math.abs(at.to + dir * at.step) > at.max + 1e-6;
+    b.setAttribute('aria-label', T(dir < 0 ? 'spin_left' : 'spin_right'));
+  });
+}
+function spinRoom(dir) {
+  if (!room3d || !document.querySelector('.room-scene.is3d')) return;
+  room3d.spin(dir);
+  renderSpin();
+}
+window.spinRoom = spinRoom;
 window.addEventListener('resize', () => { if (currentTab === 'showcase') room3dSync(); });
 window.addEventListener('room3d-ready', () => { if (currentTab === 'showcase') renderRoomScene(); });
 

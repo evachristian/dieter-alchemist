@@ -166,7 +166,73 @@ function mask(A, B) {
       if (share < WALL_MIN) bad.push(`${W}px: 머리 뒤가 벽이 아니다 (벽이 덮는 몫 ${(share * 100).toFixed(0)}%)`);
     }
 
-    // ── ④ 마이 룸을 떠나면 «멈춘다» (배터리 · 그리고 재는 순간이 흔들린다)
+    // ── ④ 둘러보기 — **돌려도 인물이 양탄자 위에 그대로 있는가**
+    //
+    // ⚠️⚠️ 카메라를 **양탄자의 세로축»이 아닌» 데서** 돌리면 양탄자가 화면에서 좌우로
+    //    미끄러지는데, `placeFigure` 는 **세로만** 맞추므로 발이 그대로 남아 밖으로
+    //    나간다. 그것을 「돌아간다」만 보고는 못 잡는다 — **다시 찾은 양탄자**와 견준다
+    // ⚠️ **돌려도 «크기»가 안 변해야 한다** — 양탄자의 끝을 x 축에 못 박으면 돌릴 때
+    //    그 점이 비스듬해져 짧아지고, `aimFloor` 가 카메라를 당겨 **방이 확대된다**
+    let spun = null;
+    {
+      const half0 = await page.evaluate(() => room3d.floorRect().half);
+      const at0 = await page.evaluate(() => room3d.spinAt());
+      // 끝까지 눌러 본다 — **멈추는지**도 같이 본다 (앞벽이 없어 끝까지는 못 돈다)
+      const at = await page.evaluate(async () => {
+        for (let i = 0; i < 12; i++) spinRoom(1);
+        await new Promise(r => setTimeout(r, 700));
+        room3d.run(false); room3d.render();
+        return { at: room3d.spinAt(), half: room3d.floorRect().half,
+          off: [...document.querySelectorAll('.spin-btn')].map(b => b.disabled) };
+      });
+      if (!(at.at.max > 0)) bad.push(`${W}px: 둘러보기 한계(YAW_MAX)가 없다 — 끝까지 돈다`);
+      if (Math.abs(at.at.to) > at.at.max + 1e-6) {
+        bad.push(`${W}px: 둘러보기가 한계를 넘었다 (${at.at.to.toFixed(3)} > ${at.at.max})`);
+      }
+      if (Math.abs(at.at.yaw - at.at.to) > 0.01) bad.push(`${W}px: 둘러보기가 목표까지 안 갔다`);
+      if (!at.off[1]) bad.push(`${W}px: 끝까지 돌았는데 그쪽 버튼이 «안 눌리게» 안 됐다`);
+      if (at.off[0]) bad.push(`${W}px: 되돌아올 수 있는데 그쪽 버튼이 잠겼다`);
+      const dHalf = Math.abs(at.half - half0);
+      if (dHalf > 1.2) bad.push(`${W}px: 둘러보니 양탄자가 ${dHalf.toFixed(1)}px 달라졌다 — 방이 확대·축소된다`);
+      // **그림이 진짜로 달라졌는가** — 안 달라지면 버튼이 하는 일이 없는 것이다
+      const C = await shot();
+      let moved = 0;
+      for (let i = 0; i < A.l.length; i++) if (Math.abs(A.l[i] - C.l[i]) > DIFF) moved++;
+      const mShare = moved / A.l.length;
+      if (mShare < 0.06) bad.push(`${W}px: 둘러봐도 그림이 거의 그대로다 (${(mShare * 100).toFixed(1)}%)`);
+      // **돌린 자리에서 양탄자를 다시 찾아** 발과 견준다
+      await show('rug', false); await page.waitForTimeout(60);
+      const D = await shot();
+      await show('rug', true); await page.waitForTimeout(60);
+      const rows2 = mask(C, D);
+      if (rows2.length < 10) bad.push(`${W}px: 돌린 뒤 양탄자를 못 찾았다 (${rows2.length}줄) — 아무것도 안 쟀다`);
+      else {
+        const w2 = rows2.reduce((m, r) => (r.w > m.w ? r : m), rows2[0]);
+        const f2 = await page.evaluate(() => {
+          const e = document.querySelector('.char-body > svg.avatar-svg > ellipse');
+          if (!e) return null;
+          const r = e.getBoundingClientRect();
+          return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+        });
+        if (!f2) bad.push(`${W}px: 돌린 뒤 바닥 그림자를 못 찾았다`);
+        else {
+          const d2 = Math.abs(f2.cx - (box.x + w2.cx));
+          const t2 = box.y + rows2[0].y, b2 = box.y + rows2[rows2.length - 1].y;
+          if (d2 > FOOT_MAX) bad.push(`${W}px: 둘러보니 발이 양탄자 가운데에서 ${d2.toFixed(1)}px 벗어났다`);
+          if (f2.cy < t2 || f2.cy > b2) bad.push(`${W}px: 둘러보니 발이 양탄자 «밖»이다`);
+          spun = { d: d2, dHalf, mShare, yaw: at.at.to };
+        }
+      }
+      // 되돌려 놓는다 — 뒤의 검사가 «돌아간 방»을 재면 안 된다
+      await page.evaluate(async () => {
+        for (let i = 0; i < 12; i++) spinRoom(-1);
+        for (let i = 0; i < 12; i++) spinRoom(1);
+        for (let i = 0; i < 6; i++) spinRoom(-1);
+        await new Promise(r => setTimeout(r, 700));
+      });
+    }
+
+    // ── ⑤ 마이 룸을 떠나면 «멈춘다» (배터리 · 그리고 재는 순간이 흔들린다)
     const ran = await page.evaluate(async () => {
       room3d.run(true);                      // 멈춰 둔 것을 되돌려 놓고 잰다
       switchTab('atelier');
@@ -181,7 +247,9 @@ function mask(A, B) {
 
     out.push(`${W}px 양탄자 ${rug.w}px · 발 ${dFoot == null ? '?' : dFoot.toFixed(1)}px`
       + ` · SVG 와 폭 ${dW == null ? '?' : dW.toFixed(1)} · 앞자락 ${dB == null ? '?' : dB.toFixed(1)}`
-      + ` · 머리 뒤 벽 ${(share * 100).toFixed(0)}%`);
+      + ` · 머리 뒤 벽 ${(share * 100).toFixed(0)}%`
+      + ` · 둘러보기 ${spun ? `${(spun.yaw * 180 / Math.PI).toFixed(0)}° 에서 발 ${spun.d.toFixed(1)}px`
+        + ` · 양탄자 ${spun.dHalf.toFixed(1)}px · 그림 ${(spun.mShare * 100).toFixed(0)}% 달라짐` : '?'}`);
     await page.close();
   }
 

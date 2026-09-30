@@ -1018,6 +1018,10 @@
       // 공방 단계가 오른 것을 «따로» 알린다 — 결정·재료와 한 줄에 섞으면
       // 「방이 달라졌다」가 안 읽힌다 (비법서 장·키워드와 같은 규칙이다)
       q_room_toast: '공방이 넓어졌어요! 마이 룸을 보세요', 
+      // 둘러보기 화살표 — 화면에 «글자»로는 안 뜬다 (흐린 버튼이라 그림이다).
+      // 이름을 읽어 주는 자리(aria-label)에만 쓰인다
+      spin_left: '왼쪽으로 둘러보기',
+      spin_right: '오른쪽으로 둘러보기', 
       q_first_name: '어머니의 솥',
       q_first_desc: '생기 물약을 2개 만들어 보세요.',
       q_first_in: '프린세스, 첫걸음부터 해요. 생기 물약 둘이면 손이 기억할 거예요.',
@@ -2464,6 +2468,7 @@
       q_not_yet: 'Still in progress',
       q_done_toast: 'Finished "{name}"!',
       q_room_toast: 'Your atelier has grown! Take a look at My Room', 
+      spin_left: 'Look left', spin_right: 'Look right', 
       q_first_name: "Mother's Cauldron",
       q_first_desc: 'Brew 2 Vitality Potions.',
       q_first_in: 'First things first, Princess. Two vitality potions and your hands will remember.',

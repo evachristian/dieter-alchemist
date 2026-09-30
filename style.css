@@ -2080,6 +2080,35 @@ button.tm-slot:active { transform: scale(0.94); }
    **명판이다.** 방 배경 위 흰 글자(.on-room-bg)는 대비를 잴 수 없어 예외로 빼야 하는데,
    예외는 최소한만 쓴다 — 배경이 있는 알약이라야 대비를 실제로 잰다 (마을 이름표와 같은 판단) */
 /* 오른쪽 여백은 **뱃지가 삐져나오는 만큼** 준다 — right:2px 이면 뱃지가 방 밖으로 나간다 */
+/* ── 둘러보기 — 방이 3D 라 좌우로 조금 돌려 볼 수 있다 (room3d.js 의 `spin`) ──
+   ⚠️⚠️ **일부러 «희미한» 버튼이다** (사람이 그렇게 정했다). 주인공은 방과 인물이고
+   이 버튼은 거들 뿐이라, 평소에는 거의 안 보이다가 손이 닿으면 또렷해진다.
+   ⚠️ **글자를 한 자도 안 넣는다** — 흐린 글자는 `checkTextStyle()` 이 대비로 잡는다.
+   화살표는 그림(svg)이고 이름은 `aria-label` 이 맡는다 (헤더의 ↺ 와 같은 조리법).
+   ⚠️ 방 벽은 **테마를 안 탄다** — 그래서 여기 색만은 토큰이 아니라 흰색 고정이다
+   (`.on-room-bg` 와 같은 자리다) */
+.room-spin {
+  position: absolute; inset: 0; z-index: 4;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2px;
+  pointer-events: none;            /* 가운데(인물·크리처)는 그대로 눌린다 */
+}
+.spin-btn {
+  pointer-events: auto;
+  width: 34px; height: 46px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 12px; cursor: pointer;
+  background: rgba(20,14,22,0.10); color: #fff; opacity: 0.26;
+  transition: opacity .18s ease, background .18s ease;
+}
+.spin-btn svg { width: 20px; height: 20px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+.spin-btn:hover, .spin-btn:focus-visible { opacity: 0.74; background: rgba(20,14,22,0.22); }
+.spin-btn:active { transform: scale(0.94); }
+/* 더 못 도는 쪽은 **더 흐려지고 안 눌린다** — 눌러도 아무 일이 없으면 고장으로 읽힌다.
+   ⚠️ 이것은 «잠긴 콘텐츠»가 아니다 — 그 공통 표현(`saturate(0.15)`)을 베껴 쓰지 않는다.
+   잠긴 것은 「아직 못 여는 것」이고 이쪽은 「거기가 끝」이다 */
+.spin-btn[disabled] { opacity: 0.10; cursor: default; }
+@media (prefers-reduced-motion: reduce) { .spin-btn { transition: none; } }
 .room-acts {
   position: absolute; right: 8px; bottom: 6px; z-index: 3;
   display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
