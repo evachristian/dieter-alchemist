@@ -23,6 +23,11 @@ const BASE = process.env.BASE || 'http://localhost:8080';
 const FOOT_MAX = 8;     // px. 양탄자 가로 한가운데와 발
 const SVG_MAX = 9;      // px. 3D 와 SVG 가 같은 자리를 써야 «떨어질 때» 안 튄다
 const WALL_MIN = 0.6;   // 머리 위 띠에서 벽이 덮는 몫
+// 광원 언저리가 이만큼은 밝아져야 «빛이 난다».
+// ⚠️ **재서 골랐다** — 지금 제일 안 나오는 자리가 +0.079(480px 의 SVG)이고 제일
+//    잘 나오는 자리가 +0.47 이다. 낮에는 벽이 이미 환해서 더하는 몫이 덜 보인다
+const GLOW_MIN = 0.03;
+const GLOW_PAD = 12;    // px. 광원의 화면 자리에서 이만큼 네모로 떠서 잰다
 
 // 「달라진 점이 한 줄에 30px 넘게 이어진 곳」만 양탄자로 친다.
 // ⚠️ 문턱을 0.02 로 두면 **그림자가 번진 몫까지** 잡혀 방 전체가 양탄자가 된다
@@ -314,11 +319,17 @@ function mask(A, B) {
       room3d.run(true);
       const lit = room3d.parts.LIT.filter(x => x.grp.visible);
       if (!lit.length) return { n: 0 };
-      const snap = () => lit.map(({ grp, light }) => ({
+      const snap = () => lit.map(({ grp, light, glow }) => ({
         s: `${grp.scale.x},${grp.scale.y},${grp.scale.z}`,
         p: `${grp.position.x},${grp.position.y},${grp.position.z}`,
         r: `${grp.rotation.x},${grp.rotation.y},${grp.rotation.z}`,
         i: light.intensity,
+        // ⚠️ **빛무리도 «커졌다 작아졌다» 하면 안 된다** — 그러면 그 밑의 카드까지
+        //    맥박치는 것으로 보여 위의 그 신고가 모양만 바꿔 돌아온다.
+        //    흔드는 것은 «불투명도»뿐이라 자리와 크기는 여기서 같이 잡아 둔다
+        gs: glow ? `${glow.scale.x},${glow.scale.y},`
+          + `${glow.position.x},${glow.position.y},${glow.position.z}` : '',
+        go: glow ? glow.material.opacity : null,
       }));
       const shots = [];
       for (let k = 0; k < 24; k++) {                 // 24 × 20ms ≈ 480ms (주기 150ms)
@@ -326,18 +337,21 @@ function mask(A, B) {
         await new Promise(r => requestAnimationFrame(() => setTimeout(r, 20)));
       }
       const first = shots[0];
-      let moved = null, lightVary = 0;
+      let moved = null, lightVary = 0, glowVary = 0;
+      const glows = lit.filter(x => x.glow).length;
       lit.forEach((_, i) => {
         shots.forEach(sh => {
           const a = sh[i], b = first[i];
-          if (!moved && (a.s !== b.s || a.p !== b.p || a.r !== b.r)) {
-            moved = { i, was: `${b.s} / ${b.p}`, now: `${a.s} / ${a.p}` };
+          if (!moved && (a.s !== b.s || a.p !== b.p || a.r !== b.r || a.gs !== b.gs)) {
+            moved = { i, was: `${b.s} / ${b.p} / ${b.gs}`, now: `${a.s} / ${a.p} / ${a.gs}` };
           }
         });
         const iv = shots.map(sh => sh[i].i);
         if (Math.max(...iv) - Math.min(...iv) > 1e-4) lightVary++;
+        const gv = shots.map(sh => sh[i].go).filter(v => v != null);
+        if (gv.length && Math.max(...gv) - Math.min(...gv) > 1e-4) glowVary++;
       });
-      return { n: lit.length, shots: shots.length, moved, lightVary };
+      return { n: lit.length, shots: shots.length, moved, lightVary, glows, glowVary };
     });
     if (!still.n) bad.push(`${W}px: 광원 소품을 하나도 못 찾았다 (가만히 있는지를 잴 수가 없다)`);
     else if (still.moved) {
@@ -345,6 +359,11 @@ function mask(A, B) {
     } else if (still.lightVary < still.n) {
       bad.push(`${W}px: 빛이 안 흔들린다 (${still.lightVary}/${still.n} 만 흔들린다 —`
         + ` 조각을 멈추면서 불꽃까지 같이 껐다)`);
+    } else if (still.glows < still.n) {
+      bad.push(`${W}px: 광원 ${still.n}개 중 ${still.glows}개만 빛무리를 갖고 있다`
+        + ` (light 가 있는 자리는 RoomArt.SLOT_GLOW 에도 한 줄이 있어야 한다)`);
+    } else if (still.glowVary < still.glows) {
+      bad.push(`${W}px: 빛무리가 안 흔들린다 (${still.glowVary}/${still.glows} 만 흔들린다)`);
     }
 
     // ── ⑤ 마이 룸을 떠나면 «멈춘다» (배터리 · 그리고 재는 순간이 흔들린다)
@@ -360,12 +379,109 @@ function mask(A, B) {
     });
     if (ran > 1) bad.push(`${W}px: 마이 룸을 떠났는데 ${ran}프레임을 더 그렸다`);
 
+    // ── ⑥ 광원에서 «빛이 난다» — 빛무리가 진짜로 «그려지는가» (3D · SVG 둘 다)
+    //
+    // 「조명 광원에서 빛이 나게 해줘」로 받은 자리다. `PointLight` 는 방을 밝힐 뿐
+    // **보이지 않아서**, 벽은 환한데 정작 촛불·벽등은 캄캄한 조각으로 서 있었다.
+    //
+    // ⚠️⚠️ **위의 ④-2 는 이것을 영영 못 본다** — 거기서 보는 것은 조각의 «자리»와
+    //    불빛의 «세기»(숫자)라, 빛무리를 통째로 안 그려도 그대로 통과한다.
+    //    0건이 「통과」가 아니라 **「한 번도 안 쟀다」**인 그 자리다.
+    // ⚠️ **두 renderer 를 다 본다.** SVG 폴백은 WebGL 이 없는 기기와 **공유 이미지**
+    //    (`shareCard`)가 실제로 보는 화면이라, 3D 만 고치면 거기만 캄캄하게 남는다.
+    //    ⚠️ 한쪽이 0이면 그 방향은 아예 안 잰 것이므로 **몇 자리를 쟀는지도 같이 낸다**
+    // ⚠️ **자리를 px 로 박지 않는다** — 3D 는 카메라로 «투영해서», SVG 는 그림의
+    //    `getScreenCTM()` 으로 구한다. 카메라나 자리 표를 고쳐도 따라온다
+    const glowOut = [];
+    {
+      // 재는 동안은 멈춰 둔다 — 빛무리의 불투명도가 프레임마다 흔들린다(④-2)
+      await page.evaluate(() => { room3d.run(false); room3d.render(); });
+      const lum = (g, cx, cy) => {         // 광원 언저리 네모의 평균 휘도 (상자 밖은 잘라 낸다)
+        const x0 = Math.max(0, Math.round(cx - GLOW_PAD)), x1 = Math.min(g.w, Math.round(cx + GLOW_PAD));
+        const y0 = Math.max(0, Math.round(cy - GLOW_PAD)), y1 = Math.min(g.h, Math.round(cy + GLOW_PAD));
+        if (x1 - x0 < 4 || y1 - y0 < 4) return null;
+        let s = 0, n = 0;
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { s += g.l[y * g.w + x]; n++; }
+        return s / n;
+      };
+      // ⚠️⚠️ **인물을 치우고 잰다.** 샹들리에는 방 한가운데 위에 매달려 있어서
+      //    좁은 화면에서는 **인물의 머리 뒤**다 — 그대로 재면 켜나 끄나 같은 머리카락을
+      //    재게 되어 **멀쩡한 빛무리가 「0.388 → 0.388」로** 잡혔다 (실제로 그랬다).
+      //    ⚠️ `renderShowcase()` 가 인물을 다시 만들므로 **찍기 직전마다** 치운다
+      const hideFig = () => page.evaluate(() => {
+        ['roomSolo', 'roomSpin'].forEach(id => {
+          const el = document.getElementById(id); if (el) el.style.visibility = 'hidden';
+        });
+        const a = document.querySelector('.char-aura');
+        if (a) a.style.visibility = 'hidden';
+      });
+      const measure = async (label, spots, toggle) => {
+        if (!spots.length) { bad.push(`${W}px: ${label} 빛무리를 하나도 못 찾았다 (잴 수가 없다)`); return; }
+        await toggle(false); await hideFig(); const off = await shot();
+        await toggle(true); await hideFig(); const on = await shot();
+        if (!off || !on) { bad.push(`${W}px: ${label} 화면을 못 읽었다`); return; }
+        let seen = 0, worst = 9;
+        spots.forEach(s => {
+          const a = lum(off, s.x - box.x, s.y - box.y), b = lum(on, s.x - box.x, s.y - box.y);
+          if (a == null || b == null) return;            // 상자 밖으로 나간 자리
+          seen++; worst = Math.min(worst, b - a);
+          if (b - a < GLOW_MIN) bad.push(`${W}px: ${label} «${s.id}» 에서 빛이 안 난다`
+            + ` (${a.toFixed(3)} → ${b.toFixed(3)})`);
+        });
+        if (!seen) bad.push(`${W}px: ${label} 빛무리가 전부 화면 밖이다 (한 자리도 안 쟀다)`);
+        else glowOut.push(`${label} ${seen}/${spots.length}곳 +${worst.toFixed(3)}`);
+      };
+
+      const spots3d = await page.evaluate(() => {
+        const R = room3d, rc = R.renderer.domElement.getBoundingClientRect();
+        const V = new R.camera.position.constructor();
+        return R.parts.LIT.filter(x => x.grp.visible && x.glow).map(({ grp, glow }) => {
+          glow.getWorldPosition(V); V.project(R.camera);
+          return { id: grp.userData.slot || '광원',
+            x: rc.left + (V.x * 0.5 + 0.5) * rc.width, y: rc.top + (-V.y * 0.5 + 0.5) * rc.height };
+        });
+      });
+      await measure('3D', spots3d, (on) => page.evaluate((v) => {
+        room3d.parts.LIT.forEach(L => { if (L.glow) L.glow.visible = v; });
+        room3d.render();
+      }, on));
+
+      // SVG 폴백 — 3D 를 걷고 밑에 깔린 그림을 드러내 놓고 같은 것을 잰다.
+      // ⚠️ `renderShowcase()` 가 `.room-scene` 을 통째로 새로 만들며 3D 를 도로 덮으므로
+      //    **그릴 때마다** 걷어 낸다 (`room3dSync` 가 캔버스를 다시 데려온다)
+      const svgToggle = (on) => page.evaluate((v) => {
+        const A = window.RoomArt;
+        if (!A.__glowBak) A.__glowBak = A.SLOT_GLOW;
+        A.SLOT_GLOW = v ? A.__glowBak : {};
+        renderShowcase();
+        document.querySelectorAll('.room-gl').forEach(c => c.remove());
+        document.querySelectorAll('.room-scene').forEach(s => s.classList.remove('is3d'));
+      }, on);
+      await svgToggle(true);
+      const spotsSvg = await page.evaluate(() => {
+        const s = document.querySelector('.room-2d .room-svg');
+        const m = s && s.getScreenCTM();
+        const A = window.RoomArt, D = window.GameData;
+        if (!m || !A || !D) return [];
+        const G = A.__glowBak || A.SLOT_GLOW || {};
+        return Object.keys(G).map(id => {
+          const sl = D.roomSlot(id);
+          if (!sl || !sl.p2) return null;
+          const g = G[id], p2 = sl.p2;
+          const p = new DOMPoint(p2[0] + g.x * p2[2], p2[1] + g.y * p2[3]).matrixTransform(m);
+          return { id, x: p.x, y: p.y };
+        }).filter(Boolean);
+      });
+      await measure('SVG', spotsSvg, svgToggle);
+    }
+
     out.push(`${W}px 양탄자 ${rug.w}px · 발 ${dFoot == null ? '?' : dFoot.toFixed(1)}px`
       + ` · SVG 와 폭 ${dW == null ? '?' : dW.toFixed(1)} · 앞자락 ${dB == null ? '?' : dB.toFixed(1)}`
       + ` · 머리 뒤 벽 ${(share * 100).toFixed(0)}%`
       + ` · 둘러보기 ${spun ? `${(spun.yaw * 180 / Math.PI).toFixed(0)}° 에서 발 ${spun.d.toFixed(1)}px`
         + ` · 양탄자 ${spun.dHalf.toFixed(1)}px · 그림 ${(spun.mShare * 100).toFixed(0)}% 달라짐` : '?'}`
-      + ` · 광원 ${still.n}개가 ${still.shots || 0}프레임 동안 가만히 있고 빛만 흔들린다`);
+      + ` · 광원 ${still.n}개가 ${still.shots || 0}프레임 동안 가만히 있고 빛만 흔들린다`
+      + ` · 빛무리 ${glowOut.length ? glowOut.join(' · ') : '?'}`);
     await page.close();
   }
 

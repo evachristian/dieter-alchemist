@@ -299,6 +299,26 @@ export function createRoom(canvas, opt) {
   //    (`ROOM.md` 3장의 그 규칙이고, 이 파일이 `Avatar.ROOM_LEVELS` 를 읽는 것과 같다).
   // ⚠️ 표가 없으면 소품이 하나도 안 선다 — 그때도 방(벽·바닥·창)은 그대로 선다
   const SLOTS = ((window.GameData && window.GameData.ROOM_SLOTS) || []);
+
+  // ── 광원에서 «나는» 빛 — 둥근 빛무리 한 장 ────────────────────
+  //
+  // ⚠️⚠️ **`PointLight` 는 방을 밝힐 뿐 «보이지 않는다».** 그래서 벽은 환한데
+  //    정작 촛불·벽등은 캄캄한 조각으로 서 있었다 (「조명 광원에서 빛이 나게
+  //    해줘」로 신고받은 자리다). 빛이 «난다»는 것은 광원 둘레가 밝아지는 것이라,
+  //    **더하기(additive) 로 얹는 빛무리**를 따로 세운다.
+  // ⚠️ **카드에 그려 넣어서는 못 한다** — `paperCard` 가 `alphaTest: 0.45` 라
+  //    부드러운 가장자리가 그 문턱에서 **딱 잘려 동그란 테**가 되고, 게다가 카드는
+  //    빛을 받는 재질(`toon`)이라 빛무리까지 같이 어두워진다 (그려 보고 알았다).
+  // ⚠️ 색과 자리는 `roomart.js` 의 `GLOW_STOPS`·`SLOT_GLOW` 에서 읽는다 —
+  //    불꽃을 «그리는 손»이 거기 있어서, 불꽃을 옮기면 빛무리도 같이 따라온다
+  const GLOW_TEX = tex(256, 256, (g, w) => {
+    g.clearRect(0, 0, w, w);
+    const c = w / 2;
+    const rg = g.createRadialGradient(c, c, 0, c, c, c);
+    ((ART.GLOW_STOPS) || []).forEach(([o, col]) => rg.addColorStop(o, col));
+    g.fillStyle = rg; g.fillRect(0, 0, w, w);
+  });
+
   const brewLight = new THREE.PointLight(PAL.brew, 0, 5.5);
   brewLight.position.set(2.4, 1.7, -1.2);
   scene.add(brewLight);
@@ -309,6 +329,7 @@ export function createRoom(canvas, opt) {
     grp.position.set(slot.p3.x * sign, 0, slot.p3.z);
     grp.rotation.y = (slot.p3.yaw || 0) * sign;
     grp.visible = false;
+    grp.userData.slot = slot.id;      // 검사기가 「어느 자리가 어긋났나」를 부를 이름
     scene.add(grp); cards.push(grp);
     let light = null;
     if (slot.light) {
@@ -318,7 +339,28 @@ export function createRoom(canvas, opt) {
       light.position.set(slot.p3.x * sign, slot.p3.y + slot.p3.h * 0.2, slot.p3.z + 1.0);
       scene.add(light);
     }
-    return { grp, light, mesh: null, shadow: null };
+    // 빛무리는 **불꽃 «위»**에 선다.
+    //
+    // ⚠️⚠️ **빛과 «같은 자리»에 두지 않는다.** 빛은 방을 밝히려고 카드보다 1.0 앞에
+    //    나와 있는데(위의 주석), 빛무리를 거기 두면 둘러볼 때(`spin` · ±23°) 그 몫이
+    //    옆으로 0.39 칸 미끄러져 **촛불 옆에서 따로 빛나는 얼룩**이 된다.
+    //    빛무리는 «불꽃이 타는 자국»이라 불꽃 위여야 하고, 빛이 앞으로 나와 있는 것은
+    //    전역 조명이 없는 것을 메우는 «속임수»다 — 둘의 자리가 다른 것이 맞는다.
+    // ⚠️ **`grp` 의 자식으로 단다** — 그러면 카드의 자리·기울기·«보임»이 그대로
+    //    따라온다 (소품을 내리면 `clearUnit` 이 `grp.visible` 을 내리는 그 한 줄이
+    //    빛무리도 같이 끈다 · 밖에 두면 끄는 줄을 하나 더 두게 되고 곧 어긋난다)
+    let glow = null, ga = 0;
+    const gs = (ART.SLOT_GLOW || {})[slot.id];
+    if (gs && slot.light) {
+      ga = gs.a;
+      glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW_TEX,
+        blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: ga }));
+      const r = slot.p3.w * gs.r;
+      glow.scale.set(r * 2, r * 2, 1);
+      glow.position.set((gs.x - 0.5) * slot.p3.w, slot.p3.y + slot.p3.h * (0.5 - gs.y), 0.12);
+      grp.add(glow);
+    }
+    return { grp, light, glow, ga, mesh: null, shadow: null };
   }
   // ⚠️ **접지 그림자는 «바닥에 서는 것»만** — 자국이 없으면 종이가 공중에 뜨고,
   //    벽에 붙은 것·매달린 것·탁자 위의 것에 깔면 바닥에 유령 자국이 남는다.
@@ -330,7 +372,8 @@ export function createRoom(canvas, opt) {
   SLOTS.forEach((s, si) => {
     const us = s.kind === 'pair' ? [makeUnit(s, 1), makeUnit(s, -1)] : [makeUnit(s, 1)];
     us.forEach((u, ui) => {
-      if (u.light) LIT.push({ grp: u.grp, light: u.light, base: s.light, seed: si * 1.7 + ui * 2.3 });
+      if (u.light) LIT.push({ grp: u.grp, light: u.light, glow: u.glow, ga: u.ga,
+        base: s.light, seed: si * 1.7 + ui * 2.3 });
     });
     units[s.id] = { slot: s, cur: null, us };
   });
@@ -652,9 +695,15 @@ export function createRoom(canvas, opt) {
       //    것이 되어 **「왜 이렇게 상하 운동 함?」으로 신고받았다.**
       //    소품은 방에 «놓인 것»이다 — 놓인 것이 저 혼자 움직이면 그건 연출이
       //    아니라 고장으로 읽힌다. 흔들릴 것은 그것이 «내는 빛»이다
-      LIT.forEach(({ grp, light, seed, base }) => {
+      //    ⚠️ **빛무리도 «빛»이라 같이 흔들린다 — 그런데 흔드는 것은 «불투명도»뿐이다.**
+      //    크기를 같이 떨면 스프라이트가 커졌다 작아졌다 하면서 그 밑의 카드까지
+      //    맥박치는 것처럼 보인다 (위의 그 신고와 같은 종류다). 같은 `k` 를 쓰므로
+      //    「밝아질 때 빛무리도 밝아진다」가 저절로 맞는다
+      LIT.forEach(({ grp, light, glow, ga, seed, base }) => {
         if (!grp.visible) return;
-        light.intensity = base * (0.88 + Math.sin(now / 140 + seed) * 0.14);
+        const k = 0.88 + Math.sin(now / 140 + seed) * 0.14;
+        light.intensity = base * k;
+        if (glow) glow.material.opacity = ga * k;
       });
       const P = dustGeo.attributes.position;
       for (let i = 0; i < DUST; i++) {

@@ -4216,7 +4216,19 @@
   // ⚠️ `RoomArt` 가 없으면(파일이 안 왔거나 캔버스를 못 만들면) **그 자리만 빈다** —
   //    방 자체는 그대로 선다. 대체 그림을 두지 않는 이유는 `escHtml` 에서 배운 그것이다:
   //    보조 길이 있으면 배선이 끊겼을 때 조용히 다른 모양으로 떨어진다
-  function decorImage(slotId, decor) {
+  // ⚠️⚠️ **광원은 «빛이 나야» 광원이다** (2026-09-30 · 「조명 광원에서 빛이 나게 해줘」).
+  //    3D 방은 더하기 스프라이트로 빛무리를 얹는데, 여기도 같은 것을 해 줘야
+  //    WebGL 이 없는 기기와 **공유 이미지**(`shareCard`)에서만 촛불이 캄캄하지 않다.
+  //    자리도 색도 `RoomArt.SLOT_GLOW`·`GLOW_STOPS` 한 곳에서 읽는다 — 여기에
+  //    숫자를 적으면 불꽃을 옮겼을 때 한쪽만 옛 자리에 남는다
+  // ⚠️ **빛무리는 소품 «뒤»에 깐다.** 앞에 얹으면 등잔이 뿌옇게 덮여 무엇인지
+  //    안 읽힌다 (3D 는 스프라이트가 더하기라 앞이 맞는다 — 거기서는 안 덮인다)
+  // ⚠️⚠️ **합성을 «더하기»로 둔다**(`plus-lighter`). 평범한 알파로 얹으면 **밝은 벽에서
+  //    거의 아무 일도 안 일어난다** — 빛의 색이 벽과 비슷해서 섞어도 밝기가 안 오른다.
+  //    재 보면 낮의 벽등이 0.693 → 0.698(+0.005)이라 **빛이 난다고 할 수가 없었다.**
+  //    빛은 «섞이는 것»이 아니라 «더해지는 것»이라 이쪽이 3D 와 같은 규칙이기도 하다.
+  //    ⚠️ 못 알아듣는 브라우저에서는 평범한 알파로 떨어진다 — 옅어질 뿐 안 깨진다
+  function decorImage(slotId, decor, glowId) {
     const D = window.GameData;
     if (!D || !window.RoomArt) return '';
     const slot = (D.roomSlot || (() => null))(slotId);
@@ -4229,7 +4241,12 @@
     const u = window.RoomArt.url(id);
     if (!u) return '';
     const [x, y, w, h] = slot.p2;
-    const one = (xx) => `<image href="${u}" x="${xx}" y="${y}" width="${w}" height="${h}"`
+    const gs = (window.RoomArt.SLOT_GLOW || {})[slotId];
+    const halo = (xx) => (!gs || !glowId) ? '' :
+      `<circle cx="${(xx + gs.x * w).toFixed(1)}" cy="${(y + gs.y * h).toFixed(1)}"`
+      + ` r="${(w * gs.r).toFixed(1)}" fill="url(#${glowId})" opacity="${gs.a}"`
+      + ` style="mix-blend-mode:plus-lighter"/>`;
+    const one = (xx) => halo(xx) + `<image href="${u}" x="${xx}" y="${y}" width="${w}" height="${h}"`
       + ` preserveAspectRatio="none"/>`;
     // 벽등은 «한 쌍»이다 — 좌우 대칭으로 둘을 찍는다 (3D 도 같다)
     return slot.kind === 'pair' ? one(x) + one(400 - x - w) : one(x);
@@ -4330,7 +4347,7 @@
     const FIXED = { '@window': win, '@floor': floor, '@beam': beam };
     const body = ROOM_Z.map(id => {
       if (FIXED[id]) return FIXED[id];
-      if (id[0] === '#') return decorImage(id.slice(1), dec);
+      if (id[0] === '#') return decorImage(id.slice(1), dec, ID('glowG'));
       return want.has(id) && ROOM_PROPS[id] ? ROOM_PROPS[id](k, top) : '';
     }).join('');
 
@@ -4356,6 +4373,11 @@
         <linearGradient id="${ID('beamG')}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="rgba(255,240,190,${warm})"/><stop offset="1" stop-color="rgba(255,240,190,0)"/>
         </linearGradient>
+        <!-- 광원에서 나는 빛 — 스톱은 RoomArt 가 갖는다 (3D 가 읽는 그 줄이다) -->
+        <radialGradient id="${ID('glowG')}">
+          ${((window.RoomArt && window.RoomArt.GLOW_STOPS) || [])
+            .map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join('')}
+        </radialGradient>
         <radialGradient id="${ID('vigG')}" cx="0.5" cy="${((0.42 * 320 - top) / (H - top)).toFixed(3)}" r="0.78">
           <stop offset="0.4" stop-color="rgba(0,0,0,0)"/><stop offset="1" stop-color="rgba(12,8,20,${(0.46 - lv * 0.05).toFixed(2)})"/>
         </radialGradient>
