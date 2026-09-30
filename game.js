@@ -442,6 +442,17 @@ function normalizeState(st) {
     st.tut = { step: 0, beat: 0, done: !!st.tutorialDone, did: {} };
   }
   if (!st.tut.did || typeof st.tut.did !== 'object') st.tut.did = {};
+  // ⚠️⚠️ **바로 윗줄은 «값이 없는» 세이브를 한 번도 못 봤다 — 열 버전 동안.**
+  //    `load()` 가 `Object.assign(defaultState(), parsed)` 로 병합하는데
+  //    `defaultState()` 에 `tut`(done:false)이 «있어서», 저장값에 없어도 여기 올 때는
+  //    이미 채워져 있다 — 그래서 `if (!st.tut)` 이 영영 거짓이다.
+  //    옛 세이브(ver < 10)만 `migrate` 가 따로 고쳐 줘서 «되는 것처럼» 보였고,
+  //    지금 버전 세이브에서 `tut` 이 빠지면 **졸업한 사람에게 튜토리얼 막이 다시 떴다**
+  //    (실제로 그랬다 — `checkroom` 이 그 막 «너머로» 방을 재고 있었다).
+  // ⚠️ 고침은 「없으면 채운다」가 아니라 **몸의 약속**으로 적는다: 졸업했으면 튜토리얼도
+  //    끝난 것이다. 값이 어디서 왔든 참이라 병합 순서에 안 기댄다.
+  //    ⚠️ 되감기(`Tut.replay`)는 `tutorialDone` 을 «같이» 내리므로 여기 안 걸린다
+  if (st.tutorialDone && !st.tut.done) st.tut.done = true;
   st.roomLevel = Math.min(roomMax(), Math.max(1, Math.round(Number(st.roomLevel) || roomDefault())));
   // 리그 — 사다리 밖의 값이 들어오면 그릴 것이 없어 화면이 비어 버린다
   const lgMax = (D.LEAGUES ? D.LEAGUES.length : 32) - 1;

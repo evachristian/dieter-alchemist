@@ -299,6 +299,54 @@ function mask(A, B) {
       });
     }
 
+    // ── ④-2 광원 소품은 «가만히» 있는다 — 흔들리는 것은 빛뿐이다
+    //
+    // 「촛불이랑 샹들리에 왜 이렇게 위 아래로 상하 운동 함?」으로 신고받은 자리다.
+    // 불꽃을 흔들려고 `grp.scale.y` 를 흔들었는데, 그 조각은 불꽃만이 아니라
+    // **촛대·샹들리에 카드 통째**라 세로로 눌렸다 폈다 했다.
+    //
+    // ⚠️⚠️ **양쪽을 «다» 본다.** 「안 움직이는가」만 보면 **빛까지 통째로 꺼 버리는**
+    //    사보타주가 통과하고(그러면 촛불이 «켜진 그림»일 뿐이다), 「흔들리는가」만
+    //    보면 원래 사고가 그대로 돌아온다. 한쪽만 보는 잣대는 그 절반을 영영 못 본다
+    // ⚠️ **한 프레임만 보면 못 잡는다** — 주기가 150ms 라 두 번 찍어도 같은 자리에
+    //    설 수 있다. 한 바퀴를 넘겨 훑고 **몇 번 쟀는지도 같이 낸다**
+    const still = await page.evaluate(async () => {
+      room3d.run(true);
+      const lit = room3d.parts.LIT.filter(x => x.grp.visible);
+      if (!lit.length) return { n: 0 };
+      const snap = () => lit.map(({ grp, light }) => ({
+        s: `${grp.scale.x},${grp.scale.y},${grp.scale.z}`,
+        p: `${grp.position.x},${grp.position.y},${grp.position.z}`,
+        r: `${grp.rotation.x},${grp.rotation.y},${grp.rotation.z}`,
+        i: light.intensity,
+      }));
+      const shots = [];
+      for (let k = 0; k < 24; k++) {                 // 24 × 20ms ≈ 480ms (주기 150ms)
+        shots.push(snap());
+        await new Promise(r => requestAnimationFrame(() => setTimeout(r, 20)));
+      }
+      const first = shots[0];
+      let moved = null, lightVary = 0;
+      lit.forEach((_, i) => {
+        shots.forEach(sh => {
+          const a = sh[i], b = first[i];
+          if (!moved && (a.s !== b.s || a.p !== b.p || a.r !== b.r)) {
+            moved = { i, was: `${b.s} / ${b.p}`, now: `${a.s} / ${a.p}` };
+          }
+        });
+        const iv = shots.map(sh => sh[i].i);
+        if (Math.max(...iv) - Math.min(...iv) > 1e-4) lightVary++;
+      });
+      return { n: lit.length, shots: shots.length, moved, lightVary };
+    });
+    if (!still.n) bad.push(`${W}px: 광원 소품을 하나도 못 찾았다 (가만히 있는지를 잴 수가 없다)`);
+    else if (still.moved) {
+      bad.push(`${W}px: 광원 소품이 움직인다 — ${still.moved.was} → ${still.moved.now}`);
+    } else if (still.lightVary < still.n) {
+      bad.push(`${W}px: 빛이 안 흔들린다 (${still.lightVary}/${still.n} 만 흔들린다 —`
+        + ` 조각을 멈추면서 불꽃까지 같이 껐다)`);
+    }
+
     // ── ⑤ 마이 룸을 떠나면 «멈춘다» (배터리 · 그리고 재는 순간이 흔들린다)
     const ran = await page.evaluate(async () => {
       room3d.run(true);                      // 멈춰 둔 것을 되돌려 놓고 잰다
@@ -316,7 +364,8 @@ function mask(A, B) {
       + ` · SVG 와 폭 ${dW == null ? '?' : dW.toFixed(1)} · 앞자락 ${dB == null ? '?' : dB.toFixed(1)}`
       + ` · 머리 뒤 벽 ${(share * 100).toFixed(0)}%`
       + ` · 둘러보기 ${spun ? `${(spun.yaw * 180 / Math.PI).toFixed(0)}° 에서 발 ${spun.d.toFixed(1)}px`
-        + ` · 양탄자 ${spun.dHalf.toFixed(1)}px · 그림 ${(spun.mShare * 100).toFixed(0)}% 달라짐` : '?'}`);
+        + ` · 양탄자 ${spun.dHalf.toFixed(1)}px · 그림 ${(spun.mShare * 100).toFixed(0)}% 달라짐` : '?'}`
+      + ` · 광원 ${still.n}개가 ${still.shots || 0}프레임 동안 가만히 있고 빛만 흔들린다`);
     await page.close();
   }
 

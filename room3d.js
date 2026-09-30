@@ -645,9 +645,15 @@ export function createRoom(canvas, opt) {
       if (brewLight.intensity) brewLight.intensity = 1.5 + Math.sin(now / 430) * 0.45;
       // 불꽃이 흔들린다 — **광원이 있는 자리만**. 자리마다 씨앗이 달라야
       // 벽등 둘과 촛불이 «같이» 깜박이지 않는다 (그러면 전등 스위치로 보인다)
+      //
+      // ⚠️⚠️ **흔들리는 것은 «빛»뿐이다 — 조각은 한 픽셀도 안 움직인다.**
+      //    예전에는 `grp.scale.y` 를 같이 흔들었는데(±1.2% · 150ms), 그 조각은
+      //    불꽃만이 아니라 **촛대·샹들리에 카드 통째**라 세로로 눌렸다 폈다 하는
+      //    것이 되어 **「왜 이렇게 상하 운동 함?」으로 신고받았다.**
+      //    소품은 방에 «놓인 것»이다 — 놓인 것이 저 혼자 움직이면 그건 연출이
+      //    아니라 고장으로 읽힌다. 흔들릴 것은 그것이 «내는 빛»이다
       LIT.forEach(({ grp, light, seed, base }) => {
         if (!grp.visible) return;
-        grp.scale.y = 1 + Math.sin(now / 150 + seed) * 0.012;
         light.intensity = base * (0.88 + Math.sin(now / 140 + seed) * 0.14);
       });
       const P = dustGeo.attributes.position;

@@ -30,6 +30,38 @@ function launchOpts() {
 // '되돌아갔는지' 를 알 수 없다.
 const CASES = [
   {
+    // ⚠️⚠️ **졸업한 사람에게 튜토리얼이 다시 뜨던 자리.** 「값이 통째로 없을 때는
+    // `tutorialDone` 을 따라간다」고 `normalizeState` 에 적혀 있었는데, `load()` 가
+    // `Object.assign(defaultState(), parsed)` 로 병합하고 **`defaultState()` 에
+    // `tut`(done:false)이 있어서** 저장값에 없어도 그 자리에서는 이미 채워져 있었다 —
+    // `if (!st.tut)` 이 영영 거짓이라 **열 버전 동안 한 번도 안 돈 줄**이다.
+    // 옛 세이브(ver < 10)만 `migrate` 가 따로 고쳐 줘서 «되는 것처럼» 보였다.
+    // ⚠️ **지금 버전으로 재야 잡힌다** — ver 8 로 재면 마이그레이션이 가려 준다
+    name: '세이브 18 — 졸업했으면 튜토리얼 막이 다시 안 뜬다',
+    save: { ver: 18, name: '졸업생', nameClaimed: true, tutorialDone: true },
+    probe: () => ({ mask: !!document.querySelector('#tut.on'),
+                    running: !!(window.Tut && Tut.running && Tut.running()) }),
+    expect: (S) => {
+      const p = S.__probe || {};
+      return [
+        !!(S.tut || {}).done || '졸업했는데 S.tut.done 이 거짓이다',
+        !p.mask || '졸업한 사람에게 튜토리얼 막이 떴다',
+        !p.running || '졸업한 사람에게 튜토리얼이 돌고 있다',
+      ];
+    },
+  },
+  {
+    // ⚠️ **반대쪽도 본다** — 아직 졸업 안 한 사람의 튜토리얼까지 «끝난 것»으로
+    //    만들어 버리면 새 플레이어가 안내를 통째로 못 받는다 (그게 더 나쁘다)
+    name: '세이브 18 — 아직 졸업 전이면 튜토리얼이 그대로 남는다',
+    save: { ver: 18, name: '새내기', nameClaimed: true, tutorialDone: false,
+            tut: { step: 3, beat: 1, done: false, did: {} } },
+    expect: (S) => [
+      !(S.tut || {}).done || '졸업 전인데 튜토리얼이 끝난 것으로 바뀌었다',
+      (S.tut || {}).step === 3 || `진행이 ${(S.tut || {}).step} 단계로 옮겨졌다 (3이어야 한다)`,
+    ],
+  },
+  {
     // ⚠️⚠️ **공방 단계가 «이야기»에 걸린 자리** (세이브 17). 그전에는 `q_seal`(=5)
     // 하나뿐이라 시작값 2 에서 5 로 뛰었고 3·4단계의 방은 아무도 안 봤다.
     // 이제 `q_egg` 가 3 · `q_glass` 가 4 를 주는데, **보상은 깰 때 한 번만 주므로**
