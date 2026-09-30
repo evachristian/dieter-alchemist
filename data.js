@@ -1167,9 +1167,15 @@ const QUESTS = [
   { id: 'q_bring', npc: 'sp_althea', act: 1, at: 14,
     goal: { kind: 'deliver', id: 'herb', n: 10 },
     reward: { page: 'p_14', crystal: 80, items: { berry: 6 } }, cut: { in: 'c_bring_in', out: 'c_bring_out' } },
+  // ⚠️⚠️ **여기가 공방 «3단계»다.** `roomLevel` 은 시작값이 2(`ROOM_DEFAULT`)이고
+  // 올리는 길이 `q_seal`(=5) 하나뿐이라, 오래 **2 에서 5 로 뛰고 3·4단계의 방은
+  // 개발용 말고는 한 번도 안 보였다** — 그려 놓고 아무도 못 보는 그림이었고,
+  // 방 꾸미기(`ROOM.md`)가 자리를 단계로 여는 순간 그것이 곧 「꾸밀 자리가 없다」가 된다.
+  // **크리처 한 마리가 곧 «사는 방»**이다 — 3단계에서 징두리 판자가 깔리고 액자·허브·
+  // 화분이 들어오면서 금이 사라진다. 방에 사는 것이 하나 생기는 자리와 짝이 맞는다
   { id: 'q_egg', npc: 'sp_althea', act: 1, at: 22,
     goal: { kind: 'creature', n: 1 },
-    reward: { page: 'sunbeam_hen', crystal: 120 }, cut: { in: 'c_egg_in', out: 'c_egg_out' } },
+    reward: { page: 'sunbeam_hen', room: 3, crystal: 120 }, cut: { in: 'c_egg_in', out: 'c_egg_out' } },
   { id: 'q_soup', npc: 'sp_clemen', act: 1, at: 26,
     goal: { kind: 'deliver', id: 'wheat', n: 12 },
     reward: { page: 'p_08', crystal: 140, items: { herb: 10 } }, cut: { in: 'c_soup_in', out: 'c_soup_out' } },
@@ -1215,9 +1221,14 @@ const QUESTS = [
   // 대신 결정과 재료로 갚는다.
 
   // ─ 2막 · 되찾기 — 「유리관」 한 줄에서 마을 둘이 갈린다 ─
+  // ⚠️ **여기가 «4단계»다** (위의 `q_egg` 와 짝이다). 4단계에서 몰딩·책장·촛대가
+  // 들어오고 러그가 큰 카펫이 된다 — 「사는 방」이 «연금술사의 공방»이 되는 자리라
+  // 2막에 들어서는 첫 퀘스트가 맞다.
+  // ⚠️ **매력으로 안 올린다** — 1막의 마지막(`q_bloom`)은 목표가 매력 60 이라
+  // 거기 붙이면 사실상 점수로 잠그는 것이 된다 (`ROOM.md` 1장 · 마을 해금과 같은 규칙)
   { id: 'q_glass', npc: 'sp_sylvan', act: 2, at: 60, need: { kw: 'kw_glass' },
     goal: { kind: 'village', id: 'vl_glass', n: 1 },
-    reward: { page: 'm_31', crystal: 180, items: { mist_drop: 8 } },
+    reward: { page: 'm_31', room: 4, crystal: 180, items: { mist_drop: 8 } },
     cut: { in: 'c_glass_q_in', out: 'c_glass_q_out' } },
   { id: 'q_mine', npc: 'sp_orix', act: 2, at: 70, need: { village: 'vl_glass' },
     goal: { kind: 'village', id: 'vl_mine', n: 1 },
@@ -1245,7 +1256,9 @@ const QUESTS = [
   // ─ 4막 · 봉인이 풀리기 «직전» ─
   // ⚠️ **이 퀘스트가 공방을 5단계로 올린다.** 그전까지 `roomLevel` 을 올리는 길이
   // 개발용 스위치밖에 없어서, 엔딩 조건(`sealReady`)이 **정상 플레이로는 영영
-  // 안 차는** 상태였다 — 만들어 놓은 엔딩에 아무도 못 닿는 종류의 사고다
+  // 안 차는** 상태였다 — 만들어 놓은 엔딩에 아무도 못 닿는 종류의 사고다.
+  // ⚠️ **한때 이것이 «유일한» 길이라 2 에서 5 로 뛰었다** — 3·4 는 `q_egg`·`q_glass`
+  // 가 받는다 (`checkdata` 가 「단계 넷이 다 걸려 있는가」를 본다)
   { id: 'q_seal', npc: 'sp_althea', act: 4, at: 100, need: { kw: 'kw_self' },
     goal: { kind: 'deliver', id: 'iron_ore', n: 20 },
     reward: { page: 'm_40', room: 5, crystal: 200, items: { crystal: 10 } },

@@ -20,7 +20,7 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //     `defaultState` 에 두 번 있어서(객체 · 숫자) 뒤의 숫자가 이겼고, 채집할 때마다
 //     `S.gathered++` 가 객체를 NaN 으로 만들어 **숙련이 한 세션도 못 살아남았다**
 //     (외부 비평에서 재현됐다). 총 채집 횟수는 `record.gathered` 가 맡는다
-const SAVE_VER = 16;
+const SAVE_VER = 17;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -696,6 +696,19 @@ function migrate(st, from) {
         delete st.foods[old];
       });
     }
+  }
+
+  if (from < 17) {
+    // **공방 단계가 «이야기»에 걸렸다** — `q_egg` 가 3 · `q_glass` 가 4 를 준다
+    // (`data.js`). 그전에는 `q_seal`(=5) 하나뿐이라 시작값 2 에서 5 로 뛰었다.
+    // ⚠️ **이미 깬 퀘스트의 몫을 여기서 채운다** — 안 채우면 그 퀘스트를 한참 전에
+    // 깬 사람은 영영 2단계에 남는다 (보상은 깰 때 한 번만 주므로 다시 받을 길이 없다).
+    // ⚠️ **내려가지 않는다**(`max`) — 개발용으로 올려 두었던 값도 그대로 지킨다
+    const done = (st.quest && Array.isArray(st.quest.done)) ? st.quest.done : [];
+    (D.QUESTS || []).forEach(q => {
+      const lv = (q.reward || {}).room;
+      if (lv && done.includes(q.id)) st.roomLevel = Math.max(st.roomLevel || 0, lv);
+    });
   }
 
   st.ver = SAVE_VER;
@@ -1413,6 +1426,8 @@ function claimQuest() {
   // `pageFlow()` 의 맨 뒤다) 아주 오래 미뤘으면 그럴 수 있다
   const gotPage = (r.page && !hasPage(r.page)) ? r.page : null;
   if (gotPage) S.discovered.push(gotPage);
+  // 단계가 «실제로» 올랐는지는 올리기 전에 잡아 둔다 — 이미 그 단계 위면 알리지 않는다
+  const gotRoom = !!(r.room && (S.roomLevel || 0) < r.room && r.room <= roomMax());
   // **공방 단계** — 지금은 이 퀘스트 하나가 유일한 길이다 (개발용 스위치 말고는).
   // ⚠️ **내려가지 않게 `max` 로 올린다** — 보상이 진행을 되돌리면 그건 벌이다
   if (r.room) S.roomLevel = Math.min(roomMax(), Math.max(S.roomLevel || 0, r.room));
@@ -1437,13 +1452,17 @@ function claimQuest() {
   // 장이 들어왔으면 **따로 한 번 더 알린다** — 결정·재료와 한 줄에 섞으면
   // 「비법서가 늘었다」가 안 읽힌다. 이게 이 퀘스트의 진짜 보상이다
   if (gotPage) pageToast([gotPage], 1400);
+  // **공방이 넓어진 것도 따로 알린다** — 방이 달라지는데 그때 사람은 퀘스트 시트를
+  // 보고 있어서, 안 알리면 다음에 마이 룸에 들어갔을 때 «왜 달라졌는지»를 모른다
+  if (gotRoom) setTimeout(() => toast(T('q_room_toast'), null, 3600),
+    1400 + (gotPage ? 1 : 0) * 700);
   // 키워드도 **따로 알린다** — 그것이 곧 「이제 누구에게 무엇을 물을 수 있다」라서
   // 결정·재료와 한 줄에 섞이면 이야기가 열린 것이 안 읽힌다.
   // ⚠️ `doAsk` 가 쓰는 것과 **같은 문자열**이다 (뜻이 같은 것을 두 벌로 쓰지 않는다)
   gotKw.forEach((id, i) => {
     const k = D.keyword(id);
     setTimeout(() => toast(T('ask_new', { name: N(id, k ? k.name : id) }), null, 3600),
-      1400 + (gotPage ? 1 : 0) * 700 + i * 700);
+      1400 + ((gotPage ? 1 : 0) + (gotRoom ? 1 : 0)) * 700 + i * 700);
   });
   if (window.Sfx) Sfx.play('success');
   render();

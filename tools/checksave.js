@@ -30,6 +30,34 @@ function launchOpts() {
 // '되돌아갔는지' 를 알 수 없다.
 const CASES = [
   {
+    // ⚠️⚠️ **공방 단계가 «이야기»에 걸린 자리** (세이브 17). 그전에는 `q_seal`(=5)
+    // 하나뿐이라 시작값 2 에서 5 로 뛰었고 3·4단계의 방은 아무도 안 봤다.
+    // 이제 `q_egg` 가 3 · `q_glass` 가 4 를 주는데, **보상은 깰 때 한 번만 주므로**
+    // 그 퀘스트를 한참 전에 깬 사람은 **다시 받을 길이 없다** — 마이그레이션이
+    // 채워 주지 않으면 그 사람의 방만 영영 2단계에 남는다 (화면에는 오류가 안 뜬다)
+    name: '세이브 16 — 이미 깬 퀘스트의 공방 단계를 채워 준다',
+    save: { ver: 16, name: '고인물방', nameClaimed: true, tutorialDone: true,
+            roomLevel: 2,
+            quest: { active: null, n: 0, done: ['q_meet', 'q_first', 'q_walk', 'q_kitchen',
+                                                'q_bring', 'q_egg'], queue: [] } },
+    expect: (S) => [
+      (S.roomLevel || 0) === 3
+        || `q_egg 를 깬 사람인데 공방이 ${S.roomLevel}단계다 (3이어야 한다)`,
+      (S.quest.done || []).length === 6 || '깬 퀘스트 목록이 달라졌다',
+    ],
+  },
+  {
+    // ⚠️ **내려가지 않는다.** 개발용으로 올려 두었거나 뒤 퀘스트를 먼저 깼을 때
+    // 낮은 단계의 몫이 그것을 덮으면 그건 뺏는 것이다 (`max` 인 이유다)
+    name: '세이브 16 — 이미 높은 단계면 안 내려간다',
+    save: { ver: 16, name: '5단계', nameClaimed: true, tutorialDone: true,
+            roomLevel: 5,
+            quest: { active: null, n: 0, done: ['q_egg'], queue: [] } },
+    expect: (S) => [
+      (S.roomLevel || 0) === 5 || `5단계였는데 ${S.roomLevel}단계로 내려갔다`,
+    ],
+  },
+  {
     // ⚠️⚠️ **「정신적 허기」가 `defaultState` 의 기본값이던 시절.** 지금은 첫 퀘스트의
     // 보상이라 기본값이 **빈 배열**인데, 그 말은 **이 칸이 한 번이라도 비워지면
     // 진행 전체가 날아간다**는 뜻이다 — 키워드가 없으면 아무에게도 못 묻고,

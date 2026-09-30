@@ -397,6 +397,47 @@ add('id 가 겹친다', dupId);
       if (I.t(k) === k) bad.push(`${q.id} — 문구가 없다 (${k})`);
     });
   });
+  // ═══ 공방 단계 — **시작값부터 상한까지 «빈 칸 없이»** 이야기에 걸려 있는가 ═══
+  //
+  // ⚠️⚠️ 오래 `q_seal`(=5) 하나뿐이라 **시작값 2 에서 5 로 뛰었고**, 3·4단계의 방은
+  //    개발용 말고는 한 번도 안 보였다 — 그려 놓고 아무도 못 보는 그림이다.
+  //    위의 「1~5 안인가」는 그것을 **영영 못 본다**: 값 하나만 보기 때문이다.
+  //    여기서 보는 것은 **표 전체에 빈 칸이 있는가**다.
+  // ⚠️ 상한·시작값을 여기 적지 않는다 — `avatar.js` 에서 읽는다 (베끼면 갈린다)
+  {
+    // ⚠️ **상한·시작값을 여기 적지 않는다** — `avatar.js` 의 소스에서 읽는다.
+    //    베껴 두면 그쪽을 고쳤을 때 검사만 옛 값으로 통과한다
+    const av = fs.readFileSync(path.join(ROOT, 'avatar.js'), 'utf8');
+    const num = (n) => {
+      const m = av.match(new RegExp('const\\s+' + n + '\\s*=\\s*(\\d+)'));
+      return m ? Number(m[1]) : null;
+    };
+    const lo = num('ROOM_DEFAULT'), hi = num('ROOM_MAX');
+    if (!lo || !hi) bad.push('avatar.js 에서 ROOM_DEFAULT · ROOM_MAX 를 못 읽었다 — 아무것도 안 쟀다');
+    const byLv = {};
+    D.QUESTS.forEach((q, i) => {
+      const lv = (q.reward || {}).room;
+      if (lv) (byLv[lv] = byLv[lv] || []).push({ id: q.id, i });
+    });
+    let seen = 0;
+    for (let lv = (lo || 0) + 1; lv <= (hi || 0); lv++) {
+      const got = byLv[lv] || [];
+      if (!got.length) { bad.push(`공방 ${lv}단계를 주는 퀘스트가 없다 — 그 단계의 방은 아무도 못 본다`); continue; }
+      if (got.length > 1) bad.push(`공방 ${lv}단계를 ${got.length}개가 준다 (${got.map(g => g.id).join(' · ')}) — 한 곳이어야 한다`);
+      seen++;
+    }
+    // **표에서 나오는 순서도 올라가야 한다** — 뒤 단계를 먼저 주면 `max` 때문에
+    // 앞 단계가 조용히 안 먹는다 (보상이 진행을 되돌리지 않게 `max` 인 것의 뒷면이다)
+    let prev = -1;
+    for (let lv = (lo || 0) + 1; lv <= (hi || 0); lv++) {
+      const g = (byLv[lv] || [])[0];
+      if (!g) continue;
+      if (g.i < prev) bad.push(`공방 ${lv}단계(${g.id})가 그보다 낮은 단계보다 «앞»에 있다`);
+      prev = g.i;
+    }
+    if (lo && hi) measured.push(`공방 단계: ${lo}(시작)부터 ${hi}까지 빈 칸 없이 걸려 있다 (퀘스트 ${seen}개)`);
+  }
+
   // **여는 순서가 오름차순이어야 한다.** 큐가 표 순서대로 쌓이므로, 뒤에 있는 것이
   // 더 낮은 조건이면 「나중 이야기가 먼저 온다」
   D.QUESTS.forEach((q, i) => {
