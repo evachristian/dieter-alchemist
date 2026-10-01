@@ -2836,9 +2836,6 @@ function launchOpts() {
               const inTabs = [...document.querySelectorAll('#wardrobe .wr-tabs .wr-tab')]
                 .some(b => new RegExp(`'${sl}'`).test(b.getAttribute('onclick') || ''));
               if (inTabs) return `${sl} 이 아직 옷장 탭 줄에 서 있다`;
-              // ⚠️ **시트로 뺀 칸은 색을 못 고른다** — 시트에는 팔레트 줄이 없다.
-              // 색이 있는 칸을 여기로 빼면 «고를 수 없는 색»이 조용히 생긴다
-              if ((D.COLORABLE_SLOTS || []).includes(sl)) return `${sl} 은 색을 고르는 칸인데 시트에는 팔레트가 없다`;
               // ⚠️⚠️ **버튼이 서는 것은 «머리 줄»뿐이다** (`under` 가 없는 줄).
               //    눈썹처럼 시트 «안»의 갈래인 칸은 버튼이 없는 것이 맞고, 대신
               //    **갈래 탭**으로 닿아야 한다 — 둘 중 하나는 반드시 있어야
@@ -2853,6 +2850,25 @@ function launchOpts() {
               const m = document.getElementById('slotSheet');
               if (!m || !m.classList.contains('show')) return '시트가 안 떴다';
               if (!document.getElementById('slotSheetTitle').textContent.trim()) return '머리말이 비었다';
+              // ⚠️⚠️ **색을 고르는 칸이면 시트에도 팔레트 줄이 있어야 한다.**
+              //    한때는 반대였다 — 「시트에는 팔레트가 없으니 색이 있는 칸은 여기로
+              //    못 뺀다」. 눈썹이 염색할 수 있는 칸이 되면서 그 전제가 사라졌고,
+              //    줄이 없으면 **고를 수 없는 색**이 조용히 생긴다.
+              // ⚠️ 「없음」을 입고 있으면 물들일 것이 없어 줄도 없는 것이 맞다 —
+              //    그래서 **먼저 하나를 입혀 놓고** 본다 (안 그러면 칸마다 결과가 널뛴다)
+              if ((D.COLORABLE_SLOTS || []).includes(sl)) {
+                const wear = (D.WARDROBE[sl] || []).find(x => x.kind !== 'none');
+                if (!wear) return `${sl} 은 색을 고르는 칸인데 입을 것이 하나도 없다`;
+                S.outfit[sl] = wear.id;
+                renderSlotSheet();
+                if (!document.querySelector('#slotSheetBody .dye-bars'))
+                  return `${sl} 은 색을 고르는 칸인데 시트에 팔레트 줄이 없다`;
+                // 줄을 펴 놓고 재야 칩의 대비까지 잰 것이 된다 (접혀 있으면 display:none 이다)
+                S.dye = Math.max(1, S.dye || 0);
+                toggleDye(sl, 'magic');
+                if (!document.querySelector('#slotSheetBody .wr-colors .wr-color'))
+                  return `${sl} 의 팔레트를 펴도 색 칩이 하나도 없다`;
+              }
               // 갈래가 둘 이상인 시트는 **탭 줄이 있어야** 하고, 그 탭은
               // 굴러가는 자리 «밖»이다 (`#slotSheetTabs` · `#npcActs` 와 같은 규칙)
               const group = D.WARDROBE_SLOTS.filter(x => x.sheet && (x.slot === head || x.under === head));

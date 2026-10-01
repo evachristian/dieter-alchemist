@@ -2870,7 +2870,7 @@ const COLORS = [
 // **헤어도 여기 있다.** 예전에는 '헤어컬러' 라는 칸을 따로 두고 7색 중에서 골랐는데,
 // 옷은 60색 팔레트로 염색하면서 머리만 7색인 것이 앞뒤가 안 맞았다.
 // 이제 머리도 '헤어 아이템의 원래 색(브라운)을 염색한다' 는 같은 규칙을 쓴다.
-const COLORABLE_SLOTS = ['hair', 'top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
+const COLORABLE_SLOTS = ['hair', 'brow', 'top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
 
 // 헤어 축 표 — **뒷머리(전체 실루엣) × 앞머리** 를 따로 고른다.
 // 30벌을 한 칸에 늘어놓으면 무엇이 무엇과 다른지 읽히지 않는다. 6 + 5 칸으로 고르면

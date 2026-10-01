@@ -174,6 +174,54 @@ const TOAST_MAX = 60;    // px. 토스트는 누른 칸 «옆»에 떠야 한다
     }
   }
 
+  // ─── 시트에서 «염색»이 되는가 (눈썹) ─────────────────────────
+  //
+  // ⚠️⚠️ **`checkui` 의 「칸시트」는 «줄이 있는가»만 본다** — 팔레트를 펴 놓고 칩이
+  //    있는지까지는 보지만, **눌러서 그림이 바뀌는지는 한 번도 안 잰다.** 배선이
+  //    끊겨도(아이콘에 `S.outfit` 을 넘기거나, 시트를 다시 안 그리거나) 그대로 통과한다.
+  // ⚠️ **그려진 색으로 잰다** — `S.itemColor` 를 읽으면 「세이브에는 들어갔는데 화면은
+  //    옛 색」인 자리를 영영 못 본다 (아이콘이 실제로 그랬다)
+  {
+    const slot = await page.evaluate(() =>
+      (D.WARDROBE_SLOTS.find(m => m.sheet && (D.COLORABLE_SLOTS || []).includes(m.slot)) || {}).slot);
+    if (!slot) bad.push('시트에 «색을 고르는 칸»이 하나도 없다 — 염색을 한 번도 안 쟀다');
+    else {
+      const r = await page.evaluate((sl) => {
+        unlockAllOf(sl); unlockAllColors(); S.dye = 9;
+        const wear = (D.WARDROBE[sl] || []).find(x => x.kind !== 'none');
+        equip(sl, wear.id);
+        openSlotSheet(sl);
+        const ink = () => {
+          const svg = document.querySelector('.char-body svg.avatar-svg');
+          const g = svg && svg.querySelector('g[data-part="brow"], g.brow');
+          // 그려진 눈썹의 색은 Avatar 가 쓰는 그 한 곳에서 읽는다 (hex 비교가 되게)
+          return Avatar.browColorOf(outfitWithColors());
+        };
+        const icon = () => {
+          const el = document.querySelector('#slotSheetBody .brow-icon path[stroke]');
+          return el ? el.getAttribute('stroke') : null;
+        };
+        const was = { ink: ink(), icon: icon() };
+        // 지금 색과 «확실히 다른» 색을 하나 고른다
+        const c = D.COLORS.find(x => x.hex.toLowerCase() !== String(was.ink).toLowerCase());
+        applyDye(sl, c.id, 'magic');
+        return { was, now: { ink: ink(), icon: icon() }, want: c.hex,
+                 bars: !!document.querySelector('#slotSheetBody .dye-bars') };
+      }, slot);
+      if (!r.bars) bad.push(`${slot} 시트에 팔레트 줄이 없다`);
+      if (r.now.ink === r.was.ink) bad.push(`${slot} 을 염색해도 그려지는 색이 그대로다 (${r.was.ink})`);
+      else if (String(r.now.ink).toLowerCase() !== String(r.want).toLowerCase())
+        bad.push(`${slot} 의 색이 고른 것과 다르다 (고른 ${r.want} · 그려진 ${r.now.ink})`);
+      if (!r.now.icon) bad.push(`${slot} 시트의 칸 그림을 못 찾았다`);
+      // ⚠️⚠️ **칸 그림도 같이 물들어야 한다** — 아바타만 바뀌고 목록이 옛 색이면
+      //    「무엇을 고르는 칸인지」가 거짓말을 한다 (붙이자마자 실제로 그랬다)
+      else if (String(r.now.icon).toLowerCase() !== String(r.want).toLowerCase())
+        bad.push(`${slot} 칸 그림이 안 물들었다 (고른 ${r.want} · 그림 ${r.now.icon})`);
+      else rows.push(`염색 ${slot} ${r.was.ink} → ${r.now.ink} (칸 그림도 같이)`);
+      await page.evaluate(() => closeSlotSheet());
+    }
+  }
+
   await browser.close();
   console.log('옷장 칸을 눌렀을 때 — ' + rows.join(' · '));
   console.log(`  (칸은 ${MOVE_MAX}px 까지만 움직여도 되고, 토스트는 그 칸에서 ${TOAST_MAX}px 안이다)`);

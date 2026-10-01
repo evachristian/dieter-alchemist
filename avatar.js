@@ -2329,22 +2329,34 @@
       || getItem('hair', o.hair).color
       || getItem('hairColor', o.hairColor).color || HAIR_DEF;
   }
-  // ⚠️ **색은 머리색을 따라간다** — 눈썹만 늘 먹색이면 분홍 머리에서 붙여 놓은 것으로
-  //    보인다. 조금 어둡게(`shade`) 해야 «털»로 읽힌다
-  function browPair(kind, hairColor) {
+  // 눈썹 색 — **염색한 색이 있으면 그것, 없으면 머리색을 따라간다.**
+  //
+  // ⚠️ **기본이 머리색인 이유**: 눈썹만 늘 먹색이면 분홍 머리에서 «붙여 놓은 것»으로
+  //    보인다. 조금 어둡게(`shade`) 해야 «털»로 읽힌다.
+  // ⚠️⚠️ **염색한 색은 «그대로» 쓴다 — 어둡게 하지 않는다.** 사람이 고른 것은 팔레트에
+  //    보이는 그 색인데, 거기에 또 `shade` 를 먹이면 **칩과 눈썹이 다른 색**이 된다
+  //    (「골랐는데 더 어둡게 나온다」가 되는 자리다). 어둡게 하는 것은 「머리를 따라갈 때」
+  //    눈썹으로 읽히게 하려는 보정이라, 사람이 색을 집은 순간 그 이유가 없어진다.
+  // ⚠️ **한 곳이다** — `build()` 와 눈썹 칸의 그림(`browIcon`)이 같이 쓴다.
+  //    베껴 두면 염색한 눈썹에서 «칸의 그림만» 옛 색으로 남는다
+  function browColorOf(outfit) {
+    const o = outfit || {};
+    return (o.colors && o.colors.brow) || shade(hairColorOf(o), 22);
+  }
+  function browPair(kind, color) {
     const b = BROW_WEAR[kind];
     if (!b) return '';
-    const c = shade(hairColor || HAIR_DEF, 22);
+    const c = color || shade(HAIR_DEF, 22);
     return browOne(b, AV.L, 1, c) + browOne(b, AV.R, -1, c);
   }
-  function renderBrow(it, hairColor) {
-    return isNone(it) ? '' : browPair(it.kind, hairColor);
+  function renderBrow(it, color) {
+    return isNone(it) ? '' : browPair(it.kind, color);
   }
   // 옷장 칸의 그림. ⚠️ **이모지로는 열 가지를 못 가른다** — 눈썹 이모지가 아예 없고,
   // 색 동그라미로 두면 열 칸이 전부 같은 그림이 된다. 머리(`hairIcon`)와 같은 규칙으로
   // **그리는 함수를 그대로 써서** 작게 보여 준다 — 모양을 고치면 이 그림도 같이 바뀐다
   function browIcon(it, outfit) {
-    const s = renderBrow(it, hairColorOf(outfit));
+    const s = renderBrow(it, browColorOf(outfit));
     if (!s) return '';
     return `<svg class="brow-icon" viewBox="76 50 48 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${s}</svg>`;
   }
@@ -3972,7 +3984,7 @@
       // ⚠️ **머리 그룹(`H`) 안이고 앞머리보다 «먼저»다.** 몸통 그룹에 두면 얼굴 배율을
       // 바꿀 때 눈썹만 제자리에 남고, 앞머리보다 뒤에 두면 앞머리를 덮는다 —
       // 눈썹은 이마에 난 것이라 머리카락이 그 위를 지나는 것이 맞다
-      H(renderBrow(getItem('brow', outfit.brow), hairColor)),
+      H(renderBrow(getItem('brow', outfit.brow), browColorOf(outfit))),
       H(hairFront(hairBangKind, hairColor, hairBackKind)),
       H(faceFx(expItem)),
       B(renderGlove(pick('glove', outfit.glove), tune)),
@@ -4477,7 +4489,7 @@
   }
   window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, skyHour, SKY_BANDS, SKY_LIGHT,
     LAMP_NIGHT, lampGainOf,
-    hairIcon, browIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
+    hairIcon, browIcon, browColorOf, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
     heartPath, heartEye, HEART,
     partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT, FLOOR_HALF, floorMark,

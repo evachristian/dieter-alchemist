@@ -6234,9 +6234,15 @@ function wardrobeGrid(slot) {
     }
     // 눈썹도 같은 이유로 **그려서** 보여 준다 — 눈썹 이모지가 없어서 색 동그라미로
     // 두면 열 칸이 전부 같은 그림이 되고, 「모양을 고르는 칸」이 아무것도 안 말한다.
-    // 지금 머리색으로 그리므로 염색하면 이 줄도 같이 물든다
+    // ⚠️⚠️ **`outfitWithColors()` 를 넘긴다 — `S.outfit` 이 아니다.** 염색한 색은
+    //    세이브에 «색 id»로 들어 있고 hex 로 펴 주는 것이 그 함수다. `S.outfit` 을
+    //    그대로 넘기면 `colors` 칸이 아예 없어 **아바타만 물들고 이 줄은 옛 색에 남는다**
+    //    (눈썹 염색을 붙이자마자 실제로 그랬다).
+    // ⚠️ **열 칸이 다 «지금 눈썹 색»이다** — 염색은 「입고 있는 벌」에 붙으므로 칸마다
+    //    다른 색을 주면 안 입은 벌이 제 색을 가진 것처럼 보인다. 머리(`hairIcon`)와
+    //    달리 여기서 고르는 것은 **모양**이고, 색은 팔레트 줄이 따로 고른다
     else if (slot === 'brow' && window.Avatar && Avatar.browIcon) {
-      ic = Avatar.browIcon(it, S.outfit);
+      ic = Avatar.browIcon(it, outfitWithColors());
     }
     else if (it.emoji) ic = it.emoji;
     // **각자 자기 색으로** 보여 준다. 염색이 옷에 붙으므로 칸마다 색이 다르고,
@@ -6302,7 +6308,12 @@ function renderSlotSheet() {
   const tb = document.getElementById('slotSheetTabs');
   if (tb) tb.innerHTML = tabs;
   const b = document.getElementById('slotSheetBody');
-  if (b) b.innerHTML = wardrobeGrid(soloTab);
+  // ⚠️⚠️ **팔레트 줄은 시트에도 선다** (`colorRow`). 한때 「색을 고르는 칸은 시트로
+  //    뺄 수 없다」였는데, 눈썹이 염색할 수 있는 칸이 되면서 그 전제가 사라졌다 —
+  //    줄이 없으면 **고를 수 없는 색**이 조용히 생긴다 (`checkui` 의 「칸시트」가 본다).
+  // ⚠️ 굴림 통(`#slotSheetBody`) «안»에 둔다 — 밖에 두면 굴리는 자리가 둘이 되어
+  //    손가락이 안쪽 줄에 갇힌다 (바닥 시트 공통 규칙이다)
+  if (b) b.innerHTML = colorRow(soloTab) + wardrobeGrid(soloTab);
 }
 // 갈래를 옮기면 **높이를 다시 잰다** — 칸 수가 다르면 시트의 키도 달라진다
 // (문신 다섯 ↔ 눈썹 열하나). 안 재면 턱보다 높이 올라오거나 쓸데없이 짧게 남는다
@@ -6702,11 +6713,19 @@ let dyeOpen = null;
 function everCount(colorId) { return ((S.dyeEver || {})[colorId] | 0); }
 function everTotal() { return Object.values(S.dyeEver || {}).reduce((a, b) => a + (b | 0), 0); }
 function dyeStock(kind) { return kind === 'ever' ? everTotal() : (S.dye || 0); }
+// 염색 줄을 다시 그린다 — **옷장과 «칸 시트» 둘 다.**
+// ⚠️⚠️ 눈썹은 옷장 탭이 아니라 시트에 사는데(`WARDROBE_SLOTS` 의 `sheet`), 옷장만
+//    그리면 시트의 팔레트가 안 펴져 **「눌렀는데 아무 일도 없다」**가 된다.
+// ⚠️ 시트는 높이도 다시 잰다 — 팔레트가 펴지면 카드가 그만큼 길어진다
+function renderDyeUI() {
+  renderWardrobe();
+  if (slotSheetOpen()) { renderSlotSheet(); fitSlotSheet(); }
+}
 function toggleDye(slot, kind) {
   if (dyeStock(kind) <= 0) { toast(T(kind === 'ever' ? 'dye_ever_none' : 'dye_none')); return; }
   const key = slot + ':' + kind;
   dyeOpen = (dyeOpen === key) ? null : key;
-  renderWardrobe();
+  renderDyeUI();
 }
 function dyeHelp(kind) { toast(T(kind === 'ever' ? 'dye_ever_help' : 'dye_help'), null, 3600); }
 window.toggleDye = toggleDye;
@@ -6847,6 +6866,8 @@ function applyDye(slot, colorId, kind) {
   toast(T(ever ? 'dye_ever_done' : 'dye_done',
     { item: N(it.id, it.name), color: cn, josa: josa(cn, '으로') }));
   renderShowcase();                  // 아바타 + 옷장 동시 갱신
+  // 시트가 떠 있으면 거기도 — 눈썹은 시트에서만 고른다 (`renderDyeUI` 와 같은 이유다)
+  if (slotSheetOpen()) { renderSlotSheet(); fitSlotSheet(); }
 }
 
 // 원래 색의 이름 — 팔레트에 같은 색이 있으면 그 이름, 없으면 그냥 '원래 색'
@@ -6882,6 +6903,7 @@ function undye(slot, el) {
   }
   save();
   renderShowcase();
+  if (slotSheetOpen()) { renderSlotSheet(); fitSlotSheet(); }
   const c = it && origColor(it);
   toast(c ? T('wr_color_orig_named', { name: N(c.id, c.name) }) : T('wr_color_orig'), el);
 }
