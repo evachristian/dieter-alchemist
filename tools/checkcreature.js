@@ -44,6 +44,19 @@ const BLUSH_MIN = 24;    // 그런 점이 이만큼은 있어야 한다 (200px �
 const BLUSH_K = 0.6;     // 털색이 가진 거리의 이만큼 안으로 들어와야 «볼»이다
 const HI_WANT = 4;       // 빛점 — 눈 둘 × 두 점. 감은 눈은 안 본다
 const ATTR_DE = 28;      // 속성끼리 이만큼은 색이 갈려야 한다 (ΔE 비슷한 값)
+const PUPIL_MAX = 0.22;  // 눈동자 상자는 그림의 이만큼 안이다 (먹선 덩어리를 가른다)
+const PUPIL_AR = [0.55, 1.8];   // 가로÷세로 — 둥글어야 한다 (입·눈꺼풀 획을 가른다)
+// ── ⑦ 먹선 — **둘레가 먹선인가.** 실루엣을 묶는 것이 이 선 하나라
+// (`creature.js` 의 「실루엣」 ⓐ), 없으면 44px 에서 통째로 «색 얼룩»이 된다.
+// ⚠️⚠️ **①~⑥ 어느 것도 이 축을 못 본다** — 선을 통째로 걷어도 잘리지도, 비뚤지도,
+//    빛이 모자라지도 않는다. 0건이 「통과」가 아니라 **「한 번도 안 쟀다」**인 자리다.
+const LINE_HEX = '#44353d';
+const LINE_TOL = 30;     // 안티에일리어싱이 끼므로 조금 넉넉히
+// ⚠️⚠️ **44 로 두었더니 사보타주가 «절반만» 잡혔다** — 어두운 속성의 털색이 그
+//    품 안에 들어와 「선이 없는데 선이 있다」가 됐다. 양쪽을 다 재서 골랐다:
+//    26·30·34 는 **정상 99% · 선을 걷으면 1%(30마리 다)** 로 한결같다
+const LINE_MIN = 0.80;   // 둘레의 이만큼은 먹선이어야 한다
+const LINE_IN = 2;       // 가장자리에서 이만큼 안쪽을 본다 (가장자리 한 줄은 반투명이다)
 
 const near = (p, hex, tol) => {
   const n = parseInt(hex.slice(1), 16);
@@ -84,6 +97,7 @@ const near = (p, hex, tol) => {
   const bad = [];
   const attrMean = {};
   let sym = 0, eyes = 0, hi = 0, blush = 0, eyeMin = 9, symMin = 9, eyeN = 0, hiN = 0;
+  let line = 0, lineN = 0;
 
   for (const c of out) {
     const P = c.px;
@@ -168,7 +182,17 @@ const near = (p, hex, tol) => {
         const p = RGB(x, y);
         return A(x, y) > 200 && p[0] > 196 && p[1] > 196 && p[2] > 196;
       };
-      const pupils = blobs(isInk).filter(k => k.n >= 24);
+      // ⚠️⚠️ **눈동자는 «작고 둥근» 먹 덩어리다.** 그림에 먹선이 생기자(2026-10-01)
+      //    그 선이 **그림 전체를 두른 한 덩어리**가 되어 눈동자로 잡혔다 —
+      //    그 상자 안에는 빛점이 다 들어오므로 **④가 「빛 6.4점」으로 통과했다**.
+      //    0건이 「통과」가 아니라 **「엉뚱한 것을 쟀다」**인 경우다.
+      //    크기와 생김새를 같이 봐야 갈린다 — 크기만 보면 입(먹으로 칠한 활짝 웃는 입)이
+      //    끼어들고, 생김새만 보면 먹선 덩어리가 거의 정사각이라 그대로 지나간다
+      const pupils = blobs(isInk).filter(k => {
+        const w = k.a1 - k.a0 + 1, h = k.b1 - k.b0 + 1;
+        return k.n >= 24 && w <= SZ * PUPIL_MAX && h <= SZ * PUPIL_MAX
+          && w / h >= PUPIL_AR[0] && w / h <= PUPIL_AR[1];
+      });
       // 눈동자의 크기 — **재되 문은 안 건다**(위의 그 이유다)
       const big = pupils.reduce((m, k) => Math.max(m, k.n), 0);
       const r = big / Math.max(1, (x1 - x0) * (y1 - y0));
@@ -182,6 +206,25 @@ const near = (p, hex, tol) => {
           + ` · 눈동자 ${pupils.length}개에 [${per.join(',')}])`);
       hi += got; hiN++;
     }
+
+    // ── ⑦ 둘레가 먹선인가 — 줄마다 «제일 바깥 칠»에서 안으로 `LINE_IN` 들어간 점을 본다
+    // ⚠️ **상자가 아니라 «칠»에서 되짚는다** — 상자로 재면 귀·꼬리가 비어 있는 줄에서
+    //    배경을 집는다. 줄마다 왼쪽 끝·오른쪽 끝 둘을 보고 몇 점 중 몇 점인지를 낸다
+    let lineHit = 0, lineTot = 0;
+    for (let y = y0 + LINE_IN; y <= y1 - LINE_IN; y++) {
+      let lx = -1, rx2 = -1;
+      for (let x = 0; x < SZ; x++) if (A(x, y) > 200) { lx = x; break; }
+      for (let x = SZ - 1; x >= 0; x--) if (A(x, y) > 200) { rx2 = x; break; }
+      if (lx < 0 || rx2 - lx < LINE_IN * 3) continue;
+      [lx + LINE_IN, rx2 - LINE_IN].forEach(x => {
+        lineTot++;
+        if (near(RGB(x, y), LINE_HEX, LINE_TOL)) lineHit++;
+      });
+    }
+    const lr = lineTot ? lineHit / lineTot : 0;
+    if (lineTot < 40) bad.push(`${c.name}: 둘레를 잴 수가 없다 (${lineTot}점)`);
+    else if (lr < LINE_MIN) bad.push(`${c.name}: 둘레에 먹선이 없다 (${(lr * 100).toFixed(0)}% · ${LINE_MIN * 100}% 는 돼야 한다)`);
+    line += lr / out.length; lineN += lineTot;
 
     // ── ⑤ 볼터치가 있는가 — 얼굴에서 «볼터치 색 쪽으로 끌려간» 점을 센다
     const BL = [255, 157, 180];
@@ -229,8 +272,9 @@ const near = (p, hex, tol) => {
   else if (worst < ATTR_DE) bad.push(`속성 색이 안 갈린다 (제일 가까운 ${pair} 가 ${worst.toFixed(0)} · ${ATTR_DE} 는 돼야 한다)`);
 
   console.log(`크리처 ${out.length}마리 — 대칭 ${sym.toFixed(2)}(최소 ${symMin.toFixed(2)}) · 눈 ${(eyes / Math.max(1, eyeN) * 100).toFixed(1)}%(최소 ${(eyeMin * 100).toFixed(1)}% · ${eyeN}마리)`
-    + ` · 빛 ${(hi / Math.max(1, hiN)).toFixed(1)}점(${hiN}마리) · 볼터치 ${blush.toFixed(0)}점 · 속성 제일 가까운 쌍 ${pair} ${worst.toFixed(0)}`);
-  console.log(`  (상자 가장자리 ${EDGE}px · 대칭 ${SYM_MIN} · 빛 ${HI_WANT}점 까지 · 눈 크기는 재기만 한다)`);
+    + ` · 빛 ${(hi / Math.max(1, hiN)).toFixed(1)}점(${hiN}마리) · 볼터치 ${blush.toFixed(0)}점`
+    + ` · 둘레의 먹선 ${(line * 100).toFixed(0)}%(${lineN}점) · 속성 제일 가까운 쌍 ${pair} ${worst.toFixed(0)}`);
+  console.log(`  (상자 가장자리 ${EDGE}px · 대칭 ${SYM_MIN} · 빛 ${HI_WANT}점 · 둘레 먹선 ${LINE_MIN * 100}% 까지 · 눈 크기는 재기만 한다)`);
   if (bad.length) {
     console.log(`❌ ${bad.length}건`);
     bad.slice(0, 20).forEach(m => console.log('   ' + m));
@@ -238,5 +282,5 @@ const near = (p, hex, tol) => {
     process.exit(1);
   }
   if (out.length !== 30) { console.log(`❌ 서른 마리 중 ${out.length}마리만 쟀다`); process.exit(1); }
-  console.log('✅ 서른 마리가 다 상자 안에 들어오고, 정면을 보고, 눈이 크다');
+  console.log('✅ 서른 마리가 다 상자 안에 들어오고, 정면을 보고, 눈이 크고, 먹선이 둘러져 있다');
 })().catch(e => { console.error(e); process.exit(1); });

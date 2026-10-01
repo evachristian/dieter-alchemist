@@ -58,16 +58,48 @@
   const BEAK = '#f0a44b';
   const GROUND = 90;
 
+  // ═══ 실루엣 — 「굵은 선 한 겹」과 「한 덩어리」 (2026-10-01) ═════
+  //
+  // 「크리처 실루엣도 더 정교하게 해줘. 지금 너무 실루엣이 투박해」로 받았고,
+  // 사람이 **고양이 레퍼런스 한 장**을 같이 줬다(굵은 먹선으로 두른 치비 스티커).
+  // 투박의 정체가 둘이었고 **둘 다 고쳐야 한다** — 하나만 하면 반쪽이다:
+  //
+  //   ⓐ **윤곽선이 한 줄도 없었다.** 평면 칠만 쌓여 있어서 조각끼리 경계가 없고,
+  //      44px 에서는 통째로 «색 얼룩»이 된다. 굵은 선 한 겹이 둘러야 비로소
+  //      «실루엣»이라는 것이 생긴다 — 레퍼런스가 하는 일이 바로 그것이다
+  //   ⓑ **몸이 «타원을 포갠 것»이었다.** 둘레의 곡률이 어디서나 같아 허리도
+  //      엉덩이도 없다. 위가 좁고 아래가 넓은 **한 덩어리**(`pear`)라야
+  //      「앉아 있는 짐승」으로 읽힌다
+  //
+  // ⚠️⚠️ **선은 «조각마다» 두르되 그리는 순서가 곧 앞뒤다.** 실루엣 한 겹을 뒤에
+  //    까는 방법(바깥 테두리만 남는다)도 해 봤는데, 그러면 머리와 몸 사이에 선이
+  //    없어 **둘이 한 색 덩어리로 녹아 붙는다.** 레퍼런스도 머리·귀·소매가 저마다
+  //    선을 갖고 있다 — 가려지는 쪽은 그리는 순서가 알아서 덮는다.
+  // ⚠️ **선을 두른 것은 «실루엣을 이루는 것»뿐이다**(날개·꼬리·몸·귀·뿔·머리).
+  //    얼굴 판·무늬·볼터치·눈빛은 «표면»이라 선이 붙으면 얼굴이 지저분해진다.
+  //    그래서 선 두른 그룹 «밖»에 그린다 — 자리가 하나라 빠뜨릴 데가 없다.
+  // ⚠️⚠️ **그늘 한 겹을 깔던 꼼수는 걷었다.** 예전에는 몸·머리마다 `DARK` 타원을
+  //    1.5~2 내려 깔아 둥글어 보이게 했는데, 선이 생기자 그 몫을 선이 더 잘 한다 —
+  //    남겨 두면 선 밑에 «때»처럼 비친다 (그려 보고 걷었다).
+  // ⚠️ **선 굵기는 viewBox 단위다** — 44px 칸에서 1.06px, 120px 도감에서 2.9px.
+  //    3.0 으로 두었더니 44px 에서 선이 그림을 먹었다 (셋을 그려 놓고 골랐다).
+  const LINE = '#44353d';         // 먹선 — 서른 마리가 «한 가족»으로 보이게 한 색이다
+  const OUT = 2.4;                // 굵기 (한쪽으로 1.2 나간다 — `TOP_PAD` 가 그만큼 넉넉하다)
+
   // 머리 — [cx, cy, rx, ry]. **귀·뿔·눈이 다 이 넷에서 자리를 잡는다.**
   // ⚠️ 부품마다 좌표를 박으면 머리를 키웠을 때 귀만 옛 자리에 남는다
+  // ⚠️ **머리를 한 치수 더 키웠다** (2026-10-01 · 「정말정말정말 귀엽게」).
+  //    크리처에는 아바타의 «바디파츠» 같은 축이 없어서 — 몸이 늘었다 줄었다 하지
+  //    않으니 — 등신을 마리마다 손으로 정해도 어긋날 데가 없다. 2.2등신에서
+  //    **2.0등신**으로 내렸다: 머리가 몸보다 «크다»는 것이 치비의 전부다
   const HEAD = {
-    blob: [50, 41, 26, 23],
-    quad: [50, 36, 25, 24],
-    bear: [50, 34, 27, 26],
-    deer: [50, 31, 22, 21],
-    bird: [50, 35, 24, 23],
-    bug:  [50, 40, 18, 17],
-    fish: [50, 45, 21, 19],
+    blob: [50, 40, 27, 24],
+    quad: [50, 34, 27, 25],
+    bear: [50, 32, 29, 27],
+    deer: [50, 30, 23, 22],
+    bird: [50, 33, 26, 24],
+    bug:  [50, 39, 19, 18],
+    fish: [50, 44, 22, 20],
   };
   // 무늬를 어디에 얹나 — [x, y, 배율]. 몸통마다 덩어리가 있는 자리가 다르다
   const PAT_AT = {
@@ -75,81 +107,141 @@
     bird: [50, 68, 0.95], bug: [50, 66, 0.5], fish: [50, 70, 0.9],
   };
 
+  const n1 = (v) => (Math.round(v * 10) / 10);
   const ell = (x, y, rx, ry, f, extra) =>
     `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${f}"${extra || ''}/>`;
-  // 둥근 발 둘 — 각이 없어야 한다(⑤). 바닥(`GROUND`)에 붙는다
+
+  // 몸통 한 덩어리 — **위가 좁고 아래가 넓다**(ⓑ). 각이 하나도 없다(⑤)
+  //
+  // ⚠️ 제일 넓은 자리(`my`)를 아래쪽 6할에 둔다. 한가운데에 두면 그냥 타원이 되고,
+  //    더 내리면 «자루»가 된다 (0.5 · 0.6 · 0.72 를 그려 놓고 골랐다)
+  // ⚠️ 밑변의 제어점을 둘 다 `bot` 에 두어 **바닥이 평평하다** — 앉은 것으로 읽힌다
+  const pear = (top, bot, wt, wb, f, cx) => {
+    const x = cx == null ? 50 : cx, h = bot - top, my = top + h * 0.60;
+    return `<path d="M${x},${top}`
+      + ` C${n1(x - wt)},${top} ${n1(x - wb)},${n1(top + h * 0.26)} ${n1(x - wb)},${n1(my)}`
+      + ` C${n1(x - wb)},${n1(bot - h * 0.05)} ${n1(x - wb * 0.56)},${bot} ${x},${bot}`
+      + ` C${n1(x + wb * 0.56)},${bot} ${n1(x + wb)},${n1(bot - h * 0.05)} ${n1(x + wb)},${n1(my)}`
+      + ` C${n1(x + wb)},${n1(top + h * 0.26)} ${n1(x + wt)},${top} ${x},${top} Z" fill="${f}"/>`;
+  };
+  // 머리 — 타원이 아니라 **볼이 살짝 넓은** 둥근 꼴이다. 치비의 「볼살」이 여기서 온다
+  const skull = (x, y, rx, ry, f) =>
+    `<path d="M${x},${n1(y - ry)}`
+    + ` C${n1(x - rx * 0.86)},${n1(y - ry)} ${n1(x - rx)},${n1(y - ry * 0.42)} ${n1(x - rx)},${n1(y + ry * 0.10)}`
+    + ` C${n1(x - rx)},${n1(y + ry * 0.74)} ${n1(x - rx * 0.60)},${n1(y + ry)} ${x},${n1(y + ry)}`
+    + ` C${n1(x + rx * 0.60)},${n1(y + ry)} ${n1(x + rx)},${n1(y + ry * 0.74)} ${n1(x + rx)},${n1(y + ry * 0.10)}`
+    + ` C${n1(x + rx)},${n1(y - ry * 0.42)} ${n1(x + rx * 0.86)},${n1(y - ry)} ${x},${n1(y - ry)} Z" fill="${f}"/>`;
+
+  // 둥근 발 둘 — 바닥(`GROUND`)에 붙는다. **몸 안쪽으로 반쯤 물려** 그려서
+  // 먹선이 「발」로 읽히게 한다 (바닥에 따로 떨어뜨리면 «구슬 둘»이 된다)
   const feet = (d, dx, rx, ry) =>
     ell(50 - dx, GROUND - ry + 1, rx, ry, d) + ell(50 + dx, GROUND - ry + 1, rx, ry, d);
+  // 발가락 — 발 위에 짧은 금 둘. 44px 에서는 안 보이지만 120px 도감에서 «발»이 된다
+  const toes = (dx, rx, ry, o) => [-1, 1].map(f => {
+    const cx = 50 + dx * f, cy = GROUND - ry + 1;
+    return `<path d="M${n1(cx - rx * 0.30)},${n1(cy - ry * 0.25)} v${n1(ry * 0.62)}`
+      + ` M${n1(cx + rx * 0.30)},${n1(cy - ry * 0.25)} v${n1(ry * 0.62)}"`
+      + ` stroke="${o}" stroke-width="1.5" stroke-linecap="round" opacity="0.5" fill="none"/>`;
+  }).join('');
   // 가는 다리 둘 — 사슴·염소처럼 다리가 보이는 몸만 쓴다
   const legs = (d, dx, y0, w) =>
     [-dx, dx].map(x => `<rect x="${50 + x - w / 2}" y="${y0}" width="${w}" height="${GROUND - y0 - 2}"`
       + ` rx="${w / 2}" fill="${d}"/>`).join('')
-    + feet(d, dx, w * 1.5, w * 0.8);
+    + feet(d, dx, w * 1.28, w * 0.74);
 
   // ─── 몸통 — **정면**이다 ──────────────────────────────────────
   // c: 털색(묽힌 속성색) · d: 그늘 · b: 배 판(아주 옅은 색)
+  // 배 판 — 선을 «가늘게» 두른다. 몸과 같은 굵기로 두르면 44px 에서 둘이 엉켜
+  // 몸이 통째로 겹선으로 보인다 (그려 보고 갈랐다)
+  const plate = (s) => `<g stroke-width="1.5">${s}</g>`;
   const BODY = {
     // 넓적한 덩어리 — 개구리 · 거북 · 두꺼비 · 달팽이. 앉아 있는 모양이다
-    blob: (c, d, b) => ell(50, 70, 30, 20, d) + ell(50, 68, 30, 20, c)
-      + ell(50, 73, 19, 13, b) + feet(d, 25, 9, 5.5),
+    blob: (c, d, b) => pear(56, 90, 20, 31, c)
+      + plate(pear(66, 86.5, 13, 20, b))
+      + feet(c, 25, 9.5, 6) + toes(25, 9.5, 6, d),
     // 날씬한 네발 — 고양이 · 여우 · 담비 · 도마뱀. 앞발을 모으고 앉았다
-    quad: (c, d, b) => ell(50, 70, 21, 19, d) + ell(50, 68, 21, 19, c)
-      + ell(50, 72, 13, 11, b)
-      + ell(28, 68, 6.5, 10, c) + ell(72, 68, 6.5, 10, c) + feet(d, 13, 8, 5.5),
+    // ⚠️ 앞발(팔)은 몸 옆선에 «반쯤 걸쳐» 둔다 — 안으로 넣으면 안 보이고,
+    //    밖으로 빼면 몸에서 떨어진 «귀» 둘로 보인다
+    quad: (c, d, b) => pear(46, 90, 10, 23, c)
+      + ell(31, 73, 7, 11, c) + ell(69, 73, 7, 11, c)
+      + plate(pear(58, 86, 8, 13.5, b))
+      + feet(c, 12, 8.5, 6) + toes(12, 8.5, 6, d),
     // 몸집 큰 네발 — 곰 · 두더지 · 천산갑. 팔이 굵고 짧다
-    bear: (c, d, b) => ell(50, 69, 26, 21, d) + ell(50, 67, 26, 21, c)
-      + ell(50, 71, 16, 13, b)
-      + ell(25, 66, 8, 12, c) + ell(75, 66, 8, 12, c) + feet(d, 15, 10, 6),
+    bear: (c, d, b) => pear(44, 90, 14, 28, c)
+      + ell(27, 71, 8.5, 13, c) + ell(73, 71, 8.5, 13, c)
+      + plate(pear(56, 86, 11, 17, b))
+      + feet(c, 14, 10, 6.5) + toes(14, 10, 6.5, d),
     // 다리 긴 네발 — 사슴 · 염소 · 유니콘 · 토끼. 머리가 높이 있다
-    deer: (c, d, b) => legs(d, 10, 70, 6) + ell(50, 62, 17, 16, d) + ell(50, 60, 17, 16, c)
-      + ell(50, 64, 10, 9, b),
+    deer: (c, d, b) => legs(c, 11, 66, 8) + pear(44, 78, 9, 17, c)
+      + plate(pear(56, 75, 7, 11, b)),
     // 새 — **달걀 몸**이다. 배 판이 제일 크게 보이는 몸이라 듀오링고에 제일 가깝다
-    bird: (c, d, b) => ell(50, 64, 20, 24, d) + ell(50, 62, 20, 24, c)
-      + ell(50, 68, 13, 16, b) + feet(BEAK, 9, 6, 4),
+    bird: (c, d, b) => pear(42, 86, 11, 22, c)
+      + plate(pear(52, 83, 10, 16, b))
+      + feet(BEAK, 9, 6, 4.2) + toes(9, 6, 4.2, shade(BEAK, 30)),
     // 벌레 — **날개가 주인공이라** 몸은 작게 둔다. 마디 둘로 벌레임을 말한다
-    bug: (c, d) => ell(50, 66, 9, 15, c)
-      + `<path d="M42,64 h16 M43,71 h14" stroke="${d}" stroke-width="2" stroke-linecap="round"/>`
+    bug: (c, d) => pear(52, 84, 7, 10, c)
+      + `<path d="M43,64 h14 M44,71 h12" stroke="${d}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`
       // 더듬이 — **머리 위로 나가므로 머리보다 먼저 그려도 안 가려진다**
-      + `<path d="M45,26 Q38,14 34,10 M55,26 Q62,14 66,10" stroke="${d}" stroke-width="2.2"`
+      + `<path d="M45,25 Q38,14 34,10 M55,25 Q62,14 66,10" stroke="${LINE}" stroke-width="2.2"`
       + ' fill="none" stroke-linecap="round"/>'
-      + ell(34, 9, 3, 3, d) + ell(66, 9, 3, 3, d),
+      + ell(34, 9, 3.4, 3.4, c) + ell(66, 9, 3.4, 3.4, c),
     // 물고기 — **머리가 몸 위에 얹힌 한 덩어리**다. 배지느러미는 뺐다(다리로 읽혔다)
     // ⚠️ 머리를 몸만 하게 두었더니 둘이 포개져 그냥 «공»이 됐다 — 머리를 한 치수 줄여
     //    위로 올려야 「고개」가 보인다 (여섯 몸통 중 유일하게 다리가 없는 몸이다)
     // ⚠️⚠️ **물고기는 «어항 안»에서 헤엄친다** — 상자(100×100)에만 들어오면 되는 것이
     //    아니라 유리(`bowl`)를 넘으면 안 된다. 몸을 키웠더니 꼬리·지느러미가 헤엄
     //    양 끝에서 유리를 1px 넘어 `checkavatar` 의 「어항」이 잡았다
-    fish: (c, d, b) => ell(50, 62, 25, 22, d) + ell(50, 60, 25, 22, c)
-      + ell(50, 66, 15, 12, b),
+    fish: (c, d, b) => ell(50, 60, 25, 22, c)
+      + plate(ell(50, 67, 14.5, 11, b)),
   };
 
   // ─── 귀 ── 머리에서 자리를 뽑는다 (x, y, rx, ry = HEAD) ────────
   const EAR = {
     none: () => '',
-    // 곰·두더지 — 머리 꼭대기 양옆에 동그랗게
+    // 곰·두더지 — 머리 꼭대기 양옆에 동그랗게. **속귀를 «같은 모양으로 줄여»** 넣는다
     round: (x, y, rx, ry, c, d) => [-1, 1].map(f => {
-      const ex = x + rx * 0.74 * f, ey = y - ry * 0.68;
-      return ell(ex, ey, rx * 0.30, rx * 0.30, c) + ell(ex, ey, rx * 0.15, rx * 0.15, d);
+      const ex = x + rx * 0.72 * f, ey = y - ry * 0.66, r = rx * 0.34;
+      return ell(n1(ex), n1(ey), n1(r), n1(r), c)
+        + `<g stroke-width="1.4">` + ell(n1(ex), n1(ey + r * 0.12), n1(r * 0.52), n1(r * 0.52), d) + '</g>';
     }).join(''),
-    // 토끼·사슴·염소 — 길게 선다. **끝이 둥글다**(⑤)
+    // 토끼·사슴·염소 — 길게 선다. **끝이 둥글고 바깥으로 살짝 눕는다**(⑤)
     long: (x, y, rx, ry, c, d) => [-1, 1].map(f => {
-      const ex = x + rx * 0.42 * f, ey = y - ry * 1.05;
-      return `<g transform="rotate(${14 * f} ${ex} ${ey})">`
-        + ell(ex, ey, rx * 0.21, ry * 0.62, c) + ell(ex, ey + ry * 0.06, rx * 0.10, ry * 0.40, d)
+      const ex = n1(x + rx * 0.40 * f), ey = n1(y - ry * 1.08);
+      const w = n1(rx * 0.25), h = n1(ry * 0.72);
+      return `<g transform="rotate(${12 * f} ${ex} ${ey})">`
+        + ell(ex, ey, w, h, c)
+        + `<g stroke-width="1.4">` + ell(ex, n1(ey + h * 0.10), n1(w * 0.48), n1(h * 0.66), d) + '</g>'
         + '</g>';
     }).join(''),
-    // 고양이·여우 — 세모지만 «둥근» 세모다. `Q` 로 꼭짓점을 굴린다
+    // 고양이·여우 — **레퍼런스의 그 귀다.** 밑동이 넓고 끝이 뾰족한데 두 변이
+    // 서로 반대로 휘어, 바깥은 거의 곧고 안쪽은 불룩하다.
+    // ⚠️ 「둥근 세모」(`Q` 한 번으로 굴린 것)로 두었더니 **귀가 아니라 «혹»**이었다 —
+    //    고양이를 고양이로 만드는 것은 귀 하나이고, 그 귀는 «뾰족»해야 한다.
+    //    끝은 `C` 의 제어점을 가깝게 두어 굴린다 (각은 여전히 없다)
+    // ⚠️ 흰 털뭉치는 레퍼런스에 있는 것이고, 속귀와 «같은 자리»에서 뽑는다 —
+    //    따로 적으면 귀를 키웠을 때 털만 옛 자리에 남는다
     tuft: (x, y, rx, ry, c, d) => [-1, 1].map(f => {
-      const bx = x + rx * 0.52 * f, by = y - ry * 0.62;
-      const tx = x + rx * 0.80 * f, ty = y - ry * 1.22;
-      const ix = x + rx * 0.18 * f, iy = y - ry * 0.82;
-      return `<path d="M${bx},${by} Q${tx},${ty} ${(tx + ix) / 2},${(ty + iy) / 2 + 2} Q${ix},${iy} ${bx},${by} Z" fill="${c}"/>`
-        + `<path d="M${bx + rx * 0.06 * f},${by - 2} Q${(tx + bx) / 2},${(ty + by) / 2} ${(tx + ix) / 2},${(ty + iy) / 2 + 4} Z" fill="${d}" opacity="0.5"/>`;
+      const ix = n1(x + rx * 0.24 * f), iy = n1(y - ry * 0.80);   // 안쪽 밑동
+      const tx = n1(x + rx * 0.80 * f), ty = n1(y - ry * 1.55);   // 끝
+      const ox = n1(x + rx * 0.96 * f), oy = n1(y - ry * 0.26);   // 바깥 밑동
+      const mx = n1((ix + tx) / 2), my = n1((iy + ty) / 2);
+      return `<path d="M${ix},${iy}`
+        + ` C${n1(ix + rx * 0.06 * f)},${n1(iy - ry * 0.40)} ${n1(tx - rx * 0.10 * f)},${n1(ty + ry * 0.30)} ${tx},${ty}`
+        + ` C${n1(tx + rx * 0.08 * f)},${n1(ty + ry * 0.20)} ${n1(ox + rx * 0.04 * f)},${n1(oy - ry * 0.62)} ${ox},${oy} Z" fill="${c}"/>`
+        + `<g stroke-width="1.4"><path d="M${n1(ix + rx * 0.10 * f)},${n1(iy - ry * 0.04)}`
+        + ` C${n1(ix + rx * 0.16 * f)},${n1(iy - ry * 0.34)} ${n1(mx + rx * 0.10 * f)},${n1(my + ry * 0.16)} ${n1((tx + ix) / 2 + rx * 0.10 * f)},${n1(my - ry * 0.06)}`
+        + ` C${n1(mx + rx * 0.26 * f)},${n1(my + ry * 0.12)} ${n1(ox - rx * 0.06 * f)},${n1(oy - ry * 0.46)} ${n1(ox - rx * 0.14 * f)},${n1(oy - ry * 0.04)} Z" fill="${d}"/></g>`
+        // 속귀 안의 흰 털뭉치 — 선 없이 (④ 의 빛점과 섞이지 않게 눈에서 멀다)
+        + `<g stroke="none">` + ell(n1(ix + rx * 0.30 * f), n1(iy - ry * 0.16), n1(rx * 0.11), n1(ry * 0.13),
+          tint(d, 62), ' opacity="0.85"') + '</g>';
     }).join(''),
-    // 물고기·해마 — 머리 옆의 부채 지느러미
-    fin: (x, y, rx, ry, c) => [-1, 1].map(f =>
-      `<path d="M${x + rx * 0.86 * f},${y} q${9 * f},-8 ${11 * f},3 q${-6 * f},5 ${-11 * f},2 Z"`
-      + ` fill="${c}" opacity="0.9"/>`).join(''),
+    // 물고기·해마 — 머리 옆의 부채 지느러미. **갈퀴 금 둘**이 있어야 지느러미로 읽힌다
+    fin: (x, y, rx, ry, c, d) => [-1, 1].map(f =>
+      `<path d="M${n1(x + rx * 0.84 * f)},${n1(y - 3)} q${9 * f},-7 ${12 * f},4 q${-6 * f},6 ${-12 * f},3 Z"`
+      + ` fill="${c}"/>`
+      + `<g stroke="none"><path d="M${n1(x + rx * 0.90 * f)},${n1(y - 2)} q${6 * f},-3 ${8 * f},2`
+      + ` M${n1(x + rx * 0.90 * f)},${n1(y + 2)} q${5 * f},-1 ${7 * f},2" stroke="${d}"`
+      + ' stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.6"/></g>').join(''),
   };
 
   // ─── 뿔 ── 머리 꼭대기에 «앉힌다» ──────────────────────────────
@@ -167,30 +259,45 @@
   //    만들면 그것만 조용히 기본색이 된다. 표가 작은 팔레트(`P`)를 받아 «제 재질»을 집는다
   const HORN = {
     none: () => '',
+    // 유니콘 — **밑동이 굵은 원뿔**이다. 가는 송곳으로 두었더니 「실오라기」였다.
+    // 나선 금 셋은 선 «안»에 눕는다 (그룹의 먹선은 바깥 윤곽만 그린다)
     single: (x, y, rx, ry, P) => {
-      const c = P.gem, o = P.line;
-      const t = y - ry - 28;
-      return `<path d="M${x},${t} Q${x + 5},${y - ry - 11} ${x + 6.5},${y - ry + 3}`
-        + ` L${x - 6.5},${y - ry + 3} Q${x - 5},${y - ry - 11} ${x},${t} Z" fill="${c}"/>`
-        + `<path d="M${x - 4},${y - ry - 3} q4,-2.4 8,-1.4 M${x - 3},${y - ry - 11} q3.2,-2 6,-1`
-        + ` M${x - 2},${y - ry - 18} q2.2,-1.4 4,-0.7"`
-        + ` stroke="${o}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+      const b = n1(y - ry + 5), t = n1(y - ry - 30);
+      return `<path d="M${x},${t} C${n1(x + 3.4)},${n1(t + 9)} ${n1(x + 7.6)},${n1(b - 10)} ${n1(x + 7.6)},${b}`
+        + ` L${n1(x - 7.6)},${b} C${n1(x - 7.6)},${n1(b - 10)} ${n1(x - 3.4)},${n1(t + 9)} ${x},${t} Z" fill="${P.gem}"/>`
+        + `<g stroke="none"><path d="M${n1(x - 5.8)},${n1(b - 4)} q5.8,-3.6 11.6,-1.8`
+        + ` M${n1(x - 4.4)},${n1(b - 13)} q4.4,-3 8.8,-1.4 M${n1(x - 2.9)},${n1(b - 22)} q2.9,-2.2 5.8,-1"`
+        + ` stroke="${P.line}" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.85"/></g>`;
     },
-    pair: (x, y, rx, ry, P) => [-1, 1].map(f =>
-      `<path d="M${x + rx * 0.32 * f},${y - ry + 3} q${10 * f},-17 ${2 * f},-23`
-      + ` q${-13 * f},7 ${-12 * f},23 Z" fill="${P.gem}" stroke="${P.line}"`
-      + ' stroke-width="1.2" stroke-linejoin="round"/>').join(''),
-    antler: (x, y, rx, ry, P) => [-1, 1].map(f => {
-      const bx = x + rx * 0.36 * f, by = y - ry + 2;
-      return `<path d="M${bx},${by} L${bx + 7 * f},${by - 22} M${bx + 4 * f},${by - 13} L${bx + 17 * f},${by - 19}`
-        + ` M${bx + 7 * f},${by - 22} L${bx + 16 * f},${by - 30}"`
-        + ` stroke="${P.wood}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+    // 염소 — **뒤로 말리는 한 쌍.** 귀 «안쪽»에서 올라와 바깥으로 휜다
+    // (바깥에 두었더니 긴 귀에 가려 뭐가 뭔지 안 보였다)
+    pair: (x, y, rx, ry, P) => [-1, 1].map(f => {
+      const bx = n1(x + rx * 0.60 * f), by = n1(y - ry * 0.62);
+      return `<path d="M${bx},${by}`
+        + ` C${n1(bx + 2 * f)},${n1(by - 12)} ${n1(bx + 7 * f)},${n1(by - 20)} ${n1(bx + 13 * f)},${n1(by - 23)}`
+        + ` C${n1(bx + 9 * f)},${n1(by - 15)} ${n1(bx + 8.5 * f)},${n1(by - 6)} ${n1(bx + 9 * f)},${n1(by + 3)} Z"`
+        + ` fill="${P.gem}"/>`;
     }).join(''),
+    // 사슴 — **굵은 가지.** 획은 「획을 두를」 수가 없어서 먹선을 «먼저 굵게 긋고»
+    // 그 위에 색을 조금 가늘게 덧긋는다 — 그러면 같은 윤곽선이 생긴다
+    // ⚠️ 가늘게 두었더니 「마른 나뭇가지를 붙여 놓은 것」으로 보였다 (사람 신고의 그 결이다)
+    antler: (x, y, rx, ry, P) => [-1, 1].map(f => {
+      const bx = n1(x + rx * 0.34 * f), by = n1(y - ry * 0.88);
+      const d = `M${bx},${by} C${n1(bx + 3 * f)},${n1(by - 9)} ${n1(bx + 5 * f)},${n1(by - 15)} ${n1(bx + 6.5 * f)},${n1(by - 23)}`
+        + ` M${n1(bx + 3.6 * f)},${n1(by - 12)} C${n1(bx + 9 * f)},${n1(by - 13)} ${n1(bx + 13 * f)},${n1(by - 16)} ${n1(bx + 16 * f)},${n1(by - 20)}`
+        + ` M${n1(bx + 5.2 * f)},${n1(by - 18)} C${n1(bx + 9 * f)},${n1(by - 21)} ${n1(bx + 12 * f)},${n1(by - 25)} ${n1(bx + 14 * f)},${n1(by - 29)}`;
+      return `<path d="${d}" stroke="${LINE}" stroke-width="7.4" fill="none" stroke-linecap="round"/>`
+        + `<path d="${d}" stroke="${P.wood}" stroke-width="4.4" fill="none" stroke-linecap="round"/>`;
+    }).join(''),
+    // 천산갑 — **쪼개진 수정 셋.** 한 덩어리로 두었더니 머리에 쓴 «고깔»이었다
     crystal: (x, y, rx, ry, P) => {
-      const c = P.gem, o = P.line;
-      const t = y - ry - 20;
-      return `<path d="M${x - 8},${y - ry + 3} L${x - 9.5},${t + 8} L${x},${t} L${x + 9.5},${t + 8} L${x + 8},${y - ry + 3} Z"`
-        + ` fill="${c}"/>` + `<path d="M${x},${t + 1} L${x},${y - ry + 2}" stroke="${o}" stroke-width="1.6" opacity="0.5"/>`;
+      const b = n1(y - ry + 5);
+      const shard = (dx, h, w) => `<path d="M${n1(x + dx)},${n1(b - h)} L${n1(x + dx + w)},${n1(b - h * 0.44)}`
+        + ` L${n1(x + dx + w * 0.70)},${b} L${n1(x + dx - w * 0.70)},${b} L${n1(x + dx - w)},${n1(b - h * 0.44)} Z"`
+        + ` fill="${P.gem}"/>`;
+      return shard(-9, 15, 4.8) + shard(9, 18, 4.8) + shard(0, 27, 6.2)
+        + `<g stroke="none"><path d="M${x},${n1(b - 24)} L${x},${n1(b - 3)}" stroke="${P.line}"`
+        + ' stroke-width="1.8" fill="none" opacity="0.55" stroke-linecap="round"/></g>';
     },
   };
 
@@ -201,28 +308,41 @@
     //    가려져 나방이 그냥 「귀 달린 공」이 됐다 (`bug` 의 머리 반지름이 18이다)
     // ⚠️ **상자(100×100) 밖으로 나가면 «잘린다»** — 31+22 = 103 으로 두었더니
     //    오른쪽 날개 끝이 소리 없이 깎였다 (`checkcreature` ①이 잡았다)
+    // ⚠️⚠️ **반투명을 걷었다** — 먹선이 생기자 선까지 같이 흐려져 날개만 «유령»이
+    //    됐다 (요소의 `opacity` 는 칠과 선에 같이 걸린다). 지금은 다 불투명이고,
+    //    날개가 몸보다 옅은 것은 **색**(`LIGHT`)이 맡는다
+    // ⚠️ 먹선이 한쪽으로 1.2 나가므로 **상자 끝에서 그만큼 물러나야 한다** —
+    //    28+20 = 98 이던 나비 날개가 선까지 99.2 가 되어 잘렸다
     butterfly: (c, d) => [-1, 1].map(f =>
-      ell(50 + 28 * f, 48, 20, 17, c, ` opacity="0.92" transform="rotate(${-18 * f} ${50 + 28 * f} 48)"`)
-      + ell(50 + 23 * f, 71, 14, 11.5, d, ' opacity="0.88"')).join(''),
+      ell(50 + 26 * f, 47, 19, 16.5, c, ` transform="rotate(${-18 * f} ${50 + 26 * f} 47)"`)
+      + ell(50 + 22 * f, 70, 13.5, 11, d)
+      // 날개 무늬 — 큰 점 하나. 나비를 나비로 만드는 것이 이 점이다
+      + `<g stroke="none">` + ell(50 + 28 * f, 45, 4.4, 4.4, tint(c, 58), ' opacity="0.9"') + '</g>').join(''),
     bird: (c) => [-1, 1].map(f =>
-      `<path d="M${50 + 16 * f},${58} q${24 * f},-8 ${26 * f},12 q${-16 * f},8 ${-27 * f},-3 Z"`
-      + ` fill="${c}" opacity="0.95"/>`).join(''),
+      `<path d="M${50 + 16 * f},${57} q${23 * f},-8 ${25 * f},12 q${-16 * f},8 ${-26 * f},-3 Z"`
+      + ` fill="${c}"/>`).join(''),
     bat: (c) => [-1, 1].map(f =>
-      `<path d="M${50 + 10 * f},${52} q${26 * f},-8 ${33 * f},12 q${-8 * f},-5 ${-12 * f},1`
+      `<path d="M${50 + 10 * f},${51} q${25 * f},-8 ${32 * f},12 q${-8 * f},-5 ${-12 * f},1`
       + ` q${-4 * f},-6 ${-9 * f},0 q${-2 * f},-8 ${-12 * f},-13 Z" fill="${c}"/>`).join(''),
     fin: (c) => [-1, 1].map(f =>
       `<path d="M${50 + 19 * f},${50} q${13 * f},-10 ${16 * f},3 q${-8 * f},7 ${-16 * f},-3 Z"`
-      + ` fill="${c}" opacity="0.75"/>`).join(''),
+      + ` fill="${c}"/>`).join(''),
   };
 
   // ─── 꼬리 — 오른쪽 «뒤»로 (몸통보다 먼저) ─────────────────────
   const TAIL = {
     none: () => '',
-    puff: (c) => ell(76, 72, 11, 11, c),
-    long: (c) => `<path d="M70,74 q20,2 20,-18 q0,-7 -5,-8" stroke="${c}" stroke-width="8"`
-      + ' fill="none" stroke-linecap="round"/>',
-    fish: (c) => `<path d="M68,62 q17,-14 21,-6 q-4,6 0,12 q-4,8 -21,-6 Z" fill="${c}" opacity="0.95"/>`,
-    leaf: (c) => `<path d="M72,74 q18,0 19,-16 q-16,1 -19,16 Z" fill="${c}"/>`,
+    puff: (c, d) => ell(76, 73, 11, 11, c)
+      + `<g stroke="none">` + ell(78, 70, 5, 4.6, tint(c, 46), ' opacity="0.85"') + '</g>',
+    // ⚠️ 선 굵은 획 하나로 두면 «막대»다 — 밑동이 굵고 끝이 가늘어야 꼬리로 읽힌다.
+    //    그래서 획이 아니라 **채운 모양**이다 (끝은 둥글게 말린다)
+    long: (c) => '<path d="M68,76 C84,78 90,66 88,56 C87,50 83,47 80,48'
+      + ' C77,49 76,53 78,55 C81,52 84,57 83,62 C81,70 75,72 67,70 Z"'
+      + ` fill="${c}"/>`,
+    fish: (c) => `<path d="M68,62 q17,-14 21,-6 q-4,6 0,12 q-4,8 -21,-6 Z" fill="${c}"/>`,
+    leaf: (c) => `<path d="M71,75 C84,74 90,64 90,57 C82,58 73,65 71,75 Z" fill="${c}"/>`
+      + `<path d="M74,73 C80,69 85,63 88,59" stroke="${shade(c, 22)}" stroke-width="1.4"`
+      + ' fill="none" stroke-linecap="round" opacity="0.7"/>',
   };
 
   // ─── 눈 — **여기가 「귀엽다」의 8할이다** ──────────────────────
@@ -232,48 +352,67 @@
   // ⚠️ **넷이 다 커야 한다** — 「시크」를 삼각형으로 그렸더니 화살표로 읽혀
   //    그 크리처만 안 귀여웠다 (초상화의 `sharp` 에서 이미 겪은 자리다).
   //    갈리는 것은 «눈꺼풀»이지 «크기»가 아니다
+  // ⚠️⚠️ **눈동자에 «색»이 생겼다** (2026-10-01 · 레퍼런스의 그 눈이다).
+  //    까만 구슬 하나이던 것을 **흰자 → 홍채(속성 색) → 동공(먹) → 빛 두 점 →
+  //    윗눈꺼풀 선** 다섯 겹으로 갈랐다. 다섯이 다 있어야 「젖은 눈」이 선다
+  //    (`portrait.js` 의 그 자리에서 이미 배운 것이고, 거기서도 한 겹으로는 안 됐다).
+  // ⚠️⚠️ **빛 두 점은 «동공 안»에 앉혀야 한다** — 홍채 위로 빼면 `checkcreature` ④가
+  //    「눈동자 상자 안의 밝은 덩어리」를 세므로 **한 점도 안 세어진다**. 그림으로도
+  //    동공 밖의 빛은 «눈에 묻은 것»으로 보인다
+  // ⚠️ **빛이 흰자에 «닿으면» 안 된다** — 닿는 순간 흰자와 한 덩어리가 되어
+  //    검사가 둘을 하나로 세고(빛 2점), 그림에서도 눈이 «터진» 것으로 보인다
+  // ⚠️ 홍채 색은 속성 색에서 뽑는다(`iris`) — 불 크리처는 눈동자도 붉다
   const EYE = {
     // 까만 콩 눈 — 흰자 없이. 제일 단순하고 제일 동글하다
     dot: (x, y, s) => [-1, 1].map(f => {
-      const ex = x + 11 * s * f;
-      return ell(ex, y, 5.4 * s, 6 * s, INK)
-        + ell(ex + 1.9 * s, y - 2.1 * s, 1.9 * s, 1.7 * s, '#fff', ' opacity="0.95"')
-        + ell(ex - 1.8 * s, y + 2.2 * s, 1.1 * s, 1.0 * s, '#fff', ' opacity="0.88"');
+      const ex = x + 11.5 * s * f;
+      return ell(n1(ex), y, n1(5.8 * s), n1(6.5 * s), INK)
+        + ell(n1(ex + 2.0 * s), n1(y - 2.3 * s), n1(2.1 * s), n1(1.9 * s), '#fff')
+        + ell(n1(ex - 1.9 * s), n1(y + 2.4 * s), n1(1.2 * s), n1(1.1 * s), '#fff', ' opacity="0.9"');
     }).join(''),
-    // 젖은 큰 눈 — 흰자 + 눈동자 + 빛 둘
-    round: (x, y, s) => [-1, 1].map(f => {
-      const ex = x + 11 * s * f;
-      return ell(ex, y, 7.2 * s, 8 * s, '#fff')
-        + ell(ex, y + 0.6 * s, 4.9 * s, 5.4 * s, INK)
-        + ell(ex + 1.5 * s, y - 1.6 * s, 1.95 * s, 1.8 * s, '#fff')
-        + ell(ex - 1.6 * s, y + 2.2 * s, 1.1 * s, 1.0 * s, '#fff', ' opacity="0.9"');
+    // 젖은 큰 눈 — 다섯 겹이 다 있다
+    round: (x, y, s, iris) => [-1, 1].map(f => {
+      const ex = x + 11.5 * s * f;
+      return ell(n1(ex), y, n1(7.8 * s), n1(8.6 * s), '#fff')
+        + ell(n1(ex), n1(y + 0.9 * s), n1(5.6 * s), n1(6.3 * s), iris)
+        + ell(n1(ex), n1(y + 1.2 * s), n1(3.9 * s), n1(4.8 * s), INK)
+        + ell(n1(ex + 1.3 * s), n1(y - 0.8 * s), n1(1.6 * s), n1(1.5 * s), '#fff')
+        + ell(n1(ex - 1.5 * s), n1(y + 3.0 * s), n1(1.1 * s), n1(1.0 * s), '#fff', ' opacity="0.9"')
+        + `<path d="M${n1(ex - 7.4 * s)},${n1(y - 4.4 * s)} q${n1(7.4 * s)},${n1(-4.4 * s)} ${n1(14.8 * s)},${n1(0.6 * s)}"`
+        + ` stroke="${INK}" stroke-width="${n1(2.4 * s)}" fill="none" stroke-linecap="round"/>`;
     }).join(''),
     // 반쯤 감은 눈 — 위 눈꺼풀이 덮인다. 「시크」가 삼각형이 아니라 **반달**이다
-    sharp: (x, y, s) => [-1, 1].map(f => {
-      const ex = x + 11 * s * f;
-      return ell(ex, y, 7.0 * s, 7.4 * s, '#fff')
-        + ell(ex, y + 1.6 * s, 4.8 * s, 5.2 * s, INK)
-        + ell(ex + 1.7 * s, y, 1.8 * s, 1.6 * s, '#fff')
-        + ell(ex - 1.7 * s, y + 3.4 * s, 1.1 * s, 1.0 * s, '#fff', ' opacity="0.88"')
-        + `<path d="M${ex - 7.2 * s},${y - 1.2 * s} q${7.2 * s},${-6.4 * s} ${14.4 * s},0"`
-        + ` stroke="${INK}" stroke-width="${2.6 * s}" fill="none" stroke-linecap="round"/>`;
+    sharp: (x, y, s, iris) => [-1, 1].map(f => {
+      const ex = x + 11.5 * s * f;
+      return ell(n1(ex), y, n1(7.6 * s), n1(8.0 * s), '#fff')
+        + ell(n1(ex), n1(y + 1.8 * s), n1(5.4 * s), n1(6.0 * s), iris)
+        + ell(n1(ex), n1(y + 2.1 * s), n1(3.8 * s), n1(4.6 * s), INK)
+        + ell(n1(ex + 1.3 * s), n1(y + 0.4 * s), n1(1.6 * s), n1(1.5 * s), '#fff')
+        + ell(n1(ex - 1.5 * s), n1(y + 3.8 * s), n1(1.1 * s), n1(1.0 * s), '#fff', ' opacity="0.9"')
+        + `<path d="M${n1(ex - 7.6 * s)},${n1(y - 1.0 * s)} q${n1(7.6 * s)},${n1(-6.6 * s)} ${n1(15.2 * s)},${n1(0.4 * s)}"`
+        + ` stroke="${INK}" stroke-width="${n1(2.8 * s)}" fill="none" stroke-linecap="round"/>`;
     }).join(''),
-    // 감은 눈 — 아래로 휜 호. 호가 «위»로 휘면 웃는 눈이 되어 「졸음」이 안 읽힌다
+    // 감은 눈 — **웃는 눈(∪)이다.** 아래로 휜 호로 두었더니 「졸음」이 아니라
+    // «시무룩»으로 읽혔다 — 감은 눈이 귀여운 것은 웃고 있을 때뿐이다
     sleepy: (x, y, s) => [-1, 1].map(f => {
-      const ex = x + 11 * s * f;
-      return `<path d="M${ex - 6 * s},${y - 1 * s} q${6 * s},${6 * s} ${12 * s},0"`
-        + ` stroke="${INK}" stroke-width="${2.8 * s}" fill="none" stroke-linecap="round"/>`;
+      const ex = x + 11.5 * s * f;
+      return `<path d="M${n1(ex - 6.4 * s)},${n1(y + 2.2 * s)} q${n1(6.4 * s)},${n1(-7.4 * s)} ${n1(12.8 * s)},0"`
+        + ` stroke="${INK}" stroke-width="${n1(3.0 * s)}" fill="none" stroke-linecap="round"/>`;
     }).join(''),
   };
 
   // ─── 입 — 아주 작게 ───────────────────────────────────────────
   // ⚠️ 입을 키우면 눈이 작아 보인다. 「귀엽다」를 지는 것은 눈이고 입은 거드는 것뿐이다
+  // ⚠️ **입에도 먹선을 «직접» 준다** — 입은 선 두른 그룹 «밖»이라(표면이다)
+  //    물려받을 선이 없다. 부리를 칠만 해 두었더니 얼굴에서 떠 보였다
   const MOUTH = {
-    beak: (x, y) => `<path d="M${x - 5},${y} q5,-2 10,0 q-5,7 -10,0 Z" fill="${BEAK}"/>`,
-    wide: (x, y) => `<path d="M${x - 7.5},${y - 2} q7.5,7 15,0" stroke="${INK}" stroke-width="2.2"`
-      + ' fill="none" stroke-linecap="round"/>',
-    w: (x, y) => `<path d="M${x - 5},${y - 1} q2.5,3.4 5,0 q2.5,3.4 5,0" stroke="${INK}"`
-      + ' stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+    beak: (x, y) => `<path d="M${x - 5.4},${y - 1} q5.4,-2.2 10.8,0 q-5.4,7.4 -10.8,0 Z"`
+      + ` fill="${BEAK}" stroke="${LINE}" stroke-width="1.8" stroke-linejoin="round"/>`,
+    // 활짝 웃는 입 — **혀 한 점**이 있어야 「웃는다」가 된다 (레퍼런스의 그 입이다)
+    wide: (x, y) => `<path d="M${x - 7},${y - 2.4} q7,7.6 14,0 q-7,2.6 -14,0 Z" fill="${INK}"/>`
+      + `<path d="M${x - 2.6},${y + 1.6} q2.6,3.2 5.2,0 Z" fill="${tint(BLUSH, 10)}"/>`,
+    w: (x, y) => `<path d="M${x - 5},${y - 1} q2.5,3.6 5,0 q2.5,3.6 5,0" stroke="${INK}"`
+      + ' stroke-width="2.1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
   };
   // 몸통마다 입이 다르다 — 새는 부리, 개구리·거북은 «활짝», 나머지는 작은 ω
   const MOUTH_OF = { bird: 'beak', blob: 'wide', bug: 'w', fish: 'wide' };
@@ -300,9 +439,13 @@
   //    줄이므로 **발은 한 픽셀도 안 움직이고** 머리 위에만 자리가 난다.
   // ⚠️ 숫자를 박지 않는다 — 부품이 «얼마나 올라가는지»에서 배율을 «풀어» 낸다.
   //    뿔을 더 키우면 배율이 저절로 따라온다 (베껴 두면 다음에 또 잘린다)
-  const TOP_PAD = 3;                      // 상자 꼭대기에 남기는 숨
-  const HORN_UP = { none: 0, single: 28, pair: 24, antler: 31, crystal: 21 };
-  const EAR_UP = { none: 0, round: 0, long: 0.69, tuft: 0.24, fin: 0 };   // 머리 ry 에 대한 비
+  // ⚠️ **먹선이 한쪽으로 `OUT/2` 나가므로 숨도 그만큼 늘렸다** (3 → 4.5).
+  //    안 늘리면 선이 상자 가장자리를 물어 `checkcreature` ①이 잡는다
+  const TOP_PAD = 4.5;                    // 상자 꼭대기에 남기는 숨
+  const HORN_UP = { none: 0, single: 31, pair: 17, antler: 32, crystal: 23 };
+  // ⚠️ 귀를 키웠으면 **여기도 같이 올린다** — 안 올리면 귀끝이 소리 없이 잘린다
+  //    (고양이 귀를 뾰족하게 세우며 0.24 → 0.55 가 됐다)
+  const EAR_UP = { none: 0, round: 0.06, long: 0.80, tuft: 0.55, fin: 0 };   // 머리 ry 에 대한 비
 
   // 크리처 한 마리를 그린다.
   //   c    : data.js 의 `result` (id · attr · art …)
@@ -328,20 +471,29 @@
     const ear = (EAR[a.ear] || EAR.none)(hx, hy, hrx, hry, COAT, tint(BLUSH, 30));
     const horn = (HORN[a.horn] || HORN.none)(hx, hy, hrx, hry,
       { gem: raw, line: tint(raw, 74), wood: shade(raw, 24) });
-    // 머리 — 그늘 한 겹을 밑에 깔아 «둥글게» 보이게 한다
-    const head = ell(hx, hy + 1.5, hrx, hry, DARK) + ell(hx, hy, hrx, hry, COAT);
+    // 머리 — **그늘 한 겹을 밑에 깔던 꼼수를 걷었다.** 먹선이 그 몫을 더 잘 하고,
+    // 남겨 두면 선 밑에 «때»처럼 비친다
+    const head = skull(hx, hy, hrx, hry, COAT);
     // 얼굴 판 — 눈 둘레가 옅어야 눈이 더 커 보인다 (③)
-    const face = ell(hx, hy + hry * 0.26, hrx * 0.74, hry * 0.62, BELLY, ' opacity="0.85"');
-    const ey = hy + hry * 0.10;
-    const es = Math.min(1.12, hrx / 24);            // 머리가 작으면 눈도 같이 줄인다
-    const eye = (EYE[a.eye] || EYE.dot)(hx, ey, es);
+    // ⚠️⚠️ **머리와 «같은 모양»을 안쪽으로 들여 그린다.** 타원 하나로 두었더니
+    //    그 윗변이 머리를 가로로 썰어 **얼굴에 띠를 두른 것**처럼 보였다 —
+    //    머리 둘레와 나란히 흐르는 선이라야 「털색이 옅은 얼굴」로 읽힌다
+    const face = `<g opacity="0.6">`
+      + skull(n1(hx), n1(hy + hry * 0.16), n1(hrx * 0.82), n1(hry * 0.76), BELLY) + '</g>';
+    // 머리의 광택 — 왼쪽 위에 한 점. 레퍼런스의 그 «머리 빛»이고, 평면 칠에
+    // «둥근 것»이라는 뜻을 준다. ⚠️ 눈에서 멀리(이마 위) 둬야 빛점과 안 섞인다
+    const gloss = ell(n1(hx - hrx * 0.38), n1(hy - hry * 0.56), n1(hrx * 0.26), n1(hry * 0.14),
+      '#fff', ' opacity="0.42" transform="rotate(-16 ' + n1(hx - hrx * 0.38) + ' ' + n1(hy - hry * 0.56) + ')"');
+    const ey = hy + hry * 0.12;
+    const es = Math.min(1.15, hrx / 25);            // 머리가 작으면 눈도 같이 줄인다
+    const eye = (EYE[a.eye] || EYE.dot)(hx, ey, es, shade(raw, 34));
     // ⚠️ **입을 눈에서 충분히 떨어뜨린다.** 9.5 로 두었더니 머리가 작은 물고기에서
     //    입과 눈이 붙어 **먹색 덩어리 하나**가 됐다 (`checkcreature` 가 「눈동자 1개에
     //    빛 5점」으로 잡았다). 그림으로도 입이 눈에 닿으면 얼굴이 답답하다
-    const mouth = MOUTH[MOUTH_OF[a.body] || 'w'](hx, ey + 11 * es);
-    // 볼터치 (⑥) — 눈 바깥쪽, 입 높이
+    const mouth = MOUTH[MOUTH_OF[a.body] || 'w'](hx, ey + 11.5 * es);
+    // 볼터치 (⑥) — 눈 바깥쪽, 입 높이. **더 크고 더 진하게** 했다
     const blush = [-1, 1].map(f =>
-      ell(hx + hrx * 0.70 * f, ey + 6.5 * es, 4.6 * es, 3.0 * es, BLUSH, ' opacity="0.55"')).join('');
+      ell(n1(hx + hrx * 0.72 * f), n1(ey + 6.8 * es), n1(5.4 * es), n1(3.4 * es), BLUSH, ' opacity="0.62"')).join('');
 
     const [px, py, ps] = PAT_AT[a.body] || PAT_AT.quad;
     const patInner = (PAT[a.pat] || PAT.none)(a.pat === 'glow' ? raw : shade(COAT, 24));
@@ -353,7 +505,17 @@
     const k = top < TOP_PAD ? (GROUND - TOP_PAD) / (GROUND - top) : 1;
     const fit = k < 1 ? ` transform="translate(50,${GROUND}) scale(${k.toFixed(3)}) translate(-50,${-GROUND})"` : '';
 
-    // 그리는 순서가 곧 앞뒤다: 날개·꼬리(뒤) → 몸통 → 무늬 → 귀·뿔 → 머리 → 얼굴
+    // 그리는 순서가 곧 앞뒤다: 날개·꼬리(뒤) → 몸통 → 귀·뿔 → 머리 → 무늬 → 얼굴
+    //
+    // ⚠️⚠️ **먹선을 두르는 것은 «실루엣»뿐이다**(ⓐ) — 날개·꼬리·몸·귀·뿔·머리가
+    //    한 그룹을 지나며 선을 «물려받는다». 조각마다 적으면 곧 열몇 벌이 되고,
+    //    한 벌만 빠져도 그 조각만 선 없이 떠 보인다.
+    //    무늬·얼굴 판·광택·눈·볼터치·입은 **표면**이라 그룹 «밖»이다 —
+    //    선이 붙으면 얼굴이 통째로 지저분해진다 (그려 보고 갈랐다).
+    // ⚠️ **무늬가 그룹 밖으로 나오면서 머리보다 «뒤»에서 «앞»이 됐다** — 무늬는
+    //    배 언저리(`PAT_AT`)라 머리와 안 겹치므로 그림은 한 픽셀도 안 바뀐다
+    const inked = `<g stroke="${LINE}" stroke-width="${OUT}" stroke-linejoin="round"`
+      + ` stroke-linecap="round">${wing}${tail}${body}${ear}${horn}${head}</g>`;
     // ⚠️ **발밑 그림자는 줄이는 그룹 «밖»이다** — 안에 넣으면 뿔 달린 마리만 그림자가
     //    같이 작아져 바닥이 둘로 보인다
     return `<svg class="cr-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
@@ -361,7 +523,7 @@
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
       ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(raw, 86)}"/>`}
       ${opts.noShadow ? '' : ell(50, GROUND + 2, 26, 5, shade(raw, 10), ' opacity="0.16"')}
-      <g${fit}>${wing}${tail}${body}${pat}${ear}${horn}${head}${face}${eye}${blush}${mouth}</g>
+      <g${fit}>${inked}${pat}${face}${gloss}${eye}${blush}${mouth}</g>
     </svg>`;
   }
 
