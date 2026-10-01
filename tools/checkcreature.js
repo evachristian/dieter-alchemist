@@ -45,7 +45,12 @@ const BLUSH_K = 0.6;     // 털색이 가진 거리의 이만큼 안으로 들�
 const HI_WANT = 4;       // 빛점 — 눈 둘 × 두 점. 감은 눈은 안 본다
 const ATTR_DE = 28;      // 속성끼리 이만큼은 색이 갈려야 한다 (ΔE 비슷한 값)
 const PUPIL_MAX = 0.22;  // 눈동자 상자는 그림의 이만큼 안이다 (먹선 덩어리를 가른다)
-const PUPIL_AR = [0.55, 1.8];   // 가로÷세로 — 둥글어야 한다 (입·눈꺼풀 획을 가른다)
+const PUPIL_AR = [0.55, 1.8];
+const PUPIL_FILL = 0.30; // 눈동자는 «꽉 찬» 덩어리다 — 테두리 «고리»를 가른다
+// ⚠️⚠️ 배 판의 테두리(`plate`)가 먹선 색이라 **고리 하나가 눈동자로 잡혔다** —
+//    작고(16%) 둥글고(1.2) 크기 빗장을 다 지나서, 그 고리 «안»의 옅은 배 색이
+//    「흰자 543%」로 나왔다. 재 보면 눈동자는 상자의 48~70% 가 차 있고 고리는 12% 다
+const WHITE_MAX = 0.30;  // 눈동자 안의 밝은 덩어리는 이만큼 안이어야 «빛점»이다 (흰자를 가른다)   // 가로÷세로 — 둥글어야 한다 (입·눈꺼풀 획을 가른다)
 // ── ⑦ 먹선 — **둘레가 먹선인가.** 실루엣을 묶는 것이 이 선 하나라
 // (`creature.js` 의 「실루엣」 ⓐ), 없으면 44px 에서 통째로 «색 얼룩»이 된다.
 // ⚠️⚠️ **①~⑥ 어느 것도 이 축을 못 본다** — 선을 통째로 걷어도 잘리지도, 비뚤지도,
@@ -97,7 +102,7 @@ const near = (p, hex, tol) => {
   const bad = [];
   const attrMean = {};
   let sym = 0, eyes = 0, hi = 0, blush = 0, eyeMin = 9, symMin = 9, eyeN = 0, hiN = 0;
-  let line = 0, lineN = 0;
+  let line = 0, lineN = 0, white = 0;
 
   for (const c of out) {
     const P = c.px;
@@ -191,7 +196,8 @@ const near = (p, hex, tol) => {
       const pupils = blobs(isInk).filter(k => {
         const w = k.a1 - k.a0 + 1, h = k.b1 - k.b0 + 1;
         return k.n >= 24 && w <= SZ * PUPIL_MAX && h <= SZ * PUPIL_MAX
-          && w / h >= PUPIL_AR[0] && w / h <= PUPIL_AR[1];
+          && w / h >= PUPIL_AR[0] && w / h <= PUPIL_AR[1]
+          && k.n / (w * h) >= PUPIL_FILL;
       });
       // 눈동자의 크기 — **재되 문은 안 건다**(위의 그 이유다)
       const big = pupils.reduce((m, k) => Math.max(m, k.n), 0);
@@ -200,6 +206,24 @@ const near = (p, hex, tol) => {
       const lit = blobs(isLit).filter(k => k.n >= 3);
       const per = pupils.map(k =>
         lit.filter(w => w.cx >= k.a0 && w.cx <= k.a1 && w.cy >= k.b0 && w.cy <= k.b1).length);
+      // ── ⑧ **흰자가 없는가** — 밝은 덩어리는 «빛점»뿐이어야 한다
+      //
+      // ⚠️⚠️ 사람이 서른 마리를 놓고 **흰자가 있는 열여섯을 «정확히» 집어**
+      //    「사람 눈 같아서 안 귀엽다」고 했다. 남겨 둔 것은 흰자가 없는 눈뿐이다 —
+      //    사람이 고른 것이 규칙이 된 자리라, 그 규칙을 여기 못 박는다.
+      // ⚠️ **④는 이것을 못 본다** — 흰자가 있어도 빛은 두 점 그대로다.
+      //    가르는 것은 「밝은 덩어리가 눈동자에 비해 얼마나 큰가」다
+      //    (지금 9% 안팎 · 흰자가 있던 그림은 257%였다)
+      let whiteMax = 0;
+      pupils.forEach(k => lit.forEach(w => {
+        if (w.cx >= k.a0 && w.cx <= k.a1 && w.cy >= k.b0 && w.cy <= k.b1)
+          whiteMax = Math.max(whiteMax, w.n / Math.max(1, k.n));
+      }));
+      if (whiteMax > WHITE_MAX)
+        bad.push(`${c.name}: 눈에 흰자가 있다 (밝은 덩어리가 눈동자의 ${(whiteMax * 100).toFixed(0)}%`
+          + ` · ${WHITE_MAX * 100}% 를 넘으면 빛점이 아니라 흰자다)`);
+      white = Math.max(white, whiteMax);
+
       const got = per.filter(n => n >= 2).length * 2 + per.filter(n => n === 1).length;
       if (got < HI_WANT)
         bad.push(`${c.name}: 눈의 빛이 ${got}점이다 (눈마다 두 점 · ${HI_WANT}점이어야 한다`
@@ -272,9 +296,9 @@ const near = (p, hex, tol) => {
   else if (worst < ATTR_DE) bad.push(`속성 색이 안 갈린다 (제일 가까운 ${pair} 가 ${worst.toFixed(0)} · ${ATTR_DE} 는 돼야 한다)`);
 
   console.log(`크리처 ${out.length}마리 — 대칭 ${sym.toFixed(2)}(최소 ${symMin.toFixed(2)}) · 눈 ${(eyes / Math.max(1, eyeN) * 100).toFixed(1)}%(최소 ${(eyeMin * 100).toFixed(1)}% · ${eyeN}마리)`
-    + ` · 빛 ${(hi / Math.max(1, hiN)).toFixed(1)}점(${hiN}마리) · 볼터치 ${blush.toFixed(0)}점`
+    + ` · 빛 ${(hi / Math.max(1, hiN)).toFixed(1)}점(${hiN}마리) · 볼터치 ${blush.toFixed(0)}점 · 눈 속 제일 큰 밝은 덩어리 ${(white * 100).toFixed(0)}%`
     + ` · 둘레의 먹선 ${(line * 100).toFixed(0)}%(${lineN}점) · 속성 제일 가까운 쌍 ${pair} ${worst.toFixed(0)}`);
-  console.log(`  (상자 가장자리 ${EDGE}px · 대칭 ${SYM_MIN} · 빛 ${HI_WANT}점 · 둘레 먹선 ${LINE_MIN * 100}% 까지 · 눈 크기는 재기만 한다)`);
+  console.log(`  (상자 가장자리 ${EDGE}px · 대칭 ${SYM_MIN} · 빛 ${HI_WANT}점 · 흰자 ${WHITE_MAX * 100}% · 둘레 먹선 ${LINE_MIN * 100}% 까지 · 눈 크기는 재기만 한다)`);
   if (bad.length) {
     console.log(`❌ ${bad.length}건`);
     bad.slice(0, 20).forEach(m => console.log('   ' + m));
