@@ -3705,6 +3705,13 @@
       if (EM_HEAD.test(s)) el.innerHTML = em(s);
       else el.textContent = s;
     });
+    // ⚠️ **글자가 없는 버튼의 이름은 `aria-label` 이 맡는다** (방 버튼 여덟 ·
+    //    헤더의 ↺ · 둘러보기 화살표와 같은 조리법). 그 이름도 말을 바꾸면
+    //    같이 바뀌어야 하므로 여기서 같이 돈다 — 부르는 쪽에서 따로 적으면
+    //    언어를 바꿨을 때 그 버튼만 옛말로 남는다
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+      el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+    });
     document.documentElement.setAttribute('lang', current);
   }
 

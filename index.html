@@ -13,11 +13,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261001c">
+<link rel="stylesheet" href="style.css?v=20261001d">
 <!-- ⚠️ UI 색상은 «첫 페인트 전»에 정해져야 한다 — 문서 끝에 두면 기본 색으로
      한 번 그려진 뒤에 얹혀서 다크를 고른 사람에게 흰 화면이 한 번 친다.
      그래서 여기만 `defer` 없이 `<head>` 에서 읽는다 (theme.js 주석 참고) -->
-<script src="theme.js?v=20261001c"></script>
+<script src="theme.js?v=20261001d"></script>
 </head>
 <body>
 
@@ -54,7 +54,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20261001c" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20261001d" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -162,19 +162,26 @@
   /* 3D 가 서면 2D 배경을 «덮는다» — 지우지 않는다 (마이 룸의 `.room-2d` 와 같은 규칙).
      WebGL 이 없는 기기가 실제로 보는 그림이고, 3D 가 서기까지의 한 프레임을 이것이 메운다 */
   #introStage.is3d .i-bg { visibility: hidden; }
-  /* 손그림 공주·요정의 «조각 그림자» — 오려 낸 종이가 배경에서 떠 있게 한다.
-     위 `#pdPaper` 의 ① 과 **같은 값**이고(−2.4 / 4.4 / stdDeviation 3.2 → blur 6.4 / 0.34),
-     방향도 같다 (빛이 오른쪽 위라 그림자는 왼쪽 아래).
-     ⚠️⚠️ **`#pdPaper` 를 그대로 걸지 않는다 — 같은 필터가 «같은 종이»가 아니기 때문이다.**
-        필터의 결(`feTurbulence`)은 «그림 좌표»에서 뽑히는데, 화면에 선 배율이 셋 다 다르다:
-        졸업 후 아바타 0.896 · 인트로 공주 1.463 · 졸업 전 마이 룸 1.819 (재 봤다).
-        그대로 걸면 결이 1.6~2.0배 굵어져 «종이»가 아니라 «잡음»으로 읽힌다 (480px 에서
-        찍어 보고 걷었다). CSS 그림자는 «화면 px» 이라 어느 배율에서나 같은 그림자다.
-     ⚠️ 거는 자리가 `g.i-doll` 이지 `svg` 가 아니다 — svg 에 걸면 발밑 그림자까지 왼쪽
-        아래로 밀려 **발이 바닥에서 떠 보인다** (아바타가 `g.doll` 에 거는 그 이유다).
+  /* 인물의 «조각 그림자» — 오려 낸 종이가 배경에서 떠 있게 한다.
+     공주·요정(손그림)과 **졸업 후 아바타**가 한 줄을 지난다 — 값을 두 벌로 두면
+     한쪽만 고쳐 갈린다 (방향은 빛이 오른쪽 위라 왼쪽 아래다).
+
+     ⚠️⚠️ **«종이 결»은 2026-10-01 에 걷었다** (「캐릭터에서 종이질 제거해줘.
+        지저분하다」로 신고받았다). 필터(`#pdPaper`)의 `feTurbulence` 한 겹이
+        그것이었고, 걷으면서 그 필터는 하는 일이 그림자뿐이 되어 **통째로 없앴다** —
+        남은 그림자는 여기 CSS 한 줄이다. 결을 도로 넣지 말 것:
+        · 결은 «그림 좌표»에서 뽑히는데 화면에 선 배율이 셋 다 다르다 — 졸업 후
+          아바타 0.896 · 인트로 공주 1.463 · 졸업 전 마이 룸 1.819 (재 봤다).
+          한 벌로 걸면 누군가에게는 1.6~2.0배 굵어져 «종이»가 아니라 «잡음»이 된다
+        · `checkavatar` 의 「페이퍼돌」이 **결이 «없는지»**를 잰다
+     ⚠️ 거는 자리가 `g.(i-)doll` 이지 `svg` 가 아니다 — svg 에 걸면 발밑 그림자까지
+        왼쪽 아래로 밀려 **발이 바닥에서 떠 보인다.**
+        ⚠️ 이것을 잡는 검사는 «없다» — 「서는 자리」는 발밑 타원을 DOM 상자로 찾아서
+        필터를 안 탄다 (사보타주로 재 보니 0.0px 로 통과했다). 구조로 막는 자리다.
      ⚠️ 졸업 전의 마이 룸(`svg.avatar-svg` 안의 인트로 공주)도 같이 걸린다 — 한 사람이
         화면을 옮길 때 그림자가 사라지면 다른 사람으로 읽힌다 */
-  #intro .intro-svg g.i-doll, .char-body svg g.i-doll {
+  #intro .intro-svg g.i-doll, .char-body svg g.i-doll,
+  .char-body > svg.avatar-svg > g.doll {
     filter: drop-shadow(-2.4px 4.4px 6.4px rgba(0, 0, 0, 0.34));
   }
   /* 대사 영역: 하단 도킹 */
@@ -312,42 +319,18 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     페이퍼돌 — 방에 선 아바타에 얹는 «종이 결 + 조각 그림자»
+     문서 전체가 쓰는 `<defs>` — 어느 화면에서나 이름으로 닿아야 하는 것
      ═══════════════════════════════════════════════════════════════
-     ⚠️⚠️ **여기 있는 이유** — `avatar.js` 의 `build()` 안에 넣으면 `checkavatar` 가
-     그 SVG 를 캔버스에 그려 재는 순간 «살색»이 결에 흔들려, 색으로 살을 찾는
-     검사 열 몇 개가 한꺼번에 어긋난다. 그림은 그대로 두고 **방에 선 것에만**
-     style.css 가 `.char-body > svg.avatar-svg > g.doll` 로 건다.
-
-     ⚠️⚠️ **결은 «가운데가 0.5» 인 잡음을 `overlay` 로 얹는다 — 곱하지 않는다.**
-     예전 시안은 `0.22·n + 0.78` 을 multiply 했는데, 잡음의 평균이 0.5 라
-     **평균 배율이 0.89** 였다 — 결과 함께 «11% 어두워지는» 것이 같이 들어가서
-     「종이 재질이 들어가서 그런가 캐릭터의 얼굴 톤이 어두워졌어」로 신고받았다.
-     `overlay` 는 밑색에 대해 **잡음 쪽이 선형**이라(밑색>0.5 면 1−2(1−Cb)(1−Cs)),
-     0.5 를 가운데로 대칭인 잡음은 평균 밝기를 **한 자리도 안 바꾼다.**
-     · `GRAIN_A`(0.44)가 세기이고 `(1−A)/2` 가 짝이다 — **둘이 같이 움직여야**
-       가운데가 0.5 에 남는다. 한쪽만 고치면 다시 조용히 어두워진다
-     · 살색만 빼내서 고치지 않았다 — 옷·머리·크리처도 같이 어두워지는 것이라
-       «결 자체»가 중립이어야 맞는다 (그리고 빼낼 손잡이가 아예 없다)
-
-     ⚠️ 그림자는 **왼쪽 아래**로 진다 — 방의 빛(창문)이 오른쪽 위다.
-        오른쪽 아래로 두면 빛과 그림자가 같은 쪽에서 난다
+     ⚠️⚠️ **한때 여기 「페이퍼돌」 필터(`#pdPaper`)가 있었다 — 2026-10-01 에 없앴다.**
+     그것은 «종이 결 + 조각 그림자» 두 겹이었는데, 「캐릭터에서 종이질 제거해줘.
+     지저분하다」로 결을 걷고 나니 **하는 일이 그림자뿐**이 되어 통째로 지웠다 —
+     남은 그림자는 위쪽 `<style>` 의 CSS `drop-shadow` 한 줄이고, 거기에
+     인트로 공주·요정과 아바타가 **같이** 걸린다 (값을 두 벌로 둘 데가 없다).
+     ⚠️ 결을 도로 넣을 일이 있으면 **`avatar.js` 의 `build()` 안에는 넣지 않는다** —
+        `checkavatar` 가 그 SVG 를 캔버스에 그려 재는 순간 «살색»이 흔들려,
+        색으로 살을 찾는 검사 열 몇 개가 한꺼번에 어긋난다
 -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <filter id="pdPaper" x="-14%" y="-8%" width="132%" height="124%" color-interpolation-filters="sRGB">
-    <!-- ① 조각 그림자 — 오려 낸 종이가 배경에서 «떠 있게» 한다 -->
-    <feOffset in="SourceAlpha" dx="-2.4" dy="4.4" result="s0"/>
-    <feGaussianBlur in="s0" stdDeviation="3.2" result="s1"/>
-    <feComponentTransfer in="s1" result="sh"><feFuncA type="linear" slope="0.34"/></feComponentTransfer>
-    <!-- ② 종이 결 — 평균 0.5 짜리 회색 잡음을 overlay 로 (밝기는 안 바뀐다) -->
-    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="n"/>
-    <feColorMatrix in="n" type="saturate" values="0" result="ng"/>
-    <feColorMatrix in="ng" type="matrix" result="gm"
-      values="0.44 0 0 0 0.28  0 0.44 0 0 0.28  0 0 0.44 0 0.28  0 0 0 0 1"/>
-    <feBlend in="gm" in2="SourceGraphic" mode="overlay" result="gb"/>
-    <feComposite in="gb" in2="SourceAlpha" operator="in" result="doll"/>
-    <feMerge><feMergeNode in="sh"/><feMergeNode in="doll"/></feMerge>
-  </filter>
   <!-- 발밑 그림자의 «번지는» 겹 (두 겹 중 넓은 쪽 · intro.js 의 `groundShadow`).
        ⚠️⚠️ **여기 두는 이유**: 졸업 전의 마이 룸은 인트로의 공주 그림을 제 `<svg>` 에
           담는데 그 svg 에는 `<defs>` 가 없다. 인트로 안에만 두면 인트로를 안 본 접속에서
@@ -610,13 +593,13 @@
         <!-- ⚠️ 다섯 버튼은 **처음에는 다 숨어 있다** (`hidden`). 튜토리얼을 막 마친
              화면에 다섯이 한꺼번에 서 있으면 무엇부터인지 알 수가 없다 —
              켜는 것은 `renderActBadges()` 한 곳뿐이고, 조건은 `actOpen()` 에 모여 있다 -->
-        <button id="actExercise" class="room-act" onclick="openExercise()" hidden>
-          <span aria-hidden="true">🏃</span><span data-i18n="act_exercise">운동</span>
+        <button id="actExercise" class="room-act" data-i18n-aria="act_exercise" onclick="openExercise()" hidden>
+          <span class="act-ic" aria-hidden="true">🏃</span>
         </button>
         <!-- 혼자 먹은 밤 — 안 본 것이 있으면 붉은 뱃지에 **몇 번인지** 적힌다.
              레드닷 하나로는 「하나 있나 보다」로 읽혀서, 세 밤이 쌓인 것을 못 알린다 -->
-        <button id="actBinge" class="room-act" onclick="openBingeScene()" hidden>
-          <span aria-hidden="true">🍗</span><span data-i18n="act_binge">흡입</span>
+        <button id="actBinge" class="room-act" data-i18n-aria="act_binge" onclick="openBingeScene()" hidden>
+          <span class="act-ic" aria-hidden="true">🍗</span>
           <span id="bingeBadge" class="act-badge" hidden>0</span>
         </button>
         <!-- 크리처 생산 (CREATURE.md 8장) — 만든 것은 **저절로 가방에 들어간다.**
@@ -625,19 +608,19 @@
         <!-- 부엌 — 요리사 클레멘 (STORY.md). **그는 대가 없이 준다.**
              ⚠️ 퀘스트와 상관없이 열려 있다: 「혼자 먹은 밤」을 피할 길을
              선택 콘텐츠 뒤에 숨기면 안 된다. 하루에 한 번, 오늘 먹었으면 점이 꺼진다 -->
-        <button id="actKitchen" class="room-act" onclick="openKitchen()" hidden>
-          <span aria-hidden="true">🍲</span><span data-i18n="act_kitchen">부엌</span>
+        <button id="actKitchen" class="room-act" data-i18n-aria="act_kitchen" onclick="openKitchen()" hidden>
+          <span class="act-ic" aria-hidden="true">🍲</span>
           <span id="kitchenDot" class="tab-dot act-dot" hidden></span>
         </button>
-        <button id="actProduce" class="room-act" onclick="openProduceLog()" hidden>
-          <span aria-hidden="true">🧺</span><span data-i18n="act_produce">수확</span>
+        <button id="actProduce" class="room-act" data-i18n-aria="act_produce" onclick="openProduceLog()" hidden>
+          <span class="act-ic" aria-hidden="true">🧺</span>
           <span id="produceBadge" class="act-badge" hidden>0</span>
         </button>
         <!-- 농장 (CREATURE.md 10장) — 생산과 **별개로** 밖에 내놓은 몫이 쌓이는 자리다.
              안 털리고 거두면 그날 생산이 두 배가 되고, 털리면 그 덤만 잃는다.
              뱃지에는 **안 본 침입 기록 수**를 적는다 (흡입·수확과 같은 규칙) -->
-        <button id="actFarm" class="room-act" onclick="openFarm()" hidden>
-          <span aria-hidden="true">🌾</span><span data-i18n="act_farm">농장</span>
+        <button id="actFarm" class="room-act" data-i18n-aria="act_farm" onclick="openFarm()" hidden>
+          <span class="act-ic" aria-hidden="true">🌾</span>
           <span id="farmBadge" class="act-badge" hidden>0</span>
         </button>
       </div>
@@ -1243,33 +1226,33 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20261001c"></script>
-<script src="intro.js?v=20261001c"></script>
-<script src="data.js?v=20261001c"></script>
+<script src="i18n.js?v=20261001d"></script>
+<script src="intro.js?v=20261001d"></script>
+<script src="data.js?v=20261001d"></script>
 <!-- ⚠️⚠️ **`roomart.js` 는 «모듈보다 먼저»** 와야 한다. 방과 소품의 그림이 여기
      한 곳에 있고, 3D 방(room3d.js · ES 모듈)이 `window.RoomArt` 로 그것을 읽는다 —
      SVG 폴백(avatar.js)도 같은 캔버스를 data URL 로 쓴다.
      (평범한 스크립트가 모듈보다 먼저 도는 것이 규칙이지만, 순서로도 적어 둔다) -->
-<script src="roomart.js?v=20261001c"></script>
-<script src="avatar.js?v=20261001c"></script>
-<script src="village.js?v=20261001c"></script>
-<script src="portrait.js?v=20261001c"></script>
-<script src="creature.js?v=20261001c"></script>
-<script src="cauldron.js?v=20261001c"></script>
-<script src="pumpkin.js?v=20261001c"></script>
-<script src="walnut.js?v=20261001c"></script>
-<script src="rock.js?v=20261001c"></script>
-<script src="fish.js?v=20261001c"></script>
-<script src="sparrow.js?v=20261001c"></script>
-<script src="pinwheel.js?v=20261001c"></script>
-<script src="driller.js?v=20261001c"></script>
-<script src="sfx.js?v=20261001c"></script>
-<script src="sync.js?v=20261001c"></script>
+<script src="roomart.js?v=20261001d"></script>
+<script src="avatar.js?v=20261001d"></script>
+<script src="village.js?v=20261001d"></script>
+<script src="portrait.js?v=20261001d"></script>
+<script src="creature.js?v=20261001d"></script>
+<script src="cauldron.js?v=20261001d"></script>
+<script src="pumpkin.js?v=20261001d"></script>
+<script src="walnut.js?v=20261001d"></script>
+<script src="rock.js?v=20261001d"></script>
+<script src="fish.js?v=20261001d"></script>
+<script src="sparrow.js?v=20261001d"></script>
+<script src="pinwheel.js?v=20261001d"></script>
+<script src="driller.js?v=20261001d"></script>
+<script src="sfx.js?v=20261001d"></script>
+<script src="sync.js?v=20261001d"></script>
 <!-- 방을 3D 로 그리는 모듈. **모듈이라 미뤄져 실행된다** — 그래서 게임은
      이것이 «없어도» 돈다 (SVG 방 그대로). 준비되면 room3d-ready 로 알린다 -->
-<script type="module" src="room3d.js?v=20261001c"></script>
-<script src="game.js?v=20261001c"></script>
-<script src="tutorial.js?v=20261001c"></script>
-<script src="a11y.js?v=20261001c"></script>
+<script type="module" src="room3d.js?v=20261001d"></script>
+<script src="game.js?v=20261001d"></script>
+<script src="tutorial.js?v=20261001d"></script>
+<script src="a11y.js?v=20261001d"></script>
 </body>
 </html>

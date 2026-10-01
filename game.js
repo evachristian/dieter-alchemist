@@ -6552,8 +6552,11 @@ function renderSoloActs() {
   // ⚠️⚠️ **🪄 꾸미기가 맨 앞이다.** 표정·문신은 «사람»을 고치고 이쪽은 «방»을 고치는데,
   //    여기는 마이 룸이라 방이 먼저다. 표에서 뽑지 않는 유일한 버튼이라 이 한 줄이다 —
   //    꾸미기는 옷장 칸이 아니고(`WARDROBE_SLOTS` 에 없다) 시트도 따로다
-  const decorBtn = `<button class="room-act" data-slot="decor" onclick="openDecorSheet()">
-    <span class="act-ic" aria-hidden="true">🪄</span><span>${escHtml(T('act_decor'))}</span>
+  // ⚠️ **글자를 한 자도 안 넣는다** — 여덟 버튼이 다 그림 하나다(사람이 정했다).
+  //    이름은 `aria-label` 이 맡는다 (헤더의 ↺ · 둘러보기 화살표와 같은 조리법)
+  const decorBtn = `<button class="room-act" data-slot="decor" onclick="openDecorSheet()"
+    aria-label="${escHtml(T('act_decor'))}">
+    <span class="act-ic" aria-hidden="true">🪄</span>
   </button>`;
   box.innerHTML = !S.tutorialDone ? '' : decorBtn + soloSlots().map(m => {
     // ⚠️ 그림은 **«지금 걸려 있는 것»**이다 — 표에 박힌 그림이 아니다.
@@ -6563,8 +6566,9 @@ function renderSoloActs() {
     //    「없음」(문신)처럼 그림이 없는 것은 표의 그림으로 떨어진다
     const worn = (D.WARDROBE[m.slot] || []).find(x => x.id === S.outfit[m.slot]);
     const ic = (worn && worn.emoji) || m.emoji;
-    return `<button class="room-act" data-slot="${m.slot}" onclick="openSlotSheet('${m.slot}')">
-      <span class="act-ic" aria-hidden="true">${ic}</span><span>${escHtml(N(m.slot, m.label))}</span>
+    return `<button class="room-act" data-slot="${m.slot}" onclick="openSlotSheet('${m.slot}')"
+      aria-label="${escHtml(N(m.slot, m.label))}">
+      <span class="act-ic" aria-hidden="true">${ic}</span>
     </button>`;
   }).join('');
 }

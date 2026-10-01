@@ -599,11 +599,20 @@ function mask(A, B) {
       //    (인물을 「찍기 직전마다」 치우는 것과 같은 자리다)
       // ⚠️ `glow` 를 `false` 로 주면 **빛무리는 끈 채로** 둔다 — 그러면 남는 것이
       //    «비추는 몫»(`PointLight`)뿐이라 그쪽만 따로 잴 수 있다 (아래 ⑨의 세 번째 줄)
+      // ⚠️⚠️ **세기를 0 으로 두는 것만으로는 모자란다 — «보임»까지 끈다.**
+      //    끄고 찍는 사이에 아무 `render()` 나 한 번 지나가면(저장 디바운스가 3초 뒤에
+      //    터지는 것이 그렇다) `setDecor` → `putUnit` 이 **세기를 도로 잡아** 켜진 방을
+      //    찍는다 — 같은 코드가 **세 번에 한 번쯤** 「초저녁이 밤과 달라졌다」로
+      //    빨개지던 원인이다 (HEAD 에서도 그랬다 · 0.142 ↔ 0.208 로 널뛰었다).
+      //    `visible` 은 세기를 잡는 어느 길도 안 건드리므로 그 창이 닫힌다
       const lamps = (on, glow) => page.evaluate(([v, g]) => {
         room3d.parts.LIT.forEach(L => {
           if (L.glow) L.glow.visible = v && g !== false;
-          if (v) { if (L.__on != null) L.light.intensity = L.__on; }
-          else { if (L.light.intensity > 0) L.__on = L.light.intensity; L.light.intensity = 0; }
+          if (v) { if (L.__on != null) L.light.intensity = L.__on; L.light.visible = true; }
+          else {
+            if (L.light.intensity > 0) L.__on = L.light.intensity;
+            L.light.intensity = 0; L.light.visible = false;
+          }
         });
         room3d.render();
       }, [on, glow]);

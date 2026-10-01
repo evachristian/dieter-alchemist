@@ -292,7 +292,10 @@
    (`I18N.em()` · `<span class="em">`). 여기 서는 것은 **글자가 없는 요소**뿐이다.
    ⚠️ 목록에 «글자가 섞인» 선택자를 도로 넣지 말 것 — `checkemoji` 의
    「테를 두른 자리」가 이 규칙에서 선택자를 읽어 직접 잡는다 */
-.tab-icon, .creature-art, .lg-face, .em {
+/* ⚠️ `.act-ic`(방 버튼 여덟)는 **글자를 걷어 낸 2026-10-01 에 들어왔다** — 그전에는
+   낱말이 같이 들어 있어서 이 목록에 둘 수가 없었다. 걷고 나니 다크에서 🌾 가
+   2.75:1(밝은 테마 3.90)로 떨어져 `test:emoji` 가 그 자리에서 잡았다 */
+.tab-icon, .creature-art, .lg-face, .em, .act-ic {
   text-shadow: var(--emoji-edge);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -2125,10 +2128,21 @@ button.tm-slot:active { transform: scale(0.94); }
   position: absolute; right: 8px; bottom: 6px; z-index: 3;
   display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
 }
+/* ⚠️⚠️ **그림 하나짜리 동그란 버튼이다 — 글자가 없다** (2026-10-01 · 사람이 정했다).
+   여덟이 다 그러므로 이름은 `aria-label` 이 맡는다 (헤더의 ↺ 와 같은 조리법).
+   ⚠️ 글자를 도로 넣지 말 것 — 방 그림 위의 알약 여덟에 낱말이 붙으면 그만큼
+   방이 가려지고, 영어에서는 폭이 1.5~2배가 되어 인물까지 덮는다.
+   ⚠️ **글자가 없어도 `font-size` 는 남는다** — 그림이 곧 글자(이모지)라서다.
+   ⚠️⚠️ **알약과 그림의 «비»가 검사에 걸린다.** 처음에 38px 알약에 1.1rem 을 넣었더니
+   `test:emoji` 가 다크에서 🌾 2.75:1(밝은 테마 3.90)로 잡았다 — 그림이 알약을 거의
+   채워, 배경으로 재는 둘레 띠가 **알약 밖(방 그림)으로 새어 나갔다.**
+   알약을 42px 로 키워도 풀리는데 그러면 줄이 20px 길어져 둘러보기와 **딱 붙는다** —
+   그래서 **그림을 줄였다**(0.95rem). 둘을 같이 볼 것 */
 .room-act {
-  display: flex; align-items: center; gap: 5px;
-  padding: 7px 12px; border: none; border-radius: 999px; cursor: pointer;
-  font-family: inherit; font-size: 0.82rem; font-weight: 800; color: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; padding: 0;
+  border: none; border-radius: 999px; cursor: pointer;
+  font-family: inherit; font-size: 0.95rem; font-weight: 800; color: var(--ink);
   background: var(--float);
   box-shadow: 0 2px 8px rgba(60,40,55,0.28);
 }
@@ -2216,21 +2230,11 @@ button.tm-slot:active { transform: scale(0.94); }
 .avatar-svg { height: 328px; width: auto; display: block; filter: drop-shadow(0 8px 12px rgba(180,140,160,0.28)); }
 
 /* ─── 페이퍼돌 — 방에 선 아바타는 «오려 낸 종이 조각»이다 ──────────────
-   종이 결 + 조각 그림자를 얹는다. 필터는 `index.html` 의 `#pdPaper` 한 곳이고
-   («왜 SVG 안이 아닌가»도 거기 적어 뒀다), 여기서는 **방에 선 것에만** 건다.
-
-   ⚠️⚠️ **거는 자리가 `g.doll` 이지 `svg` 가 아니다.** svg 에 걸면 그 안의
-   **발밑 그림자 타원**까지 조각 그림자가 왼쪽 아래로 옮겨 발이 바닥에서 떠 보인다.
-   ⚠️ 이것을 잡는 검사는 «없다» — 「서는 자리」는 발밑 타원을 DOM 상자로 찾아서
-   필터를 안 탄다 (사보타주로 재 보니 0.0px 로 통과했다). 구조로 막는 자리다.
-
-   ⚠️ **졸업 전(인트로 공주 그림)에는 안 걸린다** — 그 그림에는 `g.doll` 이 없다
-      (`roomFigure` 가 인트로 SVG 를 그대로 쓴다 · `placeFigure` 와 같은 갈래다).
-
-   ⚠️ 숨쉬기는 **이 겹의 조상**(`.char-body > svg`)에 걸려 있다 — 조상의 변환만
-      바뀌면 브라우저가 필터 결과를 다시 안 만들고 그대로 늘린다. 반대로 결을
-      이 겹 «안»의 조각에 걸면 눈 깜박임마다 필터가 다시 돈다 */
-.char-body > svg.avatar-svg > g.doll { filter: url(#pdPaper); }
+   ⚠️⚠️ **규칙도 값도 `index.html` 의 `<style>` 한 줄에 있다** — 인트로의 공주·요정과
+   **같은 조각 그림자**를 쓰므로 선택자 하나에 셋이 같이 걸린다. 여기 베껴 두면
+   한쪽만 고쳐 갈린다.
+   ⚠️⚠️ **«종이 결»은 2026-10-01 에 걷었다** (「캐릭터에서 종이질 제거해줘.
+   지저분하다」). 결을 도로 넣을 일이 있으면 거기 적어 둔 세 줄을 먼저 읽을 것 */
 
 /* ─── 아이들(IDLE) 모션 — 숨쉬기 + 눈 깜박임 ────────────────────────────
    마이 룸에 «가만히 서 있는» 동안에만 돈다. 무한 반복이라 `settle()` 이 안 건드리므로
