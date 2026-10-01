@@ -214,12 +214,41 @@ export function createRoom(canvas, opt) {
   }
 
   // ── 창 — 뒷벽에 «붙인» 카드 ───────────────────────────────────
-  function windowTex(night) {
+  //
+  // ⚠️⚠️ **창의 «모양»이 둘이다** — 네모(`cross`)는 공방·마이 룸, **아치**(`arch`)는
+  //    인트로의 성 침실이다 (`setWindow`). 유리 «안»(하늘·달·별·언덕·반사)은
+  //    **이 함수 한 몸**을 지난다 — 두 벌로 두면 밤하늘을 고쳤을 때 한쪽만 옛 하늘에
+  //    남는다 (`SKY_LIGHT` 를 표 하나로 두는 것과 같은 규칙이다). 갈리는 것은 **창틀**뿐이다.
+  // ⚠️ **네모 쪽은 한 픽셀도 안 바뀐다** — 아치에만 오림(clip)이 걸리고, 네모는 자르지
+  //    않는다. 자르면 먼 언덕의 밑단 2px 이 깎여 마이 룸의 창이 조용히 한 줄 달라진다
+  //    (그래서 `if (inner)` 가 달린 줄이 셋이다 — 그 셋 말고는 옛 코드 그대로다)
+  // ⚠️ **카드의 크기(2.5 × 3.4)도 서는 자리도 그대로다.** 「아치니까 더 높게」로 상자를
+  //    키우면 뒷벽에 선 다른 것들(커튼 자리·화분)과 어긋난다 — 아치는 «그려진 모양»이다
+  const archPts = (x0, x1, yBot, yTop) => {       // 위가 둥근 다각형 (아치 한 짝)
+    const cx = (x0 + x1) / 2, r = (x1 - x0) / 2, sp = yTop + r;   // sp: 아치가 시작하는 높이
+    const p = [[x0, yBot]];
+    for (let i = 0; i <= 28; i++) {
+      const a = Math.PI - Math.PI * i / 28;
+      p.push([cx + Math.cos(a) * r, sp - Math.sin(a) * r]);
+    }
+    p.push([x1, yBot]);
+    return p;
+  };
+  const poly = (g, pts) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); };
+  function windowTex(night, arch) {
     return tex(512, 700, (g, w, h) => {
+      // 아치는 창틀을 «통째로» 먼저 깔고 그 위에 유리를 오려 얹는다 —
+      // 테두리 링을 따로 만들 필요가 없고, 두께가 어디서나 같다
+      const inner = arch ? archPts(44, w - 44, h - 52, 44) : null;
+      if (inner) {
+        paperShape(g, archPts(10, w - 10, h - 16, 10), '#5b4636', { cut: 7, ink: 5, seed: 27 });
+        g.save(); poly(g, inner); g.clip();
+      }
       const sky = g.createLinearGradient(0, 40, 0, h - 40);
       if (night) { sky.addColorStop(0, '#2b2c5c'); sky.addColorStop(1, '#4e4e86'); }
       else { sky.addColorStop(0, '#8ed3f6'); sky.addColorStop(1, '#dff0fb'); }
-      g.fillStyle = sky; g.fillRect(28, 40, w - 56, h - 100);
+      g.fillStyle = sky;
+      if (inner) g.fillRect(20, 20, w - 40, h - 20); else g.fillRect(28, 40, w - 56, h - 100);
       if (night) {
         g.fillStyle = '#f9f2cc'; g.beginPath(); g.arc(w * 0.66, 170, 46, 0, 7); g.fill();
         g.fillStyle = '#3a3a72'; g.beginPath(); g.arc(w * 0.56, 148, 44, 0, 7); g.fill();
@@ -235,25 +264,58 @@ export function createRoom(canvas, opt) {
       g.beginPath(); g.moveTo(28, h - 130);
       g.quadraticCurveTo(w * 0.35, h - 250, w * 0.62, h - 140);
       g.quadraticCurveTo(w * 0.82, h - 196, w - 28, h - 120);
-      g.lineTo(w - 28, h - 56); g.lineTo(28, h - 56); g.fill();
+      g.lineTo(w - 28, h - (inner ? 40 : 56)); g.lineTo(28, h - (inner ? 40 : 56)); g.fill();
       g.save(); g.globalAlpha = 0.2; g.fillStyle = '#fff';  // 유리 반사 — 사선 둘
       g.beginPath(); g.moveTo(60, h - 90); g.lineTo(190, 60); g.lineTo(240, 60); g.lineTo(110, h - 90); g.fill();
       g.beginPath(); g.moveTo(250, h - 90); g.lineTo(330, 60); g.lineTo(356, 60); g.lineTo(276, h - 90); g.fill();
       g.restore();
-      const fr = '#7a4f30';                                 // 창틀 — 오려 붙인 종이
-      paperShape(g, rect(0, 0, w, 46), fr, { cut: 7, ink: 5, seed: 21 });
-      paperShape(g, rect(0, h - 58, w, 58), fr, { cut: 7, ink: 5, seed: 22 });
-      paperShape(g, rect(0, 0, 38, h), fr, { cut: 7, ink: 5, seed: 23 });
-      paperShape(g, rect(w - 38, 0, 38, h), fr, { cut: 7, ink: 5, seed: 24 });
-      paperShape(g, rect(w / 2 - 14, 32, 28, h - 84), fr, { cut: 4, ink: 4, seed: 25 });
-      paperShape(g, rect(22, h * 0.46, w - 44, 26), fr, { cut: 5, ink: 5, seed: 26 });
+      if (inner) {
+        g.restore();                                        // 유리 오림 끝
+        // 아치의 살 — 아치가 시작하는 높이(sp)에서 가로로 한 줄, 그 아래로 세로 한 줄,
+        // 머리에는 아치 중심에서 뻗는 살 둘. 「둥근 창」이 아니라 「아치창」으로 읽히게 한다
+        const st = '#5b4636', sp = 44 + (w - 88) / 2;
+        paperShape(g, rect(44, sp - 11, w - 88, 22), st, { cut: 5, ink: 5, seed: 28 });
+        paperShape(g, rect(w / 2 - 11, sp, 22, h - 52 - sp), st, { cut: 4, ink: 4, seed: 29 });
+        paperShape(g, rect(44, h * 0.62, w - 88, 20), st, { cut: 5, ink: 5, seed: 30 });
+        g.save(); g.strokeStyle = st; g.lineWidth = 18; g.lineCap = 'butt';
+        [0.75, 0.25].forEach(k => {
+          const a = Math.PI * k, r = (w - 88) / 2;
+          g.beginPath(); g.moveTo(w / 2, sp); g.lineTo(w / 2 + Math.cos(a) * r, sp - Math.sin(a) * r); g.stroke();
+        });
+        g.restore();
+      } else {
+        const fr = '#7a4f30';                               // 창틀 — 오려 붙인 종이
+        paperShape(g, rect(0, 0, w, 46), fr, { cut: 7, ink: 5, seed: 21 });
+        paperShape(g, rect(0, h - 58, w, 58), fr, { cut: 7, ink: 5, seed: 22 });
+        paperShape(g, rect(0, 0, 38, h), fr, { cut: 7, ink: 5, seed: 23 });
+        paperShape(g, rect(w - 38, 0, 38, h), fr, { cut: 7, ink: 5, seed: 24 });
+        paperShape(g, rect(w / 2 - 14, 32, 28, h - 84), fr, { cut: 4, ink: 4, seed: 25 });
+        paperShape(g, rect(22, h * 0.46, w - 44, 26), fr, { cut: 5, ink: 5, seed: 26 });
+      }
     }, { units: 2.5 });
   }
-  const WIN_DAY = windowTex(false), WIN_NIGHT = windowTex(true);
-  const winMesh = paperCard(WIN_DAY, 2.5, 3.4, { curl: 0.012 });
+  // ⚠️ **모양마다 한 번만 굽는다** — 시간대를 오갈 때마다 다시 구우면 그때마다 멈칫한다.
+  //    네모의 두 장은 예전 그대로 바로 굽는다 (마이 룸이 첫 프레임에 그것을 쓴다)
+  const WIN = { crossD: windowTex(false), crossN: windowTex(true) };
+  const winTex = (shape, night) => {
+    const k = shape + (night ? 'N' : 'D');
+    if (!WIN[k]) WIN[k] = windowTex(night, shape === 'arch');
+    return WIN[k];
+  };
+  const winMesh = paperCard(WIN.crossD, 2.5, 3.4, { curl: 0.012 });
   winMesh.material.alphaTest = 0;
   stand(winMesh, 2.5, 3.7, -ROOM_D / 2 + 0.06, { shadow: 0 });
   const winMat = winMesh.material;
+  // 창의 모양을 갈아 끼운다 (`'cross'` · `'arch'`)
+  // ⚠️ 모르는 이름은 네모로 떨어뜨린다 — 오타 하나로 창이 통째로 사라지면 안 된다
+  let winShape = 'cross';
+  function setWindow(shape) {
+    const s = shape === 'arch' ? 'arch' : 'cross';
+    if (s === winShape) return;
+    winShape = s;
+    winMat.map = winTex(s, phase === 'night' || phase === 'evening');
+    winMat.needsUpdate = true;
+  }
 
   // 창에서 드는 빛 한 줄기 — 「빛이 어디서 오는가」가 한눈에 보인다
   const shaftTex = tex(128, 256, (g, w, h) => {
@@ -666,7 +728,7 @@ export function createRoom(canvas, opt) {
     const A = window.Avatar || {};
     const t = (A.SKY_LIGHT || {})[p];
     const d = typeof t === 'number' ? t : (night ? 0 : 1);   // 방에 든 햇빛
-    winMat.map = night ? WIN_NIGHT : WIN_DAY; winMat.needsUpdate = true;
+    winMat.map = winTex(winShape, night); winMat.needsUpdate = true;
     moon.intensity = night ? 1.5 : 0;
     shaft.visible = d > 0.02;
     shaft.material.opacity = d;
@@ -780,6 +842,8 @@ export function createRoom(canvas, opt) {
   function dispose() {
     run(false); dead = true;
     renderer.dispose();
+    // ⚠️ 창 텍스처는 «캐시»라 지금 안 걸려 있는 것도 있다 — 아래 traverse 는 걸린 것만 본다
+    Object.keys(WIN).forEach(k => WIN[k].dispose());
     scene.traverse(o => {
       if (o.geometry) o.geometry.dispose();
       const m = o.material;
@@ -792,8 +856,9 @@ export function createRoom(canvas, opt) {
   // ⚠️ **프로토타입은 제 돌리기를 쓴다**(궤도·펼쳐 보기·빌보드가 거기 있다) —
   //    그래서 조각들을 같이 내놓는다. 감춰 두면 프로토타입이 세트를 다시 짜게 되고,
   //    그 순간 이 파일이 「유일한 곳」이 아니게 된다
-  return { scene, camera, renderer, cards, resize, aim, setLevel, setDecor, setPhase, floorRect, spin, spinAt, run, dispose,
+  return { scene, camera, renderer, cards, resize, aim, setLevel, setDecor, setPhase, setWindow, floorRect, spin, spinAt, run, dispose,
     render: () => renderer.render(scene, camera),
+    get winShape() { return winShape; },
     parts: { glyph, backWall, floor, walls, shaft, winMat, moon, key, amb, brewLight, shadowTex,
       units, SLOTS, LIT, dust, dustGeo, dpos, dphase, DUST, ROOM_W, ROOM_D, WALL_H, FLOOR_R },
     get slow() { return slow; } };

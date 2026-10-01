@@ -629,6 +629,19 @@ function mask(A, B) {
       //    등불을 밝게 한 것이 「낮이 안 밝다」로 잡히는 꼴이다.
       //    문턱을 낮춰서 맞추면 그건 잣대를 결과에 맞춘 것이라, **잴 수 있는 자리로
       //    옮겼다**: 햇빛은 여기가, 등불은 아래 ⑨ 가 본다 (둘 다 사보타주로 확인했다)
+      // ⚠️⚠️ **재는 동안 루프를 «못 돌게» 묶어 둔다.** `goPhase` 가 부르는 `render()` 는
+      //    `room3dSync` 를 지나고, 그 끝은 **`room3d.run(true)`** 다 — 그래서 `run(false)`
+      //    로 멈춰 놓아도 한 걸음 뒤에 되살아난다. 한 프레임만 돌아도 `frame()` 이
+      //    `light.intensity` 를 도로 잡아 **`lamps(false)` 로 꺼 둔 등불이 켜진 채로 찍힌다** —
+      //    그것이 ⑧ 「표를 0 으로 두면 0.174(밤 0.142)」 와 ⑨ 「다시 놓으면 +0.001」 로
+      //    **네 번에 한 번쯤 거짓으로 빨개지던** 원인이다 (같은 코드가 돌릴 때마다
+      //    0.143 ↔ 0.174 · +0.134 ↔ +0.001 로 널뛰었다).
+      // ⚠️ 그래서 «멈추는 것»이 아니라 **`run` 자체를 묶는다** — 아래 ⑧·⑨ 가 끝나면 푼다
+      await page.evaluate(() => {
+        room3d.run(false);
+        room3d.__run = room3d.run;
+        room3d.run = () => {};
+      });
       const lum = {};
       const bands = await page.evaluate(() => window.Avatar.SKY_BANDS.map(b => b.k));
       for (const k of bands) { await goPhase(k); await lamps(false); lum[k] = meanOf(await shot(lightBox)); }
@@ -844,6 +857,8 @@ function mask(A, B) {
         else lampOut += ` · SVG 빛무리 r${rD} → r${rN}`;
       }
       if (lampOut) lightOut += ` | 등불 ${lampOut}`;
+      // 루프를 도로 풀어 준다 (묶은 채로 두면 뒤에 오는 것이 멎은 방을 본다)
+      await page.evaluate(() => { if (room3d.__run) { room3d.run = room3d.__run; delete room3d.__run; } });
 
       // 시계를 되돌린다 — 뒤에 오는 것이 옮겨 놓은 시계를 물려받지 않게
       await page.evaluate(() => { S.devClock = 0; setDevClock(0); render(); });

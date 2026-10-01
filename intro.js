@@ -8,9 +8,33 @@
   // ─── 공용 파츠 ───────────────────────────────────────────────
   const SKIN = '#ffdcc4', SKIN_SH = '#f2c6a6', HAIR = '#7b5640', HAIR_SH = '#63432f';
 
+  // ─── 발밑 그림자 — **두 겹이다** ────────────────────────────────
+  //
+  // 한 겹이면 가장자리가 딱 끊겨 바닥에 «붙여 놓은 스티커»로 보인다. 이것은
+  // `avatar.js` 가 이미 푼 문제라 **같은 조리법**을 쓴다 (`crouchBack` 의 그 두 줄) —
+  // 번지는 겹이 더 넓고, 그 위에 좁고 진한 겹이 하나 더 얹힌다.
+  // ⚠️ **비도 아바타에서 가져왔다** — 번지는 겹이 1.52배 넓고 납작한 정도가 0.171,
+  //    진한 겹은 0.14 다. 「적당히」로 다시 고르면 인트로의 바닥만 다른 바닥이 된다.
+  // ⚠️⚠️ **두 겹은 조각 그림자(`#pdPaper`) «밖»에 있어야 한다.** 안에 넣으면 바닥
+  //    그림자까지 왼쪽 아래로 밀려 **발이 바닥에서 떠 보인다** — 마이 룸이 그 필터를
+  //    `svg` 가 아니라 `g.doll` 에 거는 이유가 그것이다. 그래서 인물마다 그림자는
+  //    밖에, 몸은 `<g class="i-doll">` 안에 둔다
+  const FOOT_Y = 286, FOOT_RX = 52;      // 공주가 서는 높이 · 그림자 반폭
+  function groundShadow(cx, cy, rx) {
+    return `<ellipse cx="${cx}" cy="${(cy + 3).toFixed(1)}" rx="${(rx * 1.52).toFixed(1)}"`
+      + ` ry="${(rx * 1.52 * 0.171).toFixed(1)}" fill="url(#iShadow)"/>`
+      + `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${(rx * 0.14).toFixed(1)}" fill="rgba(20,10,25,0.2)"/>`;
+  }
+
   // 중세 실내 배경 — 9:16 세로 (400 x 711)
+  //
+  // ⚠️⚠️ **이 그림을 «지우지» 않는다 — 3D 가 서면 덮는다.** 마이 룸이 이미 정한
+  //    규칙이다(`.room-scene.is3d .room-2d { visibility: hidden }`): ① WebGL 이 없는
+  //    기기가 실제로 보는 그림이고 ② 3D 가 서기까지의 한 프레임을 이것이 메운다.
+  //    그래서 두 배경은 «걷을 수 있는» 겹(`.i-bg`)으로 묶여 있다
   function bg() {
-    return `
+    bgSet = 'castle';
+    return `<g class="i-bg">
       <rect x="0" y="0" width="400" height="711" fill="url(#iWall)"/>
       <g stroke="rgba(120,90,60,0.16)" stroke-width="2">
         <line x1="0" y1="110" x2="400" y2="110"/><line x1="0" y1="210" x2="400" y2="210"/>
@@ -41,7 +65,8 @@
       <g stroke="#8a6038" stroke-width="2" opacity="0.5">
         <line x1="130" y1="446" x2="30" y2="711"/><line x1="200" y1="446" x2="200" y2="711"/><line x1="270" y1="446" x2="370" y2="711"/>
       </g>
-      <line x1="0" y1="530" x2="400" y2="530" stroke="#8a6038" stroke-width="1.6" opacity="0.45"/>`;
+      <line x1="0" y1="530" x2="400" y2="530" stroke="#8a6038" stroke-width="1.6" opacity="0.45"/>
+      </g>`;
   }
 
   // ─── 공주 드레스의 넥라인 ──────────────────────────────────
@@ -79,7 +104,8 @@
   // 통통한 공주 — 앞모습으로 치킨 먹는 중
   function princessEating() {
     return `<g>
-      <ellipse cx="150" cy="286" rx="52" ry="8" fill="rgba(80,60,40,0.18)"/>
+      ${groundShadow(150, FOOT_Y, FOOT_RX)}
+      <g class="i-doll">
       <!-- 드레스(넉넉한 실루엣) -->
       ${princessNeckSkin()}
       <path d="M104,286 C100,236 112,206 ${princessNeckCut()} C188,206 200,236 196,286 Z" fill="#7fa06a"/>
@@ -118,6 +144,7 @@
       <ellipse cx="150" cy="281" rx="31" ry="8" fill="#fffaf0"/>
       <ellipse cx="139" cy="276" rx="11" ry="8" fill="#d99341"/><rect x="129" y="274" width="8" height="4" rx="2" fill="#f2e2c8"/>
       <ellipse cx="163" cy="278" rx="10" ry="7" fill="#c9853a"/><rect x="169" y="276" width="8" height="4" rx="2" fill="#f2e2c8"/>
+      </g>
     </g>`;
   }
 
@@ -415,7 +442,8 @@
     const f = princessFace(mood, sweat);
     const eyes = f.eyes, mouth = f.mouth, extra = f.extra, over = f.over;
     return `<g>
-      <ellipse cx="150" cy="286" rx="52" ry="8" fill="rgba(80,60,40,0.18)"/>
+      ${groundShadow(150, FOOT_Y, FOOT_RX)}
+      <g class="i-doll">
       ${princessNeckSkin()}
       <path d="M104,286 C100,236 112,206 ${princessNeckCut()} C188,206 200,236 196,286 Z" fill="#7fa06a"/>
       <path d="M112,262 L188,262" stroke="#6a8a58" stroke-width="4"/>
@@ -423,6 +451,7 @@
       ${princessHead(eyes, mouth, extra)}
       ${over}
       ${bubble ? speechBubble() : ''}
+      </g>
     </g>`;
   }
 
@@ -483,7 +512,8 @@
     // 흉했다. 치마를 바닥까지 내리고 다리를 안으로 넣었다 — 신발 코만 살짝 보인다.
     const HEM = 284, FOOT = 289;
     return `<g>
-      <ellipse cx="150" cy="${FOOT + 4}" rx="50" ry="6" fill="rgba(80,60,40,0.18)"/>
+      ${groundShadow(150, FOOT + 4, 50)}
+      <g class="i-doll">
       <!-- 신발 코 — 치마 밑단에 윗부분이 가리도록 **먼저** 그린다 -->
       <ellipse cx="136" cy="${FOOT}" rx="13" ry="5.5" fill="#8a5a3c"/>
       <ellipse cx="164" cy="${FOOT}" rx="13" ry="5.5" fill="#8a5a3c"/>
@@ -500,12 +530,14 @@
             stroke="#6a8a58" stroke-width="3.5" fill="none" stroke-linecap="round"/>
       ${princessArms(224, 262, 264)}
       ${princessHead(f.eyes, f.mouth, f.extra)}
+      </g>
     </g>`;
   }
 
   // ─── Scene #2: 어둡고 허름한 연금술 공방 ───
   function bg2() {
-    return `
+    bgSet = 'atelier';
+    return `<g class="i-bg">
       <rect x="0" y="0" width="400" height="711" fill="url(#iWall2)"/>
       <g stroke="rgba(40,32,26,0.28)" stroke-width="2">
         <line x1="0" y1="110" x2="400" y2="110"/><line x1="0" y1="210" x2="400" y2="210"/>
@@ -539,7 +571,8 @@
         <line x1="130" y1="446" x2="30" y2="711"/><line x1="200" y1="446" x2="200" y2="711"/><line x1="270" y1="446" x2="370" y2="711"/>
       </g>
       <!-- 어두운 비네트 -->
-      <rect x="0" y="0" width="400" height="711" fill="url(#iVig)"/>`;
+      <rect x="0" y="0" width="400" height="711" fill="url(#iVig)"/>
+      </g>`;
   }
 
   // 큰 가마솥 (마법으로 등장)
@@ -821,7 +854,8 @@
         <path d="M296,270 q6,-2.5 12,0" stroke="${SKIN_SH}" stroke-width="3.4" fill="none" stroke-linecap="round"/>
       </g></g>`;
     return `<g>
-      <ellipse cx="330" cy="288" rx="42" ry="7" fill="rgba(80,60,40,0.16)"/>
+      ${groundShadow(330, 288, 42)}
+      <g class="i-doll">
       <!-- 망토(넉넉) -->
       <path d="M296,288 C292,240 306,206 330,206 C354,206 368,240 364,288 Z" fill="#8fc5e8"/>
       <path d="M330,206 C318,206 310,214 308,226 L352,226 C350,214 342,206 330,206 Z" fill="#a8d6f2"/>
@@ -831,6 +865,7 @@
       <circle cx="302" cy="268" r="7" fill="${SKIN}"/>
       ${fairyHead(pose)}
       ${wand}
+      </g>
     </g>`;
   }
 
@@ -856,9 +891,19 @@
   }
 
   // ─── 배치 (9:16 캔버스 위에 캐릭터 앉히기) ───────────────────
-  // 두 캐릭터의 발끝이 같은 바닥선(y=650)에 오도록 스케일/이동
-  const P = s => `<g transform="translate(-90, 76) scale(1.5)">${s}</g>`;      // 공주 (왼쪽)
-  const F = s => `<g transform="translate(-157, 108) scale(1.38)">${s}</g>`;   // 요정 (오른쪽)
+  //
+  // 두 캐릭터의 발끝이 같은 바닥선에 오도록 스케일/이동.
+  // ⚠️⚠️ **값을 «표»로 둔다** — 3D 방의 카메라가 이것으로 바닥선과 기준 폭을 구한다
+  //    (`aimRoom`). 숫자를 `transform` 안에만 적어 두면 배치를 옮겼을 때
+  //    **방의 바닥만 옛 자리에 남는다** (마이 룸에서 「양탄자만 옮기기」 사보타주가
+  //    잡던 바로 그 사고다)
+  const P_AT = { dx: -90, dy: 76, s: 1.5 };      // 공주 (왼쪽)
+  const F_AT = { dx: -157, dy: 108, s: 1.38 };   // 요정 (오른쪽)
+  const at = (t, s) => `<g transform="translate(${t.dx}, ${t.dy}) scale(${t.s})">${s}</g>`;
+  const P = s => at(P_AT, s);
+  const F = s => at(F_AT, s);
+  // 두 사람이 서는 바닥선 (그림 좌표) — 공주의 발밑에서 뽑는다
+  const GROUND = FOOT_Y * P_AT.s + P_AT.dy;
 
   // ─── 씬 정의 ────────────────────────────────────────────────
   const IT = (k) => (window.I18N ? I18N.t(k) : k);
@@ -962,6 +1007,101 @@
   }
 
 
+  // ─── 3D 방 — 인트로의 배경도 마이 룸과 «같은 세트»다 ──────────────
+  //
+  // ⚠️⚠️ **세트를 여기서 짜지 않는다.** `room3d.js` 의 그 방을 그대로 쓰고 «껍데기»
+  //    (벽지·바닥재·소품·창 모양·단계)만 갈아 끼운다. 성 침실을 따로 모델링하면 그 순간
+  //    방이 두 벌이 되어, 카메라나 창을 고쳤을 때 한쪽만 옛 방에 남는다
+  //    (`ROOM.md` 3장의 「자리는 표가 정한다」와 같은 규칙이다).
+  // ⚠️⚠️ **공방은 「창문 하나만 있는 방」 그대로다** — 단계 1 · 시작 자재 · 소품 없음.
+  //    요정 대모가 「여기가 오늘부터 그대의 방이자 공방이에요」라고 말하는 그 방이고,
+  //    졸업하면 플레이어가 **바로 그 방**에서 깨어난다 — 인트로의 마지막 컷이 곧 마이 룸이다.
+  // ⚠️ 성 침실은 **왕실 등급**으로 꾸민다. 공주의 방이기도 하지만, 무엇보다 다음 컷의
+  //    허름한 공방과 **한눈에 갈려야** 한다 (2D 그림도 벽 색과 창 모양으로 그 둘을 갈랐다)
+  const SETS = {
+    // ⚠️ **커튼은 «일부러» 안 건다** — 커튼 자리가 곧 창 자리라, 걸면 아치창이 통째로
+    //    가려진다 (그려 보고 뺐다). 성 침실을 성 침실로 보이게 하는 것이 그 창이다
+    castle: { win: 'arch', level: 1, decor: { wall: 'rw_gold', floor: 'rf_oak',
+      props: { rug: 'rp_rug_royal', sconce: 'rp_sconce_royal',
+               chandelier: 'rp_chandelier_royal' } } },
+    atelier: { win: 'cross', level: 1, decor: null },
+  };
+  // 어느 세트인가 — **그 컷이 «그린 배경»이 정한다**(`bg`·`bg2` 가 여기에 적는다).
+  // ⚠️ 컷마다 따로 적어 두면 배경을 바꿨을 때 방만 옛 세트에 남는다
+  let bgSet = 'castle';
+  // 인트로는 늘 밤이다 — 2D 그림의 창밖도 달과 별이다
+  const PHASE_3D = 'night';
+
+  let R3 = null, r3Canvas = null, r3Tried = false;
+  function intro3d() {
+    const stage = document.getElementById('introStage');
+    if (!stage) return;
+    if (!R3) {
+      // ⚠️ 모듈은 늦게 올 수도 있다(`<script type="module">`) — 아직 안 왔으면 **다음 컷에
+      //    다시 본다**. 한 번 만들어 보고 실패했으면(WebGL 이 없다) SVG 배경 그대로다
+      if (r3Tried || !window.Room3D) return;
+      r3Tried = true;
+      try {
+        r3Canvas = document.createElement('canvas');
+        r3Canvas.className = 'i-3d';
+        r3Canvas.setAttribute('aria-hidden', 'true');
+        stage.insertBefore(r3Canvas, stage.firstChild);
+        R3 = window.Room3D.create(r3Canvas, { autorun: true });
+        window.__i3d = R3;        // 검사기가 카메라·세트를 물어보는 손잡이 (마이 룸의 `__r3d` 와 같다)
+      } catch (e) { R3 = null; return; }
+    }
+    // ⚠️ 무대를 다시 그리는 길은 없지만, 캔버스가 제자리인지는 마이 룸과 같이 확인한다
+    if (r3Canvas.parentNode !== stage) stage.insertBefore(r3Canvas, stage.firstChild);
+    stage.classList.add('is3d');
+    const set = SETS[bgSet] || SETS.atelier;
+    R3.setLevel(set.level);
+    R3.setDecor(set.decor);
+    R3.setWindow(set.win);
+    R3.setPhase(PHASE_3D);
+    const r = stage.getBoundingClientRect();
+    R3.resize(Math.round(r.width), Math.round(r.height));
+    aimRoom(r);
+    R3.run(true);
+    R3.render();
+  }
+
+  // 카메라를 «그려진 그림»에 맞춘다 — 상수로 적지 않는다.
+  //
+  // ⚠️⚠️ **기준 폭은 마이 룸과 «같은 비»로 둔다.** 아바타의 발밑 그림자(반폭 52)가 방의
+  //    기준 반폭(`Avatar.FLOOR_HALF` 150)의 0.347 을 차지하므로, 인트로의 공주 그림자도
+  //    같은 몫이 되게 기준을 역산한다 — 그래야 인물과 방의 크기 비가 두 화면에서 같다.
+  //    0.34 같은 상수로 적어 두면 인물의 배율을 옮겼을 때 **방만 옛 비에 남는다**
+  // ⚠️ 그림은 `xMidYMid slice` 라 화면 비에 따라 배율이 달라진다 — 그래서
+  //    `getScreenCTM()` 으로 «화면에 찍힌 자리»를 묻는다 (`placeFigure` 와 같은 규칙이다)
+  // ⚠️ `Avatar` 는 이 파일보다 «뒤»에 실린다 — 그래서 불릴 때 읽는다 (최상위에서 읽으면
+  //    늘 폴백값이 되어, 기준을 고쳐도 인트로만 안 따라온다)
+  function aimRoom(r) {
+    const svg = document.querySelector('#introArt .i-layer.on svg');
+    if (!R3 || !svg || !(r.height > 0)) return;
+    const m = svg.getScreenCTM();
+    if (!m) return;
+    const k = (window.Avatar && Avatar.FLOOR_HALF) ? FOOT_RX / Avatar.FLOOR_HALF : 0.347;
+    const half = (FOOT_RX * P_AT.s) / k;
+    const c = new DOMPoint(200, GROUND).matrixTransform(m);
+    const e = new DOMPoint(200 + half, GROUND).matrixTransform(m);
+    R3.aim((c.y - r.top) / r.height, Math.abs(e.x - c.x) / r.height);
+  }
+
+  // 인트로가 끝나면 치운다 — 마이 룸이 제 WebGL 문맥을 따로 만들기 때문이다.
+  // ⚠️ **숨기는 동안(0.6초)은 그대로 둔다** — 여기서 치우면 페이드 중에 배경만 먼저 사라진다
+  function intro3dOff() {
+    const stage = document.getElementById('introStage');
+    if (stage) stage.classList.remove('is3d');
+    if (R3) { try { R3.dispose(); } catch (e) {} }
+    if (r3Canvas && r3Canvas.parentNode) r3Canvas.parentNode.removeChild(r3Canvas);
+    R3 = null; r3Canvas = null; r3Tried = false;
+  }
+  // ⚠️ 창 크기가 바뀌면 다시 잰다 — 한 번 재고 마는 값이 아니다.
+  //    ⚠️ `checktalk`·`checkname` 은 이 파일을 **node 에서 `require`** 해 대사 표만
+  //       읽으므로 `window` 가 흉내뿐이다 — 최상위에서 DOM 을 부르면 그 검사가 터진다
+  if (typeof window.addEventListener === 'function')
+    window.addEventListener('resize', () => { if (R3 && isPlaying()) intro3d(); });
+
   // ─── 렌더 / 진행 ─────────────────────────────────────────────
   let idx = 0, onDone = null;
   let auto = true, autoTimer = null;   // 자동 재생 기본 켜짐
@@ -1038,6 +1178,8 @@
     nextLayer.classList.add('on');
     currLayer.classList.remove('on');
     artFlip = !artFlip;
+    // ⚠️ **겹을 바꾼 «뒤»에 부른다** — `aimRoom` 이 `.i-layer.on` 의 그림에 자리를 묻는다
+    intro3d();
 
     const sp = IT(s.sp);
     name.textContent = sp || '';
@@ -1180,6 +1322,7 @@
     setTimeout(() => {
       el.style.display = 'none';     // 제거하지 않고 숨김 → 다시보기 가능
       el.classList.remove('hide');
+      intro3dOff();                  // 숨긴 «뒤»에 치운다 (페이드 중에는 그대로 둔다)
       // 최초 진입이면 '마이 룸', 다시보기면 보던 화면으로 복귀
       if (typeof window.switchTab === 'function') {
         window.switchTab(isReplay && prevTab ? prevTab : 'showcase');
@@ -1289,5 +1432,7 @@
   }
 
   window.Intro = { start, next, skip, finish, startEnding, isPlaying, hasSeen, toggleAuto,
-                   princessArt, bustArt, bustPoses, SEEN_KEY };
+                   princessArt, bustArt, bustPoses, SEEN_KEY,
+                   // 지금 몇 번째 컷인가 — 검사기가 «세트가 갈리는 자리»까지 넘길 때 쓴다
+                   cutIndex: () => idx };
 })();

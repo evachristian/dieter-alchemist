@@ -13,11 +13,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260930v">
+<link rel="stylesheet" href="style.css?v=20260930w">
 <!-- ⚠️ UI 색상은 «첫 페인트 전»에 정해져야 한다 — 문서 끝에 두면 기본 색으로
      한 번 그려진 뒤에 얹혀서 다크를 고른 사람에게 흰 화면이 한 번 친다.
      그래서 여기만 `defer` 없이 `<head>` 에서 읽는다 (theme.js 주석 참고) -->
-<script src="theme.js?v=20260930v"></script>
+<script src="theme.js?v=20260930w"></script>
 </head>
 <body>
 
@@ -54,7 +54,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260930v" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20260930w" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -152,8 +152,31 @@
   #introBox.i-in #introSpeaker, #introBox.i-in #introText { animation: iFade 0.32s ease both; }
   @keyframes iFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   /* 아트가 무대 전체를 채움 */
-  #introArt { position: absolute; inset: 0; }
+  #introArt { position: absolute; inset: 0; z-index: 1; }
   #intro .intro-svg { width: 100%; height: 100%; display: block; }
+  /* ── 3D 방을 아트 «뒤»에 깐다 (마이 룸의 `.room-gl` 과 같은 자리다)
+       ⚠️ `#introArt` 는 이미 `position: absolute` 다 — 거기에 `relative` 를 얹으면
+          상자가 접혀 높이가 0 이 되고 카메라가 맞출 것을 잃는다 (실제로 겪었다).
+          캔버스는 무대(`#introStage` · 이미 relative)에 넣는다 */
+  #introStage canvas.i-3d { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+  /* 3D 가 서면 2D 배경을 «덮는다» — 지우지 않는다 (마이 룸의 `.room-2d` 와 같은 규칙).
+     WebGL 이 없는 기기가 실제로 보는 그림이고, 3D 가 서기까지의 한 프레임을 이것이 메운다 */
+  #introStage.is3d .i-bg { visibility: hidden; }
+  /* 손그림 공주·요정의 «조각 그림자» — 오려 낸 종이가 배경에서 떠 있게 한다.
+     위 `#pdPaper` 의 ① 과 **같은 값**이고(−2.4 / 4.4 / stdDeviation 3.2 → blur 6.4 / 0.34),
+     방향도 같다 (빛이 오른쪽 위라 그림자는 왼쪽 아래).
+     ⚠️⚠️ **`#pdPaper` 를 그대로 걸지 않는다 — 같은 필터가 «같은 종이»가 아니기 때문이다.**
+        필터의 결(`feTurbulence`)은 «그림 좌표»에서 뽑히는데, 화면에 선 배율이 셋 다 다르다:
+        졸업 후 아바타 0.896 · 인트로 공주 1.463 · 졸업 전 마이 룸 1.819 (재 봤다).
+        그대로 걸면 결이 1.6~2.0배 굵어져 «종이»가 아니라 «잡음»으로 읽힌다 (480px 에서
+        찍어 보고 걷었다). CSS 그림자는 «화면 px» 이라 어느 배율에서나 같은 그림자다.
+     ⚠️ 거는 자리가 `g.i-doll` 이지 `svg` 가 아니다 — svg 에 걸면 발밑 그림자까지 왼쪽
+        아래로 밀려 **발이 바닥에서 떠 보인다** (아바타가 `g.doll` 에 거는 그 이유다).
+     ⚠️ 졸업 전의 마이 룸(`svg.avatar-svg` 안의 인트로 공주)도 같이 걸린다 — 한 사람이
+        화면을 옮길 때 그림자가 사라지면 다른 사람으로 읽힌다 */
+  #intro .intro-svg g.i-doll, .char-body svg g.i-doll {
+    filter: drop-shadow(-2.4px 4.4px 6.4px rgba(0, 0, 0, 0.34));
+  }
   /* 대사 영역: 하단 도킹 */
   #introBox {
     position: absolute; left: 0; right: 0; bottom: 0;
@@ -325,6 +348,16 @@
     <feComposite in="gb" in2="SourceAlpha" operator="in" result="doll"/>
     <feMerge><feMergeNode in="sh"/><feMergeNode in="doll"/></feMerge>
   </filter>
+  <!-- 발밑 그림자의 «번지는» 겹 (두 겹 중 넓은 쪽 · intro.js 의 `groundShadow`).
+       ⚠️⚠️ **여기 두는 이유**: 졸업 전의 마이 룸은 인트로의 공주 그림을 제 `<svg>` 에
+          담는데 그 svg 에는 `<defs>` 가 없다. 인트로 안에만 두면 인트로를 안 본 접속에서
+          이 이름이 문서에 없어 **번지는 겹이 통째로 안 그려진다** — 오류도 안 나고
+          그림자만 조용히 한 겹이 된다 (`#pdPaper` 를 여기 둔 것과 같은 이유다) -->
+  <radialGradient id="iShadow" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="rgba(20,10,25,0.34)"/>
+    <stop offset="0.55" stop-color="rgba(20,10,25,0.18)"/>
+    <stop offset="1" stop-color="rgba(20,10,25,0)"/>
+  </radialGradient>
 </svg>
 
 <div class="app">
@@ -1210,33 +1243,33 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20260930v"></script>
-<script src="intro.js?v=20260930v"></script>
-<script src="data.js?v=20260930v"></script>
+<script src="i18n.js?v=20260930w"></script>
+<script src="intro.js?v=20260930w"></script>
+<script src="data.js?v=20260930w"></script>
 <!-- ⚠️⚠️ **`roomart.js` 는 «모듈보다 먼저»** 와야 한다. 방과 소품의 그림이 여기
      한 곳에 있고, 3D 방(room3d.js · ES 모듈)이 `window.RoomArt` 로 그것을 읽는다 —
      SVG 폴백(avatar.js)도 같은 캔버스를 data URL 로 쓴다.
      (평범한 스크립트가 모듈보다 먼저 도는 것이 규칙이지만, 순서로도 적어 둔다) -->
-<script src="roomart.js?v=20260930v"></script>
-<script src="avatar.js?v=20260930v"></script>
-<script src="village.js?v=20260930v"></script>
-<script src="portrait.js?v=20260930v"></script>
-<script src="creature.js?v=20260930v"></script>
-<script src="cauldron.js?v=20260930v"></script>
-<script src="pumpkin.js?v=20260930v"></script>
-<script src="walnut.js?v=20260930v"></script>
-<script src="rock.js?v=20260930v"></script>
-<script src="fish.js?v=20260930v"></script>
-<script src="sparrow.js?v=20260930v"></script>
-<script src="pinwheel.js?v=20260930v"></script>
-<script src="driller.js?v=20260930v"></script>
-<script src="sfx.js?v=20260930v"></script>
-<script src="sync.js?v=20260930v"></script>
+<script src="roomart.js?v=20260930w"></script>
+<script src="avatar.js?v=20260930w"></script>
+<script src="village.js?v=20260930w"></script>
+<script src="portrait.js?v=20260930w"></script>
+<script src="creature.js?v=20260930w"></script>
+<script src="cauldron.js?v=20260930w"></script>
+<script src="pumpkin.js?v=20260930w"></script>
+<script src="walnut.js?v=20260930w"></script>
+<script src="rock.js?v=20260930w"></script>
+<script src="fish.js?v=20260930w"></script>
+<script src="sparrow.js?v=20260930w"></script>
+<script src="pinwheel.js?v=20260930w"></script>
+<script src="driller.js?v=20260930w"></script>
+<script src="sfx.js?v=20260930w"></script>
+<script src="sync.js?v=20260930w"></script>
 <!-- 방을 3D 로 그리는 모듈. **모듈이라 미뤄져 실행된다** — 그래서 게임은
      이것이 «없어도» 돈다 (SVG 방 그대로). 준비되면 room3d-ready 로 알린다 -->
-<script type="module" src="room3d.js?v=20260930v"></script>
-<script src="game.js?v=20260930v"></script>
-<script src="tutorial.js?v=20260930v"></script>
-<script src="a11y.js?v=20260930v"></script>
+<script type="module" src="room3d.js?v=20260930w"></script>
+<script src="game.js?v=20260930w"></script>
+<script src="tutorial.js?v=20260930w"></script>
+<script src="a11y.js?v=20260930w"></script>
 </body>
 </html>
