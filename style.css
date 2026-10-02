@@ -268,6 +268,23 @@
   --emoji-edge:
     0 1px 0 var(--emoji-halo), 0 -1px 0 var(--emoji-halo),
     1px 0 0 var(--emoji-halo), -1px 0 0 var(--emoji-halo);
+  /* ⚠️⚠️ **헤더 알약의 바탕 — «색»은 테마의 `--lav` 그대로고 «알파»만 여기 하나다**
+     (2026-10-02 · 「둥근 모서리의 BG가 적절히 투명도가 살짝 있도록 · 덜 답답해
+     보이도록」으로 받았다). 테마 블록에 여섯 벌을 적으면 알파를 고칠 때 한 벌만
+     고쳐 갈린다 — `color-mix` 로 **한 줄**에서 뽑는다.
+     ⚠️⚠️ **값은 «재서» 골랐다 — 눈으로 고르면 다크에서 무너진다.** 마이 룸에서는
+     헤더가 투명해 알약이 **방 그림 «위»**에 앉는데, `checkTextStyle()` 은 조상을
+     타고 올라가 «페이지 바닥»을 배경으로 재므로 **그 자리를 영영 못 본다**
+     (「다크에서 방 그림 위에 유리를 쓰면 밝은 글자가 밝은 그림 위에 앉는다」가
+     바로 이 구멍이다). 그래서 `checktheme` 의 「헤더 알약」이 **여섯 테마 × 방 그림
+     위에서 진짜 픽셀을 떠서** 잰다 — 챠콜의 💎 개수가 이렇다:
+     **86% 6.70 · 70% 4.76(간발) · 55% 3.48(깨진다) · 40% 2.62**.
+     바닥(4.5)에서 한참 위인 86% 를 골랐다 — 알파를 더 내리려면 그 수치부터 본다.
+     ⚠️⚠️ **수치는 «그것을 지키는 잣대»로 재야 한다.** 따로 쓴 스크립트가 같은 알약을
+     0.5 낮게 내놓아(86% 6.29 · 70% 4.18) 「70% 는 깨진다」고 적을 뻔했다 — 그 상자가
+     알약의 둥근 모서리 «밖»까지 떠서 밝은 벽을 같이 센 것이다 (퀘스트 숫자에서 겪은
+     그 자리다). 여기 적힌 것은 `checktheme` 이 실제로 내는 값이다 */
+  --pill: color-mix(in srgb, var(--lav) 86%, transparent);
 }
 
 /* ═══ 어두운 판 위의 어두운 이모지 ═══════════════════════════
@@ -402,7 +419,8 @@ body.head-solid:has(#screen-showcase.active) .hdr-gear { background: var(--glass
    "1000/1000"(54px)이 트랙을 꽉 채웠다. ⚡ 아이콘이 같은 뜻을 전하므로 글자를 뺐다. */
 .ap-wrap, .gem-wrap {
   display: flex; align-items: center;
-  background: var(--lav); border-radius: 999px;
+  /* 바탕은 `--pill` — 테마의 `--lav` 에 알파만 얹은 것이다 (`:root` 의 그 주석) */
+  background: var(--pill); border-radius: 999px;
 }
 /* AP 만 남는 자리를 먹는다 — 게이지는 늘어날 수 있는 유일한 것이다 */
 .ap-wrap { gap: 6px; flex: 1; min-width: 0; padding: 6px 6px 6px 9px; }
@@ -482,7 +500,7 @@ body.head-solid:has(#screen-showcase.active) .hdr-gear { background: var(--glass
 .spot-card.low-energy .btn-gather { background: var(--cream); }
 .header-charm { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
 /* 등급 아이콘 + 매력 총합을 한 덩어리로 */
-.header-charm { background: var(--lav); border-radius: 999px; padding: 3px 4px 3px 3px; gap: 4px; }
+.header-charm { background: var(--pill); border-radius: 999px; padding: 3px 4px 3px 3px; gap: 4px; }
 .hdr-tier {
   border: none; background: var(--glass-2); font-size: 1rem; line-height: 1;
   width: 26px; height: 26px; border-radius: 50%; cursor: pointer; padding: 0;
@@ -1978,11 +1996,26 @@ button.tm-slot:active { transform: scale(0.94); }
    「가려졌다」로 걸러 내면서 드러났다).
    ⚠️ 층을 **덮는 것마다 하나씩 낮추지 않는다** — 방 연출은 넷(그림 0 · 아우라 1 ·
    슬림 연출 · 크리처 3)이라 하나를 반드시 빠뜨린다. 제목 줄이 «다» 이기게 둔다 */
+/* ⚠️⚠️ **제목 줄은 «AP 게이지 바로 밑»에 붙는다** (2026-10-02 · 「마이룸 이모지 +
+   문자열을 지금보다 50% 크기로 줄이고 상단 AP 게이지 밑으로」로 받았다).
+   예전에는 `.screen` 의 위 여백(18px)만큼 떨어져 큰 제목(21.6px)이 혼자 한 줄을
+   차지했다 — 방 그림이 헤더 자리까지 올라온 지금은 그 줄이 **방을 가리는 띠**다.
+   음수 여백으로 헤더 밑 4px 에 붙이고, 글자는 절반으로 줄여 «머리말»로 만든다.
+   ⚠️ **방 그림은 한 픽셀도 안 밀린다** — `.room-head` 가 세로로 줄어든 만큼
+   `roomRise`(올리는 몫)가 따라 줄어들 뿐이라 그림의 확대율·좌우는 그대로다 */
 .room-head {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 8px; margin: -14px 0 6px;
   position: relative; z-index: 4;
 }
-.room-head .screen-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* ⚠️⚠️ **정확히 50%(10.8px)로는 못 간다** — `a11y.js` 의 `POLICY.minFontPx` 가 11px 이고
+   그 아래는 `checkTextStyle()` 이 「너무 작다」로 잡는다. 0.7rem(11.2px)이 바닥을
+   넘는 제일 가까운 값이라 **지금 크기의 52%** 다 (염색 라벨에서 쓴 것과 같은 자리).
+   ⚠️ 줄어드는 것은 **제목**이어야 한다(`flex: 0 1 auto` + 말줄임) — 시계·저장 칩은
+   「지금 벌어지는 일」이고 제목은 여기가 어디인지라 이미 아래 방 그림이 말해 준다 */
+.room-head .screen-title {
+  flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 0.7rem; margin-bottom: 0;
+}
 .room-head .icon-btn { margin-left: auto; }
 /* ⚠️ 알약 둘에는 `.on-room-bg` 를 «안» 붙인다 — 제 바탕이 있으니 흰 글자로 만들면
    밝은 알약 위 흰 글자가 된다 (붙여 보고 되돌렸다). 바탕만 `--float` 로 바꾼다.
@@ -2071,9 +2104,13 @@ button.tm-slot:active { transform: scale(0.94); }
 
 /* 방 그림과 그 위에 얹는 것들 */
 .room-canvas { position: relative; }
-/* 시계 — 방 왼쪽 위 모서리에 얹는다 */
+/* 시계 — **제목 줄 안**이다 (2026-10-02 · index.html 의 그 주석).
+   예전에는 방 그림 왼쪽 위 모서리에 얹혀 있었는데(`position: absolute`), 제목이
+   절반 크기로 줄어 게이지 밑에 붙으면서 **둘을 한 줄로** 모았다 —
+   「지금 어디인가 · 지금 몇 시인가」가 나란히 서야 읽힌다.
+   ⚠️ **안 줄어든다**(`flex: 0 0 auto`) — 좁은 화면에서 줄어드는 것은 제목이다 */
 .room-clock {
-  position: absolute; left: 2px; top: 8px; z-index: 3;
+  flex: 0 0 auto;
   font-size: 0.72rem; font-weight: 800; letter-spacing: 0.01em;
   white-space: nowrap; pointer-events: none;
 }
@@ -2098,10 +2135,12 @@ button.tm-slot:active { transform: scale(0.94); }
    ⚠️ **위로 붙이는 쪽이 맞다 — 아래는 늘어난다.** 방 버튼은 다섯까지 하나씩 열리므로
    그 줄의 «키»가 진행에 따라 변한다: 아래쪽에 두면 어느 단계에서는 반드시 다시 포개진다.
    위에 있는 것은 시계 하나뿐이고 그것은 늘 한 줄이다.
-   ⚠️ 그래서 **위 여백은 시계에서 «재서» 나온 값이다** — 시계가 상자 위 8px 에서
-   14px 을 쓰므로(`.room-clock`) 그 아래로 12px 을 띄운 34px 이다. 지금 버튼이
-   34~80px 에 서서 시계와 12px · 방 버튼 줄과 50px 이 뜬다 (`checkroom` 의 「버튼 겹침」).
-   ⚠️ 시계를 키우거나 내리면 이 값도 같이 본다 — 짝이다 */
+   ⚠️⚠️ **위 여백 34px 은 원래 «시계를 피하려고» 잰 값이었다** — 시계가 상자 위
+   8px 에서 14px 을 쓰므로 그 아래로 12px 을 띄운 값이다. **2026-10-02 에 시계가
+   제목 줄로 올라가면서 그 이유는 없어졌다** — 지금 이 상자 위쪽에는 아무것도 없고,
+   값을 그대로 둔 것은 **버튼을 위에 붙여 두기 위해서**다(아래는 방 버튼 줄이 하나씩
+   열리며 늘어난다). 안 하는 일을 한다고 써 두지 않으려고 적어 둔다.
+   ⚠️ `checkroom` 의 「버튼 겹침」이 방 버튼 줄과의 틈을 그대로 잰다 */
 .room-spin {
   position: absolute; inset: 0; z-index: 4;
   display: flex; align-items: flex-start; justify-content: space-between;
@@ -2124,8 +2163,14 @@ button.tm-slot:active { transform: scale(0.94); }
    잠긴 것은 「아직 못 여는 것」이고 이쪽은 「거기가 끝」이다 */
 .spin-btn[disabled] { opacity: 0.10; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .spin-btn { transition: none; } }
+/* ⚠️⚠️ **좌우 끝은 «헤더 알약의 끝»에 맞춘다** (2026-10-02 · 「버튼의 세로열이 상단
+   게이지바와 설정 버튼 좌우 끝에 맞게」로 받았다). 재 보면 390·480px 에서
+   **AP 알약의 왼쪽 끝과 톱니의 오른쪽 끝이 `.room-canvas` 의 좌우 끝과 정확히 같다**
+   (둘 다 앱 가장자리에서 16px) — 그래서 `left/right: 0` 이 곧 그 자리다.
+   ⚠️ 예전 8px 은 **뱃지가 삐져나오는 몫**이었는데, 방 그림은 `.room-scene` 이
+   좌우로 16px 더 나가 있어(`SCENE_INSET.x`) 0 으로 붙여도 뱃지가 방 «안»에 남는다 */
 .room-acts {
-  position: absolute; right: 8px; bottom: 6px; z-index: 3;
+  position: absolute; right: 0; bottom: 6px; z-index: 3;
   display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
 }
 /* ⚠️⚠️ **그림 하나짜리 동그란 버튼이다 — 글자가 없다** (2026-10-01 · 사람이 정했다).
@@ -2151,7 +2196,7 @@ button.tm-slot:active { transform: scale(0.94); }
    ⚠️ 알약의 꼴(`.room-act`)을 베껴 쓰지 않는다 — 여기서 뒤집는 것은 «어느 쪽에
    붙는가» 하나뿐이라, 오른쪽 줄을 고치면 이쪽도 같이 따라온다.
    뱃지가 없으니 왼쪽 여백은 시계(`left: 2px`)보다만 안쪽이면 된다 */
-.room-acts-l { right: auto; left: 8px; align-items: flex-start; }
+.room-acts-l { right: auto; left: 0; align-items: flex-start; }
 /* 안 본 밤이 몇 번인지. **레드닷이 아니라 숫자다** — 점 하나로는 「하나 있나 보다」로
    읽혀서 세 밤이 쌓인 것을 못 알린다.
    흰 글자를 얹으므로 바탕은 대비가 나오는 진한 붉은색이어야 한다 (checkTextStyle 이 잰다) */
@@ -2663,6 +2708,8 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 눈썹 그림 — ⚠️ **머리와 달리 «폭»으로 맞춘다.** 상자가 가로로 긴 띠(48×24)라
    `.hair-icon` 처럼 높이로 맞추면 72px 이 되어 격자 칸(4열)을 밀어낸다 */
 .brow-icon { width: 40px; height: auto; display: block; }
+/* 문신 칸의 그림. 상자가 정사각(18×18)이라 머리처럼 **폭으로** 맞춘다 */
+.tattoo-icon { width: 30px; height: auto; display: block; }
 .wr-swatch { width: 22px; height: 22px; border-radius: 7px; display: inline-block; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06); }
 /* ─── 헤어 — 전체 실루엣 × 앞머리 ───────────────────────────
    30벌을 한 줄에 늘어놓는 대신 6 + 5 칸으로 나눈다. 칸이 11개뿐이라

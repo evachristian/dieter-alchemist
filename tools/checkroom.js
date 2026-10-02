@@ -513,7 +513,10 @@ function mask(A, B) {
     for (const lang of ['ko', 'en']) {
       const g = await page.evaluate((lg) => {
         I18N.setLang(lg);
-        S.roomActs = ['exercise', 'binge', 'kitchen', 'produce', 'farm'];   // 개발용 스위치
+        // ⚠️ **여덟을 다 연다** — 2026-10-02 에 왼쪽 줄 셋(🪄 😯 ⚜️)도 조건이 걸렸다.
+        //    다섯만 켜면 왼쪽 줄이 비어 **왼쪽 버튼과의 겹침을 한 번도 안 재게 된다**
+        S.roomActs = ['exercise', 'binge', 'kitchen', 'produce', 'farm',
+                      'expression', 'decor', 'tattoo'];   // 개발용 스위치
         render();
         const box = (el) => { const q = el.getBoundingClientRect();
           return { t: (el.textContent || el.getAttribute('aria-label') || '')
@@ -522,11 +525,18 @@ function mask(A, B) {
         const shown = (sel) => [...document.querySelectorAll(sel)]
           .filter(e => e.offsetParent !== null).map(box);
         // 겹침은 «양쪽 줄»을 다 본다 (왼쪽의 🪄 방꾸 · 😯 표정 · ⚜️ 문신도 같은 그림 위다).
-        // 다만 「다 열렸는가」는 **오른쪽 줄**로 센다 — 왼쪽 셋은 늘 서 있어서
-        // 통째로 세면 다섯을 안 열어도 여덟이 되어 이 빗장이 헐거워진다
+        // 「다 열렸는가」도 **양쪽을 따로** 센다 — 2026-10-02 부터 왼쪽 셋도 하나씩
+        // 열리므로, 한쪽만 세면 다른 쪽이 통째로 비어도 이 빗장이 지나간다
         const spin = shown('.spin-btn'), acts = shown('.room-act');
         const right = shown('.room-acts:not(.room-acts-l) .room-act').length;
-        const clock = document.getElementById('clockKST');
+        const left = shown('.room-acts-l .room-act').length;
+        // ⚠️⚠️ **위쪽 이웃은 이제 «제목 줄»이다** (2026-10-02). 예전에는 시계가 방 그림
+        //    왼쪽 위에 얹혀 있어서 그것과의 틈을 쟀는데, 시계가 제목 줄로 올라가면서
+        //    **가로로 겹치는 짝이 하나도 없어져 `시계와 ?px` 로 아무것도 안 쟀다** —
+        //    0건이 「통과」가 아니라 「한 번도 안 쟀다」가 된 그 자리다.
+        //    둘러보기 버튼을 위로 더 붙이다 제목 줄을 파고들면 그것은 겹침을
+        //    «옮긴» 것이지 고친 것이 아니므로, 이웃을 바꿔 그대로 잰다
+        const clock = document.querySelector('.room-head');
         const ov = (a, c) => Math.min(a.r, c.r) - Math.max(a.x, c.x) > 0
           && Math.min(a.b, c.b) - Math.max(a.y, c.y) > 0;
         const hit = [];
@@ -546,15 +556,17 @@ function mask(A, B) {
             if (cGap == null || d < cGap) cGap = d;
           }
         });
-        return { n: spin.length, acts: right, hit, gap, gapWith, cGap };
+        return { n: spin.length, acts: right, left, hit, gap, gapWith, cGap };
       }, lang);
       if (!g.n) { bad.push(`${W}px/${lang}: 둘러보기 버튼이 없다 (겹침을 잴 수가 없다)`); continue; }
-      if (g.acts < 5) { bad.push(`${W}px/${lang}: 방 버튼이 ${g.acts}개뿐이다 — 다섯을 다 열어야 잰 것이다`); continue; }
+      if (g.acts < 5) { bad.push(`${W}px/${lang}: 오른쪽 방 버튼이 ${g.acts}개뿐이다 — 다섯을 다 열어야 잰 것이다`); continue; }
+      if (g.left < 3) { bad.push(`${W}px/${lang}: 왼쪽 방 버튼이 ${g.left}개뿐이다 — 셋을 다 열어야 잰 것이다`); continue; }
       if (g.hit.length) bad.push(`${W}px/${lang}: 둘러보기 버튼이 ${[...new Set(g.hit)].join('·')} 와 겹친다`);
-      if (g.cGap != null && g.cGap < 4) bad.push(`${W}px/${lang}: 둘러보기 버튼이 시계와 ${g.cGap.toFixed(1)}px 밖에 안 떨어졌다`);
+      if (g.cGap == null) bad.push(`${W}px/${lang}: 둘러보기 버튼의 «위쪽 이웃»(제목 줄)을 한 번도 못 쟀다`);
+      else if (g.cGap < 4) bad.push(`${W}px/${lang}: 둘러보기 버튼이 제목 줄과 ${g.cGap.toFixed(1)}px 밖에 안 떨어졌다`);
       if (lang === 'ko') spinGap = `${g.gap === 1e9 ? '?' : g.gap.toFixed(0)}px(${g.gapWith})`;
       if (lang === 'en') spinGap += ` · en ${g.gap === 1e9 ? '?' : g.gap.toFixed(0)}px`
-        + ` · 시계와 ${g.cGap == null ? '?' : g.cGap.toFixed(0)}px`;
+        + ` · 제목 줄과 ${g.cGap == null ? '?' : g.cGap.toFixed(0)}px`;
     }
 
     // ── ⑧ 낮에는 방이 «밝다» (2026-09-30)

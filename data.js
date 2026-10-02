@@ -1362,9 +1362,14 @@ function pageFlow() {
 // ⚠️ **`id` 는 세이브(`S.seenCuts`)에 들어간다.** 한 번 나가면 안 바꾼다.
 const CUTS = [
   { id: 'c_first_in',  act: 1, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'soft'], ['sp_althea', 'wink']] },
-  { id: 'c_first_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
+  // ⚠️ 마지막 줄이 **😯 표정 버튼을 알린다** (2026-10-02 · 그 퀘스트를 깨면 열린다).
+  //    「버튼이 조용히 나타나면 안 된다」 — 운동·수확처럼 **이미 있는 완료 컷씬에
+  //    줄 하나**를 붙였다 (새 컷씬을 안 만든다)
+  { id: 'c_first_out', act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm'], ['sp_althea', 'wink']] },
   { id: 'c_walk_in',   act: 1, lines: [['sp_althea', 'def'], ['sp_gwiriel', 'shock']] },
-  { id: 'c_walk_out',  act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'wink']] },
+  // ⚠️ 마지막 줄이 **🪄 방 꾸미기 버튼을 알린다** — 이 퀘스트의 보상이 공방 2단계라
+  //    깨는 순간 러그와 책장이 선물로 들어온다 (`D.ROOM_LEVEL_GIFT[2]`)
+  { id: 'c_walk_out',  act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'wink'], ['sp_althea', 'warm']] },
   { id: 'c_bring_in',  act: 1, lines: [['sp_althea', 'def'], ['sp_gwiriel', 'soft']] },
   { id: 'c_bring_out', act: 1, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'smile']] },
   { id: 'c_egg_in',    act: 1, lines: [['sp_althea', 'def'], ['sp_gwiriel', 'shock']] },
@@ -1373,7 +1378,9 @@ const CUTS = [
   // 말해 주는 것이다 — 그 갈래를 모르면 빈 기록을 보고 고장으로 읽는다
   { id: 'c_egg_out',   act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm'], ['sp_althea', 'smile']] },
   { id: 'c_sip_in',    act: 1, lines: [['sp_althea', 'scold'], ['sp_gwiriel', 'soft']] },
-  { id: 'c_sip_out',   act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
+  // ⚠️ 마지막 줄이 **⚜️ 문신 버튼을 알린다** — 「소매가 헐렁해졌어요」가 몸이 달라진
+  //    것을 처음 느끼는 장면이라, 그 몸에 표식을 새기는 것이 결이 맞는다
+  { id: 'c_sip_out',   act: 1, lines: [['sp_gwiriel', 'smile'], ['sp_althea', 'warm'], ['sp_althea', 'wink']] },
   { id: 'c_bloom_in',  act: 1, lines: [['sp_althea', 'warm'], ['sp_gwiriel', 'soft']] },
   { id: 'c_bloom_out', act: 1, lines: [['sp_althea', 'cross'], ['sp_gwiriel', 'smile'], ['sp_althea', 'warm']] },
   // ─ 셰프를 고용했다 — 첫 퀘스트를 «주는» 자리 ─
@@ -2870,7 +2877,11 @@ const COLORS = [
 // **헤어도 여기 있다.** 예전에는 '헤어컬러' 라는 칸을 따로 두고 7색 중에서 골랐는데,
 // 옷은 60색 팔레트로 염색하면서 머리만 7색인 것이 앞뒤가 안 맞았다.
 // 이제 머리도 '헤어 아이템의 원래 색(브라운)을 염색한다' 는 같은 규칙을 쓴다.
-const COLORABLE_SLOTS = ['hair', 'brow', 'top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
+// ⚠️ **문신도 염색한다** (2026-10-02 · 「문신도 염색 기능 추가해줘」로 받았다).
+// 눈썹과 같은 자리다 — 칸 시트(`#slotSheet`)가 `colorRow(slot)` 을 같이 그리므로
+// 여기 한 줄이면 팔레트가 선다. 그리는 쪽은 `avatar.js` 의 `pick('tattoo', …)` 다
+// (예전에는 거기만 `getItem` 이라 **염색해도 아바타가 안 물들었다**).
+const COLORABLE_SLOTS = ['hair', 'brow', 'tattoo', 'top', 'bottom', 'dress', 'circlet', 'earring', 'necklace', 'glove', 'shoes'];
 
 // 헤어 축 표 — **뒷머리(전체 실루엣) × 앞머리** 를 따로 고른다.
 // 30벌을 한 칸에 늘어놓으면 무엇이 무엇과 다른지 읽히지 않는다. 6 + 5 칸으로 고르면

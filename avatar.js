@@ -3507,21 +3507,42 @@
   // ═══════════════════════════════════════════════════════════════
   //  문신 (얼굴/볼 — 헤어·옷에 가리지 않는 위치)
   // ═══════════════════════════════════════════════════════════════
-  function renderTattoo(it) {
-    if (isNone(it)) return '';
-    const c = it.color || '#c98bd6';
+  // ⚠️⚠️ **모양은 «제 자리(0,0)»를 중심으로 그리고, 얼굴에 놓는 자리는 표가 정한다**
+  //    (`TATTOO_AT`). 그래야 옷장 칸의 그림(`tattooIcon`)이 **같은 함수**에서 나온다 —
+  //    머리(`hairIcon`)·눈썹(`browIcon`)이 이미 정한 규칙이다. 좌표를 얼굴 자리에
+  //    박아 두면 칸 그림을 그리려고 한 벌을 더 적게 되고, 모양을 고쳤을 때 한쪽만
+  //    옛 모양에 남는다.
+  // ⚠️ 자리가 kind 마다 다른 것은 뜻이 있다 — 물방울은 «눈물»이라 왼쪽 볼이고
+  //    나머지는 오른쪽 볼이다. 그래서 표가 필요하다
+  const TATTOO_AT = { star: [120, 90], tear: [80, 90], heart: [120, 90], rune: [119, 91] };
+  const TATTOO_AT0 = [120, 90];
+  function tattooShape(it, c) {
     switch (it.kind) {
       case 'star':
-        return `<path d="${starPath(120, 90, 3.4)}" fill="${c}"/>`;
+        return `<path d="${starPath(0, 0, 3.4)}" fill="${c}"/>`;
       case 'tear':
-        return `<path d="M80,84 L77.6,90 L82.4,90 Z" fill="${c}"/><circle cx="80" cy="90" r="2.5" fill="${c}"/>`;
+        return `<path d="M0,-6 L-2.4,0 L2.4,0 Z" fill="${c}"/><circle cx="0" cy="0" r="2.5" fill="${c}"/>`;
       case 'heart':
-        return `<path d="M120,88 q-2.7,-2.7 -4.3,0 q-1.5,2.6 4.3,6.2 q5.8,-3.6 4.3,-6.2 q-1.6,-2.7 -4.3,0 Z" fill="${c}"/>`;
+        return `<path d="M0,-2 q-2.7,-2.7 -4.3,0 q-1.5,2.6 4.3,6.2 q5.8,-3.6 4.3,-6.2 q-1.6,-2.7 -4.3,0 Z" fill="${c}"/>`;
       case 'rune':
-        return `<path d="M114,85 L124,85 M119,85 L119,94 M119,94 L123,97" stroke="${c}" stroke-width="1.7" fill="none" stroke-linecap="round"/>`;
+        return `<path d="M-5,-6 L5,-6 M0,-6 L0,3 M0,3 L4,6" stroke="${c}" stroke-width="1.7" fill="none" stroke-linecap="round"/>`;
       default:
-        return `<circle cx="120" cy="90" r="2.6" fill="${c}"/>`;
+        return `<circle cx="0" cy="0" r="2.6" fill="${c}"/>`;
     }
+  }
+  function renderTattoo(it) {
+    if (isNone(it)) return '';
+    const at = TATTOO_AT[it.kind] || TATTOO_AT0;
+    return `<g transform="translate(${at[0]},${at[1]})">${tattooShape(it, it.color || '#c98bd6')}</g>`;
+  }
+  // 옷장 칸의 그림. ⚠️⚠️ **이모지로 두면 염색이 거짓말을 한다** — ❤️ 는 늘 빨간데
+  //    새겨지는 문신은 고른 색이다. 눈썹에서 정한 그대로 **그리는 함수를 그대로 써서**
+  //    작게 보여 준다. ⚠️ 색은 **벌마다 제 색**이다(머리와 같다 · 눈썹과 다르다) —
+  //    넷이 애초에 서로 다른 색을 갖고 있어서, 염색한 벌만 그 색으로 바뀐다
+  function tattooIcon(it, color) {
+    if (isNone(it)) return '';
+    return `<svg class="tattoo-icon" viewBox="-9 -9 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">`
+      + tattooShape(it, color || it.color || '#c98bd6') + `</svg>`;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -3988,7 +4009,9 @@
       H(hairFront(hairBangKind, hairColor, hairBackKind)),
       H(faceFx(expItem)),
       B(renderGlove(pick('glove', outfit.glove), tune)),
-      B(renderTattoo(getItem('tattoo', outfit.tattoo))),
+      // ⚠️ `pick` 이다 — `getItem` 이면 **염색한 색이 안 실린다** (문신은 2026-10-02 에
+      //    염색 칸이 됐다 · `D.COLORABLE_SLOTS`). 나머지 칸과 같은 한 줄을 지난다
+      B(renderTattoo(pick('tattoo', outfit.tattoo))),
       H(renderEarring(pick('earring', outfit.earring))),
       B(renderNecklace(pick('necklace', outfit.necklace))),
       H(renderCirclet(pick('circlet', outfit.circlet))),
@@ -4489,7 +4512,7 @@
   }
   window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, skyHour, SKY_BANDS, SKY_LIGHT,
     LAMP_NIGHT, lampGainOf,
-    hairIcon, browIcon, browColorOf, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
+    hairIcon, browIcon, browColorOf, tattooIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
     heartPath, heartEye, HEART,
     partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT, FLOOR_HALF, floorMark,

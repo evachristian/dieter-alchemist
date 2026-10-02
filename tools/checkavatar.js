@@ -4495,6 +4495,21 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     await page.setViewportSize({ width: 390, height: 900 });
     await page.evaluate(() => {
       S.tutorialDone = true; S.introDone = true; S.roomLevel = 5;
+      // ⚠️⚠️ **착장을 못 박는다 — 앞 검사가 남긴 것으로 재면 두 체제를 번갈아 선다.**
+      //    이 줄이 없을 때 같은 코드가 「flat 10762 · 결 0.20 → 0.29(실패)」와
+      //    「flat 12840 · 0.25 → 0.25(통과)」를 **번갈아** 냈다 — 앞 검사가 남긴
+      //    `dress_slip`·`tattoo_star` 같은 착장에 따라 몸 속의 «평평한» 자리와
+      //    튀는 픽셀 몇 개가 달라지고, 그 몇 개가 RMS 를 혼자 끌기 때문이다.
+      //    표에서 **첫 벌**을 집으므로 옷이 늘어도 따라오고, 매번 같은 몸이 선다.
+      //    ⚠️ 결은 «중간 톤»(옷·머리)에 사는 것이라 원피스와 머리는 반드시 입힌다
+      {
+        const first = (sl) => ((D.WARDROBE[sl] || []).find(x => x.kind !== 'none') || {}).id;
+        const none = (sl) => ((D.WARDROBE[sl] || []).find(x => x.kind === 'none') || {}).id;
+        ['hair', 'dress', 'shoes'].forEach(sl => { const id = first(sl); if (id) S.outfit[sl] = id; });
+        ['tattoo', 'top', 'bottom', 'circlet', 'earring', 'necklace', 'glove']
+          .forEach(sl => { const id = none(sl); if (id) S.outfit[sl] = id; });
+        S.outfit.colors = {};
+      }
       switchTab('showcase'); renderShowcase();
       document.getAnimations().forEach(a => {
         const inf = a.effect && a.effect.getTiming().iterations === Infinity;

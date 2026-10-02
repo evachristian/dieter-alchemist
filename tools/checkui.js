@@ -2562,7 +2562,16 @@ function launchOpts() {
           const keepCr = (S.creatures || []).slice();
           const keepPet = S.petRoom, keepFld = S.petField;
           const keepStats = JSON.stringify(S.stats), keepPeak = S.charmPeak;
-          const vis = id => { const e = document.getElementById(ROOM_ACT_BTN[id]); return !!e && !e.hidden; };
+          // ⚠️⚠️ **여덟을 다 본다 — 왼쪽 줄 셋은 «있는가»로 잰다.** 오른쪽 다섯은
+          //    `index.html` 에 박혀 있고 `hidden` 으로 여닫지만, 🪄 😯 ⚜️ 는
+          //    `renderSoloActs()` 가 그리므로 **닫히면 DOM 에 아예 없다**.
+          //    `ROOM_ACT_BTN` 만 보던 옛 줄은 셋을 통째로 `undefined` 로 읽어
+          //    **늘 「안 보인다」**가 되어, 셋이 영영 안 열려도 그대로 통과했다
+          const vis = id => {
+            const e = ROOM_ACT_BTN[id] ? document.getElementById(ROOM_ACT_BTN[id])
+              : document.querySelector(`#roomSolo .room-act[data-slot="${id}"]`);
+            return !!e && !e.hidden;
+          };
           const back = () => { S.roomActs = keepActs; S.seenCuts = keepCuts; S.kitchenDay = keepKd;
                                S.quest = JSON.parse(keepQ); S.record.aloneNights = keepAlone;
                                S.binges = keepBinges;
@@ -2617,9 +2626,16 @@ function launchOpts() {
             잰것++;
             return null;
           };
+          // ⚠️ **퀘스트는 «쌓아서» 넘긴다** — 덮어쓰면 앞에서 연 버튼이 도로 닫혀
+          //    「…도 보인다」가 아니라 「…가 안 나타난다」로 엉뚱하게 터진다
+          const done = ['q_meet'];
+          const clear = id => () => { done.push(id); S.quest.done = done.slice(); };
+          // 😯 표정 — `q_first`(첫 물약 두 병)를 «끝내면». 여덟 중 제일 이른 문이다
+          let e = step('expression', '첫 물약 퀘스트를 끝냈는데', clear('q_first'));
+          // 🪄 방 꾸미기 — `q_walk`(채집 여덟 번) · 그 보상이 공방 2단계라 소품이 들어온다
+          if (!e) e = step('decor', '채집 퀘스트를 끝냈는데', clear('q_walk'));
           // 🏃 운동 — `q_kitchen`(부엌 3번)을 «끝내면»
-          let e = step('exercise', '부엌 퀘스트를 끝냈는데',
-            () => { S.quest.done = ['q_meet', 'q_kitchen']; });
+          if (!e) e = step('exercise', '부엌 퀘스트를 끝냈는데', clear('q_kitchen'));
           // 🍗 흡입 — 혼자 먹은 밤이 «있었으면». ⚠️ 아직 «안 본» 밤(`bingeCount`)이 아니다:
           // 그건 장면을 다 보면 0 이 되는 큐라, 컷씬을 넘기는 순간 버튼이 사라진다.
           // **그래서 일부러 «다 보고 난 뒤»의 자리에서 잰다** (`S.binges` 가 빈 채로) —
@@ -2635,6 +2651,8 @@ function launchOpts() {
             else e = step('produce', '크리처를 얻었는데',
               () => { S.creatures = [r.result.id]; });
           }
+          // ⚜️ 문신 — `q_sip`(물약 다섯 번) · 「소매가 헐렁해졌어요」의 그 자리다
+          if (!e) e = step('tattoo', '물약 퀘스트를 끝냈는데', clear('q_sip'));
           // 🌾 밭 — 여신(리그와 같은 문). ⚠️ 매력 문이라 퀘스트로 또 잠그지 않는다
           if (!e) e = step('farm', '여신이 됐는데',
             () => { S.stats.charm = D.LEAGUE.openAt; });
@@ -2645,8 +2663,8 @@ function launchOpts() {
         if (actBad.err) results.push({ 화면: `${t}/방버튼해금`, 오류: actBad.err });
         // ⚠️ **몇 개를 쟀는지 통과할 때도 낸다** — 0건이 「통과」가 아니라
         // 「한 번도 안 쟀다」였던 적이 이 저장소에서만 세 번이다
-        else if (actBad.n !== 5) results.push({ 화면: `${t}/방버튼해금`, 오류: `다섯 중 ${actBad.n}개만 쟀다` });
-        else console.log(`  방버튼해금 — 다섯을 다 쟀다 (${actBad.n}/5)`);
+        else if (actBad.n !== 8) results.push({ 화면: `${t}/방버튼해금`, 오류: `여덟 중 ${actBad.n}개만 쟀다` });
+        else console.log(`  방버튼해금 — 여덟을 다 쟀다 (${actBad.n}/8)`);
 
         const ktBad = await page.evaluate(() => {
           S.seenCuts = ['c_clemen_meet']; S.kitchenDay = 0;

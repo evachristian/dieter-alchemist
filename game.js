@@ -20,7 +20,7 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //     `defaultState` 에 두 번 있어서(객체 · 숫자) 뒤의 숫자가 이겼고, 채집할 때마다
 //     `S.gathered++` 가 객체를 NaN 으로 만들어 **숙련이 한 세션도 못 살아남았다**
 //     (외부 비평에서 재현됐다). 총 채집 횟수는 `record.gathered` 가 맡는다
-const SAVE_VER = 18;
+const SAVE_VER = 19;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -54,7 +54,16 @@ function setDevClock(ms) { devClock = ms || 0; }
 // 끝까지 읽기 전에 불린다 — 아래쪽에 두면 `ReferenceError` 가 나고 `load()` 의 `catch`
 // 가 그것을 삼켜 **세이브가 통째로 기본값으로 되돌아간다** (CLAUDE.md 1번 · 세이브 9에서
 // 실제로 겪은 사고다). 화면에는 오류가 하나도 안 뜬다
-const ROOM_ACTS = ['exercise', 'binge', 'kitchen', 'produce', 'farm'];
+// 방 안에서 하는 일 — **여덟이고 하나씩 열린다** (2026-10-02 에 셋이 늘었다:
+// 🪄 방꾸미기 · 😯 표정 · ⚜️ 문신 · 「기능은 처음부터 오픈하지 않을거야. 나중에 게임의
+// 흐름에 따라 오픈하도록 기획해서 추가 부탁해」로 받았다).
+// ⚠️⚠️ **오른쪽 줄(다섯)만 `index.html` 에 박힌 버튼이다** — 왼쪽 줄 셋은
+// `renderSoloActs()` 가 표에서 뽑아 그린다. 그래서 `ROOM_ACT_BTN` 은 여전히 다섯이고,
+// 이 목록은 **「조건이 걸린 것 전부」**다 (개발용 스위치·마이그레이션이 이것을 돈다).
+// ⚠️ 이름이 곧 `actOpen(id)` 의 열쇠이자 **옷장 칸 이름**이다(`expression`·`tattoo`) —
+// `renderSoloActs` 가 `actOpen(m.slot)` 으로 거르므로 둘이 어긋나면 그 버튼이 영영 안 뜬다
+const ROOM_ACTS = ['exercise', 'binge', 'kitchen', 'produce', 'farm',
+  'expression', 'decor', 'tattoo'];
 const ROOM_ACT_BTN = { exercise: 'actExercise', binge: 'actBinge',
   kitchen: 'actKitchen', produce: 'actProduce', farm: 'actFarm' };
 
@@ -643,6 +652,16 @@ function migrate(st, from) {
   if (from < 14) {
     if (!Array.isArray(st.roomActs)) st.roomActs = [];
     ROOM_ACTS.forEach(id => { if (!st.roomActs.includes(id)) st.roomActs.push(id); });
+  }
+  // 2026-10-02 — 🪄 방꾸미기 · 😯 표정 · ⚜️ 문신도 이야기가 여는 것이 됐다.
+  // ⚠️ **하던 사람에게서 뺏지 않는다**: 셋은 여태 졸업만 하면 쓸 수 있었으므로
+  //    옛 세이브에는 그대로 열어 준다 (위의 14 와 같은 규칙).
+  // ⚠️ 세이브 14~18 은 위 블록을 안 지나므로 **여기가 아니면 조용히 잠긴다**
+  if (from < 19) {
+    if (!Array.isArray(st.roomActs)) st.roomActs = [];
+    ['expression', 'decor', 'tattoo'].forEach(id => {
+      if (!st.roomActs.includes(id)) st.roomActs.push(id);
+    });
   }
   if (from < 2) {
     // 시작 외형을 튜토리얼 인트로의 공주로 맞춘다 (옷은 언제든 다시 갈아입을 수 있음)
@@ -1657,9 +1676,44 @@ function actOpen(id) {
     case 'binge':    return everBinged();             // 혼자 먹은 밤이 있었는가
     case 'produce':  return hasProducer();            // 생산하는 크리처를 가졌는가
     case 'farm':     return farmOpen();               // 여신인가
+    // ─── 2026-10-02 에 늘어난 셋 ────────────────────────────
+    // 「나중에 게임의 흐름에 따라 오픈하도록 기획해서」로 받은 자리다.
+    // ⚠️⚠️ **셋 다 «이야기가 여는 것»이다** — 셋 다 꾸미는 일이라 뱃지도 점수도
+    //    붙일 데가 없다. 그래서 전부 **퀘스트 완료**를 문으로 쓰고, 열리는 순간을
+    //    **그 퀘스트의 완료 컷씬이 한 줄로 알린다** (운동·수확과 같은 조리법 —
+    //    「버튼이 조용히 나타나면 안 된다」). 새 컷씬은 하나도 안 만들었다.
+    // ⚠️ **셋을 한 자리에 몰지 않는다.** 여덟이 매력 0 → 100 에 고르게 흩어져야
+    //    「이번엔 또 뭐가 열렸지」가 계속 이어진다 — 지금 순서는
+    //    부엌(0) → 표정(0) → 방꾸(6) → 운동(10) → 흡입(첫 밤) → 수확(22) →
+    //    문신(32) → 농장(100) 이다
+    case 'expression': return questCleared('q_first');
+    case 'decor':      return questCleared('q_walk');
+    case 'tattoo':     return questCleared('q_sip');
   }
   return false;
 }
+
+// ─── 😯 표정 — `q_first`(첫 물약 두 병)를 끝내면 ─────────────────
+//
+// **처음으로 «내 몸이 바뀌는 것»을 본 자리다.** 물약을 만들어 마셔 본 다음에야
+// 「그래서 지금 나는 어떤 얼굴인가」가 물음이 된다 — 그 전에는 고를 이유가 없다.
+// ⚠️ 제일 이른 문이라 졸업 직후가 비지 않는다 (`at: 0` · 튜토리얼 바로 다음 퀘스트다)
+
+// ─── 🪄 방 꾸미기 — `q_walk`(채집 여덟 번)을 끝내면 ──────────────
+//
+// **그 퀘스트의 보상이 공방 2단계**라, 깨는 순간 러그와 책장이 선물로 들어온다
+// (`D.ROOM_LEVEL_GIFT[2]`). 「놓을 것이 생겼을 때 연다」가 이 버튼의 전부다.
+// ⚠️ 1단계의 소품 아홉은 그동안 **가진 채로 잠겨 있다** — 그것이 맞는다:
+//    공주는 「창문 하나만 있는 방」으로 들어오고(`ROOM.md`), 처음 나갔다 돌아온
+//    자리에서 방이 바뀌기 시작하는 것이 인트로가 말한 그림이다
+// ⚠️ **단계(`roomLevel`)로 재지 않는다** — 개발용 스위치로 단계만 올려도 열려
+//    「이야기가 연다」가 아니게 되고, 무엇보다 알릴 컷씬이 없어진다
+
+// ─── ⚜️ 문신 — `q_sip`(물약 다섯 번)을 끝내면 ───────────────────
+//
+// 완료 컷씬이 「소매가 헐렁해졌어요」다 — **몸이 달라진 것을 처음 느끼는 장면**이라,
+// 그 몸에 표식을 새기는 것이 결이 맞는다. 여덟 중 일곱 번째라 한참 뒤다.
+// ⚠️ 눈썹(`brow`)은 문신 시트의 **갈래**라 따로 안 잠근다 — 시트가 열리면 같이 열린다
 window.actOpen = actOpen;
 
 // 그 퀘스트를 «끝냈는가». `questState().done` 을 여기저기서 읽지 않게 한 곳을 둔다
@@ -6244,6 +6298,12 @@ function wardrobeGrid(slot) {
     else if (slot === 'brow' && window.Avatar && Avatar.browIcon) {
       ic = Avatar.browIcon(it, outfitWithColors());
     }
+    // 문신도 **그려서** 보여 준다 — ⚠️⚠️ 이모지(⭐💧❤️✴️)로 두면 **염색이 거짓말을
+    // 한다**: ❤️ 는 늘 빨간데 새겨지는 것은 고른 색이다. 색은 머리와 같이 `itemHex` 라
+    // 벌마다 제 색이고, 염색한 벌만 그 색으로 바뀐다
+    else if (slot === 'tattoo' && window.Avatar && Avatar.tattooIcon) {
+      ic = Avatar.tattooIcon(it, itemHex(it));
+    }
     else if (it.emoji) ic = it.emoji;
     // **각자 자기 색으로** 보여 준다. 염색이 옷에 붙으므로 칸마다 색이 다르고,
     // 그래서 목록 전체가 같은 색이 되는 일이 없다 (예전에는 칸에 붙어 있어서
@@ -6547,9 +6607,13 @@ window.closeDecorSheet = closeDecorSheet;
 
 // 왼쪽 아래 버튼 줄 — **표에서 뽑는다.** `sheet: true` 를 한 줄 붙이면 버튼도 저절로
 // 생긴다 (목록을 따로 적어 두면 칸을 늘렸을 때 한쪽만 고친다).
-// **여는 조건은 `S.tutorialDone` 하나다** — 다섯 방 버튼(`ROOM_ACTS`)과 달리 이야기가
-// 여는 문이 아니다. 졸업 전에는 방에 인트로 공주 그림이 서 있어서(`roomFigure`)
-// 갈아 끼워도 화면이 하나도 안 바뀐다
+//
+// ⚠️⚠️ **셋도 이야기가 연다** (2026-10-02). 예전에는 「여는 조건이 `S.tutorialDone`
+// 하나」라 졸업하는 순간 왼쪽에 셋이 한꺼번에 섰는데, 그것은 오른쪽 다섯을 하나씩
+// 열기로 한 이유(「다섯이 한꺼번에 서 있으면 무엇부터 눌러야 하는지 알 수가 없다」)를
+// **왼쪽 줄에서만 안 지키고 있던 것**이다. 지금은 여덟이 다 `actOpen()` 한 곳을 지난다.
+// ⚠️ 거르는 열쇠가 **칸 이름**이다(`m.slot` — `expression`·`tattoo`) — `ROOM_ACTS` 의
+//    id 와 같은 글자라야 한다. 어긋나면 그 버튼이 영영 안 뜨고 오류도 안 난다
 function renderSoloActs() {
   const box = document.getElementById('roomSolo');
   if (!box) return;
@@ -6558,11 +6622,11 @@ function renderSoloActs() {
   //    꾸미기는 옷장 칸이 아니고(`WARDROBE_SLOTS` 에 없다) 시트도 따로다
   // ⚠️ **글자를 한 자도 안 넣는다** — 여덟 버튼이 다 그림 하나다(사람이 정했다).
   //    이름은 `aria-label` 이 맡는다 (헤더의 ↺ · 둘러보기 화살표와 같은 조리법)
-  const decorBtn = `<button class="room-act" data-slot="decor" onclick="openDecorSheet()"
+  const decorBtn = !actOpen('decor') ? '' : `<button class="room-act" data-slot="decor" onclick="openDecorSheet()"
     aria-label="${escHtml(T('act_decor'))}">
     <span class="act-ic" aria-hidden="true">🪄</span>
   </button>`;
-  box.innerHTML = !S.tutorialDone ? '' : decorBtn + soloSlots().map(m => {
+  box.innerHTML = !S.tutorialDone ? '' : decorBtn + soloSlots().filter(m => actOpen(m.slot)).map(m => {
     // ⚠️ 그림은 **«지금 걸려 있는 것»**이다 — 표에 박힌 그림이 아니다.
     // 그래야 버튼이 「무엇을 고르는 자리인가」(라벨)와 「지금 무엇인가」(그림)를
     // 같이 말한다 (「표정 이모지를 현재 아바타의 표정이 나오도록」으로 받은 자리다).
@@ -8863,8 +8927,11 @@ function renderActBadges() {
   // 부엌 — 튜토리얼을 마치면 보이고, **오늘 안 먹었으면 점이 켜진다.**
   // 숫자가 아니라 점인 이유: 하루에 한 번이라 셀 것이 없다
   // 다섯 버튼의 «보임»은 여기 한 줄에서 나온다 (조건은 `actOpen`)
+  // ⚠️ **오른쪽 줄 다섯만 여기서 켠다** — 왼쪽 줄 셋(🪄 😯 ⚜️)은 `index.html` 에
+  //    박힌 버튼이 아니라 `renderSoloActs()` 가 그리므로 `ROOM_ACT_BTN` 에 없다.
+  //    없는 id 를 `getElementById(undefined)` 로 물으면 조용히 null 이라 그냥 지나간다
   ROOM_ACTS.forEach(id => {
-    const b = document.getElementById(ROOM_ACT_BTN[id]);
+    const b = ROOM_ACT_BTN[id] ? document.getElementById(ROOM_ACT_BTN[id]) : null;
     if (b) b.hidden = !actOpen(id);
   });
   // 😊 표정 · ⚜️ 문신 — 다섯과 달리 이야기가 여는 문이 아니다 (조건은 `renderSoloActs`)

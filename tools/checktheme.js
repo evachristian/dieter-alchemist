@@ -430,6 +430,95 @@ async function onScreen() {
       }
     }
 
+    // ⓕ **헤더 알약 — 「투명도가 살짝」이 어디까지인가** (2026-10-02)
+    //
+    // 「상단 게이지바·현자의 결정·매력 총합을 감싸는 BG 가 적절히 투명도가 살짝
+    // 있도록 · 덜 답답해 보이도록」으로 받아 `--pill` 을 만든 자리다.
+    //
+    // ⚠️⚠️ **`checkTextStyle()` 은 이 자리를 영영 못 본다.** 마이 룸에서는 헤더가
+    //    투명해 알약이 **방 그림 «위»**에 앉는데, 방 그림은 조상의 배경이 아니라
+    //    «형제» `<svg>` 다 — `effectiveBg()` 는 조상을 타고 올라가 **페이지 바닥**을
+    //    배경으로 잡으므로 알약 뒤로 비치는 밝은 벽을 한 번도 안 본다.
+    //    (「다크에서 방 그림 위에 유리를 쓰면 밝은 글자가 밝은 그림 위에 앉는다」가
+    //    바로 이 구멍이고, 하단 탭의 `--bar` 도 같은 이유로 생겼다)
+    //
+    // ⚠️⚠️ **「글자 상자의 밝은 점 ÷ 어두운 점」으로 재면 못 가른다 — 사보타주가
+    //    그대로 통과했다.** `--pill` 을 통째로 `transparent` 로 두자 글자 뒤가 밝은
+    //    벽이 되어 범위가 **오히려 넓어졌고**(챠콜 9.34 → 10.17) 여섯이 다 「통과」로
+    //    나왔다. 그 잣대가 묻고 있던 것은 「이 상자 안이 다채로운가」지 「글자가
+    //    무엇 위에 앉았는가」가 아니었다.
+    // ⚠️ 그래서 **글자를 끄고 바탕만 찍어** 글자색과 견딘다 (「껐다 켜서 견준다」가
+    //    이 저장소의 그 방법이다). 바탕 중 **글자색에 제일 가까운 점**이 곧 최악이다.
+    // ⚠️ **알파는 «이 잣대로» 재서 골랐다** — 챠콜의 💎 개수가
+    //    86% **6.70** · 70% 4.76(간발) · 55% **3.48(깨진다)** · 40% 2.62 다
+    //    (ecru 도 40% 에서 4.47 로 같이 깨진다). 바닥(4.5)에서 한참 위인 86% 를 골랐다.
+    // ⚠️ 처음에 다른 방법(글자를 켠 채 백분위로 바탕을 추정)으로 재서 「70% 가
+    //    4.18 로 깨진다」고 적었는데 **이 잣대로는 4.76 이라 통과한다** —
+    //    수치를 적을 때는 **그 수치를 내는 잣대와 같은 것**으로 재야 한다.
+    // ⚠️ **`#enText`(900/1000)는 안 잰다** — 그 글자는 알약이 아니라 **AP 게이지의
+    //    채움** 위에 앉아 `--pill` 을 한 자리도 안 탄다 (알파를 55% 까지 내려도
+    //    3.63 으로 똑같다). 여기서 재야 하는 것은 «알약 바탕 위의 글자»다
+    {
+      // ⚠️⚠️ **맨 위로 돌려 놓고 잰다 — 안 그러면 「헤더 판 위」를 잰다.** 바로 위 ⓔ 가
+      //    `scrollIntoView` 로 화면을 내리는데, 굴리면 헤더가 다시 «판»이 되므로
+      //    (`body.head-solid` · `--head`) 알약 뒤가 방 그림이 아니라 그 판이 된다.
+      //    그 상태에서는 `--pill` 을 통째로 `transparent` 로 둬도 뒤가 비슷한 색이라
+      //    **사보타주가 그대로 통과했다** (여섯 다 9.4~10.2 로 «올라갔다»).
+      // ⚠️ 그래서 **헤더가 진짜로 비었는지(알파 0)를 빗장으로 건다** — 0건이
+      //    「통과」인지 「엉뚱한 데서 쟀다」인지를 가르는 한 줄이다
+      const top = await page.evaluate(async () => {
+        window.scrollTo(0, 0); document.body.classList.remove('head-solid');
+        await new Promise(r => setTimeout(r, 120));
+        const h = document.querySelector('.app-header');
+        const c = h ? getComputedStyle(h).backgroundColor : '';
+        const m = c.match(/rgba?\(([^)]+)\)/);
+        const a = m ? (m[1].split(',')[3] === undefined ? 1 : parseFloat(m[1].split(',')[3])) : 1;
+        return { bg: c, a, showcase: !!document.querySelector('#screen-showcase.active') };
+      });
+      if (!top.showcase) bad(`«${t}» 헤더 알약 — 마이 룸이 아니라 잴 수가 없다`);
+      else if (top.a > 0.01) bad(`«${t}» 헤더 알약 — 헤더가 안 비어 있다 (${top.bg}) · 방 그림 위가 아니라 판 위를 잰 것이다`);
+      const PILLS = top.showcase && top.a <= 0.01
+        ? [['#hdrCrystal', '현자의 결정'], ['#hdrCharm', '매력 총합']] : [];
+      for (const [sel, 이름] of PILLS) {
+        const box = await page.evaluate((q) => {
+          const e = document.querySelector(q);
+          if (!e) return { err: '못 찾았다' };
+          const r = document.createRange(); r.selectNodeContents(e);
+          const b = r.getBoundingClientRect();
+          const fg = (getComputedStyle(e).color.match(/\d+(\.\d+)?/g) || []).map(Number);
+          e.style.visibility = 'hidden';       // ⚠️ 글자를 끄고 «바탕»만 찍는다
+          return { x: b.left, y: b.top, w: b.width, h: b.height,
+                   text: (e.textContent || '').trim(), fg };
+        }, sel);
+        if (box.err) { bad(`«${t}» 헤더 알약(${이름}) — ${box.err}`); continue; }
+        const restore = () => page.evaluate((q) => {
+          const e = document.querySelector(q); if (e) e.style.visibility = '';
+        }, sel);
+        if (box.w < 4 || box.h < 6 || box.fg.length < 3) {
+          await restore();
+          bad(`«${t}» 헤더 알약(${이름}) — 글자 상자가 ${box.w.toFixed(0)}×${box.h.toFixed(0)}px 라 아무것도 안 쟀다`);
+          continue;
+        }
+        const shot = await page.screenshot({ clip: {
+          x: Math.floor(box.x), y: Math.floor(box.y),
+          width: Math.max(1, Math.ceil(box.w)), height: Math.max(1, Math.ceil(box.h)) } });
+        await restore();
+        const lums = pngLums(shot);
+        if (!lums.length) { bad(`«${t}» 헤더 알약(${이름}) — 픽셀을 한 점도 못 읽었다`); continue; }
+        const g = v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+        const fl = 0.2126 * g(box.fg[0]) + 0.7152 * g(box.fg[1]) + 0.0722 * g(box.fg[2]);
+        // 바탕 중 **글자색에 제일 가까운 점**이 최악이다
+        const worst = lums.reduce((a, c) => Math.abs(c - fl) < Math.abs(a - fl) ? c : a);
+        const v = (Math.max(fl, worst) + 0.05) / (Math.min(fl, worst) + 0.05);
+        if (v < 4.5) {
+          bad(`«${t}» 헤더 알약(${이름}) — 방 그림 위에서 「${box.text}」가 ${v.toFixed(2)}:1 이다`
+            + ` (4.5:1 이상 · --pill 의 알파를 올린다)`);
+        } else {
+          ok(`«${t}» 헤더 알약(${이름}) 「${box.text}」 ${v.toFixed(2)}:1 (방 그림 위 · 바탕 ${lums.length}점)`);
+        }
+      }
+    }
+
     await ctx.close();
   }
 
