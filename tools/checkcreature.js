@@ -42,7 +42,10 @@ const SYM_MIN = 0.90;
 //    털색이 무엇이든 같으므로 여섯 속성에서 다 선다
 const BLUSH_MIN = 24;    // 그런 점이 이만큼은 있어야 한다 (200px 에서 한쪽만 60쯤 된다)
 const BLUSH_K = 0.6;     // 털색이 가진 거리의 이만큼 안으로 들어와야 «볼»이다
-const HI_WANT = 2;       // 빛점 — **눈마다 한 점**(2026-10-01). 감고 웃는 눈은 안 본다
+// ⚠️⚠️ **2 → 4 로 되돌렸다** (2026-10-02 · 눈마다 «두 점»이 됐다 — 「초롱초롱한
+//    눈망울」). ⚠️ 수를 안 올리면 **「하나라도 있으면 센다」**가 되어 **한 점을 지우는
+//    사보타주가 그대로 통과한다** — 빛의 수를 바꿀 때는 이 값과 아래 `got` 식이 짝이다
+const HI_WANT = 4;       // 빛점 — 눈 둘 × 두 점. 감고 웃는 눈은 안 본다
 const ATTR_DE = 28;      // 속성끼리 이만큼은 색이 갈려야 한다 (ΔE 비슷한 값)
 const PUPIL_MAX = 0.22;  // 눈동자 상자는 그림의 이만큼 안이다 (먹선 덩어리를 가른다)
 const PUPIL_AR = [0.55, 1.8];
@@ -77,6 +80,8 @@ const LINE_TOL = 30;     // 안티에일리어싱이 끼므로 조금 넉넉히
 //    **선을 두르면 99% · 없으면 1%(30마리 다)** 로 한결같다. 뒤집은 지금도 그대로 쓴다
 const LINE_MAX = 0.12;   // 둘레에 먹선이 이만큼 넘게 있으면 «선을 두른 것»이다
 const LINE_IN = 2;       // 가장자리에서 이만큼 안쪽을 본다 (가장자리 한 줄은 반투명이다)
+const TILT_MAX = 0.25;   // ⑪ 눈망울이 «기울지» 않았는가 (지금 0.12 · 옛 아몬드 0.50 — 재서 골랐다)
+const TILT_MIN_N = 60;   // 이보다 작은 먹 덩어리는 «입»이라 안 잰다
 const SEAM_MAX = 2;      // ⑨ 귀 이음매 — 실루엣이 한 줄에 이만큼 넘게 안으로 꺾이면 «턱»이다
 const TAIL_MIN = 200;    // ⑩ 꼬리가 몸 밖으로 내놓아야 하는 몫 (200px 기준)
 
@@ -134,6 +139,7 @@ const near = (p, hex, tol) => {
   let sym = 0, eyes = 0, hi = 0, blush = 0, eyeMin = 9, symMin = 9, eyeN = 0, hiN = 0;
   let line = 0, lineN = 0, white = 0;
   let seam = 0, seamN = 0, seamRows = 0, tailMin = 1e9, tailN = 0;
+  let tiltMax = 0, tiltN = 0;
 
   for (const c of out) {
     const P = c.px;
@@ -237,6 +243,45 @@ const near = (p, hex, tol) => {
       const lit = blobs(isLit).filter(k => k.n >= 3);
       const per = pupils.map(k =>
         lit.filter(w => w.cx >= k.a0 && w.cx <= k.a1 && w.cy >= k.b0 && w.cy <= k.b1).length);
+      // ── ⑪ 눈망울이 «기울지» 않았는가 — **줄마다 가운데가 밀려 올라가지 않는가**
+      //
+      // 「눈 모양 더 귀엽게 · **위로 쭉 올라간 눈 별로야** · 초롱초롱한 눈망울 위주로」로
+      // 받아 아몬드를 버린 자리다 (2026-10-02).
+      // ⚠️⚠️ **①~⑩ 어느 것도 이 축을 못 본다** — 기운 아몬드는 «얼굴 안에서» 좌우
+      //    거울이라 ② 가 0.99 로 통과하고, 잘리지도 빛이 모자라지도 않는다.
+      //    0건이 「통과」가 아니라 **「한 번도 안 쟀다」**인 자리다.
+      // ⚠️⚠️ **먹 영역을 «뒤집어 겹쳐» 보는 것으로는 못 잰다 — 두 번 헛짚었다.**
+      //    ① 그대로 뒤집으면 **빛점이 낸 구멍**이 어긋난다 (큰 점은 오른쪽 위 ·
+      //    작은 점은 왼쪽 아래라 서로 반대 귀퉁이다) — 동그란 눈이 0.50~0.72 로
+      //    나왔다 ② 줄마다 양 끝을 이어 구멍을 메워도 **앤티에일리어싱 한 줄**에
+      //    흔들려 0.79~0.91 이었다 (머리가 작은 마리는 눈이 16px 이라 한 픽셀이 6% 다).
+      // ⚠️ 그래서 **「기울었나」를 바로 잰다** — 줄마다 «가운데»(양 끝의 가운뎃점)를
+      //    구해 y 에 대한 기울기를 낸다. 동그란 눈망울은 어느 줄에서나 가운데가
+      //    같은 자리라 0 에 가깝고, 기운 아몬드는 위로 갈수록 한쪽으로 밀린다.
+      //    **한 픽셀 흔들림은 회귀가 먹어 준다** (한 줄이 아니라 전체 추세다)
+      pupils.forEach(k => {
+        if (k.n < TILT_MIN_N) return;        // 입처럼 작은 덩어리는 건너뛴다
+        const W = k.a1 - k.a0 + 1, pts = [];
+        for (let y = k.b0; y <= k.b1; y++) {
+          let l = -1, r = -1;
+          for (let x = k.a0; x <= k.a1; x++) if (isInk(x, y)) { if (l < 0) l = x; r = x; }
+          if (l >= 0) pts.push([y, (l + r) / 2]);
+        }
+        if (pts.length < 5 || W < 4) return;
+        // 최소제곱으로 기울기 하나 — 폭으로 나눠 크기를 안 타게 한다
+        const my = pts.reduce((t2, q) => t2 + q[0], 0) / pts.length;
+        const mc = pts.reduce((t2, q) => t2 + q[1], 0) / pts.length;
+        let sxy = 0, sxx = 0;
+        pts.forEach(([y, cx]) => { sxy += (y - my) * (cx - mc); sxx += (y - my) ** 2; });
+        if (!sxx) return;
+        const slope = Math.abs(sxy / sxx);
+        if (slope > tiltMax) tiltMax = slope;
+        tiltN++;
+        if (slope > TILT_MAX)
+          bad.push(`${c.name}: 눈망울이 기울어 있다 (줄마다 가운데가 ${slope.toFixed(2)}`
+            + `px 씩 밀린다 · ${TILT_MAX} 까지다 · 「위로 올라간 눈」은 안 쓴다)`);
+      });
+
       // ── ⑧ **흰자가 없는가** — 밝은 덩어리는 «빛점»뿐이어야 한다
       //
       // ⚠️⚠️ 사람이 서른 마리를 놓고 **흰자가 있는 열여섯을 «정확히» 집어**
@@ -258,9 +303,9 @@ const near = (p, hex, tol) => {
           + ` · ${WHITE_MAX * 100}% 를 넘으면 빛점이 아니라 흰자다)`);
       white = Math.max(white, wr);
 
-      const got = per.filter(n => n >= 1).length;
+      const got = per.filter(n => n >= 2).length * 2 + per.filter(n => n === 1).length;
       if (got < HI_WANT)
-        bad.push(`${c.name}: 눈의 빛이 ${got}점이다 (눈마다 한 점 · ${HI_WANT}점이어야 한다`
+        bad.push(`${c.name}: 눈의 빛이 ${got}점이다 (눈마다 두 점 · ${HI_WANT}점이어야 한다`
           + ` · 눈동자 ${pupils.length}개에 [${per.join(',')}])`);
       hi += got; hiN++;
     }
@@ -391,6 +436,7 @@ const near = (p, hex, tol) => {
     + ` · 빛 ${(hi / Math.max(1, hiN)).toFixed(1)}점(${hiN}마리) · 볼터치 ${blush.toFixed(0)}점 · 거의 흰 칠 ÷ 눈동자 ${(white * 100).toFixed(0)}%`
     + ` · 둘레의 먹선 ${(line * 100).toFixed(0)}%(${lineN}점 · 없어야 한다) · 속성 제일 가까운 쌍 ${pair} ${worst.toFixed(0)}`);
   // **몇 마리를 쟀는지 통과할 때도 낸다** — 0건이 「통과」인지 「한 번도 안 쟀다」인지를 가른다
+  console.log(`  눈망울 기울기 — 제일 심한 것 ${tiltMax.toFixed(2)}px/줄 (${tiltN}개)`);
   console.log(`  귀 이음매 — 제일 깊은 턱 ${seam}px (${seamN}마리 · ${seamRows}줄)`
     + ` · 꼬리가 몸 밖으로 제일 적게 나온 마리 ${tailMin === 1e9 ? '-' : tailMin}px (${tailN}마리)`);
   console.log(`  (상자 가장자리 ${EDGE}px · 대칭 ${SYM_MIN} · 빛 ${HI_WANT}점 · 흰자 ${WHITE_MAX * 100}% · 둘레 먹선 ${LINE_MAX * 100}% 아래 · 눈 크기는 재기만 한다)`);
