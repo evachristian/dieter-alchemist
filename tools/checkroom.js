@@ -1092,10 +1092,177 @@ function mask(A, B) {
     await page.close();
   }
 
+  // ═══ 터치 기기에서는 «쓸어서» 돈다 (`roomSwipe*` · `room3d.spinDrag`) ═══
+  //
+  // ⚠️⚠️ **버튼을 누르는 것으로는 이 층을 한 줄도 못 잰다** — 위의 ④ 는 `spinRoom()` 을
+  //    부르므로 손가락 쪽 배선이 통째로 끊겨도 통과한다.
+  // ⚠️⚠️ **진짜 터치로 쓴다** (CDP `Input.dispatchTouchEvent`). `page.mouse` 로 끌면
+  //    `pointerType` 이 `mouse` 라 **일부러 거르는 갈래**에 걸려 아무 일도 안 일어난다
+  //    (`checktut` 이 `el.click()` 을 안 쓰는 것과 같은 이유다).
+  // ⚠️ 보는 것이 여섯이고 **서로 반대 방향이 섞여 있다** — 「돈다」만 보면 세로로도
+  //    돌아가는 사고를, 「안 돈다」만 보면 배선이 끊긴 것을 못 본다
+  let swipe = '';
+  // ⚠️⚠️ **라벨 달린 블록이다 — 중간에 빠져나갈 때 `return` 을 쓰면 안 된다.** 이 블록은
+  //    함수가 아니라 맨 바깥 async IIFE 안이라, `return` 하면 **보고와 `browser.close()`
+  //    까지 통째로 건너뛴다** (터지는 것과 결과가 같다). `break` 로 블록만 빠진다
+  swipeGate: {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 900 }, hasTouch: true });
+    await ctx.addInitScript(() => {
+      localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+      localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
+        { ver: 18, name: 'Tester', nameClaimed: true, tutorialDone: true, roomLevel: 5 }));
+    });
+    const page = await ctx.newPage();
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForFunction(() => typeof S !== 'undefined' && typeof render === 'function');
+    await page.evaluate(() => {
+      const s = document.getElementById('splash'); if (s) s.remove();
+      S.roomActs = ['exercise', 'binge', 'kitchen', 'harvest', 'farm'];   // 방 버튼을 다 열어 둔다
+      switchTab('showcase'); render();
+    });
+    await page.waitForSelector('.room-scene.is3d', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(700);
+    const is3d = await page.evaluate(() => !!document.querySelector('.room-scene.is3d'));
+    if (!is3d) bad.push('쓸어서 돌리기: 3D 가 안 섰다 — 아무것도 못 쟀다');
+    else {
+      const cdp = await ctx.newCDPSession(page);
+      const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', {
+        type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+      const drag = async (x0, y0, dx, dy, steps) => {
+        const n = steps || 10;
+        await touch('touchStart', x0, y0);
+        for (let i = 1; i <= n; i++) {
+          await touch('touchMove', x0 + dx * i / n, y0 + dy * i / n);
+          await page.waitForTimeout(16);
+        }
+        await touch('touchEnd', x0 + dx, y0 + dy);
+        await page.waitForTimeout(420);
+      };
+      // ⚠️⚠️ **없으면 «터지지 말고» 알린다.** 쓸기 자체가 없는 트리에서는 가로 끌기가
+      //    브라우저의 **뒤로 가기 제스처**로 받아들여져 페이지가 다시 읽히는데, 그때
+      //    `room3d` 가 아직 없어서 `room3d.spinAt()` 이 `ReferenceError` 로 터졌다 —
+      //    그 한 줄에 **그때까지 잰 모든 것이 사라진다**(사보타주를 돌릴 수가 없다).
+      //    이 블록의 모든 `evaluate` 는 없으면 `null` 을 돌려주고, 부르는 쪽이 실패시킨다
+      const at = () => page.evaluate(() =>
+        (typeof room3d === 'undefined' || !room3d) ? null : room3d.spinAt());
+      const mid = () => page.evaluate(() => {
+        if (typeof room3d === 'undefined' || !room3d) return null;
+        // 가운데로 돌려 놓는다 — 버튼으로 (격자 반올림이 있어야 0 을 밟는다)
+        for (let i = 0; i < 24; i++) {
+          const a = room3d.spinAt(); if (Math.abs(a.to) < 1e-6) break;
+          spinRoom(a.to > 0 ? -1 : 1);
+        }
+        return room3d.spinAt().to;
+      });
+      // 「지금 잴 수 있는 상태인가」 — 못 재면 그 자리에서 실패시키고 돌아간다
+      const live = async (what) => {
+        const a = await at();
+        if (a) return a;
+        bad.push(`쓸어서 돌리기: ${what} — 방이 사라졌다 (아무것도 안 쟀다)`);
+        return null;
+      };
+      const box = await page.evaluate(() => {
+        const r = document.querySelector('.room-canvas').getBoundingClientRect();
+        return { x: r.left, y: r.top, w: r.width, h: r.height };
+      });
+      const cx = box.x + box.w / 2, cy = box.y + box.h * 0.35;
+
+      // ① 가로로 쓸면 돈다 — 그리고 **쓴 만큼** 돈다 (끝까지 튀지 않는다)
+      await mid(); await page.waitForTimeout(500);
+      await drag(cx, cy, 70, 0);
+      const r1 = await live('가로 70px'); if (!r1) break swipeGate;
+      const a1 = r1.to;
+      if (!(a1 > 0.03)) bad.push(`쓸어서 돌리기: 가로로 70px 쓸어도 안 돈다 (yaw ${a1.toFixed(3)})`);
+      if (Math.abs(a1) > 0.399) {
+        bad.push(`쓸어서 돌리기: 70px 에 끝까지 튄다 (yaw ${a1.toFixed(3)}) — 쓴 만큼 돌아야 한다`);
+      }
+      // ② 세로로 쓸면 **안 돌고 페이지가 굴러간다** (끌기를 안 쓰던 그 이유다)
+      // ⚠️⚠️ **«똑바로» 세로로 쓸면 아무것도 못 가른다 — 사보타주가 그것을 드러냈다.**
+      //    축 고정을 통째로 빼 놓고도 검사가 **통과했다**: dx 가 정확히 0 이라 돌 몫이
+      //    없었기 때문이다. 사람의 손가락은 그렇게 안 움직인다 — 세로로 쓸어도 가로로
+      //    조금씩 흔들리고, 축 고정이 없으면 **페이지가 굴러가는 동안 방이 같이 돈다.**
+      //    그래서 **비스듬히**(가로 40 · 세로 −170) 쓴다 — 축 고정이 있으면 `y` 로
+      //    정해져 한 픽셀도 안 돌고, 없으면 40px 만큼(≈0.15) 돈다
+      await mid(); await page.evaluate(() => window.scrollTo(0, 0)); await page.waitForTimeout(500);
+      const r2a = await live('세로 쓸기 전'); if (!r2a) break swipeGate;
+      const b2 = r2a.to;
+      await drag(cx, cy, 40, -170, 12);
+      const r2b = await live('세로 쓸기 뒤'); if (!r2b) break swipeGate;
+      const a2 = r2b.to;
+      const sy = await page.evaluate(() => window.scrollY);
+      if (Math.abs(a2 - b2) > 1e-6) {
+        bad.push(`쓸어서 돌리기: 세로로(비스듬히) 쓸었는데 방이 돌았다`
+          + ` (${b2.toFixed(3)} → ${a2.toFixed(3)}) — 페이지가 굴러가는 동안 방이 같이 돈다`);
+      }
+      if (!(sy > 20)) bad.push(`쓸어서 돌리기: 세로로 쓸었는데 페이지가 안 굴렀다 (scrollY ${sy})`);
+      await page.evaluate(() => window.scrollTo(0, 0)); await page.waitForTimeout(200);
+      // ③ 한계를 안 넘는다 (이 방에는 앞벽이 없다)
+      // ⚠️⚠️ **손가락을 창 «밖»으로 끌지 않는다.** 900px 을 끌었더니 브라우저가 그것을
+      //    **뒤로 가기 제스처**로 받아 페이지를 다시 읽었고, 그 뒤의 `room3d` 가 아직
+      //    없어서 검사기가 `ReferenceError` 로 **터졌다** — 그때까지 잰 것이 통째로
+      //    사라진다 (「크래시는 무엇이 틀렸나를 안 알려 준다」). 상자 안에서 끝에서
+      //    끝까지 끌면 `SWIPE_SPAN`(0.6)의 1.6배라 한계를 넘기에 충분하다
+      await mid(); await page.waitForTimeout(500);
+      await drag(box.x + 12, cy, box.w - 24, 0, 20);
+      const a3 = await live('끝까지 쓸기'); if (!a3) break swipeGate;
+      if (Math.abs(a3.to) > a3.max + 1e-6) {
+        bad.push(`쓸어서 돌리기: 한계를 넘었다 (${a3.to.toFixed(3)} > ${a3.max})`);
+      }
+      // ④ 끌기 «뒤»에도 버튼이 가운데를 밟는다 (`yawGrid` 가 없으면 영영 못 선다)
+      await mid(); await page.waitForTimeout(400);
+      await drag(cx, cy, 55, 0);
+      const r4 = await live('격자 밖에 세우기'); if (!r4) break swipeGate;
+      const off = r4.to;
+      const home = await mid();
+      await page.waitForTimeout(400);
+      if (Math.abs(home) > 1e-6) {
+        bad.push(`쓸어서 돌리기: 격자 밖(${off.toFixed(3)})에서 버튼이 가운데를 못 밟는다`
+          + ` (${home.toFixed(3)})`);
+      }
+      // ⑤ **방 버튼 위에서 시작한 손가락은 그 버튼의 것이다** (방 그림 위에 얹혀 있다)
+      await mid(); await page.waitForTimeout(400);
+      const btn = await page.evaluate(() => {
+        const b = document.querySelector('#roomActs .room-act') || document.querySelector('.room-act');
+        if (!b) return null;
+        const r = b.getBoundingClientRect();
+        return r.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+      });
+      if (!btn) bad.push('쓸어서 돌리기: 방 버튼을 못 찾았다 — ⑤ 를 한 번도 안 쟀다');
+      else {
+        const r5a = await live('방 버튼 전'); if (!r5a) break swipeGate;
+        const b5 = r5a.to;
+        await drag(btn.x, btn.y, 80, 0);
+        const r5b = await live('방 버튼 뒤'); if (!r5b) break swipeGate;
+        const a5 = r5b.to;
+        if (Math.abs(a5 - b5) > 1e-6) {
+          bad.push(`쓸어서 돌리기: 방 버튼 위에서 쓸었는데 방이 돌았다`
+            + ` (${b5.toFixed(3)} → ${a5.toFixed(3)})`);
+        }
+      }
+      // ⑥ **마우스로는 안 돈다** — 데스크톱에는 버튼이 있고, 드래그는 평소 동작의 것이다
+      await mid(); await page.waitForTimeout(400);
+      const r6a = await live('마우스 전'); if (!r6a) break swipeGate;
+      const b6 = r6a.to;
+      await page.mouse.move(cx, cy); await page.mouse.down();
+      for (let i = 1; i <= 8; i++) { await page.mouse.move(cx + i * 12, cy); await page.waitForTimeout(16); }
+      await page.mouse.up(); await page.waitForTimeout(300);
+      const r6b = await live('마우스 뒤'); if (!r6b) break swipeGate;
+      const a6 = r6b.to;
+      if (Math.abs(a6 - b6) > 1e-6) {
+        bad.push(`쓸어서 돌리기: 마우스로 끌었는데 방이 돌았다 (${b6.toFixed(3)} → ${a6.toFixed(3)})`);
+      }
+      swipe = `쓸어서 돌리기 — 가로 70px→${a1.toFixed(3)} · 비스듬한 세로는 안 돌고 페이지가 ${sy}px`
+        + ` · 상자 끝에서 끝까지 쓸어도 한계 ${a3.max} 안(${a3.to.toFixed(3)})`
+        + ` · 격자 밖 ${off.toFixed(3)} 에서 버튼이 가운데로 · 방 버튼·마우스는 안 돈다 (6가지)`;
+    }
+    await ctx.close();
+  }
+
   await browser.close();
   console.log('3D 방 — ' + out.join(' | '));
   if (gift) console.log('  ' + gift);
   if (pet) console.log('  ' + pet);
+  if (swipe) console.log('  ' + swipe);
   console.log(`  (발 ${FOOT_MAX}px · SVG 와 ${SVG_MAX}px · 머리 뒤 벽 ${WALL_MIN * 100}% 까지`
     + ` · 크리처 땅·어항 ${PET_FOOT}px · 공중 ${PET_AIR_MIN}px 까지 · 폭 셋을 다 쟀다)`);
   if (bad.length) {

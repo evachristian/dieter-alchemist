@@ -2115,7 +2115,12 @@ button.tm-slot:active { transform: scale(0.94); }
 }
 
 /* 방 그림과 그 위에 얹는 것들 */
-.room-canvas { position: relative; }
+/* ⚠️⚠️ **`pan-y` 가 「쓸어서 돌리기」의 전부다** (`game.js` 의 `roomSwipe*`).
+   세로 패닝은 브라우저에 남겨 두고(페이지가 그대로 굴러간다) **가로 제스처만**
+   우리에게 온다 — 예전에 끌기를 안 쓴 이유(「폰에서 방을 쓸어 내리려다 카메라가
+   돌아간다」)가 이 한 줄로 없어진다. `none` 으로 두면 방 위에서 페이지가 안 굴러가고,
+   안 두면 가로 쓸기가 브라우저에 먹혀 `pointermove` 가 중간에 끊긴다 */
+.room-canvas { position: relative; touch-action: pan-y; }
 /* 시계 — **제목 줄 안**이다 (2026-10-02 · index.html 의 그 주석).
    예전에는 방 그림 왼쪽 위 모서리에 얹혀 있었는데(`position: absolute`), 제목이
    절반 크기로 줄어 게이지 밑에 붙으면서 **둘을 한 줄로** 모았다 —

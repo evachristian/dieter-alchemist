@@ -5445,8 +5445,11 @@ function renderSpin() {
   const at = room3d.spinAt();
   box.querySelectorAll('.spin-btn').forEach(b => {
     const dir = Number(b.dataset.dir) || 0;
-    // 한 걸음 더 갈 자리가 남았는가 (부동소수 여유 한 톨)
-    b.disabled = Math.abs(at.to + dir * at.step) > at.max + 1e-6;
+    // 한 걸음 더 갈 자리가 남았는가 — ⚠️⚠️ **자르는 식을 베껴 쓰지 않는다.**
+    // 오래 `|to + dir*step| > max` 로 제 손으로 셈하고 있었는데, 스와이프가 생기며
+    // `yawTo` 가 격자 밖에 설 수 있게 되자 그 사본이 어긋났다 — 0.37 에서 오른쪽은
+    // 0.4 로 «갈 수 있는데» 베낀 식은 잠근다. **갈 자리를 room3d 에 물어본다**
+    b.disabled = Math.abs(room3d.spinPeek(dir) - at.to) < 1e-6;
     b.setAttribute('aria-label', T(dir < 0 ? 'spin_left' : 'spin_right'));
   });
 }
@@ -5456,6 +5459,67 @@ function spinRoom(dir) {
   renderSpin();
 }
 window.spinRoom = spinRoom;
+
+// ─── 터치 기기에서는 «쓸어서» 돌린다 (버튼은 그대로 둔다) ──────────
+//
+// ⚠️⚠️ **예전에 끌기를 «일부러» 안 썼다 — 그 이유는 여전히 맞다:** 「폰에서 방을
+//    쓸어 내리려다 카메라가 돌아간다」. 그래서 **가로만** 가져간다 —
+//    `touch-action: pan-y` 가 세로 패닝을 브라우저에 남겨 두고(그쪽은 페이지가
+//    굴러간다) 가로 제스처만 우리에게 온다. 「끌기를 쓰지 않는다」가 아니라
+//    **「세로는 건드리지 않는다」**가 지킬 약속이었다.
+// ⚠️ **첫 움직임에서 축을 정하고 한 번 정하면 안 바꾼다**(`axis`). 매 프레임
+//    견주면 비스듬히 쓸 때 돌다 굴러가다 해서 둘 다 안 된다
+// ⚠️ **마우스는 안 받는다**(`pointerType`). 데스크톱에는 이미 버튼이 있고,
+//    드래그를 가져가면 글자 선택·그림 끌기 같은 평소 동작을 뺏는다
+// ⚠️ **버튼 위에서 시작한 손가락은 그 버튼의 것이다** — 방 버튼(운동·흡입…)이
+//    방 그림 «위»에 얹혀 있어서, 안 가리면 버튼을 누르려다 방이 돌아간다
+// ⚠️ 끌기 «중»에는 격자를 벗어나 서고, 손을 떼면 `spinSnap()` 이 칸에 앉힌다 —
+//    버튼이 그 뒤로도 가운데를 밟을 수 있어야 한다 (room3d.js 의 그 주석)
+const SWIPE_MIN = 8;        // px. 이만큼은 움직여야 축을 정한다 (손가락이 떠는 몫)
+const SWIPE_SPAN = 0.6;     // 상자 폭의 이만큼을 쓸면 한쪽 끝까지 돈다
+let swipe = null;
+function roomSwipeStart(e) {
+  // ⚠️⚠️ **새로 누르면 앞의 손짓은 거기서 끝이다.** 떼는 것(`pointerup`)에만 기대면
+  //    그 한 번을 놓쳤을 때 **먼저 잡아 둔 시작점이 살아남아**, 다음에 어디를 만지든
+  //    그 옛 시작점에서 잰 몫만큼 방이 돈다 — 버튼을 눌러도, 마우스로 끌어도 돈다
+  //    (사보타주를 돌리다 실제로 그 꼴이 나왔다). 지우고 시작하면 그 갈래가 없어진다
+  swipe = null;
+  if (e.pointerType === 'mouse' || !room3d || !document.querySelector('.room-scene.is3d')) return;
+  // ⚠️ **상자에 직접 붙이지 않는다** — `render()` 가 방을 통째로 다시 만들어서
+  //    붙여 둔 손잡이가 문서에서 떨어져 나간다 (토스트·채집 버튼에서 배운 자리다).
+  //    document 에서 받아 **그 자리가 방인지**를 본다
+  const box = e.target.closest('.room-canvas');
+  if (!box) return;
+  const w = box.getBoundingClientRect().width;
+  if (!(w > 0)) return;
+  swipe = { id: e.pointerId, x: e.clientX, y: e.clientY, axis: '',
+    from: room3d.spinAt().to, k: (2 * room3d.spinAt().max) / (w * SWIPE_SPAN) };
+}
+function roomSwipeMove(e) {
+  if (!swipe || e.pointerId !== swipe.id) return;
+  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+  if (!swipe.axis) {
+    if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
+    swipe.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if (swipe.axis === 'y') { swipe = null; return; }   // 세로는 페이지의 것이다
+  }
+  // 내용이 손가락을 따라간다 — 오른쪽으로 쓸면 방도 오른쪽으로 돈다
+  // (재서 정했다: `spin(+1)` 이 벽을 화면 오른쪽으로 옮긴다)
+  room3d.spinDrag(swipe.from + dx * swipe.k);
+}
+function roomSwipeEnd(e) {
+  if (!swipe || (e && e.pointerId !== swipe.id)) return;
+  const moved = !!swipe.axis;
+  swipe = null;
+  // 손가락이 놓은 «그 자리»에 쉰다 (격자로 끌어당기지 않는다 — room3d.js 의 그 주석)
+  if (moved) renderSpin();   // 끝에 닿았으면 그쪽 버튼이 «안 눌리게» 돼야 한다
+}
+// ⚠️ **넷을 다 document 에서 받는다** — `render()` 가 방을 통째로 다시 그려서
+//    상자에 붙인 손잡이는 문서에서 떨어져 나간다 (채집 버튼의 꾹 누르기와 같은 자리다)
+document.addEventListener('pointerdown', roomSwipeStart);
+document.addEventListener('pointermove', roomSwipeMove);
+document.addEventListener('pointerup', roomSwipeEnd);
+document.addEventListener('pointercancel', roomSwipeEnd);
 window.addEventListener('resize', () => { if (currentTab === 'showcase') room3dSync(); });
 window.addEventListener('room3d-ready', () => { if (currentTab === 'showcase') renderRoomScene(); });
 

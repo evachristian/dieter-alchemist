@@ -778,13 +778,46 @@ export function createRoom(canvas, opt) {
     place(); renderer.render(scene, camera);
     if (yaw !== yawTo) spinRaf = requestAnimationFrame(spinStep);
   }
+  const yawClamp = (v) => Math.max(-YAW_MAX, Math.min(YAW_MAX, v));
+  // 버튼이 서는 자리 — **격자 위**다.
+  // ⚠️⚠️ **더하기만 하면 끌기 뒤에 가운데를 영영 못 밟는다.** 스와이프는 손가락이
+  //    놓은 «그 자리»에 쉬므로(`spinDrag`) `yawTo` 가 0.17 처럼 설 수 있는데,
+  //    거기서 `YAW_STEP` 씩 더하면 −0.23 · 0.17 사이를 오갈 뿐 0 을 지나가지 않는다
+  //    (`checkroom` 이 ⑧ 앞에서 「가운데로 되돌렸는가」를 보는 그 자리다).
+  //    격자에 맞춰 반올림하면 **격자 위에서는 한 글자도 안 달라지고**(정확한 배수의
+  //    반올림은 자기 자신이다) 격자 밖에서만 칸으로 끌어당긴다
+  const yawGrid = (v) => yawClamp(Math.round(v / YAW_STEP) * YAW_STEP);
   function spin(dir) {
-    yawTo = Math.max(-YAW_MAX, Math.min(YAW_MAX, yawTo + (Number(dir) || 0) * YAW_STEP));
+    yawTo = yawGrid(yawTo + (Number(dir) || 0) * YAW_STEP);
     // ⚠️ **움직임 줄이기에서는 «즉시»다** — 기능을 빼는 것이 아니라 도는 모습을 뺀다
     if (slow) { yaw = yawTo; place(); renderer.render(scene, camera); }
     else if (!spinRaf) spinRaf = requestAnimationFrame(spinStep);
     return yawTo;
   }
+  // ── 손가락을 따라 «이어서» 돈다 (터치 기기의 스와이프 · `game.js` 의 `roomSwipe`)
+  //
+  // ⚠️⚠️ **이징을 안 쓴다.** `spin()` 은 목표를 정하고 16%씩 따라가는데, 끌기에서는
+  //    손가락이 이미 그 자리에 있으므로 뒤따라가면 **고무줄처럼 늘어져** 손에 안 붙는다.
+  //    여기서는 `yaw` 를 바로 올려놓고 한 프레임을 그린다
+  // ⚠️ **한계는 `spin()` 과 같은 한 곳에서 자른다**(`YAW_MAX`) — 이 방에는 앞벽이
+  //    없어서 많이 돌면 시야가 열린 앞으로 빠진다
+  // ⚠️ **격자에 안 맞춘다 — 손가락이 놓은 그 자리에 쉰다.** 칸에 앉히게 해 놓았다가
+  //    되돌렸다: 한 칸이 11.5° 인데 전체가 ±23° 뿐이라 쉬는 자리가 다섯밖에 없어,
+  //    90px 만 쓸어도 **끝까지 튀었다**(재 보고 알았다). 끌기는 손에 붙어야 하고,
+  //    그 대신 **버튼이 격자로 끌어당긴다**(`yawGrid`)
+  function spinDrag(rad) {
+    const v = Number(rad);
+    if (!isFinite(v)) return yawTo;
+    yawTo = yawClamp(v);
+    yaw = yawTo;
+    place(); renderer.render(scene, camera);
+    return yawTo;
+  }
+  // 「그 버튼을 누르면 어디로 가나」 — ⚠️⚠️ **자르는 규칙을 game.js 에 베껴 두지 않는다.**
+  //    `renderSpin()` 이 「한 걸음 더 갈 자리가 남았는가」를 제 손으로 셈하고 있었는데,
+  //    격자 반올림이 생기면서 그 사본이 어긋났다 — 0.37 에서 오른쪽은 0.4 로 «갈 수
+  //    있는데» 베낀 식은 |0.57| > 0.4 라 **버튼을 잠근다**(멀쩡한데 고장 난 것으로 보인다)
+  function spinPeek(dir) { return yawGrid(yawTo + (Number(dir) || 0) * YAW_STEP); }
   // 「지금 어디까지 돌아가 있나」 — 버튼을 흐리게 할지 검사기가 볼 값이다
   function spinAt() { return { yaw, to: yawTo, max: YAW_MAX, step: YAW_STEP }; }
 
@@ -856,7 +889,8 @@ export function createRoom(canvas, opt) {
   // ⚠️ **프로토타입은 제 돌리기를 쓴다**(궤도·펼쳐 보기·빌보드가 거기 있다) —
   //    그래서 조각들을 같이 내놓는다. 감춰 두면 프로토타입이 세트를 다시 짜게 되고,
   //    그 순간 이 파일이 「유일한 곳」이 아니게 된다
-  return { scene, camera, renderer, cards, resize, aim, setLevel, setDecor, setPhase, setWindow, floorRect, spin, spinAt, run, dispose,
+  return { scene, camera, renderer, cards, resize, aim, setLevel, setDecor, setPhase, setWindow, floorRect,
+    spin, spinDrag, spinPeek, spinAt, run, dispose,
     render: () => renderer.render(scene, camera),
     get winShape() { return winShape; },
     parts: { glyph, backWall, floor, walls, shaft, winMat, moon, key, amb, brewLight, shadowTex,
