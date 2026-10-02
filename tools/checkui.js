@@ -2879,6 +2879,10 @@ function launchOpts() {
                   return `${sl} 의 염색 줄이 칸 격자 «위»에 있다 (옷장 탭과 순서가 다르다)`;
                 if (gap < 10)
                   return `${sl} 의 염색 줄이 격자에 붙어 있다 (${Math.round(gap)}px · 10px 은 떨어져야 한다)`;
+                // ⚠️ **라벨이 «한 줄»인지는 여기서 못 본다** — 접힘은 폭마다 갈리는데
+                //    이 블록은 한 폭에서만 돈다. 아래 「염색라벨」이 폭을 돌며 잰다
+                //    (여기서 재게 두었더니 basis 를 옛 값으로 되돌리는 사보타주가
+                //    **그대로 통과했다** — 480px 에서는 옛 값도 한 줄이다)
                 window.__dyeGap = Math.round(gap);
                 // 줄을 펴 놓고 재야 칩의 대비까지 잰 것이 된다 (접혀 있으면 display:none 이다)
                 S.dye = Math.max(1, S.dye || 0);
@@ -2920,6 +2924,67 @@ function launchOpts() {
           }
           if (slots.length) console.log(`  칸시트 — 시트로 뺀 칸을 «다» 쟀다 (${slots.join('·')})`
             + (dyeGaps.length ? ` · 염색 줄이 격자 아래 ${dyeGaps.join('·')}` : ' · 색을 고르는 칸이 없다'));
+
+          // ── 염색 라벨은 «한 줄»이다 (「라벨 한 줄로 들어가게」 · 2026-10-02)
+          //
+          // ⚠️⚠️ **한 폭에서 재면 아무것도 안 잰 것이다.** 염색 줄 둘은 자리가 좁으면
+          //    아래로 접히는데(`.dye-bar` 의 `flex-basis`), 접히면 라벨이 칸을 통째로
+          //    써서 늘 한 줄이고 **나란히 설 때만** 눌린다. 480px 에서는 옛 값
+          //    (basis 120px)도 한 줄이라 **사보타주가 그대로 통과했다** — 가르는 자리는
+          //    접힘이 갈리는 **320~430px** 이다.
+          // ⚠️ **글자 크기로는 못 고치는 자리라는 것도 같이 적어 둔다** — 라벨이 한 줄에
+          //    쓰는 폭이 83~87px 인데 옛 basis 에서는 칸이 41~76px 이었다. 정책 바닥
+          //    (`a11y.js` 의 `minFontPx` 11)까지 내려도 83px 이라 **폭이 지켜야 한다**
+          {
+            const vp0 = page.viewportSize();
+            const lang0 = await page.evaluate(() => I18N.getLang());
+            const bad = []; let seen = 0; let worst = null;
+            for (const lang of ['ko', 'en']) {
+              await page.evaluate(l => I18N.setLang(l), lang);
+              for (const w of [320, 360, 390, 430, 497]) {
+                await page.setViewportSize({ width: w, height: 878 });
+                await page.waitForTimeout(120);
+                const r = await page.evaluate(() => {
+                  // 색을 고르면서 시트로 뺀 칸을 표에서 집는다 (이름을 박지 않는다)
+                  const m = D.WARDROBE_SLOTS.find(x => x.sheet && (D.COLORABLE_SLOTS || []).includes(x.slot));
+                  if (!m) return { skip: true };
+                  const wear = (D.WARDROBE[m.slot] || []).find(x => x.kind !== 'none');
+                  if (!wear) return { skip: true };
+                  S.outfit[m.slot] = wear.id;
+                  openSlotSheet(m.slot);
+                  const labs = [...document.querySelectorAll('#slotSheetBody .dye-label')];
+                  if (!labs.length) return { err: '염색 줄에 라벨이 없다' };
+                  const out = labs.map(e => {
+                    const lh = parseFloat(getComputedStyle(e).lineHeight) || 0;
+                    const b = e.getBoundingClientRect();
+                    return { n: lh ? Math.round(b.height / lh) : 0, w: Math.round(b.width),
+                             t: e.textContent.trim(), fs: parseFloat(getComputedStyle(e).fontSize) };
+                  });
+                  closeSlotSheet();
+                  return { out };
+                });
+                if (r.skip) continue;
+                if (r.err) { bad.push(`${lang}·${w}px — ${r.err}`); continue; }
+                seen++;
+                for (const o of r.out) {
+                  if (!o.n) { bad.push(`${lang}·${w}px — 줄 높이를 못 읽었다`); continue; }
+                  // ⚠️ 글자가 정책 바닥 밑으로 내려가며 한 줄이 된 것은 «고친» 것이 아니다
+                  if (o.fs < 11) bad.push(`${lang}·${w}px — 라벨이 ${o.fs}px 이다 (최소 11px)`);
+                  if (o.n > 1) bad.push(`${lang}·${w}px — «${o.t}» 가 ${o.n}줄이다 (칸 ${o.w}px)`);
+                  if (!worst || o.w < worst.w) worst = { ...o, lang, w2: w };
+                }
+              }
+            }
+            await page.evaluate(l => I18N.setLang(l), lang0);
+            await page.setViewportSize(vp0);
+            await page.waitForTimeout(150);
+            if (!seen) bad.push('폭을 하나도 못 쟀다 — 색을 고르는 시트 칸이 없다');
+            results.push(bad.length
+              ? { 화면: `${t}/염색라벨`, 오류: bad.join(' / ') }
+              : { 화면: `${t}/염색라벨`, pass: true, total: 0,
+                  잰것: `ko·en × 320·360·390·430·497px (${seen}번) · 다 한 줄`
+                    + (worst ? ` · 제일 좁은 칸 ${worst.w}px(${worst.lang}·${worst.w2}px · ${worst.fs}px)` : '') });
+          }
 
         // **🪄 방 꾸미기 시트** — 벽지 · 바닥재 + 자리 아홉 (`ROOM.md`).
         // ⚠️⚠️ **탭을 표 그대로 돈다** — 자리를 하나 늘렸을 때 그 탭이 통째로 안 재지면

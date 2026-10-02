@@ -2703,9 +2703,15 @@ button.tm-slot:active { transform: scale(0.94); }
    한다 — 12px 일 때 격자와 **2px** 밖에 안 떨어져 한 덩어리로 붙어 보였다
    (「각 요소마다의 간격 너무 붙지 않도록」으로 신고받았다). 아래쪽은 「나가기」와의 틈이다 */
 .dye-bars { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 6px; }
+/* ⚠️⚠️ **나란히 설 자리가 없으면 «접힌다» — 접히는 지점이 곧 라벨의 폭이다.**
+   basis 가 120px 이던 동안에는 320~390px 에서 둘이 «끝까지» 나란히 서서 칸이
+   135~170px 로 눌렸고, 라벨이 쓸 자리가 **41~76px** 밖에 없어 두세 줄로 접혔다
+   (「라벨 한 줄로 들어가게」로 신고받았다). 라벨이 한 줄에 필요한 것이 **83~87px**
+   이라 **글자 크기로는 못 고친다** — 11px(정책 바닥)까지 내려도 83px 이다.
+   180px 이면 앱 폭 430px 아래에서 접혀 라벨이 칸을 통째로 쓴다 (재서 골랐다) */
 .dye-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-  flex: 1 1 120px; min-width: 0;
+  flex: 1 1 180px; min-width: 0;
   padding: 11px 13px;
   background: var(--cream); border-radius: 14px;
   cursor: pointer; font-family: inherit;
@@ -2719,7 +2725,10 @@ button.tm-slot:active { transform: scale(0.94); }
   /* basis 0 — 제 콘텐츠 폭을 요구하지 않게 한다. auto 로 두면 라벨이 한 줄을 다 차지해
      '?' 와 화살표가 아랫줄로 밀려났다 (셋은 한 줄에 같이 있어야 한 덩어리로 읽힌다) */
   flex: 1 1 0; min-width: 0; word-break: keep-all; line-height: 1.25;
-  font-size: 0.76rem; font-weight: 800; color: var(--ink);
+  /* ⚠️ 0.72rem = 11.5px — `a11y.js` 의 `minFontPx`(11)보다 0.5px 위다.
+     더 줄일 수 없으므로 **한 줄을 만드는 것은 위의 basis 쪽**이고, 이 값은
+     나란히 서는 폭(430px)에서 여유를 96 − 87 = 9px 로 벌려 주는 몫이다 */
+  font-size: 0.72rem; font-weight: 800; color: var(--ink);
 }
 /* 염색약이 없을 때 — 눌리지 않는 게 아니라 **눌러서 이유를 듣는** 줄이다.
    그래서 aria-disabled 를 달지 않는다 (UI_POLICY 7장) */
