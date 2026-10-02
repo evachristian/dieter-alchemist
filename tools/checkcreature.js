@@ -99,8 +99,14 @@ const near = (p, hex, tol) => {
   await page.goto(BASE, { waitUntil: 'load' });
   await page.waitForFunction(() => window.Creature && window.GameData);
 
-  const out = await page.evaluate(async (SZ) => {
-    const list = GameData.RECIPES.filter(r => r.result.kind === 'creature').map(r => r.result);
+  const shots = await page.evaluate(async (SZ) => {
+    // ⚠️⚠️ **미리 보기로 갈아 끼운 마리는 뺀다** (`Creature.PREVIEW`). 여기 ①~⑪ 은
+    //    **부품 그림**을 재는 잣대라, 「대고 따라 그린」 그림이 들어선 마리는 지날 수가
+    //    없다 — 그렇다고 통째로 실패시키면 나머지 스물아홉을 못 본다.
+    //    **몇 마리를 안 쟀는지 아래에서 같이 내놓는다** — 0건이 「통과」로 보이면 안 된다
+    const skip = Object.keys(Creature.PREVIEW || {});
+    const list = GameData.RECIPES.filter(r => r.result.kind === 'creature')
+      .map(r => r.result).filter(c => !skip.includes(c.id));
     const cv = document.createElement('canvas');
     cv.width = cv.height = SZ;
     const g = cv.getContext('2d', { willReadFrequently: true });
@@ -108,7 +114,12 @@ const near = (p, hex, tol) => {
     // ⚠️ **배경 판도 그림자도 끄고 잰다** — 판을 깔아 두면 「상자에 꽉 찼다」가 늘 참이라
     //    잘림을 영영 못 보고, 그림자는 바닥에 번져 실루엣을 흐린다
     const shot = async (c) => {
-      const svg = Creature.draw(c, { flat: true, noShadow: true, size: SZ });
+      // ⚠️⚠️ **`data:` 그림 안의 상대 주소는 안 열린다** — 기준이 그 data URL 이라
+      //    `href="cat-happy.svg"` 가 갈 곳이 없어지고, SVG 는 그것을 조용히 버려
+      //    **흰 상자**가 나온다. 재기 전에 절대 주소로 편다 (부품 그림에는 href 가
+      //    하나도 없어서 이 줄이 스물아홉 마리에는 아무 일도 안 한다)
+      const svg = Creature.draw(c, { flat: true, noShadow: true, size: SZ })
+        .replace(/href="(?!https?:|data:|#)/g, 'href="' + location.origin + '/');
       const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
       const im = new Image();
       await new Promise((ok, no) => { im.onload = ok; im.onerror = no; im.src = url; });
@@ -130,9 +141,31 @@ const near = (p, hex, tol) => {
         noTail: c.art.tail !== 'none' ? await shot(without(c, 'tail')) : null,
       });
     }
-    return res;
+    // ⚠️⚠️ **갈아 끼운 마리는 「그림 파일이 진짜 오는가」만 본다.**
+    //    ①~⑪ 은 부품 그림을 재는 잣대라 못 돌지만, 파일 이름 하나만 틀려도
+    //    **흰 상자**가 되는 것은 막을 수 있다 (SVG 는 못 읽는 그림을 조용히 버린다).
+    // ⚠️⚠️ **픽셀로는 못 가른다 — 재 보고 안 쓰기로 한 자리다.** `data:` 로 구워
+    //    세는 길은 **이름을 틀려도 같은 수(22573칸)가 나온다**: 서버가 모르는 주소에
+    //    `index.html` 을 돌려주고(SPA 폴백) 그것이 그대로 칠해지기 때문이다.
+    //    **가르지 못하는 잣대는 무슨 값을 넣어도 통과한다** — 그래서 「무엇이 왔는가」를 묻는다
+    const prev = [];
+    for (const id of skip) {
+      const url = location.origin + '/' + Creature.PREVIEW[id];
+      try {
+        const r = await fetch(url, { cache: 'no-store' });
+        const ct = r.headers.get('content-type') || '';
+        const n = (await r.blob()).size;
+        // ⚠️ **배선도 같이 본다** — 파일이 멀쩡히 와도 `draw()` 가 그것을 안 가리키면
+        //    그림은 비어 있다. 그린 것에 그 이름이 들어 있는지 본다 (픽셀로는 못 가른다)
+        const c = GameData.RECIPES.map(x => x.result).find(x => x.id === id);
+        const wired = c ? Creature.draw(c, { flat: true }).includes(Creature.PREVIEW[id]) : false;
+        prev.push({ id, file: Creature.PREVIEW[id], ok: r.ok, ct, n, wired });
+      } catch (e) { prev.push({ id, file: Creature.PREVIEW[id], err: String(e) }); }
+    }
+    return { res, skip, prev };
   }, SZ);
   await browser.close();
+  const out = shots.res, skipped = shots.skip, prev = shots.prev;
 
   const bad = [];
   const attrMean = {};
@@ -432,6 +465,25 @@ const near = (p, hex, tol) => {
   if (ks.length !== 6) bad.push(`속성이 ${ks.length}가지만 나왔다 (여섯이어야 한다)`);
   else if (worst < ATTR_DE) bad.push(`속성 색이 안 갈린다 (제일 가까운 ${pair} 가 ${worst.toFixed(0)} · ${ATTR_DE} 는 돼야 한다)`);
 
+  // ⚠️⚠️ **안 쟀다는 것을 «크게» 말한다** — 미리 보기로 갈아 끼운 마리는 ①~⑪ 이
+  //    통째로 안 돈다. 조용히 빠지면 0건이 「통과」로 읽힌다
+  if (skipped.length) {
+    console.log(`⚠️ 미리 보기로 갈아 끼운 ${skipped.length}마리는 ①~⑪ 을 «안 쟀다» — ${skipped.join(' · ')}`
+      + ` (creature.js 의 PREVIEW · 부품 그림이 아니라 대고 따라 그린 SVG 다)`);
+    prev.forEach(q => {
+      if (q.err) { bad.push(`${q.id}: 미리 보기 그림을 못 받았다 (${q.file} · ${q.err})`); return; }
+      // ⚠️ 서버는 모르는 주소에도 `index.html` 을 200 으로 돌려준다 — 「왔는가」가 아니라
+      //    **「SVG 가 왔는가」**를 물어야 이름 오타가 걸린다
+      if (!q.ok || !/svg/.test(q.ct))
+        bad.push(`${q.id}: 미리 보기 그림이 SVG 가 아니다 (${q.file} · ${q.ok ? q.ct : 'HTTP 오류'}`
+          + ` · 이름을 틀리면 index.html 이 와서 «흰 상자»가 된다)`);
+      else if (!q.wired)
+        bad.push(`${q.id}: 그린 그림이 ${q.file} 를 안 가리킨다 (배선이 끊겼다 · 빈 상자가 된다)`);
+      else if (q.n < 1024)
+        bad.push(`${q.id}: 미리 보기 그림이 거의 비어 있다 (${q.file} · ${q.n}바이트)`);
+      else console.log(`  미리 보기 ${q.id} — ${q.file} 가 SVG 로 온다 (${(q.n / 1024).toFixed(1)}KB)`);
+    });
+  }
   console.log(`크리처 ${out.length}마리 — 대칭 ${sym.toFixed(2)}(최소 ${symMin.toFixed(2)}) · 눈 ${(eyes / Math.max(1, eyeN) * 100).toFixed(1)}%(최소 ${(eyeMin * 100).toFixed(1)}% · ${eyeN}마리)`
     + ` · 빛 ${(hi / Math.max(1, hiN)).toFixed(1)}점(${hiN}마리) · 볼터치 ${blush.toFixed(0)}점 · 거의 흰 칠 ÷ 눈동자 ${(white * 100).toFixed(0)}%`
     + ` · 둘레의 먹선 ${(line * 100).toFixed(0)}%(${lineN}점 · 없어야 한다) · 속성 제일 가까운 쌍 ${pair} ${worst.toFixed(0)}`);
@@ -446,6 +498,10 @@ const near = (p, hex, tol) => {
     if (bad.length > 20) console.log(`   … 그리고 ${bad.length - 20}건 더`);
     process.exit(1);
   }
-  if (out.length !== 30) { console.log(`❌ 서른 마리 중 ${out.length}마리만 쟀다`); process.exit(1); }
-  console.log('✅ 서른 마리가 다 상자 안에 들어오고, 정면을 보고, 눈이 크고, 선 없이 색 면으로 서 있다');
+  if (out.length + skipped.length !== 30) {
+    console.log(`❌ 서른 마리 중 ${out.length + skipped.length}마리만 봤다 (잰 것 ${out.length} · 건너뛴 것 ${skipped.length})`);
+    process.exit(1);
+  }
+  console.log(`✅ ${out.length}마리가 다 상자 안에 들어오고, 정면을 보고, 눈이 크고, 선 없이 색 면으로 서 있다`
+    + (skipped.length ? ` (미리 보기 ${skipped.length}마리는 빼고)` : ''));
 })().catch(e => { console.error(e); process.exit(1); });

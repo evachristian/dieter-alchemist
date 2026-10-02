@@ -364,6 +364,41 @@
     : (a.wing && a.wing !== 'none') ? 'wing'
       : (a.ear && a.ear !== 'none') ? 'ear' : 'tail';
 
+  // ─── 개발용(임시) «대고 따라 그린» 그림 미리 보기 ─────────────────
+  //
+  // 사람이 **원본 그림을 대고 따라 그린** SVG 를 보내 와서, 그것을 한 마리에 얹어
+  // 게임 안에서 눈으로 보려는 것뿐이다. 결을 바꾼 것이 아니다.
+  //
+  // ⚠️⚠️ **부품 그림(`SHAPE`·`EYE`…)은 한 글자도 안 건드린다** — 여기 적힌 id 만
+  //    통째로 갈아 끼운다. 표를 비우면 그 자리에서 원래 그림으로 되돌아간다.
+  // ⚠️⚠️ **`checkcreature` 의 ①~⑪ 은 «부품 그림»을 재는 잣대**라 갈아 끼운 마리는
+  //    지날 수가 없다. 그래서 검사기가 이 표를 읽어 **그 마리를 빼고, 몇 마리를
+  //    안 쟀는지 같이 낸다** — 0건이 「통과」로 보이면 안 된다.
+  // ⚠️ **데이터(`art`)도 안 건드린다** — 축 표를 다시 뽑으면 id 가 흔들려
+  //    세이브의 크리처가 바뀐다 (아래 `coreOf` 와 같은 규칙이다).
+  const PREVIEW = { flame_fox: 'cat-happy.svg' };
+
+  // ⚠️ 캐시 버스터는 제 `<script>` 태그에서 물려받는다 (`tutorial.js` 의 `ASSET_Q` 와
+  //    같은 조리법) — `index.html` 의 일괄 치환 한 번이면 그림까지 같이 따라온다
+  const ASSET_Q = (document.currentScript && document.currentScript.src.includes('?'))
+    ? '?' + document.currentScript.src.split('?')[1] : '';
+
+  // 바닥(`GROUND`)에 세우고 위로 `TOP_PAD` 를 남긴다 — 부품 그림과 «같은 자리»다.
+  // ⚠️ 비율은 그림이 정한다(`viewBox` 가 505×600) — 폭을 100 으로 늘리면 납작해진다
+  function previewSvg(c, opts) {
+    const AR = 505 / 600;
+    const ph = GROUND - TOP_PAD, pw = ph * AR;
+    const attr = (window.GameData && GameData.creatureAttr(c.attr)) || { color: '#9a8fb0' };
+    return `<svg class="cr-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+      role="img" aria-label="${(c.name || '').replace(/"/g, '')}"
+      ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
+      ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(attr.color, 88)}"/>`}
+      ${opts.noShadow ? '' : ell(50, GROUND + 2, 26, 5, shade(attr.color, 10), ' opacity="0.16"')}
+      <image href="${PREVIEW[c.id]}${ASSET_Q}" x="${(50 - pw / 2).toFixed(1)}" y="${TOP_PAD}"
+        width="${pw.toFixed(1)}" height="${ph.toFixed(1)}"/>
+    </svg>`;
+  }
+
   // 크리처 한 마리를 그린다.
   //   c    : data.js 의 `result` (id · attr · art …)
   //   opts.size  픽셀 크기 (기본은 CSS 가 정한다)
@@ -371,6 +406,7 @@
   function draw(c, opts) {
     if (!c || !c.art) return '';
     opts = opts || {};
+    if (PREVIEW[c.id]) return previewSvg(c, opts);
     const attr = (window.GameData && GameData.creatureAttr(c.attr)) || { color: '#9a8fb0' };
     const raw = attr.color;
     // ④ 색은 넷 — 털 · 크림 · 분홍 · 눈.
@@ -499,5 +535,5 @@
     return r ? r.result : null;
   }
 
-  window.Creature = { draw, icon, bowl, of, W, H, SHAPE, HORN, WING, TAIL, EYE };
+  window.Creature = { draw, icon, bowl, of, W, H, SHAPE, HORN, WING, TAIL, EYE, PREVIEW };
 })();
