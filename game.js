@@ -5223,7 +5223,10 @@ function placePet() {
   const ar = aura.getBoundingClientRect();
   if (!ar.width) return;
   const mid = ar.left + ar.width / 2;
-  const max = cre.classList.contains('cr-water') ? 96 : 76;
+  // ⚠️ **재는 것은 화면 px · 적는 것은 아우라 안의 px 이다** (줌이 걸리면 둘이 갈린다).
+  //    그래서 상한(76·96)은 화면 쪽으로 늘려 견주고, 적을 때 다시 나눈다
+  const k = auraK(aura);
+  const max = (cre.classList.contains('cr-water') ? 96 : 76) * k;
   const parts = svg.querySelectorAll('path,ellipse,circle,rect');
   let last = -1, lastW = Infinity, moved = false;
   for (let pass = 0; pass < 4; pass++) {
@@ -5260,8 +5263,8 @@ function placePet() {
     const w = Math.max(PET_FLOOR, Math.min(max, lastW, avail));
     if (need - last < 0.25 && lastW - w < 0.25) break;
     last = need; lastW = w;
-    cre.style.right = `calc(50% + ${need.toFixed(1)}px)`;
-    cre.style.setProperty('--pet', `${w.toFixed(1)}px`);
+    cre.style.right = `calc(50% + ${(need / k).toFixed(1)}px)`;
+    cre.style.setProperty('--pet', `${(w / k).toFixed(1)}px`);
   }
   // ⚠️⚠️ **올리는 몫은 «크기가 정해진 뒤»에 한 번 더 잰다.** 되풀이 안에서 재는 것은
   //    «그 걸음의 앞»에 선 크리처라 한 걸음 늦는데, 공중 크리처는 작아질수록 상자가
@@ -5281,7 +5284,7 @@ function placePet() {
       // ⚠️ 줄이는 몫에 1px 을 얹는다 — 꼭 그만큼만 줄이면 내려오는 것이 0.9배라
       //    늘 머리카락 한 올이 남는다 (4px² 가 남아 검사가 잡았다)
       lastW = Math.max(PET_FLOOR, lastW - over - 1);
-      cre.style.setProperty('--pet', `${lastW.toFixed(1)}px`);
+      cre.style.setProperty('--pet', `${(lastW / k).toFixed(1)}px`);
       placePetY();
     }
   }
@@ -5349,7 +5352,8 @@ function placePetY() {
   const lift = cre.classList.contains('cr-air') ? ar.height * AIR_LIFT : 0;
   // 상자의 밑변이 올 자리 — 닿는 줄이 `floor - lift` 에 오게
   const want = floor - lift + (1 - foot / 100) * cr.height;
-  cre.style.bottom = (ar.bottom - want).toFixed(1) + 'px';
+  // ⚠️ 잰 것은 «화면 px» 이고 적는 것은 «아우라 안의 px» 이다 (줌이 걸리면 갈린다)
+  cre.style.bottom = ((ar.bottom - want) / auraK(aura)).toFixed(1) + 'px';
 }
 
 // ─── 인물은 «방 그림에서 사람이 서는 자리»에 선다 ───────────────
@@ -5370,12 +5374,33 @@ function placePetY() {
 // ⚠️⚠️ **기준은 양탄자가 «아니다»** — 양탄자는 사람이 고르는 소품이라 없을 수도 있다.
 //    `Avatar.floorMark()`(SVG) · `room3d.floorRect()`(3D)가 그 «보이지 않는 자리»다
 const FIG_LIFT_MAX = 60;        // 이보다 크면 잘못 잰 것이다 — 그대로 둔다
+// 지금 걸린 줌 — 3D 가 섰을 때만이다 (SVG 방에는 줌이 없다 · `renderSpin` 과 같은 규칙)
+function figureZoom() {
+  return (room3d && document.querySelector('.room-scene.is3d')) ? room3d.zoomAt().z : 1;
+}
+// 아우라에 걸린 배율. 줌이 걸리면 «화면 px» 과 «아우라 안의 px» 이 갈리므로,
+// 상자 안에 쓰는 값(`--pet` · `right` · `bottom`)은 이것으로 나눠서 적는다
+function auraK(aura) {
+  const w = aura && aura.offsetWidth;
+  if (!w) return 1;
+  const k = aura.getBoundingClientRect().width / w;
+  return isFinite(k) && k > 0.05 ? k : 1;
+}
 function placeFigure() {
   const aura = document.querySelector('.char-aura');
   const room = document.querySelector('.room-scene svg');
   const av = document.querySelector('.char-body > svg.avatar-svg');
   if (!aura || !av || !window.Avatar) return;
+  // ⚠️⚠️ **줌은 «개별 속성» `scale` 로 건다** — `transform` 으로 쓰면 아래의 옮기는
+  //    몫을 덮어쓴다. 그래서 옮기는 쪽도 `transform` 에서 **`translate`** 로 옮겼다:
+  //    개별 속성은 translate → rotate → scale 순으로 «밖에서 안으로» 쌓이는데,
+  //    `transform` 은 그 «안»이라 거기 둔 몫이 배율을 한 번 더 타서 두 배로 어긋난다
+  //    (마이 룸의 아이들 모션에서 이미 배운 자리다 — 거기도 `scale` 한 속성이다).
+  // ⚠️ 줌이 1 이면 **한 글자도 안 적는다** — 하던 사람의 화면이 그대로다
+  const z = figureZoom();
+  if (z === 1) aura.style.removeProperty('scale'); else aura.style.scale = String(z);
   aura.style.transform = '';
+  aura.style.translate = '';
   const ma = av.getScreenCTM();
   if (!ma) return;
   // ⚠️⚠️ **양탄자가 3D 면 «투영한 자리»를 본다.** 3D 카메라를 옮기면 양탄자가 화면에서
@@ -5392,8 +5417,10 @@ function placeFigure() {
   }
   const foot = new DOMPoint(100, window.Avatar.bodyMetrics(0).floorY).matrixTransform(ma).y;
   const lift = foot - spot;
-  if (!isFinite(lift) || Math.abs(lift) > FIG_LIFT_MAX) return;
-  aura.style.transform = `translateY(${(-lift).toFixed(1)}px)`;
+  // ⚠️ **한계도 줌을 탄다** — 그림이 커지면 옮길 몫도 그만큼 커진다. 고정값으로 두면
+  //    줌을 올린 순간 여기서 그냥 돌아가 **인물이 양탄자를 놓친다** (1.2배에서 그랬다)
+  if (!isFinite(lift) || Math.abs(lift) > FIG_LIFT_MAX * z) return;
+  aura.style.translate = `0 ${(-lift).toFixed(1)}px`;
 }
 
 function renderRoomScene() {
@@ -5557,6 +5584,22 @@ window.spinRoom = spinRoom;
 const SWIPE_MIN = 8;        // px. 이만큼은 움직여야 축을 정한다 (손가락이 떠는 몫)
 const SWIPE_SPAN = 0.6;     // 상자 폭의 이만큼을 쓸면 한쪽 끝까지 돈다
 let swipe = null;
+// ─── 두 손가락으로 «줌» — 당겨 보고 물러나 본다 (`room3d.setZoom`)
+//
+// ⚠️⚠️ **움직이는 것은 「양탄자가 화면에서 몇 %인가」이지 카메라가 아니다** — 거리는
+//    `aimFloor()` 가 «풀어서» 내는 값이라 직접 당기면 `resize`·`aim`·`spin` 이 한 번만
+//    돌아도 줌이 소리 없이 풀린다 (room3d.js 의 그 주석이 짝이다).
+// ⚠️⚠️ **인물은 DOM 이라 저절로 안 따라온다** — `placeFigure()` 가 같은 배율을 걸고
+//    «그려진 양탄자»에 발을 다시 맞춘다. 크리처는 아우라 «안»이라 같이 따라온다.
+// ⚠️ **`touch-action: pan-y` 가 두 손가락을 우리에게 보낸다** — 그 목록에 `pinch-zoom`
+//    이 없으면 브라우저가 제 줌을 안 쓴다 (세로 패닝만 브라우저에 남는다)
+const PINCH_MIN = 24;       // px. 두 손가락 사이가 이보다 좁으면 안 본다 (떨림이 배율이 된다)
+let pinch = null;
+const roomTouch = new Map();
+function pinchSpan() {
+  const [a, b] = [...roomTouch.values()];
+  return (a && b) ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+}
 function roomSwipeStart(e) {
   // ⚠️⚠️ **여기서 `swipe = null` 로 «지우고» 시작하면 안 된다 — 넣어 봤다가 되돌렸다.**
   //    손가락 하나가 끄는 동안에도 `pointerdown` 이 한 번 더 올 수 있는데(터치가 뒤따라
@@ -5574,10 +5617,28 @@ function roomSwipeStart(e) {
   if (!box) return;
   const w = box.getBoundingClientRect().width;
   if (!(w > 0)) return;
+  roomTouch.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  // ⚠️ **손가락이 둘이 되면 돌리기는 그만둔다** — 핀치 중에 한 손가락이 조금만
+  //    옆으로 가도 방이 같이 돌아 「줌을 했는데 방향도 틀어졌다」가 된다
+  if (roomTouch.size >= 2) {
+    swipe = null;
+    const d0 = pinchSpan();
+    pinch = (roomTouch.size === 2 && d0 > PINCH_MIN) ? { d0, z0: room3d.zoomAt().z } : null;
+    return;
+  }
   swipe = { id: e.pointerId, x: e.clientX, y: e.clientY, axis: '',
     from: room3d.spinAt().to, k: (2 * room3d.spinAt().max) / (w * SWIPE_SPAN) };
 }
 function roomSwipeMove(e) {
+  const t = roomTouch.get(e.pointerId);
+  if (t) { t.x = e.clientX; t.y = e.clientY; }
+  if (pinch) {
+    const d = pinchSpan();
+    if (!(d > PINCH_MIN)) return;
+    room3d.setZoom(pinch.z0 * d / pinch.d0);
+    placeFigure();            // 인물은 «그려진 양탄자»를 그대로 따라간다
+    return;
+  }
   if (!swipe || e.pointerId !== swipe.id) return;
   const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
   if (!swipe.axis) {
@@ -5590,6 +5651,14 @@ function roomSwipeMove(e) {
   room3d.spinDrag(swipe.from + dx * swipe.k);
 }
 function roomSwipeEnd(e) {
+  if (e) roomTouch.delete(e.pointerId);
+  if (pinch && roomTouch.size < 2) {
+    pinch = null;
+    // ⚠️ **크리처는 손을 뗄 때 한 번만 다시 세운다** — 그 셈은 그려진 조각을 전부
+    //    훑으므로 손가락이 움직일 때마다 돌릴 것이 아니다. 핀치 중에는 아우라가
+    //    통째로 커지므로 인물과의 사이가 안 벌어지고, 버튼 줄과의 사이만 손을 뗀 뒤 맞춘다
+    placePet(); placePetY();
+  }
   if (!swipe || (e && e.pointerId !== swipe.id)) return;
   const moved = !!swipe.axis;
   swipe = null;

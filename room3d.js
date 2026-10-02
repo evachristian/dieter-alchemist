@@ -611,12 +611,38 @@ export function createRoom(canvas, opt) {
     }
     set((lo + hi) / 2); place();
   }
+  // ── 핀치 줌 — 움직이는 것은 «기준 반폭»이지 카메라가 아니다
+  //
+  // ⚠️⚠️ **카메라 거리는 «푸는 것»이라 손으로 못 당긴다** (`aimFloor` 의 이분법).
+  //    `dist` 를 직접 곱하면 그 다음 `resize`·`aim`·`spin` 이 한 번만 돌아도
+  //    **줌이 소리 없이 풀린다** — 바라는 값은 「양탄자가 화면에서 몇 %인가」이고,
+  //    그것이 곧 `MARK_AT` 이다. 여기에 곱하면 둘러보기·창 크기와 저절로 어울린다.
+  // ⚠️ 바닥선(`FLOOR_AT`)은 안 건드린다 — 양탄자가 선 «높이»는 그대로고 크기만 변한다.
+  //    그래야 인물의 발이 늘 같은 줄에 선다 (`placeFigure` 가 보는 그 줄이다)
+  // ⚠️⚠️ **한계는 «재서» 골랐다 — 둘 다 방의 생김새가 정하는 값이다.**
+  //    · 아래로는 **앞벽이 없어** 물러날수록 바닥의 앞머리와 옆벽의 바깥 끝이
+  //      상자 «안»으로 들어온다. 폭 다섯에서 재면 480·700px 의 옆벽이 제일 먼저
+  //      드러나고(0.80 에서 −2px · 0.85 에서 +10px) 바닥은 265px 이 제일 빠듯하다.
+  //      그래서 **0.85** 다 (0.80 에서는 480px 에 틈이 생긴다).
+  //    · 위로는 **인물의 머리가 방 그림 밖으로** 나간다 — 1.30 에서 265·480px 이
+  //      −1px · +2px 이라 그 앞인 **1.2** 다 (그때 그림 안쪽으로 29~36px 남는다).
+  //    `checkroom` 의 「줌」이 그 둘을 그대로 잰다 — 방을 넓히면 따라 옮긴다
+  const ZOOM_MIN = 0.85, ZOOM_MAX = 1.2;
+  let zoom = 1;
+  function setZoom(z) {
+    const v = Number(z);
+    if (!isFinite(v)) return zoom;
+    zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, v));
+    aimFloor(); renderer.render(scene, camera);
+    return zoom;
+  }
+  function zoomAt() { return { z: zoom, min: ZOOM_MIN, max: ZOOM_MAX }; }
   function aimFloor() {
     for (let k = 0; k < 4; k++) {
       // 바닥선 — 고도를 «올리면» 바닥이 화면 위로 온다 (y 가 준다)
       solve(() => toScreen(ORIGIN).y, FLOOR_AT, -0.40, 0.90, v => { pitch = v; });
       // 기준 반폭 — 멀어지면 작아진다
-      solve(() => markHalf() / H, MARK_AT, 5, 30, v => { dist = v; });
+      solve(() => markHalf() / H, MARK_AT * zoom, 5, 30, v => { dist = v; });
     }
   }
   function markHalf() {
@@ -890,7 +916,7 @@ export function createRoom(canvas, opt) {
   //    그래서 조각들을 같이 내놓는다. 감춰 두면 프로토타입이 세트를 다시 짜게 되고,
   //    그 순간 이 파일이 「유일한 곳」이 아니게 된다
   return { scene, camera, renderer, cards, resize, aim, setLevel, setDecor, setPhase, setWindow, floorRect,
-    spin, spinDrag, spinPeek, spinAt, run, dispose,
+    spin, spinDrag, spinPeek, spinAt, setZoom, zoomAt, run, dispose,
     render: () => renderer.render(scene, camera),
     get winShape() { return winShape; },
     parts: { glyph, backWall, floor, walls, shaft, winMat, moon, key, amb, brewLight, shadowTex,

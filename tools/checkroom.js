@@ -1373,12 +1373,205 @@ function mask(A, B) {
     await ctx.close();
   }
 
+  // ═══ 두 손가락으로 «줌» (`roomSwipe*` 의 핀치 갈래 · `room3d.setZoom`) ═══
+  //
+  // ⚠️⚠️ **`setZoom()` 을 직접 불러서는 이 층을 한 줄도 못 잰다** — 손가락 쪽 배선이
+  //    통째로 끊겨도 통과한다. **진짜 두 손가락으로 벌린다** (CDP `dispatchTouchEvent`).
+  // ⚠️⚠️ **방만 줌하면 인물이 안 따라온다** — 인물은 DOM 이라 3D 와 아무 사이가 아니다.
+  //    그래서 ④ 가 «아우라의 배율»과 «발이 양탄자에 그대로인가»를 같이 본다.
+  // ⚠️ 한계 둘은 방의 «생김새»가 정한다 — ⑤ 는 바닥 앞머리·옆벽이 상자를 덮는가,
+  //    ⑥ 은 머리가 방 그림 «안»인가다 (상수를 베껴 적지 않고 기하에서 구한다)
+  let zoomRow = '';
+  zoomGate: {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 900 }, hasTouch: true });
+    await ctx.addInitScript(() => {
+      localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+      localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
+        { ver: 18, name: 'Tester', nameClaimed: true, tutorialDone: true, roomLevel: 5 }));
+    });
+    const page = await ctx.newPage();
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForFunction(() => typeof S !== 'undefined' && typeof render === 'function');
+    await page.evaluate(() => {
+      const s = document.getElementById('splash'); if (s) s.remove();
+      if (typeof maxTune === 'function') maxTune();     // 졸업 직후 몸
+      S.roomActs = ['exercise', 'binge', 'kitchen', 'harvest', 'farm'];
+      S.quest = S.quest || {}; S.quest.done = ['q_first', 'q_walk', 'q_sip'];   // 왼쪽 줄 셋
+      // ⚠️ 크리처를 세워 둔다 — 없으면 「버튼 줄에 가렸는가」가 아무것도 안 잰다
+      const c = (window.GameData.RECIPES || []).find(r => r.result
+        && r.result.kind === 'creature' && r.result.move === 'ground');
+      if (c) { S.creatures = [c.result.id]; S.petRoom = c.result.id; }
+      switchTab('showcase'); render();
+    });
+    await page.waitForSelector('.room-scene.is3d', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(700);
+    if (!await page.evaluate(() => !!document.querySelector('.room-scene.is3d'))) {
+      bad.push('줌: 3D 가 안 섰다 — 아무것도 못 쟀다');
+      await ctx.close(); break zoomGate;
+    }
+    const cdp = await ctx.newCDPSession(page);
+    const box = await page.evaluate(() => {
+      const r = document.querySelector('.room-canvas').getBoundingClientRect();
+      return { x: r.left, y: r.top, w: r.width, h: r.height };
+    });
+    const px = box.x + box.w / 2, py = box.y + box.h * 0.4;
+    // 가운데를 잡고 좌우로 벌린다 — `d` 는 두 손가락 사이.
+    // ⚠️⚠️ **버튼 줄 위로 손가락을 내밀지 않는다** — 거기서 시작한 손가락은 그 버튼의
+    //    것이라 «일부러» 안 받는다(`roomSwipeStart`). 330px 으로 벌렸더니 오른쪽
+    //    손가락이 방 버튼에 떨어져 **핀치가 아예 안 서고** 줌이 1.20 에 멎었다
+    const pinch = async (d0, d1) => {
+      const pt = (d) => [{ x: px - d / 2, y: py, id: 1 }, { x: px + d / 2, y: py, id: 2 }];
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(d0) });
+      for (let i = 1; i <= 10; i++) {
+        await cdp.send('Input.dispatchTouchEvent',
+          { type: 'touchMove', touchPoints: pt(d0 + (d1 - d0) * i / 10) });
+        await page.waitForTimeout(16);
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.waitForTimeout(380);
+    };
+    // 사이를 «그대로 둔 채» 두 손가락을 같이 옆으로 끈다 (핀치가 안 서는 거리에서 쓴다)
+    const twoDrag = async (d, dx) => {
+      const pt = (off) => [{ x: px - d / 2 + off, y: py, id: 1 }, { x: px + d / 2 + off, y: py, id: 2 }];
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(0) });
+      for (let i = 1; i <= 10; i++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(dx * i / 10) });
+        await page.waitForTimeout(16);
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.waitForTimeout(380);
+    };
+    // 「지금 잴 수 있는가」 — 못 재면 실패시키고 블록을 빠진다 (쓸기 블록과 같은 규칙)
+    const look = async (what) => {
+      const r = await page.evaluate(() => {
+        if (typeof room3d === 'undefined' || !room3d) return null;
+        const aura = document.querySelector('.char-aura');
+        const sc = document.querySelector('.room-scene');
+        const sh = document.querySelector('.char-body svg.avatar-svg > ellipse');
+        const cre = document.querySelector('.stage-creature');
+        const acts = [...document.querySelectorAll('#roomSolo .room-act')];
+        if (!aura || !sc || !sh) return null;
+        const scr = sc.getBoundingClientRect(), shr = sh.getBoundingClientRect();
+        const cs = getComputedStyle(aura).scale;
+        // 머리의 «그려진» 꼭대기 — 상자가 아니다 (위로 36칸 비어 있다)
+        let top = Infinity;
+        document.querySelectorAll('.char-body svg.avatar-svg *').forEach(n => {
+          const b = n.getBoundingClientRect ? n.getBoundingClientRect() : null;
+          if (b && b.width && b.height) top = Math.min(top, b.top);
+        });
+        // 방이 상자를 덮는가 — 바닥의 앞 귀퉁이 둘과 옆벽의 바깥 끝 (+ 면 덮는다)
+        const T = window.Room3D.THREE, cam = room3d.camera;
+        const { ROOM_W, ROOM_D } = room3d.parts;
+        const to = (x, y, z) => {
+          const v = new T.Vector3(x, y, z).project(cam);
+          return { x: (v.x * 0.5 + 0.5) * scr.width, y: (-v.y * 0.5 + 0.5) * scr.height };
+        };
+        const fl = to(-ROOM_W / 2, 0, ROOM_D / 2), fr = to(ROOM_W / 2, 0, ROOM_D / 2);
+        const wl = to(-ROOM_W / 2, 0, -ROOM_D / 2), wr = to(ROOM_W / 2, 0, -ROOM_D / 2);
+        let over = 0;
+        if (cre) {
+          const c = cre.getBoundingClientRect();
+          acts.forEach(el => {
+            const a = el.getBoundingClientRect();
+            over += Math.max(0, Math.min(a.right, c.right) - Math.max(a.left, c.left))
+                  * Math.max(0, Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top));
+          });
+        }
+        // 크리처와 왼쪽 버튼 줄의 «틈» — 겹침만 보면 「0 이면 된다」가 되어
+        // 손을 뗀 뒤 다시 세우는 줄이 빠진 것을 못 본다
+        let gap = null;
+        if (cre && acts.length) {
+          const c = cre.getBoundingClientRect();
+          acts.forEach(el => {
+            const a = el.getBoundingClientRect();
+            if (a.bottom > c.top && a.top < c.bottom) gap = Math.min(gap == null ? 1e9 : gap, c.left - a.right);
+          });
+        }
+        return { z: room3d.zoomAt().z, min: room3d.zoomAt().min, max: room3d.zoomAt().max,
+          yaw: room3d.spinAt().to,
+          // ⚠️⚠️ **«그려진 양탄자»도 같이 본다** — `zoomAt().z` 만 보면 「값은 바뀌는데
+          //    카메라는 그대로」인 사보타주가 그대로 통과한다 (실제로 지나갔다)
+          rug: room3d.floorRect().half,
+          k: cs === 'none' ? 1 : parseFloat(cs), gap,
+          foot: (shr.top + shr.height / 2) - (scr.top + room3d.floorRect().cy),
+          head: top - scr.top,
+          cover: Math.min(Math.min(fl.y, fr.y) - scr.height, -wl.x, wr.x - scr.width),
+          over };
+      });
+      if (r) return r;
+      bad.push(`줌: ${what} — 방이 사라졌다 (아무것도 안 쟀다)`);
+      return null;
+    };
+
+    const z0 = await look('처음'); if (!z0) { await ctx.close(); break zoomGate; }
+    // ① 벌리면 커진다
+    await pinch(80, 150);
+    const zIn = await look('벌린 뒤'); if (!zIn) { await ctx.close(); break zoomGate; }
+    if (!(zIn.z > z0.z + 0.02)) bad.push(`줌: 두 손가락을 벌려도 안 커진다 (${z0.z.toFixed(2)} → ${zIn.z.toFixed(2)})`);
+    // ② 오므리면 줄어든다
+    await pinch(150, 80);
+    const zOut = await look('오므린 뒤'); if (!zOut) { await ctx.close(); break zoomGate; }
+    if (!(zOut.z < zIn.z - 0.02)) bad.push(`줌: 두 손가락을 오므려도 안 줄어든다 (${zIn.z.toFixed(2)} → ${zOut.z.toFixed(2)})`);
+    // ③ 한계를 안 넘는다 — 끝까지 벌리고, 끝까지 오므린다
+    await pinch(50, 250);
+    const zHi = await look('끝까지 벌린 뒤'); if (!zHi) { await ctx.close(); break zoomGate; }
+    if (zHi.z > zHi.max + 1e-6) bad.push(`줌: 위 한계를 넘었다 (${zHi.z.toFixed(3)} > ${zHi.max})`);
+    if (Math.abs(zHi.z - zHi.max) > 0.02) bad.push(`줌: 끝까지 벌렸는데 위 한계에 못 닿았다 (${zHi.z.toFixed(3)} ≠ ${zHi.max})`);
+    // ⑥ 그 자리에서 머리가 «방 그림 안»인가 · ④ 인물이 같이 커지고 발은 그대로인가
+    if (!(zHi.head > 0)) bad.push(`줌: 끝까지 벌리면 머리가 방 그림 밖으로 나간다 (${zHi.head.toFixed(1)}px)`);
+    if (Math.abs(zHi.k - zHi.z) > 0.02) bad.push(`줌: 인물이 방을 안 따라간다 (방 ${zHi.z.toFixed(2)} · 인물 ${zHi.k.toFixed(2)})`);
+    if (Math.abs(zHi.foot) > 1.5) bad.push(`줌: 끝까지 벌리면 발이 양탄자에서 ${zHi.foot.toFixed(1)}px 벗어난다`);
+    if (Math.abs(zHi.yaw - z0.yaw) > 1e-6) bad.push(`줌: 핀치 중에 방이 같이 돌았다 (yaw ${z0.yaw.toFixed(3)} → ${zHi.yaw.toFixed(3)})`);
+    await pinch(250, 50);
+    const zLo = await look('끝까지 오므린 뒤'); if (!zLo) { await ctx.close(); break zoomGate; }
+    if (zLo.z < zLo.min - 1e-6) bad.push(`줌: 아래 한계를 넘었다 (${zLo.z.toFixed(3)} < ${zLo.min})`);
+    if (Math.abs(zLo.z - zLo.min) > 0.02) bad.push(`줌: 끝까지 오므렸는데 아래 한계에 못 닿았다 (${zLo.z.toFixed(3)} ≠ ${zLo.min})`);
+    // ⑤ 그 자리에서 방이 상자를 다 덮는가 (앞벽이 없어 물러나면 틈이 생긴다)
+    if (!(zLo.cover > 0)) bad.push(`줌: 끝까지 오므리면 방이 상자를 못 덮는다 (${zLo.cover.toFixed(1)}px)`);
+    if (Math.abs(zLo.k - zLo.z) > 0.02) bad.push(`줌: 인물이 방을 안 따라간다 (방 ${zLo.z.toFixed(2)} · 인물 ${zLo.k.toFixed(2)})`);
+    if (Math.abs(zLo.foot) > 1.5) bad.push(`줌: 끝까지 오므리면 발이 양탄자에서 ${zLo.foot.toFixed(1)}px 벗어난다`);
+    // ⑦ **그려진 방도 같이 커졌는가** — 값만 바뀌고 카메라가 그대로면 여기서 잡힌다
+    const want = zHi.z / z0.z, got = zHi.rug / z0.rug;
+    if (Math.abs(got - want) > 0.02 * want) {
+      bad.push(`줌: 값은 ${want.toFixed(2)}배인데 그려진 양탄자는 ${got.toFixed(2)}배다`
+        + ` (${z0.rug.toFixed(0)} → ${zHi.rug.toFixed(0)}px) — 카메라가 안 따라왔다`);
+    }
+    // ⑧ 두 손가락이 «너무 가까우면» 핀치가 안 선다 — 그때도 방이 돌거나 커지면 안 된다
+    //    (손가락이 둘이 되는 순간 돌리기를 끊는 그 한 줄을 여기서만 잰다)
+    const n0 = await look('가까운 두 손가락 전'); if (!n0) { await ctx.close(); break zoomGate; }
+    await twoDrag(14, 90);
+    const n1 = await look('가까운 두 손가락 뒤'); if (!n1) { await ctx.close(); break zoomGate; }
+    if (Math.abs(n1.yaw - n0.yaw) > 1e-6) {
+      bad.push(`줌: 두 손가락이 14px 밖에 안 벌어져 핀치가 안 서는데 방이 돌았다`
+        + ` (yaw ${n0.yaw.toFixed(3)} → ${n1.yaw.toFixed(3)})`);
+    }
+    if (Math.abs(n1.z - n0.z) > 1e-6) {
+      bad.push(`줌: 두 손가락이 14px 밖에 안 벌어졌는데 줌이 변했다 (${n0.z.toFixed(3)} → ${n1.z.toFixed(3)})`);
+    }
+    // ⑨ 손을 뗀 뒤 크리처가 다시 선다 — 버튼 줄에 «틈»을 두고 선다
+    if (zLo.over > 0.5) bad.push(`줌: 오므린 뒤 크리처가 왼쪽 버튼 줄에 ${zLo.over.toFixed(0)}px² 가려졌다`);
+    if (zHi.over > 0.5) bad.push(`줌: 벌린 뒤 크리처가 왼쪽 버튼 줄에 ${zHi.over.toFixed(0)}px² 가려졌다`);
+    [['벌린', zHi], ['오므린', zLo]].forEach(([w, r]) => {
+      if (r.gap == null) bad.push(`줌: ${w} 뒤 크리처와 버튼 줄의 틈을 한 번도 못 쟀다`);
+      else if (r.gap < 1) bad.push(`줌: ${w} 뒤 크리처가 버튼 줄에 ${r.gap.toFixed(1)}px 까지 붙었다`);
+    });
+    zoomRow = `줌 — 벌리면 ${z0.z.toFixed(2)}→${zIn.z.toFixed(2)} · 오므리면 ${zOut.z.toFixed(2)}`
+      + ` · 한계 ${zLo.min}~${zHi.max} 에 닿는다 · 그려진 양탄자 ${z0.rug.toFixed(0)}→${zHi.rug.toFixed(0)}px(${got.toFixed(2)}배)`
+      + ` · 인물도 같은 배율(${zHi.k.toFixed(2)}·${zLo.k.toFixed(2)})`
+      + ` · 발 ${zHi.foot.toFixed(1)}·${zLo.foot.toFixed(1)}px · 끝까지 벌려도 머리가 그림 안으로 ${zHi.head.toFixed(0)}px`
+      + ` · 끝까지 오므려도 방이 ${zLo.cover.toFixed(0)}px 덮는다`
+      + ` · 크리처와 버튼 줄의 틈 ${zHi.gap == null ? '?' : zHi.gap.toFixed(1)}·${zLo.gap == null ? '?' : zLo.gap.toFixed(1)}px`
+      + ` · 가까운 두 손가락으로는 안 돌고 안 커진다`;
+    await ctx.close();
+  }
+
   await browser.close();
   console.log('3D 방 — ' + out.join(' | '));
   if (gift) console.log('  ' + gift);
   if (pet) console.log('  ' + pet);
   if (hide) console.log('  ' + hide);
-  if (swipe) console.log('  ' + swipe);
+  if (swipe) console.log("  " + swipe);
+  if (zoomRow) console.log("  " + zoomRow);
   console.log(`  (발 ${FOOT_MAX}px · SVG 와 ${SVG_MAX}px · 머리 뒤 벽 ${WALL_MIN * 100}% 까지`
     + ` · 크리처 땅·어항 ${PET_FOOT}px · 공중 ${PET_AIR_MIN}px 까지 · 폭 셋을 다 쟀다)`);
   if (bad.length) {
