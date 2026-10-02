@@ -69,6 +69,12 @@
   const SHEEN = '#fffdf9';        // 눈의 빛 한 점
   const GROUND = 90;
   const TOP_PAD = 2.5;            // 상자 위에 이만큼은 비워 둔다 (선이 없어 4.5 → 2.5)
+  // 어항의 받침(아래 `bowl()`). **어항이 «바닥에 닿는 자리»는 그 밑변**이라
+  // 크리처의 발(`GROUND`)과 다르다 — 둘을 내보내서 `placePetY()` 가 읽는다.
+  // ⚠️ 받침을 옮기면 자리도 같이 따라온다. 숫자를 game.js 에 옮겨 적으면 어항만
+  //    옛 자리에 남는다 (`Avatar.FLOOR_SPOT` 을 한 줄로 둔 것과 같은 규칙이다)
+  const BOWL_STAND = { cy: 92, ry: 4 };
+  const BOWL_FLOOR = BOWL_STAND.cy + BOWL_STAND.ry;
 
   const n1 = (v) => (Math.round(v * 10) / 10);
   const ell = (x, y, rx, ry, f, extra) =>
@@ -518,8 +524,8 @@
         <path d="M26,48 C24,60 27,70 33,77" stroke="#fff" stroke-width="3.4"
               fill="none" stroke-linecap="round" opacity="0.6"/>
         <ellipse cx="50" cy="28" rx="20" ry="5.5" fill="none" stroke="#a8d8ee" stroke-width="2.4"/>
-        <ellipse cx="50" cy="92" rx="15" ry="4" fill="#b9a48f"/>
-        <rect x="42" y="86" width="16" height="6" rx="2" fill="#c9b49f"/>
+        <ellipse cx="50" cy="${BOWL_STAND.cy}" rx="15" ry="${BOWL_STAND.ry}" fill="#b9a48f"/>
+        <rect x="42" y="${BOWL_STAND.cy - 6}" width="16" height="6" rx="2" fill="#c9b49f"/>
       </svg>`,
     };
   }
@@ -535,5 +541,9 @@
     return r ? r.result : null;
   }
 
-  window.Creature = { draw, icon, bowl, of, W, H, SHAPE, HORN, WING, TAIL, EYE, PREVIEW };
+  // ⚠️ `GROUND`·`BOWL_FLOOR` 를 내보내는 이유는 하나다 — **방에 세울 때 자리를 재려고**
+  //    (`game.js` 의 `placePetY()`). 그 숫자를 저쪽에 적으면 그림을 고쳤을 때 자리만
+  //    옛 값에 남는다
+  window.Creature = { draw, icon, bowl, of, W, H, GROUND, BOWL_FLOOR,
+    SHAPE, HORN, WING, TAIL, EYE, PREVIEW };
 })();

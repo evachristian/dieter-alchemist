@@ -5204,6 +5204,12 @@ function placePet() {
   const parts = svg.querySelectorAll('path,ellipse,circle,rect');
   let last = -1;
   for (let pass = 0; pass < 4; pass++) {
+    // ⚠️⚠️ **세로를 «먼저» 맞춘다.** 여기서 보는 것은 「크리처의 키와 겹치는 띠」인데,
+    //    뒤에서 `placePetY()` 가 크리처를 24px 내려 놓으면 **잰 띠와 실제로 차지하는
+    //    띠가 달라진다** — 땅 크리처가 반바지 밑단과 7.1px 겹쳤다 (`checkavatar` 의
+    //    「크리처 자리」가 여섯 폭에서 잡았다). 띠가 바뀌면 다시 재는 이 되풀이에
+    //    세로도 같이 태운다 (크기가 바뀔 때 다시 재는 것과 같은 자리다)
+    placePetY();
     const cr = cre.getBoundingClientRect();
     if (!cr.height) return;
     let left = Infinity;
@@ -5221,6 +5227,50 @@ function placePet() {
     cre.style.right = `calc(50% + ${need.toFixed(1)}px)`;
     cre.style.setProperty('--pet', `min(${max}px, calc(50vw - ${(need + 6).toFixed(1)}px))`);
   }
+}
+
+// ─── 세로도 «재서» 맞춘다 — 크리처는 인물과 «같은 바닥»에 선다 ──────
+//
+// 오래 CSS 에 `bottom: 6%`(땅) · `14%`(공중) · `4%`(어항)로 박혀 있었다. 그 %는
+// **아우라 상자의 밑변**에서 잰 것인데, 인물이 서는 바닥은 `placeFigure()` 가
+// «양탄자를 재서» 맞춘 자리라 둘이 같을 이유가 없다 — 재 보면 땅 크리처의 발이
+// 바닥보다 **23.4~25.4px 위**였고 어항도 **17~21px** 떠 있었다
+// (「사족 보행하는 화염여우가 아직도 공중에 둥둥 떠 있다」로 신고받았다).
+// 가로를 치마 옆선에서 재는 것과 **같은 규칙**이다.
+//
+// ⚠️⚠️ **발이 상자의 어디인가는 `creature.js` 에서 읽는다** (`Creature.GROUND` ·
+//    어항은 받침의 밑변 `Creature.BOWL_FLOOR`). 숫자를 여기 적으면 그림을 고쳤을 때
+//    자리만 옛 값에 남는다 (`Avatar.FLOOR_SPOT` 을 한 줄로 둔 것과 같은 규칙이다).
+// ⚠️⚠️ **바닥은 «그려진 것»에서 찾는다** — 아바타의 발밑 그림자 타원이다
+//    (`g.doll` «밖»에 있는 그 한 겹). `placeFigure()` 가 이미 그것을 양탄자에
+//    맞춰 두었으므로, 거기에 맞추면 양탄자를 옮겨도 크리처가 같이 따라온다.
+// ⚠️⚠️ **`placePet()` 의 되풀이 «안»에서 한 걸음마다, 그리고 그것이 끝난 «뒤»에 한 번 더
+//    돈다.** 둘이 서로를 움직인다: 여기서 세로를 옮기면 저쪽이 보는 「겹치는 띠」가
+//    달라지고(안 태우면 반바지 밑단과 7.1px 겹쳤다), 저쪽에서 `--pet` 이 바뀌면
+//    상자 높이가 달라져 여기서 필요한 몫이 달라진다 (265px 의 어항이 65 → 96px).
+//    저쪽은 «물러나기만» 하는 되풀이라 반드시 멎는다.
+// ⚠️ **공중은 바닥에서 «띄운다»** — 날개가 있으니 그것이 맞다. 띄우는 몫도 바닥에서
+//    재므로 양탄자를 옮기면 같이 따라오고, 값은 **오늘 화면과 같은 자리**다
+//    (고치라는 말을 받은 것은 「땅에 붙는 쪽」이라 공중은 한 픽셀도 안 옮긴다).
+// ⚠️ 못 재면(탭이 숨겨져 폭이 0 · 졸업 전 공주 그림) **CSS 기본값이 그대로 남는다**
+const AIR_LIFT = 0.156;      // 아우라 높이에 대한 몫 — 공중 크리처가 바닥에서 뜨는 만큼
+function placePetY() {
+  const cre = document.querySelector('.stage-creature');
+  const aura = document.querySelector('.char-aura');
+  // 발밑 그림자 — 아바타 svg 의 «직접» 자식인 타원 한 겹 (avatar.js 의 build())
+  const sh = document.querySelector('.char-body svg.avatar-svg > ellipse');
+  if (!cre || !aura || !sh || !window.Creature) return;
+  const ar = aura.getBoundingClientRect();
+  const cr = cre.getBoundingClientRect();
+  const fr = sh.getBoundingClientRect();
+  if (!ar.height || !cr.height || !fr.height) return;
+  const floor = fr.top + fr.height / 2;                    // 그려진 바닥
+  const water = cre.classList.contains('cr-water');
+  const foot = water ? Creature.BOWL_FLOOR : Creature.GROUND;   // 상자의 몇 %가 닿는 자리인가
+  const lift = cre.classList.contains('cr-air') ? ar.height * AIR_LIFT : 0;
+  // 상자의 밑변이 올 자리 — 닿는 줄이 `floor - lift` 에 오게
+  const want = floor - lift + (1 - foot / 100) * cr.height;
+  cre.style.bottom = (ar.bottom - want).toFixed(1) + 'px';
 }
 
 // ─── 인물은 «방 그림에서 사람이 서는 자리»에 선다 ───────────────
@@ -5449,6 +5499,7 @@ function renderShowcase() {
     </div>`;
   renderRoomScene();   // 배경은 스탯이 접혔는지에 따라 아래로 더 그려진다
   placePet();          // 크리처를 «지금 그려진» 치마 옆선에 맞춘다
+  placePetY();         // 세로는 «지금 그려진» 바닥에 — ⚠️ `--pet` 이 정해진 «뒤»라야 한다
   // 물약을 마신 직후면 살 빠지는 연출을 이어서 재생
   if (pendingSlimFx) { const lv = pendingSlimFx; pendingSlimFx = null; playSlimFx(lv); }
   // 졸업의 「펑!」 — 그림이 바뀐 바로 그 렌더에서 한 번.

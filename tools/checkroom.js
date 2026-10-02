@@ -57,6 +57,14 @@ const LAMP_REPUT = 0.9;
 const DIFF = 0.06, RUN = 30;
 const SPIN_DIFF = 0.012;   // 둘러보기는 «같은 벽이 미끄러지는» 것이라 차이가 작다
 
+// 크리처가 «선 자리». 문턱 둘 다 **사보타주를 돌리고 나서** 골랐다 —
+// `placePetY()` 를 빼면 땅 22.3~23.9px · 어항 13.6~15.2px 이 뜬다 (지금 1.1~1.5 · 0.0~0.1).
+// ⚠️ 땅이 0 이 아닌 이유는 그림의 약속이다 — 발밑 그림자의 가운데가 발(`GROUND`)보다
+//    2칸 아래다. 그 2칸이 76px 상자에서 1.5px 이라 4px 이면 여유가 넉넉하다
+const PET_FOOT = 4;       // px. 땅·어항이 바닥에서 이만큼 안으로 들어와야 한다
+const PET_AIR_MIN = 20;   // px. 공중 크리처는 적어도 이만큼 떠 있어야 한다 (지금 48.4~48.8)
+const PET_W = [265, 390, 480];
+
 function mask(A, B) {
   const rows = [];
   for (let y = 0; y < A.h; y++) {
@@ -318,12 +326,33 @@ function mask(A, B) {
         }
       }
       // 되돌려 놓는다 — 뒤의 검사가 «돌아간 방»을 재면 안 된다
+      //
+      // ⚠️⚠️ **「양쪽 끝까지 눌러 보고 절반 돌아오기」로는 가운데에 안 선다.**
+      //    한 걸음이 `YAW_STEP`(0.20)이고 한계가 `YAW_MAX`(0.40)라 **두 걸음이면 끝**인데
+      //    `-1` 열두 번 · `+1` 열두 번 · `-1` 여섯 번은 끝에서 끝으로 간 다음 다시
+      //    **반대쪽 끝에 붙는다**(가운데가 아니다). 게다가 끝에서 끝까지 가는 데 드는
+      //    시간이 고정 700ms 보다 길어서 **어떤 판은 도중에 섰다** — 그래서 뒤의
+      //    ⑧ 「방 밝기」가 «그때그때 다르게 돌아간 방»을 재어 밤이 **0.115 ↔ 0.178** 로
+      //    널뛰었다 (HEAD 에서도 두 번에 한 번쯤 「초저녁이 밤과 달라졌다」로 빨개졌다).
+      // ⚠️ 걸음 수를 세지 않는다 — **`spinAt()` 이 말하는 목표를 0 으로 몰고**,
+      //    고정 시간이 아니라 **진짜로 도착했는지를 기다린다** (한계·걸음을 고쳐도 따라온다)
       await page.evaluate(async () => {
-        for (let i = 0; i < 12; i++) spinRoom(-1);
-        for (let i = 0; i < 12; i++) spinRoom(1);
-        for (let i = 0; i < 6; i++) spinRoom(-1);
-        await new Promise(r => setTimeout(r, 700));
+        for (let i = 0; i < 24; i++) {
+          const a = room3d.spinAt();
+          if (Math.abs(a.to) < 1e-6) break;
+          spinRoom(a.to > 0 ? -1 : 1);
+        }
+        for (let i = 0; i < 80; i++) {
+          const a = room3d.spinAt();
+          if (Math.abs(a.to) < 1e-6 && Math.abs(a.yaw - a.to) < 1e-4) break;
+          await new Promise(r => setTimeout(r, 50));
+        }
       });
+      const back = await page.evaluate(() => room3d.spinAt());
+      if (Math.abs(back.yaw) > 1e-3) {
+        bad.push(`${W}px: 둘러보기를 가운데로 못 되돌렸다 (yaw ${back.yaw.toFixed(3)})`
+          + ` — 뒤의 「방 밝기」가 돌아간 방을 잰다`);
+      }
     }
 
     // ── ④-2 광원 소품은 «가만히» 있는다 — 흔들리는 것은 빛뿐이다
@@ -665,7 +694,21 @@ function mask(A, B) {
       });
       const lum = {};
       const bands = await page.evaluate(() => window.Avatar.SKY_BANDS.map(b => b.k));
-      for (const k of bands) { await goPhase(k); await lamps(false); lum[k] = meanOf(await shot(lightBox)); }
+      // ⚠️⚠️ **찍기 «직전»에 한 번 더 못 박는다.** 시간대만 갈아 끼우면 초저녁과 밤은
+      //    3D 조명이 «완전히 같은데»(둘 다 `night` · 햇빛 0) 재 보면 0.110 ↔ 0.167 로
+      //    **둘이 서로 값을 바꿔 가며** 나왔다 — 찍는 사이에 아무 `render()` 나 한 번
+      //    지나가면(저장 디바운스가 3초 뒤에 터지는 것이 그렇다) 숨겨 둔 인물이 도로
+      //    서고, 끝이 있는 애니메이션이 도는 중이면 그 프레임까지 섞인다.
+      //    `lamps(false)` 를 「찍기 직전마다」 부르는 것과 **같은 자리**다
+      const pin = () => page.evaluate(() => {
+        document.getAnimations().forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
+        const a = document.querySelector('.char-aura'); if (a) a.style.visibility = 'hidden';
+        ['roomSolo', 'roomSpin'].forEach(id => {
+          const el = document.getElementById(id); if (el) el.style.visibility = 'hidden'; });
+      });
+      for (const k of bands) {
+        await goPhase(k); await lamps(false); await pin(); lum[k] = meanOf(await shot(lightBox));
+      }
 
       if (bands.some(k => lum[k] == null)) bad.push('낮과 밤: 방을 못 찍었다 (밝기를 잴 수가 없다)');
       else {
@@ -955,10 +998,106 @@ function mask(A, B) {
     await page.close();
   }
 
+  // ═══ 크리처가 «선 자리» — 서른 마리 × 세 폭 ═══
+  //
+  // 「사족 보행하는 화염여우가 아직도 공중에 둥둥 떠 있다」로 신고받은 자리다.
+  // 그림이 아니라 **CSS 상수**가 원인이었다 — `.cr-ground { bottom: 6% }` 는 «아우라
+  // 상자»의 밑에서 재는 값이라, 그려진 바닥(발밑 그림자)과는 아무 관계가 없다.
+  // 지금은 `game.js` 의 `placePetY()` 가 **그려진 것을 재서** 세운다
+  // (`placeFigure`·`placePet` 과 같은 규칙이다).
+  //
+  // ⚠️⚠️ **잣대는 «닿는 줄»끼리 견주는 것이다.** 셋을 헛짚고서야 찾았다:
+  //   ① **픽셀 diff 로는 못 잰다** — 아무것도 안 바꾼 두 장도 방 바닥 줄(y400)에서
+  //      두 픽셀씩 달라져서, 무엇을 세워도 「발이 400」이 나온다. 한 장으로 잡음
+  //      마스크를 떠도 잡음이 «그때그때 다른 자리»라 소용이 없었다
+  //   ② **「칠한 제일 아래」도 아니다** — 크리처의 발밑 그림자는 발(`GROUND` 90)보다
+  //      5칸 더 내려가 있다(가운데 92 · ry 5). 그걸 바닥과 견주면 멀쩡한 그림이
+  //      「5px 가라앉았다」로 나온다
+  //   ③ **어항은 상자가 거짓말을 한다** — 물 네모가 `clip-path` 로 잘리는데
+  //      `getBoundingClientRect` 는 그것을 모른다. 어항이 바닥에 대는 것은 «받침»이다
+  // ⚠️ **`Creature.GROUND`·`BOWL_FLOOR` 를 읽어 되짚지 않는다** — `placePetY()` 가 보는
+  //    그 값이라 «스스로 맞는 검사»가 된다. 그림에서 뽑는다 (그림자 타원 · 받침 타원)
+  // ⚠️ **air 는 이 검사로 「`placePetY` 가 돌았는가」를 못 가른다** — CSS 의 `bottom: 14%`
+  //    와 `AIR_LIFT` 가 «일부러» 같은 자리라서다 (신고받은 것은 ground 뿐이라 공중
+  //    크리처의 화면 높이를 그대로 뒀다). 여기서 보는 것은 **공중 크리처가 바닥으로
+  //    내려앉지 않았는가**다
+  let pet = '';
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+    await page.addInitScript(() => {
+      localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+      localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
+        { ver: 18, name: 'Tester', nameClaimed: true, tutorialDone: true, roomLevel: 5 }));
+    });
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForFunction(() => typeof S !== 'undefined' && typeof render === 'function');
+    await page.evaluate(() => { const s = document.getElementById('splash'); if (s) s.remove(); });
+    const list = await page.evaluate(() => (window.GameData.RECIPES || [])
+      .filter(r => r.result && r.result.kind === 'creature')
+      .map(r => ({ id: r.result.id, move: r.result.move })));
+    const band = { ground: [], water: [], air: [] };
+    for (const W of PET_W) {
+      await page.setViewportSize({ width: W, height: 900 });
+      for (const c of list) {
+        await page.evaluate((pid) => {
+          S.tutorialDone = true; S.introDone = true; S.roomLevel = 5;
+          S.creatures = [pid]; S.petRoom = pid; switchTab('showcase'); render();
+        }, c.id);
+        await page.waitForTimeout(220);
+        const m = await page.evaluate(() => {
+          document.getAnimations().forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
+          const cre = document.querySelector('.stage-creature');
+          const av = document.querySelector('.char-body svg.avatar-svg > ellipse');
+          if (!cre || !av) return null;
+          const ar = av.getBoundingClientRect();
+          if (!ar.height) return null;
+          const floor = ar.top + ar.height / 2;          // 아바타가 선 바닥 (그림자 가운데)
+          let touch = null;
+          if (cre.classList.contains('cr-water')) {
+            cre.querySelectorAll('.cr-bowl ellipse').forEach(n => {
+              if ((n.getAttribute('fill') || '') !== '#b9a48f') return;   // 어항 받침
+              const r = n.getBoundingClientRect();
+              if (touch == null || r.bottom > touch) touch = r.bottom;
+            });
+          } else {
+            cre.querySelectorAll('ellipse').forEach(n => {
+              if ((n.getAttribute('opacity') || '') !== '0.16') return;   // 발밑 그림자
+              const r = n.getBoundingClientRect();
+              const cy = r.top + r.height / 2;
+              if (touch == null || cy > touch) touch = cy;
+            });
+          }
+          return touch == null ? {} : { d: +(touch - floor).toFixed(1) };
+        });
+        if (!m || m.d == null) { bad.push(`${W}px ${c.id} 의 «닿는 줄»을 못 찾았다`); continue; }
+        if (!band[c.move]) { bad.push(`${c.id} 의 move 가 «${c.move}» 다 (ground·air·water 뿐이다)`); continue; }
+        band[c.move].push(m.d);
+        if (c.move === 'air') {
+          if (m.d > -PET_AIR_MIN) bad.push(`${W}px ${c.id}(공중)가 바닥에서 ${(-m.d).toFixed(1)}px 밖에 안 떴다`);
+        } else if (Math.abs(m.d) > PET_FOOT) {
+          bad.push(`${W}px ${c.id}(${c.move})가 바닥에서 ${m.d > 0 ? '가라앉았다' : '떴다'}`
+            + ` (${Math.abs(m.d).toFixed(1)}px)`);
+        }
+      }
+    }
+    // ⚠️ **몇 마리를 쟀는지 통과할 때도 낸다** — 0건이 「통과」인지 「한 번도 안 쟀다」인지를
+    //    가르는 것은 이 수뿐이다 (크리처를 늘리면 저절로 따라온다)
+    const rng = (a) => a.length ? `${Math.min(...a).toFixed(1)}~${Math.max(...a).toFixed(1)}px` : '(없다)';
+    ['ground', 'water', 'air'].forEach(k => {
+      if (!band[k].length) bad.push(`${k} 크리처를 한 마리도 안 쟀다`);
+    });
+    pet = `크리처가 선 자리 — 땅 ${rng(band.ground)}(${band.ground.length}) ·`
+      + ` 어항 ${rng(band.water)}(${band.water.length}) · 공중 ${rng(band.air)}(${band.air.length})`
+      + ` · 폭 ${PET_W.join('·')}`;
+    await page.close();
+  }
+
   await browser.close();
   console.log('3D 방 — ' + out.join(' | '));
   if (gift) console.log('  ' + gift);
-  console.log(`  (발 ${FOOT_MAX}px · SVG 와 ${SVG_MAX}px · 머리 뒤 벽 ${WALL_MIN * 100}% 까지 · 폭 셋을 다 쟀다)`);
+  if (pet) console.log('  ' + pet);
+  console.log(`  (발 ${FOOT_MAX}px · SVG 와 ${SVG_MAX}px · 머리 뒤 벽 ${WALL_MIN * 100}% 까지`
+    + ` · 크리처 땅·어항 ${PET_FOOT}px · 공중 ${PET_AIR_MIN}px 까지 · 폭 셋을 다 쟀다)`);
   if (bad.length) {
     console.log(`❌ ${bad.length}건`);
     bad.forEach(m => console.log('   ' + m));
