@@ -2821,6 +2821,7 @@ function launchOpts() {
           const slots = await page.evaluate(() =>
             D.WARDROBE_SLOTS.filter(m => m.sheet).map(m => m.slot));
           if (!slots.length) results.push({ 화면: `${t}/칸시트`, 오류: '시트로 뺀 칸이 하나도 없다 — 아무것도 안 쟀다' });
+          const dyeGaps = [];
           for (const slot of slots) {
             const bad = await page.evaluate((sl) => {
               // 잠긴 칸(🔒)이 하나는 있어야 그 줄의 대비를 재는 것이 된다 —
@@ -2861,8 +2862,24 @@ function launchOpts() {
                 if (!wear) return `${sl} 은 색을 고르는 칸인데 입을 것이 하나도 없다`;
                 S.outfit[sl] = wear.id;
                 renderSlotSheet();
-                if (!document.querySelector('#slotSheetBody .dye-bars'))
+                const bars = document.querySelector('#slotSheetBody .dye-bars');
+                if (!bars)
                   return `${sl} 은 색을 고르는 칸인데 시트에 팔레트 줄이 없다`;
+                // ⚠️⚠️ **염색 줄은 칸 격자 «아래»다 — 옷장 탭과 같은 순서여야 한다.**
+                //    `renderWardrobe` 는 격자 뒤에 붙이는데 **시트만 거꾸로** 서 있었다.
+                //    「모양을 고르고 → 그 색을 고른다」가 손의 순서라, 위에 두면
+                //    아직 안 고른 것의 색을 먼저 묻는 꼴이다 (사람이 그림으로 정해 줬다).
+                // ⚠️ **상자의 «순서»만 보면 안 된다** — 한때 격자와 **2px** 밖에
+                //    안 떨어져 한 덩어리로 붙어 보였다 (「간격 너무 붙지 않도록」).
+                //    붙는 것은 자리가 맞아도 나는 사고라 **틈도 같이** 본다
+                const grid = document.querySelector('#slotSheetBody .wr-items');
+                if (!grid) return `${sl} 시트에 칸 격자가 없다 — 순서를 잴 수가 없다`;
+                const gap = bars.getBoundingClientRect().top - grid.getBoundingClientRect().bottom;
+                if (gap < 0)
+                  return `${sl} 의 염색 줄이 칸 격자 «위»에 있다 (옷장 탭과 순서가 다르다)`;
+                if (gap < 10)
+                  return `${sl} 의 염색 줄이 격자에 붙어 있다 (${Math.round(gap)}px · 10px 은 떨어져야 한다)`;
+                window.__dyeGap = Math.round(gap);
                 // 줄을 펴 놓고 재야 칩의 대비까지 잰 것이 된다 (접혀 있으면 display:none 이다)
                 S.dye = Math.max(1, S.dye || 0);
                 toggleDye(sl, 'magic');
@@ -2890,6 +2907,10 @@ function launchOpts() {
               return null;
             }, slot);
             if (bad) { results.push({ 화면: `${t}/칸시트:${slot}`, 오류: bad }); continue; }
+            // 통과할 때도 **잰 값을 낸다** — 0건이 「통과」인지 「색이 없는 칸이라
+            // 아예 안 쟀다」인지를 가르려면 필요하다
+            const dg = await page.evaluate(() => { const v = window.__dyeGap; window.__dyeGap = null; return v; });
+            if (dg != null) dyeGaps.push(`${slot} ${dg}px`);
             await page.waitForTimeout(280);
             await run(`${t}/칸시트:${slot}`);
             const fit = await page.evaluate(() => __cardFits('#slotSheet, #slotSheet .wr-item'));
@@ -2897,7 +2918,8 @@ function launchOpts() {
             await page.evaluate(() => closeSlotSheet());
             await page.waitForTimeout(150);
           }
-          if (slots.length) console.log(`  칸시트 — 시트로 뺀 칸을 «다» 쟀다 (${slots.join('·')})`);
+          if (slots.length) console.log(`  칸시트 — 시트로 뺀 칸을 «다» 쟀다 (${slots.join('·')})`
+            + (dyeGaps.length ? ` · 염색 줄이 격자 아래 ${dyeGaps.join('·')}` : ' · 색을 고르는 칸이 없다'));
 
         // **🪄 방 꾸미기 시트** — 벽지 · 바닥재 + 자리 아홉 (`ROOM.md`).
         // ⚠️⚠️ **탭을 표 그대로 돈다** — 자리를 하나 늘렸을 때 그 탭이 통째로 안 재지면
