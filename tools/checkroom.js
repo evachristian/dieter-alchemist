@@ -64,6 +64,9 @@ const SPIN_DIFF = 0.012;   // 둘러보기는 «같은 벽이 미끄러지는» 
 const PET_FOOT = 4;       // px. 땅·어항이 바닥에서 이만큼 안으로 들어와야 한다
 const PET_AIR_MIN = 20;   // px. 공중 크리처는 적어도 이만큼 떠 있어야 한다 (지금 48.4~48.8)
 const PET_W = [265, 390, 480];
+// 「크리처가 가려지는가」 — 왼쪽 버튼 줄(🪄 방꾸 · 😯 표정 · ⚜️ 문신)과 같은 바닥을 쓴다
+const HIDE_W = [265, 320, 390, 480];
+const HIDE_SPIN_GAP = 3;  // px. 줄이 올라가도 둘러보기 버튼과 이만큼은 떨어진다
 
 function mask(A, B) {
   const rows = [];
@@ -1092,6 +1095,118 @@ function mask(A, B) {
     await page.close();
   }
 
+  // ═══ 크리처가 «버튼에 가려지지» 않는가 (`placePet` 의 빈 바닥 · `liftSolo`) ═══
+  //
+  // 왼쪽 버튼 줄 셋(🪄 방꾸 · 😯 표정 · ⚜️ 문신)이 2026-10-02 에 들어오면서 크리처와
+  // **같은 바닥**을 쓰게 됐다 — 졸업 직후 몸으로 재면 390px 에서 22~35% · 265px 에서
+  // 61% 가 덮였고 265px 에서는 통째로 안 보였다 (신고받은 자리다).
+  //
+  // ⚠️⚠️ **위의 「크리처가 선 자리」는 이것을 영영 못 본다** — 거기서 보는 것은
+  //    «닿는 줄»(세로)이라 버튼이 통째로 덮고 있어도 다 통과한다. 0건이 「통과」가
+  //    아니라 **「한 번도 안 쟀다」**인 그 자리다.
+  // ⚠️⚠️ **졸업 직후 몸(바디파츠 전부 150% · `maxTune`)으로 잰다.** 기본값으로 재면
+  //    치마가 좁아 크리처가 덜 밀려서 **사람이 보는 것보다 겹침이 작게** 나온다
+  //    (처음에 그렇게 재서 390px 을 6% 로 봤다 — 실제로는 27% 다).
+  // ⚠️ **방 버튼 다섯을 다 열어 놓고** 잰다 — 줄이 짧으면 겹칠 자리가 애초에 없다
+  //    (「버튼 겹침」에서 배운 자리다).
+  // 보는 것 넷 — ① 왼쪽 줄과 안 겹치는가 ② 방 상자 «안»인가 ③ 줄이 올라가도
+  // 둘러보기 버튼을 안 무는가 ④ 그런데 왼쪽 줄이 정말 셋 다 서 있는가
+  let hide = '';
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+    await page.addInitScript(() => {
+      localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+      localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
+        { ver: 18, name: 'Tester', nameClaimed: true, tutorialDone: true, roomLevel: 5 }));
+    });
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForFunction(() => typeof S !== 'undefined' && typeof render === 'function');
+    await page.evaluate(() => { const s = document.getElementById('splash'); if (s) s.remove(); });
+    // 땅·공중·어항 한 마리씩 — 셋은 크기도 서는 높이도 달라 같이 봐야 한다
+    const trio = await page.evaluate(() => ['ground', 'air', 'water'].map(m =>
+      ((window.GameData.RECIPES || []).find(r => r.result
+        && r.result.kind === 'creature' && r.result.move === m) || {}).result)
+      .filter(Boolean).map(r => ({ id: r.id, move: r.move })));
+    if (trio.length < 3) bad.push('크리처 가림: 땅·공중·어항 크리처가 다 있지 않다');
+    let n = 0, minGap = Infinity, minRoom = Infinity, minSpin = Infinity, lifted = 0, maxOver = 0;
+    for (const lang of ['ko', 'en']) for (const W of HIDE_W) {
+      await page.setViewportSize({ width: W, height: 900 });
+      for (const c of trio) {
+        await page.evaluate(({ pid, lg }) => {
+          I18N.setLang(lg);
+          S.tutorialDone = true; S.introDone = true; S.roomLevel = 5;
+          S.roomActs = ['exercise', 'binge', 'kitchen', 'harvest', 'farm'];
+          S.quest = S.quest || {}; S.quest.done = ['q_first', 'q_walk', 'q_sip'];
+          maxTune();                                  // ⚠️ 졸업 직후 몸이다
+          S.creatures = [pid]; S.petRoom = pid; switchTab('showcase'); render();
+        }, { pid: c.id, lg: lang });
+        await page.waitForTimeout(240);
+        const m = await page.evaluate(() => {
+          const cre = document.querySelector('.stage-creature');
+          const room = document.querySelector('.room-canvas');
+          const acts = [...document.querySelectorAll('#roomSolo .room-act')];
+          const spin = [...document.querySelectorAll('.room-canvas .spin-btn')]
+            .map(n => n.getBoundingClientRect()).filter(r => r.height);
+          if (!cre || !room) return null;
+          const c = cre.getBoundingClientRect(), rb = room.getBoundingClientRect();
+          if (!c.width || !rb.width) return null;
+          // 겹친 넓이와 «제일 가까운 버튼과의 가로 틈»을 같이 낸다
+          let over = 0, gap = Infinity;
+          acts.forEach(el => {
+            const a = el.getBoundingClientRect();
+            over += Math.max(0, Math.min(a.right, c.right) - Math.max(a.left, c.left))
+                  * Math.max(0, Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top));
+            if (a.bottom > c.top && a.top < c.bottom) gap = Math.min(gap, c.left - a.right);
+          });
+          const sb = document.getElementById('roomSolo').getBoundingClientRect();
+          return { over, area: c.width * c.height, gap: isFinite(gap) ? gap : null,
+            acts: acts.length, inRoom: c.left - rb.left,
+            // 올린 줄이 둘러보기 버튼을 안 무는가 (안 올렸으면 잴 것이 없다)
+            lift: parseFloat(document.getElementById('roomSolo').style.bottom) || 0,
+            spinGap: spin.length ? sb.top - Math.max(...spin.map(r => r.bottom)) : null };
+        });
+        if (!m) { bad.push(`크리처 가림: ${W}px/${lang} ${c.move} — 크리처나 방을 못 찾았다`); continue; }
+        if (m.acts < 3) {
+          bad.push(`크리처 가림: ${W}px/${lang} 왼쪽 방 버튼이 ${m.acts}개뿐이다 — 셋을 다 열어야 잰 것이다`);
+          continue;
+        }
+        n++;
+        maxOver = Math.max(maxOver, m.over);
+        if (m.over > 0.5) {
+          bad.push(`크리처 가림: ${W}px/${lang} ${c.move} 크리처가 왼쪽 버튼 줄에`
+            + ` ${m.over.toFixed(0)}px² 가려졌다 (${(100 * m.over / m.area).toFixed(0)}%)`);
+        }
+        if (m.inRoom < -0.5) {
+          bad.push(`크리처 가림: ${W}px/${lang} ${c.move} 크리처가 방 상자 왼쪽으로`
+            + ` ${(-m.inRoom).toFixed(1)}px 나갔다`);
+        }
+        if (m.lift > 0.5) {
+          lifted++;
+          if (m.spinGap == null) bad.push(`크리처 가림: ${W}px/${lang} 줄을 올려 놓고 둘러보기 버튼을 못 쟀다`);
+          else if (m.spinGap < HIDE_SPIN_GAP) {
+            bad.push(`크리처 가림: ${W}px/${lang} 올린 버튼 줄이 둘러보기 버튼과`
+              + ` ${m.spinGap.toFixed(1)}px 밖에 안 떨어졌다`);
+          }
+          if (m.spinGap != null) minSpin = Math.min(minSpin, m.spinGap);
+        }
+        if (m.gap != null) minGap = Math.min(minGap, m.gap);
+        minRoom = Math.min(minRoom, m.inRoom);
+      }
+    }
+    // ⚠️ **몇 자리를 쟀는지 통과할 때도 낸다** — 0건이 「통과」인지 「한 번도 안 쟀다」인지를
+    //    가르는 것은 이 수뿐이다
+    const want = HIDE_W.length * 2 * 3;
+    if (n < want) bad.push(`크리처 가림: ${want}자리 중 ${n}자리만 쟀다`);
+    // ⚠️ 「다 0px²」라고 «우기지» 않는다 — 잰 값을 그대로 낸다 (실패해도 같은 줄이 뜬다)
+    hide = `크리처 가림 — ${n}자리(폭 ${HIDE_W.join('·')} × 땅·공중·어항 × 두 언어)`
+      + ` 제일 많이 가려진 자리 ${maxOver.toFixed(0)}px²`
+      + ` · 버튼과 제일 좁은 틈 ${isFinite(minGap) ? minGap.toFixed(1) + 'px' : '(옆에 안 선다)'}`
+      + ` · 방 상자 안으로 ${isFinite(minRoom) ? minRoom.toFixed(1) + 'px' : '?'}`
+      + ` · 줄이 비켜 준 자리 ${lifted}`
+      + (isFinite(minSpin) ? ` (둘러보기와 ${minSpin.toFixed(1)}px)` : '');
+    await page.close();
+  }
+
   // ═══ 터치 기기에서는 «쓸어서» 돈다 (`roomSwipe*` · `room3d.spinDrag`) ═══
   //
   // ⚠️⚠️ **버튼을 누르는 것으로는 이 층을 한 줄도 못 잰다** — 위의 ④ 는 `spinRoom()` 을
@@ -1262,6 +1377,7 @@ function mask(A, B) {
   console.log('3D 방 — ' + out.join(' | '));
   if (gift) console.log('  ' + gift);
   if (pet) console.log('  ' + pet);
+  if (hide) console.log('  ' + hide);
   if (swipe) console.log('  ' + swipe);
   console.log(`  (발 ${FOOT_MAX}px · SVG 와 ${SVG_MAX}px · 머리 뒤 벽 ${WALL_MIN * 100}% 까지`
     + ` · 크리처 땅·어항 ${PET_FOOT}px · 공중 ${PET_AIR_MIN}px 까지 · 폭 셋을 다 쟀다)`);

@@ -5191,18 +5191,41 @@ function petStage(pet) {
 // 화면에서는 자리를 옮기면 `--pet` 도 같이 바뀌어 키가 달라진다 — 265px 의 어항이
 // 기본 65px 로 잰 뒤 96px 로 커지면서 띠가 엉덩이까지 올라가 반바지의 엉덩이와
 // 1.1px 겹쳤다 (`checkavatar` 가 잡았다). 값이 그대로일 때까지 두세 번 돈다
+//
+// ⚠️⚠️ **왼쪽 버튼 줄(🪄 방꾸 · 😯 표정 · ⚜️ 문신)이 «같은 바닥»을 쓴다** (2026-10-02).
+// 그 셋이 들어오면서 크리처가 그 뒤로 숨었다 — 졸업 직후 몸(바디파츠 전부 150%)으로
+// 재면 **390px 에서 22~35% · 265px 에서 61%** 가 덮였고, 265px 에서는 통째로 안 보였다
+// (「방꾸·표정·문신 버튼에 가려서 크리처가 잘 안 보인다」로 신고받았다).
+// 덤으로 드러난 것 하나 — 옛 `--pet` 의 `50vw` 는 **앱**의 왼끝을 보고 있어서
+// 265px 에서 크리처가 **방 상자 밖으로 10px 나가** 페이지 배경 위에 서 있었다.
+//
+// 지금은 **«빈 바닥»을 재서 거기에 드는 크기로 선다** — 오른쪽 끝은 그대로 치마 옆선
+// 5px 옆이고, 왼쪽 끝이 「방 상자」와 「버튼 줄」 중 더 오른쪽을 안 넘는다.
+// ⚠️ 치마 쪽으로 밀어서 고치지 않는다 — 그러면 「치마에 붙은 무늬」로 되돌아간다
+//    (`checkavatar` 의 「크리처 자리」가 못 박아 둔 그 줄이다).
+// ⚠️⚠️ **바닥이 아예 없으면 «버튼 줄»이 위로 비켜 준다.** 265px 에서는 치마 밑단만
+//    169px(상자 233px)이라 양옆에 32px 씩밖에 안 남는데 버튼 줄이 38px 다 —
+//    줄이기만 해서는 어떤 크기도 못 선다. 올리는 몫도 «재서» 구하고, 둘러보기
+//    버튼 밑으로만 간다 (상수로 적으면 방 높이가 바뀔 때 거기부터 어긋난다)
 const PET_GAP = 5;
+const PET_MIN = 28;      // 빈 바닥이 이보다 좁으면 「바닥이 없다」 — 버튼 줄이 비켜 준다
+const PET_FLOOR = 20;    // 그래도 모자라면 여기까지만 줄인다 (더 줄이면 무엇인지 안 보인다)
 function placePet() {
   const cre = document.querySelector('.stage-creature');
   const svg = document.querySelector('.char-body svg');
   const aura = document.querySelector('.char-aura');
+  const solo = document.getElementById('roomSolo');
+  const room = document.querySelector('.room-canvas');
   if (!cre || !svg || !aura) return;
+  // ⚠️ **재기 전에 되돌린다** — 안 그러면 다시 그릴 때마다 올린 몫이 겹쳐 쌓인다
+  //    (`placeFigure()` 가 `transform` 을 되돌리는 것과 같은 자리다)
+  if (solo) solo.style.bottom = '';
   const ar = aura.getBoundingClientRect();
   if (!ar.width) return;
   const mid = ar.left + ar.width / 2;
   const max = cre.classList.contains('cr-water') ? 96 : 76;
   const parts = svg.querySelectorAll('path,ellipse,circle,rect');
-  let last = -1;
+  let last = -1, lastW = Infinity, moved = false;
   for (let pass = 0; pass < 4; pass++) {
     // ⚠️⚠️ **세로를 «먼저» 맞춘다.** 여기서 보는 것은 「크리처의 키와 겹치는 띠」인데,
     //    뒤에서 `placePetY()` 가 크리처를 24px 내려 놓으면 **잰 띠와 실제로 차지하는
@@ -5222,11 +5245,67 @@ function placePet() {
     // 가운데에서 치마 옆선 옆까지. ⚠️ 줄이지는 않는다 — 커졌다 작아졌다 하면 두 값 사이를
     // 오가며 끝이 안 난다. 더 물러나기만 하면 띠는 좁아질 뿐이라 반드시 멎는다
     const need = Math.max(last, mid - left + PET_GAP, 0);
-    if (need - last < 0.25) return;
-    last = need;
+    // ─ 빈 바닥 — 방 상자와 왼쪽 버튼 줄 중 «더 오른쪽»이 왼끝이다 ─
+    const rb = room ? room.getBoundingClientRect() : null;
+    const sb = solo ? solo.getBoundingClientRect() : null;
+    let edge = rb && rb.width ? rb.left + PET_GAP : -Infinity;
+    if (sb && sb.height) edge = Math.max(edge, sb.right + PET_GAP);
+    let avail = (mid - need) - edge;
+    if (avail < PET_MIN && liftSolo(cre, solo, room)) {
+      moved = true;
+      edge = rb.left + PET_GAP;
+      avail = (mid - need) - edge;
+    }
+    // ⚠️ 폭도 «줄어들기만» 한다 — need 와 같은 이유로, 안 그러면 두 값 사이를 오간다
+    const w = Math.max(PET_FLOOR, Math.min(max, lastW, avail));
+    if (need - last < 0.25 && lastW - w < 0.25) break;
+    last = need; lastW = w;
     cre.style.right = `calc(50% + ${need.toFixed(1)}px)`;
-    cre.style.setProperty('--pet', `min(${max}px, calc(50vw - ${(need + 6).toFixed(1)}px))`);
+    cre.style.setProperty('--pet', `${w.toFixed(1)}px`);
   }
+  // ⚠️⚠️ **올리는 몫은 «크기가 정해진 뒤»에 한 번 더 잰다.** 되풀이 안에서 재는 것은
+  //    «그 걸음의 앞»에 선 크리처라 한 걸음 늦는데, 공중 크리처는 작아질수록 상자가
+  //    «위»로 올라간다(바닥에서 띄우는 몫은 그대로고 키만 준다) — 265px 에서 2px 이
+  //    남아 문신 버튼과 38px² 포개졌다. 올리기만 하므로 되풀이가 생기지 않는다.
+  // ⚠️⚠️ **그래도 남으면 키를 줄인다.** 버튼 줄은 둘러보기 버튼 밑으로만 가므로
+  //    더 못 올라가는 자리가 있다 — 320px 의 공중 크리처가 그렇다(16% 가 덮였다).
+  //    크리처를 줄이면 꼭대기가 «내려오므로»(바닥에 선 채로 키만 준다) 그 자리에서
+  //    풀린다. 줄인 몫의 0.9~0.96 배가 내려오니 세 걸음이면 한 자리까지 맞는다
+  if (moved) {
+    for (let i = 0; i < 3; i++) {
+      if (!liftSolo(cre, solo, room)) break;
+      const cr = cre.getBoundingClientRect();
+      const sb = solo.getBoundingClientRect();
+      const over = (sb.right > cr.left && sb.left < cr.right) ? sb.bottom - cr.top : 0;
+      if (!(over > 0) || lastW <= PET_FLOOR) break;
+      // ⚠️ 줄이는 몫에 1px 을 얹는다 — 꼭 그만큼만 줄이면 내려오는 것이 0.9배라
+      //    늘 머리카락 한 올이 남는다 (4px² 가 남아 검사가 잡았다)
+      lastW = Math.max(PET_FLOOR, lastW - over - 1);
+      cre.style.setProperty('--pet', `${lastW.toFixed(1)}px`);
+      placePetY();
+    }
+  }
+}
+
+// 왼쪽 버튼 줄을 크리처 «위»로 올린다 — 올린 몫을 돌려주는 것이 아니라 올렸는지를 돌려준다.
+// ⚠️ **둘러보기 버튼 밑으로만** 간다 (상수로 적으면 방 높이가 바뀔 때 거기부터 어긋난다).
+// ⚠️ 잴 것은 «버튼»이지 그 줄이 아니다 — `.room-spin` 은 상자를 통째로 덮어서 그 밑변이
+//    곧 방의 밑변이다 (그대로 쓰면 올릴 자리가 늘 0 으로 나온다).
+// ⚠️ **올리기만 한다**(`Math.max`) — 되풀이 안에서 여러 번 불리므로 내려가면 오간다
+function liftSolo(cre, solo, room) {
+  if (!cre || !solo || !room) return false;
+  const rb = room.getBoundingClientRect();
+  const sb = solo.getBoundingClientRect();
+  const cr = cre.getBoundingClientRect();
+  if (!rb.height || !sb.height || !cr.height) return false;
+  const sr = [...room.querySelectorAll('.spin-btn')]
+    .map(n => n.getBoundingClientRect()).filter(r => r.height);
+  const ceil = (sr.length ? Math.max(...sr.map(r => r.bottom)) : rb.top) + PET_GAP;
+  const cap = Math.max(0, (rb.bottom - ceil) - sb.height);
+  const now = parseFloat(solo.style.bottom) || 0;
+  solo.style.bottom =
+    Math.max(now, 0, Math.min(rb.bottom - cr.top + PET_GAP, cap)).toFixed(1) + 'px';
+  return true;
 }
 
 // ─── 세로도 «재서» 맞춘다 — 크리처는 인물과 «같은 바닥»에 선다 ──────
