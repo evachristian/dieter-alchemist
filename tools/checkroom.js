@@ -46,7 +46,12 @@ const TABLE_OBEY = 1.15;
 //    **1.00배**이고 지금이 **1.64~1.68배**라 그 사이다 (짐작으로 적은 문턱은
 //    고친 쪽을 잡는다 — 바로 위의 `DAY_NIGHT` 에서 두 번 겪었다)
 const LAMP_MORE = 1.35;
-// 낮은 표가 1 배라 «표를 꺾어도» 한 픽셀도 안 바뀌어야 한다 (더하는 몫의 차 · 지금 0.001)
+// 낮은 표가 1 배라 «표를 꺾어도» 한 픽셀도 안 바뀌어야 한다 (더하는 몫의 차).
+// ⚠️⚠️ **이 줄은 문턱에 아슬아슬하게 붙어 있어 가끔 거짓으로 빨개진다.** 촛불이
+//    깜박이는 자리에서 멈추므로 판마다 값이 흔들린다 — 2026-10-03 에 같은 트리를
+//    세 번씩 재서 **HEAD 가 0.013 · 0.013 · 0.000**, 그 다음 판이 **0.021 · 0.000 ·
+//    0.000** 이었다 (즉 **양쪽 다** 넘나든다 — 한쪽만 보고 「내 변경 탓」으로 읽지 말 것).
+//    고치려면 문턱을 올리는 것이 아니라 **재기 전에 깜박임을 멈춰 놓아야** 한다
 const LAMP_FLAT = 0.02;
 // 밤에 소품을 다시 놓아도 등불이 이만큼은 그대로여야 한다 (`putUnit` 이 세기를 타는가)
 const LAMP_REPUT = 0.9;
@@ -1452,7 +1457,12 @@ function mask(A, B) {
         const acts = [...document.querySelectorAll('#roomSolo .room-act')];
         if (!aura || !sc || !sh) return null;
         const scr = sc.getBoundingClientRect(), shr = sh.getBoundingClientRect();
-        const cs = getComputedStyle(aura).scale;
+        // ⚠️⚠️ **«그려진 크기»로 잰다 — 스타일 문자열을 읽지 않는다.** 예전에는
+        //    `getComputedStyle(aura).scale` 을 읽었는데, 그러면 「값은 적혔는데
+        //    브라우저가 그 속성을 모르는」 경우가 통째로 안 잡힌다 (개별 변환 속성이
+        //    없는 브라우저에서는 조용히 아무 일도 안 일어난다 — 방만 작아지고
+        //    인물은 큰 채로 남는다). 상자의 실제 폭 ÷ 레이아웃 폭이 곧 걸린 배율이다
+        const ow = aura.offsetWidth;
         // 머리의 «그려진» 꼭대기 — 상자가 아니다 (위로 36칸 비어 있다)
         let top = Infinity;
         document.querySelectorAll('.char-body svg.avatar-svg *').forEach(n => {
@@ -1492,7 +1502,7 @@ function mask(A, B) {
           // ⚠️⚠️ **«그려진 양탄자»도 같이 본다** — `zoomAt().z` 만 보면 「값은 바뀌는데
           //    카메라는 그대로」인 사보타주가 그대로 통과한다 (실제로 지나갔다)
           rug: room3d.floorRect().half,
-          k: cs === 'none' ? 1 : parseFloat(cs), gap,
+          k: ow ? aura.getBoundingClientRect().width / ow : 1, gap,
           foot: (shr.top + shr.height / 2) - (scr.top + room3d.floorRect().cy),
           head: top - scr.top,
           cover: Math.min(Math.min(fl.y, fr.y) - scr.height, -wl.x, wr.x - scr.width),
@@ -1548,6 +1558,15 @@ function mask(A, B) {
     if (Math.abs(n1.z - n0.z) > 1e-6) {
       bad.push(`줌: 두 손가락이 14px 밖에 안 벌어졌는데 줌이 변했다 (${n0.z.toFixed(3)} → ${n1.z.toFixed(3)})`);
     }
+    // ⚠️⚠️ **「배율의 축이 발밑인가」를 «따로» 재는 줄은 두지 않았다 — 두 번 짜 보고
+    //    둘 다 아무것도 안 쟀다.** ① 「줌만 바꾸고 인물을 다시 안 세우기」는
+    //    `setZoom` 이 카메라만 옮기고 배율은 `placeFigure()` 가 거는 것이라 축이
+    //    무엇이든 발이 안 움직인다 ② 「옮기는 몫이 줌마다 같은가」는 지금 `placeFigure()`
+    //    가 **다 지우고 맨몸에서 재**므로 쓰는 값이 **구조적으로** 줌과 무관하다
+    //    (축을 가운데로 되돌려도 −24.8 셋이 그대로 나왔다 — 어긋나는 것은 «쓴 값»이
+    //    아니라 «그 뒤에 찍히는 자리»다). 그 자리를 보는 것이 ④ 이고, 축을 가운데로
+    //    되돌리면 거기서 **31.7px · −23.8px** 로 잡힌다. 못 가르는 줄을 더 두지 않는다
+
     // ⑨ 손을 뗀 뒤 크리처가 다시 선다 — 버튼 줄에 «틈»을 두고 선다
     if (zLo.over > 0.5) bad.push(`줌: 오므린 뒤 크리처가 왼쪽 버튼 줄에 ${zLo.over.toFixed(0)}px² 가려졌다`);
     if (zHi.over > 0.5) bad.push(`줌: 벌린 뒤 크리처가 왼쪽 버튼 줄에 ${zHi.over.toFixed(0)}px² 가려졌다`);

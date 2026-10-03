@@ -5391,18 +5391,21 @@ function placeFigure() {
   const room = document.querySelector('.room-scene svg');
   const av = document.querySelector('.char-body > svg.avatar-svg');
   if (!aura || !av || !window.Avatar) return;
-  // ⚠️⚠️ **줌은 «개별 속성» `scale` 로 건다** — `transform` 으로 쓰면 아래의 옮기는
-  //    몫을 덮어쓴다. 그래서 옮기는 쪽도 `transform` 에서 **`translate`** 로 옮겼다:
-  //    개별 속성은 translate → rotate → scale 순으로 «밖에서 안으로» 쌓이는데,
-  //    `transform` 은 그 «안»이라 거기 둔 몫이 배율을 한 번 더 타서 두 배로 어긋난다
-  //    (마이 룸의 아이들 모션에서 이미 배운 자리다 — 거기도 `scale` 한 속성이다).
-  // ⚠️ 줌이 1 이면 **한 글자도 안 적는다** — 하던 사람의 화면이 그대로다
+  // ⚠️⚠️ **되돌려 놓고 «맨몸»에서 잰다 — 그래야 잴 때마다 같은 자리가 나온다.**
+  //    예전에는 배율을 «먼저 걸고» 그 뒤에 CTM 을 읽었는데, 그러면 셋이 한꺼번에
+  //    걸린다: ① 재는 값이 방금 쓴 스타일이 반영됐는지에 달려 있고 ② 배율의 축이
+  //    아우라 가운데라 **옮길 몫이 줌마다 달라지고**(1.2배 −56.5 · 1배 −24.8 ·
+  //    0.85배 −1.0) ③ 그래서 그 한 번이라도 어긋나면 인물이 그만큼 공중에 뜬다
+  //    (「줌 아웃 시 캐릭터와 크리처가 공중 부양」으로 신고받았다).
+  //    지금은 **다 지우고 → 재고 → 한 번에 쓴다.** 축이 발밑이라 배율이 발을
+  //    한 픽셀도 안 움직이므로 **옮길 몫이 줌과 무관하다**(세 줌에서 −24.8px 로 같다)
   const z = figureZoom();
-  if (z === 1) aura.style.removeProperty('scale'); else aura.style.scale = String(z);
   aura.style.transform = '';
   aura.style.translate = '';
+  aura.style.scale = '';
+  const ar = aura.getBoundingClientRect();
   const ma = av.getScreenCTM();
-  if (!ma) return;
+  if (!ma || !ar.height) return;
   // ⚠️⚠️ **양탄자가 3D 면 «투영한 자리»를 본다.** 3D 카메라를 옮기면 양탄자가 화면에서
   //    옮겨 다니는데, 그때 SVG 쪽 상수를 그대로 보면 **인물만 옛 자리에 남는다**
   //    (SVG 방에서 「양탄자만 옮기기」 사보타주가 잡던 그 사고다)
@@ -5417,10 +5420,19 @@ function placeFigure() {
   }
   const foot = new DOMPoint(100, window.Avatar.bodyMetrics(0).floorY).matrixTransform(ma).y;
   const lift = foot - spot;
-  // ⚠️ **한계도 줌을 탄다** — 그림이 커지면 옮길 몫도 그만큼 커진다. 고정값으로 두면
-  //    줌을 올린 순간 여기서 그냥 돌아가 **인물이 양탄자를 놓친다** (1.2배에서 그랬다)
-  if (!isFinite(lift) || Math.abs(lift) > FIG_LIFT_MAX * z) return;
-  aura.style.translate = `0 ${(-lift).toFixed(1)}px`;
+  // ⚠️ **한계에 줌을 곱하지 않는다** — 축이 발밑이라 옮길 몫이 줌을 안 탄다.
+  //    곱해 두면 오히려 «오므렸을 때만» 한계가 좁아져 그 자리에서만 그냥 돌아간다
+  if (!isFinite(lift) || Math.abs(lift) > FIG_LIFT_MAX) return;
+  // ⚠️⚠️ **축은 발밑이다** — 가운데로 두면 배율이 발을 움직여 위의 사고가 되돌아온다
+  aura.style.transformOrigin = `50% ${(foot - ar.top).toFixed(2)}px`;
+  // ⚠️⚠️ **둘을 «한 `transform`» 으로 쓴다.** 개별 속성(`scale`/`translate`)은 옛
+  //    브라우저에 없는데 **없으면 조용히 아무 일도 안 한다** — 배율이 안 걸려
+  //    방만 작아지고 인물은 큰 채로 남는다(그러면 발은 양탄자에 있는데도 «떠» 보인다).
+  //    한 선언에 둘을 같이 쓰면 서로 덮어쓸 일도 없고 어디서나 똑같이 걸린다.
+  //    ⚠️ 순서는 `translate` → `scale` 이다 (왼쪽이 바깥) — 뒤집으면 옮기는 몫이
+  //    배율을 한 번 더 타서 두 배로 어긋난다
+  const mv = `translate(0px, ${(-lift).toFixed(1)}px)`;
+  aura.style.transform = z === 1 ? mv : `${mv} scale(${z})`;
 }
 
 function renderRoomScene() {
@@ -5657,7 +5669,11 @@ function roomSwipeEnd(e) {
     // ⚠️ **크리처는 손을 뗄 때 한 번만 다시 세운다** — 그 셈은 그려진 조각을 전부
     //    훑으므로 손가락이 움직일 때마다 돌릴 것이 아니다. 핀치 중에는 아우라가
     //    통째로 커지므로 인물과의 사이가 안 벌어지고, 버튼 줄과의 사이만 손을 뗀 뒤 맞춘다
-    placePet(); placePetY();
+    // ⚠️⚠️ **인물도 여기서 한 번 더 세운다** — 마지막 `pointermove` 가 안 올 수도 있다
+    //    (손가락 하나가 `pointercancel` 로 끊기거나 브라우저가 제 제스처를 가져갈 때).
+    //    그때 인물만 옛 자리에 남으면 공중에 뜬다. ⚠️ `placePet()` 보다 «먼저»다 —
+    //    크리처는 «옮긴 뒤»의 치마 옆선을 재야 한다
+    placeFigure(); placePet(); placePetY();
   }
   if (!swipe || (e && e.pointerId !== swipe.id)) return;
   const moved = !!swipe.axis;
@@ -5671,7 +5687,14 @@ document.addEventListener('pointerdown', roomSwipeStart);
 document.addEventListener('pointermove', roomSwipeMove);
 document.addEventListener('pointerup', roomSwipeEnd);
 document.addEventListener('pointercancel', roomSwipeEnd);
-window.addEventListener('resize', () => { if (currentTab === 'showcase') room3dSync(); });
+// ⚠️⚠️ **다시 조준했으면 «서는 자리»도 다시 맞춘다.** `room3dSync()` 는 카메라만
+//    옮기므로 이것만 부르면 양탄자는 움직이고 인물·크리처는 옛 자리에 남는다
+//    (`renderRoomScene()` 이 `room3dSync()` 뒤에 `placeFigure()` 를 부르는 그 이유다).
+//    폰은 주소창이 접혔다 펴질 때마다 `resize` 를 던진다 — 핀치 중에도 온다
+window.addEventListener('resize', () => {
+  if (currentTab !== 'showcase') return;
+  room3dSync(); placeFigure(); placePet(); placePetY();
+});
 window.addEventListener('room3d-ready', () => { if (currentTab === 'showcase') renderRoomScene(); });
 
 // ── 마이 룸의 헤더는 «방 그림이 그 자리를 덮고 있는 동안» 비어 있다 ──────
