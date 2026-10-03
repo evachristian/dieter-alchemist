@@ -1497,14 +1497,29 @@ function mask(A, B) {
             if (a.bottom > c.top && a.top < c.bottom) gap = Math.min(gap == null ? 1e9 : gap, c.left - a.right);
           });
         }
+        // 헤더에서 «제 바탕을 가진 것»의 밑변 — 인물이 그 밑으로 들어가면 가려진다.
+        // ⚠️ 목록을 적지 않고 헤더에 선 것을 그대로 훑는다 (알약을 하나 더 놓아도 따라온다)
+        let pillBot = -Infinity;
+        document.querySelectorAll('.app-header > *').forEach(n => {
+          const b = n.getBoundingClientRect();
+          if (b.width > 8 && b.height > 8) pillBot = Math.max(pillBot, b.bottom);
+        });
+        if (!isFinite(pillBot)) pillBot = scr.top;
         return { z: room3d.zoomAt().z, min: room3d.zoomAt().min, max: room3d.zoomAt().max,
+          pill: pillBot,
           yaw: room3d.spinAt().to,
           // ⚠️⚠️ **«그려진 양탄자»도 같이 본다** — `zoomAt().z` 만 보면 「값은 바뀌는데
           //    카메라는 그대로」인 사보타주가 그대로 통과한다 (실제로 지나갔다)
           rug: room3d.floorRect().half,
           k: ow ? aura.getBoundingClientRect().width / ow : 1, gap,
           foot: (shr.top + shr.height / 2) - (scr.top + room3d.floorRect().cy),
-          head: top - scr.top,
+          // ⚠️⚠️ **머리는 «헤더 알약»과 견준다 — 방 그림 상자가 아니다.** 방은 헤더
+          //    자리까지 올라가 있어서(`--room-rise`) 상자 안이어도 제 바탕을 가진
+          //    알약에 그대로 덮인다. 상자로 재던 동안 1.2배에서 네 폭이 다 알약 밑으로
+          //    8.8~13.2px 들어가 있었는데 **0건이었다** — 「통과」가 아니라 「엉뚱한
+          //    선을 쟀다」인 자리다 (「줌인 시 캐릭터가 공간 밖으로 나온다」로 신고받았다)
+          head: top - pillBot,
+          headBox: top - scr.top,
           cover: Math.min(Math.min(fl.y, fr.y) - scr.height, -wl.x, wr.x - scr.width),
           over };
       });
@@ -1528,7 +1543,8 @@ function mask(A, B) {
     if (zHi.z > zHi.max + 1e-6) bad.push(`줌: 위 한계를 넘었다 (${zHi.z.toFixed(3)} > ${zHi.max})`);
     if (Math.abs(zHi.z - zHi.max) > 0.02) bad.push(`줌: 끝까지 벌렸는데 위 한계에 못 닿았다 (${zHi.z.toFixed(3)} ≠ ${zHi.max})`);
     // ⑥ 그 자리에서 머리가 «방 그림 안»인가 · ④ 인물이 같이 커지고 발은 그대로인가
-    if (!(zHi.head > 0)) bad.push(`줌: 끝까지 벌리면 머리가 방 그림 밖으로 나간다 (${zHi.head.toFixed(1)}px)`);
+    // ⚠️ 알약 밑변에서 이만큼은 떨어져야 한다 — 0 으로 두면 «딱 닿는» 자리가 통과한다
+    if (!(zHi.head > 4)) bad.push(`줌: 끝까지 벌리면 머리가 헤더 알약 밑으로 들어간다 (${zHi.head.toFixed(1)}px)`);
     if (Math.abs(zHi.k - zHi.z) > 0.02) bad.push(`줌: 인물이 방을 안 따라간다 (방 ${zHi.z.toFixed(2)} · 인물 ${zHi.k.toFixed(2)})`);
     if (Math.abs(zHi.foot) > 1.5) bad.push(`줌: 끝까지 벌리면 발이 양탄자에서 ${zHi.foot.toFixed(1)}px 벗어난다`);
     if (Math.abs(zHi.yaw - z0.yaw) > 1e-6) bad.push(`줌: 핀치 중에 방이 같이 돌았다 (yaw ${z0.yaw.toFixed(3)} → ${zHi.yaw.toFixed(3)})`);
@@ -1577,7 +1593,7 @@ function mask(A, B) {
     zoomRow = `줌 — 벌리면 ${z0.z.toFixed(2)}→${zIn.z.toFixed(2)} · 오므리면 ${zOut.z.toFixed(2)}`
       + ` · 한계 ${zLo.min}~${zHi.max} 에 닿는다 · 그려진 양탄자 ${z0.rug.toFixed(0)}→${zHi.rug.toFixed(0)}px(${got.toFixed(2)}배)`
       + ` · 인물도 같은 배율(${zHi.k.toFixed(2)}·${zLo.k.toFixed(2)})`
-      + ` · 발 ${zHi.foot.toFixed(1)}·${zLo.foot.toFixed(1)}px · 끝까지 벌려도 머리가 그림 안으로 ${zHi.head.toFixed(0)}px`
+      + ` · 발 ${zHi.foot.toFixed(1)}·${zLo.foot.toFixed(1)}px · 끝까지 벌려도 머리가 알약 밑으로 ${zHi.head.toFixed(0)}px 안 든다(상자 안으로 ${zHi.headBox.toFixed(0)}px)`
       + ` · 끝까지 오므려도 방이 ${zLo.cover.toFixed(0)}px 덮는다`
       + ` · 크리처와 버튼 줄의 틈 ${zHi.gap == null ? '?' : zHi.gap.toFixed(1)}·${zLo.gap == null ? '?' : zLo.gap.toFixed(1)}px`
       + ` · 가까운 두 손가락으로는 안 돌고 안 커진다`;

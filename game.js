@@ -5225,7 +5225,14 @@ function placePet() {
   const mid = ar.left + ar.width / 2;
   // ⚠️ **재는 것은 화면 px · 적는 것은 아우라 안의 px 이다** (줌이 걸리면 둘이 갈린다).
   //    그래서 상한(76·96)은 화면 쪽으로 늘려 견주고, 적을 때 다시 나눈다
+  // ⚠️⚠️ **문턱도 «다» 배율을 탄다 — 상한만 태우면 줌 인 할 때 크리처가 «작아진다».**
+  //    방 안의 것은 줌을 타고 커지는데(치마가 그만큼 넓어진다) 왼쪽 버튼 줄과 방 상자는
+  //    화면 px 로 그대로라, 빈 바닥을 «화면 px» 로 재면 줌 인 할수록 좁아진다 —
+  //    390px 에서 크리처가 46.6 → **29.6px** 로 줄었다 (「줌인 시 크리처 크기가
+  //    비정상적으로 작아져」로 신고받았다). 틈·바닥·「바닥이 없다」를 다 방 쪽 단위로
+  //    재면 **같은 방을 확대한 것**이 되어 크리처도 같이 커진다
   const k = auraK(aura);
+  const gap = PET_GAP * k, minW = PET_MIN * k, floorW = PET_FLOOR * k;
   const max = (cre.classList.contains('cr-water') ? 96 : 76) * k;
   const parts = svg.querySelectorAll('path,ellipse,circle,rect');
   let last = -1, lastW = Infinity, moved = false;
@@ -5247,20 +5254,24 @@ function placePet() {
     if (!isFinite(left)) return;
     // 가운데에서 치마 옆선 옆까지. ⚠️ 줄이지는 않는다 — 커졌다 작아졌다 하면 두 값 사이를
     // 오가며 끝이 안 난다. 더 물러나기만 하면 띠는 좁아질 뿐이라 반드시 멎는다
-    const need = Math.max(last, mid - left + PET_GAP, 0);
+    const need = Math.max(last, mid - left + gap, 0);
     // ─ 빈 바닥 — 방 상자와 왼쪽 버튼 줄 중 «더 오른쪽»이 왼끝이다 ─
     const rb = room ? room.getBoundingClientRect() : null;
     const sb = solo ? solo.getBoundingClientRect() : null;
-    let edge = rb && rb.width ? rb.left + PET_GAP : -Infinity;
-    if (sb && sb.height) edge = Math.max(edge, sb.right + PET_GAP);
+    let edge = rb && rb.width ? rb.left + gap : -Infinity;
+    if (sb && sb.height) edge = Math.max(edge, sb.right + gap);
     let avail = (mid - need) - edge;
-    if (avail < PET_MIN && liftSolo(cre, solo, room)) {
+    // ⚠️⚠️ **「줌이면 버튼 줄이 늘 비켜 준다」로 해 보고 되돌렸다.** 줄이 올라갈 수
+    //    있는 몫은 폭마다 달라서(`liftSolo` 가 둘러보기 버튼 밑까지만 간다) 결과가
+    //    들쭉날쭉했다 — 1.1배에서 390px 은 46.6 → 75.1px 로 튀는데 320px 은 40.2px
+    //    그대로다. **한 손짓이 폭마다 다른 그림을 내놓으면 그건 규칙이 아니다**
+    if (avail < minW && liftSolo(cre, solo, room, gap)) {
       moved = true;
-      edge = rb.left + PET_GAP;
+      edge = rb.left + gap;
       avail = (mid - need) - edge;
     }
     // ⚠️ 폭도 «줄어들기만» 한다 — need 와 같은 이유로, 안 그러면 두 값 사이를 오간다
-    const w = Math.max(PET_FLOOR, Math.min(max, lastW, avail));
+    const w = Math.max(floorW, Math.min(max, lastW, avail));
     if (need - last < 0.25 && lastW - w < 0.25) break;
     last = need; lastW = w;
     cre.style.right = `calc(50% + ${(need / k).toFixed(1)}px)`;
@@ -5276,14 +5287,14 @@ function placePet() {
   //    풀린다. 줄인 몫의 0.9~0.96 배가 내려오니 세 걸음이면 한 자리까지 맞는다
   if (moved) {
     for (let i = 0; i < 3; i++) {
-      if (!liftSolo(cre, solo, room)) break;
+      if (!liftSolo(cre, solo, room, gap)) break;
       const cr = cre.getBoundingClientRect();
       const sb = solo.getBoundingClientRect();
       const over = (sb.right > cr.left && sb.left < cr.right) ? sb.bottom - cr.top : 0;
-      if (!(over > 0) || lastW <= PET_FLOOR) break;
+      if (!(over > 0) || lastW <= floorW) break;
       // ⚠️ 줄이는 몫에 1px 을 얹는다 — 꼭 그만큼만 줄이면 내려오는 것이 0.9배라
       //    늘 머리카락 한 올이 남는다 (4px² 가 남아 검사가 잡았다)
-      lastW = Math.max(PET_FLOOR, lastW - over - 1);
+      lastW = Math.max(floorW, lastW - over - 1);
       cre.style.setProperty('--pet', `${(lastW / k).toFixed(1)}px`);
       placePetY();
     }
@@ -5295,19 +5306,20 @@ function placePet() {
 // ⚠️ 잴 것은 «버튼»이지 그 줄이 아니다 — `.room-spin` 은 상자를 통째로 덮어서 그 밑변이
 //    곧 방의 밑변이다 (그대로 쓰면 올릴 자리가 늘 0 으로 나온다).
 // ⚠️ **올리기만 한다**(`Math.max`) — 되풀이 안에서 여러 번 불리므로 내려가면 오간다
-function liftSolo(cre, solo, room) {
+function liftSolo(cre, solo, room, gap) {
   if (!cre || !solo || !room) return false;
+  const g = gap > 0 ? gap : PET_GAP;
   const rb = room.getBoundingClientRect();
   const sb = solo.getBoundingClientRect();
   const cr = cre.getBoundingClientRect();
   if (!rb.height || !sb.height || !cr.height) return false;
   const sr = [...room.querySelectorAll('.spin-btn')]
     .map(n => n.getBoundingClientRect()).filter(r => r.height);
-  const ceil = (sr.length ? Math.max(...sr.map(r => r.bottom)) : rb.top) + PET_GAP;
+  const ceil = (sr.length ? Math.max(...sr.map(r => r.bottom)) : rb.top) + g;
   const cap = Math.max(0, (rb.bottom - ceil) - sb.height);
   const now = parseFloat(solo.style.bottom) || 0;
   solo.style.bottom =
-    Math.max(now, 0, Math.min(rb.bottom - cr.top + PET_GAP, cap)).toFixed(1) + 'px';
+    Math.max(now, 0, Math.min(rb.bottom - cr.top + g, cap)).toFixed(1) + 'px';
   return true;
 }
 
@@ -5425,12 +5437,17 @@ function placeFigure() {
   if (!isFinite(lift) || Math.abs(lift) > FIG_LIFT_MAX) return;
   // ⚠️⚠️ **축은 발밑이다** — 가운데로 두면 배율이 발을 움직여 위의 사고가 되돌아온다
   aura.style.transformOrigin = `50% ${(foot - ar.top).toFixed(2)}px`;
-  // ⚠️⚠️ **둘을 «한 `transform`» 으로 쓴다.** 개별 속성(`scale`/`translate`)은 옛
-  //    브라우저에 없는데 **없으면 조용히 아무 일도 안 한다** — 배율이 안 걸려
-  //    방만 작아지고 인물은 큰 채로 남는다(그러면 발은 양탄자에 있는데도 «떠» 보인다).
-  //    한 선언에 둘을 같이 쓰면 서로 덮어쓸 일도 없고 어디서나 똑같이 걸린다.
-  //    ⚠️ 순서는 `translate` → `scale` 이다 (왼쪽이 바깥) — 뒤집으면 옮기는 몫이
-  //    배율을 한 번 더 타서 두 배로 어긋난다
+  // ⚠️⚠️ **줌이 걸렸을 때만 «한 `transform`» 으로 쓴다.**
+  //    · 왜 한 선언인가 — 개별 속성(`scale`/`translate`)은 옛 브라우저에 없는데
+  //      **없으면 조용히 아무 일도 안 한다.** 그러면 배율이 안 걸려 방만 작아지고
+  //      인물은 큰 채로 남는다 (발은 양탄자에 있는데도 «떠» 보인다 — 신고 사진이
+  //      그 모양이다). 한 선언이면 서로 덮어쓸 일도 없고 어디서나 똑같이 걸린다.
+  //      ⚠️ 순서는 `translate` → `scale` (왼쪽이 바깥) — 뒤집으면 옮기는 몫이
+  //      배율을 한 번 더 타서 두 배로 어긋난다
+  //    · ⚠️ **줌이 1 일 때 옛 개별 속성으로 되돌려 보고 다시 걷었다.** `checkavatar` 의
+  //      「페이퍼돌」이 문턱(0.322) 언저리에서 흔들려 이 줄을 의심했는데, 되돌려 놓고
+  //      재도 **0.38 · 0.32 로 그대로 흔들렸다** — 원인이 아니었다. 흔들리는 잣대를
+  //      코드로 달래지 않는다 (옛 커밋에서도 0.33 · 0.31 · 0.31 로 넘나든다)
   const mv = `translate(0px, ${(-lift).toFixed(1)}px)`;
   aura.style.transform = z === 1 ? mv : `${mv} scale(${z})`;
 }
