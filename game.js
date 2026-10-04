@@ -5208,8 +5208,13 @@ function petStage(pet) {
 //    줄이기만 해서는 어떤 크기도 못 선다. 올리는 몫도 «재서» 구하고, 둘러보기
 //    버튼 밑으로만 간다 (상수로 적으면 방 높이가 바뀔 때 거기부터 어긋난다)
 const PET_GAP = 5;
-const PET_MIN = 28;      // 빈 바닥이 이보다 좁으면 「바닥이 없다」 — 버튼 줄이 비켜 준다
-const PET_FLOOR = 20;    // 그래도 모자라면 여기까지만 줄인다 (더 줄이면 무엇인지 안 보인다)
+const PET_FLOOR = 20;    // 모자라면 여기까지만 줄인다 (더 줄이면 무엇인지 안 보인다)
+// 크리처의 «키» 상한 — 어항은 유리그릇까지라 더 크다.
+// ⚠️⚠️ **2026-10-04 에 두 배로 올렸다** (「크리처가 너무 작아. 잘 보이도록 2배 정도
+//    크기 키워둬」). ⚠️ **상한만 올려서는 한 폭도 안 커진다** — 재 보면 상한이 묶고
+//    있는 것은 480px 하나뿐이고 390·430px 은 **왼쪽 버튼 줄**이, 265·320px 은
+//    **바닥 자체**가 묶는다. 그래서 아래의 「줄이 비켜 주는 조건」과 짝으로 움직인다
+const PET_MAX = 152, PET_MAX_WATER = 192;
 function placePet() {
   const cre = document.querySelector('.stage-creature');
   const svg = document.querySelector('.char-body svg');
@@ -5232,10 +5237,10 @@ function placePet() {
   //    비정상적으로 작아져」로 신고받았다). 틈·바닥·「바닥이 없다」를 다 방 쪽 단위로
   //    재면 **같은 방을 확대한 것**이 되어 크리처도 같이 커진다
   const k = auraK(aura);
-  const gap = PET_GAP * k, minW = PET_MIN * k, floorW = PET_FLOOR * k;
-  const max = (cre.classList.contains('cr-water') ? 96 : 76) * k;
+  const gap = PET_GAP * k, floorW = PET_FLOOR * k;
+  const max = (cre.classList.contains('cr-water') ? PET_MAX_WATER : PET_MAX) * k;
   const parts = svg.querySelectorAll('path,ellipse,circle,rect');
-  let last = -1, lastW = Infinity, moved = false;
+  let last = -1, lastW = Infinity, moved = false, fixedW = 0;
   for (let pass = 0; pass < 4; pass++) {
     // ⚠️⚠️ **세로를 «먼저» 맞춘다.** 여기서 보는 것은 「크리처의 키와 겹치는 띠」인데,
     //    뒤에서 `placePetY()` 가 크리처를 24px 내려 놓으면 **잰 띠와 실제로 차지하는
@@ -5258,14 +5263,25 @@ function placePet() {
     // ─ 빈 바닥 — 방 상자와 왼쪽 버튼 줄 중 «더 오른쪽»이 왼끝이다 ─
     const rb = room ? room.getBoundingClientRect() : null;
     const sb = solo ? solo.getBoundingClientRect() : null;
-    let edge = rb && rb.width ? rb.left + gap : -Infinity;
+    const roomEdge = rb && rb.width ? rb.left + gap : -Infinity;
+    let edge = roomEdge;
     if (sb && sb.height) edge = Math.max(edge, sb.right + gap);
     let avail = (mid - need) - edge;
-    // ⚠️⚠️ **「줌이면 버튼 줄이 늘 비켜 준다」로 해 보고 되돌렸다.** 줄이 올라갈 수
-    //    있는 몫은 폭마다 달라서(`liftSolo` 가 둘러보기 버튼 밑까지만 간다) 결과가
-    //    들쭉날쭉했다 — 1.1배에서 390px 은 46.6 → 75.1px 로 튀는데 320px 은 40.2px
-    //    그대로다. **한 손짓이 폭마다 다른 그림을 내놓으면 그건 규칙이 아니다**
-    if (avail < minW && liftSolo(cre, solo, room, gap)) {
+    // ─ 줄이 비켜 주는 조건 ─
+    // ⚠️⚠️ **예전에는 「빈 바닥이 28px 보다 좁을 때만」이었다** — 그래서 **버튼 줄이
+    //    크리처의 상한을 쥐고 있었다**: 390px 에서 빈 바닥이 46.6px 인데 줄이 비키면
+    //    84.6px 이라, 「좁지는 않다」는 이유로 **절반 크기에 머물렀다**
+    //    (「크리처가 너무 작아」로 신고받은 자리다).
+    //    지금은 **줄이 비켜서 커질 수 있으면 비킨다** — 바닥이 넉넉해 이미 상한에
+    //    닿은 폭에서는 `avail >= min(max, free)` 라 **줄이 제자리에 남는다**
+    //    (바닥이 남는데도 줄이 떠오르는 일이 없다).
+    // ⚠️ **「줌이면 늘 비켜 준다」와는 다른 것이다.** 그쪽은 되돌린 자리인데, 까닭은
+    //    「줌」이라는 손짓 하나가 폭마다 다른 그림을 내놓았기 때문이다. 여기서 보는 것은
+    //    손짓이 아니라 **지금 바닥이 모자라는가**라, 어느 폭에서나 같은 뜻이다
+    const free = (mid - need) - roomEdge;
+    // 줄이 «제자리에 있을 때» 들어가는 크기 — 비켜 본 결과와 견줄 잣대다 (아래)
+    fixedW = Math.max(floorW, Math.min(max, avail));
+    if (avail < Math.min(max, free) && liftSolo(cre, solo, room, gap)) {
       moved = true;
       edge = rb.left + gap;
       avail = (mid - need) - edge;
@@ -5292,9 +5308,29 @@ function placePet() {
       const sb = solo.getBoundingClientRect();
       const over = (sb.right > cr.left && sb.left < cr.right) ? sb.bottom - cr.top : 0;
       if (!(over > 0) || lastW <= floorW) break;
-      // ⚠️ 줄이는 몫에 1px 을 얹는다 — 꼭 그만큼만 줄이면 내려오는 것이 0.9배라
-      //    늘 머리카락 한 올이 남는다 (4px² 가 남아 검사가 잡았다)
-      lastW = Math.max(floorW, lastW - over - 1);
+      // ⚠️ 줄이는 몫에 «틈»을 얹는다 — 꼭 그만큼만 줄이면 내려오는 것이 0.9배라
+      //    늘 머리카락 한 올이 남는다 (4px² 가 남아 검사가 잡았다).
+      // ⚠️⚠️ 한때 1px 이었는데, 그러면 **겹치지만 않을 뿐 맞붙어 선다** — 줄이
+      //    한계까지 올라가 더는 못 비키는 자리에서 틈이 **0.3px** 이었다
+      //    (크리처를 키우면서 드러났다 · `checkroom` 이 잡는다). 다른 데서 쓰는
+      //    틈과 «같은 값»이라야 어디서나 같은 간격으로 선다.
+      //    ⚠️ 값을 치르는 자리가 하나 있다 — 320px 의 공중 크리처가 35.5 → 32.8px 이다.
+      //    틈을 진짜로 두면 그만큼 작아지는 것이 맞고, 0.3px 은 틈이 아니다
+      lastW = Math.max(floorW, lastW - over - gap);
+      cre.style.setProperty('--pet', `${(lastW / k).toFixed(1)}px`);
+      placePetY();
+    }
+    // ⚠️⚠️ **비켜 봤는데 «더 작아졌으면» 되돌린다.** 줄이 올라갈 수 있는 몫은
+    //    둘러보기 버튼까지라, **공중 크리처는 떠 있어서 올라간 줄의 띠를 그래도
+    //    파고든다** — 그러면 위의 줄이기가 작동해 «줄이 제자리에 있을 때»보다
+    //    작아진다 (390px 의 공중 크리처가 46.6 → 40.4px 이 됐다. 크게 하려고 한
+    //    고침이 거기서만 반대로 간 것이다).
+    //    그러니 둘을 «재서 큰 쪽»을 쓴다 — 비켜 주는 쪽이 손해면 안 비킨다.
+    // ⚠️ 되돌릴 때 줄도 같이 내린다(`bottom = ''`) — 크리처는 그 줄 옆에 서게 되므로
+    //    줄이 떠 있을 이유가 없다 (떠 있으면 바닥에 빈 자리만 남는다)
+    if (lastW < fixedW - 0.25) {
+      solo.style.bottom = '';
+      lastW = fixedW;
       cre.style.setProperty('--pet', `${(lastW / k).toFixed(1)}px`);
       placePetY();
     }

@@ -72,6 +72,23 @@ const PET_W = [265, 390, 480];
 // 「크리처가 가려지는가」 — 왼쪽 버튼 줄(🪄 방꾸 · 😯 표정 · ⚜️ 문신)과 같은 바닥을 쓴다
 const HIDE_W = [265, 320, 390, 480];
 const HIDE_SPIN_GAP = 3;  // px. 줄이 올라가도 둘러보기 버튼과 이만큼은 떨어진다
+// 크리처가 «이만큼은» 커야 한다 — 폭 × 땅·공중·어항.
+// ⚠️⚠️ **이 표가 없으면 크리처를 반으로 줄여 놓아도 한 줄도 안 걸린다.** 가림 검사는
+//    「버튼에 덮였는가」만 보므로 **작아서 안 덮이는 것**이 제일 쉬운 통과 길이다 —
+//    실제로 2026-10-04 까지 그랬고, 그래서 390px 의 크리처가 빈 바닥의 절반(46.6px)만
+//    쓰고 있는 것을 아무도 못 봤다 (「크리처가 너무 작아」로 신고받았다).
+// ⚠️⚠️ **값은 «재서» 적었다**(졸업 직후 몸 · 잰 값에서 2~4px 내린 것). 「얼마가 예쁜가」가
+//    아니라 **「그 폭에서 바닥이 허락하는 만큼」**이고, 폭마다 다른 것은 바닥이 다르기
+//    때문이다 — 265·320px 은 치마와 방 끝 사이가 22·50px 밖에 안 남고, 공중은 떠 있어서
+//    버튼 줄의 띠를 피하느라 더 작다 (까닭은 CLAUDE.md 에 적어 뒀다).
+// ⚠️ **낮추려면 「왜 작아져야 하는가」를 먼저 적는다** — 그냥 내리면 잣대를 결과에
+//    맞추는 것이고, 이 표가 막는 바로 그 사고가 조용히 돌아온다
+const PET_WANT = {
+  265: { ground: 20, air: 20, water: 20 },
+  320: { ground: 46, air: 30, water: 46 },
+  390: { ground: 80, air: 44, water: 80 },
+  480: { ground: 88, air: 88, water: 88 },
+};
 
 function mask(A, B) {
   const rows = [];
@@ -1134,6 +1151,7 @@ function mask(A, B) {
       .filter(Boolean).map(r => ({ id: r.id, move: r.move })));
     if (trio.length < 3) bad.push('크리처 가림: 땅·공중·어항 크리처가 다 있지 않다');
     let n = 0, minGap = Infinity, minRoom = Infinity, minSpin = Infinity, lifted = 0, maxOver = 0;
+    const size = {};   // 폭 → 땅·공중·어항의 «제일 작게 나온» 크기 (두 언어 중)
     for (const lang of ['ko', 'en']) for (const W of HIDE_W) {
       await page.setViewportSize({ width: W, height: 900 });
       for (const c of trio) {
@@ -1161,10 +1179,14 @@ function mask(A, B) {
             const a = el.getBoundingClientRect();
             over += Math.max(0, Math.min(a.right, c.right) - Math.max(a.left, c.left))
                   * Math.max(0, Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top));
-            if (a.bottom > c.top && a.top < c.bottom) gap = Math.min(gap, c.left - a.right);
+            // ⚠️ 두 네모 «사이의 거리»다 — 나란히 설 수도, 위아래로 설 수도 있다
+            //    (줄이 비켜 주면 뒤쪽이다 · 줌 블록의 같은 자리에 경위를 적어 뒀다)
+            const dx = Math.max(a.left - c.right, c.left - a.right, 0);
+            const dy = Math.max(a.top - c.bottom, c.top - a.bottom, 0);
+            gap = Math.min(gap, Math.hypot(dx, dy));
           });
           const sb = document.getElementById('roomSolo').getBoundingClientRect();
-          return { over, area: c.width * c.height, gap: isFinite(gap) ? gap : null,
+          return { over, area: c.width * c.height, w: c.width, gap: isFinite(gap) ? gap : null,
             acts: acts.length, inRoom: c.left - rb.left,
             // 올린 줄이 둘러보기 버튼을 안 무는가 (안 올렸으면 잴 것이 없다)
             lift: parseFloat(document.getElementById('roomSolo').style.bottom) || 0,
@@ -1196,6 +1218,15 @@ function mask(A, B) {
         }
         if (m.gap != null) minGap = Math.min(minGap, m.gap);
         minRoom = Math.min(minRoom, m.inRoom);
+        // ⑤ **그런데 크리처가 «볼 만큼» 큰가** — 위의 넷은 전부 「안 덮였는가」라
+        //    **작으면 작을수록 잘 통과한다**. 두 축이 서로 반대라 짝으로 둔다
+        const want = (PET_WANT[W] || {})[c.move];
+        if (want == null) bad.push(`크리처 가림: ${W}px 의 ${c.move} 에 바라는 크기가 표에 없다`);
+        else if (m.w < want) {
+          bad.push(`크리처 가림: ${W}px/${lang} ${c.move} 크리처가 ${m.w.toFixed(1)}px 밖에 안 된다`
+            + ` (${want}px 이상)`);
+        }
+        (size[W] = size[W] || {})[c.move] = Math.min(size[W][c.move] ?? Infinity, m.w);
       }
     }
     // ⚠️ **몇 자리를 쟀는지 통과할 때도 낸다** — 0건이 「통과」인지 「한 번도 안 쟀다」인지를
@@ -1208,7 +1239,11 @@ function mask(A, B) {
       + ` · 버튼과 제일 좁은 틈 ${isFinite(minGap) ? minGap.toFixed(1) + 'px' : '(옆에 안 선다)'}`
       + ` · 방 상자 안으로 ${isFinite(minRoom) ? minRoom.toFixed(1) + 'px' : '?'}`
       + ` · 줄이 비켜 준 자리 ${lifted}`
-      + (isFinite(minSpin) ? ` (둘러보기와 ${minSpin.toFixed(1)}px)` : '');
+      + (isFinite(minSpin) ? ` (둘러보기와 ${minSpin.toFixed(1)}px)` : '')
+      // ⚠️ **잰 크기를 통과할 때도 낸다** — 표를 누가 내렸는지가 여기서 바로 보인다
+      + ` · 크기 ` + HIDE_W.map(w => `${w}:`
+        + ['ground', 'air', 'water'].map(mv => (size[w] && size[w][mv] != null
+          ? size[w][mv].toFixed(0) : '?')).join('/')).join(' ');
     await page.close();
   }
 
@@ -1489,12 +1524,19 @@ function mask(A, B) {
         }
         // 크리처와 왼쪽 버튼 줄의 «틈» — 겹침만 보면 「0 이면 된다」가 되어
         // 손을 뗀 뒤 다시 세우는 줄이 빠진 것을 못 본다
+        // ⚠️⚠️ **「가로 틈」으로 재면 안 된다 — 둘이 «위아래»로 설 수도 있다.** 크리처가
+        //    커지면서 버튼 줄이 위로 비켜 주게 되자(2026-10-04) 세로로 겹치는 짝이
+        //    하나도 없어져 **멀쩡한 화면이 「틈을 한 번도 못 쟀다」로 걸렸다.**
+        //    두 네모 «사이의 거리»로 재면 나란히 서든 위아래로 서든 늘 잴 수 있고,
+        //    겹치면 0 이라 빗장은 그대로 문다 (`gap < 1` 이 곧 「붙었다」다)
         let gap = null;
         if (cre && acts.length) {
           const c = cre.getBoundingClientRect();
           acts.forEach(el => {
             const a = el.getBoundingClientRect();
-            if (a.bottom > c.top && a.top < c.bottom) gap = Math.min(gap == null ? 1e9 : gap, c.left - a.right);
+            const dx = Math.max(a.left - c.right, c.left - a.right, 0);
+            const dy = Math.max(a.top - c.bottom, c.top - a.bottom, 0);
+            gap = Math.min(gap == null ? 1e9 : gap, Math.hypot(dx, dy));
           });
         }
         // 헤더에서 «제 바탕을 가진 것»의 밑변 — 인물이 그 밑으로 들어가면 가려진다.
