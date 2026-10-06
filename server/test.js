@@ -246,7 +246,7 @@ async function run(label, env) {
       secret: SEC_V, rev: 1,
       state: { name: '밭주인', creatures: ['unicorn'], petRoom: 'unicorn', pets: {} },
     });
-    // 불씨 도롱뇽(불·기초, 전투력 16)을 데리고 간다
+    // 화염 원숭이(불·기초, 전투력 16)를 데리고 간다
     await J('PUT', `/api/save/${R}`, {
       secret: SEC_R, rev: 1,
       state: { name: '도둑고양이', creatures: ['ember_newt'], petField: 'ember_newt', pets: {} },

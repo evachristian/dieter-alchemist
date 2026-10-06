@@ -102,7 +102,11 @@ function moveOf(art) {
 // 사람의 레시피 북이 어제와 달라진다.
 const TABLE = [
   // ── 불 ──
-  { id: 'ember_newt',       attr: 'fire',  grade: 'basic', ko: '불씨 도롱뇽',   en: 'Ember Newt',
+  // ⚠️⚠️ **이름만 바꿨고 id 는 «그대로»다** (2026-10-06 · 「불씨 도롱뇽을 화염 원숭이로」).
+  //    id 는 세이브에 들어 있어서 새로 뽑으면 그 크리처를 가진 사람의 것이 통째로
+  //    날아간다 — 그래서 `ember_newt` 가 이제 «도롱뇽»을 뜻하지 않는다. 읽는 사람이
+  //    헷갈릴 자리라 여기 적어 둔다 (옷의 `LEGACY` 와 같은 규칙이다)
+  { id: 'ember_newt',       attr: 'fire',  grade: 'basic', ko: '화염 원숭이',   en: 'Flame Monkey',
     inputs: ['sun_seed', 'tree_resin'],                     art: C('quad', 'none', 'none', 'none', 'long', 'dot', 'spot') },
   { id: 'ash_moth',         attr: 'fire',  grade: 'basic', ko: '잿빛 나방',     en: 'Ash Moth',
     inputs: ['spider_silk', 'thistle'],                     art: C('bug', 'tuft', 'none', 'butterfly', 'none', 'dot', 'stripe') },

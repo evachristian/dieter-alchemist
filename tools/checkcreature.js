@@ -46,6 +46,10 @@ const BLUSH_K = 0.6;     // 털색이 가진 거리의 이만큼 안으로 들�
 //    눈망울」). ⚠️ 수를 안 올리면 **「하나라도 있으면 센다」**가 되어 **한 점을 지우는
 //    사보타주가 그대로 통과한다** — 빛의 수를 바꿀 때는 이 값과 아래 `got` 식이 짝이다
 const HI_WANT = 4;       // 빛점 — 눈 둘 × 두 점. 감고 웃는 눈은 안 본다
+// 갈아 끼운 그림의 viewBox 에 남아도 되는 여백 (%).
+// ⚠️ **재서 골랐다** — 지금 둘 다 2.2% 안이고, 원숭이 «원본»은 12% 였다 (그 여백만큼
+//    바닥에서 떠 보인다). 그 사이에서 느슨한 파일을 확실히 가르는 자리다
+const PREV_PAD = 4;
 const ATTR_DE = 28;      // 속성끼리 이만큼은 색이 갈려야 한다 (ΔE 비슷한 값)
 const PUPIL_MAX = 0.22;  // 눈동자 상자는 그림의 이만큼 안이다 (먹선 덩어리를 가른다)
 const PUPIL_AR = [0.55, 1.8];
@@ -158,8 +162,53 @@ const near = (p, hex, tol) => {
         // ⚠️ **배선도 같이 본다** — 파일이 멀쩡히 와도 `draw()` 가 그것을 안 가리키면
         //    그림은 비어 있다. 그린 것에 그 이름이 들어 있는지 본다 (픽셀로는 못 가른다)
         const c = GameData.RECIPES.map(x => x.result).find(x => x.id === id);
-        const wired = c ? Creature.draw(c, { flat: true }).includes(Creature.PREVIEW[id]) : false;
-        prev.push({ id, file: Creature.PREVIEW[id], ok: r.ok, ct, n, wired });
+        const svg = c ? Creature.draw(c, { flat: true }) : '';
+        const wired = svg.includes(Creature.PREVIEW[id]);
+        // ─ ⓐ 파일의 `viewBox` 가 «칠한 데에 바짝» 잘려 있는가 ─
+        //
+        // ⚠️⚠️ **여백이 남아 있으면 그만큼 그대로 떠 보이고 작아진다.** 원숭이 원본이
+        //    위 12% · 아래 11.6% 였는데, 그대로 넣으면 발이 바닥에서 9px 뜬다 —
+        //    「둥둥 떠있어」로 두 번 신고받은 그 자리가 **그림 쪽에서** 돌아온다.
+        // ⚠️ 이것은 «그린 것»을 재는 잣대다 — 파일을 페이지에 띄워 `getBBox` 로
+        //    칠한 범위를 구한다 (표에 적힌 숫자가 아니다)
+        const host = document.createElement('div');
+        host.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;height:400px';
+        host.innerHTML = await (await fetch(url, { cache: 'no-store' })).text();
+        document.body.appendChild(host);
+        const fs = host.querySelector('svg');
+        let pad = null, ar = null;
+        if (fs) {
+          fs.setAttribute('width', '400'); fs.setAttribute('height', '400');
+          const vb = fs.viewBox.baseVal;
+          let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+          fs.querySelectorAll('path').forEach(p => {
+            const b = p.getBBox();
+            x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+            x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
+          });
+          if (isFinite(x0) && vb.width && vb.height) {
+            ar = +(vb.width / vb.height).toFixed(3);
+            pad = {
+              l: +((x0 - vb.x) / vb.width * 100).toFixed(1),
+              r: +((vb.x + vb.width - x1) / vb.width * 100).toFixed(1),
+              t: +((y0 - vb.y) / vb.height * 100).toFixed(1),
+              b: +((vb.y + vb.height - y1) / vb.height * 100).toFixed(1),
+            };
+          }
+        }
+        host.remove();
+        // ─ ⓑ 그린 것이 «비를 숫자로 박지» 않았는가 ─
+        //
+        // ⚠️⚠️ **이 한 줄은 «마크업»을 본다 — 픽셀이 아니다.** 그림이 상자 안 어디에
+        //    앉는지는 `preserveAspectRatio` 가 정하는데, `getBoundingClientRect()` 는
+        //    **뷰포트 상자**(0,2.5,100,87.5)를 돌려줘서 그 자리를 못 본다 —
+        //    실제로 둘이 **같은 값**으로 나와 한 번 헛짚었다. 픽셀 차로 재는 길도
+        //    해 봤는데 그려진 비가 0.95 ↔ 파일 0.84 로 흔들려 **가르지 못했다**.
+        //    그래서 여기서는 「비를 안 박았는가」만 묻고, 모양이 맞는지는 ⓐ 가 맡는다.
+        // ⚠️ `meet`(꽉 차게가 아니라 들어가게) · `YMax`(아래 맞춤 = 발이 바닥에)가 짝이다
+        const par = (svg.match(/<image[^>]*preserveAspectRatio="([^"]*)"/) || [])[1] || '';
+        const full = /<image[^>]*width="100"/.test(svg) || /<image[^>]*width="\$/.test(svg);
+        prev.push({ id, file: Creature.PREVIEW[id], ok: r.ok, ct, n, wired, pad, ar, par, full });
       } catch (e) { prev.push({ id, file: Creature.PREVIEW[id], err: String(e) }); }
     }
     return { res, skip, prev };
@@ -481,7 +530,27 @@ const near = (p, hex, tol) => {
         bad.push(`${q.id}: 그린 그림이 ${q.file} 를 안 가리킨다 (배선이 끊겼다 · 빈 상자가 된다)`);
       else if (q.n < 1024)
         bad.push(`${q.id}: 미리 보기 그림이 거의 비어 있다 (${q.file} · ${q.n}바이트)`);
-      else console.log(`  미리 보기 ${q.id} — ${q.file} 가 SVG 로 온다 (${(q.n / 1024).toFixed(1)}KB)`);
+      else {
+        // ⓐ viewBox 가 칠한 데에 바짝 잘려 있는가 — 여백이 곧 「떠 보이는 몫」이다
+        if (!q.pad) bad.push(`${q.id}: ${q.file} 의 칠한 범위를 못 쟀다`);
+        else {
+          const worstPad = Math.max(q.pad.l, q.pad.r, q.pad.t, q.pad.b);
+          if (worstPad > PREV_PAD) {
+            bad.push(`${q.id}: ${q.file} 의 viewBox 에 여백이 ${worstPad}% 남아 있다`
+              + ` (${PREV_PAD}% 까지 · 여백만큼 바닥에서 뜨고 작아진다`
+              + ` · 좌${q.pad.l}/우${q.pad.r}/위${q.pad.t}/아래${q.pad.b}%)`);
+          }
+        }
+        // ⓑ 비를 숫자로 안 박았는가 (마크업을 본다 — 까닭은 creature.js 쪽 주석에 있다)
+        if (!/meet/.test(q.par) || !/YMax/.test(q.par) || !q.full) {
+          bad.push(`${q.id}: 그린 그림이 비를 «숫자로» 박고 있다`
+            + ` (preserveAspectRatio="${q.par || '(없다)'}" · 상자를 다 쓰는가 ${q.full}`
+            + ` · 그림마다 비가 달라서 한 값으로는 납작해진다)`);
+        }
+        console.log(`  미리 보기 ${q.id} — ${q.file} 가 SVG 로 온다 (${(q.n / 1024).toFixed(1)}KB`
+          + ` · 비 ${q.ar} · 여백 최대 ${q.pad ? Math.max(q.pad.l, q.pad.r, q.pad.t, q.pad.b) : '?'}%`
+          + ` · ${q.par})`);
+      }
     });
   }
   console.log(`크리처 ${out.length}마리 — 대칭 ${sym.toFixed(2)}(최소 ${symMin.toFixed(2)}) · 눈 ${(eyes / Math.max(1, eyeN) * 100).toFixed(1)}%(최소 ${(eyeMin * 100).toFixed(1)}% · ${eyeN}마리)`

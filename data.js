@@ -701,7 +701,7 @@ const RECIPES = [
   // <<<GEN:creature
   // 불 — 기초 2 · 중급 2 · 상급 1
   { inputs: ['sun_seed', 'tree_resin'],
-    result: { id: 'ember_newt', kind: 'creature', grade: 'basic', name: '불씨 도롱뇽',
+    result: { id: 'ember_newt', kind: 'creature', grade: 'basic', name: '화염 원숭이',
       attr: 'fire', charmBonus: 2, move: 'ground',
       combat: { atk: 6, matk: 4, def: 3, mdef: 3 },
       makes: { id: 'sun_seed', n: 1 },

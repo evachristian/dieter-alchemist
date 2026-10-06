@@ -415,7 +415,7 @@
   //    안 쟀는지 같이 낸다** — 0건이 「통과」로 보이면 안 된다.
   // ⚠️ **데이터(`art`)도 안 건드린다** — 축 표를 다시 뽑으면 id 가 흔들려
   //    세이브의 크리처가 바뀐다 (아래 `coreOf` 와 같은 규칙이다).
-  const PREVIEW = { flame_fox: 'cat-happy.svg' };
+  const PREVIEW = { flame_fox: 'cat-happy.svg', ember_newt: 'peach-monkey.svg' };
 
   // ⚠️ 캐시 버스터는 제 `<script>` 태그에서 물려받는다 (`tutorial.js` 의 `ASSET_Q` 와
   //    같은 조리법) — `index.html` 의 일괄 치환 한 번이면 그림까지 같이 따라온다
@@ -423,18 +423,25 @@
     ? '?' + document.currentScript.src.split('?')[1] : '';
 
   // 바닥(`GROUND`)에 세우고 위로 `TOP_PAD` 를 남긴다 — 부품 그림과 «같은 자리»다.
-  // ⚠️ 비율은 그림이 정한다(`viewBox` 가 505×600) — 폭을 100 으로 늘리면 납작해진다
+  //
+  // ⚠️⚠️ **비율을 «숫자로» 적지 않는다 — 그림마다 다르다.** 한때 `505/600`(고양이)이
+  //    박혀 있었는데, 가로로 넓은 원숭이가 들어오자 그 값으로는 **납작하게 눌린다**.
+  //    `preserveAspectRatio` 가 그림의 `viewBox` 에서 알아서 맞추므로 상수가 아예
+  //    필요 없다 — 그림을 하나 더 넣어도 여기는 한 글자도 안 고친다.
+  // ⚠️ **`xMidYMax` 다** — 가운데 정렬 + **아래 맞춤**이라 발이 `GROUND` 에 닿는다.
+  //    `YMid` 로 두면 가로로 넓은 그림이 상자 한가운데에 떠서 바닥에서 뜬다.
+  // ⚠️ **그래서 그림의 `viewBox` 는 «칠한 데에 바짝» 잘라 둔다** (지금 둘 다 2% 안).
+  //    여백이 남아 있으면 그만큼 그대로 떠 보인다 — 원숭이 원본이 위아래 12% 였다
   function previewSvg(c, opts) {
-    const AR = 505 / 600;
-    const ph = GROUND - TOP_PAD, pw = ph * AR;
+    const ph = GROUND - TOP_PAD;
     const attr = (window.GameData && GameData.creatureAttr(c.attr)) || { color: '#9a8fb0' };
     return `<svg class="cr-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
       role="img" aria-label="${(c.name || '').replace(/"/g, '')}"
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
       ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(attr.color, 88)}"/>`}
       ${opts.noShadow ? '' : footShade(c, attr.color)}
-      <image href="${PREVIEW[c.id]}${ASSET_Q}" x="${(50 - pw / 2).toFixed(1)}" y="${TOP_PAD}"
-        width="${pw.toFixed(1)}" height="${ph.toFixed(1)}"/>
+      <image href="${PREVIEW[c.id]}${ASSET_Q}" x="0" y="${TOP_PAD}"
+        width="${W}" height="${ph.toFixed(1)}" preserveAspectRatio="xMidYMax meet"/>
     </svg>`;
   }
 
