@@ -79,6 +79,39 @@
   const n1 = (v) => (Math.round(v * 10) / 10);
   const ell = (x, y, rx, ry, f, extra) =>
     `<ellipse cx="${n1(x)}" cy="${n1(y)}" rx="${n1(rx)}" ry="${n1(ry)}" fill="${f}"${extra || ''}/>`;
+  // ─── 발밑 그림자 ────────────────────────────────────────────
+  //
+  // ⚠️⚠️ **털색으로 칠하면 «안 보인다» — 그래서 떠 보였다** (2026-10-06).
+  // 「화염여우가 바닥 위에 둥둥 떠있어」로 **두 번** 신고받은 자리인데, 재 보니
+  // **자리는 맞았다** — 발이 바닥선에서 0.0~1.4px 다. 없던 것은 «닿은 자국»이다.
+  // 한 겹 `shade(털색, 10)` · 투명도 0.16 은 나무 바닥을 **0.018** 밖에 안 어둡게 해서,
+  // 주황 크리처가 주황 마루 위에서 **그림자를 아예 안 가진 것처럼** 보였다.
+  // 지금은 **중성 어두운 색 세 겹**이고 **0.102** 다.
+  //
+  // ⚠️ **값은 그려 놓고 골랐다** — 넷을 나란히 찍어 봤다 (지금 0.018 · 한 겹 짙게
+  //   0.075 · 세 겹 0.074 · **세 겹 짙게 0.102**). 한 겹은 테두리가 딱 끊겨 「붙여
+  //   놓은 타원」이 되고, 세 겹이라야 가장자리가 번져 그림자로 읽힌다
+  //   (아바타의 `crouchBack` · 인트로의 `groundShadow` 가 이미 푼 자리와 같은 조리법이다)
+  // ⚠️ **필터도 그라디언트도 안 쓴다** — 크리처 SVG 는 여러 벌이 한 문서에 깔리므로
+  //   id 가 생기면 그만큼 겹칠 자리가 는다. 겹 셋이면 id 없이도 번진다
+  //
+  // ⚠️⚠️ **공중 크리처에는 짙게 쓰지 않는다.** 그 타원은 바닥이 아니라 «배 밑»에
+  //   있어서(`AIR_LIFT` 만큼 떠 있다), 짙게 만들면 허공에 짙은 원반이 생겨
+  //   **보이지 않는 받침에 앉은 것**으로 보인다 (그려 보고 갈렸다). 공중은 옛 한 겹 그대로다.
+  // ⚠️ **크기를 2배로 키우면서 드러난 것이다** — 46px 일 때는 아무도 안 봤다
+  // ⚠️⚠️ **`data-part="shade"` 가 검사기의 손잡이다.** `checkroom` 의 「크리처가 선
+  //   자리」가 오래 `opacity="0.16"` 으로 이 타원을 집고 있었는데, 그러면 **색을 고치는
+  //   순간 스무 줄이 통째로 «못 쟀다»가 된다** (「되짚기를 쓰지 않는 잣대로 바꾼다」)
+  const SHADE_RGB = '62,44,52';   // 중성 어두운 색 — 털색을 안 탄다 (그래서 어느 바닥에서나 선다)
+  const SHADE_LAYERS = [[31, 6.8, 0.12], [24, 5, 0.15], [16, 3.2, 0.19]];
+  const footShade = (c, raw) => {
+    const inner = (c && c.move === 'air')
+      ? ell(50, GROUND + 2, 26, 5, shade(raw, 10), ' opacity="0.16"')
+      : SHADE_LAYERS.map(([rx, ry, a]) =>
+        ell(50, GROUND + 2, rx, ry, `rgba(${SHADE_RGB},${a})`)).join('');
+    return `<g data-part="shade">${inner}</g>`;
+  };
+
   const P = (d, f) => `<path d="${d}" fill="${f}"/>`;
   const S = (d, c, w) => `<path d="${d}" stroke="${c}" stroke-width="${n1(w)}"`
     + ` fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
@@ -399,7 +432,7 @@
       role="img" aria-label="${(c.name || '').replace(/"/g, '')}"
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
       ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(attr.color, 88)}"/>`}
-      ${opts.noShadow ? '' : ell(50, GROUND + 2, 26, 5, shade(attr.color, 10), ' opacity="0.16"')}
+      ${opts.noShadow ? '' : footShade(c, attr.color)}
       <image href="${PREVIEW[c.id]}${ASSET_Q}" x="${(50 - pw / 2).toFixed(1)}" y="${TOP_PAD}"
         width="${pw.toFixed(1)}" height="${ph.toFixed(1)}"/>
     </svg>`;
@@ -479,7 +512,7 @@
       role="img" aria-label="${(c.name || '').replace(/"/g, '')}"
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
       ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(raw, 88)}"/>`}
-      ${opts.noShadow ? '' : ell(50, GROUND + 2, 26, 5, shade(raw, 10), ' opacity="0.16"')}
+      ${opts.noShadow ? '' : footShade(c, raw)}
       <g${fit}>${art}</g>
     </svg>`;
   }

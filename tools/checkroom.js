@@ -66,6 +66,11 @@ const SPIN_DIFF = 0.012;   // 둘러보기는 «같은 벽이 미끄러지는» 
 // `placePetY()` 를 빼면 땅 22.3~23.9px · 어항 13.6~15.2px 이 뜬다 (지금 1.1~1.5 · 0.0~0.1).
 // ⚠️ 땅이 0 이 아닌 이유는 그림의 약속이다 — 발밑 그림자의 가운데가 발(`GROUND`)보다
 //    2칸 아래다. 그 2칸이 76px 상자에서 1.5px 이라 4px 이면 여유가 넉넉하다
+
+// 발밑 그림자가 바닥을 «얼마나» 어둡게 하는가 (0~1 휘도).
+// ⚠️ **재서 골랐다** — 옛 한 겹(털색)이 **0.018** 이고 지금 세 겹이 **0.102** 라,
+//    그 사이에서 옛 그림을 확실히 가르는 자리다. 잣대를 결과에 맞춘 값이 아니다
+const PET_SHADE_MIN = 0.05;
 const PET_FOOT = 4;       // px. 땅·어항이 바닥에서 이만큼 안으로 들어와야 한다
 const PET_AIR_MIN = 20;   // px. 공중 크리처는 적어도 이만큼 떠 있어야 한다 (지금 48.4~48.8)
 const PET_W = [265, 390, 480];
@@ -1085,8 +1090,12 @@ function mask(A, B) {
               if (touch == null || r.bottom > touch) touch = r.bottom;
             });
           } else {
-            cre.querySelectorAll('ellipse').forEach(n => {
-              if ((n.getAttribute('opacity') || '') !== '0.16') return;   // 발밑 그림자
+            // ⚠️⚠️ **`opacity="0.16"` 으로 집지 않는다 — «값»은 그림의 사정이다.**
+            //    오래 그렇게 돼 있었고, 2026-10-06 에 그림자를 세 겹으로 고치자
+            //    **스무 줄이 통째로 «닿는 줄을 못 찾았다»가 될 뻔했다.**
+            //    `data-part="shade"` 는 「여기가 발밑 그림자다」라고 적어 둔 손잡이라
+            //    색도 겹 수도 바뀌어도 따라온다 (「되짚기를 쓰지 않는 잣대」)
+            cre.querySelectorAll('[data-part="shade"]').forEach(n => {
               const r = n.getBoundingClientRect();
               const cy = r.top + r.height / 2;
               if (touch == null || cy > touch) touch = cy;
@@ -1114,6 +1123,82 @@ function mask(A, B) {
     pet = `크리처가 선 자리 — 땅 ${rng(band.ground)}(${band.ground.length}) ·`
       + ` 어항 ${rng(band.water)}(${band.water.length}) · 공중 ${rng(band.air)}(${band.air.length})`
       + ` · 폭 ${PET_W.join('·')}`;
+    await page.close();
+  }
+
+  // ═══ 발밑 그림자가 «보이는가» (`creature.js` 의 `footShade`) ═══
+  //
+  // 「화염여우가 바닥 위에 둥둥 떠있어」로 **두 번** 신고받은 자리다. 재 보면
+  // **자리는 맞았다**(발이 바닥선에서 0.0~1.4px) — 없던 것은 «닿은 자국»이다.
+  // 옛 그림자는 `shade(털색, 10)` 한 겹이라 **주황 크리처가 주황 마루 위에서**
+  // 바닥을 0.018 밖에 안 어둡게 했다.
+  //
+  // ⚠️⚠️ **바로 위의 「크리처가 선 자리」는 이것을 영영 못 본다** — 거기서 보는 것은
+  //    그림자 타원의 «자리»이고, 그 타원은 **투명해도 상자가 그대로다.** 그림자를
+  //    통째로 안 보이게 만들어도 스무 줄이 다 통과한다. 0건이 「통과」가 아니라
+  //    **「그 축은 한 번도 안 쟀다」**인 그 자리다 (이 저장소에서 몇 번째인지 세기도 어렵다)
+  // ⚠️ **「그림자가 있는가」(요소 수)로 재면 안 된다** — 옛 그림도 타원을 갖고 있었다.
+  //    가르는 것은 **바닥이 얼마나 어두워지는가**뿐이라 «껐다 켜서» 잰다
+  // ⚠️ **공중은 안 잰다 — 거기는 짙으면 «틀린» 것이다.** 그 타원은 바닥이 아니라
+  //    배 밑에 떠 있어서, 짙게 만들면 허공에 원반이 생겨 보이지 않는 받침에 앉은 것이
+  //    된다 (그려 보고 갈랐다). 어항은 `noShadow` 라 애초에 안 그린다 —
+  //    그래서 **여기서 재는 것은 땅 크리처뿐이고, 몇 마리를 쟀는지를 같이 낸다**
+  let petShade = '';
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+    await page.addInitScript(() => {
+      localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+      localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
+        { ver: 18, name: 'Tester', nameClaimed: true, tutorialDone: true, roomLevel: 5 }));
+    });
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForFunction(() => typeof S !== 'undefined' && typeof render === 'function');
+    await page.evaluate(() => { const s = document.getElementById('splash'); if (s) s.remove(); });
+    const ground = await page.evaluate(() => (window.GameData.RECIPES || [])
+      .filter(r => r.result && r.result.kind === 'creature' && r.result.move === 'ground')
+      .map(r => r.result.id));
+    const mean = (b) => { const g = pngLumGrid(b, 1); return g.l.reduce((s, v) => s + v, 0) / g.l.length; };
+    const got = [];
+    for (const pid of ground) {
+      // ⚠️ **졸업 직후 몸으로 잰다** — 크리처가 그때 제일 크고, 사람이 보는 것이 그 화면이다
+      await page.evaluate((p) => {
+        S.tutorialDone = true; S.introDone = true; S.roomLevel = 5;
+        maxTune(); S.creatures = [p]; S.petRoom = p; switchTab('showcase'); render();
+      }, pid);
+      await page.waitForTimeout(220);
+      // 재는 자리 — 그림자가 서는 띠. 몸에 가린 가운데가 아니라 상자를 가로지른다
+      const clip = await page.evaluate(() => {
+        document.getAnimations().forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
+        const cre = document.querySelector('.stage-creature');
+        if (!cre) return null;
+        const r = cre.getBoundingClientRect();
+        if (!r.width || !r.height) return null;
+        return { x: Math.round(r.left + r.width * 0.06), y: Math.round(r.top + r.height * 0.92 - 3),
+          width: Math.max(2, Math.round(r.width * 0.88)), height: 7 };
+      });
+      if (!clip) { bad.push(`${pid} 의 그림자를 잴 자리를 못 찾았다`); continue; }
+      const vis = (on) => page.evaluate((o) => {
+        const n = document.querySelector('.stage-creature [data-part="shade"]');
+        if (n) n.style.visibility = o ? '' : 'hidden';
+        return !!n;
+      }, on);
+      if (!await vis(true)) { bad.push(`${pid} 에 발밑 그림자(data-part="shade")가 없다`); continue; }
+      const on = mean(await page.screenshot({ clip }));
+      await vis(false);
+      const off = mean(await page.screenshot({ clip }));
+      await vis(true);
+      const d = off - on;
+      got.push(d);
+      if (d < PET_SHADE_MIN) {
+        bad.push(`${pid} 의 발밑 그림자가 바닥을 ${d.toFixed(3)} 밖에 안 어둡게 한다`
+          + ` (${PET_SHADE_MIN} 이상이라야 «닿은 것»으로 읽힌다)`);
+      }
+    }
+    if (!got.length) bad.push('발밑 그림자를 한 마리도 안 쟀다');
+    const f3 = (v) => v.toFixed(3);
+    petShade = `발밑 그림자 — 땅 ${got.length}마리가 바닥을`
+      + ` ${got.length ? `${f3(Math.min(...got))}~${f3(Math.max(...got))}` : '(없다)'} 어둡게 한다`
+      + ` (${PET_SHADE_MIN} 이상)`;
     await page.close();
   }
 
@@ -1646,6 +1731,7 @@ function mask(A, B) {
   console.log('3D 방 — ' + out.join(' | '));
   if (gift) console.log('  ' + gift);
   if (pet) console.log('  ' + pet);
+  if (petShade) console.log('  ' + petShade);
   if (hide) console.log('  ' + hide);
   if (swipe) console.log("  " + swipe);
   if (zoomRow) console.log("  " + zoomRow);
