@@ -1338,6 +1338,67 @@ function mask(A, B) {
     await page.close();
   }
 
+  // ═══ 서른 마리의 «상자»가 move 마다 하나인가 (위의 가림 검사가 선 전제) ═══
+  //
+  // 「다른 크리처들도 버튼이랑 안 겹치는지 확인해줘」로 받은 자리다. 재 보니
+  // **서른 마리가 다 안 겹치고**, 까닭은 `placePet()` 이 `--pet` 하나로 상자를 잡기
+  // 때문이다 — 같은 move 면 **그림이 무엇이든 상자가 같다**(폭 여섯에서 180자리를
+  // 재서 확인했다). 그래서 위의 「크리처 가림」이 move 마다 한 마리만 재도 된다.
+  //
+  // ⚠️⚠️ **그 전제가 깨지면 위의 검사가 «스물일곱 마리를 한 번도 안 재는» 검사가 된다.**
+  //    누가 크리처 하나에 다른 크기·비율을 주면(갈아 끼운 그림 · `cr-*` 클래스 추가)
+  //    표본으로 안 뽑힌 그 마리만 조용히 버튼 밑으로 들어간다 — 화면에는 오류가 없다.
+  //    그래서 **전제 자체를 잰다**: 한 폭에서 서른 마리의 상자를 다 재어 move 마다
+  //    하나인지 본다. 다시 그리기만 하므로 5초면 끝난다
+  // ⚠️ **겹침을 여기서 또 재지 않는다** — 상자가 같다는 것이 곧 「가림이 같다」이고,
+  //    겹침은 위의 검사가 폭 넷 × 두 언어로 이미 본다 (같은 것을 두 번 재면 둘이 갈린다)
+  let petBox = '';
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+    await page.addInitScript(() => {
+      localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+      localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify(
+        { ver: 18, name: 'Tester', nameClaimed: true, tutorialDone: true, roomLevel: 5 }));
+    });
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForFunction(() => typeof S !== 'undefined' && typeof render === 'function');
+    await page.evaluate(() => { const s = document.getElementById('splash'); if (s) s.remove(); });
+    const all = await page.evaluate(() => (window.GameData.RECIPES || [])
+      .filter(r => r.result && r.result.kind === 'creature')
+      .map(r => ({ id: r.result.id, move: r.result.move })));
+    const seen = {};
+    let n = 0;
+    for (const c of all) {
+      await page.evaluate((pid) => {
+        S.tutorialDone = true; S.introDone = true; S.roomLevel = 5;
+        S.roomActs = ['exercise', 'binge', 'kitchen', 'harvest', 'farm'];
+        maxTune(); S.creatures = [pid]; S.petRoom = pid; switchTab('showcase'); render();
+      }, c.id);
+      await page.waitForTimeout(150);
+      const b = await page.evaluate(() => {
+        const cre = document.querySelector('.stage-creature');
+        if (!cre) return null;
+        const r = cre.getBoundingClientRect();
+        return { w: +r.width.toFixed(1), h: +r.height.toFixed(1) };
+      });
+      if (!b) { bad.push(`크리처 상자: ${c.id} 를 못 찾았다`); continue; }
+      n++;
+      const key = `${b.w}×${b.h}`;
+      if (!seen[c.move]) seen[c.move] = { key, id: c.id, n: 0 };
+      else if (seen[c.move].key !== key) {
+        bad.push(`크리처 상자: ${c.id}(${c.move})가 ${key} 인데`
+          + ` ${seen[c.move].id} 는 ${seen[c.move].key} 다`
+          + ` — move 마다 상자가 하나라는 전제가 깨지면 「크리처 가림」이 그 마리를 안 잰다`);
+      }
+      seen[c.move].n++;
+    }
+    if (n < all.length) bad.push(`크리처 상자: ${all.length}마리 중 ${n}마리만 쟀다`);
+    // ⚠️ 「move 마다 하나다」라고 «우기지» 않는다 — 잰 것만 낸다 (실패해도 같은 줄이 뜬다)
+    petBox = `크리처 상자 — 390px 에서 ${n}마리를 쟀다 ( `
+      + Object.keys(seen).sort().map(mv => `${mv} ${seen[mv].n}마리 ${seen[mv].key}`).join(' · ') + ' )';
+    await page.close();
+  }
+
   // ═══ «첫 그리기»에서도 안 가려지는가 (`renderShowcase` 의 순서) ═══
   //
   // 「크리처가 버튼에 가려져」로 신고받았는데 **바로 위의 「크리처 가림」은 24자리가
@@ -1798,6 +1859,7 @@ function mask(A, B) {
   if (pet) console.log('  ' + pet);
   if (petShade) console.log('  ' + petShade);
   if (hide) console.log('  ' + hide);
+  if (petBox) console.log('  ' + petBox);
   if (firstDraw) console.log('  ' + firstDraw);
   if (swipe) console.log("  " + swipe);
   if (zoomRow) console.log("  " + zoomRow);
