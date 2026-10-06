@@ -67,7 +67,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
     localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
     localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify({
       ver: 12, rev: 9, name: '도둑고양이', nameClaimed: true, tutorialDone: true,
-      // 방을 지키는 아이(하늘 매)와 데리고 나갈 아이(용암 펭귄)를 따로 둔다 —
+      // 방을 지키는 아이(회오리 오리)와 데리고 나갈 아이(용암 펭귄)를 따로 둔다 —
       // 한 마리만 두면 「지키개 줄」과 「동행 줄」 중 하나를 한 번도 못 잰다
       creatures: ['sky_falcon', 'ember_phoenix'],
       petRoom: 'sky_falcon', petField: 'ember_phoenix', pets: {},

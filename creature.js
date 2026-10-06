@@ -420,9 +420,21 @@
   //    안 쟀는지 같이 낸다** — 0건이 「통과」로 보이면 안 된다.
   // ⚠️ **데이터(`art`)도 안 건드린다** — 축 표를 다시 뽑으면 id 가 흔들려
   //    세이브의 크리처가 바뀐다 (아래 `coreOf` 와 같은 규칙이다).
+  // ⚠️ **id 가 제 이름을 안 뜻하는 자리가 많다** — 이름만 바꾸고 id 는 세이브 때문에
+  //    그대로 두기 때문이다 (`tools/gencreature.js` 의 축 표 위에 적어 두었다).
+  //    파일 이름은 **그림**을 따라가므로 id 와 안 맞는 것이 맞다
+  //    (`root_mole` ↔ 조약돌 곰돌 ↔ `sand-bear.svg`).
   const PREVIEW = { flame_fox: 'peach-cat.svg', ember_newt: 'peach-monkey.svg',
                     ash_moth: 'peach-butterfly.svg', charcoal_toad: 'peach-slime.svg',
-                    ember_phoenix: 'peach-penguin.svg', pebble_turtle: 'sand-turtle.svg' };
+                    ember_phoenix: 'peach-penguin.svg',
+                    // ── 땅 다섯 ──
+                    pebble_turtle: 'sand-turtle.svg', root_mole: 'sand-bear.svg',
+                    moss_deer: 'sand-deer.svg', crystal_pangolin: 'sand-squirrel.svg',
+                    boulder_bear: 'sand-cub.svg',
+                    // ── 바람 다섯 ──
+                    dandelion_hare: 'mint-bunny.svg', breeze_sparrow: 'mint-penguin.svg',
+                    whirl_marten: 'mint-cat.svg', cloud_goat: 'mint-rabbit.svg',
+                    sky_falcon: 'mint-duck.svg' };
 
   // ─── 애교 모션 — «바닥에 선» 마리가 4초 움직이고 10초 쉰다 ──────
   //

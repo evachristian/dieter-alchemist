@@ -128,29 +128,45 @@ const TABLE = [
     inputs: ['eagle_feather', 'flint', 'sun_seed'], art: C('bird', 'none', 'none', 'none', 'long', 'sharp', 'glow') },
 
   // ── 땅 ──
-  // ⚠️ `pebble_turtle` 도 **이름만 바꿨다** — «조약돌»이 아니라 **모래 꼬북**이다
+  // ⚠️⚠️ **땅 다섯도 이름만 바꿨다** (2026-10-06) — 불 넷과 **같은 규칙**이다.
+  //    id 는 세이브에 들어 있어서 새로 뽑으면 그 크리처를 가진 사람의 것이 날아간다:
+  //    · `pebble_turtle`    «조약돌»이 아니라 **모래 꼬북**
+  //    · `root_mole`        «두더지»가 아니라 **조약돌 곰돌**(곰이다)
+  //    · `moss_deer`        «이끼»가 아니라 **뿌리뿔 사슴**
+  //    · `crystal_pangolin` «천산갑»이 아니라 **땅 다람쥐**
+  //    · `boulder_bear`     «바위 곰»이 아니라 **바위 아기곰**
   { id: 'pebble_turtle',    attr: 'earth', grade: 'basic', ko: '모래 꼬북',     en: 'Sand Turtle',
     inputs: ['clover', 'moss_branch'],                      art: C('blob', 'none', 'none', 'none', 'none', 'sleepy', 'spot') },
-  { id: 'root_mole',        attr: 'earth', grade: 'basic', ko: '뿌리 두더지',   en: 'Root Mole',
+  { id: 'root_mole',        attr: 'earth', grade: 'basic', ko: '조약돌 곰돌',   en: 'Pebble Bear',
     inputs: ['fern', 'walnut'],                             art: C('bear', 'round', 'none', 'none', 'puff', 'dot', 'none') },
-  { id: 'moss_deer',        attr: 'earth', grade: 'mid',   ko: '이끼 사슴',     en: 'Moss Deer',
+  { id: 'moss_deer',        attr: 'earth', grade: 'mid',   ko: '뿌리뿔 사슴',   en: 'Roothorn Deer',
     inputs: ['cave_moss', 'herb', 'moss_branch'],           art: C('deer', 'long', 'antler', 'none', 'leaf', 'round', 'spot') },
-  { id: 'crystal_pangolin', attr: 'earth', grade: 'mid',   ko: '수정 천산갑',   en: 'Crystal Pangolin',
+  { id: 'crystal_pangolin', attr: 'earth', grade: 'mid',   ko: '땅 다람쥐',     en: 'Ground Squirrel',
     inputs: ['crystal', 'echo_stone', 'wild_ivy'],          art: C('bear', 'none', 'crystal', 'none', 'long', 'dot', 'stripe') },
-  { id: 'boulder_bear',     attr: 'earth', grade: 'high',  ko: '바위 곰',       en: 'Boulder Bear',
+  { id: 'boulder_bear',     attr: 'earth', grade: 'high',  ko: '바위 아기곰',   en: 'Boulder Cub',
     inputs: ['echo_stone', 'iron_ore', 'pine_cone'], art: C('bear', 'round', 'none', 'none', 'puff', 'sharp', 'spot') },
 
   // ── 바람 ──
-  { id: 'dandelion_hare',   attr: 'wind',  grade: 'basic', ko: '민들레 토끼',   en: 'Dandelion Hare',
+  // ⚠️⚠️ **바람 다섯도 이름만 바꿨다** (2026-10-06) — id 는 그대로다:
+  //    · `dandelion_hare`  «민들레»가 아니라 **민트 버니**
+  //    · `breeze_sparrow`  «참새»가 아니라 **살랑 펭순이**(펭귄이다)
+  //    · `whirl_marten`    «담비»가 아니라 **하늘 냥이**(고양이다)
+  //    · `cloud_goat`      «염소»가 아니라 **구름 볏 토끼**
+  //    · `sky_falcon`      «매»가 아니라 **회오리 오리**
+  { id: 'dandelion_hare',   attr: 'wind',  grade: 'basic', ko: '민트 버니',     en: 'Mint Bunny',
     inputs: ['butter_flower', 'clover'],                    art: C('deer', 'long', 'none', 'none', 'puff', 'round', 'none') },
-  { id: 'breeze_sparrow',   attr: 'wind',  grade: 'basic', ko: '산들 참새',     en: 'Breeze Sparrow',
-    inputs: ['owl_feather', 'wheat'],                       art: C('bird', 'none', 'none', 'bird', 'none', 'dot', 'none') },
-  { id: 'whirl_marten',     attr: 'wind',  grade: 'mid',   ko: '회오리 담비',   en: 'Whirl Marten',
+  // ⚠️⚠️ **펭귄·오리는 «날개»를 안 가진다** — 용암 펭귄과 **같은 자리**다. 이 표에서
+  //    `wing` 이 뜻하는 것은 「난다」이고(`moveOf` 가 「날개가 있으면 공중」이다),
+  //    받은 그림은 둘 다 **발을 땅에 딛고 선** 모습이라 띄우면 허공에 뜬 펭귄이 된다.
+  //    `body: 'bird'` 는 그대로 두고 날개만 뺀다 (햇살 암탉이 이미 같은 줄이다)
+  { id: 'breeze_sparrow',   attr: 'wind',  grade: 'basic', ko: '살랑 펭순이',   en: 'Breeze Penguin',
+    inputs: ['owl_feather', 'wheat'],                       art: C('bird', 'none', 'none', 'none', 'none', 'dot', 'none') },
+  { id: 'whirl_marten',     attr: 'wind',  grade: 'mid',   ko: '하늘 냥이',     en: 'Sky Kitty',
     inputs: ['eagle_feather', 'wheat', 'wild_ivy'],         art: C('quad', 'tuft', 'none', 'none', 'long', 'sharp', 'stripe') },
-  { id: 'cloud_goat',       attr: 'wind',  grade: 'mid',   ko: '구름 염소',     en: 'Cloud Goat',
+  { id: 'cloud_goat',       attr: 'wind',  grade: 'mid',   ko: '구름 볏 토끼',  en: 'Cloudcrest Rabbit',
     inputs: ['cloud_moss', 'clover', 'snow_bud'],           art: C('deer', 'long', 'pair', 'none', 'puff', 'sleepy', 'none') },
-  { id: 'sky_falcon',       attr: 'wind',  grade: 'high',  ko: '하늘 매',       en: 'Sky Falcon',
-    inputs: ['cloud_moss', 'eagle_feather', 'sun_seed'], art: C('bird', 'none', 'none', 'bird', 'long', 'sharp', 'stripe') },
+  { id: 'sky_falcon',       attr: 'wind',  grade: 'high',  ko: '회오리 오리',   en: 'Whirl Duck',
+    inputs: ['cloud_moss', 'eagle_feather', 'sun_seed'], art: C('bird', 'none', 'none', 'none', 'long', 'sharp', 'stripe') },
 
   // ── 물 ──
   // frog 은 **옛 id** 다. 조합(mushroom + petal)도 그대로 둔다
@@ -315,6 +331,8 @@ const MOVE_MUST = {
   sunbeam_hen: 'ground',      // body 가 bird 인데 날개가 없다 — 암탉은 걷는다
   // ⚠️ 펭귄도 그 자리다 — 「펭귄은 부유형이 아니야」로 받아 air → **ground** 로 못을 옮겼다
   ember_phoenix: 'ground', moss_deer: 'ground', boulder_bear: 'ground',
+  // ⚠️ 살랑 펭순이(펭귄) · 회오리 오리도 같은 줄이다 — 받은 그림이 둘 다 발을 딛고 섰다
+  breeze_sparrow: 'ground', sky_falcon: 'ground',
   coral_seahorse: 'water', deepsea_whale: 'water',   // 지느러미가 날개로 세어지면 안 된다
 };
 for (const c of TABLE) {
