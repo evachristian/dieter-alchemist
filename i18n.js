@@ -3387,7 +3387,7 @@
       // <<<GEN:creature-en
       // Fire
       ember_newt: 'Flame Monkey',
-      ash_moth: 'Ash Moth',
+      ash_moth: 'Flame Moth',
       flame_fox: 'Flame Fox',
       charcoal_toad: 'Charcoal Toad',
       ember_phoenix: 'Ember Phoenix',

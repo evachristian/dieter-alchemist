@@ -415,7 +415,8 @@
   //    안 쟀는지 같이 낸다** — 0건이 「통과」로 보이면 안 된다.
   // ⚠️ **데이터(`art`)도 안 건드린다** — 축 표를 다시 뽑으면 id 가 흔들려
   //    세이브의 크리처가 바뀐다 (아래 `coreOf` 와 같은 규칙이다).
-  const PREVIEW = { flame_fox: 'cat-happy.svg', ember_newt: 'peach-monkey.svg' };
+  const PREVIEW = { flame_fox: 'cat-happy.svg', ember_newt: 'peach-monkey.svg',
+                    ash_moth: 'peach-butterfly.svg' };
 
   // ⚠️ 캐시 버스터는 제 `<script>` 태그에서 물려받는다 (`tutorial.js` 의 `ASSET_Q` 와
   //    같은 조리법) — `index.html` 의 일괄 치환 한 번이면 그림까지 같이 따라온다

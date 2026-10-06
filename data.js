@@ -707,7 +707,7 @@ const RECIPES = [
       makes: { id: 'sun_seed', n: 1 },
       art: { body: 'quad', ear: 'none', horn: 'none', wing: 'none', tail: 'long', eye: 'dot', pat: 'spot' } } },
   { inputs: ['spider_silk', 'thistle'],
-    result: { id: 'ash_moth', kind: 'creature', grade: 'basic', name: '잿빛 나방',
+    result: { id: 'ash_moth', kind: 'creature', grade: 'basic', name: '화염 나방',
       attr: 'fire', charmBonus: 2, move: 'air',
       combat: { atk: 6, matk: 4, def: 3, mdef: 3 },
       makes: { id: 'sun_seed', n: 1 },
