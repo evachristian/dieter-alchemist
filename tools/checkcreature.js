@@ -16,6 +16,7 @@
 // 「스스로 맞는」 검사가 된다. **캔버스에 그려 픽셀로** 잰다.
 'use strict';
 const { chromium } = require('playwright');
+const { pngLumGrid } = require('./pnglum');
 const BASE = process.env.BASE || 'http://localhost:8080';
 
 const SZ = 200;          // 재는 크기 (100×100 viewBox 를 두 배로)
@@ -176,16 +177,54 @@ const near = (p, hex, tol) => {
         host.innerHTML = await (await fetch(url, { cache: 'no-store' })).text();
         document.body.appendChild(host);
         const fs = host.querySelector('svg');
-        let pad = null, ar = null;
+        let pad = null, ar = null, anim = 0, vbStr = null;
         if (fs) {
           fs.setAttribute('width', '400'); fs.setAttribute('height', '400');
           const vb = fs.viewBox.baseVal;
+          vbStr = [vb.x, vb.y, vb.width, vb.height].join(' ');
+          anim = fs.querySelectorAll('animate,animateTransform').length;
           let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
           fs.querySelectorAll('path').forEach(p => {
             const b = p.getBBox();
             x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
             x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
           });
+          // ⚠️⚠️ **움직이는 그림은 «한 바퀴 동안» 칠하는 자리를 본다.** `getBBox()` 는
+          //    조각의 «제» 좌표라 조상에 걸린 애니메이션을 못 보는데, 애교 모션은
+          //    고양이를 기울이고 늘려서 쉴 때보다 가로 45칸 · 세로 45칸을 더 쓴다 —
+          //    쉬는 자세만 재면 **멀쩡한 그림이 「여백 20%」로 잡히고**(실제로 그랬다),
+          //    반대로 여백을 그만큼 허용하면 안 움직이는 그림이 떠도 안 걸린다.
+          //    그래서 시계를 돌려 가며 «화면 자리»를 모아 viewBox 칸으로 되돌린다.
+          // ⚠️ **안 보이는 조각은 안 센다** — 하트는 불투명도 0 에서 출발해 날아가므로
+          //    그대로 세면 날아간 끝자리까지 상자가 된다
+          if (anim) {
+            const dur = 20;   // 초. 긴 쪽에 넉넉히 (지금 한 바퀴가 14초다)
+            fs.pauseAnimations();
+            const hidden = (n) => {
+              for (let q = n; q && q !== fs; q = q.parentNode) {
+                if ((parseFloat(getComputedStyle(q).opacity) || 0) < 0.04) return true;
+              }
+              return false;
+            };
+            for (let t = 0; t <= dur; t += 0.08) {
+              fs.setCurrentTime(t);
+              const sb = fs.getBoundingClientRect();
+              if (!sb.width || !sb.height) break;
+              fs.querySelectorAll('path').forEach(q => {
+                if (hidden(q)) return;
+                const r = q.getBoundingClientRect();
+                if (!r.width && !r.height) return;
+                const X = (v) => vb.x + (v - sb.left) / sb.width * vb.width;
+                const Y = (v) => vb.y + (v - sb.top) / sb.height * vb.height;
+                x0 = Math.min(x0, X(r.left)); x1 = Math.max(x1, X(r.right));
+                y0 = Math.min(y0, Y(r.top)); y1 = Math.max(y1, Y(r.bottom));
+              });
+            }
+            // ⚠️ 상자 «밖»으로 나간 몫은 0 으로 접는다 — 여백을 재는 자리라
+            //    음수 여백(= 잘림)은 여기서 볼 것이 아니다 (아래 「애교 모션」이 본다)
+            x0 = Math.max(x0, vb.x); y0 = Math.max(y0, vb.y);
+            x1 = Math.min(x1, vb.x + vb.width); y1 = Math.min(y1, vb.y + vb.height);
+          }
           if (isFinite(x0) && vb.width && vb.height) {
             ar = +(vb.width / vb.height).toFixed(3);
             pad = {
@@ -208,13 +247,36 @@ const near = (p, hex, tol) => {
         // ⚠️ `meet`(꽉 차게가 아니라 들어가게) · `YMax`(아래 맞춤 = 발이 바닥에)가 짝이다
         const par = (svg.match(/<image[^>]*preserveAspectRatio="([^"]*)"/) || [])[1] || '';
         const full = /<image[^>]*width="100"/.test(svg) || /<image[^>]*width="\$/.test(svg);
-        prev.push({ id, file: Creature.PREVIEW[id], ok: r.ok, ct, n, wired, pad, ar, par, full });
+        // 움직이는 그림의 «쉬는 짝» — viewBox 가 같아야 갈아 끼울 때 제자리에 선다
+        let still = null;
+        const sf = (Creature.PREVIEW_STILL || {})[id];
+        if (sf) {
+          const h2 = document.createElement('div');
+          h2.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;height:400px';
+          const rr = await fetch(location.origin + '/' + sf, { cache: 'no-store' });
+          h2.innerHTML = await rr.text();
+          document.body.appendChild(h2);
+          const s2 = h2.querySelector('svg');
+          const v2 = s2 && s2.viewBox.baseVal;
+          still = { file: sf, ok: rr.ok, ct: rr.headers.get('content-type') || '',
+            vb: v2 ? [v2.x, v2.y, v2.width, v2.height].join(' ') : null,
+            anim: s2 ? s2.querySelectorAll('animate,animateTransform').length : -1 };
+          h2.remove();
+        }
+        prev.push({ id, file: Creature.PREVIEW[id], ok: r.ok, ct, n, wired, pad, ar, par, full,
+          anim, vb: vbStr, still });
       } catch (e) { prev.push({ id, file: Creature.PREVIEW[id], err: String(e) }); }
     }
-    return { res, skip, prev };
+    // 속성 여섯과 «그 속성의 마리가 다 갈아 끼워졌는가» — 아래의 색 검사가 쓴다
+    const every = GameData.RECIPES.filter(r => r.result.kind === 'creature').map(r => r.result);
+    const attrs = [...new Set(every.map(c => c.attr))];
+    const fullySwapped = attrs.filter(a => every.filter(c => c.attr === a)
+      .every(c => skip.includes(c.id)));
+    return { res, skip, prev, attrs, fullySwapped };
   }, SZ);
   await browser.close();
   const out = shots.res, skipped = shots.skip, prev = shots.prev;
+  const ATTRS = shots.attrs, fullySwapped = shots.fullySwapped;
 
   const bad = [];
   const attrMean = {};
@@ -511,7 +573,21 @@ const near = (p, hex, tol) => {
     const d = Math.hypot(...[0, 1, 2].map(n => mean[ks[i]][n] - mean[ks[j]][n]));
     if (d < worst) { worst = d; pair = `${ks[i]}↔${ks[j]}`; }
   }
-  if (ks.length !== 6) bad.push(`속성이 ${ks.length}가지만 나왔다 (여섯이어야 한다)`);
+  // ⚠️⚠️ **한 속성의 마리가 «다» 갈아 끼워지면 그 속성은 잴 것이 없다** (2026-10-06 ·
+  //    불 다섯이 다 대고 따라 그린 그림이 됐다). 그때 「여섯이 아니다」로 실패시키면
+  //    **그림을 갈아 끼우는 일 자체가 막힌다** — 잣대가 할 일이 아니다.
+  //    그래서 **빠진 속성이 «정말 PREVIEW 로 다 덮인 속성인지» 확인하고**(아니면 실패),
+  //    몇 가지를 쟀는지 ⚠️ 로 크게 낸다 — 조용히 빠지면 0건이 「통과」로 읽힌다
+  const miss = ATTRS.filter(k => !mean[k]);
+  const allSwapped = miss.filter(k => !fullySwapped.includes(k));
+  if (allSwapped.length) {
+    bad.push(`속성 «${allSwapped.join('·')}» 를 한 마리도 안 쟀다`
+      + ` — 갈아 끼운 그림 탓이 아니라면 부품 그림이 빠진 것이다`);
+  } else if (miss.length) {
+    console.log(`⚠️ 속성 «${miss.join('·')}» 는 그 속성의 마리가 «다» 갈아 끼워져 색을 안 쟀다`
+      + ` (${ks.length}가지만 쟀다 · 여섯 중)`);
+  }
+  if (ks.length < 2) bad.push(`속성이 ${ks.length}가지뿐이라 «서로 갈리는가»를 잴 수가 없다`);
   else if (worst < ATTR_DE) bad.push(`속성 색이 안 갈린다 (제일 가까운 ${pair} 가 ${worst.toFixed(0)} · ${ATTR_DE} 는 돼야 한다)`);
 
   // ⚠️⚠️ **안 쟀다는 것을 «크게» 말한다** — 미리 보기로 갈아 끼운 마리는 ①~⑪ 이
@@ -547,9 +623,33 @@ const near = (p, hex, tol) => {
             + ` (preserveAspectRatio="${q.par || '(없다)'}" · 상자를 다 쓰는가 ${q.full}`
             + ` · 그림마다 비가 달라서 한 값으로는 납작해진다)`);
         }
+        // ─ ⓒ 움직이는 그림의 «쉬는 짝» ─
+        //
+        // ⚠️⚠️ **`prefers-reduced-motion` 은 `<image>` 를 못 넘는다 — 재 봤다.** 그래서
+        //    파일 안의 `@media` 에 기댈 수 없고, 쉬는 자세를 **딴 파일**로 두고
+        //    `Creature.previewFile()` 이 갈아 끼운다. 여기서 보는 것은 그 짝이
+        //    ① 진짜 SVG 로 오는가 ② 움직임이 섞이지 않았는가
+        //    ③ **viewBox 가 같은 값인가**(다르면 갈아 끼울 때 크리처가 튄다)
+        if (q.still) {
+          const t = q.still;
+          if (!t.ok || !/svg/.test(t.ct)) {
+            bad.push(`${q.id}: 쉬는 짝 ${t.file} 이 SVG 로 안 온다 (${t.ok ? t.ct : '못 받았다'})`);
+          } else if (t.anim > 0) {
+            bad.push(`${q.id}: 쉬는 짝 ${t.file} 에 애니메이션이 ${t.anim}개 섞여 있다`
+              + ` — 움직임 줄이기에서 멎어야 한다`);
+          } else if (t.vb !== q.vb) {
+            bad.push(`${q.id}: 쉬는 짝의 viewBox 가 «${t.vb}» 인데 ${q.file} 은 «${q.vb}» 다`
+              + ` — 갈아 끼울 때 크리처가 그만큼 튄다`);
+          }
+        } else if (q.anim > 0) {
+          bad.push(`${q.id}: ${q.file} 이 움직이는데 «쉬는 짝»이 없다`
+            + ` (Creature.PREVIEW_STILL · 움직임 줄이기에서 멎을 길이 없다)`);
+        }
         console.log(`  미리 보기 ${q.id} — ${q.file} 가 SVG 로 온다 (${(q.n / 1024).toFixed(1)}KB`
           + ` · 비 ${q.ar} · 여백 최대 ${q.pad ? Math.max(q.pad.l, q.pad.r, q.pad.t, q.pad.b) : '?'}%`
-          + ` · ${q.par})`);
+          + ` · ${q.par}`
+          + (q.anim ? ` · 움직임 ${q.anim}개 · 쉬는 짝 ${q.still ? q.still.file : '(없다)'}` : '')
+          + `)`);
       }
     });
   }
@@ -561,6 +661,97 @@ const near = (p, hex, tol) => {
   console.log(`  귀 이음매 — 제일 깊은 턱 ${seam}px (${seamN}마리 · ${seamRows}줄)`
     + ` · 꼬리가 몸 밖으로 제일 적게 나온 마리 ${tailMin === 1e9 ? '-' : tailMin}px (${tailN}마리)`);
   console.log(`  (상자 가장자리 ${EDGE}px · 대칭 ${SYM_MIN} · 빛 ${HI_WANT}점 · 흰자 ${WHITE_MAX * 100}% · 둘레 먹선 ${LINE_MAX * 100}% 아래 · 눈 크기는 재기만 한다)`);
+  // ═══ 애교 모션 — 4초 움직이고 10초 쉬는가 (`cat-happy.svg` 의 SMIL) ═══
+  //
+  // 「"화염 여우"가 애교를 부리는 IDLE 애니메이션을 넣고 싶어. 4초 출력 후 10초 가만히
+  // 있다가 다시 4초 출력」으로 받은 자리다 (2026-10-06).
+  //
+  // ⚠️⚠️ **위의 ⓐ~ⓒ 는 이 축을 영영 못 본다** — 거기서 보는 것은 «파일»이다
+  //    (viewBox · 애니메이션 «개수» · 쉬는 짝의 존재). 애니메이션을 선언만 해 놓고
+  //    `<image>` 가 그것을 안 돌려도 셋이 다 통과한다 — 그래서 **찍어서** 본다.
+  // ⚠️⚠️ **한 바퀴의 어디서 시작하는지는 모른다**(그림이 실리는 순간부터 돈다).
+  //    그래서 시각을 박지 않고 **15초를 촘촘히 훑어 «움직인 구간»과 «쉰 구간»을 찾는다** —
+  //    주기를 고쳐도 따라온다.
+  // ⚠️ 방이 아니라 **빈 판 위에** 그려 놓고 찍는다 — 방을 찍으면 촛불·먼지가 흔들려
+  //    「그림이 움직였는가」를 못 가른다 (가르지 못하는 잣대다)
+  let idle = '';
+  const animIds = Object.keys(prev.filter(q => q.anim > 0).reduce((o, q) => (o[q.id] = 1, o), {}));
+  if (!animIds.length) {
+    console.log('⚠️ 움직이는 그림이 하나도 없다 — 「애교 모션」을 한 번도 안 쟀다');
+  } else {
+    const SPAN = 17000;                // ms. 한 바퀴(14초)보다 길게 훑는다
+    const STEP = 220;                  // ms. 바라는 간격 (찍고 푸는 데 드는 시간은 뺀다)
+    const MOVE_CELLS = 40;             // 이만큼 달라지면 «움직였다»로 센다
+    const MOVE_MIN = 2.0, REST_MIN = 8.0;   // 초 — 움직인 몫 · 제일 긴 쉼
+    for (const id of animIds) {
+      for (const rm of ['no-preference', 'reduce']) {
+        const bw = await chromium.launch({
+          executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
+        const pg = await bw.newPage({ viewport: { width: 420, height: 420 }, reducedMotion: rm });
+        await pg.goto(BASE, { waitUntil: 'load' });
+        await pg.waitForFunction(() => window.Creature && window.GameData);
+        const ok = await pg.evaluate((cid) => {
+          const c = GameData.RECIPES.map(x => x.result).find(x => x.id === cid);
+          if (!c) return false;
+          const h = document.createElement('div');
+          h.id = 'idleHost';
+          // ⚠️⚠️ **층을 헤더보다 위로 올린다.** 게임의 헤더가 `z-index: 30` 짜리
+          //    `position: fixed` 라, 그냥 얹으면 **헤더가 이 판 위에 그려진다** —
+          //    그러면 시계·저장 칩이 흔들려 「그림이 움직였는가」를 못 가른다
+          //    (실제로 그렇게 짜서 «쉬는 구간 2.8초»가 나왔다)
+          h.style.cssText = 'position:fixed;left:20px;top:20px;width:260px;height:260px;background:#fff;z-index:99999';
+          h.innerHTML = Creature.draw(c, { flat: true, size: 260 });
+          document.body.appendChild(h);
+          return true;
+        }, id);
+        if (!ok) { bad.push(`애교 모션: ${id} 를 못 찾았다`); await bw.close(); continue; }
+        await pg.waitForTimeout(700);
+        // ⚠️⚠️ **간격을 «바라는 값»으로 셈하지 않는다 — 찍고 푸는 데 시간이 든다.**
+        //    250ms 를 쉰다고 샘플이 250ms 마다 서는 것이 아니라, 한 장에 300ms 쯤
+        //    더 걸려 **열다섯 초로 알고 서른 초를 훑었다** — 한 바퀴를 두 번 지나니
+        //    「쉬는 구간이 3초뿐」이라는 엉뚱한 값이 나왔다. **시각을 같이 적는다**
+        const clip = { x: 20, y: 20, width: 260, height: 260 };
+        const fr = [], ts = [];
+        const t0 = Date.now();
+        while (Date.now() - t0 < SPAN) {
+          const at = Date.now();
+          fr.push(pngLumGrid(await pg.screenshot({ clip })));
+          ts.push(at - t0);
+          const left = STEP - (Date.now() - at);
+          if (left > 0) await pg.waitForTimeout(left);
+        }
+        await bw.close();
+        const moved = [];
+        for (let i = 1; i < fr.length; i++) {
+          let n = 0;
+          for (let j = 0; j < fr[0].l.length; j++) if (Math.abs(fr[i - 1].l[j] - fr[i].l[j]) > 0.03) n++;
+          moved.push({ dt: (ts[i] - ts[i - 1]) / 1000, m: n > MOVE_CELLS });
+        }
+        const nMove = moved.filter(x => x.m).reduce((a, x) => a + x.dt, 0);
+        let run = 0, rest = 0;
+        moved.forEach(x => { run = x.m ? 0 : run + x.dt; rest = Math.max(rest, run); });
+        const sec = (k) => k.toFixed(1);
+        const span = (ts[ts.length - 1] / 1000).toFixed(1);
+        if (rm === 'reduce') {
+          // ⚠️ 「쉬는 짝으로 갈아 끼웠는가」는 위의 ⓒ 가 «파일»로 본다. 여기서는
+          //    **화면이 진짜로 멎었는가**를 본다 (둘이 보는 것이 다르다)
+          if (nMove > 0) bad.push(`애교 모션: ${id} 가 움직임 줄이기에서도 ${sec(nMove)}초 동안 움직인다`);
+        } else {
+          if (nMove < MOVE_MIN) {
+            bad.push(`애교 모션: ${id} 가 ${span}초 동안 ${sec(nMove)}초만 움직였다`
+              + ` (${sec(MOVE_MIN)}초 이상 · 선언만 해 놓고 안 도는 것이다)`);
+          }
+          if (rest < REST_MIN) {
+            bad.push(`애교 모션: ${id} 가 «쉬는 구간»이 ${sec(rest)}초뿐이다`
+              + ` (${sec(REST_MIN)}초 이상 · 4초 움직이고 10초 쉬어야 한다)`);
+          }
+          idle = `애교 모션 — ${id} 가 ${span}초(${fr.length}장) 중 ${sec(nMove)}초 움직이고`
+            + ` 제일 긴 쉼이 ${sec(rest)}초다 (움직임 줄이기에서는 멎는다)`;
+        }
+      }
+    }
+  }
+  if (idle) console.log('  ' + idle);
   if (bad.length) {
     console.log(`❌ ${bad.length}건`);
     bad.slice(0, 20).forEach(m => console.log('   ' + m));

@@ -72,7 +72,13 @@ const SPIN_DIFF = 0.012;   // 둘러보기는 «같은 벽이 미끄러지는» 
 //    그 사이에서 옛 그림을 확실히 가르는 자리다. 잣대를 결과에 맞춘 값이 아니다
 const PET_SHADE_MIN = 0.05;
 const PET_FOOT = 4;       // px. 땅·어항이 바닥에서 이만큼 안으로 들어와야 한다
-const PET_AIR_MIN = 20;   // px. 공중 크리처는 적어도 이만큼 떠 있어야 한다 (지금 48.4~48.8)
+const PET_AIR_MIN = 20;   // px. 공중 크리처는 적어도 이만큼 떠 있어야 한다 (지금 126~150)
+// 공중 크리처의 가운데가 «그려진 어깨선»에서 이만큼 안에 와야 한다 (2026-10-06 ·
+// 「공중 크리처는 캐릭터의 어깨쯤 위치에 둥둥 떠 있었으면 좋겠어」).
+// ⚠️ **사보타주를 돌려 보고 고른 값이다** — 옛 자리(바닥에서 아우라 높이의 15.6%)가
+//    **83~149px 아래**이고 지금이 **−0.1~1.8px** 라 그 사이다. 상자 가운데(50%)와
+//    맞추는 줄(`Creature.AIR_MID` 46.25%)이 3.75% 다르므로 몇 px 은 늘 남는다
+const PET_SHOULDER = 10;
 const PET_W = [265, 390, 480];
 // 「크리처가 가려지는가」 — 왼쪽 버튼 줄(🪄 방꾸 · 😯 표정 · ⚜️ 문신)과 같은 바닥을 쓴다
 const HIDE_W = [265, 320, 390, 480];
@@ -94,11 +100,18 @@ const HIDE_SPIN_GAP = 3;  // px. 줄이 올라가도 둘러보기 버튼과 이�
 //    상한이 아니라 **바닥**이 묶으므로 한 픽셀도 안 바뀐다(24 · 52).
 //    ⚠️ 이 표를 내리는 것은 **그 자체로는 못 할 일**이다. 신고가 「작아졌다」로 오면
 //    위의 10-04 기록을 먼저 읽을 것 — 그때 묶고 있던 것은 상한이 아니라 버튼 줄이었다
+// ⚠️⚠️ **2026-10-06 에 공중이 «올라갔다»** — 어깨로 올라가면서 버튼 줄의 띠를
+//    벗어나 바닥이 넓어졌다(320px 33 → 51.6 · 390px 48.6 → 62). **값이 커지는 쪽은
+//    그대로 올려 적는다** — 올리는 것은 빗장을 조이는 것이라 위의 경고에 안 걸린다.
+// ⚠️ `airF` 는 **바라보는 쪽이 있는 공중 마리**(지금 🔥 불꽃 나방)다. 그 마리는
+//    인물의 반대쪽에 서므로 **바닥이 다르다** — 390px 에서 오른쪽 버튼 줄 다섯이
+//    띠를 먹어 48.6px 이다 (왼쪽은 62px). 한 칸에 몰아 적으면 둘 중 작은 쪽이
+//    기준이 되어 **큰 쪽이 반으로 줄어도 안 걸린다**
 const PET_WANT = {
-  265: { ground: 22, air: 22, water: 22 },
-  320: { ground: 50, air: 31, water: 50 },
-  390: { ground: 60, air: 47, water: 76 },
-  480: { ground: 60, air: 60, water: 76 },
+  265: { ground: 22, air: 22, airF: 22, water: 22 },
+  320: { ground: 50, air: 48, airF: 48, water: 50 },
+  390: { ground: 60, air: 60, airF: 46, water: 76 },
+  480: { ground: 60, air: 60, airF: 60, water: 76 },
 };
 
 function mask(A, B) {
@@ -1072,6 +1085,7 @@ function mask(A, B) {
       .filter(r => r.result && r.result.kind === 'creature')
       .map(r => ({ id: r.result.id, move: r.result.move })));
     const band = { ground: [], water: [], air: [] };
+    const sho = [];     // 공중 크리처의 «가운데 ↔ 그려진 어깨선» 어긋남
     for (const W of PET_W) {
       await page.setViewportSize({ width: W, height: 900 });
       for (const c of list) {
@@ -1088,6 +1102,12 @@ function mask(A, B) {
           const ar = av.getBoundingClientRect();
           if (!ar.height) return null;
           const floor = ar.top + ar.height / 2;          // 아바타가 선 바닥 (그림자 가운데)
+          // 그려진 어깨선 — 공중 크리처가 여기에 맞춰 떠야 한다 (`placePetY`)
+          const tor = document.querySelector('.char-body svg.avatar-svg [data-part="torso"]');
+          const tr = tor && tor.getBoundingClientRect();
+          const cb = cre.getBoundingClientRect();
+          const sho = (tr && tr.height && cb.height)
+            ? +(((cb.top + cb.bottom) / 2) - tr.top).toFixed(1) : null;
           let touch = null;
           if (cre.classList.contains('cr-water')) {
             cre.querySelectorAll('.cr-bowl ellipse').forEach(n => {
@@ -1107,13 +1127,23 @@ function mask(A, B) {
               if (touch == null || cy > touch) touch = cy;
             });
           }
-          return touch == null ? {} : { d: +(touch - floor).toFixed(1) };
+          return touch == null ? { sho } : { d: +(touch - floor).toFixed(1), sho };
         });
         if (!m || m.d == null) { bad.push(`${W}px ${c.id} 의 «닿는 줄»을 못 찾았다`); continue; }
         if (!band[c.move]) { bad.push(`${c.id} 의 move 가 «${c.move}» 다 (ground·air·water 뿐이다)`); continue; }
         band[c.move].push(m.d);
         if (c.move === 'air') {
           if (m.d > -PET_AIR_MIN) bad.push(`${W}px ${c.id}(공중)가 바닥에서 ${(-m.d).toFixed(1)}px 밖에 안 떴다`);
+          // ⚠️⚠️ **「바닥에서 떴는가」만으로는 어깨를 못 본다 — 옛 자리도 48px 떠 있었다.**
+          //    0건이 「통과」가 아니라 「그 축은 한 번도 안 쟀다」인 그 자리다
+          if (m.sho == null) bad.push(`${W}px ${c.id}(공중)의 어깨선을 못 쟀다`);
+          else {
+            sho.push(m.sho);
+            if (Math.abs(m.sho) > PET_SHOULDER) {
+              bad.push(`${W}px ${c.id}(공중)가 어깨에서 ${Math.abs(m.sho).toFixed(1)}px`
+                + `${m.sho > 0 ? ' 아래' : ' 위'}에 떠 있다`);
+            }
+          }
         } else if (Math.abs(m.d) > PET_FOOT) {
           bad.push(`${W}px ${c.id}(${c.move})가 바닥에서 ${m.d > 0 ? '가라앉았다' : '떴다'}`
             + ` (${Math.abs(m.d).toFixed(1)}px)`);
@@ -1126,9 +1156,10 @@ function mask(A, B) {
     ['ground', 'water', 'air'].forEach(k => {
       if (!band[k].length) bad.push(`${k} 크리처를 한 마리도 안 쟀다`);
     });
+    if (!sho.length) bad.push('공중 크리처의 어깨를 한 번도 안 쟀다');
     pet = `크리처가 선 자리 — 땅 ${rng(band.ground)}(${band.ground.length}) ·`
       + ` 어항 ${rng(band.water)}(${band.water.length}) · 공중 ${rng(band.air)}(${band.air.length})`
-      + ` · 폭 ${PET_W.join('·')}`;
+      + ` · 공중↔어깨 ${rng(sho)}(${sho.length}) · 폭 ${PET_W.join('·')}`;
     await page.close();
   }
 
@@ -1160,6 +1191,21 @@ function mask(A, B) {
     await page.goto(BASE, { waitUntil: 'load' });
     await page.waitForFunction(() => typeof S !== 'undefined' && typeof render === 'function');
     await page.evaluate(() => { const s = document.getElementById('splash'); if (s) s.remove(); });
+    // ⚠️⚠️ **시간대를 «낮»에 못 박고 잰다 — 안 그러면 하루에 몇 시간씩 거짓으로 빨개진다.**
+    //    여기서 재는 것은 「바닥이 얼마나 어두워지는가」인데 **방의 밝기가 시간대를 타서**
+    //    (`Avatar.SKY_LIGHT` · 낮 1 · 노을 0.5) 같은 그림자가 노을에는 절반만 어둡게 한다 —
+    //    2026-10-06 16:00 KST 를 넘자 0.066~0.082 → **0.039~0.051** 로 떨어져 스무 줄이
+    //    통째로 걸렸다 (HEAD 를 워크트리로 띄워 재도 똑같이 20건이라 원래 있던 자리다).
+    //    문턱을 내리는 것은 «잣대를 결과에 맞추는 것»이다 — 측정 조건을 맞춘다
+    await page.evaluate(() => {
+      const b = window.Avatar.SKY_BANDS.find(x => x.k === 'day');
+      const d = new Date();
+      const kst = new Date(d.getTime() + d.getTimezoneOffset() * 60000 + 9 * 3600000);
+      const cur = ((kst.getHours() * 60 + kst.getMinutes()) * 60 + kst.getSeconds()) * 1000;
+      let delta = (b.h + 1) * 3600000 - cur;
+      if (delta < 0) delta += 86400000;
+      S.devClock = delta; setDevClock(delta);
+    });
     const ground = await page.evaluate(() => (window.GameData.RECIPES || [])
       .filter(r => r.result && r.result.kind === 'creature' && r.result.move === 'ground')
       .map(r => r.result.id));
@@ -1202,7 +1248,7 @@ function mask(A, B) {
     }
     if (!got.length) bad.push('발밑 그림자를 한 마리도 안 쟀다');
     const f3 = (v) => v.toFixed(3);
-    petShade = `발밑 그림자 — 땅 ${got.length}마리가 바닥을`
+    petShade = `발밑 그림자 — «낮»에 못 박고 땅 ${got.length}마리가 바닥을`
       + ` ${got.length ? `${f3(Math.min(...got))}~${f3(Math.max(...got))}` : '(없다)'} 어둡게 한다`
       + ` (${PET_SHADE_MIN} 이상)`;
     await page.close();
@@ -1235,13 +1281,29 @@ function mask(A, B) {
     await page.goto(BASE, { waitUntil: 'load' });
     await page.waitForFunction(() => typeof S !== 'undefined' && typeof render === 'function');
     await page.evaluate(() => { const s = document.getElementById('splash'); if (s) s.remove(); });
-    // 땅·공중·어항 한 마리씩 — 셋은 크기도 서는 높이도 달라 같이 봐야 한다
-    const trio = await page.evaluate(() => ['ground', 'air', 'water'].map(m =>
-      ((window.GameData.RECIPES || []).find(r => r.result
-        && r.result.kind === 'creature' && r.result.move === m) || {}).result)
-      .filter(Boolean).map(r => ({ id: r.id, move: r.move })));
-    if (trio.length < 3) bad.push('크리처 가림: 땅·공중·어항 크리처가 다 있지 않다');
+    // 땅·공중·어항 한 마리씩 — 셋은 크기도 서는 높이도 달라 같이 봐야 한다.
+    // ⚠️⚠️ **«바라보는 쪽이 있는» 마리는 따로 끼운다**(`Creature.FACE`). 그 마리는
+    //    인물의 **반대쪽**에 서므로 재야 할 버튼 줄도 방 상자의 끝도 반대다 —
+    //    그런데 하필 그것이 제일 앞의 공중 마리라, 안 갈라 두면 **왼쪽에 서는 공중
+    //    크리처를 한 번도 안 재게 된다**(그 마리가 오른쪽으로 가 버려서다).
+    //    그래서 셋은 **FACE 에 없는 마리**로 고르고, FACE 의 마리를 덧붙인다
+    const trio = await page.evaluate(() => {
+      const all = (window.GameData.RECIPES || [])
+        .filter(r => r.result && r.result.kind === 'creature').map(r => r.result);
+      const face = window.Creature.FACE || {};
+      const out = ['ground', 'air', 'water'].map(m =>
+        all.find(r => r.move === m && !face[r.id])).filter(Boolean)
+        .map(r => ({ id: r.id, move: r.move, face: false }));
+      Object.keys(face).forEach(id => {
+        const r = all.find(x => x.id === id);
+        if (r) out.push({ id: r.id, move: r.move, face: true });
+      });
+      return out;
+    });
+    if (trio.filter(c => !c.face).length < 3) bad.push('크리처 가림: 땅·공중·어항 크리처가 다 있지 않다');
+    if (!trio.some(c => c.face)) bad.push('크리처 가림: 바라보는 쪽이 있는 마리를 한 마리도 안 쟀다');
     let n = 0, minGap = Infinity, minRoom = Infinity, minSpin = Infinity, lifted = 0, maxOver = 0;
+    let nRight = 0, nFlip = 0;
     const size = {};   // 폭 → 땅·공중·어항의 «제일 작게 나온» 크기 (두 언어 중)
     for (const lang of ['ko', 'en']) for (const W of HIDE_W) {
       await page.setViewportSize({ width: W, height: 900 });
@@ -1258,7 +1320,11 @@ function mask(A, B) {
         const m = await page.evaluate(() => {
           const cre = document.querySelector('.stage-creature');
           const room = document.querySelector('.room-canvas');
-          const acts = [...document.querySelectorAll('#roomSolo .room-act')];
+          // ⚠️⚠️ **크리처가 «실제로 선 쪽»의 줄을 잰다.** 왼쪽에 박아 두면 오른쪽에
+          //    서는 마리는 그 줄과 멀어서 **무슨 짓을 해도 통과한다**
+          const right = !!cre && cre.classList.contains('cr-right');
+          const bar = right ? '.room-acts:not(.room-acts-l)' : '#roomSolo';
+          const acts = [...document.querySelectorAll(bar + ' .room-act')];
           const spin = [...document.querySelectorAll('.room-canvas .spin-btn')]
             .map(n => n.getBoundingClientRect()).filter(r => r.height);
           if (!cre || !room) return null;
@@ -1278,24 +1344,44 @@ function mask(A, B) {
           });
           const sb = document.getElementById('roomSolo').getBoundingClientRect();
           return { over, area: c.width * c.height, w: c.width, gap: isFinite(gap) ? gap : null,
-            acts: acts.length, inRoom: c.left - rb.left,
+            acts: acts.length, right, flip: cre.classList.contains('cr-flip'),
+            // ⚠️ 방 상자의 «그 쪽» 끝과의 거리다 (쪽이 뒤집히면 여기도 뒤집힌다)
+            inRoom: right ? rb.right - c.right : c.left - rb.left,
             // 올린 줄이 둘러보기 버튼을 안 무는가 (안 올렸으면 잴 것이 없다)
             lift: parseFloat(document.getElementById('roomSolo').style.bottom) || 0,
             spinGap: spin.length ? sb.top - Math.max(...spin.map(r => r.bottom)) : null };
         });
         if (!m) { bad.push(`크리처 가림: ${W}px/${lang} ${c.move} — 크리처나 방을 못 찾았다`); continue; }
-        if (m.acts < 3) {
-          bad.push(`크리처 가림: ${W}px/${lang} 왼쪽 방 버튼이 ${m.acts}개뿐이다 — 셋을 다 열어야 잰 것이다`);
+        const SIDE = m.right ? '오른쪽' : '왼쪽';
+        // 그 쪽 줄이 정말 다 서 있는가 — 왼쪽은 셋(방꾸·표정·문신) · 오른쪽은 다섯이다
+        if (m.acts < (m.right ? 5 : 3)) {
+          bad.push(`크리처 가림: ${W}px/${lang} ${SIDE} 방 버튼이 ${m.acts}개뿐이다`
+            + ` — ${m.right ? '다섯' : '셋'}을 다 열어야 잰 것이다`);
           continue;
         }
         n++;
+        if (m.right) nRight++;
+        if (m.flip) nFlip++;
+        // ⚠️⚠️ **바라보는 쪽이 있는 마리는 «인물을 바라봐야» 한다.** 그림이 왼쪽을
+        //    보는데 인물의 왼쪽에 세우면 등을 돌린다 — 「나방은 좌측을 보니 인물의
+        //    우측 어깨 위에」로 받은 그 줄이다. 좁은 폭에서는 설 자리가 없어 반대쪽에
+        //    서는데, **그때는 그림이 뒤집혀야** 같은 약속이 지켜진다.
+        //    ⚠️ 「오른쪽에 섰는가」만 보면 좁은 폭에서 **뒤집지 않고 그냥 왼쪽에 서는**
+        //    사고를 통째로 못 본다 (둘이 짝이다)
+        if (c.face && !m.right && !m.flip) {
+          bad.push(`크리처 가림: ${W}px/${lang} ${c.id} 가 바라보는 쪽(${c.face === true ? '좌' : c.face})에`
+            + ` 그대로 서서 인물에게 등을 돌렸다 (뒤집지도 않았다)`);
+        }
+        if (c.face && m.right && m.flip) {
+          bad.push(`크리처 가림: ${W}px/${lang} ${c.id} 가 반대쪽에 서 있는데 그림까지 뒤집혔다`);
+        }
         maxOver = Math.max(maxOver, m.over);
         if (m.over > 0.5) {
-          bad.push(`크리처 가림: ${W}px/${lang} ${c.move} 크리처가 왼쪽 버튼 줄에`
+          bad.push(`크리처 가림: ${W}px/${lang} ${c.id}(${c.move})가 ${SIDE} 버튼 줄에`
             + ` ${m.over.toFixed(0)}px² 가려졌다 (${(100 * m.over / m.area).toFixed(0)}%)`);
         }
         if (m.inRoom < -0.5) {
-          bad.push(`크리처 가림: ${W}px/${lang} ${c.move} 크리처가 방 상자 왼쪽으로`
+          bad.push(`크리처 가림: ${W}px/${lang} ${c.id}(${c.move})가 방 상자 ${SIDE}으로`
             + ` ${(-m.inRoom).toFixed(1)}px 나갔다`);
         }
         if (m.lift > 0.5) {
@@ -1311,29 +1397,35 @@ function mask(A, B) {
         minRoom = Math.min(minRoom, m.inRoom);
         // ⑤ **그런데 크리처가 «볼 만큼» 큰가** — 위의 넷은 전부 「안 덮였는가」라
         //    **작으면 작을수록 잘 통과한다**. 두 축이 서로 반대라 짝으로 둔다
-        const want = (PET_WANT[W] || {})[c.move];
-        if (want == null) bad.push(`크리처 가림: ${W}px 의 ${c.move} 에 바라는 크기가 표에 없다`);
+        const key = c.move + (c.face ? 'F' : '');
+        const want = (PET_WANT[W] || {})[key];
+        if (want == null) bad.push(`크리처 가림: ${W}px 의 ${key} 에 바라는 크기가 표에 없다`);
         else if (m.w < want) {
-          bad.push(`크리처 가림: ${W}px/${lang} ${c.move} 크리처가 ${m.w.toFixed(1)}px 밖에 안 된다`
+          bad.push(`크리처 가림: ${W}px/${lang} ${c.id}(${key})가 ${m.w.toFixed(1)}px 밖에 안 된다`
             + ` (${want}px 이상)`);
         }
-        (size[W] = size[W] || {})[c.move] = Math.min(size[W][c.move] ?? Infinity, m.w);
+        (size[W] = size[W] || {})[key] = Math.min(size[W][key] ?? Infinity, m.w);
       }
     }
     // ⚠️ **몇 자리를 쟀는지 통과할 때도 낸다** — 0건이 「통과」인지 「한 번도 안 쟀다」인지를
     //    가르는 것은 이 수뿐이다
-    const want = HIDE_W.length * 2 * 3;
+    const want = HIDE_W.length * 2 * trio.length;
     if (n < want) bad.push(`크리처 가림: ${want}자리 중 ${n}자리만 쟀다`);
+    // ⚠️ **오른쪽 줄을 한 번도 안 쟀으면 그 축은 통째로 안 잰 것이다** (0건의 그 함정)
+    if (trio.some(c => c.face) && !nRight) {
+      bad.push('크리처 가림: 오른쪽에 선 자리가 하나도 없다 — 바라보는 쪽을 한 번도 안 쟀다');
+    }
     // ⚠️ 「다 0px²」라고 «우기지» 않는다 — 잰 값을 그대로 낸다 (실패해도 같은 줄이 뜬다)
     hide = `크리처 가림 — ${n}자리(폭 ${HIDE_W.join('·')} × 땅·공중·어항 × 두 언어)`
       + ` 제일 많이 가려진 자리 ${maxOver.toFixed(0)}px²`
       + ` · 버튼과 제일 좁은 틈 ${isFinite(minGap) ? minGap.toFixed(1) + 'px' : '(옆에 안 선다)'}`
       + ` · 방 상자 안으로 ${isFinite(minRoom) ? minRoom.toFixed(1) + 'px' : '?'}`
       + ` · 줄이 비켜 준 자리 ${lifted}`
+      + ` · 오른쪽에 선 자리 ${nRight} · 뒤집어 선 자리 ${nFlip}`
       + (isFinite(minSpin) ? ` (둘러보기와 ${minSpin.toFixed(1)}px)` : '')
       // ⚠️ **잰 크기를 통과할 때도 낸다** — 표를 누가 내렸는지가 여기서 바로 보인다
       + ` · 크기 ` + HIDE_W.map(w => `${w}:`
-        + ['ground', 'air', 'water'].map(mv => (size[w] && size[w][mv] != null
+        + ['ground', 'air', 'airF', 'water'].map(mv => (size[w] && size[w][mv] != null
           ? size[w][mv].toFixed(0) : '?')).join('/')).join(' ');
     await page.close();
   }
@@ -1363,9 +1455,18 @@ function mask(A, B) {
     await page.goto(BASE, { waitUntil: 'load' });
     await page.waitForFunction(() => typeof S !== 'undefined' && typeof render === 'function');
     await page.evaluate(() => { const s = document.getElementById('splash'); if (s) s.remove(); });
-    const all = await page.evaluate(() => (window.GameData.RECIPES || [])
-      .filter(r => r.result && r.result.kind === 'creature')
-      .map(r => ({ id: r.result.id, move: r.result.move })));
+    // ⚠️⚠️ **묶는 열쇠는 `move` «하나»가 아니다 — «바라보는 쪽»도 축이다** (2026-10-06).
+    //    바라보는 쪽이 있는 마리는 인물의 반대쪽에 서고, 그 쪽에는 방 버튼 다섯이
+    //    있어서 **바닥이 달라 상자도 다르다**(390px 에서 48.6 ↔ 62). 그것을 한 열쇠에
+    //    묶으면 멀쩡한 그림이 「전제가 깨졌다」로 잡히고, 반대로 쪽을 아예 안 보면
+    //    위의 「크리처 가림」이 그 마리를 표본에서 빠뜨린 것을 못 본다
+    const all = await page.evaluate(() => {
+      const face = window.Creature.FACE || {};
+      return (window.GameData.RECIPES || [])
+        .filter(r => r.result && r.result.kind === 'creature')
+        .map(r => ({ id: r.result.id, move: r.result.move,
+          key: r.result.move + (face[r.result.id] ? 'F' : '') }));
+    });
     const seen = {};
     let n = 0;
     for (const c of all) {
@@ -1384,13 +1485,13 @@ function mask(A, B) {
       if (!b) { bad.push(`크리처 상자: ${c.id} 를 못 찾았다`); continue; }
       n++;
       const key = `${b.w}×${b.h}`;
-      if (!seen[c.move]) seen[c.move] = { key, id: c.id, n: 0 };
-      else if (seen[c.move].key !== key) {
-        bad.push(`크리처 상자: ${c.id}(${c.move})가 ${key} 인데`
-          + ` ${seen[c.move].id} 는 ${seen[c.move].key} 다`
-          + ` — move 마다 상자가 하나라는 전제가 깨지면 「크리처 가림」이 그 마리를 안 잰다`);
+      if (!seen[c.key]) seen[c.key] = { key, id: c.id, n: 0 };
+      else if (seen[c.key].key !== key) {
+        bad.push(`크리처 상자: ${c.id}(${c.key})가 ${key} 인데`
+          + ` ${seen[c.key].id} 는 ${seen[c.key].key} 다`
+          + ` — 갈래마다 상자가 하나라는 전제가 깨지면 「크리처 가림」이 그 마리를 안 잰다`);
       }
-      seen[c.move].n++;
+      seen[c.key].n++;
     }
     if (n < all.length) bad.push(`크리처 상자: ${all.length}마리 중 ${n}마리만 쟀다`);
     // ⚠️ 「move 마다 하나다」라고 «우기지» 않는다 — 잰 것만 낸다 (실패해도 같은 줄이 뜬다)

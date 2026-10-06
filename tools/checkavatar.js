@@ -4264,8 +4264,15 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
     const r = await page.evaluate(() => {
       const D = window.GameData;
       // 땅·공중·물 한 마리씩 — 셋은 크기와 높이가 달라 같이 봐야 한다
-      const pick = m => (D.RECIPES.find(x => x.result.kind === 'creature' && x.result.move === m) || {}).result;
-      const pets = ['ground', 'air', 'water'].map(pick).filter(Boolean);
+      // ⚠️⚠️ **«바라보는 쪽»이 있는 마리는 따로 끼운다**(`Creature.FACE` · 2026-10-06).
+      //    그 마리는 인물의 **반대쪽**에 서므로, 셋을 고를 때 그것이 뽑히면
+      //    **왼쪽에 서는 공중 크리처를 한 번도 안 재게 된다** (하필 제일 앞의
+      //    공중 마리가 그것이다). 셋은 FACE 에 없는 마리로 고르고 그 마리를 덧붙인다
+      const face = (window.Creature && window.Creature.FACE) || {};
+      const all = D.RECIPES.filter(x => x.result.kind === 'creature').map(x => x.result);
+      const pick = m => all.find(x => x.move === m && !face[x.id]);
+      const pets = ['ground', 'air', 'water'].map(pick).filter(Boolean)
+        .concat(Object.keys(face).map(id => all.find(x => x.id === id)).filter(Boolean));
       if (pets.length < 3) return { err: '땅·공중·물 크리처가 다 있지 않다' };
       S.tutorialDone = true; S.introDone = true;
       if (!Array.isArray(S.creatures)) S.creatures = [];
@@ -4295,14 +4302,18 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
           // viewBox 로 환산했는데, 그것은 조각 «제» 좌표라 **몸을 통째로 늘리는
           // 변환(`bodyT`)을 못 본다** — 통통한 몸의 치마가 실제보다 좁게 잡혀,
           // 크리처가 19px 올라앉아 있는데도 「3.5px 떨어져 있다」로 통과였다
-          let left = Infinity;
+          // ⚠️⚠️ **크리처가 «선 쪽»에서 잰다.** 왼쪽에 박아 두면 오른쪽에 서는 마리는
+          //    치마의 «반대쪽 변»과 견주게 되어 **멀쩡한 그림이 통째로 겹친 것으로** 잡힌다
+          const right = cre.classList.contains('cr-right');
+          let edge = right ? -Infinity : Infinity;
           svg.querySelectorAll('path,ellipse,circle,rect').forEach(n => {
             const r = n.getBoundingClientRect();
             if (!r.width || r.bottom < cr.top || r.top > cr.bottom) return;
-            left = Math.min(left, r.left);
+            edge = right ? Math.max(edge, r.right) : Math.min(edge, r.left);
           });
-          const over = cr.right - left;                             // + 면 겹쳤다
-          const outL = app.getBoundingClientRect().left - cr.left;  // + 면 화면 밖으로 나갔다
+          const ab = app.getBoundingClientRect();
+          const over = right ? edge - cr.left : cr.right - edge;    // + 면 겹쳤다
+          const outL = right ? cr.right - ab.right : ab.left - cr.left;  // + 면 화면 밖
           if (over > worst.over) Object.assign(worst, { over, name: `${it.name} · 체형 ${bw}`, move: pet.move });
           if (outL > worst.outL) Object.assign(worst, { outL, outMove: `${pet.move} · 체형 ${bw}` });
         }
@@ -4317,7 +4328,7 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
         + ` — 방에 있는 것이 아니라 치마에 붙은 무늬로 보인다`);
     }
     if (r.outL > 0.5) {
-      petPlace.bad.push(`폭 ${vw}px · ${r.outMove}: 크리처가 화면 왼쪽으로 ${r.outL.toFixed(1)}px 나갔다`
+      petPlace.bad.push(`폭 ${vw}px · ${r.outMove}: 크리처가 화면 밖으로 ${r.outL.toFixed(1)}px 나갔다`
         + ` — 좁은 화면에서는 크기도 같이 줄어야 한다 (--pet)`);
     }
   }

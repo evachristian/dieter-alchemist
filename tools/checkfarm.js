@@ -67,7 +67,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
     localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
     localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify({
       ver: 12, rev: 9, name: '도둑고양이', nameClaimed: true, tutorialDone: true,
-      // 방을 지키는 아이(하늘 매)와 데리고 나갈 아이(불꽃 봉황)를 따로 둔다 —
+      // 방을 지키는 아이(하늘 매)와 데리고 나갈 아이(용암 펭귄)를 따로 둔다 —
       // 한 마리만 두면 「지키개 줄」과 「동행 줄」 중 하나를 한 번도 못 잰다
       creatures: ['sky_falcon', 'ember_phoenix'],
       petRoom: 'sky_falcon', petField: 'ember_phoenix', pets: {},
@@ -142,7 +142,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
     };
   });
   ok(out.n === 1 && out.names[0] === '밭주인', `상대 목록 = ${JSON.stringify(out.names)}`);
-  // 불꽃 봉황(불) 대 유니콘(빛) — 순환에 없는 짝이라 「보통」이어야 한다
+  // 용암 펭귄(불) 대 유니콘(빛) — 순환에 없는 짝이라 「보통」이어야 한다
   ok(out.tags[0] === '보통', `상성 딱지 = ${out.tags[0]} (보통 기대)`);
   ok(out.foeSlots[0] === 5, `상대 줄에 다섯 자리가 있다 (${out.foeSlots[0]})`);
   ok(out.mineSlots === 5, `내 출정대도 다섯 자리 (${out.mineSlots})`);

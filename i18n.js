@@ -3387,10 +3387,10 @@
       // <<<GEN:creature-en
       // Fire
       ember_newt: 'Crimson Monkey',
-      ash_moth: 'Flame Moth',
+      ash_moth: 'Blaze Moth',
       flame_fox: 'Flame Fox',
       charcoal_toad: 'Charcoal Slime',
-      ember_phoenix: 'Ember Phoenix',
+      ember_phoenix: 'Lava Penguin',
       // Earth
       pebble_turtle: 'Pebble Turtle',
       root_mole: 'Root Mole',

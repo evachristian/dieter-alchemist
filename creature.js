@@ -75,6 +75,11 @@
   //    옛 자리에 남는다 (`Avatar.FLOOR_SPOT` 을 한 줄로 둔 것과 같은 규칙이다)
   const BOWL_STAND = { cy: 92, ry: 4 };
   const BOWL_FLOOR = BOWL_STAND.cy + BOWL_STAND.ry;
+  // 공중 크리처가 «어깨에 맞추는 줄» — 칠한 데(`TOP_PAD`~`GROUND`)의 한가운데다.
+  // ⚠️ 땅·어항은 «닿는 줄»이라 밑변 쪽이지만 공중은 닿는 데가 없다 — 어깨에 맞출 것은
+  //    몸의 가운데다 (발을 어깨에 걸면 몸이 통째로 머리 옆으로 올라간다).
+  // ⚠️ 숫자를 game.js 에 적지 않는다 — 그림의 여백을 고치면 여기가 같이 움직인다
+  const AIR_MID = (TOP_PAD + GROUND) / 2;
 
   const n1 = (v) => (Math.round(v * 10) / 10);
   const ell = (x, y, rx, ry, f, extra) =>
@@ -416,7 +421,43 @@
   // ⚠️ **데이터(`art`)도 안 건드린다** — 축 표를 다시 뽑으면 id 가 흔들려
   //    세이브의 크리처가 바뀐다 (아래 `coreOf` 와 같은 규칙이다).
   const PREVIEW = { flame_fox: 'cat-happy.svg', ember_newt: 'peach-monkey.svg',
-                    ash_moth: 'peach-butterfly.svg', charcoal_toad: 'peach-slime.svg' };
+                    ash_moth: 'peach-butterfly.svg', charcoal_toad: 'peach-slime.svg',
+                    ember_phoenix: 'peach-penguin.svg' };
+
+  // ─── 움직이는 그림의 «가만히 있는 짝» ───────────────────────────
+  //
+  // 🔥 화염 여우의 그림은 **SMIL 로 애교를 부린다** (4초 움직이고 10초 쉰다 ·
+  // 2026-10-06 에 사람이 보내 준 SVG 다).
+  //
+  // ⚠️⚠️ **`prefers-reduced-motion` 은 `<image>` 를 «못 넘는다» — 재 봤다.** 사람이
+  //    보낸 파일에는 `@media(prefers-reduced-motion:reduce){.motion{display:none}}` 가
+  //    들어 있는데, 그 파일을 `<image href>` 로 불러오면 그 줄이 **한 번도 안 먹는다**
+  //    (움직임 줄이기를 켜고 재도 0.8초에 4268칸이 달라졌다). 그래서 **쉬는 자세만
+  //    떼어 낸 짝**을 두고 여기서 갈아 끼운다 — 「움직임 줄이기에서 멎는다」는
+  //    이 저장소의 약속이고(아바타의 아이들 모션과 같은 자리), 글로만 두면 안 지켜진다.
+  // ⚠️ **두 파일의 `viewBox` 가 같은 값이라야** 갈아 끼울 때 크리처가 제자리에 선다
+  const PREVIEW_STILL = { flame_fox: 'cat-happy-still.svg' };
+  // ⚠️ 물어보는 때가 «그릴 때»다 — 상수로 한 번 읽어 두면 설정을 바꿔도 안 따라온다
+  function previewFile(id) {
+    const still = PREVIEW_STILL[id];
+    if (still && window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return still;
+    return PREVIEW[id];
+  }
+
+  // ─── 그림이 «바라보는 쪽» ───────────────────────────────────────
+  //
+  // 부품 그림은 **정면 치비**라 바라보는 쪽이 없다 (`checkcreature` ②가 얼굴의
+  // 좌우 대칭을 못 박는다). 그런데 대고 따라 그린 그림은 옆을 볼 수 있어서,
+  // 그 마리만 **인물의 반대쪽에 세워야 인물을 바라본다** — 같은 쪽에 세우면
+  // 등을 돌리고 바깥을 본다 (「나방은 좌측을 보니 인물의 우측 어깨 위에」로 받았다).
+  //
+  // ⚠️⚠️ **적는 것은 «바라보는 쪽»이고 서는 쪽은 그 반대다** (`standSide`).
+  //    서는 쪽을 바로 적으면 그림을 뒤집었을 때 왜 그 자리인지가 사라진다.
+  // ⚠️ 여기 없는 마리는 정면이라 **왼쪽**이다 — 오래 그래 왔고, 왼쪽 버튼 줄과
+  //    치마 옆선을 재는 셈이 거기에 맞춰져 있다 (`placePet`)
+  const FACE = { ash_moth: 'left' };
+  function standSide(c) { return (c && FACE[c.id] === 'left') ? 'right' : 'left'; }
 
   // ⚠️ 캐시 버스터는 제 `<script>` 태그에서 물려받는다 (`tutorial.js` 의 `ASSET_Q` 와
   //    같은 조리법) — `index.html` 의 일괄 치환 한 번이면 그림까지 같이 따라온다
@@ -431,7 +472,7 @@
   //    필요 없다 — 그림을 하나 더 넣어도 여기는 한 글자도 안 고친다.
   // ⚠️ **`xMidYMax` 다** — 가운데 정렬 + **아래 맞춤**이라 발이 `GROUND` 에 닿는다.
   //    `YMid` 로 두면 가로로 넓은 그림이 상자 한가운데에 떠서 바닥에서 뜬다.
-  // ⚠️ **그래서 그림의 `viewBox` 는 «칠한 데에 바짝» 잘라 둔다** (지금 넷 다 2.2% 안).
+  // ⚠️ **그래서 그림의 `viewBox` 는 «칠한 데에 바짝» 잘라 둔다** (지금 다섯 다 2.2% 안).
   //    여백이 남아 있으면 그만큼 그대로 떠 보인다 — 원숭이 원본이 위아래 12% 였다
   function previewSvg(c, opts) {
     const ph = GROUND - TOP_PAD;
@@ -441,7 +482,7 @@
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
       ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(attr.color, 88)}"/>`}
       ${opts.noShadow ? '' : footShade(c, attr.color)}
-      <image href="${PREVIEW[c.id]}${ASSET_Q}" x="0" y="${TOP_PAD}"
+      <image href="${previewFile(c.id)}${ASSET_Q}" x="0" y="${TOP_PAD}"
         width="${W}" height="${ph.toFixed(1)}" preserveAspectRatio="xMidYMax meet"/>
     </svg>`;
   }
@@ -585,6 +626,6 @@
   // ⚠️ `GROUND`·`BOWL_FLOOR` 를 내보내는 이유는 하나다 — **방에 세울 때 자리를 재려고**
   //    (`game.js` 의 `placePetY()`). 그 숫자를 저쪽에 적으면 그림을 고쳤을 때 자리만
   //    옛 값에 남는다
-  window.Creature = { draw, icon, bowl, of, W, H, GROUND, BOWL_FLOOR,
-    SHAPE, HORN, WING, TAIL, EYE, PREVIEW };
+  window.Creature = { draw, icon, bowl, of, W, H, GROUND, BOWL_FLOOR, AIR_MID,
+    SHAPE, HORN, WING, TAIL, EYE, PREVIEW, PREVIEW_STILL, previewFile, FACE, standSide };
 })();
