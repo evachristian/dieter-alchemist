@@ -3386,10 +3386,10 @@
       //   node tools/gencreature.js
       // <<<GEN:creature-en
       // Fire
-      ember_newt: 'Flame Monkey',
+      ember_newt: 'Crimson Monkey',
       ash_moth: 'Flame Moth',
       flame_fox: 'Flame Fox',
-      charcoal_toad: 'Charcoal Toad',
+      charcoal_toad: 'Charcoal Slime',
       ember_phoenix: 'Ember Phoenix',
       // Earth
       pebble_turtle: 'Pebble Turtle',

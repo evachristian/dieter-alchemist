@@ -416,7 +416,7 @@
   // ⚠️ **데이터(`art`)도 안 건드린다** — 축 표를 다시 뽑으면 id 가 흔들려
   //    세이브의 크리처가 바뀐다 (아래 `coreOf` 와 같은 규칙이다).
   const PREVIEW = { flame_fox: 'cat-happy.svg', ember_newt: 'peach-monkey.svg',
-                    ash_moth: 'peach-butterfly.svg' };
+                    ash_moth: 'peach-butterfly.svg', charcoal_toad: 'peach-slime.svg' };
 
   // ⚠️ 캐시 버스터는 제 `<script>` 태그에서 물려받는다 (`tutorial.js` 의 `ASSET_Q` 와
   //    같은 조리법) — `index.html` 의 일괄 치환 한 번이면 그림까지 같이 따라온다
@@ -431,7 +431,7 @@
   //    필요 없다 — 그림을 하나 더 넣어도 여기는 한 글자도 안 고친다.
   // ⚠️ **`xMidYMax` 다** — 가운데 정렬 + **아래 맞춤**이라 발이 `GROUND` 에 닿는다.
   //    `YMid` 로 두면 가로로 넓은 그림이 상자 한가운데에 떠서 바닥에서 뜬다.
-  // ⚠️ **그래서 그림의 `viewBox` 는 «칠한 데에 바짝» 잘라 둔다** (지금 둘 다 2% 안).
+  // ⚠️ **그래서 그림의 `viewBox` 는 «칠한 데에 바짝» 잘라 둔다** (지금 넷 다 2.2% 안).
   //    여백이 남아 있으면 그만큼 그대로 떠 보인다 — 원숭이 원본이 위아래 12% 였다
   function previewSvg(c, opts) {
     const ph = GROUND - TOP_PAD;

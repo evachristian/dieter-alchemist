@@ -9346,7 +9346,7 @@ function openProduceLog() {
   const ti = document.getElementById('produceTitle');
   const who = producers();
   if (ti) {
-    // **조사를 붙인다** — 「불꽃 봉황이」 / 「화염 원숭이가」. 「이(가)」로 두면
+    // **조사를 붙인다** — 「불꽃 봉황이」 / 「홍염 원숭이가」. 「이(가)」로 두면
     // 화면에 괄호가 그대로 남는다 (`josa` 는 마지막 이름의 받침을 본다)
     const names = who.map(c => N(c.id, c.name)).join(' · ');
     ti.textContent = who.length

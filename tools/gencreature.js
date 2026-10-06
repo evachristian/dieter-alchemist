@@ -102,18 +102,20 @@ function moveOf(art) {
 // 사람의 레시피 북이 어제와 달라진다.
 const TABLE = [
   // ── 불 ──
-  // ⚠️⚠️ **이름만 바꿨고 id 는 «그대로»다** (2026-10-06 · 「불씨 도롱뇽을 화염 원숭이로」).
-  //    id 는 세이브에 들어 있어서 새로 뽑으면 그 크리처를 가진 사람의 것이 통째로
-  //    날아간다 — 그래서 `ember_newt` 가 이제 «도롱뇽»을 뜻하지 않는다. 읽는 사람이
-  //    헷갈릴 자리라 여기 적어 둔다 (옷의 `LEGACY` 와 같은 규칙이다).
-  //    `ash_moth` 도 같은 경우다 — 「잿빛」이 아니라 **화염 나방**이다 (2026-10-06)
-  { id: 'ember_newt',       attr: 'fire',  grade: 'basic', ko: '화염 원숭이',   en: 'Flame Monkey',
+  // ⚠️⚠️ **이름만 바꿨고 id 는 «그대로»다** (2026-10-06). id 는 세이브에 들어 있어서
+  //    새로 뽑으면 그 크리처를 가진 사람의 것이 통째로 날아간다 — 그래서 아래 셋은
+  //    **id 가 이제 제 이름을 뜻하지 않는다.** 읽는 사람이 헷갈릴 자리라 적어 둔다
+  //    (옷의 `LEGACY` 와 같은 규칙이다):
+  //    · `ember_newt`    «도롱뇽»이 아니라 **홍염 원숭이** (불씨 도롱뇽 → 화염 원숭이 → 홍염 원숭이)
+  //    · `ash_moth`      «잿빛»이 아니라 **화염 나방**
+  //    · `charcoal_toad` «두꺼비»가 아니라 **숯불 말랑이**(슬라임)
+  { id: 'ember_newt',       attr: 'fire',  grade: 'basic', ko: '홍염 원숭이',   en: 'Crimson Monkey',
     inputs: ['sun_seed', 'tree_resin'],                     art: C('quad', 'none', 'none', 'none', 'long', 'dot', 'spot') },
   { id: 'ash_moth',         attr: 'fire',  grade: 'basic', ko: '화염 나방',     en: 'Flame Moth',
     inputs: ['spider_silk', 'thistle'],                     art: C('bug', 'tuft', 'none', 'butterfly', 'none', 'dot', 'stripe') },
   { id: 'flame_fox',        attr: 'fire',  grade: 'mid',   ko: '화염 여우',     en: 'Flame Fox',
     inputs: ['berry', 'dry_root', 'flint'],                 art: C('quad', 'tuft', 'none', 'none', 'puff', 'sharp', 'none') },
-  { id: 'charcoal_toad',    attr: 'fire',  grade: 'mid',   ko: '숯불 두꺼비',   en: 'Charcoal Toad',
+  { id: 'charcoal_toad',    attr: 'fire',  grade: 'mid',   ko: '숯불 말랑이',   en: 'Charcoal Slime',
     inputs: ['flint', 'mushroom', 'walnut'],                art: C('blob', 'none', 'none', 'none', 'none', 'sleepy', 'spot') },
   { id: 'ember_phoenix',    attr: 'fire',  grade: 'high',  ko: '불꽃 봉황',     en: 'Ember Phoenix',
     inputs: ['eagle_feather', 'flint', 'sun_seed'], art: C('bird', 'none', 'none', 'bird', 'long', 'sharp', 'glow') },

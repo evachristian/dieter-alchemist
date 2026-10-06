@@ -701,7 +701,7 @@ const RECIPES = [
   // <<<GEN:creature
   // 불 — 기초 2 · 중급 2 · 상급 1
   { inputs: ['sun_seed', 'tree_resin'],
-    result: { id: 'ember_newt', kind: 'creature', grade: 'basic', name: '화염 원숭이',
+    result: { id: 'ember_newt', kind: 'creature', grade: 'basic', name: '홍염 원숭이',
       attr: 'fire', charmBonus: 2, move: 'ground',
       combat: { atk: 6, matk: 4, def: 3, mdef: 3 },
       makes: { id: 'sun_seed', n: 1 },
@@ -719,7 +719,7 @@ const RECIPES = [
       makes: { id: 'sun_seed', n: 2 },
       art: { body: 'quad', ear: 'tuft', horn: 'none', wing: 'none', tail: 'puff', eye: 'sharp', pat: 'none' } } },
   { inputs: ['flint', 'mushroom', 'walnut'],
-    result: { id: 'charcoal_toad', kind: 'creature', grade: 'mid', name: '숯불 두꺼비',
+    result: { id: 'charcoal_toad', kind: 'creature', grade: 'mid', name: '숯불 말랑이',
       attr: 'fire', charmBonus: 4, move: 'ground',
       combat: { atk: 14, matk: 9, def: 7, mdef: 6 },
       makes: { id: 'sun_seed', n: 2 },
