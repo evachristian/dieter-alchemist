@@ -5208,13 +5208,23 @@ function petStage(pet) {
 //    줄이기만 해서는 어떤 크기도 못 선다. 올리는 몫도 «재서» 구하고, 둘러보기
 //    버튼 밑으로만 간다 (상수로 적으면 방 높이가 바뀔 때 거기부터 어긋난다)
 const PET_GAP = 5;
+// 치마 쪽의 틈만 따로다 (2026-10-06 · 「캐릭터 근처로 조금 이동시켜 줘」).
+// ⚠️⚠️ **위의 「치마 쪽으로 밀어서 고치지 않는다」를 «사람이» 되돌린 자리다.** 그 줄이
+//    막던 것은 「크리처가 치마에 붙은 무늬로 보이는 것」이고, `checkavatar` 의
+//    「크리처 자리」가 **1px 이상**을 못 박고 있다 — 지금 2.9px 이라 그 난간 안쪽이다.
+//    더 줄이려면 그 검사부터 본다 (붙여 놓고 「통과하니까 괜찮다」로 가면 안 된다)
+const PET_SKIRT_GAP = 3;
 const PET_FLOOR = 20;    // 모자라면 여기까지만 줄인다 (더 줄이면 무엇인지 안 보인다)
 // 크리처의 «키» 상한 — 어항은 유리그릇까지라 더 크다.
 // ⚠️⚠️ **2026-10-04 에 두 배로 올렸다** (「크리처가 너무 작아. 잘 보이도록 2배 정도
 //    크기 키워둬」). ⚠️ **상한만 올려서는 한 폭도 안 커진다** — 재 보면 상한이 묶고
 //    있는 것은 480px 하나뿐이고 390·430px 은 **왼쪽 버튼 줄**이, 265·320px 은
 //    **바닥 자체**가 묶는다. 그래서 아래의 「줄이 비켜 주는 조건」과 짝으로 움직인다
-const PET_MAX = 152, PET_MAX_WATER = 192;
+// ⚠️⚠️ **2026-10-06 에 거기서 «30% 내렸다»** (「크기 30% 정도 줄이고, 캐릭터 근처로
+//    조금 이동시켜 줘」). 상한이 묶는 것은 **넓은 폭뿐**이라, 내려도 265·320px 은
+//    한 픽셀도 안 바뀐다 — 거기는 바닥이 묶고 있고 그 바닥은 이미 22·50px 다.
+//    **좁은 폭까지 같이 30% 줄이면 크리처가 무엇인지 안 보인다**
+const PET_MAX = 62, PET_MAX_WATER = 78;
 function placePet() {
   const cre = document.querySelector('.stage-creature');
   const svg = document.querySelector('.char-body svg');
@@ -5237,7 +5247,7 @@ function placePet() {
   //    비정상적으로 작아져」로 신고받았다). 틈·바닥·「바닥이 없다」를 다 방 쪽 단위로
   //    재면 **같은 방을 확대한 것**이 되어 크리처도 같이 커진다
   const k = auraK(aura);
-  const gap = PET_GAP * k, floorW = PET_FLOOR * k;
+  const gap = PET_GAP * k, skirtGap = PET_SKIRT_GAP * k, floorW = PET_FLOOR * k;
   const max = (cre.classList.contains('cr-water') ? PET_MAX_WATER : PET_MAX) * k;
   const parts = svg.querySelectorAll('path,ellipse,circle,rect');
   let last = -1, lastW = Infinity, moved = false, fixedW = 0;
@@ -5259,7 +5269,7 @@ function placePet() {
     if (!isFinite(left)) return;
     // 가운데에서 치마 옆선 옆까지. ⚠️ 줄이지는 않는다 — 커졌다 작아졌다 하면 두 값 사이를
     // 오가며 끝이 안 난다. 더 물러나기만 하면 띠는 좁아질 뿐이라 반드시 멎는다
-    const need = Math.max(last, mid - left + gap, 0);
+    const need = Math.max(last, mid - left + skirtGap, 0);
     // ─ 빈 바닥 — 방 상자와 왼쪽 버튼 줄 중 «더 오른쪽»이 왼끝이다 ─
     const rb = room ? room.getBoundingClientRect() : null;
     const sb = solo ? solo.getBoundingClientRect() : null;
@@ -5789,8 +5799,15 @@ function renderShowcase() {
       <div class="stage-creatures">${petArt}</div>
     </div>`;
   renderRoomScene();   // 배경은 스탯이 접혔는지에 따라 아래로 더 그려진다
-  placePet();          // 크리처를 «지금 그려진» 치마 옆선에 맞춘다
-  placePetY();         // 세로는 «지금 그려진» 바닥에 — ⚠️ `--pet` 이 정해진 «뒤»라야 한다
+  // ⚠️⚠️ **크리처를 세우는 것은 «왼쪽 버튼 줄이 그려진 뒤»다** — 이 줄은 아래
+  //    `renderActBadges()` 로 내려갔다 (2026-10-06 · 「크리처가 버튼에 가려져」).
+  //    여기서 부르면 `placePet()` 이 **아직 비어 있는 `#roomSolo`**(자식 0 · 높이 0)를
+  //    재서 **바닥이 통째로 빈 줄 알고** 크리처를 끝까지 키운다. 그다음에 버튼이
+  //    그 위로 올라오고, 다시 그릴 일이 없으면 **그대로 남는다** — 탭을 한 번
+  //    다녀오면 저절로 나으므로 눈으로도 잘 안 보인다.
+  //    ⚠️ **검사가 이것을 한 번도 못 봤다** — 전부 상태를 심고 `render()` 를 부르는
+  //    길이라 «두 번째 그리기»만 쟀고, 그때는 줄이 이미 서 있다. 그래서
+  //    `checkroom` 에 **그냥 부팅해서 아무것도 다시 안 그리고** 재는 블록을 뒀다
   // 물약을 마신 직후면 살 빠지는 연출을 이어서 재생
   if (pendingSlimFx) { const lv = pendingSlimFx; pendingSlimFx = null; playSlimFx(lv); }
   // 졸업의 「펑!」 — 그림이 바뀐 바로 그 렌더에서 한 번.
@@ -5821,7 +5838,10 @@ function renderShowcase() {
   // 신체 · 아우라 상세 수치
   renderVitals();
   renderBodyState();
-  renderActBadges();
+  renderActBadges();   // ⚠️ 왼쪽 버튼 줄(`renderSoloActs`)을 그리는 자리다
+
+  placePet();          // 크리처를 «지금 그려진» 치마 옆선과 버튼 줄에 맞춘다
+  placePetY();         // 세로는 «지금 그려진» 바닥에 — ⚠️ `--pet` 이 정해진 «뒤»라야 한다
 
   // 스탯을 접었는지 펼쳤는지 · 인벤토리를 접었는지 (이 기기의 화면 설정)
   applyStatsView();

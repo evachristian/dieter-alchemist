@@ -88,11 +88,17 @@ const HIDE_SPIN_GAP = 3;  // px. 줄이 올라가도 둘러보기 버튼과 이�
 //    버튼 줄의 띠를 피하느라 더 작다 (까닭은 CLAUDE.md 에 적어 뒀다).
 // ⚠️ **낮추려면 「왜 작아져야 하는가」를 먼저 적는다** — 그냥 내리면 잣대를 결과에
 //    맞추는 것이고, 이 표가 막는 바로 그 사고가 조용히 돌아온다
+// ⚠️⚠️ **2026-10-06 에 «사람이» 내렸다** — 「크리처가 버튼에 가려져. 크기 30% 정도
+//    줄이고, 캐릭터 근처로 조금 이동시켜 줘」. 10-04 에 두 배로 키운 그 값을 거기서
+//    30% 되돌린 것이고(`PET_MAX` 92 → 62), **넓은 폭만 움직인다** — 265·320px 은
+//    상한이 아니라 **바닥**이 묶으므로 한 픽셀도 안 바뀐다(24 · 52).
+//    ⚠️ 이 표를 내리는 것은 **그 자체로는 못 할 일**이다. 신고가 「작아졌다」로 오면
+//    위의 10-04 기록을 먼저 읽을 것 — 그때 묶고 있던 것은 상한이 아니라 버튼 줄이었다
 const PET_WANT = {
-  265: { ground: 20, air: 20, water: 20 },
-  320: { ground: 46, air: 30, water: 46 },
-  390: { ground: 80, air: 44, water: 80 },
-  480: { ground: 88, air: 88, water: 88 },
+  265: { ground: 22, air: 22, water: 22 },
+  320: { ground: 50, air: 31, water: 50 },
+  390: { ground: 60, air: 47, water: 76 },
+  480: { ground: 60, air: 60, water: 76 },
 };
 
 function mask(A, B) {
@@ -1332,6 +1338,65 @@ function mask(A, B) {
     await page.close();
   }
 
+  // ═══ «첫 그리기»에서도 안 가려지는가 (`renderShowcase` 의 순서) ═══
+  //
+  // 「크리처가 버튼에 가려져」로 신고받았는데 **바로 위의 「크리처 가림」은 24자리가
+  // 다 0px² 였다.** 까닭은 잣대가 아니라 **재는 길**에 있었다 — 이 파일의 검사는 전부
+  // 상태를 심고 `render()` 를 부르므로 **늘 «두 번째 그리기»**를 잰다. 그때는 왼쪽
+  // 버튼 줄이 이미 서 있다.
+  //
+  // 세이브를 읽고 그리는 **첫 그리기**에서는 `renderShowcase()` 가
+  // `placePet()` 을 `renderActBadges()`(→ `renderSoloActs()`) «앞»에서 불러서,
+  // `#roomSolo` 가 **자식 0 · 높이 0** 인 채로 재진다 — 크리처가 바닥이 통째로
+  // 빈 줄 알고 끝까지 커지고, 그 위로 버튼이 올라온다. 390px 에서 **3407px²** 였다.
+  // 다시 그릴 일이 없으면 **그대로 남는다**(2.5초 뒤에도 같았다).
+  //
+  // ⚠️⚠️ **여기서는 아무것도 다시 안 그린다.** `maxTune()` 도 `render()` 도 부르지
+  //    않는다 — 한 줄이라도 부르면 그 순간 「두 번째 그리기」가 되어 **이 검사가
+  //    재려던 것이 통째로 사라진다**. 그래서 쓸 것은 **세이브뿐**이다
+  // ⚠️ **기다렸다 잰다** — 「첫 그리기 뒤에 저절로 낫는가」도 같이 보는 것이라,
+  //    바로 재면 「아직 안 그려졌다」와 구별이 안 된다
+  let firstDraw = '';
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 704 } });
+    await page.addInitScript(() => {
+      localStorage.setItem('dieter_alchemist_intro_seen_v1', '1');
+      localStorage.setItem('dieter_alchemist_save_v1', JSON.stringify({
+        ver: 18, name: 'Tester', nameClaimed: true, tutorialDone: true, roomLevel: 5,
+        creatures: ['flame_fox'], petRoom: 'flame_fox',
+        roomActs: ['exercise', 'binge', 'kitchen', 'harvest', 'farm'],
+        quest: { done: ['q_first', 'q_walk', 'q_sip'], active: null, n: 0, queue: [] },
+      }));
+    });
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForFunction(() => typeof S !== 'undefined' && typeof render === 'function');
+    await page.evaluate(() => { const s = document.getElementById('splash'); if (s) s.remove(); });
+    await page.waitForTimeout(1500);
+    const m = await page.evaluate(() => {
+      document.getAnimations().forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
+      const cre = document.querySelector('.stage-creature');
+      const solo = document.getElementById('roomSolo');
+      if (!cre || !solo) return null;
+      const c = cre.getBoundingClientRect(), s = solo.getBoundingClientRect();
+      const ox = Math.max(0, Math.min(c.right, s.right) - Math.max(c.left, s.left));
+      const oy = Math.max(0, Math.min(c.bottom, s.bottom) - Math.max(c.top, s.top));
+      return { over: +(ox * oy).toFixed(0), w: +c.width.toFixed(1), acts: solo.children.length };
+    });
+    if (!m) bad.push('첫 그리기: 크리처나 왼쪽 버튼 줄을 못 찾았다');
+    else {
+      // ⚠️ **버튼 줄이 정말 서 있는지부터 본다** — 줄이 비어 있으면 「안 겹쳤다」가
+      //    늘 참이라, 고치기 «전»의 코드까지 그대로 통과한다
+      if (m.acts < 3) bad.push(`첫 그리기: 왼쪽 방 버튼이 ${m.acts}개뿐이다 — 셋이 다 서야 잰 것이다`);
+      if (m.over > 0) {
+        bad.push(`첫 그리기: 크리처가 왼쪽 버튼 줄에 ${m.over}px² 가려졌다`
+          + ` (크리처 ${m.w.toFixed(1)}px · 다시 안 그리면 그대로 남는다)`);
+      }
+      firstDraw = `첫 그리기 — 390×704 에서 부팅만 하고 쟀다 (다시 안 그린다) ·`
+        + ` 크리처 ${m.w.toFixed(1)}px · 버튼 ${m.acts}개와 ${m.over}px²`;
+    }
+    await page.close();
+  }
+
   // ═══ 터치 기기에서는 «쓸어서» 돈다 (`roomSwipe*` · `room3d.spinDrag`) ═══
   //
   // ⚠️⚠️ **버튼을 누르는 것으로는 이 층을 한 줄도 못 잰다** — 위의 ④ 는 `spinRoom()` 을
@@ -1733,6 +1798,7 @@ function mask(A, B) {
   if (pet) console.log('  ' + pet);
   if (petShade) console.log('  ' + petShade);
   if (hide) console.log('  ' + hide);
+  if (firstDraw) console.log('  ' + firstDraw);
   if (swipe) console.log("  " + swipe);
   if (zoomRow) console.log("  " + zoomRow);
   console.log(`  (발 ${FOOT_MAX}px · SVG 와 ${SVG_MAX}px · 머리 뒤 벽 ${WALL_MIN * 100}% 까지`
