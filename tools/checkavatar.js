@@ -4530,6 +4530,12 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
       ['roomSolo', 'roomSpin'].forEach(id => {
         const el = document.getElementById(id); if (el) el.style.visibility = 'hidden';
       });
+      // ⚠️⚠️ **크리처도 치운다 — 2026-10-06 부터 «애교»를 부린다**(`petidle.js`).
+      //    그 움직임은 SMIL 이라 **`document.getAnimations()` 에 안 잡히고**, 멈춰 놓은
+      //    줄 알고 두 장을 찍으면 그 사이에 기울어 **몸 둘레의 「이웃과의 차이」가
+      //    0.24 → 1.09 로 튄다** (결을 도로 넣은 것으로 잡혔다 · 실제로 그랬다).
+      //    여기서 재는 것은 아바타의 필터라 크리처는 애초에 잴 것이 아니다
+      document.querySelectorAll('.stage-creature').forEach(el => { el.style.visibility = 'hidden'; });
       // ⚠️⚠️ **앞의 검사가 열어 둔 시트를 닫고 찍는다.** `.modal.show` 가 하나라도
       //    떠 있으면 `backdrop-filter: blur(3px)` 가 **화면 전체**에 걸려, 찍은 그림의
       //    살색이 통째로 흐려진다 — 살색으로 잡히는 픽셀이 **0개**가 되어

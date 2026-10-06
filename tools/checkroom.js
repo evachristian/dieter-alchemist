@@ -103,15 +103,16 @@ const HIDE_SPIN_GAP = 3;  // px. 줄이 올라가도 둘러보기 버튼과 이�
 // ⚠️⚠️ **2026-10-06 에 공중이 «올라갔다»** — 어깨로 올라가면서 버튼 줄의 띠를
 //    벗어나 바닥이 넓어졌다(320px 33 → 51.6 · 390px 48.6 → 62). **값이 커지는 쪽은
 //    그대로 올려 적는다** — 올리는 것은 빗장을 조이는 것이라 위의 경고에 안 걸린다.
-// ⚠️ `airF` 는 **바라보는 쪽이 있는 공중 마리**(지금 🔥 불꽃 나비)다. 그 마리는
-//    인물의 반대쪽에 서므로 **바닥이 다르다** — 390px 에서 오른쪽 버튼 줄 다섯이
-//    띠를 먹어 48.6px 이다 (왼쪽은 62px). 한 칸에 몰아 적으면 둘 중 작은 쪽이
+// ⚠️ `airF`·`groundF` 는 **바라보는 쪽이 있는 마리**(지금 🔥 불꽃 나비 · 🔥 화염 여우)다.
+//    그 마리는 인물의 반대쪽에 서므로 **바닥이 다르다** — 390px 에서 오른쪽 버튼 줄
+//    다섯이 띠를 먹어 48.6px 이다 (왼쪽은 62px). 한 칸에 몰아 적으면 둘 중 작은 쪽이
 //    기준이 되어 **큰 쪽이 반으로 줄어도 안 걸린다**
+// ⚠️ `groundF` 는 **재서** 적었다 (24.1 · 51.6 · 48.6 · 62 에서 2~4px 내린 값이다)
 const PET_WANT = {
-  265: { ground: 22, air: 22, airF: 22, water: 22 },
-  320: { ground: 50, air: 48, airF: 48, water: 50 },
-  390: { ground: 60, air: 60, airF: 46, water: 76 },
-  480: { ground: 60, air: 60, airF: 60, water: 76 },
+  265: { ground: 22, air: 22, airF: 22, groundF: 22, water: 22 },
+  320: { ground: 50, air: 48, airF: 48, groundF: 48, water: 50 },
+  390: { ground: 60, air: 60, airF: 46, groundF: 46, water: 76 },
+  480: { ground: 60, air: 60, airF: 60, groundF: 60, water: 76 },
 };
 
 function mask(A, B) {
@@ -187,7 +188,20 @@ function mask(A, B) {
       return { x: Math.round(r.left), y: Math.round(r.top),
         width: Math.round(r.width), height: Math.round(r.height) };
     });
-    const shot = async (c) => pngLumGrid(await page.screenshot({ clip: c || box }));
+    // ⚠️⚠️ **SMIL 은 `document.getAnimations()` 에 안 잡힌다** — 애교 모션(`petidle.js`)이
+    //    크리처 위에서 도는데, 그것을 안 멈추면 **두 장 사이에 크리처가 기울어** 그 몫이
+    //    diff 에 섞인다 (방의 밝기·발밑 그림자처럼 「껐다 켜서 달라지는 몫」을 재는
+    //    자리가 통째로 흔들린다). `svg.pauseAnimations()` 는 그 시계를 따로 멈춘다 —
+    //    **`setCurrentTime(0)` 으로 «쉬는 자세»에 못 박아** 매 판 같은 그림을 재게 한다
+    const freeze = () => page.evaluate(() => {
+      document.querySelectorAll('svg').forEach(s => {
+        try { s.pauseAnimations(); s.setCurrentTime(0); } catch (e) {}
+      });
+    });
+    const shot = async (c) => {
+      await freeze();
+      return pngLumGrid(await page.screenshot({ clip: c || box }));
+    };
     // ⚠️ 소품은 «자리»에 들어 있다 — 조각을 이름으로 바로 집지 않는다
     //    (`room3d.parts.units[자리].us[].grp`). 표에서 자리를 늘려도 따라온다
     const show = (what, on) => page.evaluate(([w, o]) => {
@@ -1425,7 +1439,7 @@ function mask(A, B) {
       + (isFinite(minSpin) ? ` (둘러보기와 ${minSpin.toFixed(1)}px)` : '')
       // ⚠️ **잰 크기를 통과할 때도 낸다** — 표를 누가 내렸는지가 여기서 바로 보인다
       + ` · 크기 ` + HIDE_W.map(w => `${w}:`
-        + ['ground', 'air', 'airF', 'water'].map(mv => (size[w] && size[w][mv] != null
+        + ['ground', 'air', 'airF', 'groundF', 'water'].map(mv => (size[w] && size[w][mv] != null
           ? size[w][mv].toFixed(0) : '?')).join('/')).join(' ');
     await page.close();
   }

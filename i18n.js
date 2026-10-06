@@ -3392,7 +3392,7 @@
       charcoal_toad: 'Charcoal Slime',
       ember_phoenix: 'Lava Penguin',
       // Earth
-      pebble_turtle: 'Pebble Turtle',
+      pebble_turtle: 'Sand Turtle',
       root_mole: 'Root Mole',
       moss_deer: 'Moss Deer',
       crystal_pangolin: 'Crystal Pangolin',

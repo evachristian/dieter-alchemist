@@ -90,6 +90,15 @@ const TILT_MIN_N = 60;   // 이보다 작은 먹 덩어리는 «입»이라 안 
 const SEAM_MAX = 2;      // ⑨ 귀 이음매 — 실루엣이 한 줄에 이만큼 넘게 안으로 꺾이면 «턱»이다
 const TAIL_MIN = 200;    // ⑩ 꼬리가 몸 밖으로 내놓아야 하는 몫 (200px 기준)
 
+// 「바라보는 쪽」이 **눈으로 본 것과 맞는가** (`Creature.FACE` · `gencreature` 의
+// `MOVE_MUST` 와 같은 조리법이다). 사람이 그림을 보고 「이 마리는 왼쪽을 본다」고
+// 짚어 준 것만 못으로 박는다 — 표에서 한 줄이 빠지면 그 마리가 조용히 인물에게
+// **등을 돌린 채** 서는데, `checkroom` 은 「FACE 에 있는 마리가 반대쪽에 서는가」만
+// 보므로 **빠진 줄은 영영 못 본다**.
+// ⚠️ **부품 그림은 정면 치비라 FACE 에 들어갈 수 없다**(② 가 좌우 대칭을 못 박는다) —
+//    그래서 「FACE 의 마리가 다 PREVIEW 인가」도 같이 본다
+const FACE_MUST = { ash_moth: 'left', flame_fox: 'left' };
+
 const near = (p, hex, tol) => {
   const n = parseInt(hex.slice(1), 16);
   return Math.abs(p[0] - ((n >> 16) & 255)) < tol
@@ -170,61 +179,59 @@ const near = (p, hex, tol) => {
         // ⚠️⚠️ **여백이 남아 있으면 그만큼 그대로 떠 보이고 작아진다.** 원숭이 원본이
         //    위 12% · 아래 11.6% 였는데, 그대로 넣으면 발이 바닥에서 9px 뜬다 —
         //    「둥둥 떠있어」로 두 번 신고받은 그 자리가 **그림 쪽에서** 돌아온다.
-        // ⚠️ 이것은 «그린 것»을 재는 잣대다 — 파일을 페이지에 띄워 `getBBox` 로
-        //    칠한 범위를 구한다 (표에 적힌 숫자가 아니다)
+        // ⚠️ 이것은 «그린 것»을 재는 잣대다 — 파일을 페이지에 띄워 **화면에 찍힌 자리**를
+        //    viewBox 칸으로 되돌린다 (표에 적힌 숫자가 아니다).
+        // ⚠️⚠️ **`getBBox()` 로 재면 안 된다 — 조각의 «제» 좌표다.** 받은 그림이 통째로
+        //    `<g transform=…>` 안에 들어 있으면(복숭아 고양이가 그렇다) 그 좌표가
+        //    viewBox 와 아무 상관이 없어 **여백이 120%·−687% 같은 수로 나온다**
+        //    (실제로 그랬다). 조상의 변환을 다 지나는 것은 `getBoundingClientRect()` 다.
+        // ⚠️⚠️ **상자를 viewBox 와 «같은 비»로 띄운다.** 400×400 짜리 네모에 띄우면
+        //    `preserveAspectRatio` 가 letterbox 를 넣어 1칸 = 1px 이 아니게 되고,
+        //    가로세로 배율이 갈려 **한 축의 여백만 조용히 틀린다**
         const host = document.createElement('div');
-        host.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;height:400px';
+        host.style.cssText = 'position:fixed;left:-9999px;top:0;width:1400px;height:1400px';
         host.innerHTML = await (await fetch(url, { cache: 'no-store' })).text();
         document.body.appendChild(host);
         const fs = host.querySelector('svg');
         let pad = null, ar = null, anim = 0, vbStr = null;
         if (fs) {
-          fs.setAttribute('width', '400'); fs.setAttribute('height', '400');
           const vb = fs.viewBox.baseVal;
+          fs.setAttribute('width', vb.width); fs.setAttribute('height', vb.height);
           vbStr = [vb.x, vb.y, vb.width, vb.height].join(' ');
           anim = fs.querySelectorAll('animate,animateTransform').length;
           let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-          fs.querySelectorAll('path').forEach(p => {
-            const b = p.getBBox();
-            x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
-            x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
-          });
-          // ⚠️⚠️ **움직이는 그림은 «한 바퀴 동안» 칠하는 자리를 본다.** `getBBox()` 는
-          //    조각의 «제» 좌표라 조상에 걸린 애니메이션을 못 보는데, 애교 모션은
-          //    고양이를 기울이고 늘려서 쉴 때보다 가로 45칸 · 세로 45칸을 더 쓴다 —
-          //    쉬는 자세만 재면 **멀쩡한 그림이 「여백 20%」로 잡히고**(실제로 그랬다),
-          //    반대로 여백을 그만큼 허용하면 안 움직이는 그림이 떠도 안 걸린다.
-          //    그래서 시계를 돌려 가며 «화면 자리»를 모아 viewBox 칸으로 되돌린다.
-          // ⚠️ **안 보이는 조각은 안 센다** — 하트는 불투명도 0 에서 출발해 날아가므로
+          // ⚠️⚠️ **움직이는 그림은 «한 바퀴 동안» 칠하는 자리를 본다.** 지금 그림 여섯은
+          //    다 정지 그림이지만(애교는 `petidle.js` 가 게임 쪽에서 씌운다),
+          //    누가 다시 움직임을 그림에 구우면 **쉬는 자세만 재는 잣대는 그만큼
+          //    작아진 크리처를 통과시킨다** — 그래서 시계를 돌려 보는 길을 남겨 둔다.
+          // ⚠️ **안 보이는 조각은 안 센다** — 불투명도 0 에서 출발하는 조각(하트)을
           //    그대로 세면 날아간 끝자리까지 상자가 된다
-          if (anim) {
-            const dur = 20;   // 초. 긴 쪽에 넉넉히 (지금 한 바퀴가 14초다)
-            fs.pauseAnimations();
-            const hidden = (n) => {
-              for (let q = n; q && q !== fs; q = q.parentNode) {
-                if ((parseFloat(getComputedStyle(q).opacity) || 0) < 0.04) return true;
-              }
-              return false;
-            };
-            for (let t = 0; t <= dur; t += 0.08) {
-              fs.setCurrentTime(t);
-              const sb = fs.getBoundingClientRect();
-              if (!sb.width || !sb.height) break;
-              fs.querySelectorAll('path').forEach(q => {
-                if (hidden(q)) return;
-                const r = q.getBoundingClientRect();
-                if (!r.width && !r.height) return;
-                const X = (v) => vb.x + (v - sb.left) / sb.width * vb.width;
-                const Y = (v) => vb.y + (v - sb.top) / sb.height * vb.height;
-                x0 = Math.min(x0, X(r.left)); x1 = Math.max(x1, X(r.right));
-                y0 = Math.min(y0, Y(r.top)); y1 = Math.max(y1, Y(r.bottom));
-              });
+          const times = [0];
+          if (anim) { fs.pauseAnimations(); for (let t = 0.08; t <= 20; t += 0.08) times.push(t); }
+          const hidden = (n) => {
+            for (let q = n; q && q !== fs; q = q.parentNode) {
+              if ((parseFloat(getComputedStyle(q).opacity) || 0) < 0.04) return true;
             }
-            // ⚠️ 상자 «밖»으로 나간 몫은 0 으로 접는다 — 여백을 재는 자리라
-            //    음수 여백(= 잘림)은 여기서 볼 것이 아니다 (아래 「애교 모션」이 본다)
-            x0 = Math.max(x0, vb.x); y0 = Math.max(y0, vb.y);
-            x1 = Math.min(x1, vb.x + vb.width); y1 = Math.min(y1, vb.y + vb.height);
+            return false;
+          };
+          for (const t of times) {
+            if (anim) fs.setCurrentTime(t);
+            const sb = fs.getBoundingClientRect();
+            if (!sb.width || !sb.height) break;
+            fs.querySelectorAll('path,ellipse,circle,rect,polygon').forEach(q => {
+              if (hidden(q)) return;
+              const r = q.getBoundingClientRect();
+              if (!r.width && !r.height) return;
+              const X = (v) => vb.x + (v - sb.left) / sb.width * vb.width;
+              const Y = (v) => vb.y + (v - sb.top) / sb.height * vb.height;
+              x0 = Math.min(x0, X(r.left)); x1 = Math.max(x1, X(r.right));
+              y0 = Math.min(y0, Y(r.top)); y1 = Math.max(y1, Y(r.bottom));
+            });
           }
+          // ⚠️ 상자 «밖»으로 나간 몫은 0 으로 접는다 — 여백을 재는 자리라
+          //    음수 여백(= 잘림)은 여기서 볼 것이 아니다
+          x0 = Math.max(x0, vb.x); y0 = Math.max(y0, vb.y);
+          x1 = Math.min(x1, vb.x + vb.width); y1 = Math.min(y1, vb.y + vb.height);
           if (isFinite(x0) && vb.width && vb.height) {
             ar = +(vb.width / vb.height).toFixed(3);
             pad = {
@@ -247,24 +254,8 @@ const near = (p, hex, tol) => {
         // ⚠️ `meet`(꽉 차게가 아니라 들어가게) · `YMax`(아래 맞춤 = 발이 바닥에)가 짝이다
         const par = (svg.match(/<image[^>]*preserveAspectRatio="([^"]*)"/) || [])[1] || '';
         const full = /<image[^>]*width="100"/.test(svg) || /<image[^>]*width="\$/.test(svg);
-        // 움직이는 그림의 «쉬는 짝» — viewBox 가 같아야 갈아 끼울 때 제자리에 선다
-        let still = null;
-        const sf = (Creature.PREVIEW_STILL || {})[id];
-        if (sf) {
-          const h2 = document.createElement('div');
-          h2.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;height:400px';
-          const rr = await fetch(location.origin + '/' + sf, { cache: 'no-store' });
-          h2.innerHTML = await rr.text();
-          document.body.appendChild(h2);
-          const s2 = h2.querySelector('svg');
-          const v2 = s2 && s2.viewBox.baseVal;
-          still = { file: sf, ok: rr.ok, ct: rr.headers.get('content-type') || '',
-            vb: v2 ? [v2.x, v2.y, v2.width, v2.height].join(' ') : null,
-            anim: s2 ? s2.querySelectorAll('animate,animateTransform').length : -1 };
-          h2.remove();
-        }
         prev.push({ id, file: Creature.PREVIEW[id], ok: r.ok, ct, n, wired, pad, ar, par, full,
-          anim, vb: vbStr, still });
+          anim, vb: vbStr, move: c ? c.move : '?' });
       } catch (e) { prev.push({ id, file: Creature.PREVIEW[id], err: String(e) }); }
     }
     // 속성 여섯과 «그 속성의 마리가 다 갈아 끼워졌는가» — 아래의 색 검사가 쓴다
@@ -272,7 +263,7 @@ const near = (p, hex, tol) => {
     const attrs = [...new Set(every.map(c => c.attr))];
     const fullySwapped = attrs.filter(a => every.filter(c => c.attr === a)
       .every(c => skip.includes(c.id)));
-    return { res, skip, prev, attrs, fullySwapped };
+    return { res, skip, prev, attrs, fullySwapped, face: Creature.FACE || {} };
   }, SZ);
   await browser.close();
   const out = shots.res, skipped = shots.skip, prev = shots.prev;
@@ -623,33 +614,22 @@ const near = (p, hex, tol) => {
             + ` (preserveAspectRatio="${q.par || '(없다)'}" · 상자를 다 쓰는가 ${q.full}`
             + ` · 그림마다 비가 달라서 한 값으로는 납작해진다)`);
         }
-        // ─ ⓒ 움직이는 그림의 «쉬는 짝» ─
+        // ─ ⓒ 그림 파일에 «움직임»이 섞여 있지 않은가 ─
         //
-        // ⚠️⚠️ **`prefers-reduced-motion` 은 `<image>` 를 못 넘는다 — 재 봤다.** 그래서
-        //    파일 안의 `@media` 에 기댈 수 없고, 쉬는 자세를 **딴 파일**로 두고
-        //    `Creature.previewFile()` 이 갈아 끼운다. 여기서 보는 것은 그 짝이
-        //    ① 진짜 SVG 로 오는가 ② 움직임이 섞이지 않았는가
-        //    ③ **viewBox 가 같은 값인가**(다르면 갈아 끼울 때 크리처가 튄다)
-        if (q.still) {
-          const t = q.still;
-          if (!t.ok || !/svg/.test(t.ct)) {
-            bad.push(`${q.id}: 쉬는 짝 ${t.file} 이 SVG 로 안 온다 (${t.ok ? t.ct : '못 받았다'})`);
-          } else if (t.anim > 0) {
-            bad.push(`${q.id}: 쉬는 짝 ${t.file} 에 애니메이션이 ${t.anim}개 섞여 있다`
-              + ` — 움직임 줄이기에서 멎어야 한다`);
-          } else if (t.vb !== q.vb) {
-            bad.push(`${q.id}: 쉬는 짝의 viewBox 가 «${t.vb}» 인데 ${q.file} 은 «${q.vb}» 다`
-              + ` — 갈아 끼울 때 크리처가 그만큼 튄다`);
-          }
-        } else if (q.anim > 0) {
-          bad.push(`${q.id}: ${q.file} 이 움직이는데 «쉬는 짝»이 없다`
-            + ` (Creature.PREVIEW_STILL · 움직임 줄이기에서 멎을 길이 없다)`);
+        // ⚠️⚠️ **애교는 그림이 아니라 게임이 씌운다**(`petidle.js`). 그림에 구우면
+        //    둘이 한꺼번에 깨진다:
+        //    ① **`prefers-reduced-motion` 이 `<image>` 를 못 넘는다**(재 봤다 · 켜고도
+        //       0.8초에 4268칸이 달라졌다) — 멎을 길이 없어진다
+        //    ② **viewBox 가 움직임까지 품어야 해서 그 마리만 작아진다** — 쉬는 자세가
+        //       상자의 81% 가 되어 「화염 여우 크기가 좀 작은 것 같아」로 신고받았다
+        if (q.anim > 0) {
+          bad.push(`${q.id}: ${q.file} 안에 애니메이션이 ${q.anim}개 있다`
+            + ` — 애교는 petidle.js 가 씌운다 (그림에 구우면 움직임 줄이기에서 못 멎고,`
+            + ` viewBox 가 움직임까지 품느라 그 마리만 작아진다)`);
         }
         console.log(`  미리 보기 ${q.id} — ${q.file} 가 SVG 로 온다 (${(q.n / 1024).toFixed(1)}KB`
           + ` · 비 ${q.ar} · 여백 최대 ${q.pad ? Math.max(q.pad.l, q.pad.r, q.pad.t, q.pad.b) : '?'}%`
-          + ` · ${q.par}`
-          + (q.anim ? ` · 움직임 ${q.anim}개 · 쉬는 짝 ${q.still ? q.still.file : '(없다)'}` : '')
-          + `)`);
+          + ` · ${q.par} · 움직임 ${q.anim}개)`);
       }
     });
   }
@@ -661,35 +641,89 @@ const near = (p, hex, tol) => {
   console.log(`  귀 이음매 — 제일 깊은 턱 ${seam}px (${seamN}마리 · ${seamRows}줄)`
     + ` · 꼬리가 몸 밖으로 제일 적게 나온 마리 ${tailMin === 1e9 ? '-' : tailMin}px (${tailN}마리)`);
   console.log(`  (상자 가장자리 ${EDGE}px · 대칭 ${SYM_MIN} · 빛 ${HI_WANT}점 · 흰자 ${WHITE_MAX * 100}% · 둘레 먹선 ${LINE_MAX * 100}% 아래 · 눈 크기는 재기만 한다)`);
-  // ═══ 애교 모션 — 4초 움직이고 10초 쉬는가 (`cat-happy.svg` 의 SMIL) ═══
+  // ═══ 애교 모션 — 4초 움직이고 10초 쉬는가 (`petidle.js`) ═══
   //
   // 「"화염 여우"가 애교를 부리는 IDLE 애니메이션을 넣고 싶어. 4초 출력 후 10초 가만히
-  // 있다가 다시 4초 출력」으로 받은 자리다 (2026-10-06).
+  // 있다가 다시 4초 출력」으로 받고(2026-10-06), 이어서 「"화염 여우" 처럼 바닥에
+  // 붙어있는 스타일일 경우, 같은 애니메이션 넣어줘」로 받은 자리다.
   //
-  // ⚠️⚠️ **위의 ⓐ~ⓒ 는 이 축을 영영 못 본다** — 거기서 보는 것은 «파일»이다
-  //    (viewBox · 애니메이션 «개수» · 쉬는 짝의 존재). 애니메이션을 선언만 해 놓고
-  //    `<image>` 가 그것을 안 돌려도 셋이 다 통과한다 — 그래서 **찍어서** 본다.
-  // ⚠️⚠️ **한 바퀴의 어디서 시작하는지는 모른다**(그림이 실리는 순간부터 돈다).
-  //    그래서 시각을 박지 않고 **15초를 촘촘히 훑어 «움직인 구간»과 «쉰 구간»을 찾는다** —
+  // ⚠️⚠️ **받는 마리는 «목록»이 아니라 규칙이다** — 바닥에 선(`move === 'ground'`)
+  //    PREVIEW 크리처가 다 받는다. 그래서 여기서도 목록을 안 적고 **데이터에서 뽑는다** —
+  //    그림을 하나 더 넣으면 검사도 저절로 그 마리를 잰다.
+  // ⚠️⚠️ **위의 ⓐ~ⓒ 는 이 축을 영영 못 본다** — 거기서 보는 것은 «파일»이고,
+  //    지금 그림 여섯은 다 정지 그림이다. 리그를 통째로 안 씌워도 셋이 다 통과한다 —
+  //    그래서 **찍어서** 본다.
+  // ⚠️⚠️ **한 바퀴의 어디서 시작하는지는 모른다**(판이 실리는 순간부터 돈다).
+  //    그래서 시각을 박지 않고 **17초를 촘촘히 훑어 «움직인 구간»과 «쉰 구간»을 찾는다** —
   //    주기를 고쳐도 따라온다.
   // ⚠️ 방이 아니라 **빈 판 위에** 그려 놓고 찍는다 — 방을 찍으면 촛불·먼지가 흔들려
   //    「그림이 움직였는가」를 못 가른다 (가르지 못하는 잣대다)
   let idle = '';
-  const animIds = Object.keys(prev.filter(q => q.anim > 0).reduce((o, q) => (o[q.id] = 1, o), {}));
+  // ═══ 「바라보는 쪽」이 표에 그대로 남아 있는가 (`FACE_MUST`) ═══
+  {
+    const face = shots.face;
+    const prevIds = prev.map(q => q.id);
+    Object.keys(FACE_MUST).forEach(id => {
+      if (face[id] !== FACE_MUST[id]) {
+        bad.push(`바라보는 쪽: ${id} 가 «${FACE_MUST[id]}» 이어야 하는데 «${face[id] || '(없다)'}» 다`
+          + ` — 빠지면 그 마리가 인물에게 등을 돌린 채 선다`);
+      }
+    });
+    Object.keys(face).forEach(id => {
+      if (!prevIds.includes(id)) {
+        bad.push(`바라보는 쪽: ${id} 는 대고 따라 그린 그림이 아닌데 FACE 에 있다`
+          + ` — 부품 그림은 정면 치비라 바라보는 쪽이 없다`);
+      }
+    });
+    console.log(`  바라보는 쪽 — ${Object.keys(face).length}마리`
+      + ` (${Object.keys(face).map(id => `${id} ${face[id]}`).join(' · ')})`);
+  }
+  const animIds = prev.filter(q => q.move === 'ground').map(q => q.id);
   if (!animIds.length) {
-    console.log('⚠️ 움직이는 그림이 하나도 없다 — 「애교 모션」을 한 번도 안 쟀다');
+    console.log('⚠️ 바닥에 선 미리 보기 크리처가 하나도 없다 — 「애교 모션」을 한 번도 안 쟀다');
   } else {
     const SPAN = 17000;                // ms. 한 바퀴(14초)보다 길게 훑는다
     const STEP = 220;                  // ms. 바라는 간격 (찍고 푸는 데 드는 시간은 뺀다)
     const MOVE_CELLS = 40;             // 이만큼 달라지면 «움직였다»로 센다
     const MOVE_MIN = 2.0, REST_MIN = 8.0;   // 초 — 움직인 몫 · 제일 긴 쉼
-    for (const id of animIds) {
-      for (const rm of ['no-preference', 'reduce']) {
+    // ⚠️ **재서 골랐다** — 잘라 놓으면 **0칸**이고, 지금 제일 적은 마리가 **77칸**이다
+    //    (여우 170 · 원숭이 77 · 말랑이 170 · 펭귄 157 · 거북 331 — 가로로 넓은 그림일수록
+    //    상자에 낮게 서서 위로 덜 나간다). 그 절반 자리에 둔다
+    const OUT_CELLS = 40;              // 상자 «밖»에서 달라지는 칸 (잘리면 0 이 된다)
+    // ⚠️ 움직임 줄이기는 **마크업으로 다 보고 픽셀로 한 마리**를 본다 — 끄는 줄이
+    //    `idleOn()` 한 곳이라 길이 하나이고, 그래도 「화면이 진짜 멎는가」는 재야 한다
+    const shots = animIds.map(id => [id, 'no-preference']).concat([[animIds[0], 'reduce']]);
+    for (const [id, rm] of shots) {
+      {
         const bw = await chromium.launch({
           executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
         const pg = await bw.newPage({ viewport: { width: 420, height: 420 }, reducedMotion: rm });
         await pg.goto(BASE, { waitUntil: 'load' });
         await pg.waitForFunction(() => window.Creature && window.GameData);
+        // ⓓ **리그가 «바닥에 선 마리»에만 붙는가** — 마크업으로 다 본다.
+        //    픽셀 검사는 한 마리씩이라, 공중·어항까지 애교를 부리게 되는 사고를
+        //    (그 마리가 표본이 아니면) 통째로 못 본다
+        const wiring = await pg.evaluate(() => {
+          const out = [];
+          Object.keys(Creature.PREVIEW).forEach(cid => {
+            const c = GameData.RECIPES.map(x => x.result).find(x => x.id === cid);
+            if (!c) return;
+            const g = Creature.draw(c, { flat: true, idle: true });
+            out.push({ id: cid, move: c.move, rig: /class="cr-idle"/.test(g),
+              // 리그를 안 씌울 때도 그림은 그대로 와야 한다
+              img: (g.match(/<image/g) || []).length });
+          });
+          return out;
+        });
+        wiring.forEach(w => {
+          const want = rm !== 'reduce' && w.move === 'ground';
+          if (w.rig !== want) {
+            bad.push(`애교 모션: ${w.id}(${w.move})에 리그가 ${w.rig ? '붙었다' : '안 붙었다'}`
+              + ` — ${rm === 'reduce' ? '움직임 줄이기에서는 아무도 안 받아야 한다'
+                : want ? '바닥에 선 마리는 받아야 한다' : '바닥에 선 마리만 받는다'}`);
+          }
+          if (w.img !== 1) bad.push(`애교 모션: ${w.id} 의 그림이 ${w.img}장이다 (한 장이어야 한다)`);
+        });
         const ok = await pg.evaluate((cid) => {
           const c = GameData.RECIPES.map(x => x.result).find(x => x.id === cid);
           if (!c) return false;
@@ -699,8 +733,17 @@ const near = (p, hex, tol) => {
           //    `position: fixed` 라, 그냥 얹으면 **헤더가 이 판 위에 그려진다** —
           //    그러면 시계·저장 칩이 흔들려 「그림이 움직였는가」를 못 가른다
           //    (실제로 그렇게 짜서 «쉬는 구간 2.8초»가 나왔다)
+          // ⚠️ **상자를 그림보다 넉넉히 둔다** — 애교는 상자 밖으로 나가므로(하트가
+          //    위로 떠오른다) 꽉 맞춘 판에서는 그 몫이 잘려 덜 움직인 것으로 나온다
           h.style.cssText = 'position:fixed;left:20px;top:20px;width:260px;height:260px;background:#fff;z-index:99999';
-          h.innerHTML = Creature.draw(c, { flat: true, size: 260 });
+          // ⚠️⚠️ **`class="stage-creature"` 를 그대로 쓴다 — 그래야 방의 CSS 를 지난다.**
+          //    `overflow: visible` 은 `.stage-creature svg.cr-svg` 에 걸려 있어서,
+          //    맨 `<div>` 에 그려 놓고 재면 **그 줄이 한 번도 안 걸리고** 상자 밖이
+          //    늘 0칸으로 나온다 (그렇게 짰다가 멀쩡한 다섯이 걸렸다).
+          //    자리·크기만 인라인으로 덮어쓴다 (방에서는 `placePet()` 이 정하는 값이다)
+          h.innerHTML = `<span class="stage-creature" style="position:absolute;left:30px;top:50px;`
+            + `right:auto;bottom:auto;width:200px;height:200px">`
+            + Creature.draw(c, { flat: true, size: 200, idle: true }) + `</span>`;
           document.body.appendChild(h);
           return true;
         }, id);
@@ -721,10 +764,23 @@ const near = (p, hex, tol) => {
           if (left > 0) await pg.waitForTimeout(left);
         }
         await bw.close();
+        // ⓔ **움직임이 상자 «밖»으로 나가는가** — 애교는 기울고 늘어나느라 상자보다
+        //    크게 쓰고 하트는 위로 떠오른다. `.cr-svg` 가 `overflow: hidden` 이면
+        //    **4초 동안 머리가 잘린다** — 그런데 상자 «안»도 여전히 움직이므로
+        //    위의 ①만으로는 한 줄도 안 걸린다 (가르지 못하는 잣대다).
+        //    그래서 **크리처 상자 위쪽 띠**에서 달라지는 칸을 따로 센다
+        const BOX_TOP = 30;   // 판(20,20) 안에서 크리처가 50px 아래에 선다 → 그 위 30px 띠
         const moved = [];
+        let outCells = 0;
         for (let i = 1; i < fr.length; i++) {
-          let n = 0;
-          for (let j = 0; j < fr[0].l.length; j++) if (Math.abs(fr[i - 1].l[j] - fr[i].l[j]) > 0.03) n++;
+          let n = 0, out = 0;
+          for (let j = 0; j < fr[0].l.length; j++) {
+            if (Math.abs(fr[i - 1].l[j] - fr[i].l[j]) > 0.03) {
+              n++;
+              if (Math.floor(j / fr[0].w) < BOX_TOP) out++;
+            }
+          }
+          outCells = Math.max(outCells, out);
           moved.push({ dt: (ts[i] - ts[i - 1]) / 1000, m: n > MOVE_CELLS });
         }
         const nMove = moved.filter(x => x.m).reduce((a, x) => a + x.dt, 0);
@@ -733,25 +789,32 @@ const near = (p, hex, tol) => {
         const sec = (k) => k.toFixed(1);
         const span = (ts[ts.length - 1] / 1000).toFixed(1);
         if (rm === 'reduce') {
-          // ⚠️ 「쉬는 짝으로 갈아 끼웠는가」는 위의 ⓒ 가 «파일»로 본다. 여기서는
+          // ⚠️ 「리그를 안 씌웠는가」는 바로 위의 ⓓ 가 «마크업»으로 본다. 여기서는
           //    **화면이 진짜로 멎었는가**를 본다 (둘이 보는 것이 다르다)
           if (nMove > 0) bad.push(`애교 모션: ${id} 가 움직임 줄이기에서도 ${sec(nMove)}초 동안 움직인다`);
         } else {
           if (nMove < MOVE_MIN) {
             bad.push(`애교 모션: ${id} 가 ${span}초 동안 ${sec(nMove)}초만 움직였다`
-              + ` (${sec(MOVE_MIN)}초 이상 · 선언만 해 놓고 안 도는 것이다)`);
+              + ` (${sec(MOVE_MIN)}초 이상 · 씌워 놓고 안 도는 것이다)`);
           }
           if (rest < REST_MIN) {
             bad.push(`애교 모션: ${id} 가 «쉬는 구간»이 ${sec(rest)}초뿐이다`
               + ` (${sec(REST_MIN)}초 이상 · 4초 움직이고 10초 쉬어야 한다)`);
           }
-          idle = `애교 모션 — ${id} 가 ${span}초(${fr.length}장) 중 ${sec(nMove)}초 움직이고`
-            + ` 제일 긴 쉼이 ${sec(rest)}초다 (움직임 줄이기에서는 멎는다)`;
+          if (outCells < OUT_CELLS) {
+            bad.push(`애교 모션: ${id} 의 움직임이 상자 «밖»으로 ${outCells}칸밖에 안 나간다`
+              + ` (${OUT_CELLS}칸 이상 · overflow 가 hidden 이면 4초 동안 머리가 잘린다`
+              + ` · 상자 안은 그대로 움직이므로 ①로는 한 줄도 안 걸린다)`);
+          }
+          idle += `${idle ? ' · ' : ''}${id} ${sec(nMove)}초 움직이고 ${sec(rest)}초 쉰다`
+            + `(상자 밖 ${outCells}칸)`;
         }
       }
     }
   }
-  if (idle) console.log('  ' + idle);
+  // **몇 마리를 쟀는지 통과할 때도 낸다** — 0건이 「통과」인지 「안 쟀다」인지를 가른다
+  if (idle) console.log(`  애교 모션 — 바닥에 선 ${animIds.length}마리 (${idle})`
+    + ` · 움직임 줄이기에서는 멎는다`);
   if (bad.length) {
     console.log(`❌ ${bad.length}건`);
     bad.slice(0, 20).forEach(m => console.log('   ' + m));

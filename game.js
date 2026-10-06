@@ -5172,8 +5172,11 @@ function petStage(pet) {
       + `<span class="cr-swim">${Creature.draw(pet, { flat: true, noShadow: true })}</span>`
       + `${b.front}</span>`;
   }
+  // ⚠️ **애교 모션은 «방에 선 마리»에만 씌운다**(`idle`). 도감 칸·목록은 46px 짜리
+  //    작은 칸이라 애교가 움직이는 몫이 칸 밖으로 나가 이웃을 덮는다 — 사람이 요청한
+  //    것도 방의 IDLE 이다. 바닥에 선 마리만 받는 것은 `Creature.idleOn()` 이 정한다
   return `<span class="stage-creature ${pet.move === 'air' ? 'cr-air' : 'cr-ground'}${side}">`
-    + `${Creature.draw(pet, { flat: true })}</span>`;
+    + `${Creature.draw(pet, { flat: true, idle: true })}</span>`;
 }
 
 // ─── 크리처는 «화면에 찍힌» 치마 옆선 옆에 선다 ──────────────

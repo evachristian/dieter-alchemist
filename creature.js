@@ -420,29 +420,30 @@
   //    안 쟀는지 같이 낸다** — 0건이 「통과」로 보이면 안 된다.
   // ⚠️ **데이터(`art`)도 안 건드린다** — 축 표를 다시 뽑으면 id 가 흔들려
   //    세이브의 크리처가 바뀐다 (아래 `coreOf` 와 같은 규칙이다).
-  const PREVIEW = { flame_fox: 'cat-happy.svg', ember_newt: 'peach-monkey.svg',
+  const PREVIEW = { flame_fox: 'peach-cat.svg', ember_newt: 'peach-monkey.svg',
                     ash_moth: 'peach-butterfly.svg', charcoal_toad: 'peach-slime.svg',
-                    ember_phoenix: 'peach-penguin.svg' };
+                    ember_phoenix: 'peach-penguin.svg', pebble_turtle: 'sand-turtle.svg' };
 
-  // ─── 움직이는 그림의 «가만히 있는 짝» ───────────────────────────
+  // ─── 애교 모션 — «바닥에 선» 마리가 4초 움직이고 10초 쉰다 ──────
   //
-  // 🔥 화염 여우의 그림은 **SMIL 로 애교를 부린다** (4초 움직이고 10초 쉰다 ·
-  // 2026-10-06 에 사람이 보내 준 SVG 다).
+  // 2026-10-06 에 사람이 🔥 화염 여우의 애교 SVG 를 보내 줬고, 이어서
+  // 「"화염 여우" 처럼 바닥에 붙어있는 스타일일 경우, 같은 애니메이션 넣어줘」로 받았다.
   //
-  // ⚠️⚠️ **`prefers-reduced-motion` 은 `<image>` 를 «못 넘는다» — 재 봤다.** 사람이
-  //    보낸 파일에는 `@media(prefers-reduced-motion:reduce){.motion{display:none}}` 가
-  //    들어 있는데, 그 파일을 `<image href>` 로 불러오면 그 줄이 **한 번도 안 먹는다**
-  //    (움직임 줄이기를 켜고 재도 0.8초에 4268칸이 달라졌다). 그래서 **쉬는 자세만
-  //    떼어 낸 짝**을 두고 여기서 갈아 끼운다 — 「움직임 줄이기에서 멎는다」는
-  //    이 저장소의 약속이고(아바타의 아이들 모션과 같은 자리), 글로만 두면 안 지켜진다.
-  // ⚠️ **두 파일의 `viewBox` 가 같은 값이라야** 갈아 끼울 때 크리처가 제자리에 선다
-  const PREVIEW_STILL = { flame_fox: 'cat-happy-still.svg' };
+  // ⚠️⚠️ **받는 마리를 «목록»으로 적지 않는다 — 「바닥에 선 PREVIEW 크리처」가 규칙이다.**
+  //    그림을 하나 더 넣으면 저절로 따라오고, 공중·어항은 저절로 빠진다 (공중 크리처는
+  //    어깨에 떠 있고 어항은 받침이 바닥을 맡으니, 바닥을 디딘 애교가 성립하지 않는다).
+  // ⚠️⚠️ **리그는 `petidle.js` 한 곳이다** — 그림 파일마다 구우면 네 벌이 되고,
+  //    한 벌만 고쳐 갈린다. 그림 파일은 전부 «정지 그림»이고 애교는 게임이 씌운다.
+  // ⚠️⚠️ **움직임 줄이기에서는 리그를 «아예 안 그린다»** — 파일 안의
+  //    `@media(prefers-reduced-motion)` 는 `<image>` 로 불러오면 **한 번도 안 먹는다**
+  //    (재 봤다 · 켜고도 0.8초에 4268칸이 달라졌다). 그래서 쉬는 자세만 떼어 낸 짝 파일을
+  //    두고 있었는데, 리그가 게임으로 올라오면서 **그 짝이 필요 없어졌다** — 여기서
+  //    안 그리면 그만이다. 「움직임 줄이기에서 멎는다」는 이 저장소의 약속이다
+  //    (아바타의 아이들 모션과 같은 자리).
   // ⚠️ 물어보는 때가 «그릴 때»다 — 상수로 한 번 읽어 두면 설정을 바꿔도 안 따라온다
-  function previewFile(id) {
-    const still = PREVIEW_STILL[id];
-    if (still && window.matchMedia
-        && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return still;
-    return PREVIEW[id];
+  function idleOn(c, opts) {
+    return !!(opts.idle && c.move === 'ground' && window.PetIdle
+      && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches));
   }
 
   // ─── 그림이 «바라보는 쪽» ───────────────────────────────────────
@@ -456,7 +457,7 @@
   //    서는 쪽을 바로 적으면 그림을 뒤집었을 때 왜 그 자리인지가 사라진다.
   // ⚠️ 여기 없는 마리는 정면이라 **왼쪽**이다 — 오래 그래 왔고, 왼쪽 버튼 줄과
   //    치마 옆선을 재는 셈이 거기에 맞춰져 있다 (`placePet`)
-  const FACE = { ash_moth: 'left' };
+  const FACE = { ash_moth: 'left', flame_fox: 'left' };
   function standSide(c) { return (c && FACE[c.id] === 'left') ? 'right' : 'left'; }
 
   // ⚠️ 캐시 버스터는 제 `<script>` 태그에서 물려받는다 (`tutorial.js` 의 `ASSET_Q` 와
@@ -472,18 +473,27 @@
   //    필요 없다 — 그림을 하나 더 넣어도 여기는 한 글자도 안 고친다.
   // ⚠️ **`xMidYMax` 다** — 가운데 정렬 + **아래 맞춤**이라 발이 `GROUND` 에 닿는다.
   //    `YMid` 로 두면 가로로 넓은 그림이 상자 한가운데에 떠서 바닥에서 뜬다.
-  // ⚠️ **그래서 그림의 `viewBox` 는 «칠한 데에 바짝» 잘라 둔다** (지금 다섯 다 2.2% 안).
-  //    여백이 남아 있으면 그만큼 그대로 떠 보인다 — 원숭이 원본이 위아래 12% 였다
+  // ⚠️ **그래서 그림의 `viewBox` 는 «칠한 데에 바짝» 잘라 둔다** (지금 여섯 다 2.2% 안).
+  //    여백이 남아 있으면 그만큼 그대로 떠 보인다 — 원숭이 원본이 위아래 12% 였다.
+  //    🔥 화염 여우가 「좀 작은 것 같아」로 신고받은 자리가 바로 이것이다: 그 그림만
+  //    **움직임까지 품은 상자**였어서(쉬는 자세가 viewBox 의 81%) 혼자 작게 섰다.
+  //    리그를 게임으로 올려 그림을 정지 그림으로 되돌리자 **24% 커져** 원숭이와 나란해졌다
   function previewSvg(c, opts) {
     const ph = GROUND - TOP_PAD;
     const attr = (window.GameData && GameData.creatureAttr(c.attr)) || { color: '#9a8fb0' };
+    const href = PREVIEW[c.id] + ASSET_Q;
+    // 「쉬는 자세가 놓일 네모」는 하나다 — 애교를 씌우든 안 씌우든 같은 자리·같은 크기다
+    const slot = { x: 0, y: TOP_PAD, w: W, h: +ph.toFixed(1) };
+    const art = idleOn(c, opts)
+      ? PetIdle.image(href, slot)
+      : `<image href="${href}" x="${slot.x}" y="${slot.y}" width="${slot.w}"`
+        + ` height="${slot.h}" preserveAspectRatio="xMidYMax meet"/>`;
     return `<svg class="cr-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
       role="img" aria-label="${(c.name || '').replace(/"/g, '')}"
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
       ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(attr.color, 88)}"/>`}
       ${opts.noShadow ? '' : footShade(c, attr.color)}
-      <image href="${previewFile(c.id)}${ASSET_Q}" x="0" y="${TOP_PAD}"
-        width="${W}" height="${ph.toFixed(1)}" preserveAspectRatio="xMidYMax meet"/>
+      ${art}
     </svg>`;
   }
 
@@ -627,5 +637,5 @@
   //    (`game.js` 의 `placePetY()`). 그 숫자를 저쪽에 적으면 그림을 고쳤을 때 자리만
   //    옛 값에 남는다
   window.Creature = { draw, icon, bowl, of, W, H, GROUND, BOWL_FLOOR, AIR_MID,
-    SHAPE, HORN, WING, TAIL, EYE, PREVIEW, PREVIEW_STILL, previewFile, FACE, standSide };
+    SHAPE, HORN, WING, TAIL, EYE, PREVIEW, idleOn, FACE, standSide };
 })();

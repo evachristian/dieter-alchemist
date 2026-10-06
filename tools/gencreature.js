@@ -119,11 +119,17 @@ const TABLE = [
     inputs: ['berry', 'dry_root', 'flint'],                 art: C('quad', 'tuft', 'none', 'none', 'puff', 'sharp', 'none') },
   { id: 'charcoal_toad',    attr: 'fire',  grade: 'mid',   ko: '숯불 말랑이',   en: 'Charcoal Slime',
     inputs: ['flint', 'mushroom', 'walnut'],                art: C('blob', 'none', 'none', 'none', 'none', 'sleepy', 'spot') },
+  // ⚠️⚠️ **펭귄은 «날개»를 안 가진다** — 「펭귄은 부유형이 아니야. 땅에 붙어있게」로
+  //    신고받은 자리다. `moveOf` 가 「날개가 있으면 공중」이라 `wing: 'bird'` 하나로
+  //    **허공에 뜬 펭귄**이 됐다. 햇살 암탉(`sunbeam_hen`)이 이미 같은 자리다 —
+  //    `body: 'bird'` 는 그대로 두고 **날개만** 뺀다 (펭귄도 날개가 있긴 하지만
+  //    그것으로 «나는» 새가 아니고, 이 표에서 `wing` 이 뜻하는 것은 「난다」다)
   { id: 'ember_phoenix',    attr: 'fire',  grade: 'high',  ko: '용암 펭귄',     en: 'Lava Penguin',
-    inputs: ['eagle_feather', 'flint', 'sun_seed'], art: C('bird', 'none', 'none', 'bird', 'long', 'sharp', 'glow') },
+    inputs: ['eagle_feather', 'flint', 'sun_seed'], art: C('bird', 'none', 'none', 'none', 'long', 'sharp', 'glow') },
 
   // ── 땅 ──
-  { id: 'pebble_turtle',    attr: 'earth', grade: 'basic', ko: '조약돌 거북',   en: 'Pebble Turtle',
+  // ⚠️ `pebble_turtle` 도 **이름만 바꿨다** — «조약돌»이 아니라 **모래 꼬북**이다
+  { id: 'pebble_turtle',    attr: 'earth', grade: 'basic', ko: '모래 꼬북',     en: 'Sand Turtle',
     inputs: ['clover', 'moss_branch'],                      art: C('blob', 'none', 'none', 'none', 'none', 'sleepy', 'spot') },
   { id: 'root_mole',        attr: 'earth', grade: 'basic', ko: '뿌리 두더지',   en: 'Root Mole',
     inputs: ['fern', 'walnut'],                             art: C('bear', 'round', 'none', 'none', 'puff', 'dot', 'none') },
@@ -307,7 +313,8 @@ for (const id of LEGACY) if (!seenId.has(id)) problems.push(`옛 id 가 사라�
 const MOVE_MUST = {
   unicorn: 'ground', frog: 'ground', butterfly: 'air',
   sunbeam_hen: 'ground',      // body 가 bird 인데 날개가 없다 — 암탉은 걷는다
-  ember_phoenix: 'air', moss_deer: 'ground', boulder_bear: 'ground',
+  // ⚠️ 펭귄도 그 자리다 — 「펭귄은 부유형이 아니야」로 받아 air → **ground** 로 못을 옮겼다
+  ember_phoenix: 'ground', moss_deer: 'ground', boulder_bear: 'ground',
   coral_seahorse: 'water', deepsea_whale: 'water',   // 지느러미가 날개로 세어지면 안 된다
 };
 for (const c of TABLE) {

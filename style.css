@@ -2446,6 +2446,13 @@ button.tm-slot:active { transform: scale(0.94); }
   width: var(--pet); height: var(--pet); display: block;
 }
 .stage-creature svg { width: 100%; height: 100%; display: block; }
+/* ⚠️⚠️ **애교 모션은 상자 «밖»으로 나간다** (`petidle.js`) — 기울고 늘어나느라
+   가로 1.36 · 세로 1.27배까지 쓰고, 하트는 상자 위로 떠오른다. 자르면 4초 동안
+   **머리가 잘린다.** 방에는 위가 비어 있으니 넘치게 두는 쪽이 맞다.
+   ⚠️ 상자(layout box)는 그대로이므로 「크리처 가림」처럼 상자를 재는 검사는 안 흔들린다.
+   ⚠️ **도감 칸(`.creature-art`)에는 안 건다** — 46px 칸이라 이웃을 덮는다
+   (그래서 애교도 방에서만 씌운다 · `petStage()`) */
+.stage-creature svg.cr-svg { overflow: visible; }
 /* 오른쪽에 서는 마리 — **바라보는 쪽의 반대**다 (`Creature.standSide()`).
    ⚠️ 여기 적힌 것도 «잴 수 없을 때의 기본값»이다 — 자리를 정하는 것은 `petSolve()` 다.
    거울이라 같은 값을 반대 속성에 쓴다 (두 벌로 두면 한쪽만 고쳐 갈린다) */
