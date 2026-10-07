@@ -102,7 +102,9 @@ const TAIL_MIN = 200;    // ⑩ 꼬리가 몸 밖으로 내놓아야 하는 몫 
 //    섞어 적으면 다음에 그림을 뒤집는 사람이 고칠 줄을 못 고르므로 **값까지 못으로 박는다**
 const FACE_MUST = { ash_moth: 'left', flame_fox: 'left', pebble_turtle: 'left',
   moss_deer: 'pick', dandelion_hare: 'pick', whirl_marten: 'pick',
-  sky_falcon: 'pick', sunbeam_hen: 'pick' };
+  sky_falcon: 'pick', sunbeam_hen: 'pick',
+  nightmist_fox: 'pick', obsidian_lizard: 'pick', droplet_otter: 'pick',
+  butterfly: 'pick' };
 
 const near = (p, hex, tol) => {
   const n = parseInt(hex.slice(1), 16);
