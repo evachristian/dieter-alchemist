@@ -222,10 +222,15 @@ const TABLE = [
     inputs: ['petal', 'spider_silk'],                       art: C('quad', 'tuft', 'none', 'none', 'long', 'sharp', 'none') },
   { id: 'nightmist_fox',    attr: 'dark',  grade: 'mid',   ko: '밤안개 여우',   en: 'Nightmist Fox',
     inputs: ['berry', 'mist_drop', 'wild_ivy'],             art: C('quad', 'tuft', 'none', 'none', 'puff', 'sleepy', 'stripe') },
-  { id: 'obsidian_lizard',  attr: 'dark',  grade: 'mid',   ko: '흑요석 도마뱀', en: 'Obsidian Lizard',
+  // ⚠️⚠️ `obsidian_lizard` 는 도마뱀이 아니라 **보라 볏 괭이**다 (2026-10-07) —
+  //    id 는 세이브에 들어 있어서 못 바꾼다 (옛 id 셋과 같은 규칙이다)
+  { id: 'obsidian_lizard',  attr: 'dark',  grade: 'mid',   ko: '보라 볏 괭이', en: 'Violetcrest Cat',
     inputs: ['bone_frag', 'flint', 'lizard_scale'],         art: C('quad', 'none', 'crystal', 'none', 'long', 'sharp', 'stripe') },
-  { id: 'abyss_raven',      attr: 'dark',  grade: 'high',  ko: '심연 까마귀',   en: 'Abyss Raven',
-    inputs: ['black_feather', 'bone_frag', 'night_dew'], art: C('bird', 'none', 'none', 'bird', 'long', 'sharp', 'glow') },
+  // ⚠️⚠️ `abyss_raven` 도 까마귀가 아니라 **심연 뚱펭귄**이다. 받은 그림이 주황 발로
+  //    바닥에 엎드려 있어서 **날개를 안 가진다**(`wing: 'none'`) — 새 날개를 그대로 두면
+  //    `moveOf` 가 공중으로 보내 허공에 뜬 펭귄이 된다 (살랑 펭순이·회오리 오리와 같은 줄이다)
+  { id: 'abyss_raven',      attr: 'dark',  grade: 'high',  ko: '심연 뚱펭귄',   en: 'Abyss Pudgy Penguin',
+    inputs: ['black_feather', 'bone_frag', 'night_dew'], art: C('bird', 'none', 'none', 'none', 'long', 'sharp', 'glow') },
 ];
 
 // 세이브에 이미 들어 있는 id — 생성 뒤 셋이 다 살아 있는지 다시 확인한다
@@ -355,6 +360,7 @@ const MOVE_MUST = {
   // ⚠️ 살랑 펭순이(펭귄) · 회오리 오리도 같은 줄이다 — 받은 그림이 둘 다 발을 딛고 섰다
   breeze_sparrow: 'ground', sky_falcon: 'ground',
   dawn_owl: 'ground',         // 새벽빛 부엉도 주황 발로 땅을 딛고 섰다 (2026-10-07)
+  abyss_raven: 'ground',      // 심연 뚱펭귄은 바닥에 엎드려 있다 (2026-10-07)
   coral_seahorse: 'water', deepsea_whale: 'water',   // 지느러미가 날개로 세어지면 안 된다
 };
 for (const c of TABLE) {

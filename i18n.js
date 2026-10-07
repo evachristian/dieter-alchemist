@@ -3419,8 +3419,8 @@
       newmoon_bat: 'Newmoon Bat',
       shadow_cat: 'Shadow Kitty',
       nightmist_fox: 'Nightmist Fox',
-      obsidian_lizard: 'Obsidian Lizard',
-      abyss_raven: 'Abyss Raven',
+      obsidian_lizard: 'Violetcrest Cat',
+      abyss_raven: 'Abyss Pudgy Penguin',
       // 속성 이름 (UI 낱말이라 STRINGS 쪽에도 있다)
       attr_fire: 'Fire',
       attr_earth: 'Earth',

@@ -2495,28 +2495,49 @@ button.tm-slot:active { transform: scale(0.94); }
 /* ⚠️ `bottom` 은 여기서도 «잴 수 없을 때의 기본값»이다 (위 항) — 어항이 바닥에 대는
    것은 통이 아니라 **받침**이라, `placePetY()` 가 `Creature.BOWL_FLOOR` 로 맞춘다 */
 .stage-creature.cr-water {
-  --pet: min(96px, calc(50vw - 67px));
+  /* ⚠️ `placePet()` 이 재서 인라인으로 덮어쓰므로 이것은 **그 전의 한 프레임**뿐이다.
+     그래도 `PET_MAX_WATER` 와 같은 값으로 둔다 — 갈리면 첫 프레임에 크기가 한 번 튄다 */
+  --pet: min(156px, calc(50vw - 67px));
   bottom: 4%; animation: none;
 }
 .stage-creature.cr-water .cr-bowl,
 .stage-creature.cr-water .cr-swim { position: absolute; inset: 0; }
 .stage-creature.cr-water .cr-bowl { width: 100%; height: 100%; display: block; }
-/* 물고기는 물 안(대략 y 40~80)에서만 논다. 상자째로 줄여서 어항 밖으로 안 나가게 한다 */
+/* 물고기는 물 안에서만 논다. 상자째로 줄여서 어항 밖으로 안 나가게 한다.
+   ⚠️⚠️ **대고 따라 그린 그림을 48% → 86% 로 올렸다** (2026-10-07 ·
+   「어항에 들어간 크리처가 잘 안보인다」).
+   48% 는 유리가 상자의 66% 밖에 안 되던 때의 값이라, 물고기가 **유리의 46%×38%**
+   (= 면적의 4분의 1)밖에 안 됐다 — 재 보면 390px 에서 51.5px 짜리 유리 안에
+   24.0×19.5px 이었다. 유리를 상자 가득(`Creature.BOWL`)으로 키우면서 같이 올렸다.
+   ⚠️ **86% 는 재서 고른 천장이다** — 부품 그림 물고기의 상자(17.2~82.8 × 27.5~80.3)가
+   «수면»을 안 넘는 제일 큰 값이 0.889 다. 더 올리면 물고기가 물 위로 머리를 내민다.
+   ⚠️ **대고 따라 그린 그림도 같은 배율을 지난다** — 그래서 `BOWL_FIT` 은 이 값을
+   «되돌린» 자리다 (creature.js 쪽 주석에 셈이 있다). 한쪽만 고치면 갈린다 */
 .stage-creature.cr-water .cr-swim {
   display: flex; align-items: center; justify-content: center;
   transform-origin: 50% 58%;
   animation: swim 6s ease-in-out infinite;
 }
 .stage-creature.cr-water .cr-swim svg { width: 48%; height: 48%; }
+/* ⚠️⚠️ **대고 따라 그린 그림만 86% 다**(`cr-inbowl`). 부품 그림은 제 100 상자를
+   다 쓰므로(발자국 17.2~82.8 × 27.5~80.3) 86% 로 키우면 유리를 뚫는다 —
+   **표를 비웠을 때 되돌아갈 길이라 한 픽셀도 안 바꾼다.** 대고 따라 그린 쪽은
+   `BOWL_FIT` 이 이미 «유리 안»으로 좁혀 놓아서 그만큼 더 키울 수 있다 */
+.stage-creature.cr-water .cr-swim svg.cr-inbowl { width: 86%; height: 86%; }
 /* 한 바퀴: 왼쪽에서 오른쪽으로 헤엄쳐 가서 **몸을 돌리고** 돌아온다.
    `scaleX(-1)` 이 방향 전환이다 — 안 돌면 뒤로 헤엄치는 것처럼 보인다.
    ⚠️ 반드시 `infinite` 다. 끝이 있는 애니메이션은 검증기의 settle() 이 끝 상태로 보내 버린다 */
+/* ⚠️⚠️ 헤엄 폭은 **px 가 아니라 %** 다 (2026-10-07에 바꿨다). px 로 두면 상자가
+   작을수록 «상자에 견준» 몫이 커져 — 51.6px 짜리 어항에서 8px 은 상자의 15.5% 라
+   물고기가 유리를 뚫고 나간다. %로 두면 어느 크기에서나 같은 자리까지만 간다.
+   ⚠️ 4% 는 재서 골랐다 — `BOWL_FIT` 이 이 값을 빼고 남는 자리로 풀려 있어서,
+   늘리면 물고기를 그만큼 줄여야 한다 (`checkavatar` 의 「어항」이 그 자리에서 잡는다) */
 @keyframes swim {
-  0%   { transform: translate(-8px, 5px) scaleX(1); }
-  44%  { transform: translate(8px, 1px) scaleX(1); }
-  50%  { transform: translate(8px, 1px) scaleX(-1); }
-  94%  { transform: translate(-8px, 5px) scaleX(-1); }
-  100% { transform: translate(-8px, 5px) scaleX(1); }
+  0%   { transform: translate(-4%, 3%) scaleX(1); }
+  44%  { transform: translate(4%, 1%) scaleX(1); }
+  50%  { transform: translate(4%, 1%) scaleX(-1); }
+  94%  { transform: translate(-4%, 3%) scaleX(-1); }
+  100% { transform: translate(-4%, 3%) scaleX(1); }
 }
 .showcase-tier { text-align: center; font-size: 1.15rem; font-weight: 800; margin-bottom: 14px; }
 

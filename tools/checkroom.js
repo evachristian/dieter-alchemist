@@ -110,11 +110,22 @@ const HIDE_SPIN_GAP = 3;  // px. 줄이 올라가도 둘러보기 버튼과 이�
 //    다섯이 띠를 먹어 48.6px 이다 (왼쪽은 62px). 한 칸에 몰아 적으면 둘 중 작은 쪽이
 //    기준이 되어 **큰 쪽이 반으로 줄어도 안 걸린다**
 // ⚠️ `groundF` 는 **재서** 적었다 (24.1 · 51.6 · 48.6 · 62 에서 2~4px 내린 값이다)
+// ⚠️⚠️ **2026-10-07에 «물»이 올라갔다** — 「어항에 들어간 크리처가 잘 안보인다.
+//    어항 크기 2배로 늘려주고」로 받아 `PET_MAX_WATER` 를 78 → 156 으로 올렸다.
+//    ⚠️ **상한은 아무 데서도 안 묶는다 — 묶는 것은 «빈 바닥»이다.** 상한을 400 으로
+//    들어 놓고 재면 265px 24.1 · 320px 51.6 · 390px 86.6 · 480px 이상 131.6 이라,
+//    오른 자리는 **390·480px 둘뿐**이고 좁은 둘은 한 픽셀도 안 바뀐다
+//    (10-04 의 「상한만 올려서는 한 폭도 안 커진다」가 그대로다).
+//    **값이 커지는 쪽은 그대로 올려 적는다** — 빗장을 조이는 것이라 위의 경고에 안 걸린다
+//    ⚠️⚠️ **값은 «이 검사기가 재는 조건»에서 뽑는다.** 따로 쓴 스크립트로 재면
+//    86.6 · 131.6 이 나오는데 여기서는 **81.3 · 93.6** 이다 — 창 높이가 달라 방 상자가
+//    작고 그만큼 빈 바닥이 좁다. 그 수치를 그대로 옮겨 적었다가 **멀쩡한 화면이
+//    4건**으로 걸렸다 (「잣대가 둘이면 하나는 틀린 것이다」 · 2~4px 내린 값을 적는다)
 const PET_WANT = {
   265: { ground: 22, air: 22, airF: 22, groundF: 22, water: 22 },
   320: { ground: 50, air: 48, airF: 48, groundF: 48, water: 50 },
-  390: { ground: 60, air: 60, airF: 46, groundF: 46, water: 76 },
-  480: { ground: 60, air: 60, airF: 60, groundF: 60, water: 76 },
+  390: { ground: 60, air: 60, airF: 46, groundF: 46, water: 79 },
+  480: { ground: 60, air: 60, airF: 60, groundF: 60, water: 91 },
 };
 
 function mask(A, B) {
@@ -1235,8 +1246,21 @@ function mask(A, B) {
       }, pid);
       await page.waitForTimeout(220);
       // 재는 자리 — 그림자가 서는 띠. 몸에 가린 가운데가 아니라 상자를 가로지른다
-      const clip = await page.evaluate(() => {
+      // ⚠️⚠️⚠️ **SMIL 은 `document.getAnimations()` 에 «안 잡힌다»** — 애교 모션
+      //    (`petidle.js`)이 그 사이에 크리처를 기울이면 그 몫이 그대로 diff 에 섞여,
+      //    「그림자를 껐다 켠 차이」가 아니라 「포즈가 달라진 차이」를 재게 된다.
+      //    실제로 숯불 말랑이가 0.017~0.071 로 널뛰었고, 같은 트리에서 3건 ↔ 7건이
+      //    갈렸다 (안 건드린 마리까지 같이 빨개졌다). 이 파일의 `shot()` 은 이미
+      //    `pauseAnimations()` 로 못 박는데 **이 블록만 그 줄을 안 지나고 있었다** —
+      //    「측정 조건은 검증기가 스스로 맞춘다」가 여기서 깨져 있던 자리다
+      const pin = () => page.evaluate(() => {
         document.getAnimations().forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
+        document.querySelectorAll('svg').forEach(s => {
+          try { s.pauseAnimations(); s.setCurrentTime(0); } catch (e) {}
+        });
+      });
+      await pin();
+      const clip = await page.evaluate(() => {
         const cre = document.querySelector('.stage-creature');
         if (!cre) return null;
         const r = cre.getBoundingClientRect();
@@ -1251,8 +1275,11 @@ function mask(A, B) {
         return !!n;
       }, on);
       if (!await vis(true)) { bad.push(`${pid} 에 발밑 그림자(data-part="shade")가 없다`); continue; }
+      // ⚠️ **찍기 «직전»마다 못 박는다** — 한 번만 멈춰 두면 그 사이에 다시 돌 수 있다
+      await pin();
       const on = mean(await page.screenshot({ clip }));
       await vis(false);
+      await pin();
       const off = mean(await page.screenshot({ clip }));
       await vis(true);
       const d = off - on;

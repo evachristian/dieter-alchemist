@@ -207,8 +207,12 @@ const near = (p, hex, tol) => {
         host.innerHTML = await (await fetch(url, { cache: 'no-store' })).text();
         document.body.appendChild(host);
         const fs = host.querySelector('svg');
-        let pad = null, ar = null, anim = 0, vbStr = null;
+        let pad = null, ar = null, anim = 0, vbStr = null, filePar = null;
         if (fs) {
+          // ⚠️⚠️ **맞춤을 선언하는 자리는 «이 파일»뿐이다** — 크로뮴은 `<image>` 쪽의
+          //    `preserveAspectRatio` 를 안 본다 (`creature.js` 의 `previewSvg` 위에
+          //    경위를 적어 두었다). 그래서 여기서 읽는다
+          filePar = fs.getAttribute('preserveAspectRatio');
           const vb = fs.viewBox.baseVal;
           fs.setAttribute('width', vb.width); fs.setAttribute('height', vb.height);
           vbStr = [vb.x, vb.y, vb.width, vb.height].join(' ');
@@ -265,11 +269,20 @@ const near = (p, hex, tol) => {
         //    실제로 둘이 **같은 값**으로 나와 한 번 헛짚었다. 픽셀 차로 재는 길도
         //    해 봤는데 그려진 비가 0.95 ↔ 파일 0.84 로 흔들려 **가르지 못했다**.
         //    그래서 여기서는 「비를 안 박았는가」만 묻고, 모양이 맞는지는 ⓐ 가 맡는다.
-        // ⚠️ `meet`(꽉 차게가 아니라 들어가게) · `YMax`(아래 맞춤 = 발이 바닥에)가 짝이다
+        //
+        // ⚠️⚠️ **맞춤(`preserveAspectRatio`)은 «그림 파일»이 선언한다** (2026-10-07).
+        //    크로뮴은 `<image>` 쪽의 선언을 **안 본다** — 재 봤다: `xMidYMax` 와
+        //    `xMidYMid` 를 번갈아 줘도 한 자리도 안 달라진다. 그래서 오래 `<image>` 에
+        //    적혀 있던 `xMidYMax` 가 **아무 일도 안 하고** 기본값(`xMidYMid`)이 이겨,
+        //    **비가 슬롯보다 넓은 그림이 위아래로 반씩 떠 있었다** — 🫧 물빛 말랑이가
+        //    11.3칸(화면 7px) 떠서 「왜 공중에 떠 있어?」로 신고받은 자리다.
+        //    지금 보는 것 둘 — ① `<image>` 에 **안 적혀 있어야** 한다(듣지도 않는 사본은
+        //    늘 거짓일 수 있다) ② **파일**이 move 에 맞게 선언해야 한다.
+        //    닿는 자리가 맞는지는 **ⓕ** 가 픽셀로 본다
         const par = (svg.match(/<image[^>]*preserveAspectRatio="([^"]*)"/) || [])[1] || '';
         const full = /<image[^>]*width="100"/.test(svg) || /<image[^>]*width="\$/.test(svg);
         prev.push({ id, file: Creature.PREVIEW[id], ok: r.ok, ct, n, wired, pad, ar, par, full,
-          anim, vb: vbStr, move: c ? c.move : '?' });
+          filePar, anim, vb: vbStr, move: c ? c.move : '?' });
       } catch (e) { prev.push({ id, file: Creature.PREVIEW[id], err: String(e) }); }
     }
     // 속성 여섯과 «그 속성의 마리가 다 갈아 끼워졌는가» — 아래의 색 검사가 쓴다
@@ -305,7 +318,57 @@ const near = (p, hex, tol) => {
       const top = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0];
       if (top) (furs[c.attr] = furs[c.attr] || []).push({ id: c.id, p: top.split(',').map(Number) });
     }
-    return { res, skip, prev, attrs, fullySwapped, furs, face: Creature.FACE || {} };
+    // ═══ ⓕ 갈아 끼운 그림이 «닿는 줄»에 오는가 (픽셀 · 2026-10-07) ═══
+    //
+    // ⚠️⚠️ **ⓐ 는 이 축을 영영 못 본다.** 그쪽은 파일을 «비가 맞는 상자»에 띄워
+    //    여백을 재므로 편지함(letterbox)이 애초에 안 생긴다 — 즉 「파일은 바짝 잘렸는데
+    //    화면에서는 떠 있는」 자리를 통째로 지나간다. 🫧 물빛 말랑이는 여백이 0% 로
+    //    멀쩡한 채 **11.3칸(화면 7px) 떠 있었고 ⓐ 는 0건이었다.**
+    //    0건이 「통과」가 아니라 **「한 번도 안 쟀다」**인 그 자리다.
+    // ⚠️ **그린 것을 흰 바탕에 찍어** 칠한 범위를 찾는다 — 배경 판도 그림자도 끄고,
+    //    바깥 그림은 파일을 받아 안에 박아 넣는다(안 그러면 `data:` 안에서 안 열린다).
+    // ⚠️ 보는 자리가 move 마다 다르다 — ground 는 **밑**이 `GROUND` 에, air·water 는
+    //    **가운데**가 슬롯 가운데에 와야 한다 (닿는 데가 없는 쪽은 가운데가 약속이다).
+    // ⚠️ **물은 어항과 도감을 다 잰다** — 어항은 `BOWL_FIT` 안이고 도감은 슬롯 통째라
+    //    자리가 다르다. 한쪽만 재면 다른 쪽은 한 번도 안 잰 것이 된다.
+    // ⚠️ 1칸 = 4px 로 찍는다 — 앤티에일리어싱 몫(0.25칸)까지 보이는 해상도다
+    const Z = 400;
+    const cz = document.createElement('canvas');
+    cz.width = cz.height = Z;
+    const gz = cz.getContext('2d', { willReadFrequently: true });
+    const sitRows = [];
+    for (const id of Object.keys(Creature.PREVIEW || {})) {
+      const c = every.find(x => x.id === id);
+      if (!c) continue;
+      for (const bowl of (c.move === 'water' ? [true, false] : [false])) {
+        let svg = Creature.draw(c, { flat: true, noShadow: true, size: Z, bowl })
+          .replace(/href="(?!https?:|data:|#)/g, 'href="' + location.origin + '/');
+        for (const m of [...svg.matchAll(/href="(https?:[^"]+)"/g)]) {
+          const t = await (await fetch(m[1], { cache: 'no-store' })).text();
+          svg = svg.replace(m[0], 'href="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(t) + '"');
+        }
+        const im = new Image();
+        await new Promise((ok, no) => { im.onload = ok; im.onerror = no; im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+        gz.clearRect(0, 0, Z, Z);
+        gz.fillStyle = '#fff'; gz.fillRect(0, 0, Z, Z);
+        gz.drawImage(im, 0, 0, Z, Z);
+        const d = gz.getImageData(0, 0, Z, Z).data;
+        let lo = -1, hiY = -1;
+        for (let y = 0; y < Z; y++) {
+          let n = 0;
+          for (let x = 0; x < Z; x++) {
+            const i = (y * Z + x) * 4;
+            if (!(d[i] > 248 && d[i + 1] > 248 && d[i + 2] > 248)) n++;
+          }
+          if (n > 0) { if (lo < 0) lo = y; hiY = y; }
+        }
+        sitRows.push({ id, move: c.move, bowl, lo: lo / (Z / 100), hi: hiY / (Z / 100) });
+      }
+    }
+    // 닿는 줄은 creature.js 가 내놓는 값에서 뽑는다 — 숫자를 검사기에 적으면 사본이 된다
+    const sit = { rows: sitRows, GROUND: Creature.GROUND, TOP_PAD: Creature.TOP_PAD,
+                  BOWL: Creature.BOWL_FIT };
+    return { res, skip, prev, attrs, fullySwapped, furs, sit, face: Creature.FACE || {} };
   }, SZ);
   await browser.close();
   const out = shots.res, skipped = shots.skip, prev = shots.prev;
@@ -678,11 +741,23 @@ const near = (p, hex, tol) => {
               + ` · 좌${q.pad.l}/우${q.pad.r}/위${q.pad.t}/아래${q.pad.b}%)`);
           }
         }
-        // ⓑ 비를 숫자로 안 박았는가 (마크업을 본다 — 까닭은 creature.js 쪽 주석에 있다)
-        if (!/meet/.test(q.par) || !/YMax/.test(q.par) || !q.full) {
+        // ⓑ 비를 숫자로 안 박았는가 · 맞춤을 «파일»이 선언했는가
+        //    (마크업을 본다 — 까닭은 바로 위와 creature.js 쪽 주석에 있다)
+        if (!q.full) {
           bad.push(`${q.id}: 그린 그림이 비를 «숫자로» 박고 있다`
-            + ` (preserveAspectRatio="${q.par || '(없다)'}" · 상자를 다 쓰는가 ${q.full}`
-            + ` · 그림마다 비가 달라서 한 값으로는 납작해진다)`);
+            + ` (상자를 다 쓰는가 ${q.full} · 그림마다 비가 달라서 한 값으로는 납작해진다)`);
+        }
+        if (q.par) {
+          bad.push(`${q.id}: <image> 에 preserveAspectRatio="${q.par}" 가 적혀 있다`
+            + ` — 크로뮴이 «안 보는» 선언이라 사본만 늘고 늘 거짓일 수 있다`
+            + ` (선언하는 자리는 그림 파일뿐이다)`);
+        }
+        const wantPar = q.move === 'ground' ? 'xMidYMax meet' : 'xMidYMid meet';
+        if (q.filePar !== wantPar) {
+          bad.push(`${q.id}: ${q.file} 가 맞춤을 «${q.filePar || '(없다)'}» 로 선언했다`
+            + ` — ${q.move} 는 «${wantPar}» 여야 한다`
+            + ` (ground 는 닿는 줄이 밑변 · air·water 는 닿는 데가 없어 가운데 맞춤이다`
+            + ` · 안 적으면 기본값이 가운데라 넓은 그림이 그만큼 뜬다)`);
         }
         // ─ ⓒ 그림 파일에 «움직임»이 섞여 있지 않은가 ─
         //
@@ -699,9 +774,39 @@ const near = (p, hex, tol) => {
         }
         console.log(`  미리 보기 ${q.id} — ${q.file} 가 SVG 로 온다 (${(q.n / 1024).toFixed(1)}KB`
           + ` · 비 ${q.ar} · 여백 최대 ${q.pad ? Math.max(q.pad.l, q.pad.r, q.pad.t, q.pad.b) : '?'}%`
-          + ` · ${q.par} · 움직임 ${q.anim}개)`);
+          + ` · ${q.filePar} · 움직임 ${q.anim}개)`);
       }
     });
+
+    // ─ ⓕ 갈아 끼운 그림이 «닿는 줄»에 오는가 (잰 것은 브라우저 쪽에 있다) ─
+    const FLOOR_SLACK = 1;   // 칸 — 지금 서른둘 자리가 다 0.25(앤티에일리어싱)다
+    {
+      const sit = shots.sit;
+      const B = sit.BOWL;
+      let worst = 0, worstId = '-';
+      sit.rows.forEach(r => {
+        const mid = (r.lo + r.hi) / 2;
+        const want = r.move === 'ground' ? sit.GROUND
+          : (r.bowl ? B.y + B.h / 2 : (sit.TOP_PAD + sit.GROUND) / 2);
+        const got = r.move === 'ground' ? r.hi : mid;
+        const off = Math.abs(got - want);
+        if (off > worst) { worst = off; worstId = r.id + (r.bowl ? '(어항)' : ''); }
+        if (off > FLOOR_SLACK) {
+          bad.push(`${r.id}${r.bowl ? '(어항)' : ''}: 갈아 끼운 그림이 닿는 줄에서 ${off.toFixed(2)}칸 `
+            + `벗어났다 (${r.move} 는 ${r.move === 'ground' ? '밑' : '가운데'}이 ${want} 여야 하는데 `
+            + `${got.toFixed(2)} 다 · ${FLOOR_SLACK}칸까지 · 그림 파일의 preserveAspectRatio 와 `
+            + `viewBox 밑여백을 본다)`);
+        }
+      });
+      if (!sit.rows.length) bad.push('닿는 줄: 갈아 끼운 그림을 한 자리도 못 쟀다');
+      // ⚠️ **요약이 거짓말을 하면 안 된다** — 「다 … 안」은 정말 다 들었을 때만 쓴다
+      //    (사보타주에서 frog 가 11.50칸인데 「32자리가 다 1칸 안」으로 찍혔다)
+      const over = bad.filter(x => /닿는 줄에서/.test(x)).length;
+      console.log(`  닿는 줄 — ${over ? `${sit.rows.length}자리 중 ${over}자리가 ${FLOOR_SLACK}칸을 넘었다`
+        : `${sit.rows.length}자리가 다 ${FLOOR_SLACK}칸 안`}`
+        + ` (제일 많이 벗어난 것 ${worstId} ${worst.toFixed(2)}칸 · ground 는 밑이 ${sit.GROUND}`
+        + ` · air 는 가운데가 ${(sit.TOP_PAD + sit.GROUND) / 2} · 어항은 ${B.y + B.h / 2})`);
+    }
   }
   console.log(`크리처 ${out.length}마리 — 대칭 ${sym.toFixed(2)}(최소 ${symMin.toFixed(2)}) · 눈 ${(eyes / Math.max(1, eyeN) * 100).toFixed(1)}%(최소 ${(eyeMin * 100).toFixed(1)}% · ${eyeN}마리)`
     + ` · 빛 ${(hi / Math.max(1, hiN)).toFixed(1)}점(${hiN}마리) · 볼터치 ${blush.toFixed(0)}점 · 거의 흰 칠 ÷ 눈동자 ${(white * 100).toFixed(0)}%`

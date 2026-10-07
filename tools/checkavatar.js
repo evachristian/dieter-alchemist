@@ -1066,9 +1066,27 @@ function launchOpts() {
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:200px;height:200px';
     document.body.appendChild(host);
-    // 어항 유리통 — creature.js 의 shell 과 같은 값이어야 한다 (원 중심 50,54.2 · 반지름 33)
-    const GLASS = { cx: 50, cy: 54.2, r: 33, surface: 36 };
+    // 어항 유리통 — **creature.js 에서 읽는다.**
+    // ⚠️⚠️ 오래 `{ cx:50, cy:54.2, r:33, surface:36 }` 를 **베껴 적고** 있었다.
+    //    2026-10-07에 어항을 1.27배로 키우자 그 사본이 그대로 거짓이 되어, 유리는
+    //    커졌는데 검사기만 옛 유리로 재게 됐다 — 「수치를 검사기에 옮겨 적지 않는다」가
+    //    여기서 깨져 있던 자리다. `Creature.bowlGlass()` 가 배율까지 지난 값을 준다
+    const GLASS = window.Creature.bowlGlass();
     const MARGIN = 1.5;                    // 유리에 닿기 전에 잡는다
+    // 헤엄의 양 끝을 «깔린 CSS»에서 뽑는다 — 0% 와 50% 가 그 둘이다
+    const SWIM = (() => {
+      for (const sh of document.styleSheets) {
+        let rules; try { rules = sh.cssRules; } catch { continue; }
+        for (const r of rules || []) {
+          if (r.type !== CSSRule.KEYFRAMES_RULE || r.name !== 'swim') continue;
+          const at = (k) => [...r.cssRules].find(q => q.keyText === k);
+          const a = at('0%'), b = at('50%');
+          if (a && b) return [['왼끝', a.style.transform], ['오른끝', b.style.transform]];
+        }
+      }
+      return null;
+    })();
+    if (!SWIM) return { bad: ['@keyframes swim 을 못 찾았다 — 헤엄의 양 끝을 한 번도 안 쟀다'], n: 0 };
     for (const c of fish) {
       host.innerHTML = `<div class="char-aura" style="position:relative;width:200px;height:200px">
         <div class="stage-creatures">${petStage(c)}</div></div>`;
@@ -1078,9 +1096,11 @@ function launchOpts() {
       const bowlSvg = host.querySelector('.cr-bowl');
       if (!wrap || !sw || !svg || !bowlSvg) { bad.push(`${c.name}: 어항이 안 그려졌다`); continue; }
       if (!wrap.classList.contains('cr-water')) { bad.push(`${c.name}: cr-water 가 안 붙었다`); continue; }
-      // 헤엄의 양 끝 — style.css 의 @keyframes swim 과 같은 값
-      for (const [label, tf] of [['왼끝', 'translate(-8px,5px) scaleX(1)'],
-                                 ['오른끝', 'translate(8px,1px) scaleX(-1)']]) {
+      // 헤엄의 양 끝 — **style.css 의 @keyframes swim 에서 읽는다.**
+      // ⚠️⚠️ 오래 `translate(-8px,5px)` 를 **베껴 적고** 있었다 (유리와 같은 사고다).
+      //    2026-10-07에 헤엄을 px → % 로 바꾸자 그 사본이 그대로 거짓이 됐다 —
+      //    px 는 상자가 작을수록 «상자에 견준» 몫이 커져서 작은 어항에서만 새어 나간다
+      for (const [label, tf] of SWIM) {
         sw.style.animation = 'none';
         sw.style.transform = tf;
         const bb = svg.getBBox(), sr = svg.getBoundingClientRect();

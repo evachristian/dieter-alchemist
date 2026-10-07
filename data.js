@@ -874,17 +874,17 @@ const RECIPES = [
       makes: { id: 'mushroom', n: 2 },
       art: { body: 'quad', ear: 'tuft', horn: 'none', wing: 'none', tail: 'puff', eye: 'sleepy', pat: 'stripe' } } },
   { inputs: ['bone_frag', 'flint', 'lizard_scale'],
-    result: { id: 'obsidian_lizard', kind: 'creature', grade: 'mid', name: '흑요석 도마뱀',
+    result: { id: 'obsidian_lizard', kind: 'creature', grade: 'mid', name: '보라 볏 괭이',
       attr: 'dark', charmBonus: 4, move: 'ground',
       combat: { atk: 9, matk: 14, def: 5, mdef: 8 },
       makes: { id: 'mushroom', n: 2 },
       art: { body: 'quad', ear: 'none', horn: 'crystal', wing: 'none', tail: 'long', eye: 'sharp', pat: 'stripe' } } },
   { inputs: ['black_feather', 'bone_frag', 'night_dew', 'nightmist_fox'],
-    result: { id: 'abyss_raven', kind: 'creature', grade: 'high', name: '심연 까마귀',
-      attr: 'dark', charmBonus: 6, move: 'air',
+    result: { id: 'abyss_raven', kind: 'creature', grade: 'high', name: '심연 뚱펭귄',
+      attr: 'dark', charmBonus: 6, move: 'ground',
       combat: { atk: 16, matk: 26, def: 10, mdef: 12 },
       makes: { id: 'mushroom', n: 3 },
-      art: { body: 'bird', ear: 'none', horn: 'none', wing: 'bird', tail: 'long', eye: 'sharp', pat: 'glow' } } },
+      art: { body: 'bird', ear: 'none', horn: 'none', wing: 'none', tail: 'long', eye: 'sharp', pat: 'glow' } } },
 // GEN:creature>>>
 ];
 

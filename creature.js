@@ -75,6 +75,38 @@
   //    옛 자리에 남는다 (`Avatar.FLOOR_SPOT` 을 한 줄로 둔 것과 같은 규칙이다)
   const BOWL_STAND = { cy: 92, ry: 4 };
   const BOWL_FLOOR = BOWL_STAND.cy + BOWL_STAND.ry;
+  // ─── 어항 유리통 — 모양은 «옛것 그대로»고 배율만 올렸다 (2026-10-07) ───
+  //
+  // 「어항에 들어간 크리처가 잘 안보인다. 어항 크기 2배로 늘려주고, 크리처 크기도
+  // 어항에 맞춰서 키워줘」로 받았다. 재 보면 유리가 상자의 **66%** 밖에 안 되고
+  // 그 안의 물고기가 **유리의 46%×38%**(= 면적의 4분의 1)였다 — 390px 에서
+  // 51.5px 짜리 유리 안에 24.0×19.5px 이다. 묶고 있던 것이 셋이라 셋을 같이 올렸다:
+  //   ① 상자 상한 `PET_MAX_WATER` 78 → 156 (game.js)
+  //   ② 상자 «안»의 유리 — 여기 (`k`)
+  //   ③ 물 «안»의 물고기 — style.css 의 `.cr-swim svg` 48% → 86%
+  // ⚠️⚠️ **①은 아무 데서도 안 묶는다 — 묶는 것은 «빈 바닥»이다.** 상한을 400 으로
+  //    들어 놓고 재 보면 265px 24.1 · 320px 51.6 · 390px 86.6 · 480px 이상 131.6 이다
+  //    (10-04 의 「상한만 올려서는 한 폭도 안 커진다」가 그대로다). 그래서 「2배」가
+  //    실제로 오는 몫은 폭마다 다르다 — 390px 1.11배 · 480px 1.69배 ·
+  //    좁은 둘은 한 픽셀도 안 바뀐다. 거기에 ②③ 이 곱해진다
+  // ⚠️⚠️ **유리를 다시 그리지 않는다 — «받침을 축으로» 배만 올린다.** 물·수면·조약돌
+  //    그늘·수초·반사·테가 다 옛 좌표 그대로라, 모양이 한 글자도 안 바뀌고 한 곳에서
+  //    커진다. 따로 그리면 그만큼 사본이 생겨 테를 옮겼을 때 물만 옛 자리에 남는다.
+  // ⚠️ **축이 «밑변»이다** — 가운데로 두면 어항이 받침에서 뜨거나 받침을 파고든다
+  //    (받침과 `BOWL_FLOOR` 는 안 커진다 · `placePetY` 가 그 값으로 바닥에 세운다).
+  // ⚠️ **`k` 는 재서 고른 천장이다** — 옛 유리는 y 21.2~87.2 이라 밑변을 축으로 키우면
+  //    꼭대기가 `87.2 − 66k` 다. 상자 안(≥2)에 테(stroke 2.4·k)까지 들려면 1.29 가
+  //    한계라 그 안쪽인 **1.27** 이다 (지금 꼭대기 3.4 · 테까지 1.9)
+  // ⚠️ `waterY` 도 여기 있다 — 「수면 위로 나왔는가」를 보는 검사가 읽는다.
+  //    `bowl()` 안에 숫자로 적으면 사본이 생겨 수면을 옮겼을 때 검사만 옛 자리에 남는다
+  const BOWL = { cx: 50, cy: 54.2, r: 33, rimY: 28, waterY: 36, k: 1.27 };
+  // 배율을 지난 «화면의 유리» — 받침의 윗면(cy + r)을 축으로 k 배 한 것이다.
+  // ⚠️ 셈을 검사기에 옮겨 적지 않는다 (내보내서 그쪽이 이것을 부른다)
+  const bowlGlass = () => {
+    const ay = BOWL.cy + BOWL.r;
+    return { cx: BOWL.cx, cy: ay + (BOWL.cy - ay) * BOWL.k, r: BOWL.r * BOWL.k,
+             surface: ay + (BOWL.waterY - ay) * BOWL.k };
+  };
   // 공중 크리처가 «어깨에 맞추는 줄» — 칠한 데(`TOP_PAD`~`GROUND`)의 한가운데다.
   // ⚠️ 땅·어항은 «닿는 줄»이라 밑변 쪽이지만 공중은 닿는 데가 없다 — 어깨에 맞출 것은
   //    몸의 가운데다 (발을 어깨에 걸면 몸이 통째로 머리 옆으로 올라간다).
@@ -108,7 +140,20 @@
   //   자리」가 오래 `opacity="0.16"` 으로 이 타원을 집고 있었는데, 그러면 **색을 고치는
   //   순간 스무 줄이 통째로 «못 쟀다»가 된다** (「되짚기를 쓰지 않는 잣대로 바꾼다」)
   const SHADE_RGB = '62,44,52';   // 중성 어두운 색 — 털색을 안 탄다 (그래서 어느 바닥에서나 선다)
-  const SHADE_LAYERS = [[31, 6.8, 0.12], [24, 5, 0.15], [16, 3.2, 0.19]];
+  // ⚠️⚠️ **가로만 1.22배 넓혔다** (2026-10-07 · 31·24·16 → 38·29·19 · ry 는 그대로).
+  //    까닭은 하나다 — 「떠 있다」를 고치자 **바닥에 앉은 마리가 제 그림자를 덮었다**:
+  //    같은 띠로 재면 숯불 말랑이가 0.080 → **0.048**(문턱 0.05)로 내려앉았다.
+  //    옛 폭은 «부품 그림»의 좁은 실루엣에 맞춘 값이라, 대고 따라 그린 넓은 그림
+  //    아래에서는 통째로 가려진다 — **그림자는 몸보다 넓어야 「닿은 자국」으로 읽힌다.**
+  //    넓히면 안 건드린 마리도 같이 오른다 (cloud_goat 0.072 → 0.088).
+  // ⚠️ **ry 는 안 건드렸다** — 세로로 키우면 바닥의 «웅덩이»가 된다.
+  // ⚠️ **진하게 하지 않았다**(알파 그대로) — 세 겹이 번져서 그림자로 읽히는 조리법은
+  //    사람이 넷을 그려 놓고 고른 것이다. 여기서 바꾼 것은 «닿는 넓이»뿐이다.
+  // ⚠️ 1.22배는 재서 골랐다 — 다섯 마리가 0.083~0.093 으로 문턱의 1.7배다
+  //    (1.42배까지 키우면 0.103~0.113 인데 거기서는 바닥의 얼룩으로 보인다).
+  // ⚠️ **공중은 안 바뀐다** — 아래 `footShade` 의 공중 갈래는 제 한 겹 그대로다
+  //    (거기서 짙거나 넓으면 「보이지 않는 받침에 앉은 것」이 된다)
+  const SHADE_LAYERS = [[38, 6.8, 0.12], [29, 5, 0.15], [19, 3.2, 0.19]];
   const footShade = (c, raw) => {
     const inner = (c && c.move === 'air')
       ? ell(50, GROUND + 2, 26, 5, shade(raw, 10), ' opacity="0.16"')
@@ -436,23 +481,29 @@
                     dandelion_hare: 'mint-bunny.svg', breeze_sparrow: 'mint-penguin.svg',
                     whirl_marten: 'mint-cat.svg', cloud_goat: 'mint-rabbit.svg',
                     sky_falcon: 'mint-duck.svg',
-                    // ── 물 넷 ──
-                    // ⚠️ 산호 해마는 **어항(`move: 'water'`)** 이다 — 어항·받침·유리는
+                    // ── 물 다섯 ──
+                    // ⚠️ 산호 해마·심해 말랑이는 **어항(`move: 'water'`)** 이다 — 어항·받침·유리는
                     //    `game.js` 의 `petStage()` 가 그리므로 여기서 갈아 끼우는 것은
                     //    «헤엄치는 그림» 하나다. 그래서 그림을 «유리 안»에 맞춰야 한다
-                    //    (아래 `previewSvg` 의 `BOWL_FIT`). 심해 말랑이는 아직 안 받았다 —
-                    //    ⚠️ 2026-10-07에 그 자리로 온 그림은 **산호 해마의 것과 한 글자도
-                    //    안 달랐다**(`20-blue-fish-happy` · 61399자). 안 쓰는 번호는
-                    //    `18-blue-fish` 라, 어느 쪽인지 사람에게 물어보기 전에는 안 얹는다
+                    //    (아래 `previewSvg` 의 `BOWL_FIT`).
+                    // ⚠️⚠️ **둘이 한 번 뒤바뀌어 있었다** (2026-10-07에 사람이 갈라 줬다).
+                    //    `blue-fish.svg` 가 **20번 그림으로 구워져 있어서 산호 해마가 심해
+                    //    말랑이의 그림**을 쓰고 있었다 — 같은 날 온 「심해 말랑이 SVG」가
+                    //    그 파일과 한 글자도 안 달라서 그 자리에서 드러났다.
+                    //    지금은 `18-blue-fish` = 산호 해마 · `20-blue-fish-happy` = 심해 말랑이다.
+                    //    **그림이 어느 마리인지는 번호가 말한다** — 16~20이 물이다
                     frog: 'blue-slime.svg', droplet_otter: 'blue-bear.svg',
                     coral_seahorse: 'blue-fish.svg', dew_snail: 'blue-bunny.svg',
+                    deepsea_whale: 'blue-fish-happy.svg',
                     // ── 빛 다섯 ──
                     butterfly: 'yellow-butterfly.svg', sunbeam_hen: 'yellow-penguin.svg',
                     starlit_fawn: 'yellow-deer.svg', dawn_owl: 'yellow-catbird.svg',
                     unicorn: 'yellow-crest-monkey.svg',
-                    // ── 어둠 셋 ── (29·30 은 아직 안 받았다)
+                    // ── 어둠 다섯 ──
                     newmoon_bat: 'lavender-bat.svg', shadow_cat: 'lavender-cat.svg',
-                    nightmist_fox: 'lavender-cat-happy.svg' };
+                    nightmist_fox: 'lavender-cat-happy.svg',
+                    obsidian_lizard: 'lavender-crest-cat.svg',
+                    abyss_raven: 'lavender-penguin.svg' };
 
   // ─── 애교 모션 — «바닥에 선» 마리가 4초 움직이고 10초 쉰다 ──────
   //
@@ -513,8 +564,23 @@
   //    박혀 있었는데, 가로로 넓은 원숭이가 들어오자 그 값으로는 **납작하게 눌린다**.
   //    `preserveAspectRatio` 가 그림의 `viewBox` 에서 알아서 맞추므로 상수가 아예
   //    필요 없다 — 그림을 하나 더 넣어도 여기는 한 글자도 안 고친다.
-  // ⚠️ **`xMidYMax` 다** — 가운데 정렬 + **아래 맞춤**이라 발이 `GROUND` 에 닿는다.
-  //    `YMid` 로 두면 가로로 넓은 그림이 상자 한가운데에 떠서 바닥에서 뜬다.
+  // ⚠️⚠️⚠️ **맞춤(`preserveAspectRatio`)은 «그림 파일»이 선언한다 — 여기가 아니다**
+  //    (2026-10-07). 크로뮴은 `<image>` 쪽의 선언을 **안 본다**: 참조된 파일 제 것만 본다.
+  //    재 봤다 — `<image>` 에 `xMidYMax` 와 `xMidYMid` 를 번갈아 줘도 **한 자리도 안
+  //    달라졌다**(blue-slime 이 둘 다 칠한 밑 78.50). 그래서 오래 여기 적힌 `xMidYMax` 가
+  //    **아무 일도 안 하고 있었고**, 기본값(`xMidYMid`)이 이겨서 **비가 슬롯(100/87.5 =
+  //    1.143)보다 넓은 그림은 남는 몫이 위아래로 반씩 갈려 떠 있었다** —
+  //    🫧 물빛 말랑이가 비 1.541 로 **11.3칸**(화면 7px) 떠서 「왜 공중에 떠 있어?」로
+  //    신고받은 자리다. 숯불 말랑이 3.2 · 땅 다람쥐 2.6 · 홍염 원숭이 1.5 · 그림자 냥이 0.8칸.
+  //    · 지금은 서른 파일이 다 머리말에 선언한다 — **ground 는 `xMidYMax meet`**(닿는 줄이
+  //      밑변이다) · **air·water 는 `xMidYMid meet`**(닿는 데가 없다).
+  //    · ⚠️ **여기에 다시 적지 않는다.** 두 곳에 적으면 사본이 생겨 한쪽만 고치게 되고,
+  //      무엇보다 **화면에 듣는 것은 파일 쪽뿐**이라 여기 적힌 값은 늘 거짓이 될 수 있다
+  //      (「안 하는 일을 한다고 써 두면 원인을 엉뚱한 데서 찾는다」)
+  //    · ⚠️⚠️ **아래의 「여백을 바짝 조인다」(ⓐ)는 이 사고를 영영 못 본다** — 그 잣대는
+  //      파일을 «비가 맞는 상자»에 띄워 여백을 재므로 편지함이 애초에 안 생긴다.
+  //      0건이 「통과」가 아니라 **「한 번도 안 쟀다」**였다. 그래서 `checkcreature` 의
+  //      **ⓕ**가 «그려진 것»에서 칠한 밑을 찾아 닿는 줄과 견준다
   // ⚠️ **그래서 그림의 `viewBox` 는 «칠한 데에 바짝» 잘라 둔다** (지금 여섯 다 2.2% 안).
   //    여백이 남아 있으면 그만큼 그대로 떠 보인다 — 원숭이 원본이 위아래 12% 였다.
   //    🔥 화염 여우가 「좀 작은 것 같아」로 신고받은 자리가 바로 이것이다: 그 그림만
@@ -526,13 +592,19 @@
   //    그대로 넣으면 유리를 **6~8px 넘고 수면 위로 3.5~7.5px 나온다** (재 봤다 —
   //    부품 그림인 심해 말랑이는 −4/−8px 로 넉넉히 안에 있다). 상자가 그러면 지느러미가
   //    유리를 뚫은 것과 같아서 `checkavatar` 의 「어항」이 그 자리에서 잡는다.
-  // ⚠️ **값은 «재서» 골랐다** — 부품 그림의 물고기가 이미 차지하던 발자국과 같은 자리다
-  //    (고래의 bb 17.2,27.5 65.6×52.8). 어항 유리는 원 중심 50,54.2 · 반지름 33 ·
-  //    수면 36 이고, 여기에 CSS 의 `48%` 축소와 헤엄 ±8px 이 같이 걸린다 —
-  //    **셋이 짝이라 하나를 옮기면 「어항」으로 다시 재야 한다**
+  // ⚠️⚠️ **값은 «CSS 의 축소를 되돌린» 자리다** (2026-10-07에 다시 잡았다).
+  //    `.cr-swim svg` 가 상자의 **86%** 로 줄여 가운데에 놓으므로, 여기 적는 슬롯은
+  //    그 축소를 되돌린 좌표다 — 화면에서 바라는 자리를 p, 되돌린 좌표를 v 라 하면
+  //    **v = 50 + (p − 50) ÷ 0.86** 이다. 바라는 자리는 «물 안»이다:
+  //    가로 14~86 → v 8~92 · 세로 31~84 → v 28~90 (물은 y 28 부터고 조약돌이 85 쯤이다).
+  //    ⚠️ **한쪽만 고치면 갈린다** — CSS 의 86% 를 옮기면 이 넷을 다시 풀어야 한다.
+  //    ⚠️ 옛 값(18,28,64,52)은 CSS 가 48% 이던 때의 것이라, 그대로 두고 86% 로 올리면
+  //       물고기가 수면 위로 머리를 내민다 (`checkavatar` 의 「어항」이 그 자리에서 잡는다)
+  //    ⚠️ 부품 그림 쪽은 제 상자(17.2~82.8 × 27.5~80.3)를 그대로 쓰고 CSS 축소만 탄다 —
+  //       그래서 86% 가 **그쪽의 천장**(0.889)에서 나온 값이고 둘이 같은 자를 지난다
   // ⚠️ **`opts.bowl` 일 때만이다** — 도감 칸에는 어항이 없으므로 거기서 줄이면
   //    물고기만 혼자 작게 선다 (어항을 그리는 자리가 `petStage()` 하나라 거기서 켠다)
-  const BOWL_FIT = { x: 18, y: 28, w: 64, h: 52 };
+  const BOWL_FIT = { x: 17, y: 21, w: 66, h: 47 };
   function previewSvg(c, opts) {
     const ph = GROUND - TOP_PAD;
     const attr = (window.GameData && GameData.creatureAttr(c.attr)) || { color: '#9a8fb0' };
@@ -540,14 +612,19 @@
     // 「쉬는 자세가 놓일 네모」는 하나다 — 애교를 씌우든 안 씌우든 같은 자리·같은 크기다
     const slot = opts.bowl ? { ...BOWL_FIT }
       : { x: 0, y: TOP_PAD, w: W, h: +ph.toFixed(1) };
-    // ⚠️ 어항에서는 **가운데 맞춤**이다 — 물속에는 닿는 줄이 없다.
-    //    `YMax` 로 두면 물고기가 유리 밑바닥에 가라앉은 것으로 보인다
-    const par = opts.bowl ? 'xMidYMid meet' : 'xMidYMax meet';
+    // ⚠️ 맞춤은 안 적는다 — 파일이 선언한다 (위 ⚠️⚠️⚠️)
     const art = idleOn(c, opts)
       ? PetIdle.image(href, slot)
       : `<image href="${href}" x="${slot.x}" y="${slot.y}" width="${slot.w}"`
-        + ` height="${slot.h}" preserveAspectRatio="${par}"/>`;
-    return `<svg class="cr-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+        + ` height="${slot.h}"/>`;
+    // ⚠️⚠️ **어항 속에서는 `cr-inbowl` 을 달아 «더 크게» 선다** (CSS 86% · 기본 48%).
+    //    둘을 가르는 까닭은 하나다 — **표를 비웠을 때 되돌아갈 길**(부품 그림)은
+    //    제 100 상자를 다 쓰는데(발자국 17.2~82.8 × 27.5~80.3), 86% 로 키우면
+    //    그 그림이 유리를 뚫는다(재 보면 46.7 > 한계 40.4). 대고 따라 그린 그림은
+    //    `BOWL_FIT` 이 이미 «유리 안»으로 좁혀 놓았으므로 그만큼 더 키울 수 있다.
+    //    ⚠️ 그래서 **부품 그림 쪽은 한 픽셀도 안 바뀐다** — 되돌아갈 길이 멀쩡히 남는다
+    const cls = 'cr-svg' + (opts.bowl ? ' cr-inbowl' : '');
+    return `<svg class="${cls}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
       role="img" aria-label="${(c.name || '').replace(/"/g, '')}"
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
       ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(attr.color, 88)}"/>`}
@@ -647,9 +724,17 @@
   // 앞뒤가 갈려야 유리 너머로 보인다 — `back`(유리통·물) 뒤, 물고기, `front`(테·반사) 앞.
   function bowl() {
     const u = 'b' + (++uid);
-    // 위가 트인 둥근 어항. 테두리(y=28)에서 시작해 아래로 크게 돌아 반대편 테두리로 돌아온다
-    const shell = 'M30,28 A33,33 0 1 0 70,28';
+    // 위가 트인 둥근 어항 — 테두리에서 시작해 아래로 크게 돌아 반대편 테두리로 돌아온다.
+    // ⚠️ 모양은 `BOWL` 한 곳에서 나온다 (아래 `BOWL` 위에 경위가 있다)
+    const rimHalf = Math.sqrt(BOWL.r * BOWL.r - (BOWL.cy - BOWL.rimY) ** 2);
+    const shell = `M${(BOWL.cx - rimHalf).toFixed(1)},${BOWL.rimY}`
+      + ` A${BOWL.r},${BOWL.r} 0 1 0 ${(BOWL.cx + rimHalf).toFixed(1)},${BOWL.rimY}`;
     const WATER = '#7ec8ef', GLASS = '#cfeaf7';
+    // 받침의 윗면을 축으로 유리통만 키운다 — 받침은 이 변환 «밖»이라 안 커진다
+    // 받침은 통이 커진 만큼 «가로로만» 넓힌다 — cy·ry 를 건드리면 `BOWL_FLOOR` 가
+    // 따라 움직여 `placePetY()` 가 어항을 다른 높이에 세운다
+    const up = `transform="translate(${BOWL.cx} ${BOWL.cy + BOWL.r})`
+      + ` scale(${BOWL.k}) translate(${-BOWL.cx} ${-(BOWL.cy + BOWL.r)})"`;
     return {
       back: `<svg class="cr-bowl" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
@@ -659,24 +744,30 @@
             <stop offset="1" stop-color="#4f9ada" stop-opacity="0.75"/>
           </linearGradient>
         </defs>
+        <g ${up}>
         <path d="${shell} Z" fill="${GLASS}" opacity="0.5"/>
         <g clip-path="url(#${u}c)">
-          <rect x="0" y="36" width="100" height="64" fill="url(#${u}g)"/>
-          <ellipse cx="50" cy="36" rx="40" ry="3.5" fill="#fff" opacity="0.5"/>
+          <rect x="0" y="${BOWL.waterY}" width="100" height="100" fill="url(#${u}g)"/>
+          <ellipse cx="50" cy="${BOWL.waterY}" rx="40" ry="3.5" fill="#fff" opacity="0.5"/>
           <ellipse cx="34" cy="82" rx="13" ry="4" fill="#3f7fb8" opacity="0.35"/>
           <path d="M40,86 C38,74 44,68 42,60" stroke="#3f8f6a" stroke-width="3"
                 fill="none" stroke-linecap="round" opacity="0.75"/>
           <path d="M58,86 C60,76 55,72 57,64" stroke="#4fa87c" stroke-width="2.6"
                 fill="none" stroke-linecap="round" opacity="0.7"/>
         </g>
+        </g>
       </svg>`,
       front: `<svg class="cr-bowl" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g ${up}>
         <path d="${shell}" fill="none" stroke="#a8d8ee" stroke-width="2.4"/>
         <path d="M26,48 C24,60 27,70 33,77" stroke="#fff" stroke-width="3.4"
               fill="none" stroke-linecap="round" opacity="0.6"/>
-        <ellipse cx="50" cy="28" rx="20" ry="5.5" fill="none" stroke="#a8d8ee" stroke-width="2.4"/>
-        <ellipse cx="50" cy="${BOWL_STAND.cy}" rx="15" ry="${BOWL_STAND.ry}" fill="#b9a48f"/>
-        <rect x="42" y="${BOWL_STAND.cy - 6}" width="16" height="6" rx="2" fill="#c9b49f"/>
+        <ellipse cx="50" cy="${BOWL.rimY}" rx="20" ry="5.5" fill="none" stroke="#a8d8ee" stroke-width="2.4"/>
+        </g>
+        <ellipse cx="50" cy="${BOWL_STAND.cy}" rx="${(15 * BOWL.k).toFixed(1)}"
+                 ry="${BOWL_STAND.ry}" fill="#b9a48f"/>
+        <rect x="${(50 - 8 * BOWL.k).toFixed(1)}" y="${BOWL_STAND.cy - 6}"
+              width="${(16 * BOWL.k).toFixed(1)}" height="6" rx="2" fill="#c9b49f"/>
       </svg>`,
     };
   }
@@ -695,6 +786,8 @@
   // ⚠️ `GROUND`·`BOWL_FLOOR` 를 내보내는 이유는 하나다 — **방에 세울 때 자리를 재려고**
   //    (`game.js` 의 `placePetY()`). 그 숫자를 저쪽에 적으면 그림을 고쳤을 때 자리만
   //    옛 값에 남는다
-  window.Creature = { draw, icon, bowl, of, W, H, GROUND, BOWL_FLOOR, AIR_MID,
-    SHAPE, HORN, WING, TAIL, EYE, PREVIEW, idleOn, FACE, standSide };
+  // ⚠️ `TOP_PAD`·`BOWL_FIT` 도 내보낸다 — `checkcreature` 의 ⓕ 가 «닿는 줄»을
+  //    여기서 뽑는다. 숫자를 검사기에 적으면 사본이 생겨 슬롯을 옮겼을 때 갈린다
+  window.Creature = { draw, icon, bowl, of, W, H, GROUND, TOP_PAD, BOWL_FLOOR, AIR_MID,
+    BOWL, BOWL_FIT, bowlGlass, SHAPE, HORN, WING, TAIL, EYE, PREVIEW, idleOn, FACE, standSide };
 })();

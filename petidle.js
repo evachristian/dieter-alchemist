@@ -43,7 +43,10 @@
     const k = slot.h / REST_H;
     const tx = slot.x + slot.w / 2 - PIVOT[0] * k;
     const ty = slot.y + slot.h - PIVOT[1] * k;
-    const img = `<image href="${href}" x="${(-slot.w / 2 / k).toFixed(2)}" y="${(-REST_H).toFixed(2)}" width="${(slot.w / k).toFixed(2)}" height="${REST_H}" preserveAspectRatio="xMidYMax meet"/>`;
+    // ⚠️ 맞춤(`preserveAspectRatio`)은 «그림 파일»이 선언한다 — 크로뮴은 여기 적은 것을
+    //    안 본다 (`creature.js` 의 `previewSvg` 위에 경위를 적어 두었다). 여기에 적어 두면
+    //    사본이 생기고, 그 사본은 늘 거짓일 수 있다
+    const img = `<image href="${href}" x="${(-slot.w / 2 / k).toFixed(2)}" y="${(-REST_H).toFixed(2)}" width="${(slot.w / k).toFixed(2)}" height="${REST_H}"/>`;
     return `<g class="cr-idle" transform="translate(${tx.toFixed(3)} ${ty.toFixed(3)}) scale(${k.toFixed(5)})">`
       + `<g transform="translate(${PIVOT[0]} ${PIVOT[1]})">${A_T}`
       + `<g>${A_R}<g>${A_S}${img}</g></g></g>`
