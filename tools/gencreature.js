@@ -169,14 +169,21 @@ const TABLE = [
     inputs: ['cloud_moss', 'eagle_feather', 'sun_seed'], art: C('bird', 'none', 'none', 'none', 'long', 'sharp', 'stripe') },
 
   // ── 물 ──
-  // frog 은 **옛 id** 다. 조합(mushroom + petal)도 그대로 둔다
-  { id: 'frog',             attr: 'water', grade: 'basic', ko: '꽃개구리',     en: 'Blossom Frog',
+  // ⚠️⚠️ **물 셋도 이름만 바꿨다** (2026-10-07) — 불 넷 · 땅 다섯 · 바람 다섯과
+  //    **같은 규칙**이다. id 는 세이브에 들어 있어서 새로 뽑으면 그 크리처를 가진
+  //    사람의 것이 날아간다 — 그래서 아래 셋은 **id 가 이제 제 이름을 뜻하지 않는다**:
+  //    · `frog`          «개구리»가 아니라 **물빛 말랑이**(슬라임) · ⚠️ 게다가 **옛 id** 라
+  //                      절대 새로 뽑지 않는다 (조합 mushroom + petal 도 그대로 둔다)
+  //    · `droplet_otter` «수달»이 아니라 **물방울 곰돌**(곰이다)
+  //    · `dew_snail`     «달팽이»가 아니라 **파란 미소토끼**
+  //    산호 해마(`coral_seahorse`)만 이름이 그대로다 — 사람이 「이름 유지해줘」로 정했다
+  { id: 'frog',             attr: 'water', grade: 'basic', ko: '물빛 말랑이',   en: 'Aqua Slime',
     inputs: ['mushroom', 'petal'],                          art: C('blob', 'none', 'none', 'none', 'none', 'round', 'spot') },
-  { id: 'droplet_otter',    attr: 'water', grade: 'basic', ko: '물방울 수달',   en: 'Droplet Otter',
+  { id: 'droplet_otter',    attr: 'water', grade: 'basic', ko: '물방울 곰돌',   en: 'Droplet Bear',
     inputs: ['dew', 'night_dew'],                           art: C('quad', 'round', 'none', 'none', 'long', 'round', 'none') },
   { id: 'coral_seahorse',   attr: 'water', grade: 'mid',   ko: '산호 해마',     en: 'Coral Seahorse',
     inputs: ['coral', 'foam', 'seaweed'],                   art: C('fish', 'fin', 'none', 'fin', 'fish', 'dot', 'glow') },
-  { id: 'dew_snail',        attr: 'water', grade: 'mid',   ko: '이슬 달팽이',   en: 'Dewdrop Snail',
+  { id: 'dew_snail',        attr: 'water', grade: 'mid',   ko: '파란 미소토끼', en: 'Bluesmile Bunny',
     inputs: ['moss_branch', 'night_dew', 'shell'],          art: C('blob', 'long', 'none', 'none', 'none', 'sleepy', 'glow') },
   { id: 'deepsea_whale',    attr: 'water', grade: 'high',  ko: '심해 고래',     en: 'Deepsea Whale',
     inputs: ['pearl_bit', 'sea_dew', 'seaweed'], art: C('fish', 'fin', 'none', 'fin', 'fish', 'sleepy', 'glow') },

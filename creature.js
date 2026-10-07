@@ -434,7 +434,14 @@
                     // ── 바람 다섯 ──
                     dandelion_hare: 'mint-bunny.svg', breeze_sparrow: 'mint-penguin.svg',
                     whirl_marten: 'mint-cat.svg', cloud_goat: 'mint-rabbit.svg',
-                    sky_falcon: 'mint-duck.svg' };
+                    sky_falcon: 'mint-duck.svg',
+                    // ── 물 넷 ──
+                    // ⚠️ 산호 해마는 **어항(`move: 'water'`)** 이다 — 어항·받침·유리는
+                    //    `game.js` 의 `petStage()` 가 그리므로 여기서 갈아 끼우는 것은
+                    //    «헤엄치는 그림» 하나다. 그래서 그림을 «유리 안»에 맞춰야 한다
+                    //    (아래 `previewSvg` 의 `BOWL_FIT`). 심해 고래는 아직 안 받았다
+                    frog: 'blue-slime.svg', droplet_otter: 'blue-bear.svg',
+                    coral_seahorse: 'blue-fish.svg', dew_snail: 'blue-bunny.svg' };
 
   // ─── 애교 모션 — «바닥에 선» 마리가 4초 움직이고 10초 쉰다 ──────
   //
@@ -490,16 +497,33 @@
   //    🔥 화염 여우가 「좀 작은 것 같아」로 신고받은 자리가 바로 이것이다: 그 그림만
   //    **움직임까지 품은 상자**였어서(쉬는 자세가 viewBox 의 81%) 혼자 작게 섰다.
   //    리그를 게임으로 올려 그림을 정지 그림으로 되돌리자 **24% 커져** 원숭이와 나란해졌다
+  // ⚠️⚠️ **어항에 들어갈 때는 «유리 안»에 앉힌다** (`BOWL_FIT` · 2026-10-07).
+  //    어항·받침·유리는 `game.js` 의 `petStage()` 가 그리고, 여기서 갈아 끼우는 것은
+  //    «헤엄치는 그림» 하나다. 그런데 `<image>` 의 상자는 **슬롯 통째**(0,2.5 100×87.5)라
+  //    그대로 넣으면 유리를 **6~8px 넘고 수면 위로 3.5~7.5px 나온다** (재 봤다 —
+  //    부품 그림인 심해 고래는 −4/−8px 로 넉넉히 안에 있다). 상자가 그러면 지느러미가
+  //    유리를 뚫은 것과 같아서 `checkavatar` 의 「어항」이 그 자리에서 잡는다.
+  // ⚠️ **값은 «재서» 골랐다** — 부품 그림의 물고기가 이미 차지하던 발자국과 같은 자리다
+  //    (고래의 bb 17.2,27.5 65.6×52.8). 어항 유리는 원 중심 50,54.2 · 반지름 33 ·
+  //    수면 36 이고, 여기에 CSS 의 `48%` 축소와 헤엄 ±8px 이 같이 걸린다 —
+  //    **셋이 짝이라 하나를 옮기면 「어항」으로 다시 재야 한다**
+  // ⚠️ **`opts.bowl` 일 때만이다** — 도감 칸에는 어항이 없으므로 거기서 줄이면
+  //    물고기만 혼자 작게 선다 (어항을 그리는 자리가 `petStage()` 하나라 거기서 켠다)
+  const BOWL_FIT = { x: 18, y: 28, w: 64, h: 52 };
   function previewSvg(c, opts) {
     const ph = GROUND - TOP_PAD;
     const attr = (window.GameData && GameData.creatureAttr(c.attr)) || { color: '#9a8fb0' };
     const href = PREVIEW[c.id] + ASSET_Q;
     // 「쉬는 자세가 놓일 네모」는 하나다 — 애교를 씌우든 안 씌우든 같은 자리·같은 크기다
-    const slot = { x: 0, y: TOP_PAD, w: W, h: +ph.toFixed(1) };
+    const slot = opts.bowl ? { ...BOWL_FIT }
+      : { x: 0, y: TOP_PAD, w: W, h: +ph.toFixed(1) };
+    // ⚠️ 어항에서는 **가운데 맞춤**이다 — 물속에는 닿는 줄이 없다.
+    //    `YMax` 로 두면 물고기가 유리 밑바닥에 가라앉은 것으로 보인다
+    const par = opts.bowl ? 'xMidYMid meet' : 'xMidYMax meet';
     const art = idleOn(c, opts)
       ? PetIdle.image(href, slot)
       : `<image href="${href}" x="${slot.x}" y="${slot.y}" width="${slot.w}"`
-        + ` height="${slot.h}" preserveAspectRatio="xMidYMax meet"/>`;
+        + ` height="${slot.h}" preserveAspectRatio="${par}"/>`;
     return `<svg class="cr-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
       role="img" aria-label="${(c.name || '').replace(/"/g, '')}"
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>

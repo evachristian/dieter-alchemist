@@ -3404,10 +3404,10 @@
       cloud_goat: 'Cloudcrest Rabbit',
       sky_falcon: 'Whirl Duck',
       // Water
-      frog: 'Blossom Frog',
-      droplet_otter: 'Droplet Otter',
+      frog: 'Aqua Slime',
+      droplet_otter: 'Droplet Bear',
       coral_seahorse: 'Coral Seahorse',
-      dew_snail: 'Dewdrop Snail',
+      dew_snail: 'Bluesmile Bunny',
       deepsea_whale: 'Deepsea Whale',
       // Light
       butterfly: 'Glimmer Butterfly',

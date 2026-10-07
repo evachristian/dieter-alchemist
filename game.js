@@ -5169,7 +5169,10 @@ function petStage(pet) {
     const b = Creature.bowl();
     // 어항 안에서는 바닥 그림자를 뺀다 — 물속에 그림자가 깔리면 유리 위에 앉은 것처럼 보인다
     return `<span class="stage-creature cr-water${side}">${b.back}`
-      + `<span class="cr-swim">${Creature.draw(pet, { flat: true, noShadow: true })}</span>`
+      // ⚠️ `bowl: true` — 「지금 어항 «안»에 그린다」는 뜻이다. 대고 따라 그린 그림
+      //    (`Creature.PREVIEW`)은 그때만 «유리 안»에 드는 자리에 앉는다 (`BOWL_FIT`).
+      //    어항을 그리는 자리가 여기 하나라, 켜는 자리도 여기 하나다
+      + `<span class="cr-swim">${Creature.draw(pet, { flat: true, noShadow: true, bowl: true })}</span>`
       + `${b.front}</span>`;
   }
   // ⚠️ **애교 모션은 «방에 선 마리»에만 씌운다**(`idle`). 도감 칸·목록은 46px 짜리
