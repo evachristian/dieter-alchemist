@@ -241,7 +241,7 @@ async function run(label, env) {
 
     await J('POST', '/api/name', { playerId: V, secret: SEC_V, name: '밭주인' });
     await J('POST', '/api/name', { playerId: R, secret: SEC_R, name: '도둑고양이' });
-    // 유니콘(빛·상급, 전투력 64, 반딧불이 3개)이 지키는 밭
+    // 황금 볏 몽키(빛·상급, 전투력 64, 반딧불이 3개)이 지키는 밭
     await J('PUT', `/api/save/${V}`, {
       secret: SEC_V, rev: 1,
       state: { name: '밭주인', creatures: ['unicorn'], petRoom: 'unicorn', pets: {} },
@@ -316,7 +316,7 @@ async function run(label, env) {
       // 둘째 칸은 비어 있으니 심긴다
       z = await P(`/api/farm/${V}/plant`, { secret: SEC_V, nonce: 'plant02', index: 1, crop: 'ember_chili' });
       ok(z.status === 200 && z.body.plots[1].crop === 'ember_chili', `심었다 → ${z.status}`);
-      // **다 자라는 시각은 서버가 잰다.** 유니콘(로열티 0)이라 12시간 그대로
+      // **다 자라는 시각은 서버가 잰다.** 황금 볏 몽키(로열티 0)이라 12시간 그대로
       const p1 = (await farmOf(V)).plots[1];
       const hrs = Math.round((p1.ready - p1.at) / 3600e3);
       ok(hrs === 12, `12시간 뒤에 여문다 (${hrs}시간)`);
@@ -728,7 +728,7 @@ function pick(env) {
 
     // 로열티는 **양쪽 다** 올린다 (먹이를 준 크리처는 공격이든 방어든 잘 싸운다)
     const uni = C.unicorn;
-    ok(Bt.combatPower(uni) === 64, `유니콘 전투력 ${Bt.combatPower(uni)}`);
+    ok(Bt.combatPower(uni) === 64, `황금 볏 몽키 전투력 ${Bt.combatPower(uni)}`);
     ok(Math.abs(Bt.effPower(uni, 100) - 64 * 1.3) < 1e-9, '로열티 가득 → 전투력 +30%');
     ok(Bt.effPower(uni, 0) === 64, '로열티 0 → 그대로');
 
@@ -807,7 +807,7 @@ function pick(env) {
       const st = { creatures: five, farmDef: five, farmAtk: five, pets: {} };
       const team = Bt.defTeam(st);
       ok(team.length === 5 && team.every(x => x), `다섯 자리가 다 찬다 (${team.map(x => x.id).join(' ')})`);
-      // **같은 id 를 두 번 못 넣는다** — 유니콘 하나로 다섯 칸을 채우면 고르는 일이 사라진다
+      // **같은 id 를 두 번 못 넣는다** — 황금 볏 몽키 하나로 다섯 칸을 채우면 고르는 일이 사라진다
       const dup = Bt.teamOf({ creatures: ['unicorn'], farmDef: Array(5).fill('unicorn'), pets: {} },
         'farmDef');
       ok(dup.filter(x => x).length === 1, `같은 id 는 한 번만 (${dup.filter(x => x).length}자리)`);

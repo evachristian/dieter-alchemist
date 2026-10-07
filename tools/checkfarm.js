@@ -50,7 +50,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   });
   const ears = f => (f.plots || []).reduce((n, p) => n + sum(p.stash), 0);
 
-  // 털리는 쪽 — 유니콘이 지키고 반딧불이 9개가 여물어 있다
+  // 털리는 쪽 — 황금 볏 몽키이 지키고 반딧불이 9개가 여물어 있다
   await store.claimName(VID, VSEC, '밭주인');
   await store.put(VID, VSEC, 3,
     { name: '밭주인', creatures: ['unicorn'], petRoom: 'unicorn', pets: {} }, { charm: 220 });
@@ -142,7 +142,7 @@ const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
     };
   });
   ok(out.n === 1 && out.names[0] === '밭주인', `상대 목록 = ${JSON.stringify(out.names)}`);
-  // 용암 펭귄(불) 대 유니콘(빛) — 순환에 없는 짝이라 「보통」이어야 한다
+  // 용암 펭귄(불) 대 황금 볏 몽키(빛) — 순환에 없는 짝이라 「보통」이어야 한다
   ok(out.tags[0] === '보통', `상성 딱지 = ${out.tags[0]} (보통 기대)`);
   ok(out.foeSlots[0] === 5, `상대 줄에 다섯 자리가 있다 (${out.foeSlots[0]})`);
   ok(out.mineSlots === 5, `내 출정대도 다섯 자리 (${out.mineSlots})`);

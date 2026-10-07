@@ -209,7 +209,8 @@
   const HORN_UP = { none: 0, single: 1.25, pair: 0.78, antler: 1.30, crystal: 0.88 };
   const HORN = {
     none: () => '',
-    // 하나 — 가운데에서 곧게 솟는 원뿔 (유니콘)
+    // 하나 — 가운데에서 곧게 솟는 외뿔 (`unicorn` 이 쓴다 — 그 id 는 이제
+    //        제 이름을 안 뜻한다. 지금 이름은 **황금 볏 몽키**다)
     single: (hx, hy, hrx, hry, c, up) => {
       const by = hy - hry * 0.72, ty = hy - hry * (1 + up), w = hrx * 0.17;
       return P(`M${n1(hx - w)},${n1(by)}`
@@ -439,9 +440,19 @@
                     // ⚠️ 산호 해마는 **어항(`move: 'water'`)** 이다 — 어항·받침·유리는
                     //    `game.js` 의 `petStage()` 가 그리므로 여기서 갈아 끼우는 것은
                     //    «헤엄치는 그림» 하나다. 그래서 그림을 «유리 안»에 맞춰야 한다
-                    //    (아래 `previewSvg` 의 `BOWL_FIT`). 심해 고래는 아직 안 받았다
+                    //    (아래 `previewSvg` 의 `BOWL_FIT`). 심해 말랑이는 아직 안 받았다 —
+                    //    ⚠️ 2026-10-07에 그 자리로 온 그림은 **산호 해마의 것과 한 글자도
+                    //    안 달랐다**(`20-blue-fish-happy` · 61399자). 안 쓰는 번호는
+                    //    `18-blue-fish` 라, 어느 쪽인지 사람에게 물어보기 전에는 안 얹는다
                     frog: 'blue-slime.svg', droplet_otter: 'blue-bear.svg',
-                    coral_seahorse: 'blue-fish.svg', dew_snail: 'blue-bunny.svg' };
+                    coral_seahorse: 'blue-fish.svg', dew_snail: 'blue-bunny.svg',
+                    // ── 빛 다섯 ──
+                    butterfly: 'yellow-butterfly.svg', sunbeam_hen: 'yellow-penguin.svg',
+                    starlit_fawn: 'yellow-deer.svg', dawn_owl: 'yellow-catbird.svg',
+                    unicorn: 'yellow-crest-monkey.svg',
+                    // ── 어둠 셋 ── (29·30 은 아직 안 받았다)
+                    newmoon_bat: 'lavender-bat.svg', shadow_cat: 'lavender-cat.svg',
+                    nightmist_fox: 'lavender-cat-happy.svg' };
 
   // ─── 애교 모션 — «바닥에 선» 마리가 4초 움직이고 10초 쉰다 ──────
   //
@@ -472,12 +483,24 @@
   // 그 마리만 **인물의 반대쪽에 세워야 인물을 바라본다** — 같은 쪽에 세우면
   // 등을 돌리고 바깥을 본다 (「나비는 좌측을 보니 인물의 우측 어깨 위에」로 받았다).
   //
-  // ⚠️⚠️ **적는 것은 «바라보는 쪽»이고 서는 쪽은 그 반대다** (`standSide`).
+  // ⚠️⚠️ **적는 것은 «왜 거기에 서는가»이고 서는 쪽은 `standSide` 가 푼다.**
   //    서는 쪽을 바로 적으면 그림을 뒤집었을 때 왜 그 자리인지가 사라진다.
-  // ⚠️ 여기 없는 마리는 정면이라 **왼쪽**이다 — 오래 그래 왔고, 왼쪽 버튼 줄과
+  //    값이 둘이고 **뜻이 다르다** — 둘 다 「인물의 오른쪽」으로 가지만 고치는 법이 다르다:
+  //    · `'left'` — 그림이 **왼쪽을 본다**. 그래서 인물의 오른쪽에 서야 인물을 바라본다.
+  //                 **그림을 좌우로 뒤집으면 이 값도 뒤집어야 한다**
+  //    · `'pick'` — 그림은 **정면**이고, 사람이 「우측으로 옮겨 달라」고 **자리를 골랐다**
+  //                 (2026-10-07에 다섯을 그렇게 받았다). 그림을 뒤집어도 그대로 둔다 —
+  //                 뒤집어 봐야 정면이라 달라지는 것이 없다
+  // ⚠️ **값은 짐을 진다** — 오타를 내면 `RIGHT` 에 안 걸려 왼쪽에 서고, `checkroom` 의
+  //    「크리처 가림」이 그 자리에서 잡는다 (「아무 값이나 쓰면 되는」 표가 아니다)
+  // ⚠️ 여기 없는 마리는 **왼쪽**이다 — 오래 그래 왔고, 왼쪽 버튼 줄과
   //    치마 옆선을 재는 셈이 거기에 맞춰져 있다 (`placePet`)
-  const FACE = { ash_moth: 'left', flame_fox: 'left', pebble_turtle: 'left' };
-  function standSide(c) { return (c && FACE[c.id] === 'left') ? 'right' : 'left'; }
+  const FACE = { ash_moth: 'left', flame_fox: 'left', pebble_turtle: 'left',
+                 // ── 정면 그림 다섯 · 사람이 자리를 골랐다 (2026-10-07) ──
+                 moss_deer: 'pick', dandelion_hare: 'pick', whirl_marten: 'pick',
+                 sky_falcon: 'pick', sunbeam_hen: 'pick' };
+  const RIGHT = { left: 1, pick: 1 };
+  function standSide(c) { return (c && RIGHT[FACE[c.id]]) ? 'right' : 'left'; }
 
   // ⚠️ 캐시 버스터는 제 `<script>` 태그에서 물려받는다 (`tutorial.js` 의 `ASSET_Q` 와
   //    같은 조리법) — `index.html` 의 일괄 치환 한 번이면 그림까지 같이 따라온다
@@ -501,7 +524,7 @@
   //    어항·받침·유리는 `game.js` 의 `petStage()` 가 그리고, 여기서 갈아 끼우는 것은
   //    «헤엄치는 그림» 하나다. 그런데 `<image>` 의 상자는 **슬롯 통째**(0,2.5 100×87.5)라
   //    그대로 넣으면 유리를 **6~8px 넘고 수면 위로 3.5~7.5px 나온다** (재 봤다 —
-  //    부품 그림인 심해 고래는 −4/−8px 로 넉넉히 안에 있다). 상자가 그러면 지느러미가
+  //    부품 그림인 심해 말랑이는 −4/−8px 로 넉넉히 안에 있다). 상자가 그러면 지느러미가
   //    유리를 뚫은 것과 같아서 `checkavatar` 의 「어항」이 그 자리에서 잡는다.
   // ⚠️ **값은 «재서» 골랐다** — 부품 그림의 물고기가 이미 차지하던 발자국과 같은 자리다
   //    (고래의 bb 17.2,27.5 65.6×52.8). 어항 유리는 원 중심 50,54.2 · 반지름 33 ·

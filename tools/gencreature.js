@@ -73,8 +73,8 @@ const C = (body, ear, horn, wing, tail, eye, pat) => ({ body, ear, horn, wing, t
 //   날개가 있으면 뜬다 — 나비 · 박쥐 · 새 날개
 //   그 밖에는 전부 네 발로 선다
 //
-// ⚠️ **몸통(body)으로 가르면 틀린다.** 「햇살 암탉」은 body 가 bird 인데 날개가 없다 —
-// 암탉은 걸어 다닌다. 유니콘(deer + 뿔, 날개 없음)도 같은 이유로 땅이다.
+// ⚠️ **몸통(body)으로 가르면 틀린다.** 「햇살 병아리」는 body 가 bird 인데 날개가 없다 —
+// 병아리는 걸어 다닌다. 황금 볏 몽키(deer + 뿔, 날개 없음)도 같은 이유로 땅이다.
 //
 // 물이 물고기보다 **먼저** 걸린다. 물고기에는 지느러미(wing: 'fin')가 달려 있어서
 // 날개 검사가 앞에 오면 물고기가 통째로 공중이 된다 — 한동안 실제로 그랬다.
@@ -97,7 +97,7 @@ function moveOf(art) {
 // 아래 `meltOf()` 가 속성에서 뽑는다. 상급의 `inputs` 를 **재료 셋**으로 적어 두면
 // 남는 한 칸을 그 크리처가 채워 **여전히 넷**이 된다 (4구 솥 그대로).
 //
-// ⚠️ **옛 크리처(LEGACY)는 건드리지 않는다.** 유니콘은 재료 셋짜리 상급 그대로다 —
+// ⚠️ **옛 크리처(LEGACY)는 건드리지 않는다.** 황금 볏 몽키는 재료 셋짜리 상급 그대로다 —
 // 「빛 상급이 유독 싸다」고 원래 적혀 있던 그 자리이고, 조합을 바꾸면 그것을 가진
 // 사람의 레시피 북이 어제와 달라진다.
 const TABLE = [
@@ -121,7 +121,7 @@ const TABLE = [
     inputs: ['flint', 'mushroom', 'walnut'],                art: C('blob', 'none', 'none', 'none', 'none', 'sleepy', 'spot') },
   // ⚠️⚠️ **펭귄은 «날개»를 안 가진다** — 「펭귄은 부유형이 아니야. 땅에 붙어있게」로
   //    신고받은 자리다. `moveOf` 가 「날개가 있으면 공중」이라 `wing: 'bird'` 하나로
-  //    **허공에 뜬 펭귄**이 됐다. 햇살 암탉(`sunbeam_hen`)이 이미 같은 자리다 —
+  //    **허공에 뜬 펭귄**이 됐다. 햇살 병아리(`sunbeam_hen`)가 이미 같은 자리다 —
   //    `body: 'bird'` 는 그대로 두고 **날개만** 뺀다 (펭귄도 날개가 있긴 하지만
   //    그것으로 «나는» 새가 아니고, 이 표에서 `wing` 이 뜻하는 것은 「난다」다)
   { id: 'ember_phoenix',    attr: 'fire',  grade: 'high',  ko: '용암 펭귄',     en: 'Lava Penguin',
@@ -158,7 +158,7 @@ const TABLE = [
   // ⚠️⚠️ **펭귄·오리는 «날개»를 안 가진다** — 용암 펭귄과 **같은 자리**다. 이 표에서
   //    `wing` 이 뜻하는 것은 「난다」이고(`moveOf` 가 「날개가 있으면 공중」이다),
   //    받은 그림은 둘 다 **발을 땅에 딛고 선** 모습이라 띄우면 허공에 뜬 펭귄이 된다.
-  //    `body: 'bird'` 는 그대로 두고 날개만 뺀다 (햇살 암탉이 이미 같은 줄이다)
+  //    `body: 'bird'` 는 그대로 두고 날개만 뺀다 (햇살 병아리가 이미 같은 줄이다)
   { id: 'breeze_sparrow',   attr: 'wind',  grade: 'basic', ko: '살랑 펭순이',   en: 'Breeze Penguin',
     inputs: ['owl_feather', 'wheat'],                       art: C('bird', 'none', 'none', 'none', 'none', 'dot', 'none') },
   { id: 'whirl_marten',     attr: 'wind',  grade: 'mid',   ko: '하늘 냥이',     en: 'Sky Kitty',
@@ -185,26 +185,40 @@ const TABLE = [
     inputs: ['coral', 'foam', 'seaweed'],                   art: C('fish', 'fin', 'none', 'fin', 'fish', 'dot', 'glow') },
   { id: 'dew_snail',        attr: 'water', grade: 'mid',   ko: '파란 미소토끼', en: 'Bluesmile Bunny',
     inputs: ['moss_branch', 'night_dew', 'shell'],          art: C('blob', 'long', 'none', 'none', 'none', 'sleepy', 'glow') },
-  { id: 'deepsea_whale',    attr: 'water', grade: 'high',  ko: '심해 고래',     en: 'Deepsea Whale',
+  // ⚠️ `deepsea_whale` 은 «고래»가 아니라 **심해 말랑이**(슬라임)다 — 위 셋과 같은 줄이다
+  { id: 'deepsea_whale',    attr: 'water', grade: 'high',  ko: '심해 말랑이',   en: 'Deepsea Slime',
     inputs: ['pearl_bit', 'sea_dew', 'seaweed'], art: C('fish', 'fin', 'none', 'fin', 'fish', 'sleepy', 'glow') },
 
   // ── 빛 ──
   // butterfly · unicorn 도 **옛 id** 다
+  // ⚠️⚠️ **빛 넷도 이름만 바꿨다** (2026-10-07) — id 는 세이브에 들어 있어서 새로 뽑으면
+  //    그 크리처를 가진 사람의 것이 날아간다. 그래서 넷이 제 이름을 안 뜻한다:
+  //    · `sunbeam_hen`  «암탉»이 아니라 **햇살 병아리**
+  //    · `starlit_fawn` «별무리»가 아니라 **금빛 사슴**
+  //    · `dawn_owl`     «여명»이 아니라 **새벽빛 부엉**
+  //    · `unicorn`      «황금 볏 몽키»이 아니라 **황금 볏 몽키**(원숭이다) · ⚠️ 게다가 **옛 id** 라
+  //                     절대 새로 뽑지 않는다 (조합 berry + crystal + mushroom 도 그대로 둔다)
+  //    반짝 나비(`butterfly`)만 이름이 그대로다 — 사람이 「이름 유지해줘」로 정했다
   { id: 'butterfly',        attr: 'light', grade: 'basic', ko: '반짝 나비',     en: 'Glimmer Butterfly',
     inputs: ['crystal', 'dew'],                             art: C('bug', 'tuft', 'none', 'butterfly', 'none', 'round', 'glow') },
-  { id: 'sunbeam_hen',      attr: 'light', grade: 'basic', ko: '햇살 암탉',     en: 'Sunbeam Hen',
+  { id: 'sunbeam_hen',      attr: 'light', grade: 'basic', ko: '햇살 병아리',   en: 'Sunbeam Chick',
     inputs: ['sun_seed', 'wheat'],                          art: C('bird', 'none', 'none', 'none', 'puff', 'dot', 'none') },
-  { id: 'starlit_fawn',     attr: 'light', grade: 'mid',   ko: '별무리 사슴',   en: 'Starlit Fawn',
+  { id: 'starlit_fawn',     attr: 'light', grade: 'mid',   ko: '금빛 사슴',     en: 'Golden Deer',
     inputs: ['butter_flower', 'honey', 'snow_bud'],         art: C('deer', 'long', 'antler', 'none', 'leaf', 'round', 'glow') },
-  { id: 'dawn_owl',         attr: 'light', grade: 'mid',   ko: '여명 부엉이',   en: 'Dawn Owl',
-    inputs: ['honey', 'mist_drop', 'owl_feather'],          art: C('bird', 'tuft', 'none', 'bird', 'none', 'round', 'spot') },
-  { id: 'unicorn',          attr: 'light', grade: 'high',  ko: '유니콘',       en: 'Unicorn',
+  // ⚠️⚠️ **부엉이도 «날개»를 안 가진다** — 살랑 펭순이 · 회오리 오리와 **같은 자리**다.
+  //    받은 그림(`24-yellow-catbird`)이 주황 발로 **땅을 딛고 서 있어서**, 날개를 두면
+  //    `moveOf` 가 공중으로 보내 허공에 뜬 부엉이가 된다. `body: 'bird'` 는 그대로 둔다
+  { id: 'dawn_owl',         attr: 'light', grade: 'mid',   ko: '새벽빛 부엉',   en: 'Dawnlight Owl',
+    inputs: ['honey', 'mist_drop', 'owl_feather'],          art: C('bird', 'tuft', 'none', 'none', 'none', 'round', 'spot') },
+  { id: 'unicorn',          attr: 'light', grade: 'high',  ko: '황금 볏 몽키',  en: 'Goldcrest Monkey',
     inputs: ['berry', 'crystal', 'mushroom'],               art: C('deer', 'long', 'single', 'none', 'long', 'round', 'glow') },
 
   // ── 암흑 ──
+  // ⚠️ `shadow_cat` 의 이름만 바꿨다 (2026-10-07) — «고양이»가 아니라 **그림자 냥이**다.
+  //    그믐 박쥐 · 밤안개 여우는 사람이 「이름 유지해줘」로 정했다
   { id: 'newmoon_bat',      attr: 'dark',  grade: 'basic', ko: '그믐 박쥐',     en: 'Newmoon Bat',
     inputs: ['firefly', 'night_dew'],                       art: C('bug', 'long', 'none', 'bat', 'none', 'dot', 'none') },
-  { id: 'shadow_cat',       attr: 'dark',  grade: 'basic', ko: '그림자 고양이', en: 'Shadow Cat',
+  { id: 'shadow_cat',       attr: 'dark',  grade: 'basic', ko: '그림자 냥이',   en: 'Shadow Kitty',
     inputs: ['petal', 'spider_silk'],                       art: C('quad', 'tuft', 'none', 'none', 'long', 'sharp', 'none') },
   { id: 'nightmist_fox',    attr: 'dark',  grade: 'mid',   ko: '밤안개 여우',   en: 'Nightmist Fox',
     inputs: ['berry', 'mist_drop', 'wild_ivy'],             art: C('quad', 'tuft', 'none', 'none', 'puff', 'sleepy', 'stripe') },
@@ -291,7 +305,7 @@ for (const c of TABLE) {
   }
   // 재료 수와 등급이 맞는가.
   // **옛 크리처는 빼고 본다** — 조합을 바꾸면 그 크리처를 가진 사람의 레시피 북이
-  // 어제와 달라진다. 유니콘이 재료 셋짜리 상급인 것은 원래 그랬던 것이고,
+  // 어제와 달라진다. 황금 볏 몽키이 재료 셋짜리 상급인 것은 원래 그랬던 것이고,
   // 「빛 상급이 유독 싸다」는 그 대가다 (바꾸려면 조합을 바꿔야 하는데 그게 더 비싸다)
   // **크리처 재료까지 세어서** 본다 — 상급은 재료 셋 + 중급 하나 = 넷이다
   const want = { basic: 2, mid: 3, high: 4 }[c.grade];
@@ -332,14 +346,15 @@ for (const id of LEGACY) if (!seenId.has(id)) problems.push(`옛 id 가 사라�
 
 // 땅/공중이 **눈으로 본 것과 맞는가.** 규칙 한 줄이라 조용히 뒤집히기 쉬워서
 // 사람이 「이건 분명 이쪽」이라고 아는 몇 마리를 못으로 박아 둔다.
-// 유니콘이 허공에 뜬 채로 배포됐던 적이 있다 — 그때는 서른 마리가 다 떠 있었다.
+// 황금 볏 몽키이 허공에 뜬 채로 배포됐던 적이 있다 — 그때는 서른 마리가 다 떠 있었다.
 const MOVE_MUST = {
   unicorn: 'ground', frog: 'ground', butterfly: 'air',
-  sunbeam_hen: 'ground',      // body 가 bird 인데 날개가 없다 — 암탉은 걷는다
+  sunbeam_hen: 'ground',      // body 가 bird 인데 날개가 없다 — 병아리는 걷는다
   // ⚠️ 펭귄도 그 자리다 — 「펭귄은 부유형이 아니야」로 받아 air → **ground** 로 못을 옮겼다
   ember_phoenix: 'ground', moss_deer: 'ground', boulder_bear: 'ground',
   // ⚠️ 살랑 펭순이(펭귄) · 회오리 오리도 같은 줄이다 — 받은 그림이 둘 다 발을 딛고 섰다
   breeze_sparrow: 'ground', sky_falcon: 'ground',
+  dawn_owl: 'ground',         // 새벽빛 부엉도 주황 발로 땅을 딛고 섰다 (2026-10-07)
   coral_seahorse: 'water', deepsea_whale: 'water',   // 지느러미가 날개로 세어지면 안 된다
 };
 for (const c of TABLE) {

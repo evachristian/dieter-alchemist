@@ -97,7 +97,12 @@ const TAIL_MIN = 200;    // ⑩ 꼬리가 몸 밖으로 내놓아야 하는 몫 
 // 보므로 **빠진 줄은 영영 못 본다**.
 // ⚠️ **부품 그림은 정면 치비라 FACE 에 들어갈 수 없다**(② 가 좌우 대칭을 못 박는다) —
 //    그래서 「FACE 의 마리가 다 PREVIEW 인가」도 같이 본다
-const FACE_MUST = { ash_moth: 'left', flame_fox: 'left', pebble_turtle: 'left' };
+// ⚠️⚠️ **값이 둘이고 뜻이 다르다** — `'left'` 는 「그림이 왼쪽을 본다」(뒤집으면 값도
+//    뒤집는다) · `'pick'` 은 「그림은 정면이고 사람이 자리를 골랐다」(뒤집어도 그대로다).
+//    섞어 적으면 다음에 그림을 뒤집는 사람이 고칠 줄을 못 고르므로 **값까지 못으로 박는다**
+const FACE_MUST = { ash_moth: 'left', flame_fox: 'left', pebble_turtle: 'left',
+  moss_deer: 'pick', dandelion_hare: 'pick', whirl_marten: 'pick',
+  sky_falcon: 'pick', sunbeam_hen: 'pick' };
 
 const near = (p, hex, tol) => {
   const n = parseInt(hex.slice(1), 16);
@@ -127,13 +132,22 @@ const near = (p, hex, tol) => {
     const res = [];
     // ⚠️ **배경 판도 그림자도 끄고 잰다** — 판을 깔아 두면 「상자에 꽉 찼다」가 늘 참이라
     //    잘림을 영영 못 보고, 그림자는 바닥에 번져 실루엣을 흐린다
-    const shot = async (c) => {
+    const shot = async (c, opts) => {
       // ⚠️⚠️ **`data:` 그림 안의 상대 주소는 안 열린다** — 기준이 그 data URL 이라
       //    `href="cat-happy.svg"` 가 갈 곳이 없어지고, SVG 는 그것을 조용히 버려
       //    **흰 상자**가 나온다. 재기 전에 절대 주소로 편다 (부품 그림에는 href 가
       //    하나도 없어서 이 줄이 스물아홉 마리에는 아무 일도 안 한다)
-      const svg = Creature.draw(c, { flat: true, noShadow: true, size: SZ })
+      let svg = Creature.draw(c, { flat: true, noShadow: true, size: SZ, ...(opts || {}) })
         .replace(/href="(?!https?:|data:|#)/g, 'href="' + location.origin + '/');
+      // ⚠️⚠️ **`data:` 로 구운 SVG 안에서는 «바깥 그림»이 안 열린다** (2026-10-07에 재서 알았다).
+      //    절대 주소로 펴 두어도 그렇다 — 스물일곱 마리가 **한 글자도 안 다른 색**으로
+      //    나와서 드러났다(제일 가까운 쌍이 0 이었다). 파일을 받아 **안에 박아 넣는다**
+      for (const m of [...svg.matchAll(/href="(https?:[^"]+)"/g)]) {
+        try {
+          const t = await (await fetch(m[1], { cache: 'no-store' })).text();
+          svg = svg.replace(m[0], 'href="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(t) + '"');
+        } catch { /* 못 받으면 그대로 둔다 — 「파일이 진짜 오는가」는 prev 가 따로 본다 */ }
+      }
       const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
       const im = new Image();
       await new Promise((ok, no) => { im.onload = ok; im.onerror = no; im.src = url; });
@@ -263,7 +277,35 @@ const near = (p, hex, tol) => {
     const attrs = [...new Set(every.map(c => c.attr))];
     const fullySwapped = attrs.filter(a => every.filter(c => c.attr === a)
       .every(c => skip.includes(c.id)));
-    return { res, skip, prev, attrs, fullySwapped, face: Creature.FACE || {} };
+
+    // ⚠️⚠️ **⑥ 의 «문»은 서른 마리를 다 돈다 — 부품 그림만 재면 속성이 하나씩 사라진다.**
+    //    한 속성의 마리가 다 갈아 끼워지면 아래 ①~⑪ 의 털색 쪽은 그 속성을 통째로 못 재는데
+    //    (2026-10-06에 불이, 10-07에 빛까지 그렇게 됐다 — 남은 것이 **둘**뿐이라
+    //    「여섯이 갈리는가」가 사실상 비어 버렸다). 그런데 **색은 갈아 끼운 그림에서도
+    //    그대로 재진다** — 대고 따라 그린 그림도 속성 색으로 칠해져 있기 때문이다.
+    // ⚠️ **배경 판으로는 못 잰다 — 재 보고 버린 길이다.** 판은 `tint(색, 88)` 이라
+    //    여섯이 다 거의 흰색이고, 제일 가까운 쌍(fire↔earth)이 **8** 밖에 안 갈린다.
+    //    **가르지 못하는 잣대는 무슨 값을 넣어도 통과한다**
+    // ⚠️⚠️ **배·얼굴의 «크림»은 빼고 잰다 — 여섯이 다 같이 쓰는 색이라 속성을 못 말한다.**
+    //    그냥 제일 많은 색을 집으면 절반이 크림이 1등이라 **제일 가까운 쌍이 0** 이 된다.
+    //    가르는 자리는 재서 골랐다 — 크림은 제일 어두운 채널이 **202~210** 이고
+    //    속성 색은 **110~163** 이다 (불 106 · 땅 148 · 바람 152 · 물 130 · 빛 110 · 어둠 163)
+    const CREAM_MIN = 185;
+    const furs = {};
+    for (const c of every) {
+      const px = await shot(c);
+      const A2 = (x, y) => px[(y * SZ + x) * 4 + 3];
+      const tally = {};
+      for (let y = Math.round(SZ / 2); y < SZ; y++) for (let x = 0; x < SZ; x++) {
+        if (A2(x, y) < 240) continue;
+        const i = (y * SZ + x) * 4, k = [px[i], px[i + 1], px[i + 2]].join(',');
+        if (Math.min(px[i], px[i + 1], px[i + 2]) >= CREAM_MIN) continue;
+        tally[k] = (tally[k] || 0) + 1;
+      }
+      const top = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0];
+      if (top) (furs[c.attr] = furs[c.attr] || []).push({ id: c.id, p: top.split(',').map(Number) });
+    }
+    return { res, skip, prev, attrs, fullySwapped, furs, face: Creature.FACE || {} };
   }, SZ);
   await browser.close();
   const out = shots.res, skipped = shots.skip, prev = shots.prev;
@@ -575,11 +617,39 @@ const near = (p, hex, tol) => {
     bad.push(`속성 «${allSwapped.join('·')}» 를 한 마리도 안 쟀다`
       + ` — 갈아 끼운 그림 탓이 아니라면 부품 그림이 빠진 것이다`);
   } else if (miss.length) {
-    console.log(`⚠️ 속성 «${miss.join('·')}» 는 그 속성의 마리가 «다» 갈아 끼워져 색을 안 쟀다`
-      + ` (${ks.length}가지만 쟀다 · 여섯 중)`);
+    console.log(`⚠️ 속성 «${miss.join('·')}» 는 그 속성의 마리가 «다» 갈아 끼워져 «털색»을 안 쟀다`
+      + ` (${ks.length}가지만 쟀다 · 여섯 중 — 문은 아래 「속성 색(서른 마리)」이 맡는다)`);
   }
-  if (ks.length < 2) bad.push(`속성이 ${ks.length}가지뿐이라 «서로 갈리는가»를 잴 수가 없다`);
-  else if (worst < ATTR_DE) bad.push(`속성 색이 안 갈린다 (제일 가까운 ${pair} 가 ${worst.toFixed(0)} · ${ATTR_DE} 는 돼야 한다)`);
+  // 털색 쪽은 **잰 것을 낼 뿐**이다 — 갈아 끼울수록 줄어드는 잣대라 문으로 쓸 수 없다
+  if (ks.length >= 2) {
+    if (worst < ATTR_DE) bad.push(`털색이 안 갈린다 (제일 가까운 ${pair} 가 ${worst.toFixed(0)} · ${ATTR_DE} 는 돼야 한다)`);
+    else console.log(`  속성 털색 — ${ks.length}가지 · 제일 가까운 ${pair} 가 ${worst.toFixed(0)}`);
+  }
+
+  // ═══ ⑥ 의 문 — 속성 색이 **서른 마리에서** 갈리는가 (갈아 끼운 그림도 같이 잰다) ═══
+  {
+    const furs = shots.furs || {};
+    const fm = {};
+    Object.keys(furs).forEach(k => {
+      const a = furs[k];
+      fm[k] = [0, 1, 2].map(i => a.reduce((s, q) => s + q.p[i], 0) / a.length);
+    });
+    const fk = Object.keys(fm);
+    let fw = 1e9, fp = '';
+    for (let i = 0; i < fk.length; i++) for (let j = i + 1; j < fk.length; j++) {
+      const d = Math.hypot(...[0, 1, 2].map(n => fm[fk[i]][n] - fm[fk[j]][n]));
+      if (d < fw) { fw = d; fp = `${fk[i]}↔${fk[j]}`; }
+    }
+    const nFur = Object.values(furs).reduce((s, a) => s + a.length, 0);
+    // ⚠️ **몇 마리를 쟀는지가 짝이다** — 한 마리라도 색을 못 집으면 그 마리는 안 잰 것이다
+    if (fk.length < ATTRS.length || nFur < ATTRS.length * 5) {
+      bad.push(`속성 색: ${fk.length}가지 · ${nFur}마리밖에 못 쟀다 (여섯 × 다섯이어야 한다)`);
+    } else if (fw < ATTR_DE) {
+      bad.push(`속성 색이 안 갈린다 (제일 가까운 ${fp} 가 ${fw.toFixed(0)} · ${ATTR_DE} 는 돼야 한다)`);
+    } else {
+      console.log(`  속성 색(서른 마리) — ${fk.length}가지 · ${nFur}마리 · 제일 가까운 ${fp} 가 ${fw.toFixed(0)}`);
+    }
+  }
 
   // ⚠️⚠️ **안 쟀다는 것을 «크게» 말한다** — 미리 보기로 갈아 끼운 마리는 ①~⑪ 이
   //    통째로 안 돈다. 조용히 빠지면 0건이 「통과」로 읽힌다
@@ -671,8 +741,8 @@ const near = (p, hex, tol) => {
     });
     Object.keys(face).forEach(id => {
       if (!prevIds.includes(id)) {
-        bad.push(`바라보는 쪽: ${id} 는 대고 따라 그린 그림이 아닌데 FACE 에 있다`
-          + ` — 부품 그림은 정면 치비라 바라보는 쪽이 없다`);
+        bad.push(`서는 쪽: ${id} 는 대고 따라 그린 그림이 아닌데 FACE 에 있다`
+          + ` — 오른쪽에 세우는 것은 갈아 끼운 그림만이다 (PET_WANT 의 airF·groundF 가 그 몫이다)`);
       }
     });
     console.log(`  바라보는 쪽 — ${Object.keys(face).length}마리`

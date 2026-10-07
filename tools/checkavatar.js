@@ -1102,7 +1102,7 @@ function launchOpts() {
         if (f.t < g.top) bad.push(`${c.name} ${label}: 수면 위로 ${Math.round(g.top - f.t)}px 나왔다`);
       }
     }
-    // 물이 아닌 크리처에는 어항이 안 붙어야 한다 (붙으면 유니콘이 어항에 들어간다)
+    // 물이 아닌 크리처에는 어항이 안 붙어야 한다 (붙으면 황금 볏 몽키이 어항에 들어간다)
     const dry = D.RECIPES.filter(r => r.result.kind === 'creature' && r.result.move !== 'water')
       .map(r => r.result);
     for (const c of dry) {
