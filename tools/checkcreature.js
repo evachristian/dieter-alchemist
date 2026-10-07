@@ -97,7 +97,7 @@ const TAIL_MIN = 200;    // ⑩ 꼬리가 몸 밖으로 내놓아야 하는 몫 
 // 보므로 **빠진 줄은 영영 못 본다**.
 // ⚠️ **부품 그림은 정면 치비라 FACE 에 들어갈 수 없다**(② 가 좌우 대칭을 못 박는다) —
 //    그래서 「FACE 의 마리가 다 PREVIEW 인가」도 같이 본다
-const FACE_MUST = { ash_moth: 'left', flame_fox: 'left' };
+const FACE_MUST = { ash_moth: 'left', flame_fox: 'left', pebble_turtle: 'left' };
 
 const near = (p, hex, tol) => {
   const n = parseInt(hex.slice(1), 16);

@@ -469,7 +469,7 @@
   //    서는 쪽을 바로 적으면 그림을 뒤집었을 때 왜 그 자리인지가 사라진다.
   // ⚠️ 여기 없는 마리는 정면이라 **왼쪽**이다 — 오래 그래 왔고, 왼쪽 버튼 줄과
   //    치마 옆선을 재는 셈이 거기에 맞춰져 있다 (`placePet`)
-  const FACE = { ash_moth: 'left', flame_fox: 'left' };
+  const FACE = { ash_moth: 'left', flame_fox: 'left', pebble_turtle: 'left' };
   function standSide(c) { return (c && FACE[c.id] === 'left') ? 'right' : 'left'; }
 
   // ⚠️ 캐시 버스터는 제 `<script>` 태그에서 물려받는다 (`tutorial.js` 의 `ASSET_Q` 와
