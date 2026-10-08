@@ -18,7 +18,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── game.js                상태·로직·렌더링. 세이브는 localStorage
 ├── sync.js                서버 동기화 → window.Sync
 ├── avatar.js              SVG 페이퍼돌 → window.Avatar
-├── crouchart.js           「혼자 먹은 밤」 웅크린 뒷모습 — 받은 그림을 대고 딴 조각 (생성 · tools/gencrouch.py) → window.CrouchArt
+├── crouchart.js           「혼자 먹은 밤」 웅크린 뒷모습 — 받은 그림(반묶음·양갈래·단발)을 대고 딴 조각 (생성 · tools/gencrouch.py) → window.CrouchArt
 ├── intro.js               튜토리얼 인트로 → window.Intro
 ├── tutorial.js            튜토리얼(인트로 다음) → window.Tut
 ├── portrait.js            인물 초상화 → window.Portrait

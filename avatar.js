@@ -3574,7 +3574,7 @@
     //    ⚠️ 머리 «모양»은 이제 안 따라간다(반묶음 한 가지) — 색만 따라간다.
     //    그림을 고치려면 받은 PNG 로 생성기를 다시 돌린다 (조각을 손으로 고치지 않는다)
     const A = window.CrouchArt;
-    if (!A) return '';
+    if (!A || !A.variants) return '';
     const w = Math.max(0, Math.min(1, Number(body) || 0));   // 1 = 통통
     const o = outfit || {};
     const col = (o.colors || {});
@@ -3585,6 +3585,13 @@
       || (!isNone(top) && (col.top || top.color)) || SKIN;
     const hairItem = it('hair');
     const hairC = col.hair || hairItem.color || HAIR_DEF;
+    // 뒷머리 «전체 실루엣»마다 그림이 한 장씩이다 — 양갈래·단발은 제 그림, 나머지는 반묶음.
+    // ⚠️ 갈래를 늘리려면 받은 그림으로 `gencrouch.py <갈래>` 를 돌리고 여기 표에 한 줄 더한다
+    const backKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
+    const VAR = A.variants[{ twin: 'twin', bob: 'bob' }[backKind]] || A.variants.long;
+    const PARTS = VAR.parts;
+    // 아랫도리를 따로 그린 그림이면 허리에서 잘라 칠하는 수(`SKIRT_Y`)를 안 쓴다
+    const hasLower = PARTS.some(q => q[0] === 'lower');
     const shoes = it('shoes');
     const shoeC = (!isNone(shoes) && (col.shoes || shoes.color)) || SKIN;
     // 상의와 치마를 따로 입었으면 **허리 아래는 치마 색**이다 (`data-part="lower"`)
@@ -3596,6 +3603,8 @@
     // 받은 그림의 선 색은 바탕보다 ~30 어둡다 — 그 몫을 그대로 지킨다
     const FILL = {
       hair: hairC, hairL: shade(hairC, 26), cloth, clothL: shade(cloth, 30),
+      // 따로 그린 «아랫도리»(양갈래·단발 그림) — 치마를 입었으면 치마 색, 원피스면 옷 색
+      lower: twoTone ? legC : cloth, lowerL: shade(twoTone ? legC : cloth, 30),
       skin: SKIN, skinL: '#e3a585', hand: SKIN, handL: '#e3a585', shoe: shoeC,
       sponge: '#f9a665', cakeL: '#ebac7a', cream: '#fcecdc', straw: '#d33d49', leaf: '#6f953b', crumb: '#f5ab71',
     };
@@ -3606,38 +3615,42 @@
     const ID = n => n + '_' + uid;
     const k = (1 + 0.15 * w).toFixed(3);       // 통통할수록 가로로만 넓어진다
     const CX = 496;                            // 그림의 가운데 (받은 그림 좌표)
-    let food = false, out = '', firstShoe = true;
+    let out = '', firstShoe = true;
     // ⚠️ 이모지는 «한 입»(cb-bite)과 «베어 물면 작아진다»(cb-food)를 같이 탄다 —
     //    한 요소에 둘을 걸면 뒤엣것이 animation 을 통째로 덮어쓰므로 겹을 나눈다
     const foodTag = '<g class="cb-bite"><text class="cb-food" x="330" y="560" font-size="150"'
       + ' text-anchor="middle">' + foodEmoji + '</text></g>';
-    A.parts.forEach(([role, d]) => {
-      if (CAKE[role] && !isCake) {
-        // 케이크 조각이 처음 나온 자리에 이모지를 둔다 — 손(뒤에 그려진다)이 그 앞을 쥔다
-        if (!food) {
-          food = true;
-          out += foodTag;
-        }
-        return;
-      }
+    PARTS.forEach(([role, d]) => {
+      if (CAKE[role] && !isCake) return;
       const cls = (role === 'hand' || role === 'handL' || CAKE[role]) ? ' class="cb-bite"'
         : role === 'crumb' ? ' class="cb-crumb"' : '';
-      const part = role === 'shoe' && firstShoe ? ' data-part="foot"' : '';
+      let part = role === 'shoe' && firstShoe ? ' data-part="foot"' : '';
       if (role === 'shoe') firstShoe = false;
-      out += '<path' + cls + part + ' d="' + d + '" fill="' + FILL[role] + '"/>';
+      if (role === 'lower' && twoTone) part = ' data-part="lower"';
+      // ⚠️ 같은 색 테(1.5)를 두른다 — 딴 조각끼리 맞닿은 자리에 머리카락 한 올만 한 틈이 생겨
+      //    맨 밑 겹(살색)이 «밝은 실선»으로 비쳤다 (양갈래의 허리에서 봤다)
+      out += '<path' + cls + part + ' d="' + d + '" fill="' + FILL[role] + '" stroke="' + FILL[role]
+        + '" stroke-width="1.5" stroke-linejoin="round"/>';
       // 치마 색 — 같은 조각을 허리 아래만 잘라 한 번 더 칠한다 (뒤에 오는 머리카락이 그대로 덮는다)
-      if (twoTone && (role === 'cloth' || role === 'clothL')) {
+      if (twoTone && !hasLower && (role === 'cloth' || role === 'clothL')) {
         out += '<path clip-path="url(#' + ID('lo') + ')"' + (role === 'cloth' ? ' data-part="lower"' : '')
           + ' d="' + d + '" fill="' + (role === 'cloth' ? legC : shade(legC, 30)) + '"/>';
       }
     });
-    if (food === false && !isCake && foodEmoji) {
-      out += foodTag;
+    // ⚠️⚠️ 케이크가 아닌 음식이면 **케이크 자리를 몸 그림에서 뚫고**(`VAR.hole`) 그 위에 이모지,
+    //    그 위에 **쥔 손만 다시** 얹는다(`VAR.hand`). 케이크 조각만 빼면 그 밑에 깔린 케이크
+    //    모양의 바탕이 음식 옆에 «그릇 실루엣»으로 남았다 (신고받았다 · gencrouch.py)
+    if (!isCake) {
+      out = '<g mask="url(#' + ID('hole') + ')">' + out + '</g>' + foodTag
+        + VAR.hand.map(([role, d]) => '<path class="cb-bite" d="' + d + '" fill="' + FILL[role] + '"/>').join('');
     }
     return '<svg class="cb-svg" viewBox="180 110 632 810" xmlns="http://www.w3.org/2000/svg"'
       + ' role="img" aria-label="">'
       + '<defs>'
       + (twoTone ? '<clipPath id="' + ID('lo') + '"><rect x="0" y="' + SKIRT_Y + '" width="1024" height="400"/></clipPath>' : '')
+      + (isCake ? '' : '<mask id="' + ID('hole') + '" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">'
+        + '<rect width="1024" height="1024" fill="#fff"/>'
+        + VAR.hole.map(d => '<path d="' + d + '" fill="#000"/>').join('') + '</mask>')
       + '<radialGradient id="' + ID('shG') + '" cx="0.5" cy="0.5" r="0.5">'
       + '<stop offset="0" stop-color="rgba(20,10,25,0.30)"/>'
       + '<stop offset="0.6" stop-color="rgba(20,10,25,0.14)"/>'
