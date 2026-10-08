@@ -54,6 +54,36 @@ VARIANTS = {
         cake=(225, 460, 412, 660), hand=(250, 545, 430, 665), face=None,
         cake_only=(232, 465, 392, 568),
         skin_in_cake='skin', crumb=(0, 830, 350, 1024), keep=(375, 0, 1024, 520)),
+    # 포니테일 · 하늘 상의 + 민트 치마 (반소매)
+    'ponytail': dict(
+        pal={'bg': '#fefefe', 'hair': '#885dd1', 'hairL': '#754cbe', 'cloth': '#cde0fa',
+             'clothL': '#b4c4e4', 'lower': '#a5d4bc', 'lowerL': '#8dc1a6', 'skin': '#fbd8c0',
+             'skinL': '#efb99c', 'shoe': '#463a40',
+             'sponge': '#f8ba89', 'cream': '#f8ebe2', 'straw': '#cc5d5d', 'leaf': '#708c57'},
+        cake=(225, 425, 425, 612), hand=(275, 540, 445, 665), face=None,
+        cake_only=(238, 438, 405, 552), skin_in_cake='skin', crumb=(0, 820, 340, 1024),
+        keep=(385, 0, 1024, 600)),
+    # 웨이브 · 하늘 상의 + 민트 치마
+    'wave': dict(
+        pal={'bg': '#fefefe', 'hair': '#fd5ca0', 'hairL': '#e14a8a', 'cloth': '#cfe2fc',
+             'clothL': '#b6cbe8', 'lower': '#a8d6bf', 'lowerL': '#8bbda5', 'skin': '#fcd9c2',
+             'skinL': '#efb99c', 'shoe': '#41383d',
+             'sponge': '#f8b483', 'cream': '#fdf3ea', 'straw': '#d15053', 'leaf': '#6e8f49'},
+        cake=(205, 440, 400, 620), hand=(270, 540, 425, 655), face=None,
+        cake_only=(215, 452, 385, 550), skin_in_cake='skin', crumb=(0, 820, 340, 1024),
+        keep=(380, 0, 1024, 520)),
+    # 올림머리 · 하늘 상의 + 민트 치마 — ⚠️ 머리(민트)와 치마(민트)가 거의 같은 색이라
+    #    **높이로 가른다**(zones): 머리는 어깨 위, 치마는 허리 아래에만 있다
+    'bun': dict(
+        pal={'bg': '#fefefe', 'hair': '#aae4cd', 'hairL': '#95c6b0', 'cloth': '#cee2fb',
+             'clothL': '#b6cbe8', 'lower': '#a6d5be', 'lowerL': '#8bbfa6', 'skin': '#fcd9c0',
+             'skinL': '#efb39a', 'shoe': '#4c4242',
+             'sponge': '#f2ac83', 'cream': '#fcf1e4', 'straw': '#d24a4f', 'leaf': '#6e8f49'},
+        cake=(225, 455, 412, 645), hand=(270, 570, 430, 670), face=None,
+        cake_only=(235, 468, 395, 590), skin_in_cake='skin', crumb=(0, 840, 340, 1024),
+        keep=(365, 0, 1024, 520),
+        zones={'hair': [(0, 0, 1024, 515)], 'hairL': [(0, 0, 1024, 515)],
+               'lower': [(0, 560, 1024, 1024)], 'lowerL': [(0, 560, 1024, 1024)]}),
 }
 
 variant, src, out = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -94,13 +124,16 @@ if V.get('cake_only'):
             d[:, :, i] = np.where(only, 10 ** 9, d[:, :, i])
 # ⚠️ 살색이 상의(살구)와 닮은 그림은 상의와 치마가 맞닿은 자리의 섞인 한 줄이 «살색»으로
 #    읽혀 허리에 밝은 실선이 남았다(양갈래). 살은 얼굴·손·발목에만 있다 — 그 밖에서는 안 쓴다
+ZONES = dict(V.get('zones') or {})
 if V.get('skin_zone'):
-    zone = np.zeros(idx.shape if 'idx' in dir() else (Hh, W), bool)
-    for b in V['skin_zone']:
-        zone |= inbox(b)
-    for i, k in enumerate(names):
-        if re.sub(r'\d+$', '', k) in ('skin', 'skinL'):
-            d[:, :, i] = np.where(zone, d[:, :, i], 10 ** 9)
+    ZONES['skin'] = ZONES['skinL'] = V['skin_zone']
+for i, k in enumerate(names):
+    boxes = ZONES.get(re.sub(r'\d+$', '', k))
+    if boxes:
+        zone = np.zeros((Hh, W), bool)
+        for b in boxes:
+            zone |= inbox(b)
+        d[:, :, i] = np.where(zone, d[:, :, i], 10 ** 9)
 bgi = names.index('bg')
 d[:, :, bgi] = 10 ** 9                                 # 바탕은 «t 가 작다»로만 정한다
 idx = d.argmin(-1)

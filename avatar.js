@@ -2482,6 +2482,19 @@
     const av = AV_FACE[kind];
     return aFx[av ? av.fx : HAND_FX[kind]] || '';
   }
+  // ── 귀 — 작고 동그랗게, 얼굴 «뒤»에 ─────────────────────────────
+  // ⚠️⚠️ **한때 「귀를 그리지 않는다」였다** — cx67·133 rx6 ry9 짜리 귀가 볼 옆에 «살색 혹»으로
+  //    보였고, 그 혹 때문에 얼굴 반폭이 39 로 잡혀 머리를 넓게 그려야 했다 (아래 주석).
+  //    그 뒤 「정면에서 귀가 없어 어색하다 · 조그맣고 귀엽게」로 받아 되살렸다 — 대신 **작게**
+  //    (rx 4.6 · ry 6.2 · 옛 것의 반 남짓) 그리고 **얼굴 타원 «뒤»에** 둔다: 얼굴이 안쪽 절반을
+  //    덮어 옆으로 4px 남짓만 나온다. 머리 «통»은 얼굴 타원에서 뽑으므로 넓어지지 않는다.
+  // ⚠️ 귓불이 귀걸이 알(y83)의 바로 위에 오게 세로를 잡았다 (cy 76 · 밑끝 82.2)
+  const EARS = [67.4, 132.6].map(x => {
+    const s = x < 100 ? -1 : 1;
+    return `<ellipse data-part="ear" cx="${x}" cy="76" rx="4.6" ry="6.2" fill="${SKIN}"/>`
+      + `<path d="M${(x + s * 0.4).toFixed(1)},72.6 Q${(x + s * 2.6).toFixed(1)},76 ${(x + s * 0.4).toFixed(1)},79.4"`
+      + ` stroke="${SKIN_SH}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+  }).join('');
   function faceAndExpression(expItem) {
     const kind = (expItem && expItem.kind) || 'smile';
     const EYE = '#4a3a42', LIP = '#c97b86';
@@ -2502,6 +2515,7 @@
         + ` stroke="${EYE}" stroke-width="2.9" fill="none" stroke-linecap="round"/>`;
       return `
       <g data-part="head">
+        ${EARS}
         <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
         <ellipse cx="77.68" cy="76.36" rx="8.25" ry="5.52" fill="#ff9db4" opacity="0.6"/>
         <ellipse cx="122.32" cy="76.36" rx="8.25" ry="5.52" fill="#ff9db4" opacity="0.6"/>
@@ -2555,14 +2569,10 @@
     // '얼굴' 배율은 build() 의 H() 에서 머리 전체에 걸린다 (여기서 또 걸면 두 번 적용된다)
     return `
       <g data-part="head">
+        ${EARS}
         <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
-        <!-- ⚠️ **귀를 그리지 않는다.** 예전에는 cx67·133 rx6 ry9 로 양옆에 붙어 있었는데,
-             인트로 공주에게는 귀가 없다 (intro.js 의 princessHead). 같은 사람인데
-             한쪽에만 있으니, 머리 모양을 아무리 맞춰도 볼 옆에 **살색 혹 두 개**가
-             남아 다른 그림으로 보였다. 게다가 그 혹 때문에 얼굴 반폭이 33 이 아니라
-             39 로 잡혀, 머리를 덮으려면 공주보다 넓게 그릴 수밖에 없었다 —
-             머리만 커져서 더 달라 보였다. 귀를 빼면 둘 다 풀린다.
-             귀걸이는 이 자리에 그대로 붙는다 (머리 위에 걸린 모양이 된다) -->
+        <!-- 귀는 얼굴 타원 «앞»에 깐 EARS 다 (위 정의 · 작게 되살렸다). 옛 귀(rx6 ry9)는
+             볼 옆의 «살색 혹»이 되고 얼굴 반폭을 39 로 키워 지웠던 자리다 — 크기를 키우지 말 것 -->
         <!-- 볼터치 — 인트로 공주의 것을 그대로 옮겼다 (intro.js 의 i-blush:
              #ff9db4 · opacity 0.6 · rx8.5 ry5.2 · cx127/173). 가로는 얼굴 포개기
              배율로 옮기면 77.7/122.3 인데 **얼굴 밖으로 1.5px 나간다** — 공주는
@@ -3585,10 +3595,11 @@
       || (!isNone(top) && (col.top || top.color)) || SKIN;
     const hairItem = it('hair');
     const hairC = col.hair || hairItem.color || HAIR_DEF;
-    // 뒷머리 «전체 실루엣»마다 그림이 한 장씩이다 — 양갈래·단발은 제 그림, 나머지는 반묶음.
-    // ⚠️ 갈래를 늘리려면 받은 그림으로 `gencrouch.py <갈래>` 를 돌리고 여기 표에 한 줄 더한다
+    // 뒷머리 «전체 실루엣»마다 그림이 한 장씩이다 (long·bob·twin·ponytail·wave·bun — 갈래 이름이
+    // 곧 `back` 열쇠다). 그림이 없는 갈래는 반묶음(long)으로 떨어진다.
+    // ⚠️ 갈래를 늘리려면 받은 그림으로 `gencrouch.py <back 열쇠>` 를 돌린다 — 여기는 안 고친다
     const backKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
-    const VAR = A.variants[{ twin: 'twin', bob: 'bob' }[backKind]] || A.variants.long;
+    const VAR = A.variants[backKind] || A.variants.long;
     const PARTS = VAR.parts;
     // 아랫도리를 따로 그린 그림이면 허리에서 잘라 칠하는 수(`SKIRT_Y`)를 안 쓴다
     const hasLower = PARTS.some(q => q[0] === 'lower');

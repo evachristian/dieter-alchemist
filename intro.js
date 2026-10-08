@@ -115,6 +115,7 @@
       <path d="M190,226 C200,240 198,256 190,264" stroke="#7fa06a" stroke-width="16" fill="none" stroke-linecap="round"/>
       <circle cx="192" cy="266" r="8" fill="${SKIN}"/>
       ${princessHairBack()}
+      ${princessEars()}
       <!-- 얼굴 (통통) -->
       <ellipse cx="150" cy="180" rx="34" ry="33" fill="${SKIN}"/>
       <!-- 행복하게 먹는 표정 (^ ^) -->
@@ -487,11 +488,24 @@
       <path d="M188,176 C194,214 186,244 172,246 C164,222 166,196 168,178 Z" fill="${HAIR}"/>`;
   }
 
+  // 귀 — 공주 그림 둘(먹는 앞모습 · 머리)이 같이 쓴다. 한 벌로 둬야 한쪽만 귀가 생기지 않는다
+  function princessEars() {
+    return [116.4, 183.6].map(x => {
+      const s = x < 150 ? -1 : 1;
+      return `<ellipse cx="${x}" cy="185.7" rx="4.74" ry="5.85" fill="${SKIN}"/>`
+        + `<path d="M${(x + s * 0.4).toFixed(1)},182.5 Q${(x + s * 2.7).toFixed(1)},185.7 ${(x + s * 0.4).toFixed(1)},188.9"`
+        + ` stroke="${SKIN_SH}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+    }).join('');
+  }
+
   function princessHead(eyes, mouth, extra) {
     return `${princessHairBack()}
       <!-- 얼굴 (통통) -->
       <!-- ⚠️ 턱 밑에 살 그늘(SKIN_SH 타원)을 깔았다가 뺐다 — 입 바로 밑에 있어서
            **수염처럼 보였다.** 통통함은 얼굴 타원(rx34 ry33)이 이미 내고 있다 -->
+      <!-- 귀 — 아바타(avatar.js 의 EARS)와 «같은 귀»다. 얼굴 포개기 배율(34/33 · 33/35)로 옮겼다.
+           ⚠️ 한쪽에만 귀가 있으면 같은 사람이 두 얼굴이 된다 (그래서 한때 둘 다 뺐던 자리다) -->
+      ${princessEars()}
       <ellipse cx="150" cy="180" rx="34" ry="33" fill="${SKIN}"/>
       ${extra}
       ${eyes}
