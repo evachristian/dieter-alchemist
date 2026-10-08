@@ -7,8 +7,8 @@
 // 안 고친다** — 사람이 보낸 움직임이 아니게 되면 안 된다.
 //
 // ① **한 바퀴를 늘려 «오래 쉬게» 한다** (「A 로 적용해줘」 · 사람이 골랐다).
-//    받은 것은 6.2초에 한 바퀴라 거의 쉬지 않고 돈다. 게임의 애교는 «4초 움직이고
-//    10초 쉰다»(`petidle.js`)라, keyTimes 를 6.2/NEW 로 줄이고 끝에 «마지막 자세 그대로»
+//    받은 것은 6초 남짓에 한 바퀴라(원숭이 6.2 · 나비 5.8 · 파일에서 읽는다) 거의 쉬지 않고 돈다. 게임의 애교는 «4초 움직이고
+//    10초 쉰다»(`petidle.js`)라, keyTimes 를 OLD/NEW 로 줄이고 끝에 «마지막 자세 그대로»
 //    한 칸을 덧붙인다 — **절대 시각은 안 바뀐다**(0.2초에 불꽃이 일기 시작해 6.2초에
 //    제자리). ⚠️⚠️ **14초가 아니라 16초다** — 처음에 공통 리그와 같은 14초로 구웠는데,
 //    불꽃이 0.2초부터 이는 탓에 쉬는 몫이 **7.6~7.9초**로 `checkcreature` 의
@@ -28,8 +28,12 @@
 const fs = require('fs');
 const [src, out] = process.argv.slice(2);
 if (!src || !out) { console.error('쓰는 법: node tools/gensig.js <받은 파일> <내보낼 파일>'); process.exit(2); }
-const OLD = 6.2, NEW = 16;
+const NEW = 16;
 let s = fs.readFileSync(src, 'utf8');
+// 받은 한 바퀴는 파일마다 다르다 (원숭이 6.2초 · 나비 5.8초) — 하나여야 한다
+const durs = [...new Set(s.match(/dur="[^"]*"/g) || [])];
+if (durs.length !== 1) throw new Error(`한 바퀴가 한 박자가 아니다: ${durs}`);
+const OLD = parseFloat(durs[0].slice(5));
 
 // ④ 사본과 그 스타일을 걷는다 — `.moving` 의 껍데기는 그냥 <g> 로 남긴다
 s = s.replace(/<style>[\s\S]*?<\/style>/, '');
@@ -43,7 +47,7 @@ let dropped = 0, anims = 0;
 s = s.replace(/<(animate|animateTransform)\b([^>]*?)\/>/g, (m, tag, body) => {
   const kt = /keyTimes="([^"]*)"/.exec(body), vs = /values="([^"]*)"/.exec(body);
   if (!kt || !vs) throw new Error('keyTimes/values 가 없는 애니메이션이 있다');
-  if (!/dur="6\.2s"/.test(body)) throw new Error('한 바퀴가 6.2초가 아닌 것이 있다');
+  
   if (/calcMode|keySplines|begin=/.test(body)) throw new Error('linear 가 아닌 애니메이션이 있다');
   let K = kt[1].split(';').map(Number), V = vs[1].split(';');
   if (K.length !== V.length) throw new Error('keyTimes 와 values 의 수가 다르다');
@@ -54,7 +58,7 @@ s = s.replace(/<(animate|animateTransform)\b([^>]*?)\/>/g, (m, tag, body) => {
   K.push(1); V.push(V[V.length - 1]);
   anims++;
   return `<${tag}` + body
-    .replace(/dur="6\.2s"/, `dur="${NEW}s"`)
+    .replace(/dur="[^"]*"/, `dur="${NEW}s"`)
     .replace(/keyTimes="[^"]*"/, `keyTimes="${K.join(';')}"`)
     .replace(/values="[^"]*"/, `values="${V.join(';')}"`) + '/>';
 });

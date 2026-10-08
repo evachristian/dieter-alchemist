@@ -285,7 +285,7 @@ const near = (p, hex, tol) => {
         const par = (svg.match(/<image[^>]*preserveAspectRatio="([^"]*)"/) || [])[1] || '';
         const full = /<image[^>]*width="100"/.test(svg) || /<image[^>]*width="\$/.test(svg);
         prev.push({ id, file: Creature.PREVIEW[id], ok: r.ok, ct, n, wired, pad, ar, par, full,
-          filePar, anim, vb: vbStr, move: c ? c.move : '?' });
+          filePar, anim, vb: vbStr, move: c ? c.move : '?', sig: !!(Creature.SIGNATURE || {})[id] });
       } catch (e) { prev.push({ id, file: Creature.PREVIEW[id], err: String(e) }); }
     }
     // 속성 여섯과 «그 속성의 마리가 다 갈아 끼워졌는가» — 아래의 색 검사가 쓴다
@@ -856,7 +856,9 @@ const near = (p, hex, tol) => {
     console.log(`  바라보는 쪽 — ${Object.keys(face).length}마리`
       + ` (${Object.keys(face).map(id => `${id} ${face[id]}`).join(' · ')})`);
   }
-  const animIds = prev.filter(q => q.move === 'ground').map(q => q.id);
+  // ⚠️ 시그니처를 받은 공중 마리(🔥 불꽃 나비)도 움직이므로 같이 잰다 — 바닥만 돌면
+  //    그 마리의 «쉬는 구간»을 한 번도 안 잰다
+  const animIds = prev.filter(q => q.move === 'ground' || q.sig).map(q => q.id);
   if (!animIds.length) {
     console.log('⚠️ 바닥에 선 미리 보기 크리처가 하나도 없다 — 「애교 모션」을 한 번도 안 쟀다');
   } else {
@@ -901,7 +903,8 @@ const near = (p, hex, tol) => {
         });
         const sigHere = wiring.filter(w => w.sigWant).map(w => w.id);
         wiring.forEach(w => {
-          const want = rm !== 'reduce' && w.move === 'ground';
+          // 공통 리그는 바닥에 선 마리만 · 시그니처는 공중이어도 받는다 (creature.js 의 motionOn)
+          const want = rm !== 'reduce' && (w.move === 'ground' || w.sigWant);
           if (w.rig !== want) {
             bad.push(`애교 모션: ${w.id}(${w.move})에 리그가 ${w.rig ? '붙었다' : '안 붙었다'}`
               + ` — ${rm === 'reduce' ? '움직임 줄이기에서는 아무도 안 받아야 한다'
@@ -1135,7 +1138,7 @@ const near = (p, hex, tol) => {
         + ` · 쉬는 몫 ${q.restShare ? (q.restShare * 100).toFixed(0) : '?'}% · 정지 그림과 ${q.rest ? Math.max(...q.rest.map((v, i) => Math.abs(v - q.still[i]))) : '?'}px`).join(' · ')})` : ''));
   }
   // **몇 마리를 쟀는지 통과할 때도 낸다** — 0건이 「통과」인지 「안 쟀다」인지를 가른다
-  if (idle) console.log(`  애교 모션 — 바닥에 선 ${animIds.length}마리 (${idle})`
+  if (idle) console.log(`  애교 모션 — 바닥에 선 마리 + 시그니처 ${animIds.length}마리 (${idle})`
     + ` · 움직임 줄이기에서는 멎는다`);
   if (bad.length) {
     console.log(`❌ ${bad.length}건`);
