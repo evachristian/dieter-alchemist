@@ -567,6 +567,10 @@
   const SIGNATURE = {
     ember_newt: { href: 'peach-monkey-anim.svg',
                   vb: [61, 1, 203.5, 241.5], rest: [61.23, 71.29, 198.39, 165.31] },
+    // ⚠️ 화염 여우는 정지 그림이 «다른 변환»(×0.15 · translate)으로 구워져 있다 — 그래서
+    //    rest 를 두 식을 이어서 풀었다(애교 = 정지 × 0.17/0.15 + …). 공통 리그 대신 이것이 붙는다
+    flame_fox:  { href: 'peach-cat-anim.svg',
+                  vb: [86.5, 39, 228, 214], rest: [88.6, 59.33, 148.13, 191.53] },
     ash_moth:   { href: 'peach-butterfly-anim.svg',
                   vb: [54.5, 6, 210.5, 246], rest: [58.51, 62.28, 205.19, 186.66] },
   };
