@@ -8889,8 +8889,13 @@ async function shareCardBlob() {
   ctx.fillStyle = cssVar('--card', '#ffffff');
   ctx.fillRect(0, 0, CARD_W, CARD_H);
 
+  // 개발용 「캐릭터만 출력」이 켜져 있으면 카드도 **화면과 같은 그림**이다 —
+  // 방 배경 대신 흰 판 · 바닥 그림자·드롭 섀도 없음 · 크리처 없음 (`devToggleFigureOnly`)
+  const figOnly = devFigureOnly;
+  if (figOnly) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, CARD_W, CARD_ROOM_H); }
+
   // ① 방 배경 — viewBox 400×320 을 'slice'(cover)로 채운다. CSS 의 preserveAspectRatio 와 같은 규칙
-  if (window.Avatar && Avatar.roomScene) {
+  if (!figOnly && window.Avatar && Avatar.roomScene) {
     const k = Math.max(CARD_W / 400, CARD_ROOM_H / 320);
     const w = 400 * k, h = 320 * k;
     ctx.save();
@@ -8901,7 +8906,14 @@ async function shareCardBlob() {
   }
 
   // ② 아바타 — 방 바닥에 발이 닿게. 화면과 같이 **높이를 맞추고 가로는 비율대로** 둔다
-  const fig = roomFigure(tier);
+  let fig = roomFigure(tier);
+  // ⚠️ 바닥 그림자 타원은 몸(`g.doll` · 인트로 그림은 `g.i-doll`) «밖»에 있다 —
+  // 화면 쪽 CSS(`body.dev-figure-only`)와 같은 선택자로 걷는다
+  if (figOnly) {
+    const doc = new DOMParser().parseFromString(fig, 'image/svg+xml');
+    doc.querySelectorAll('ellipse:not(.doll *):not(.i-doll *)').forEach(n => n.remove());
+    fig = new XMLSerializer().serializeToString(doc.documentElement);
+  }
   const box = svgBox(fig, 200, 348);
   // ⚠️ **높이는 상자 높이의 «몫»으로 잡는다.** 560 이라고 박아 두었더니, 상자를
   // 위로 열어(348 → 366) 얼굴 150% 를 담는 순간 **카드 속 인물만 작아졌다** —
@@ -8910,7 +8922,7 @@ async function shareCardBlob() {
   const CARD_AVATAR_K = 1.609;
   const avH = Math.round(box.h * CARD_AVATAR_K), avW = avH * box.w / box.h;
   ctx.save();
-  ctx.shadowColor = 'rgba(180,140,160,0.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 14;
+  if (!figOnly) { ctx.shadowColor = 'rgba(180,140,160,0.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 14; }
   ctx.drawImage(await svgToImage(fig, Math.round(avW), avH),
     (CARD_W - avW) / 2, CARD_ROOM_H - avH - 30, avW, avH);
   ctx.restore();
@@ -8919,7 +8931,7 @@ async function shareCardBlob() {
   // **창문(오른쪽 위)은 피한다** — 겹치면 유리에 붙은 것처럼 보인다.
   // 예전에는 가진 것 넷을 방 여기저기 흩어 놓았는데, 이제 방에 있는 것은 고른 한 마리다
   const pet = roomPet();
-  if (pet && window.Creature) {
+  if (pet && window.Creature && !figOnly) {
     const CR = 132;
     ctx.drawImage(await svgToImage(Creature.draw(pet, { flat: true }), CR, CR),
       CARD_W * 0.14, CARD_ROOM_H * 0.74, CR, CR);
