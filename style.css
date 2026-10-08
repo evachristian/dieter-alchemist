@@ -4884,3 +4884,19 @@ button.tm-slot:active { transform: scale(0.94); }
    같은 뜻인데 퀘스트 쪽과 크기도 색도 달랐다 (베껴 쓴 값은 한쪽만 고치게 된다 —
    `.pg-row.locked` 에서 겪은 것과 같은 종류다) */
 .act-dot { top: -4px; right: -4px; }
+
+/* ─── 개발용(임시) 「(마이룸 빼고) 캐릭터만 출력」 (`devToggleFigureOnly`) ───
+   방 그림(2D·3D) · 크리처 · 빛무리 · 살 빠지는 연출 · 방 위의 버튼 · 바닥 그림자 ·
+   조각 그림자를 다 걷고 **흰 바탕에 인물만** 남긴다. 그리는 쪽은 안 건드린다 —
+   몸의 클래스 하나라 다시 그려도 그대로다 (세이브에도 안 남는다) */
+body.dev-figure-only .room-canvas { background: #fff; }
+body.dev-figure-only #screen-showcase .room-scene,
+body.dev-figure-only #screen-showcase .stage-creatures,
+body.dev-figure-only #screen-showcase .slim-fx,
+body.dev-figure-only #screen-showcase .room-spin,
+body.dev-figure-only #screen-showcase .room-acts { visibility: hidden !important; }
+body.dev-figure-only .char-aura::before { display: none; }
+body.dev-figure-only .char-body svg,
+body.dev-figure-only .char-body svg g.doll,
+body.dev-figure-only .char-body svg g.i-doll { filter: none !important; }
+body.dev-figure-only .char-body svg ellipse:not(.doll *):not(.i-doll *) { display: none; }

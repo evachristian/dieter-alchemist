@@ -7885,6 +7885,9 @@ function renderRoomDevTail() {
       // 「창문 하나만 있는 방」은 새 플레이어가 처음 보는 화면인데, 단계가 오르면
       // 선물이 **저절로 놓여서** 한 번 지나가면 다시 볼 길이 없었다
       devAct(T('dev_decor_off'), 'devClearDecor()'),
+      // 캐릭터만 떼어 보고 싶을 때(스크린샷 · 그림 견주기) — 방·크리처·빛무리·그림자를
+      // 다 걷고 흰 바탕에 인물만 남긴다. 누를 때마다 켜고 끈다
+      devAct(T(devFigureOnly ? 'dev_figure_off' : 'dev_figure_only'), 'devToggleFigureOnly()'),
     ]) +
     devGroup(T('dev_g_open')) +
     // ⚠️ 「퀘스트 완료 버튼」은 **켜고 끄는 것**이라 실행 줄이 아니라 여기다 —
@@ -7931,6 +7934,18 @@ function devClearDecor() {
   toast(T('dev_decor_off_done', { n }), null, 2600);
 }
 window.devClearDecor = devClearDecor;
+
+// 개발용: **(마이 룸 빼고) 캐릭터만** — 흰 바탕에 인물 하나만 남긴다.
+// ⚠️ **세이브에 안 넣는다** — 보기만 바꾸는 스위치라 새로고침하면 돌아온다.
+//    그리는 쪽은 한 글자도 안 건드리고 몸(body)의 클래스 하나로 CSS 가 걷는다
+//    (style.css 의 `body.dev-figure-only`) — 그래서 다시 그려도 그대로 유지된다
+let devFigureOnly = false;
+function devToggleFigureOnly() {
+  devFigureOnly = !devFigureOnly;
+  document.body.classList.toggle('dev-figure-only', devFigureOnly);
+  render();
+}
+window.devToggleFigureOnly = devToggleFigureOnly;
 
 // 개발용: 퀘스트 시트의 「(임시) 퀘스트 완료」 버튼을 켜고 끈다.
 function devToggleQuestBtn() {
