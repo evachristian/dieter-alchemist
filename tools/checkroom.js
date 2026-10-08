@@ -19,6 +19,26 @@
 const { chromium } = require('playwright');
 const { pngLumGrid } = require('./pnglum');
 const BASE = process.env.BASE || 'http://localhost:8080';
+// ⚠️⚠️ **시그니처 애교(`Creature.SIGNATURE`)는 `pauseAnimations()` 로 «안» 멎는다.**
+//    움직임이 `<image>` 가 부른 그림 문서 «안»에 있어서 바깥 svg 의 시계가 닿지 않는다
+//    (🔥 홍염 원숭이 · 2026-10-08). 그래서 재는 동안만 **정지 그림으로 갈아 끼운다** —
+//    쉬는 자세가 정지 그림과 픽셀까지 같으므로(`checkcreature` 의 「시그니처」가 못 박는다)
+//    그림은 한 픽셀도 안 바뀌고 시계만 사라진다. 안 하면 꾹 눌리는 0.8초에 걸린 판만
+//    「발밑 그림자」·「방 밝기」의 diff 에 몸이 섞인다
+const STILL_SIG = `(() => {
+  const T = (window.Creature && Creature.SIGNATURE) || {};
+  document.querySelectorAll('.cr-sig image').forEach(im => {
+    const href = im.getAttribute('href') || '';
+    const id = Object.keys(T).find(k => href.startsWith(T[k].href));
+    if (!id) return;
+    const sg = T[id], k = +im.getAttribute('width') / sg.vb[2];
+    const x = +im.getAttribute('x') + (sg.rest[0] - sg.vb[0]) * k;
+    const y = +im.getAttribute('y') + (sg.rest[1] - sg.vb[1]) * k;
+    im.setAttribute('href', Creature.PREVIEW[id] + href.slice(sg.href.length));
+    im.setAttribute('x', x); im.setAttribute('y', y);
+    im.setAttribute('width', sg.rest[2] * k); im.setAttribute('height', sg.rest[3] * k);
+  });
+})()`;
 
 const FOOT_MAX = 8;     // px. 양탄자 가로 한가운데와 발
 const SVG_MAX = 9;      // px. 3D 와 SVG 가 같은 자리를 써야 «떨어질 때» 안 튄다
@@ -207,11 +227,12 @@ function mask(A, B) {
     //    diff 에 섞인다 (방의 밝기·발밑 그림자처럼 「껐다 켜서 달라지는 몫」을 재는
     //    자리가 통째로 흔들린다). `svg.pauseAnimations()` 는 그 시계를 따로 멈춘다 —
     //    **`setCurrentTime(0)` 으로 «쉬는 자세»에 못 박아** 매 판 같은 그림을 재게 한다
-    const freeze = () => page.evaluate(() => {
+    const freeze = () => page.evaluate((still) => {
       document.querySelectorAll('svg').forEach(s => {
         try { s.pauseAnimations(); s.setCurrentTime(0); } catch (e) {}
       });
-    });
+      (0, eval)(still);
+    }, STILL_SIG);
     const shot = async (c) => {
       await freeze();
       return pngLumGrid(await page.screenshot({ clip: c || box }));
@@ -1254,12 +1275,13 @@ function mask(A, B) {
       //    갈렸다 (안 건드린 마리까지 같이 빨개졌다). 이 파일의 `shot()` 은 이미
       //    `pauseAnimations()` 로 못 박는데 **이 블록만 그 줄을 안 지나고 있었다** —
       //    「측정 조건은 검증기가 스스로 맞춘다」가 여기서 깨져 있던 자리다
-      const pin = () => page.evaluate(() => {
+      const pin = () => page.evaluate((still) => {
         document.getAnimations().forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
         document.querySelectorAll('svg').forEach(s => {
           try { s.pauseAnimations(); s.setCurrentTime(0); } catch (e) {}
         });
-      });
+        (0, eval)(still);
+      }, STILL_SIG);
       await pin();
       const clip = await page.evaluate(() => {
         const cre = document.querySelector('.stage-creature');

@@ -17,6 +17,7 @@
 'use strict';
 const { chromium } = require('playwright');
 const { pngLumGrid } = require('./pnglum');
+const { decode } = require('./png');
 const BASE = process.env.BASE || 'http://localhost:8080';
 
 const SZ = 200;          // 재는 크기 (100×100 viewBox 를 두 배로)
@@ -886,12 +887,19 @@ const near = (p, hex, tol) => {
             const c = GameData.RECIPES.map(x => x.result).find(x => x.id === cid);
             if (!c) return;
             const g = Creature.draw(c, { flat: true, idle: true });
-            out.push({ id: cid, move: c.move, rig: /class="cr-idle"/.test(g),
+            // ⚠️ 「애교」는 두 갈래다 — 공통 리그(`cr-idle`) 또는 그 마리만의 시그니처
+            //    (`cr-sig` · `Creature.SIGNATURE`). **둘이 겹치면 애교가 두 겹으로 돈다**
+            out.push({ id: cid, move: c.move,
+              rig: /class="cr-idle"|class="cr-sig"/.test(g),
+              both: /class="cr-idle"/.test(g) && /class="cr-sig"/.test(g),
+              sigWant: !!(Creature.SIGNATURE || {})[cid],
+              sig: /class="cr-sig"/.test(g),
               // 리그를 안 씌울 때도 그림은 그대로 와야 한다
               img: (g.match(/<image/g) || []).length });
           });
           return out;
         });
+        const sigHere = wiring.filter(w => w.sigWant).map(w => w.id);
         wiring.forEach(w => {
           const want = rm !== 'reduce' && w.move === 'ground';
           if (w.rig !== want) {
@@ -900,6 +908,11 @@ const near = (p, hex, tol) => {
                 : want ? '바닥에 선 마리는 받아야 한다' : '바닥에 선 마리만 받는다'}`);
           }
           if (w.img !== 1) bad.push(`애교 모션: ${w.id} 의 그림이 ${w.img}장이다 (한 장이어야 한다)`);
+          if (w.both) bad.push(`애교 모션: ${w.id} 에 공통 리그와 시그니처가 «같이» 붙었다 — 애교가 두 겹으로 돈다`);
+          if (want && w.sigWant && !w.sig) {
+            bad.push(`애교 모션: ${w.id} 는 시그니처 애교를 받아야 하는데 공통 리그가 붙었다`
+              + ` (creature.js 의 SIGNATURE · previewSvg 의 갈래가 끊겼다)`);
+          }
         });
         const ok = await pg.evaluate((cid) => {
           const c = GameData.RECIPES.map(x => x.result).find(x => x.id === cid);
@@ -978,7 +991,8 @@ const near = (p, hex, tol) => {
             bad.push(`애교 모션: ${id} 가 «쉬는 구간»이 ${sec(rest)}초뿐이다`
               + ` (${sec(REST_MIN)}초 이상 · 4초 움직이고 10초 쉬어야 한다)`);
           }
-          if (outCells < OUT_CELLS) {
+          // ⚠️ 시그니처 애교는 «조금만» 나간다 — 그쪽은 「시그니처」가 마크업으로 본다
+          if (outCells < OUT_CELLS && !sigHere.includes(id)) {
             bad.push(`애교 모션: ${id} 의 움직임이 상자 «밖»으로 ${outCells}칸밖에 안 나간다`
               + ` (${OUT_CELLS}칸 이상 · overflow 가 hidden 이면 4초 동안 머리가 잘린다`
               + ` · 상자 안은 그대로 움직이므로 ①로는 한 줄도 안 걸린다)`);
@@ -988,6 +1002,137 @@ const near = (p, hex, tol) => {
         }
       }
     }
+  }
+  // ═══ 시그니처 애교 — 그 마리만의 움직임 파일 (`Creature.SIGNATURE` · 2026-10-08) ═══
+  //
+  // 🔥 홍염 원숭이의 애교를 사람이 통째로 보내 줬다 (몸이 모핑하고 불꽃·연기가 인다).
+  // 위의 「애교 모션」이 «움직이는가 · 쉬는가 · 밖으로 나가는가»를 보지만, 그것만으로는
+  // 이 갈래만의 사고 둘을 못 본다:
+  //   ① **적어 둔 `vb`·`rest` 가 파일과 갈린다** — 쉬는 자세가 정지 그림과 다른 자리에
+  //      서서, 움직임이 끝날 때마다(또는 움직임 줄이기로 바꿀 때) 크리처가 «튄다».
+  //      그래서 파일을 열어 viewBox 를 견주고, **정지 그림과 나란히 세워 쉬는 자세를 견준다**
+  //   ② **한 바퀴가 14초가 아니다** — 받은 그대로(6.2초) 넣으면 거의 쉬지 않는다.
+  //      위의 픽셀 검사도 잡지만 여기서는 «왜»를 말해 준다
+  // ⚠️ 쉬는 자세는 **«파일»이 아니라 «화면»에서** 잰다 — 정지 그림과 나란히 세워 칠한
+  //    상자를 견준다. 파일 속 칠한 상자를 재면 정지 그림의 viewBox 여백(1.5~2%)을 못 봐서
+  //    쉬는 자세만 3% 큰 것을 통과시킨다 (처음 짠 잣대가 그랬다)
+  {
+    const SIG = await (async () => {
+      const bw = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
+      const pg = await bw.newPage({ viewport: { width: 420, height: 420 } });
+      await pg.goto(BASE, { waitUntil: 'load' });
+      await pg.waitForFunction(() => window.Creature);
+      const table = await pg.evaluate(() => Creature.SIGNATURE || {});
+      const out = [];
+      for (const id of Object.keys(table)) {
+        const t = table[id];
+        const r = await pg.evaluate(async (href) => {
+          const res = await fetch('/' + href);
+          return { ok: res.ok, ct: res.headers.get('content-type') || '', text: res.ok ? await res.text() : '' };
+        }, t.href);
+        const q = { id, t, ok: r.ok && /svg/.test(r.ct), ct: r.ct, kb: r.text.length / 1024 };
+        if (q.ok) {
+          const vb = /<svg[^>]*viewBox="([^"]*)"/.exec(r.text);
+          q.vb = vb ? vb[1].split(/[\s,]+/).map(Number) : null;
+          q.durs = [...new Set((r.text.match(/dur="[^"]*"/g) || []))];
+          q.anims = (r.text.match(/<animate/g) || []).length;
+          // 정지 그림과 시그니처를 **나란히 같은 크기로** 세워 한 바퀴(14초)를 훑는다.
+          // ⚠️ `<image>` 속 움직임은 멈출 수 없어서(그림 문서 «안»의 시계다) 시각을 못
+          //    박는다 — 대신 칠한 상자의 **제일 흔한 값**(= 쉬는 자세)을 정지 그림과 견준다.
+          //    쉬는 몫이 한 바퀴의 3분의 2 라 그것이 곧 쉬는 자세다
+          const p2 = await bw.newPage({ viewport: { width: 520, height: 300 } });
+          await p2.goto(BASE, { waitUntil: 'load' });
+          await p2.waitForFunction(() => window.Creature && window.GameData);
+          await p2.evaluate((cid) => {
+            const c = GameData.RECIPES.map(x => x.result).find(x => x.id === cid);
+            const h = document.createElement('div');
+            h.style.cssText = 'position:fixed;left:0;top:0;width:520px;height:300px;background:#fff;z-index:99999';
+            const box = (l, idle) => `<span class="stage-creature" style="position:absolute;left:${l}px;`
+              + `top:60px;right:auto;bottom:auto;width:200px;height:200px">`
+              + Creature.draw(c, { flat: true, noShadow: true, size: 200, idle }) + `</span>`;
+            h.innerHTML = box(20, false) + box(280, true);
+            document.body.appendChild(h);
+          }, id);
+          await p2.waitForTimeout(400);
+          // ⓔ 를 대신한다 — 이 그림은 상자 밖으로 «조금»(연기 한 줌 · 4칸 뜀)만 나가서
+          //    픽셀로 세는 문턱(40칸)이 못 가른다. 그래서 **마크업으로** 본다:
+          //    그림 상자가 크리처 상자보다 위로 나가는가 · 그 svg 가 안 자르는가
+          const ov = await p2.evaluate(() => {
+            const sp = document.querySelectorAll('.stage-creature')[1];
+            const svg = sp && sp.querySelector('svg.cr-svg');
+            const im = svg && svg.querySelector('.cr-sig image');
+            if (!im) return { over: false, why: '시그니처 그림을 못 찾았다' };
+            const a = svg.getBoundingClientRect(), b = im.getBoundingClientRect();
+            const ovf = getComputedStyle(svg).overflow;
+            return { over: b.top < a.top - 1 && ovf === 'visible',
+              why: `그림 위 ${(a.top - b.top).toFixed(1)}px 밖 · overflow ${ovf}` };
+          });
+          q.over = ov.over; q.overWhy = ov.why;
+          const ink = (img, x0, x1) => {
+            let a = 1e9, b2 = 1e9, c2 = -1, d = -1;
+            for (let y = 0; y < img.h; y++) for (let x = x0; x < x1; x++) {
+              const i = (y * img.w + x) * 4;
+              if (img.px[i] + img.px[i + 1] + img.px[i + 2] < 740) {
+                a = Math.min(a, x - x0); c2 = Math.max(c2, x - x0); b2 = Math.min(b2, y); d = Math.max(d, y);
+              }
+            }
+            return [a, b2, c2, d];
+          };
+          const seen = new Map();
+          let still = null;
+          const t0 = Date.now();
+          while (Date.now() - t0 < 14500) {
+            const img = decode(await p2.screenshot());
+            still = ink(img, 0, 260);
+            const k = ink(img, 260, 520).join(',');
+            seen.set(k, (seen.get(k) || 0) + 1);
+            await p2.waitForTimeout(250);
+          }
+          await p2.close();
+          const [mode, cnt] = [...seen.entries()].sort((x, y) => y[1] - x[1])[0];
+          const total = [...seen.values()].reduce((x, y) => x + y, 0);
+          q.still = still; q.rest = mode.split(',').map(Number);
+          q.restShare = cnt / total; q.shapes = seen.size;
+        }
+        out.push(q);
+      }
+      await bw.close();
+      return out;
+    })();
+    const TOL = 1;     // px — 200px 상자에서 앤티에일리어싱 한 줄까지만 봐준다
+    SIG.forEach(q => {
+      if (!q.ok) { bad.push(`시그니처: ${q.id} 의 ${q.t.href} 가 SVG 로 안 온다 (${q.ct || '없다'})`); return; }
+      if (!q.vb || q.vb.some((v, i) => Math.abs(v - q.t.vb[i]) > 0.01)) {
+        bad.push(`시그니처: ${q.id} — 파일의 viewBox(${q.vb})와 SIGNATURE.vb(${q.t.vb})가 다르다`
+          + ` (둘은 짝이다 · 갈리면 쉬는 자세가 정지 그림과 다른 자리에 선다)`);
+      }
+      // ⚠️ 박자를 숫자로 못 박지 않는다 — «얼마나 쉬는가»는 아래 「애교 모션」이 픽셀로 잰다.
+      //    여기서는 «한 박자로 도는가 · 받은 그대로(6.2초)가 아닌가»만 본다
+      const durS = q.durs.length === 1 ? parseFloat(q.durs[0].slice(5)) : NaN;
+      if (!(durS >= 14)) {
+        bad.push(`시그니처: ${q.id} 의 한 바퀴가 ${q.durs.join(',') || '(없다)'} 다`
+          + ` — 한 박자여야 하고 14초 이상이어야 한다 (받은 6.2초 그대로면 거의 안 쉰다 · tools/gensig.js 로 굽는다)`);
+      }
+      if (!q.over) {
+        bad.push(`시그니처: ${q.id} 의 움직임이 상자 밖으로 못 나간다 (${q.overWhy})`
+          + ` — 불꽃·연기가 머리 위에서 잘린다`);
+      }
+      if (!q.anims) bad.push(`시그니처: ${q.id} 의 파일에 움직임이 하나도 없다`);
+      const d = Math.max(...q.rest.map((v, i) => Math.abs(v - q.still[i])));
+      if (d > TOL) {
+        bad.push(`시그니처: ${q.id} 의 쉬는 자세가 정지 그림과 ${d}px 어긋난다`
+          + ` (정지 ${q.still} · 시그니처 ${q.rest} — SIGNATURE.rest 가 «정지 그림의 viewBox» 와 갈렸다`
+          + ` · 움직임 줄이기로 바꾸거나 한 바퀴가 끝날 때마다 크리처가 튄다)`);
+      }
+      if (q.restShare < 0.45) {
+        bad.push(`시그니처: ${q.id} 가 한 바퀴의 ${(q.restShare * 100).toFixed(0)}% 만 쉰다`
+          + ` — 쉬는 자세를 못 찾았다 (14초에 6.2초 움직이면 절반 넘게 쉬어야 한다)`);
+      }
+      if (q.shapes < 3) bad.push(`시그니처: ${q.id} 가 한 바퀴 동안 모양이 ${q.shapes}가지뿐이다 — 안 움직인다`);
+    });
+    console.log(`  시그니처 애교 — ${SIG.length}마리`
+      + (SIG.length ? ` (${SIG.map(q => `${q.id} ${q.kb.toFixed(0)}KB · ${q.durs ? q.durs.join(',') : '?'}`
+        + ` · 쉬는 몫 ${q.restShare ? (q.restShare * 100).toFixed(0) : '?'}% · 정지 그림과 ${q.rest ? Math.max(...q.rest.map((v, i) => Math.abs(v - q.still[i]))) : '?'}px`).join(' · ')})` : ''));
   }
   // **몇 마리를 쟀는지 통과할 때도 낸다** — 0건이 「통과」인지 「안 쟀다」인지를 가른다
   if (idle) console.log(`  애교 모션 — 바닥에 선 ${animIds.length}마리 (${idle})`

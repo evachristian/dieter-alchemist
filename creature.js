@@ -527,6 +527,49 @@
       && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches));
   }
 
+  // ─── 시그니처 애교 — 사람이 «그 마리만의» 움직임을 보내 준 경우 ────
+  //
+  // 2026-10-08 에 🔥 홍염 원숭이의 애교 SVG 를 받았다 (몸이 모핑하고 불꽃·연기가 인다).
+  // 공통 리그(`petidle.js`)는 «흔들고 기울고 늘이는» 것뿐이라 이것을 못 낸다 —
+  // 그래서 이 마리는 **리그 대신 그 파일을 «통째로»** 쓴다.
+  //
+  // ⚠️⚠️ **둘을 겹치지 않는다** — 리그까지 씌우면 애교가 두 겹으로 돈다.
+  //    갈래는 `previewSvg` 한 곳이고, 켜지는 조건은 리그와 같은 `idleOn()` 이다
+  //    (바닥에 선 마리 · 방에 선 칸 · 움직임 줄이기가 아닐 때).
+  // ⚠️⚠️ **움직임 줄이기에서는 정지 그림(`PREVIEW`)으로 돌아간다** — 파일 안의
+  //    `@media` 는 `<image>` 를 못 넘는다(위 `idleOn` 의 그 사고). 그래서 받은 파일의
+  //    `.still` 사본은 굽는 단계(`tools/gensig.js`)에서 걷었다.
+  // ⚠️⚠️ **한 바퀴는 16초 — 6초 움직이고 10초 쉰다** (「A 로 적용해줘」 · 사람이 골랐다).
+  //    받은 것은 6.2초에 한 바퀴라 거의 쉬지 않았다. 움직임 값은 한 글자도 안 고치고
+  //    끝에 «쉬는 자세 그대로»를 덧붙였다 (0.2초에 불꽃이 일기 시작해 6.2초에 제자리).
+  //    ⚠️ 리그와 같은 14초로 두면 쉬는 몫이 7.6~7.9초라 「쉬는 구간 8초 이상」에
+  //    걸린다 — 문턱을 내리지 않고 한 바퀴를 늘렸다 (`tools/gensig.js` 의 ①)
+  // ⚠️⚠️ **`vb` 는 «움직임 전체»를 품고 `rest` 는 «정지 그림의 viewBox» 다** (둘 다 그
+  //    파일의 좌표). `vb` 는 2026-10-08 에 시각마다 멈춰 찍어 쟀고, `rest` 는 두 파일의
+  //    path 시작점 열 개로 푼 변환(애교 = 정지 × 0.17 + (53.41, 48) · 오차 0)으로 옮겼다.
+  //    ⚠️ **쉬는 자세의 «칠한 상자»로 두면 안 된다** — 정지 그림의 viewBox 는 칠한 데보다
+  //    1.5~2% 넉넉해서, 그렇게 맞추면 쉬는 자세만 3% 커져 움직임 줄이기로 바꿀 때
+  //    크리처가 «줄어든다» (처음에 그렇게 짰다가 찍어 보고 알았다 · 199 ↔ 193px). 화염 여우가 「작다」로
+  //    신고받은 것이 바로 «움직임까지 품은 상자에 쉬는 자세를 맞춘» 탓이었다 — 그래서
+  //    여기서는 **쉬는 자세를 정지 그림과 같은 자리·같은 크기**에 세우고, 움직임은
+  //    그 밖으로 나가게 둔다 (`.cr-svg` 가 `overflow: visible` 이다).
+  //    ⚠️ 파일의 viewBox 와 `vb` 는 짝이다 — `checkcreature` 의 「시그니처」가 둘을 견주고,
+  //    `rest` 도 파일을 찍어 다시 잰다 (적어 둔 값이 그림과 갈리면 쉬는 동안 튄다)
+  const SIGNATURE = {
+    ember_newt: { href: 'peach-monkey-anim.svg',
+                  vb: [61, 38.5, 203.5, 203.5], rest: [61.23, 71.29, 198.39, 165.31] },
+  };
+  // 정지 그림이 `xMidYMax meet` 으로 서는 자리에 «쉬는 자세»를 그대로 앉힌다
+  function sigImage(sig, slot) {
+    const [rx, ry, rw, rh] = sig.rest, [vx, vy, vw, vh] = sig.vb;
+    const k = Math.min(slot.w / rw, slot.h / rh);
+    const x = slot.x + (slot.w - rw * k) / 2 - (rx - vx) * k;
+    const y = slot.y + slot.h - (ry + rh - vy) * k;
+    const f = (v) => +v.toFixed(2);
+    return `<g class="cr-sig"><image href="${sig.href + ASSET_Q}" x="${f(x)}" y="${f(y)}"`
+      + ` width="${f(vw * k)}" height="${f(vh * k)}"/></g>`;
+  }
+
   // ─── 그림이 «바라보는 쪽» ───────────────────────────────────────
   //
   // 부품 그림은 **정면 치비**라 바라보는 쪽이 없다 (`checkcreature` ②가 얼굴의
@@ -623,7 +666,7 @@
       : { x: 0, y: TOP_PAD, w: W, h: +ph.toFixed(1) };
     // ⚠️ 맞춤은 안 적는다 — 파일이 선언한다 (위 ⚠️⚠️⚠️)
     const art = idleOn(c, opts)
-      ? PetIdle.image(href, slot)
+      ? (SIGNATURE[c.id] ? sigImage(SIGNATURE[c.id], slot) : PetIdle.image(href, slot))
       : `<image href="${href}" x="${slot.x}" y="${slot.y}" width="${slot.w}"`
         + ` height="${slot.h}"/>`;
     // ⚠️⚠️ **어항 속에서는 `cr-inbowl` 을 달아 «더 크게» 선다** (CSS 86% · 기본 48%).
@@ -798,5 +841,5 @@
   // ⚠️ `TOP_PAD`·`BOWL_FIT` 도 내보낸다 — `checkcreature` 의 ⓕ 가 «닿는 줄»을
   //    여기서 뽑는다. 숫자를 검사기에 적으면 사본이 생겨 슬롯을 옮겼을 때 갈린다
   window.Creature = { draw, icon, bowl, of, W, H, GROUND, TOP_PAD, BOWL_FLOOR, AIR_MID,
-    BOWL, BOWL_FIT, bowlGlass, SHAPE, HORN, WING, TAIL, EYE, PREVIEW, idleOn, FACE, standSide };
+    BOWL, BOWL_FIT, bowlGlass, SHAPE, HORN, WING, TAIL, EYE, PREVIEW, SIGNATURE, idleOn, FACE, standSide };
 })();
