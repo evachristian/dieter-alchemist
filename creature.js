@@ -566,7 +566,7 @@
   //    그래서 `rest` 는 정지 그림의 viewBox 를 그 식으로 옮긴 값이다 (나비 30 84 1207 1098)
   const SIGNATURE = {
     ember_newt: { href: 'peach-monkey-anim.svg',
-                  vb: [61, 38.5, 203.5, 203.5], rest: [61.23, 71.29, 198.39, 165.31] },
+                  vb: [61, 1, 203.5, 241.5], rest: [61.23, 71.29, 198.39, 165.31] },
     ash_moth:   { href: 'peach-butterfly-anim.svg',
                   vb: [54.5, 6, 210.5, 246], rest: [58.51, 62.28, 205.19, 186.66] },
   };
