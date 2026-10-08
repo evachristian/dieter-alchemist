@@ -3567,241 +3567,93 @@
   //
   // 얼굴은 안 그린다. 그게 이 장면의 전부다 — 등을 돌리고 있다.
   function crouchBack(outfit, body, foodEmoji) {
+    // ⚠️⚠️ **그림은 사람이 보낸 것을 «대고 따라 그린» 것이다** (`crouchart.js` ·
+    //    `tools/gencrouch.py`). 손으로 그린 옛 뒷모습은 팔·손·먹는 구도가 «인체 왜곡»으로
+    //    신고받아 통째로 갈아 끼웠다 — 쪼그려 앉아 케이크를 입에 문 뒷모습이다.
+    //    조각마다 «역할»이 붙어 있어 **착장의 색**(머리·옷·신발)으로 갈아 칠한다.
+    //    ⚠️ 머리 «모양»은 이제 안 따라간다(반묶음 한 가지) — 색만 따라간다.
+    //    그림을 고치려면 받은 PNG 로 생성기를 다시 돌린다 (조각을 손으로 고치지 않는다)
+    const A = window.CrouchArt;
+    if (!A) return '';
     const w = Math.max(0, Math.min(1, Number(body) || 0));   // 1 = 통통
     const o = outfit || {};
     const col = (o.colors || {});
     const it = (slot) => getItem(slot, o[slot]);
-    // 옷 색 — 원피스가 있으면 그것, 없으면 상의. 아무것도 없으면 살색(속옷 아님, 맨몸)
+    // 옷 색 — 원피스가 있으면 그것, 없으면 상의. 아무것도 없으면 살색(맨몸)
     const dress = it('dress'), top = it('top');
     const cloth = (!isNone(dress) && (col.dress || dress.color))
       || (!isNone(top) && (col.top || top.color)) || SKIN;
-    const clothLt = shade(cloth, -16);     // 위에서 드는 빛
-    const clothSh = shade(cloth, 16);      // 접힌 자리
-    const clothDk = shade(cloth, 34);      // 몸 밑의 골 — 조각이 겹친 것을 말해 준다
     const hairItem = it('hair');
     const hairC = col.hair || hairItem.color || HAIR_DEF;
-    const backKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
-    // 신발 — **모양까지 따라간다.** 색만 바꾸면 유리구두를 신고도 맨발과 같은 모양이라,
-    // 「신발이 안 그려진다」로 읽힌다.
-    // ⚠️ 책상다리로 앉았으므로 보이는 것은 뒤꿈치가 아니라 **발 바깥쪽**이다
     const shoes = it('shoes');
-    const bare = isNone(shoes);
-    const shoeC = (!bare && (col.shoes || shoes.color)) || SKIN;
-    const shoeSh = shade(shoeC, 22);
-    const fin = bare ? 'plain' : (shoes.finish || 'plain');
-
-    // 통통할수록 등이 넓어진다. 가로만 늘린다 — 앉은 키는 그대로다
-    const k = 1 + 0.22 * w;
-    const kS = k.toFixed(3);
-    // SVG 의 id 는 문서 전체에서 공유된다 — 옷장 미리보기처럼 여럿을 한 화면에 그리면
-    // 뒤에 온 것이 앞의 clip·그라디언트를 덮어쓴다 (roomScene·build 와 같은 이유)
-    const uid = 'c' + (++avatarUid);
-    const ID = n => n + '_' + uid;
-
-    // ── 웅크린 등의 실루엣 ──────────────────────────────────
-    // ⚠️ **한 곳에만 적는다** — 색을 두 가지로 칠할 때 clip 으로 같은 모양을 다시 쓴다.
-    //    두 벌로 두면 한쪽만 고쳐 놓고 못 알아챈다.
-    // 어깨(y116)에서 엉덩이(y206)로 퍼지고 바닥에 눌려 앉는다
-    const BACK_D = 'M100,102 C84,102 74,108 69,120 C60,144 54,176 53,198'
-      + ' C53,210 74,218 100,218 C126,218 147,210 147,198'
-      + ' C146,176 140,144 131,120 C126,108 116,102 100,102 Z';
-    const SKIRT_Y = 168;                       // 허리 — 여기부터 아래가 치마다
+    const shoeC = (!isNone(shoes) && (col.shoes || shoes.color)) || SKIN;
+    // 상의와 치마를 따로 입었으면 **허리 아래는 치마 색**이다 (`data-part="lower"`)
     const legSlot = !isNone(dress) ? 'dress' : 'bottom';
     const legWear = legSlot === 'dress' ? dress : it('bottom');
     const legC = isNone(legWear) ? null : (col[legSlot] || legWear.color);
     const twoTone = legSlot === 'bottom' && !!legC && legC !== cloth;
-
-    // ── 발 ──────────────────────────────────────────────────
-    // ⚠️⚠️ **무릎을 그리지 않는다.** 예전에는 등 옆에 큼직한 동그라미 둘이 있었는데,
-    //    엉덩이 높이라 다리가 아니라 **엉덩이가 둘 더 달린 것**으로 보였다
-    //    (「저퀄리티」로 신고받은 자리의 절반이 이것이다).
-    //    한 손으로 먹고 있으니 무릎을 끌어안을 수가 없다 — 이 자세는 **책상다리**이고,
-    //    그때 뒤에서 보이는 것은 **발 바깥쪽**뿐이다. 작고 낮아서 실루엣을 안 해친다
-    const foot = (s) => {
-      // ⚠️⚠️ **옆으로 내보내지 않는다.** 뒤에서 본 책상다리의 발은 어느 각도로 그려도
-      //    «바닥에 놓인 돌»로 읽힌다 — 54 에서도 61 에서도 그랬다 (셋을 그려 보고 정했다).
-      //    치마 «밑»으로 살짝 나온 앞코 둘이면 발인 줄 알아보고, 신발 색도 그대로 보인다
-      const cx = 100 + s * 30, r = -s * 6;
-      return '<g transform="rotate(' + r + ' ' + cx + ' 213)">'
-        + '<ellipse data-part="foot" cx="' + cx + '" cy="213" rx="14" ry="8" fill="' + shoeC + '"/>'
-        // 바닥에 닿는 쪽을 한 단 어둡게 — 안 그러면 덩어리가 바닥에 «뜬다»
-        + '<path d="M' + (cx - 13.6) + ',214 A14,8 0 0 0 ' + (cx + 13.6) + ',214 Z" fill="'
-        + shoeSh + '" opacity="' + (bare ? 0.35 : 0.22) + '"/>'
-        // 윗면에 빛 — 없으면 어두운 신발이 «바닥의 돌»로 보인다
-        + '<ellipse cx="' + (cx - s * 2) + '" cy="210" rx="8" ry="3.4" fill="#fff" opacity="0.18"/>'
-        + (fin === 'sole' ? '<ellipse cx="' + cx + '" cy="217" rx="14" ry="2.8" fill="' + shoeSh + '"/>' : '')
-        + (fin === 'strap' ? '<path d="M' + (cx - 8) + ',209 L' + (cx + 8) + ',209" stroke="'
-          + shoeSh + '" stroke-width="2.4" stroke-linecap="round"/>' : '')
-        + (fin === 'ribbon' ? '<path d="M' + (cx - 6) + ',208 Q' + cx + ',212 ' + (cx + 6) + ',208" stroke="'
-          + shoeSh + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
-          + '<circle cx="' + cx + '" cy="208" r="2.2" fill="' + shoeSh + '"/>' : '')
-        + (fin === 'gloss' ? '<ellipse cx="' + (cx - 4) + '" cy="210" rx="5" ry="2.4" fill="#fff" opacity="0.75"/>' : '')
-        + '</g>';
+    const SKIRT_Y = 640;
+    // 받은 그림의 선 색은 바탕보다 ~30 어둡다 — 그 몫을 그대로 지킨다
+    const FILL = {
+      hair: hairC, hairL: shade(hairC, 26), cloth, clothL: shade(cloth, 30),
+      skin: SKIN, skinL: '#e3a585', hand: SKIN, handL: '#e3a585', shoe: shoeC,
+      sponge: '#f9a665', cakeL: '#ebac7a', cream: '#fcecdc', straw: '#d33d49', leaf: '#6f953b', crumb: '#f5ab71',
     };
-
-    return '<svg class="cb-svg" viewBox="0 0 200 250" xmlns="http://www.w3.org/2000/svg"'
+    const CAKE = { sponge: 1, cakeL: 1, cream: 1, straw: 1, leaf: 1 };
+    // 들고 있는 것이 케이크면 그린 케이크를, 아니면 그 자리에 음식 이모지를 쥐여 준다
+    const isCake = !foodEmoji || foodEmoji === '🍰';
+    const uid = 'c' + (++avatarUid);
+    const ID = n => n + '_' + uid;
+    const k = (1 + 0.15 * w).toFixed(3);       // 통통할수록 가로로만 넓어진다
+    const CX = 496;                            // 그림의 가운데 (받은 그림 좌표)
+    let food = false, out = '', firstShoe = true;
+    // ⚠️ 이모지는 «한 입»(cb-bite)과 «베어 물면 작아진다»(cb-food)를 같이 탄다 —
+    //    한 요소에 둘을 걸면 뒤엣것이 animation 을 통째로 덮어쓰므로 겹을 나눈다
+    const foodTag = '<g class="cb-bite"><text class="cb-food" x="330" y="560" font-size="150"'
+      + ' text-anchor="middle">' + foodEmoji + '</text></g>';
+    A.parts.forEach(([role, d]) => {
+      if (CAKE[role] && !isCake) {
+        // 케이크 조각이 처음 나온 자리에 이모지를 둔다 — 손(뒤에 그려진다)이 그 앞을 쥔다
+        if (!food) {
+          food = true;
+          out += foodTag;
+        }
+        return;
+      }
+      const cls = (role === 'hand' || role === 'handL' || CAKE[role]) ? ' class="cb-bite"'
+        : role === 'crumb' ? ' class="cb-crumb"' : '';
+      const part = role === 'shoe' && firstShoe ? ' data-part="foot"' : '';
+      if (role === 'shoe') firstShoe = false;
+      out += '<path' + cls + part + ' d="' + d + '" fill="' + FILL[role] + '"/>';
+      // 치마 색 — 같은 조각을 허리 아래만 잘라 한 번 더 칠한다 (뒤에 오는 머리카락이 그대로 덮는다)
+      if (twoTone && (role === 'cloth' || role === 'clothL')) {
+        out += '<path clip-path="url(#' + ID('lo') + ')"' + (role === 'cloth' ? ' data-part="lower"' : '')
+          + ' d="' + d + '" fill="' + (role === 'cloth' ? legC : shade(legC, 30)) + '"/>';
+      }
+    });
+    if (food === false && !isCake && foodEmoji) {
+      out += foodTag;
+    }
+    return '<svg class="cb-svg" viewBox="180 110 632 810" xmlns="http://www.w3.org/2000/svg"'
       + ' role="img" aria-label="">'
       + '<defs>'
-      + (twoTone ? '<clipPath id="' + ID('cbb') + '"><path d="' + BACK_D + '"/></clipPath>' : '')
-      // 등 — 위에서 빛이 든다. 통짜 한 색이면 «종이 오린 것»으로 보인다
-      + '<linearGradient id="' + ID('backG') + '" x1="0.25" y1="0" x2="0.75" y2="1">'
-      + '<stop offset="0" stop-color="' + clothLt + '"/>'
-      + '<stop offset="0.55" stop-color="' + cloth + '"/>'
-      + '<stop offset="1" stop-color="' + clothSh + '"/></linearGradient>'
+      + (twoTone ? '<clipPath id="' + ID('lo') + '"><rect x="0" y="' + SKIRT_Y + '" width="1024" height="400"/></clipPath>' : '')
       + '<radialGradient id="' + ID('shG') + '" cx="0.5" cy="0.5" r="0.5">'
-      + '<stop offset="0" stop-color="rgba(20,10,25,0.34)"/>'
-      + '<stop offset="0.6" stop-color="rgba(20,10,25,0.18)"/>'
+      + '<stop offset="0" stop-color="rgba(20,10,25,0.30)"/>'
+      + '<stop offset="0.6" stop-color="rgba(20,10,25,0.14)"/>'
       + '<stop offset="1" stop-color="rgba(20,10,25,0)"/></radialGradient>'
       + '</defs>'
-
-      // 바닥 그림자 — **두 겹이다.** 한 겹이면 가장자리가 딱 끊겨 스티커로 보인다
-      + '<ellipse class="cb-shadow" cx="100" cy="222" rx="' + (76 * (1 + 0.15 * w)).toFixed(1)
-      + '" ry="13" fill="url(#' + ID('shG') + ')"/>'
-      + '<ellipse class="cb-shadow" cx="100" cy="219" rx="' + (50 * (1 + 0.15 * w)).toFixed(1)
-      + '" ry="7" fill="rgba(20,10,25,0.2)"/>'
-
-      + '<g transform="translate(100,0) scale(' + kS + ',1) translate(-100,0)">'
-      // 씹는 박자에 몸 전체가 아주 살짝 눌렸다 편다 (스쿼시 & 스트레치).
-      // **바깥 그룹의 체형 배율과 겹치면 안 되므로** 한 겹 안에서 따로 움직인다 —
-      // CSS transform 은 SVG transform 속성을 덮어쓴다
-      + '<g class="cb-body">'
-      // 등
-      + '<path d="' + BACK_D + '" fill="url(#' + ID('backG') + ')"/>'
-      // 상의와 치마를 따로 입었으면 **아랫도리는 치마 색**이다. 실루엣을 clip 으로
-      // 잘라 쓰므로 옷 모양을 다시 그릴 필요가 없다
-      + (twoTone ? '<rect data-part="lower" clip-path="url(#' + ID('cbb') + ')" x="40" y="' + SKIRT_Y
-          + '" width="120" height="84" fill="' + legC + '"/>'
-        + '<path clip-path="url(#' + ID('cbb') + ')" d="M40,' + SKIRT_Y + ' L160,' + SKIRT_Y
-          + '" stroke="' + shade(legC, 22) + '" stroke-width="2.4"/>' : '')
-      // 등 한가운데 — 척추 골 하나와 어깨뼈 둘. 없으면 그냥 색 덩어리로 보인다
-      + '<path d="M100,126 C97,150 97,176 100,196" stroke="' + clothSh
-      + '" stroke-width="2.6" fill="none" stroke-linecap="round" opacity="0.7"/>'
-      + '<path d="M84,134 C80,142 79,150 81,158" stroke="' + clothSh
-      + '" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>'
-      + '<path d="M116,134 C120,142 121,150 119,158" stroke="' + clothSh
-      + '" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>'
-      // 발 — ⚠️ **등 «뒤»에 두면 바깥 반쪽만 남아 바닥의 검은 얼룩으로 보인다.**
-      // 옆에 놓인 것이라 앞에 그려야 제 모양이 보인다 (그려 보고 옮겼다)
-      + foot(-1) + foot(1)
-      // 엉덩이가 바닥에 눌린 자리 — 밑에 골이 있어야 «앉아 있다»가 된다
-      + '<path d="M64,206 C80,214 120,214 136,206" stroke="' + clothDk
-      + '" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.45"/>'
-      // ── 왼팔 — 바닥을 짚은 팔 ───────────────────────────────
-      // ⚠️⚠️ **덩어리 하나로 그리지 않는다.** 한때 닫힌 곡선 한 장이었는데, 몸 옆에
-      //    붙은 «지느러미»로 읽혔다 (「왼팔이 이상하다」로 신고받았다).
-      //    팔은 **마디 둘**이다 — 어깨→팔꿈치(위팔) · 팔꿈치→손목(아래팔).
-      //    둘을 굵기가 다른 선으로 긋고 둥근 마개로 이으면 관절이 저절로 생긴다
-      // ⚠️ 그늘(테두리)을 **둘 다 먼저** 깐다. 마디마다 「그늘 → 칠」로 그리면
-      //    뒤 마디의 그늘이 앞 마디의 칠을 덮어 팔꿈치에 검은 띠가 생긴다
-      // **회전축은 어깨**다 (style.css 의 .cb-arm-l) — 팔꿈치를 축으로 돌리면 어깨가 빠진다
-      + (() => {
-        // ⚠️ **팔꿈치는 실루엣 «밖»으로 나와야 한다.** 등과 같은 색이라, 안에 있으면
-        //    테두리만 희미하게 남아 팔로 안 읽힌다 (55 에서 47 로 8px 내보냈다)
-        const up = 'M71,120 C60,134 50,148 47,164';      // 위팔
-        const fo = 'M47,164 C46,178 48,188 52,194';      // 아래팔
-        return '<g class="cb-arm cb-arm-l">'
-          + '<path d="' + up + '" stroke="' + clothSh + '" stroke-width="18.4" fill="none"'
-          + ' stroke-linecap="round"/>'
-          + '<path d="' + fo + '" stroke="' + clothSh + '" stroke-width="15.4" fill="none"'
-          + ' stroke-linecap="round"/>'
-          + '<path d="' + up + '" stroke="' + cloth + '" stroke-width="16" fill="none"'
-          + ' stroke-linecap="round"/>'
-          + '<path d="' + fo + '" stroke="' + cloth + '" stroke-width="13" fill="none"'
-          + ' stroke-linecap="round"/>'
-          // 소매 끝 — 팔과 손을 가르는 한 줄. 없으면 손이 소매에서 «돋아난다»
-          + '<path d="M46,188 A6.5,6.5 0 0 0 58,191" stroke="' + clothSh
-          + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
-          // 손 — 벙어리장갑 (ART_POLICY 「손가락은 4개 이하」). 바닥을 짚고 있다
-          // ⚠️ **발(cx 70)과 접시(cx 34) 사이에 둔다** — 겹치면 바닥의 «살색 얼룩»이 된다
-          + '<ellipse cx="52" cy="199" rx="7.6" ry="6.2" fill="' + SKIN + '"'
-          + ' transform="rotate(-18 52 199)"/>'
-          // 엄지 하나 — 「짚었다」가 읽힌다
-          + '<ellipse cx="59" cy="195" rx="3.4" ry="2.6" fill="' + SKIN + '"'
-          + ' transform="rotate(-28 59 195)"/>'
-          + '</g>';
-      })()
-      // 목덜미 — 머리에 거의 가린다. 그늘이라 머리와 몸 사이가 이어져 보인다
-      + '<path d="M86,100 C86,114 114,114 114,100 C110,96 90,96 86,100 Z" fill="' + SKIN_SH + '"/>'
-      + '</g></g>'
-
-      // ── 오른팔 — 음식을 들고 입으로 가져가는 팔 ─────────────
-      // **머리보다 먼저 그린다.** 뒤에서 보고 있으니 손은 얼굴 쪽(저쪽 편)에 있고,
-      // 뒤통수가 팔을 가려야 맞다. 그러면서도 손과 음식은 **머리 옆으로 비켜나** 있다 —
-      // 엄밀히는 얼굴 뒤에 숨어야 하지만, 그러면 무엇을 하는 장면인지 안 읽힌다.
-      // ⚠️⚠️ **마디 둘로 긋는다**(왼팔과 같은 규칙). 닫힌 곡선 한 장으로 그렸더니
-      //    제어점이 서로를 먹어 **옆구리에 붙은 얇은 조각**이 됐다 (「오른팔도 이상하다」).
-      //    어깨(위) → 팔꿈치(아래 바깥) → 손목(위) 의 꺾인 두 마디라야 «들어 올린 팔»이다
-      // ⚠️ 가로는 k 를 따라가되 **손과 음식은 그 자리에 놓기만 한다** —
-      //    이모지가 가로로 늘어나면 안 되기 때문이다
-      + (() => {
-        const sx = 100 + 29 * k;    // 어깨 — 등 실루엣의 오른쪽 끝
-        const ex = 100 + 50 * k;    // 팔꿈치 — 등 옆으로 나온다
-        const wx = 100 + 42 * k;    // 손목 — 머리 옆으로 올라온다
-        const f = n => n.toFixed(1);
-        const up = 'M' + f(sx) + ',120 C' + f(sx + 12) + ',134 ' + f(ex) + ',146 ' + f(ex + 1) + ',160';
-        const fo = 'M' + f(ex + 1) + ',160 C' + f(ex + 1) + ',146 ' + f(wx + 2) + ',134 ' + f(wx) + ',126';
-        const hx = wx;
-        return '<g class="cb-bite">'
-          + '<path d="' + up + '" stroke="' + clothSh + '" stroke-width="18.4" fill="none"'
-          + ' stroke-linecap="round"/>'
-          + '<path d="' + fo + '" stroke="' + clothSh + '" stroke-width="15.4" fill="none"'
-          + ' stroke-linecap="round"/>'
-          + '<path d="' + up + '" stroke="' + cloth + '" stroke-width="16" fill="none"'
-          + ' stroke-linecap="round"/>'
-          + '<path d="' + fo + '" stroke="' + cloth + '" stroke-width="13" fill="none"'
-          + ' stroke-linecap="round"/>'
-          // 소매 끝
-          + '<path d="M' + f(hx - 6.5) + ',128 A6.5,6.5 0 0 1 ' + f(hx + 6.5) + ',126"'
-          + ' stroke="' + clothSh + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
-          // 손 — 벙어리장갑. 쥔 것을 입으로 올리는 중이라 손등이 이쪽을 본다
-          + '<ellipse cx="' + f(hx) + '" cy="119" rx="8.2" ry="7.6" fill="' + SKIN + '"/>'
-          // 엄지 — 하나만 얹으면 「쥐고 있다」가 읽힌다
-          + '<ellipse cx="' + f(hx - 6.5) + '" cy="116" rx="3.4" ry="2.8" fill="' + SKIN + '"'
-          + ' transform="rotate(-28 ' + f(hx - 6.5) + ' 116)"/>'
-          // 손가락 마디 한 줄
-          + '<path d="M' + f(hx - 4) + ',114 C' + f(hx - 1) + ',112 ' + f(hx + 2) + ',112 '
-          + f(hx + 5) + ',114" stroke="' + SKIN_SH + '" stroke-width="1.5" fill="none"'
-          + ' stroke-linecap="round" opacity="0.7"/>'
-          + (foodEmoji ? '<text class="cb-food" x="' + f(hx + 8)
-            + '" y="110" font-size="26" text-anchor="middle">' + foodEmoji + '</text>' : '')
-          + '</g>';
-      })()
-
-      // ── 머리 — 고개를 숙이고 우적우적 ───────────────────────
-      // ⚠️⚠️ **`hairBack` «하나»만 쓴다.** 한때 그 위에 머리통보다 넉넉한 덮개와
-      //    가닥 사이를 메우는 커튼을 덧댔는데(「가운데가 얼굴로 읽힌다」), 그러면
-      //    **여섯 머리가 전부 같은 갈색 덩어리**가 된다 — 단발도 올림머리도
-      //    포니테일도 구별이 안 갔다 (「헤어 고친 것도 잘못되었다」로 신고받았다).
-      //    가닥 사이로 등이 비치는 것이 이 그림에서 맞는 모양이고, 그래야
-      //    **머리를 바꾸면 뒷모습도 바뀐다**
-      + '<g transform="translate(0,26)"><g class="cb-head">'
-      + '<g transform="rotate(-3 100 105)">'
-      + '<ellipse cx="100" cy="70" rx="33" ry="35" fill="' + SKIN + '"/>'
-      + hairBack(backKind, hairC)
-      + '</g></g></g>'
-
-      // 「우적」 — 씹을 때마다 머리 옆에서 톡 터지는 효과선. 애니메이션의 박자를 눈으로
-      // 보여 주는 것이라, 이게 없으면 고개만 까딱이는 것으로 보인다.
-      // 오른쪽은 **든 손을 피해 위로** 뺀다
-      + '<g class="cb-spark cb-spark-l" fill="none" stroke="rgba(120,90,70,0.6)" stroke-width="2.4"'
+      // 바닥 그림자 — 두 겹 (한 겹이면 가장자리가 딱 끊겨 스티커로 보인다)
+      + '<ellipse class="cb-shadow" cx="' + CX + '" cy="896" rx="' + (270 * k).toFixed(0)
+      + '" ry="26" fill="url(#' + ID('shG') + ')"/>'
+      + '<ellipse class="cb-shadow" cx="' + CX + '" cy="892" rx="' + (190 * k).toFixed(0)
+      + '" ry="12" fill="rgba(20,10,25,0.16)"/>'
+      + '<g transform="translate(' + CX + ',0) scale(' + k + ',1) translate(-' + CX + ',0)">'
+      + '<g class="cb-body">' + out + '</g></g>'
+      // 「우적」 — 씹을 때마다 볼 옆에서 톡 터지는 효과선
+      + '<g class="cb-spark cb-spark-l" fill="none" stroke="rgba(120,90,70,0.6)" stroke-width="9"'
       + ' stroke-linecap="round">'
-      + '<path d="M54,92 q-7,-4 -12,-2"/><path d="M56,104 q-8,1 -12,5"/></g>'
-      + '<g class="cb-spark cb-spark-r" fill="none" stroke="rgba(120,90,70,0.6)" stroke-width="2.4"'
-      + ' stroke-linecap="round">'
-      + '<path d="M150,70 q8,-5 13,-3"/><path d="M156,82 q9,-1 13,3"/></g>'
-
-      // ── 바닥에 남은 것 — 「몇 번째인지」를 말해 준다 ─────────
-      // ⚠️ 이모지 하나만 놓으면 **바닥에 떠 있는 그림**이다. 접시를 깔아야 놓인 것이 된다
-      + (foodEmoji
-        ? '<ellipse cx="34" cy="216" rx="21" ry="7" fill="rgba(20,10,25,0.16)"/>'
-        + '<ellipse cx="34" cy="213" rx="20" ry="6.5" fill="#f4eee6"/>'
-        + '<ellipse cx="34" cy="212" rx="13" ry="4" fill="#e6ddd0"/>'
-        + '<text x="34" y="211" font-size="20" text-anchor="middle" opacity="0.95">' + foodEmoji + '</text>'
-        : '')
-      // 부스러기 — 씹을 때마다 톡톡 튄다. 시작 시각을 어긋나게 줘야 같이 안 튄다
-      + '<circle class="cb-crumb cb-crumb1" cx="58" cy="222" r="2.4" fill="rgba(90,60,40,0.55)"/>'
-      + '<circle class="cb-crumb cb-crumb2" cx="68" cy="228" r="1.8" fill="rgba(90,60,40,0.45)"/>'
-      + '<circle class="cb-crumb cb-crumb3" cx="152" cy="224" r="2" fill="rgba(90,60,40,0.5)"/>'
+      + '<path d="M300,330 q-30,-14 -52,-6"/><path d="M296,372 q-34,4 -52,20"/></g>'
       + '</svg>';
   }
 
