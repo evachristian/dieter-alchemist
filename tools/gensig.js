@@ -26,9 +26,11 @@
 //    브라우저가 필요하다. 구운 뒤 `creature.js` 의 `SIGNATURE` 에 적힌 값을 넣는다
 'use strict';
 const fs = require('fs');
-const [src, out] = process.argv.slice(2);
-if (!src || !out) { console.error('쓰는 법: node tools/gensig.js <받은 파일> <내보낼 파일>'); process.exit(2); }
-const NEW = 16;
+const [src, out, newArg] = process.argv.slice(2);
+if (!src || !out) { console.error('쓰는 법: node tools/gensig.js <받은 파일> <내보낼 파일> [한 바퀴 초 · 기본 16]'); process.exit(2); }
+// ⚠️ 받은 움직임이 길면 한 바퀴도 늘린다 — 숯불 말랑이(9.4초)는 16초로 구우면 6초밖에 안 쉬어
+//    `checkcreature` 의 「쉬는 구간 8초 이상」에 걸린다. 그래서 20초로 굽는다
+const NEW = Number(newArg) || 16;
 let s = fs.readFileSync(src, 'utf8');
 // 받은 한 바퀴는 파일마다 다르다 (원숭이 6.2초 · 나비 5.8초) — 하나여야 한다
 const durs = [...new Set(s.match(/dur="[^"]*"/g) || [])];

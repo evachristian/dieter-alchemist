@@ -862,7 +862,10 @@ const near = (p, hex, tol) => {
   if (!animIds.length) {
     console.log('⚠️ 바닥에 선 미리 보기 크리처가 하나도 없다 — 「애교 모션」을 한 번도 안 쟀다');
   } else {
-    const SPAN = 17000;                // ms. 한 바퀴(14초)보다 길게 훑는다
+    // ms. **제일 긴 한 바퀴보다 길게** 훑는다 — 공통 리그 14초 · 시그니처 16초 ·
+    //    숯불 말랑이 20초(받은 움직임이 9.4초라 늘렸다). 짧게 훑으면 창이 쉬는 구간을
+    //    둘로 잘라 «쉬는 구간이 6초뿐»으로 헛짚는다
+    const SPAN = 22000;
     const STEP = 220;                  // ms. 바라는 간격 (찍고 푸는 데 드는 시간은 뺀다)
     const MOVE_CELLS = 40;             // 이만큼 달라지면 «움직였다»로 센다
     const MOVE_MIN = 2.0, REST_MIN = 8.0;   // 초 — 움직인 몫 · 제일 긴 쉼
@@ -1067,8 +1070,11 @@ const near = (p, hex, tol) => {
             if (!im) return { over: false, why: '시그니처 그림을 못 찾았다' };
             const a = svg.getBoundingClientRect(), b = im.getBoundingClientRect();
             const ovf = getComputedStyle(svg).overflow;
-            return { over: b.top < a.top - 1 && ovf === 'visible',
-              why: `그림 위 ${(a.top - b.top).toFixed(1)}px 밖 · overflow ${ovf}` };
+            // ⚠️ «위»로만 보지 않는다 — 숯불 말랑이는 불꽃이 머리 위가 아니라 **옆**으로 퍼진다
+            //    (그림 상자가 위로는 안 나가고 오른쪽으로 나간다). 어느 쪽이든 나가기만 하면 된다
+            const out = Math.max(a.top - b.top, a.left - b.left, b.right - a.right, b.bottom - a.bottom);
+            return { over: out > 1 && ovf === 'visible',
+              why: `그림이 상자 밖으로 ${out.toFixed(1)}px · overflow ${ovf}` };
           });
           q.over = ov.over; q.overWhy = ov.why;
           const ink = (img, x0, x1) => {
