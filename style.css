@@ -4900,3 +4900,9 @@ body.dev-figure-only .char-body svg,
 body.dev-figure-only .char-body svg g.doll,
 body.dev-figure-only .char-body svg g.i-doll { filter: none !important; }
 body.dev-figure-only .char-body svg ellipse:not(.doll *):not(.i-doll *) { display: none; }
+/* 제목 줄(「…의 룸」·시계·저장됨·↺)까지 흰 판으로 잇는다 — 방 상자와의 틈(6px)은
+   그림자 한 줄로 메운다 (여백을 바꾸면 방 상자가 움직여 인물 자리가 바뀐다).
+   흰 바탕이라 방 그림 위에서 쓰던 흰 글자 + 번지는 음영은 여기서만 짙은 글자로 바꾼다.
+   ⚠️ 색은 테마를 안 탄다 — 이 판 자체가 고정 흰색이라 글자도 고정이어야 읽힌다 */
+body.dev-figure-only #screen-showcase .room-head { background: #fff; box-shadow: 0 6px 0 #fff; }
+body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; text-shadow: none; }
