@@ -75,6 +75,12 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 커밋 작성자는 **이 저장소에만** 따로 잡아 두었다 (`git config user.name/email`, `--global` 아님).
 전역 설정과 다르니 `git config user.email` 로 확인하고 커밋할 것.
 
+### 요청한 것은 끝나면 «묻지 않고» main 에 올린다 (사람이 정했다 · 2026-10-08)
+
+부탁받은 작업이 끝나고 검사를 통과하면 **따로 「머지해 줘」를 기다리지 않고**
+`main` 에 커밋하고 `git push origin main` + `git push origin main:<세션 브랜치>` 까지 한다.
+⚠️ 검사가 빨갛거나 사람이 정할 일이 남았으면 올리지 말고 먼저 알린다.
+
 ### ⚠️ 커밋 안 한 파일에 `git checkout <파일>` 을 쓰지 않는다
 
 검사기가 진짜로 잡는지 보려고 **일부러 망가뜨렸다가 되돌릴 때** 쓰기 쉬운데,
