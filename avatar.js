@@ -3341,19 +3341,22 @@
     </g>`;
   }
 
-  function renderDress(it, tune, bw) {
+  // 구두를 신었을 때 발목까지 오는 원피스의 밑단을 걷어 올리는 몫 (build 의 `hemLift`)
+  const DRESS_SHOE_LIFT = 12;
+  function renderDress(it, tune, bw, lift) {
     if (isNone(it)) return '';
+    lift = Number(lift) || 0;
     const c = it.color, c2 = shade(c);
 
     // 튜토리얼 인트로의 공주 드레스 — 어깨에서 발목까지 내려오는 종 모양 + 소매
     // (인트로 princessFront 의 실루엣을 아바타 좌표계로 옮긴 것)
     if (it.kind === 'princess') {
-      return sleevedDress(c, c2, BODY.ankleY, true, tune, it.neck, bw);
+      return sleevedDress(c, c2, BODY.ankleY - lift, true, tune, it.neck, bw);
     }
 
     // 기장·퍼짐·넥라인·소매는 전부 아이템 필드다 (없으면 예전 값 그대로)
     const B = BODY;
-    const hemY = Number(it.hemY) || (it.kind === 'gown' ? 320 : 270);
+    const hemY = (Number(it.hemY) || (it.kind === 'gown' ? 320 : 270)) - lift;
     // ⚠️ **퍼짐만 다리 배율을 탄다.** 예전에는 옷 전체를 `tuneMax(몸통·허벅지·종아리)`
     // 로 통째로 늘려서, **허벅지를 키우면 어깨까지 두 배**가 됐다 (실제로 그랬다).
     // 어깨·허리·엉덩이는 이미 제 몸 부위를 따라간 좌표다 — 늘릴 것은 치마의 퍼짐뿐이다
@@ -3956,8 +3959,13 @@
     // 신발은 **다리보다 먼저** 정해야 한다 — 굽이 종아리 모양을 바꾸기 때문이다
     const shoeItem = pick('shoes', outfit.shoes);
     const shoeHeel = heelOf(shoeItem), shoePitch = pitchOf(shoeItem);
-    // 원피스가 발목까지 오면 신발이 그 «위»다 (아래 layers 의 주석)
-    const shoesOverDress = hasDress && legHemY >= BODY.ankleY;
+    // ⚠️⚠️ **발목까지 오는 원피스(공주 드레스 · 맥시)는 구두를 신으면 밑단을 걷어 올린다.**
+    // 밑단이 발을 통째로 덮어 **어떤 구두를 신어도 한 픽셀도 안 보였다**
+    // («원피스 입었을 때 구두가 안 보인다»로 신고받았다). 신발을 원피스 «위»에 그려 봤더니
+    // 이번에는 「구두가 드레스를 뚫고 나온다」였다 — 신발은 그대로 «아래»에 두고
+    // **자락이 발등까지만 오게** 해서 앞코가 밑단 밑으로 나오게 한다.
+    // 맨발이면 그대로다 (덮는 것이 맞다) · 짧은 원피스는 애초에 안 걸린다
+    const hemLift = (hasDress && legHemY >= BODY.ankleY && !isNone(shoeItem)) ? DRESS_SHOE_LIFT : 0;
 
     // 빈 자리를 메울 색 — 원피스가 있으면 그것, 없으면 상의, 아무것도 없으면 살색
     // (`crouchBack` 의 `cloth` 와 같은 규칙이다)
@@ -3993,14 +4001,8 @@
       // ⚠️ 대신 **부츠 목은 밑단 위로 안 올라간다** (`legHemY`) — 예전에는 그것까지
       // 위로 올라와, 바짓단 한가운데에 색이 다른 기둥이 서 있는 꼴이었다
       // (「롱부츠가 청바지 위로 올라옴」으로 신고받았다)
-      B(shoesOverDress ? '' : renderShoes(shoeItem, tune, legHemY)),
-      B(hasDress ? renderDress(dress, tune, w) : ''),
-      // ⚠️⚠️ **발목까지 오는 원피스(공주 드레스 · 맥시)는 신발을 «위»에 그린다.**
-      // 아래에 두면 밑단이 발을 통째로 덮어 **어떤 구두를 신어도 한 픽셀도 안 보였다**
-      // («원피스 입었을 때 구두가 안 보인다»로 신고받았다). 바지와 같은 규칙이다 —
-      // 발끝이 밑단 밑으로 나오고, 부츠 목은 `legHemY` 가 밑단에서 잘라 뚫고 나오지 않는다.
-      // 짧은 원피스는 그대로 «아래»다: 밑단의 둥근 끝 위로 부츠 목이 얹히면 안 된다
-      B(shoesOverDress ? renderShoes(shoeItem, tune, legHemY) : ''),
+      B(renderShoes(shoeItem, tune, legHemY)),
+      B(hasDress ? renderDress(dress, tune, w, hemLift) : ''),
       // 턱 밑 · 목 양옆의 빈 자리를 «입은 옷» 색으로 메운다 (위 `neckGusset`).
       // 옷보다 뒤에 두면 소매·어깨가 이것을 덮어 버리고, 얼굴보다 앞에 두면
       // 턱 위에 색 덩어리가 얹힌다 — 이 자리가 유일하게 맞는 자리다
