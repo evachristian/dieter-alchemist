@@ -44,7 +44,9 @@ VARIANTS = {
         cake=(240, 410, 412, 612), hand=(270, 520, 420, 625), face=None,
         cake_only=(258, 418, 398, 560),
         skin_in_cake='skin', crumb=(0, 830, 330, 1024), keep=(345, 0, 1024, 468), mode=3,
-        skin_zone=[(290, 270, 525, 520), (260, 500, 425, 630), (380, 820, 720, 940)]),
+        skin_zone=[(290, 270, 525, 520), (260, 500, 425, 630), (380, 820, 720, 940)],
+        # 노란 머리와 흰 바탕이 섞인 테가 «상의»(살구)로 읽혀 얼굴 둘레에 옷 색 테가 둘렸다 — 상의는 어깨 아래에만
+        zones={'cloth': [(0, 415, 1024, 1024)], 'clothL': [(0, 415, 1024, 1024)]}),
     # 단발 · 하늘색 상의 + 민트 치마 (반소매라 팔이 맨살이다)
     'bob': dict(
         pal={'bg': '#fefefe', 'hair': '#dd302f', 'hairL': '#b7413f', 'cloth': '#d1e2fc',
@@ -220,6 +222,19 @@ near_bg = np.asarray(Image.fromarray(np.where(idx == bgi, 0, 255).astype(np.uint
                      .filter(ImageFilter.MinFilter(5))) == 0
 for li, bi in LINE.items():
     idx = np.where((idx == li) & near_bg, bi, idx)
+# ⚠️⚠️ **선 색이 «다른 덩어리»에 붙은 3px 안짝도 선이 아니다** — 머리와 얼굴·상의가 맞닿은 섞인 줄이
+#    «머리선»으로 읽혀 머리 둘레에 검은 점선이 자글자글 남았다 (웨이브 · 신고받았다). 진짜 선은
+#    머리 «안»에 있거나(둘레가 같은 집안) 굵다(포니테일 꼬리의 그늘 띠) — 둘 다 아니면 바탕색으로
+fam = np.array([names.index(re.sub(r'L$', '', re.sub(r'\d+$', '', k))) if re.sub(r'L$', '', re.sub(r'\d+$', '', k)) in names else i
+                for i, k in enumerate(names)])
+for li, bi in LINE.items():
+    m = idx == li
+    if not m.any():
+        continue
+    other = ~np.isin(fam[idx], [bi]) & (idx != bgi)
+    core = np.asarray(Image.fromarray(np.where(m, 255, 0).astype(np.uint8))
+                      .filter(ImageFilter.MinFilter(7)).filter(ImageFilter.MaxFilter(7))) > 0
+    idx = np.where(m & dil(other, 7) & ~core & ~cake, bi, idx)
 # ⚠️⚠️ **두 색이 맞닿은 자리의 섞인 한 줄(1~2px)도 제 색이 아니다** — 보라 머리와 하늘 상의 사이가
 #    «머리선»으로, 머리와 치마 사이가 «옷»으로 읽혀 포니테일 꼬리 둘레에 끊어진 선이 남았다
 #    (신고받았다). 2px 이하로 가는 것은 둘레의 최빈 색으로 갈아 넣는다 — 진짜 선(4px 넘음)은 산다
@@ -237,14 +252,16 @@ idx = np.where(thin, mf, idx)
 #    늘려 흐린 뒤 다시 고르면(UP) 계단이 둥글게 펴지고 1px 짜리 티끌도 같이 사라진다.
 #    따낸 좌표는 1/UP 로 되돌린다
 UP = int(os.environ.get('CROUCH_UP', '2'))
-lab = np.zeros((Hh * UP, W * UP), np.uint8); best = np.full((Hh * UP, W * UP), -1, np.int16)
-for i in np.unique(idx):
-    ch = Image.fromarray(np.where(idx == i, 255, 0).astype(np.uint8)) \
-        .resize((W * UP, Hh * UP), Image.BILINEAR).filter(ImageFilter.GaussianBlur(0.8 * UP))
-    a = np.asarray(ch).astype(np.int16)
-    m = a > best
-    lab[m] = i; best[m] = a[m]
-Image.fromarray(pal[lab].astype(np.uint8)).save('/tmp/_crouch_q.png')
+def smooth_up(src):
+    lab = np.zeros((Hh * UP, W * UP), np.uint8); best = np.full((Hh * UP, W * UP), -1, np.int16)
+    for i in np.unique(src):
+        ch = Image.fromarray(np.where(src == i, 255, 0).astype(np.uint8)) \
+            .resize((W * UP, Hh * UP), Image.BILINEAR).filter(ImageFilter.GaussianBlur(0.8 * UP))
+        a = np.asarray(ch).astype(np.int16)
+        m = a > best
+        lab[m] = i; best[m] = a[m]
+    return lab
+Image.fromarray(pal[smooth_up(idx)].astype(np.uint8)).save('/tmp/_crouch_q.png')
 
 vtracer.convert_image_to_svg_py('/tmp/_crouch_q.png', '/tmp/_crouch_q.svg', colormode='color',
     hierarchical='stacked', mode='spline', filter_speckle=4 * UP * UP, color_precision=8, layer_difference=1,
@@ -308,13 +325,13 @@ hole_im.convert('RGB').save('/tmp/_crouch_hole.png')
 vtracer.convert_image_to_svg_py('/tmp/_crouch_hole.png', '/tmp/_crouch_hole.svg', colormode='binary',
     mode='spline', filter_speckle=8, corner_threshold=60, length_threshold=4.0, splice_threshold=45, path_precision=1)
 
-def baked(svgtext):
+def baked(svgtext, up=1):
     out_ = []
     for d_, f, tx, ty in re.findall(r'<path d="([^"]*)" fill="#([0-9A-Fa-f]{6})"(?: transform="translate\(([-\d.]+),([-\d.]+)\)")?/>', svgtext):
         tx, ty = float(tx or 0), float(ty or 0)
         k = [0]
         def bake(m):
-            v = float(m.group(0)) + (tx if k[0] % 2 == 0 else ty); k[0] += 1
+            v = (float(m.group(0)) + (tx if k[0] % 2 == 0 else ty)) / up; k[0] += 1
             return ('%.1f' % v).rstrip('0').rstrip('.')
         out_.append((f, re.sub(r'-?\d+(?:\.\d+)?', bake, d_).replace(' Z ', 'Z').strip()))
     return out_
@@ -341,7 +358,10 @@ for f, dd in baked(open('/tmp/_crouch_hand.svg').read()):
     rgb = np.array(H('#' + f))
     r = min(['bg'] + [names[i] for i in HSK], key=lambda k: ((pal[names.index(k)] - rgb) ** 2).sum())
     if r != 'bg':
-        hands.append(['handL' if r == 'skinL' else 'hand', dd])
+        # ⚠️ 살선 색이라도 «면»이면 그늘진 손이다 — 선 색으로 칠하면 손에 진한 덩어리가 붙었다 (올림머리)
+        nn = [float(v) for v in re.findall(r'-?\d+(?:\.\d+)?', dd)]
+        big = (max(nn[0::2]) - min(nn[0::2])) > 14 and (max(nn[1::2]) - min(nn[1::2])) > 14
+        hands.append(['handL' if r == 'skinL' and not big else 'hand', dd])
 
 # ── behind — 케이크·손이 «비키는» 자리에 있을 것 ─────────────────
 # ⚠️⚠️ 케이크와 손은 씹는 박자에 움직이는데(cb-bite), 받은 그림은 «쌓은» 조각이라 그 밑에
@@ -349,7 +369,16 @@ for f, dd in baked(open('/tmp/_crouch_hand.svg').read()):
 #    그림이 «겹치며 깨져» 보였다 (신고받았다). 그래서 케이크+손 자리를 몸 그림에서 뚫고(hole),
 #    그 자리는 **둘레의 색을 안으로 번져** 채운다(behind) — 볼은 볼대로, 치마는 치마대로, 바깥은 바탕.
 #    받은 그림에 없는 «입가»도 이것이 메운다
-hole_all = (np.asarray(hole_im) == 0) | dil(hand_px, 5)
+# ⚠️ **얼굴은 뚫지 않는다** — 볼(keep)에서 살을 따라 퍼진 «얼굴» 덩어리는 구멍에서 뺀다. 구멍이 턱선을
+#    지나가면 진짜 턱과 «번진» 턱이 어긋나 얼굴 가장자리가 톱니처럼 패였다 (신고받았다)
+face = np.isin(idx, SK) & inbox(V['keep'] or (0, 0, 0, 0))
+skin_up = np.isin(idx, SK) & (yy < HAND_BOX[1])
+for _ in range(300):
+    g = dil(face, 3) & skin_up
+    if (g == face).all():
+        break
+    face = g
+hole_all = ((np.asarray(hole_im) == 0) & ~dil(face, 3)) | dil(hand_px, 5)
 HOLE_SPREAD = [i for i, k in enumerate(names) if k == 'bg' or (not k.endswith('L') and k not in CAKE_ROLES)]
 lab = np.where(hole_all, -1, idx)
 for _ in range(80):
@@ -360,17 +389,23 @@ for _ in range(80):
     #    치마·옷 색이 손 옆까지 올라와 음식 옆에 조각으로 남았다 (단발·올림머리)
     for i in sorted(HOLE_SPREAD, key=lambda i: i not in SKINS):
         g = dil(lab == i, 5 if i in SKINS else 3) & (lab == -1)
+        # ⚠️ 손 상자 안에는 살·바탕만 번진다 — 옷·치마가 손 밑까지 올라와 손이 움직일 때
+        #    음식 아래로 색 조각이 비쳤다 (올림머리 · 신고받았다)
+        if i not in SKINS and i != bgi:
+            g &= ~inbox(HAND_BOX)
         lab = np.where(g, i, lab)
 lab = np.where(lab == -1, bgi, lab)
 # ⚠️ 구멍보다 «조금 넓게» 채운다 — 딱 맞추면 뚫린 몸과 채운 것이 맞닿은 자리에 안티에일리어싱
 #    실금이 생겨 구멍의 «네모난 테두리»가 비쳤다
 bidx = np.where(dil(hole_all, 7), lab, bgi)
-Image.fromarray(pal[bidx].astype(np.uint8)).save('/tmp/_crouch_behind.png')
+# ⚠️ 번진 경계는 계단이 심하다(픽셀마다 «가까운 색») — 몸과 같은 길(2배로 늘려 흐린 뒤 다시 고르기)로
+#    펴서 딴다. 1배로 땄더니 구멍이 얼굴을 지나는 자리에서 턱선이 자글자글했다 (신고받았다)
+Image.fromarray(pal[smooth_up(bidx)].astype(np.uint8)).save('/tmp/_crouch_behind.png')
 vtracer.convert_image_to_svg_py('/tmp/_crouch_behind.png', '/tmp/_crouch_behind.svg', colormode='color',
-    hierarchical='stacked', mode='spline', filter_speckle=8, color_precision=8, layer_difference=1,
-    corner_threshold=60, length_threshold=4.0, max_iterations=10, splice_threshold=45, path_precision=1)
+    hierarchical='stacked', mode='spline', filter_speckle=8 * UP * UP, color_precision=8, layer_difference=1,
+    corner_threshold=60, length_threshold=3.0 * UP, max_iterations=10, splice_threshold=45, path_precision=0)
 behind = []
-for f, dd in baked(open('/tmp/_crouch_behind.svg').read()):
+for f, dd in baked(open('/tmp/_crouch_behind.svg').read(), UP):
     rgb = np.array(H('#' + f))
     r = re.sub(r'\d+$', '', min(names, key=lambda k: ((pal[names.index(k)] - rgb) ** 2).sum()))
     if r != 'bg':
