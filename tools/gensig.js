@@ -23,7 +23,7 @@
 //    사본이 용량만 먹는다
 //
 // ⚠️ viewBox 는 여기서 안 정한다 — 움직임 전체(불꽃·연기까지)를 «찍어서» 재야 해서
-//    브라우저가 필요하다. 구운 뒤 `creature.js` 의 `SIGNATURE` 에 적힌 값을 넣는다
+//    브라우저가 필요하다. 구운 뒤 `node tools/sigvb.js <파일>` 로 재서 `creature.js` 의 `SIGNATURE` 에 넣는다
 'use strict';
 const fs = require('fs');
 const [src, out, newArg] = process.argv.slice(2);

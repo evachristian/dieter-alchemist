@@ -3635,7 +3635,9 @@
     let out = '', firstShoe = true, moving = '', handLines = '';
     // ⚠️ 이모지는 «한 입»(cb-bite)과 «베어 물면 작아진다»(cb-food)를 같이 탄다 —
     //    한 요소에 둘을 걸면 뒤엣것이 animation 을 통째로 덮어쓰므로 겹을 나눈다
-    const foodTag = '<g class="cb-bite"><text class="cb-food" x="330" y="560" font-size="150"'
+    // ⚠️ 자리·크기는 갈래마다 «케이크가 있던 곳»이다(`VAR.food` · gencrouch.py) — 없으면 옛 자리
+    const [fx, fy, fs] = VAR.food || [330, 560, 150];
+    const foodTag = '<g class="cb-bite"><text class="cb-food" x="' + fx + '" y="' + fy + '" font-size="' + fs + '"'
       + ' text-anchor="middle">' + foodEmoji + '</text></g>';
     const HANDS = { hand: 1, handL: 1 };
     PARTS.forEach(([role, d]) => {

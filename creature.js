@@ -158,7 +158,11 @@
     const inner = (c && c.move === 'air')
       ? ell(50, GROUND + 2, 26, 5, shade(raw, 10), ' opacity="0.16"')
       : SHADE_LAYERS.map(([rx, ry, a]) =>
-        ell(50, GROUND + 2, rx, ry, `rgba(${SHADE_RGB},${a})`)).join('');
+        ell(50, GROUND + 2, rx, ry, `rgba(${SHADE_RGB},${a})`)).join('')
+        // ⚠️⚠️ **«닿은 자국»은 발 바로 밑 한 줄이다** (2026-10-12 · 「모든 크리처가 바닥에서 조금
+        //    둥둥 떠 있다」). 번지는 세 겹은 가운데가 발보다 2칸 아래라 발과 바닥 «사이»가
+        //    옅게 비어 보였다 — 특히 어두운 양탄자 위에서. 발선(GROUND)에 납작하고 짙은 띠를 하나 더 깐다
+        + ell(50, GROUND + 0.6, 22, 2.2, `rgba(${SHADE_RGB},0.26)`);
     return `<g data-part="shade">${inner}</g>`;
   };
 
@@ -566,40 +570,40 @@
   //    그래서 `rest` 는 정지 그림의 viewBox 를 그 식으로 옮긴 값이다 (나비 30 84 1207 1098)
   const SIGNATURE = {
     ember_newt: { href: 'peach-monkey-anim.svg',
-                  vb: [61, 1, 203.5, 241.5], rest: [61.23, 71.29, 198.39, 165.31] },
+                  vb: [60.5, 1, 206, 242], rest: [61.23, 71.29, 198.39, 165.31] },
     // ⚠️ 화염 여우는 정지 그림이 «다른 변환»(×0.15 · translate)으로 구워져 있다 — 그래서
     //    rest 를 두 식을 이어서 풀었다(애교 = 정지 × 0.17/0.15 + …). 공통 리그 대신 이것이 붙는다
     flame_fox:  { href: 'peach-cat-anim.svg',
-                  vb: [72, 40.5, 238.5, 214], rest: [88.6, 59.33, 148.13, 191.53] },
+                  vb: [70, 39, 242.5, 217], rest: [88.6, 59.33, 148.13, 191.53] },
     ash_moth:   { href: 'peach-butterfly-anim.svg',
                   vb: [42.5, 12, 235.5, 255.5], rest: [58.51, 62.28, 205.19, 186.66] },
     // 숯불 말랑이 — 원숭이와 같은 변환(×0.17 + (53.41, 48))으로 구워져 있다
     charcoal_toad: { href: 'peach-slime-anim.svg',
-                  vb: [67, 81.5, 234.5, 156.5], rest: [67.35, 82.17, 185.3, 150.45] },
+                  vb: [65.5, 74.5, 237.5, 165.5], rest: [67.35, 82.17, 185.3, 150.45] },
     // 용암 펭귄 (2026-10-12) — 같은 변환이다. 이것으로 불 다섯이 다 시그니처다
     ember_phoenix: { href: 'peach-penguin-anim.svg',
-                  vb: [39.5, 64, 246, 189], rest: [90.47, 65.68, 135.83, 182.41] },
+                  vb: [37.5, 62, 250, 205], rest: [90.47, 65.68, 135.83, 182.41] },
     // 모래 꼬북 · 조약돌 곰돌 (2026-10-12) — 둘 다 같은 변환(×0.17 + (53.41, 48))이다.
     //    rest 는 정지 그림의 viewBox 를 그 식으로 옮긴 값이다 (첫 프레임의 칠한 상자와 0.1 안에서 같다)
     pebble_turtle: { href: 'sand-turtle-anim.svg',
-                  vb: [36.5, 62, 219, 180.5], rest: [70.07, 62.28, 178.3, 177.99] },
+                  vb: [35, 60, 238, 193], rest: [70.07, 62.28, 178.3, 177.99] },
     root_mole: { href: 'sand-bear-anim.svg',
-                  vb: [81, 57.5, 164.5, 223.5], rest: [81.97, 57.69, 153.51, 194.99] },
+                  vb: [79, 55.5, 168, 228.5], rest: [81.97, 57.69, 153.51, 194.99] },
     // 땅 셋 · 바람 넷 (2026-10-12) — 일곱 다 같은 변환(×0.17 + (53.41, 48))이다
     moss_deer: { href: 'sand-deer-anim.svg',
-                  vb: [2, 28, 291, 368.5], rest: [71.77, 56.33, 180.03, 197.03] },
+                  vb: [0, 26, 295, 372.5], rest: [71.77, 56.33, 180.03, 197.03] },
     crystal_pangolin: { href: 'sand-squirrel-anim.svg',
-                  vb: [58, 73.5, 206, 203], rest: [62.98, 75.54, 200.91, 165.21] },
+                  vb: [54.5, 71.5, 211.5, 241.5], rest: [62.98, 75.54, 200.91, 165.21] },
     boulder_bear: { href: 'sand-cub-anim.svg',
-                  vb: [51.5, 10.5, 217, 267], rest: [71.43, 73.5, 177.14, 162.18] },
+                  vb: [37, 8.5, 248, 282], rest: [71.43, 73.5, 177.14, 162.18] },
     dandelion_hare: { href: 'mint-bunny-anim.svg',
-                  vb: [70, 52, 198, 230], rest: [85.03, 55.99, 141.61, 197.71] },
+                  vb: [68, 50, 202, 234], rest: [85.03, 55.99, 141.61, 197.71] },
     breeze_sparrow: { href: 'mint-penguin-anim.svg',
-                  vb: [7.5, 3, 300.5, 249], rest: [86.9, 66.53, 142.41, 182.58] },
+                  vb: [5.5, 1, 304.5, 253], rest: [86.9, 66.53, 142.41, 182.58] },
     whirl_marten: { href: 'mint-cat-anim.svg',
-                  vb: [20, 10.5, 232, 256.5], rest: [88.94, 58.54, 152.66, 193.97] },
+                  vb: [18, 8.5, 236, 260.5], rest: [88.94, 58.54, 152.66, 193.97] },
     cloud_goat: { href: 'mint-rabbit-anim.svg',
-                  vb: [71.5, 60.5, 190, 187], rest: [71.77, 60.58, 189.38, 184.28] },
+                  vb: [69.5, 4.5, 241.5, 244.5], rest: [71.77, 60.58, 189.38, 184.28] },
   };
   // 정지 그림이 서는 자리에 «쉬는 자세»를 그대로 앉힌다 — 바닥에 선 마리는
   // `xMidYMax`(밑변), 공중·어항은 `xMidYMid`(가운데) · 정지 그림 파일의 선언과 같다
@@ -701,6 +705,11 @@
   // ⚠️ **`opts.bowl` 일 때만이다** — 도감 칸에는 어항이 없으므로 거기서 줄이면
   //    물고기만 혼자 작게 선다 (어항을 그리는 자리가 `petStage()` 하나라 거기서 켠다)
   const BOWL_FIT = { x: 17, y: 21, w: 66, h: 47 };
+  // ─── 방에서 «더 크게» 서는 마리 (2026-10-12) ───
+  // 「민트 버니 크기 좀 작은 거 같아. 1.5배 키워줘」 — 귀가 길어 몸통이 상자의 아래 절반에만
+  // 서서 같은 상자에서도 작아 보였다. **상한(`PET_MAX`)에 곱한다** — 빈 바닥·버튼 줄·치마 틈을
+  // 재는 셈(`placePet`)은 그대로 지나므로, 바닥이 좁은 폭에서는 그만큼 못 커질 수 있다
+  const SIZE_K = { dandelion_hare: 1.5 };
   function previewSvg(c, opts) {
     const ph = GROUND - TOP_PAD;
     const attr = (window.GameData && GameData.creatureAttr(c.attr)) || { color: '#9a8fb0' };
@@ -885,6 +894,6 @@
   //    옛 값에 남는다
   // ⚠️ `TOP_PAD`·`BOWL_FIT` 도 내보낸다 — `checkcreature` 의 ⓕ 가 «닿는 줄»을
   //    여기서 뽑는다. 숫자를 검사기에 적으면 사본이 생겨 슬롯을 옮겼을 때 갈린다
-  window.Creature = { draw, icon, bowl, of, W, H, GROUND, TOP_PAD, BOWL_FLOOR, AIR_MID,
+  window.Creature = { draw, icon, SIZE_K, bowl, of, W, H, GROUND, TOP_PAD, BOWL_FLOOR, AIR_MID,
     BOWL, BOWL_FIT, bowlGlass, SHAPE, HORN, WING, TAIL, EYE, PREVIEW, SIGNATURE, idleOn, motionOn, FACE, standSide };
 })();

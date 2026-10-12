@@ -3075,7 +3075,7 @@ function settleBody() {
 // 깎였으면 **말해 준다** (조용히 줄어 있는 것이 제일 나쁘다).
 const DECAY = {
   gritPerDay: 8,      // 근성
-  fitPerDay: 0.6,     // 단련
+  fitPerDay: 0.9,     // 단련 — 0.6 → 0.9 (2026-10-12 · 아래 BINGE.fit 의 ⚠️ 와 짝이다)
   graceDays: 1,       // 이만큼은 봐 준다
   maxDays: 7,         // 한 번에 반영하는 상한
 };
@@ -3123,7 +3123,11 @@ const BINGE = {
   atFullness: 15,     // 날이 바뀔 때 포만감이 이보다 낮으면 혼자 먹는다
   fullnessBack: 70,   // 먹고 나면 이만큼까지 찬다 — **배는 부르다**
   happy: -20,         // 행복. **이게 고리의 핵심이다** (낮으면 더 빨리 배고파진다)
-  fit: -0.8,          // 단련 — 체지방·체중이 는다
+  // ⚠️⚠️ **「방치 + 폭식 다섯 번이면 5kg 쯤」**(2026-10-12 · 사람이 정했다). 체중은
+  //    BMI(19 ~ 26.5) × 키² 이고 체형 눈금이 60점이라, 단련 1점 = 7.5/60 × 키² ≈ **0.32kg**
+  //    (키 160cm). 하루에 밤 하나(이것) + 방치 하루(`DECAY.fitPerDay`)가 3.1점이라 ≈ **1kg/일**.
+  //    옛 값(0.8 + 0.6 = 1.4점)은 다섯 번에 2.2kg 이었다. ⚠️ 둘 중 하나만 고치면 그 합이 갈린다
+  fit: -2.2,          // 단련 — 체지방·체중이 는다
   grit: -8,           // 근성 — 혼자 쌓은 것은 혼자 무너진다 (STORY.md 「양날」)
   maxNights: 3,       // 오래 비웠어도 한 번에 이만큼까지만
   keep: 5,            // 안 본 장면을 이만큼까지만 들고 있는다
@@ -5178,7 +5182,11 @@ function petStage(pet) {
   // ⚠️ **애교 모션은 «방에 선 마리»에만 씌운다**(`idle`). 도감 칸·목록은 46px 짜리
   //    작은 칸이라 애교가 움직이는 몫이 칸 밖으로 나가 이웃을 덮는다 — 사람이 요청한
   //    것도 방의 IDLE 이다. 바닥에 선 마리만 받는 것은 `Creature.idleOn()` 이 정한다
-  return `<span class="stage-creature ${pet.move === 'air' ? 'cr-air' : 'cr-ground'}${side}">`
+  // ⚠️ `data-size` — 그 마리만 방에서 더 크게 선다(`Creature.SIZE_K`). 상한에 곱해서
+  //    빈 바닥·버튼 줄을 재는 셈은 그대로 지난다 (그림만 키우면 버튼·치마를 덮는다)
+  const sz = (Creature.SIZE_K || {})[pet.id];
+  return `<span class="stage-creature ${pet.move === 'air' ? 'cr-air' : 'cr-ground'}${side}"`
+    + `${sz ? ` data-size="${sz}"` : ''}>`
     + `${Creature.draw(pet, { flat: true, idle: true })}</span>`;
 }
 
@@ -5304,7 +5312,8 @@ function petSolve(cre, svg, aura, solo, side) {
   //    재면 **같은 방을 확대한 것**이 되어 크리처도 같이 커진다
   const k = auraK(aura);
   const gap = PET_GAP * k, skirtGap = PET_SKIRT_GAP * k, floorW = PET_FLOOR * k;
-  const max = (cre.classList.contains('cr-water') ? PET_MAX_WATER : PET_MAX) * k;
+  const max = (cre.classList.contains('cr-water') ? PET_MAX_WATER : PET_MAX) * k
+    * (Number(cre.dataset.size) || 1);
   const parts = svg.querySelectorAll('path,ellipse,circle,rect');
   // 가운데에서 «그 쪽 바깥»으로 가는 한 축. 쪽을 뒤집는 자리는 여기 셋뿐이다
   const outOf = (r) => side === 'right' ? r.right - mid : mid - r.left;

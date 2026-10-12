@@ -50,6 +50,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── DELIVERY.md            배달 — 「혼자 먹은 밤」의 야식 · 무엇으로 값을 치르는가 (**아직 안 만든 것**)
 ├── FARM.md                밭을 탐험의 세 번째 갈래로 키우는 기획 (**아직 안 만든 것**)
 ├── ROOM.md                방 꾸미기 — 자리 아홉에 소품을 놓는다 (만들었다 · 남은 것은 9장)
+├── MAIL.md                우편 — 출석·NPC 편지·시스템 우편 + 26주 보상표 (**아직 안 만든 것**)
 ├── QUEST.md               퀘스트·컷씬·스토리 다시보기 (1~4단계까지 만듦)
 ├── CREATURE.md            크리처 — 1~9단계 (녹이기·생산·밭과 약탈까지). 밸런싱·연출까지 끝
 ├── tools/hooks/           git 훅 — 세션마다 `git config core.hooksPath tools/hooks`

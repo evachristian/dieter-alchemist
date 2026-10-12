@@ -384,15 +384,18 @@ HSK = SKINS + [names.index('skinL')]
 hand_px = np.isin(idx, HSK) & inbox(HAND_BOX)
 # ⚠️ 케이크 밑면의 섞인 테두리도 «살색»으로 읽혀 손 상자 안에 실오라기로 남는다 — 이 겹은 이모지
 #    «위»에 얹히므로 음식 옆에 흰 실금으로 보였다. 열기(줄였다 되늘리기)로 가는 것을 떼어 낸다
-hand_px = ~dil(~hand_px, 5)                  # 침식
-hand_px = dil(hand_px, 5) & np.isin(idx, HSK)     # 되늘리기 (원래 살 안에서만)
+# ⚠️ 열기를 9px 로 — 손의 «윗변»은 받은 그림에서 케이크를 감싸던 자리라, 케이크를 빼고 음식을 쥐면
+#    손가락 끝이 가시처럼 뾰족뾰족 남았다 (죽 그릇 밑 · 신고받았다). 진짜 엄지(15px 넘음)는 산다
+hand_px = ~dil(~hand_px, 9)                  # 침식
+hand_px = dil(hand_px, 9) & np.isin(idx, HSK)     # 되늘리기 (원래 살 안에서만)
 hidx = np.where(hand_px, idx, bgi)
-Image.fromarray(pal[hidx].astype(np.uint8)).save('/tmp/_crouch_hand.png')
+# 몸과 같은 길(2배로 늘려 흐린 뒤 다시 고르기)로 펴서 딴다 — 1배로 따면 손 둘레가 계단이다
+Image.fromarray(pal[smooth_up(hidx)].astype(np.uint8)).save('/tmp/_crouch_hand.png')
 vtracer.convert_image_to_svg_py('/tmp/_crouch_hand.png', '/tmp/_crouch_hand.svg', colormode='color',
-    hierarchical='stacked', mode='spline', filter_speckle=4, color_precision=8, layer_difference=1,
-    corner_threshold=60, length_threshold=4.0, max_iterations=10, splice_threshold=45, path_precision=1)
+    hierarchical='stacked', mode='spline', filter_speckle=4 * UP * UP, color_precision=8, layer_difference=1,
+    corner_threshold=60, length_threshold=3.0 * UP, max_iterations=10, splice_threshold=45, path_precision=0)
 hands = []
-for f, dd in baked(open('/tmp/_crouch_hand.svg').read()):
+for f, dd in baked(open('/tmp/_crouch_hand.svg').read(), UP):
     rgb = np.array(H('#' + f))
     r = min(['bg'] + [names[i] for i in HSK], key=lambda k: ((pal[names.index(k)] - rgb) ** 2).sum())
     if r != 'bg':
@@ -465,7 +468,14 @@ if os.path.exists(out):
     if m:
         old = json.loads(m.group(1))
         data['variants'] = old.get('variants') or ({'long': old['parts']} if 'parts' in old else {})
-data['variants'][variant] = {'parts': parts, 'hole': holes, 'hand': hands, 'behind': behind, 'clip': clips}
+# 음식 이모지의 자리 — 케이크가 있던 곳의 한가운데에 «케이크만 한» 크기로 놓는다 [x, 글줄 y, 크기].
+#    한 자리(330,560 · 150)에 박아 두었더니 갈래마다 케이크 자리가 달라 음식이 손에서 떠 있었다
+_ys, _xs = np.where(cake_px)
+FOOD = None
+if len(_ys):
+    _sz = round(float(_xs.max() - _xs.min()) * 0.95)
+    FOOD = [round(float(_xs.min() + _xs.max()) / 2), round(float(_ys.min() + _ys.max()) / 2 + 0.36 * _sz), _sz]
+data['variants'][variant] = {'parts': parts, 'hole': holes, 'hand': hands, 'behind': behind, 'clip': clips, 'food': FOOD}
 js = ('// ⚠️ 생성 파일이다 — 손으로 고치지 않는다. tools/gencrouch.py 가 굽는다.\n'
       '// 「혼자 먹은 밤」의 웅크린 뒷모습 (사람이 보낸 그림을 대고 따라 그린 것) → window.CrouchArt\n'
       '// 갈래는 뒷머리 «전체 실루엣»마다 한 장(long · twin · bob). 좌표는 받은 그림(1024×1024)\n'

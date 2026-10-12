@@ -479,6 +479,11 @@ export function createRoom(canvas, opt) {
     const m = paperCard(texture, slot.p3.w, slot.p3.h, { curl: 0.02 });
     // ⚠️ 매달린 것·창에 붙은 것은 «투명한 데»가 많다 — alphaTest 를 낮춰야 줄이 안 끊긴다
     if (slot.kind === 'hang' || slot.id === 'curtain') m.material.alphaTest = 0.2;
+    // ⚠️⚠️ **빛을 내는 것·천장에 매달린 것은 그림자를 안 드리운다** (2026-10-12).
+    //    샹들리에 카드가 앞 위의 주광(`key`)을 받아 **뒷벽 왼쪽 아래에 제 그림자**를 찍었는데,
+    //    「창에서든 샹들리에에서든 빛이 오면 거기에 샹들리에 그림자가 생길 수 없다」로 신고받았다 —
+    //    스스로 빛나는 것은 제 그림자를 안 남기고, 그 자리는 창빛이 드는 벽이다
+    if (slot.kind === 'hang' || u.light) m.castShadow = false;
     m.position.y = slot.p3.y;
     u.grp.add(m); u.mesh = m; u.grp.visible = true;
     if (onFloor(slot)) {
