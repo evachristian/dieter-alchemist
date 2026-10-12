@@ -3622,6 +3622,7 @@
       // 따로 그린 «아랫도리»(양갈래·단발 그림) — 치마를 입었으면 치마 색, 원피스면 옷 색
       lower: twoTone ? legC : cloth, lowerL: shade(twoTone ? legC : cloth, 30),
       skin: SKIN, skinL: '#e3a585', hand: SKIN, handL: '#e3a585', shoe: shoeC,
+      blush: '#f7b0b2',   // 볼의 분홍 (올림머리 그림) — 착장과 무관하다
       sponge: '#f9a665', cakeL: '#ebac7a', cream: '#fcecdc', straw: '#d33d49', leaf: '#6f953b', crumb: '#f5ab71',
     };
     const CAKE = { sponge: 1, cakeL: 1, cream: 1, straw: 1, leaf: 1 };
@@ -3671,7 +3672,9 @@
     out = (VAR.behind || []).map(([r, d]) => '<path d="' + d + '" fill="' + bodyFill(r) + '" stroke="' + bodyFill(r)
         + '" stroke-width="1.5" stroke-linejoin="round"/>').join('')
       + '<g mask="url(#' + ID('hole') + ')">' + out + '</g>'
-      + (isCake ? '<g class="cb-bite">' + moving + '</g>' : foodTag)
+      // ⚠️ 케이크 조각은 «구멍 모양»으로 오린다 — 쌓은 조각이라 크림 바탕이 케이크 밑의 팔까지 깔려 있어서
+      //    움직이는 케이크가 팔을 크림색으로 덮었다 (올림머리)
+      + (isCake ? '<g class="cb-bite"><g clip-path="url(#' + ID('cake') + ')">' + moving + '</g></g>' : foodTag)
       + '<g class="cb-bite">'
       + VAR.hand.map(([role, d]) => '<path d="' + d + '" fill="' + FILL[role] + '"/>').join('')
       + handLines + '</g>';
@@ -3682,6 +3685,8 @@
       + '<mask id="' + ID('hole') + '" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">'
         + '<rect width="1024" height="1024" fill="#fff"/>'
         + VAR.hole.map(d => '<path d="' + d + '" fill="#000"/>').join('') + '</mask>'
+      + '<clipPath id="' + ID('cake') + '" clipPathUnits="userSpaceOnUse">'
+        + (VAR.clip || VAR.hole).map(d => '<path d="' + d + '"/>').join('') + '</clipPath>'
       + '<radialGradient id="' + ID('shG') + '" cx="0.5" cy="0.5" r="0.5">'
       + '<stop offset="0" stop-color="rgba(20,10,25,0.30)"/>'
       + '<stop offset="0.6" stop-color="rgba(20,10,25,0.14)"/>'
