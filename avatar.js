@@ -3096,6 +3096,15 @@
   // 이 값을 보므로 한 곳에서 내놓는다 (두 벌이면 한쪽만 고쳐 이음매에 턱이 진다)
   const BELT_H = 14;
   const beltTopY = () => +(BODY.waistY - BELT_H / 2).toFixed(2);
+  // ⚠️⚠️ **치마는 발을 안 덮는다 — 밑단이 발등 «위»에서 끝난다** (2026-10-12).
+  // 롱스커트(hemY 330)는 밑단 곡선이 가운데에서 hemY + 10.5(≈ 340)까지 처져 발을 통째로
+  // 덮었고, 구두가 그 «위»에 그려져 **치마 무늬에 찍힌 검은 점 둘**로 보였다
+  // (「발 위치 치마 아래로」로 받았다). 처지는 몫까지 셈해 **곡선의 제일 아래가 발등 위**에
+  // 오게 자른다. ⚠️ 부츠 목을 자르는 `legHemY` 도 이 값을 지나야 한다 — 안 그러면
+  // 밑단과 부츠 목 사이로 맨다리가 띠처럼 드러난다
+  const SKIRT_SAG = 10.5;                                         // 밑단 곡선이 처지는 몫 (0.75 × 14)
+  const SKIRT_HEM_MAX = BODY.footY - 7 - 2 - SKIRT_SAG;           // 발등(footY − ry) 2px 위
+  const skirtHemY = it => Math.min(Number(it.hemY) || 252, SKIRT_HEM_MAX);
   function renderBottom(it, tune, topWorn) {
     if (isNone(it)) return '';
     const B = BODY, c = it.color, c2 = shade(c);
@@ -3136,7 +3145,7 @@
 
     if (it.kind === 'skirt') {
       // 밑단은 엉덩이 폭 + flare. 벌룬은 중간이 더 부풀고 밑단이 다시 오므라든다
-      const hemY = Number(it.hemY) || 252;
+      const hemY = skirtHemY(it);
       const flare = Number(it.flare) || 0;
       // 퍼짐만 다리 배율을 탄다 — 허리춤·엉덩이는 이미 몸을 따라간 좌표다
       const kLeg = tuneMax(tune, hemY > KNEE_LINE ? ['thigh', 'calf'] : ['thigh']);
@@ -3445,6 +3454,17 @@
     const band = it.band || (it.kind === 'tiara' ? 'crown' : 'arch');
     const orn = it.orn || (it.kind === 'flower' ? 'flower' : it.kind === 'tiara' ? 'gem' : 'ribbon');
     let s = '';
+    if (band === 'ears') {             // 동물 귀 머리띠 — 받은 그림을 대고 딴 조각 (earart.js)
+      const art = (window.EarArt || {})[orn];
+      if (!art) return '';
+      // 염색은 «제일 넓은 색(base)에서 옮긴 만큼» 모든 색을 같이 옮긴다 — 귀 속·윤곽이
+      // 털과 같은 거리를 지켜 그림의 결이 남는다. 안 물들였으면 한 글자도 안 바뀐다
+      if (!c || c.toLowerCase() === art.base) return art.svg;
+      const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+      const d = rgb(c).map((v, i) => v - rgb(art.base)[i]);
+      return art.svg.replace(/fill="(#[0-9a-f]{6})"/g, (_, f) =>
+        'fill="#' + rgb(f).map((v, i) => Math.max(0, Math.min(255, v + d[i])).toString(16).padStart(2, '0')).join('') + '"');
+    }
     if (band === 'crown') {            // 왕관 톱니
       s = `<path d="M72,55 L82,43 L91,52 L100,38 L109,52 L118,43 L128,55 Z"
         fill="${c}" stroke="${c2}" stroke-width="1.5" stroke-linejoin="round"/>`;
@@ -3858,7 +3878,8 @@
     // `hemY` 가 없는 것(공주 드레스)은 바닥까지 오는 옷이라 999 로 친다
     // (`crouch()` 의 `legHem` 과 같은 규칙이다)
     const legWear = hasDress ? dress : bottom;
-    const legHemY = isNone(legWear) ? 0 : (Number(legWear.hemY) || 999);
+    const legHemY = isNone(legWear) ? 0
+      : (!hasDress && legWear.kind === 'skirt') ? skirtHemY(legWear) : (Number(legWear.hemY) || 999);
     // 신발은 **다리보다 먼저** 정해야 한다 — 굽이 종아리 모양을 바꾸기 때문이다
     const shoeItem = pick('shoes', outfit.shoes);
     const shoeHeel = heelOf(shoeItem), shoePitch = pitchOf(shoeItem);

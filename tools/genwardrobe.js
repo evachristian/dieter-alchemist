@@ -1,4 +1,4 @@
-// 커스터마이징 벌 생성기 — 헤어 30 · 서클렛 20 · 귀걸이 30 · 목걸이 30 · 장갑 20 · 구두 20
+// 커스터마이징 벌 생성기 — 헤어 30 · 서클렛 26(20 + 동물 귀 6) · 귀걸이 30 · 목걸이 30 · 장갑 20 · 구두 20
 //
 // **150벌을 손으로 쓰지 않는다.** 칸마다 축 두 개를 두고 곱한다 (CLAUDE.md 6번).
 // 손으로 쓰면 중복 id · 중복 조합 · 없는 축 참조가 반드시 섞이는데, 여기서는
@@ -30,9 +30,9 @@ const SLOTS = {
     a: [
       { k: 'long',     ko: '긴 생머리', en: 'Long' },
       { k: 'bob',      ko: '단발',      en: 'Bob' },
-      { k: 'twin',     ko: '양갈래',    en: 'Twin Tails' },
+      { k: 'twin',     ko: '둥근 트윈테일', en: 'Round Twin Tails' },   // 옛 이름 「양갈래」 (2026-10-12 사람이 바꿨다)
       { k: 'ponytail', ko: '포니테일',  en: 'Ponytail' },
-      { k: 'wave',     ko: '웨이브',    en: 'Wavy' },
+      { k: 'wave',     ko: '긴 트윈테일',   en: 'Long Twin Tails' },    // 옛 이름 「웨이브」 — 그림이 긴 두 갈래라 앞머리 「웨이브」와 겹쳤다
       { k: 'bun',      ko: '올림머리',  en: 'Updo' },
     ],
     // secKo/secEn — **칸 이름과 벌 이름이 다른 축.** 벌 이름에는 기본 앞머리를 안 붙이지만
@@ -201,6 +201,26 @@ const LEGACY = {
   },
 };
 
+// ─── 곱하지 않는 벌 ──────────────────────────────────────────────
+// 동물 귀 머리띠 여섯은 «받은 그림을 대고 딴» 것이라 축 둘의 곱이 아니다 (tools/genears.py).
+// 띠(`band`)는 'ears', 장식 칸(`orn`)이 어느 귀인지다. 원래 색은 **earart.js 의 base 를 읽는다** —
+// 여기 적으면 다시 땄을 때 옷장의 색과 그림이 갈린다
+const EAR_BASE = (() => {
+  const src = fs.readFileSync(path.join(ROOT, 'earart.js'), 'utf8');
+  const out = {}; for (const m of src.matchAll(/(\w+): \{ base: '(#[0-9a-f]{6})'/g)) out[m[1]] = m[2];
+  return out;
+})();
+const EXTRA = {
+  circlet: [
+    { k: 'cat',     ko: '고양이 귀', en: 'Cat Ears',     emoji: '🐱' },
+    { k: 'rabbit',  ko: '토끼 귀',   en: 'Rabbit Ears',  emoji: '🐰' },
+    { k: 'bear',    ko: '곰 귀',     en: 'Bear Ears',    emoji: '🐻' },
+    { k: 'dog',     ko: '강아지 귀', en: 'Dog Ears',     emoji: '🐶' },
+    { k: 'fox',     ko: '여우 귀',   en: 'Fox Ears',     emoji: '🦊' },
+    { k: 'raccoon', ko: '너구리 귀', en: 'Raccoon Ears', emoji: '🦝' },
+  ].map(e => ({ ...e, id: `circlet_ears_${e.k}`, a: 'ears' })),
+};
+
 // '없음' 칸 — 축 조합 밖에 따로 둔다 (헤어에는 없음이 없다: 민머리는 만들지 않는다)
 const NONE_ROW = {
   circlet:  { id: 'circlet_none',  ko: '없음', en: 'None' },
@@ -260,6 +280,16 @@ function build() {
         items.push(it);
       }
     }
+    for (const e of (EXTRA[slot] || [])) {
+      if (seenId.has(e.id)) { problems.push(`${slot}: id 중복 ${e.id}`); continue; }
+      seenId.add(e.id);
+      if (!EAR_BASE[e.k]) { problems.push(`${slot}: earart.js 에 ${e.k} 가 없다`); continue; }
+      names[e.id] = { ko: e.ko, en: e.en };
+      const it = { id: e.id, slot, kind: e.a, name: e.ko };
+      it[ax.aField] = e.a; it[ax.bField] = e.k;
+      it.color = EAR_BASE[e.k]; it.emoji = e.emoji;
+      items.push(it);
+    }
     out[slot] = items;
   }
 
@@ -308,7 +338,8 @@ let dataBody = '';
 for (const slot of Object.keys(SLOTS)) {
   const ax = SLOTS[slot];
   const n = out[slot].filter(it => it.kind !== 'none').length;
-  dataBody += `  // ${slot} — ${ax.a.length} × ${ax.b.length} = ${n}\n`;
+  const nx = (EXTRA[slot] || []).length;
+  dataBody += `  // ${slot} — ${ax.a.length} × ${ax.b.length}${nx ? ` + ${nx}` : ''} = ${n}\n`;
   dataBody += `  ${slot}: [\n${out[slot].map(itemLine).join('\n')}\n  ],\n`;
 }
 

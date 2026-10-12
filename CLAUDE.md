@@ -17,6 +17,8 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 │                          · 방 꾸미기 46(자리 9 × 단계 4 + 벽지 5 + 바닥재 5) → window.GameData
 ├── game.js                상태·로직·렌더링. 세이브는 localStorage
 ├── sync.js                서버 동기화 → window.Sync
+├── earart.js              서클렛의 동물 귀 머리띠 여섯 — 받은 그림(tools/ref/ears.webp)을 대고 딴 조각
+│                          (생성 · `python3 -I tools/genears.py` · 염색은 base 에서 옮긴 만큼 색을 같이 옮긴다) → window.EarArt
 ├── avatar.js              SVG 페이퍼돌 → window.Avatar
 ├── crouchart.js           「혼자 먹은 밤」 웅크린 뒷모습 — 받은 그림(뒷머리 여섯 갈래)을 대고 딴 조각 (생성 · tools/gencrouch.py) → window.CrouchArt
 ├── intro.js               튜토리얼 인트로 → window.Intro
@@ -341,7 +343,7 @@ sed -i 's/v=20260813a/v=20260813b/g' index.html
 스크립트로 만들고 **중복 id · 중복 조합 · 없는 재료 참조 · 등급별 진입 점수**를 검사한다.
 후반 맵에서만 나오는 재료가 초반 레시피에 들어가면 밸런싱이 깨진다.
 
-커스터마이징 150벌(헤어 30 · 서클렛 20 · 귀걸이 30 · 목걸이 30 · 장갑 20 · 구두 20)도
+커스터마이징 156벌(헤어 30 · 서클렛 26(동물 귀 6 포함) · 귀걸이 30 · 목걸이 30 · 장갑 20 · 구두 20)도
 그렇게 만들었다. `data.js` 와 `i18n.js` 의 `// <<<GEN:...` 구간은 **손으로 고치지 않는다.**
 
 ```bash
