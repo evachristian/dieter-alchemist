@@ -75,7 +75,7 @@ VARIANTS = {
              'sponge': '#f8b483', 'cream': '#fdf3ea', 'straw': '#d15053', 'leaf': '#6e8f49'},
         cake=(205, 440, 400, 620), hand=(270, 540, 425, 655), face=None,
         cake_only=(212, 450, 385, 598), only_allow=('lower', 'lowerL'), skin_in_cake='skin', crumb=(0, 820, 340, 1024),
-        keep=(380, 0, 1024, 520)),
+        keep=(380, 0, 1024, 520), skin_hull=True, hand_clip=True),
     # 올림머리 · 하늘 상의 + 민트 치마 — ⚠️ 머리(민트)와 치마(민트)가 거의 같은 색이라
     #    **높이로 가른다**(zones): 머리는 어깨 위, 치마는 허리 아래에만 있다
     'bun': dict(
@@ -419,8 +419,33 @@ for _ in range(300):
     if (g == face).all():
         break
     face = g
-hole_all = ((np.asarray(hole_im) == 0) & ~dil(face, 3)) | dil(hand_px, 5)
+# ⚠️ (hand_clip · 웨이브) 손을 뚫는 몫이 손 상자 «밖»으로 나가면, 팔뚝이 상자 끝에서 끊긴 자리에
+#    치마 색이 번져 팔뚝에 **네모난 실선**이 섰다. 그 그림은 팔뚝이 상자 밖으로 이어지므로 상자에서 자른다
+hand_hole = dil(hand_px, 5) & (inbox(HAND_BOX) if V.get('hand_clip') else True)
+hole_all = ((np.asarray(hole_im) == 0) & ~dil(face, 3)) | hand_hole
 HOLE_SPREAD = [i for i, k in enumerate(names) if k == 'bg' or (not k.endswith('L') and k not in CAKE_ROLES)]
+# ⚠️⚠️ **살은 «얼굴과 손의 볼록 껍질» 안으로만 번진다** (skin_hull · 웨이브).
+#    케이크가 얼굴 «옆»을 가리는 그림에서는 살이 두 배 빠르게 번지는 바람에 케이크 자리가 통째로
+#    살색이 되어, 이모지로 바꾸면 턱 앞에 **살색 덩어리**가 붙고 그 밑에 치마 색 조각이 비쳤다
+#    (「폭식 시 얼굴과 손이 제대로 안 나온다」 · 신고받았다). 얼굴은 대개 볼록하니 껍질이 곧 턱선이다
+def hull_mask(m):
+    ys_, xs_ = np.where(m)
+    if len(ys_) < 3:
+        return np.zeros(m.shape, bool)
+    pts = sorted(set(zip(xs_[::7].tolist() + [int(xs_[i]) for i in (xs_.argmin(), xs_.argmax())],
+                         ys_[::7].tolist() + [int(ys_[i]) for i in (xs_.argmin(), xs_.argmax())])))
+    cr = lambda o, a, b: (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lo, hi = [], []
+    for q in pts:
+        while len(lo) >= 2 and cr(lo[-2], lo[-1], q) <= 0: lo.pop()
+        lo.append(q)
+    for q in reversed(pts):
+        while len(hi) >= 2 and cr(hi[-2], hi[-1], q) <= 0: hi.pop()
+        hi.append(q)
+    im_ = Image.new('L', (m.shape[1], m.shape[0]), 0)
+    ImageDraw.Draw(im_).polygon(lo[:-1] + hi[:-1], fill=255)
+    return np.asarray(im_) > 0
+skin_ok = (hull_mask(face) | hull_mask(hand_px)) if V.get('skin_hull') else np.ones(idx.shape, bool)
 lab = np.where(hole_all, -1, idx)
 for _ in range(80):
     unk = lab == -1
@@ -434,6 +459,8 @@ for _ in range(80):
         #    음식 아래로 색 조각이 비쳤다 (올림머리 · 신고받았다)
         if i not in SKINS and i != bgi:
             g &= ~inbox(HAND_BOX)
+        if i in SKINS:
+            g &= skin_ok
         lab = np.where(g, i, lab)
 lab = np.where(lab == -1, bgi, lab)
 # ⚠️ 구멍보다 «조금 넓게» 채운다 — 딱 맞추면 뚫린 몸과 채운 것이 맞닿은 자리에 안티에일리어싱
