@@ -2319,7 +2319,11 @@ button.tm-slot:active { transform: scale(0.94); }
 
    ⚠️ **숨쉬기는 «발밑»을 축으로 돈다**(`transform-origin: 50% 100%`) — 가운데를 축으로
    두면 발이 바닥에서 뜬다. 0.8% 라 머리가 2~3px 오르내린다 */
+/* ⚠️ 머리 위로 높이 솟는 것(토끼 귀 머리띠)은 viewBox 위로 나간다 — SVG 는 그 밖을 «소리 없이»
+   자르므로 귀가 잘린 채로 섰다 (신고받았다). viewBox 를 키우면 인물 전체의 배율이 바뀌어 서는
+   자리·검사 수치가 통째로 옮겨 가므로, 방에 선 인물만 상자 밖을 그리게 둔다 */
 .char-body > svg {
+  overflow: visible;
   transform-origin: 50% 100%;
   animation: avBreathe 4.2s ease-in-out infinite;
 }
