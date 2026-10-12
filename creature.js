@@ -582,6 +582,21 @@
                   vb: [36.5, 62, 219, 180.5], rest: [70.07, 62.28, 178.3, 177.99] },
     root_mole: { href: 'sand-bear-anim.svg',
                   vb: [81, 57.5, 164.5, 223.5], rest: [81.97, 57.69, 153.51, 194.99] },
+    // 땅 셋 · 바람 넷 (2026-10-12) — 일곱 다 같은 변환(×0.17 + (53.41, 48))이다
+    moss_deer: { href: 'sand-deer-anim.svg',
+                  vb: [2, 28, 291, 368.5], rest: [71.77, 56.33, 180.03, 197.03] },
+    crystal_pangolin: { href: 'sand-squirrel-anim.svg',
+                  vb: [58, 73.5, 206, 203], rest: [62.98, 75.54, 200.91, 165.21] },
+    boulder_bear: { href: 'sand-cub-anim.svg',
+                  vb: [51.5, 10.5, 217, 267], rest: [71.43, 73.5, 177.14, 162.18] },
+    dandelion_hare: { href: 'mint-bunny-anim.svg',
+                  vb: [70, 52, 198, 230], rest: [85.03, 55.99, 141.61, 197.71] },
+    breeze_sparrow: { href: 'mint-penguin-anim.svg',
+                  vb: [7.5, 3, 300.5, 249], rest: [86.9, 66.53, 142.41, 182.58] },
+    whirl_marten: { href: 'mint-cat-anim.svg',
+                  vb: [20, 10.5, 232, 256.5], rest: [88.94, 58.54, 152.66, 193.97] },
+    cloud_goat: { href: 'mint-rabbit-anim.svg',
+                  vb: [71.5, 60.5, 190, 187], rest: [71.77, 60.58, 189.38, 184.28] },
   };
   // 정지 그림이 서는 자리에 «쉬는 자세»를 그대로 앉힌다 — 바닥에 선 마리는
   // `xMidYMax`(밑변), 공중·어항은 `xMidYMid`(가운데) · 정지 그림 파일의 선언과 같다

@@ -1073,10 +1073,13 @@ const near = (p, hex, tol) => {
             // ⚠️ «위»로만 보지 않는다 — 숯불 말랑이는 불꽃이 머리 위가 아니라 **옆**으로 퍼진다
             //    (그림 상자가 위로는 안 나가고 오른쪽으로 나간다). 어느 쪽이든 나가기만 하면 된다
             const out = Math.max(a.top - b.top, a.left - b.left, b.right - a.right, b.bottom - a.bottom);
-            return { over: out > 1 && ovf === 'visible',
+            // ⚠️ 움직임이 «실루엣 안»에서만 도는 그림(구름 볏 토끼)은 상자 밖으로 안 나간다 —
+            //    잘릴 것이 없으니 그때는 통과다. 대신 «한 마리라도 밖으로 나가서 overflow 를 쟀는가»를
+            //    아래에서 따로 본다 (다 안에 있으면 이 줄은 아무것도 안 잰 것이다)
+            return { over: out <= 1 || ovf === 'visible', out,
               why: `그림이 상자 밖으로 ${out.toFixed(1)}px · overflow ${ovf}` };
           });
-          q.over = ov.over; q.overWhy = ov.why;
+          q.over = ov.over; q.overWhy = ov.why; q.outPx = ov.out;
           const ink = (img, x0, x1) => {
             let a = 1e9, b2 = 1e9, c2 = -1, d = -1;
             for (let y = 0; y < img.h; y++) for (let x = x0; x < x1; x++) {
@@ -1088,6 +1091,20 @@ const near = (p, hex, tol) => {
             return [a, b2, c2, d];
           };
           const seen = new Map();
+          // ⚠️ «모양이 몇 가지인가»는 칠한 상자가 아니라 **거친 픽셀 격자**로 센다 — 움직임이
+          //    실루엣 안에서만 도는 그림은 상자가 한 번도 안 바뀌어 «안 움직인다»로 잡혔다 (구름 볏 토끼)
+          const looks = new Set();
+          const grid = (img, x0, x1) => {
+            const B = 10, out = [];
+            for (let by = 0; by < img.h; by += B) for (let bx = x0; bx < x1; bx += B) {
+              let sum = 0, n = 0;
+              for (let y = by; y < Math.min(by + B, img.h); y++) for (let x = bx; x < Math.min(bx + B, x1); x++) {
+                const i = (y * img.w + x) * 4; sum += img.px[i] + img.px[i + 1] + img.px[i + 2]; n++;
+              }
+              out.push(Math.round(sum / n / 48));
+            }
+            return out.join('');
+          };
           let still = null;
           const t0 = Date.now();
           while (Date.now() - t0 < 14500) {
@@ -1095,13 +1112,14 @@ const near = (p, hex, tol) => {
             still = ink(img, 0, 260);
             const k = ink(img, 260, 520).join(',');
             seen.set(k, (seen.get(k) || 0) + 1);
+            looks.add(grid(img, 260, 520));
             await p2.waitForTimeout(250);
           }
           await p2.close();
           const [mode, cnt] = [...seen.entries()].sort((x, y) => y[1] - x[1])[0];
           const total = [...seen.values()].reduce((x, y) => x + y, 0);
           q.still = still; q.rest = mode.split(',').map(Number);
-          q.restShare = cnt / total; q.shapes = seen.size;
+          q.restShare = cnt / total; q.shapes = looks.size;
         }
         out.push(q);
       }
@@ -1139,6 +1157,9 @@ const near = (p, hex, tol) => {
       }
       if (q.shapes < 3) bad.push(`시그니처: ${q.id} 가 한 바퀴 동안 모양이 ${q.shapes}가지뿐이다 — 안 움직인다`);
     });
+    if (SIG.length && !SIG.some(q => q.outPx > 1)) {
+      bad.push('시그니처: 상자 밖으로 나가는 마리가 하나도 없다 — overflow(잘림)를 한 번도 못 쟀다');
+    }
     console.log(`  시그니처 애교 — ${SIG.length}마리`
       + (SIG.length ? ` (${SIG.map(q => `${q.id} ${q.kb.toFixed(0)}KB · ${q.durs ? q.durs.join(',') : '?'}`
         + ` · 쉬는 몫 ${q.restShare ? (q.restShare * 100).toFixed(0) : '?'}% · 정지 그림과 ${q.rest ? Math.max(...q.rest.map((v, i) => Math.abs(v - q.still[i]))) : '?'}px`).join(' · ')})` : ''));
