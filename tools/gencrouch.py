@@ -49,6 +49,7 @@ VARIANTS = {
     'bob': dict(
         pal={'bg': '#fefefe', 'hair': '#dd302f', 'hairL': '#b7413f', 'cloth': '#d1e2fc',
              'clothL': '#b9cfec', 'lower': '#a6d6be', 'lowerL': '#8bc0a6', 'skin': '#fcd8c1',
+             'skin2': '#f2c7ac',   # 케이크 오른쪽을 쥔 «그늘진 손» (포니테일과 같은 자리)
              'skinL': '#f0bfa2', 'shoe': '#453a3e',
              'sponge': '#f5aa77', 'cream': '#fdf6f0', 'straw': '#d83e3e', 'leaf': '#66904a'},
         cake=(225, 460, 412, 660), hand=(250, 545, 430, 665), face=None,
@@ -58,6 +59,7 @@ VARIANTS = {
     'ponytail': dict(
         pal={'bg': '#fefefe', 'hair': '#885dd1', 'hairL': '#754cbe', 'cloth': '#cde0fa',
              'clothL': '#b4c4e4', 'lower': '#a5d4bc', 'lowerL': '#8dc1a6', 'skin': '#fbd8c0',
+             'skin2': '#f6c9aa',   # 케이크 오른쪽을 쥔 «그늘진 손» — 살과 살선 사이라 조각조각 갈렸다
              'skinL': '#efb99c', 'shoe': '#463a40',
              'sponge': '#f8ba89', 'cream': '#f8ebe2', 'straw': '#cc5d5d', 'leaf': '#708c57'},
         cake=(225, 425, 425, 612), hand=(275, 540, 445, 665), face=None,
@@ -77,7 +79,7 @@ VARIANTS = {
     'bun': dict(
         pal={'bg': '#fefefe', 'hair': '#aae4cd', 'hairL': '#95c6b0', 'cloth': '#cee2fb',
              'clothL': '#b6cbe8', 'lower': '#a6d5be', 'lowerL': '#8bbfa6', 'skin': '#fcd9c0',
-             'skinL': '#efb39a', 'shoe': '#4c4242',
+             'skinL': '#efb39a', 'shoe': '#4c4242',   # (올림머리는 skin2 를 두면 케이크 옆면이 «손»으로 먹힌다)
              'sponge': '#f2ac83', 'cream': '#fcf1e4', 'straw': '#d24a4f', 'leaf': '#6e8f49'},
         cake=(225, 455, 412, 645), hand=(270, 570, 430, 670), face=None,
         cake_only=(230, 466, 402, 626), skin_in_cake='skin', crumb=(0, 840, 340, 1024),
@@ -122,7 +124,7 @@ for i, k in enumerate(names):
 if V.get('cake_only'):
     only = inbox(V['cake_only'])
     for i, k in enumerate(names):
-        if k not in CAKE_ROLES and k not in ('bg', 'skin', 'skinL') and k not in V.get('only_allow', ()):
+        if k not in CAKE_ROLES and re.sub(r'\d+$', '', k) not in ('bg', 'skin', 'skinL') and k not in V.get('only_allow', ()):
             d[:, :, i] = np.where(only, 10 ** 9, d[:, :, i])
 # ⚠️ 살색이 상의(살구)와 닮은 그림은 상의와 치마가 맞닿은 자리의 섞인 한 줄이 «살색»으로
 #    읽혀 허리에 밝은 실선이 남았다(양갈래). 살은 얼굴·손·발목에만 있다 — 그 밖에서는 안 쓴다
@@ -155,7 +157,7 @@ ci = names.index('cream')
 CK = [names.index(k) for k in ('sponge', 'cakeL', 'straw', 'leaf') if k in names]
 x0c, y0c, x1c, y1c = CAKE_BOX
 # ⚠️ 크림과 스펀지가 맞닿은 섞인 줄은 «살선»으로 읽힌다 — 케이크만 있는 상자 안에서는 그것도 빈칸으로 친다
-GAPOK = [bgi] + [names.index(k) for k in ('skin', 'skinL') if k in names]
+GAPOK = [bgi] + [i for i, k in enumerate(names) if re.sub(r'\d+$', '', k) in ('skin', 'skinL')]
 only_b = V.get('cake_only') or CAKE_BOX
 for x in range(x0c, x1c + 1):
     col = idx[y0c:y1c + 1, x]
@@ -172,7 +174,7 @@ for x in range(x0c, x1c + 1):
 #    케이크만 있는 상자 안에서 바탕과 스펀지 «사이»에 낀 살색은 바탕으로 보낸다
 dil = lambda m, n: np.asarray(Image.fromarray(np.where(m, 255, 0).astype(np.uint8))
                               .filter(ImageFilter.MaxFilter(n))) > 0
-SK = [names.index(k) for k in ('skin', 'skinL') if k in names]
+SK = [i for i, k in enumerate(names) if re.sub(r'\d+$', '', k) in ('skin', 'skinL')]
 rim = np.isin(idx, SK) & inbox(only_b) & dil(idx == bgi, 7) & dil(np.isin(idx, CK + [ci]), 7)
 idx = np.where(rim, bgi, idx)
 # ⚠️ 케이크의 «옅은 옆면»(포니테일)도 살색으로 읽혔다 — 케이크만 있는 상자 안의 살색 중
@@ -194,6 +196,23 @@ for y in range(only_b[1], only_b[3] + 1):
     for a, b in zip(solid[:-1], solid[1:]):
         if 1 < b - a <= 14 and (row[a + 1:b] == bgi).all():
             row[a + 1:b] = ci
+# ⚠️ **몸 «안»에 갇힌 흰 틈**(손과 팔 사이 · 케이크와 손 사이)은 받은 그림에서는 흰 종이라 안 보이지만
+#    어두운 방 위에서는 «검은 구멍»이 된다 (포니테일의 손목에서 봤다). 바깥 바탕과 안 이어진
+#    바탕은 둘레 색으로 메운다
+from PIL import ImageDraw
+outside = Image.fromarray(np.where(idx == bgi, 255, 0).astype(np.uint8)).copy()   # copy — 배열을 빌린 그림은 floodfill 이 조용히 안 먹는다
+ImageDraw.floodfill(outside, (0, 0), 128)
+pocket = (np.asarray(outside) == 255)
+if pocket.any():
+    labp = np.where(pocket, -1, idx)
+    for _ in range(40):
+        if not (labp == -1).any():
+            break
+        for i in np.unique(idx):
+            if i == bgi:
+                continue
+            labp = np.where(dil(labp == i, 3) & (labp == -1), i, labp)
+    idx = np.where(labp == -1, bgi, labp)
 # ⚠️⚠️ **선 색(…L)이 바탕에 닿는 자리는 선이 아니라 «섞인 테두리»다** — 머리 둘레에 1px 짜리
 #    진한 테가 수십 조각으로 따여 «픽셀이 깨진» 것처럼 보였다. 바탕 옆 2px 안의 선 색은 제 바탕색으로
 LINE = {names.index(k): names.index(k[:-1]) for k in names if k.endswith('L') and k[:-1] in names}
@@ -201,6 +220,18 @@ near_bg = np.asarray(Image.fromarray(np.where(idx == bgi, 0, 255).astype(np.uint
                      .filter(ImageFilter.MinFilter(5))) == 0
 for li, bi in LINE.items():
     idx = np.where((idx == li) & near_bg, bi, idx)
+# ⚠️⚠️ **두 색이 맞닿은 자리의 섞인 한 줄(1~2px)도 제 색이 아니다** — 보라 머리와 하늘 상의 사이가
+#    «머리선»으로, 머리와 치마 사이가 «옷»으로 읽혀 포니테일 꼬리 둘레에 끊어진 선이 남았다
+#    (신고받았다). 2px 이하로 가는 것은 둘레의 최빈 색으로 갈아 넣는다 — 진짜 선(4px 넘음)은 산다
+mf = np.asarray(Image.fromarray(idx.astype(np.uint8)).filter(ImageFilter.ModeFilter(5))).astype(idx.dtype)
+thin = np.zeros(idx.shape, bool)
+for i in np.unique(idx):
+    m = idx == i
+    core = np.asarray(Image.fromarray(np.where(m, 255, 0).astype(np.uint8))
+                      .filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))) > 0
+    thin |= m & ~core
+thin &= ~cake                                   # 케이크의 잔 무늬(딸기 꼭지 등)는 그대로
+idx = np.where(thin, mf, idx)
 # ⚠️⚠️ **1024 그대로 따면 경계가 계단이다** — 픽셀마다 역할을 하나씩 찍은 그림이라 경계가
 #    1px 계단이고, 그것을 곡선으로 따면 머리카락·케이크 둘레가 자글자글하다. 역할마다 2배로
 #    늘려 흐린 뒤 다시 고르면(UP) 계단이 둥글게 펴지고 1px 짜리 티끌도 같이 사라진다.
@@ -289,38 +320,17 @@ def baked(svgtext):
     return out_
 holes = [dd for f, dd in baked(open('/tmp/_crouch_hole.svg').read()) if f.upper() == '000000']
 
-# ⚠️⚠️ 케이크가 가리던 «얼굴»은 받은 그림에 아예 없다 — 뚫기만 하면 입가·볼이 이 빠진 것처럼
-#    패여 어두운 방이 비쳤다 (빵을 쥐었을 때 신고받았다). 손보다 위 줄마다 살이 시작하는 데부터
-#    끝나는 데까지를 «얼굴»로 치고, 그중 뚫린 자리만 살색으로 메운다(face). 음식 이모지가 그 위에 온다
-face_px = skin_px & (yy < HAND_BOX[1])
-# ⚠️ «얼굴과 이어진» 살만 친다 — 케이크 가장자리에 남은 살색 한 점에서부터 줄을 채우면
-#    케이크 폭 전체가 얼굴이 되어 음식 왼쪽에 살색 막대가 남았다. 볼(keep 상자)에서 퍼뜨린다
-seed = face_px & inbox(V['keep'] or (0, 0, 1024, 1024))
-for _ in range(300):
-    grown = dil(seed, 3) & face_px
-    if (grown == seed).all():
-        break
-    seed = grown
-face_px = seed
-fill = np.zeros_like(face_px)
-for y in np.where(face_px.any(1))[0]:
-    xs_ = np.where(face_px[y])[0]
-    fill[y, xs_.min():xs_.max() + 1] = True
-hole_wide = np.asarray(hole_im) == 0
-patch = fill & hole_wide
-Image.fromarray(np.where(patch, 0, 255).astype(np.uint8)).filter(ImageFilter.MinFilter(5)) \
-    .convert('RGB').save('/tmp/_crouch_face.png')
-vtracer.convert_image_to_svg_py('/tmp/_crouch_face.png', '/tmp/_crouch_face.svg', colormode='binary',
-    mode='spline', filter_speckle=8, corner_threshold=60, length_threshold=4.0, splice_threshold=45, path_precision=1)
-faces = [dd for f, dd in baked(open('/tmp/_crouch_face.svg').read()) if f.upper() == '000000'] if patch.any() else []
-
 # ⚠️ 손 겹에는 **살색 면만** 담는다 — 살선(skinL)은 손 상자에 걸친 케이크 밑면의 그늘선과
 #    색이 같아, 담으면 음식 옆에 갈색 줄이 남는다 (단발에서 봤다)
-hand_px = np.isin(idx, SKINS) & inbox(HAND_BOX)
+# ⚠️ 손가락 금(살선)은 같이 담는다 — 빼면 그 자리가 «구멍»에 들어가 바탕색이 채워져 손바닥과
+#    손가락 사이에 검은 틈이 났다 (포니테일). 대신 손에서 떨어진 살선(케이크 밑면의 그늘선)은
+#    아래 «열기»가 떼어 낸다
+HSK = SKINS + [names.index('skinL')]
+hand_px = np.isin(idx, HSK) & inbox(HAND_BOX)
 # ⚠️ 케이크 밑면의 섞인 테두리도 «살색»으로 읽혀 손 상자 안에 실오라기로 남는다 — 이 겹은 이모지
 #    «위»에 얹히므로 음식 옆에 흰 실금으로 보였다. 열기(줄였다 되늘리기)로 가는 것을 떼어 낸다
-hand_px = ~dil(~hand_px, 7)                  # 침식
-hand_px = dil(hand_px, 7) & np.isin(idx, SKINS)   # 되늘리기 (원래 살 안에서만)
+hand_px = ~dil(~hand_px, 5)                  # 침식
+hand_px = dil(hand_px, 5) & np.isin(idx, HSK)     # 되늘리기 (원래 살 안에서만)
 hidx = np.where(hand_px, idx, bgi)
 Image.fromarray(pal[hidx].astype(np.uint8)).save('/tmp/_crouch_hand.png')
 vtracer.convert_image_to_svg_py('/tmp/_crouch_hand.png', '/tmp/_crouch_hand.svg', colormode='color',
@@ -329,9 +339,46 @@ vtracer.convert_image_to_svg_py('/tmp/_crouch_hand.png', '/tmp/_crouch_hand.svg'
 hands = []
 for f, dd in baked(open('/tmp/_crouch_hand.svg').read()):
     rgb = np.array(H('#' + f))
-    r = min(['bg'] + [names[i] for i in SKINS], key=lambda k: ((pal[names.index(k)] - rgb) ** 2).sum())
+    r = min(['bg'] + [names[i] for i in HSK], key=lambda k: ((pal[names.index(k)] - rgb) ** 2).sum())
     if r != 'bg':
-        hands.append(['hand', dd])
+        hands.append(['handL' if r == 'skinL' else 'hand', dd])
+
+# ── behind — 케이크·손이 «비키는» 자리에 있을 것 ─────────────────
+# ⚠️⚠️ 케이크와 손은 씹는 박자에 움직이는데(cb-bite), 받은 그림은 «쌓은» 조각이라 그 밑에
+#    엉뚱한 바탕(옅은 살색·옷색 실루엣)이 깔려 있다 — 움직일 때마다 가장자리로 그것이 비쳐
+#    그림이 «겹치며 깨져» 보였다 (신고받았다). 그래서 케이크+손 자리를 몸 그림에서 뚫고(hole),
+#    그 자리는 **둘레의 색을 안으로 번져** 채운다(behind) — 볼은 볼대로, 치마는 치마대로, 바깥은 바탕.
+#    받은 그림에 없는 «입가»도 이것이 메운다
+hole_all = (np.asarray(hole_im) == 0) | dil(hand_px, 5)
+HOLE_SPREAD = [i for i, k in enumerate(names) if k == 'bg' or (not k.endswith('L') and k not in CAKE_ROLES)]
+lab = np.where(hole_all, -1, idx)
+for _ in range(80):
+    unk = lab == -1
+    if not unk.any():
+        break
+    # ⚠️ 살(얼굴·팔)은 두 배 빠르게 번진다 — 케이크 밑은 대개 손·팔이라, 같은 빠르기로 두면
+    #    치마·옷 색이 손 옆까지 올라와 음식 옆에 조각으로 남았다 (단발·올림머리)
+    for i in sorted(HOLE_SPREAD, key=lambda i: i not in SKINS):
+        g = dil(lab == i, 5 if i in SKINS else 3) & (lab == -1)
+        lab = np.where(g, i, lab)
+lab = np.where(lab == -1, bgi, lab)
+# ⚠️ 구멍보다 «조금 넓게» 채운다 — 딱 맞추면 뚫린 몸과 채운 것이 맞닿은 자리에 안티에일리어싱
+#    실금이 생겨 구멍의 «네모난 테두리»가 비쳤다
+bidx = np.where(dil(hole_all, 7), lab, bgi)
+Image.fromarray(pal[bidx].astype(np.uint8)).save('/tmp/_crouch_behind.png')
+vtracer.convert_image_to_svg_py('/tmp/_crouch_behind.png', '/tmp/_crouch_behind.svg', colormode='color',
+    hierarchical='stacked', mode='spline', filter_speckle=8, color_precision=8, layer_difference=1,
+    corner_threshold=60, length_threshold=4.0, max_iterations=10, splice_threshold=45, path_precision=1)
+behind = []
+for f, dd in baked(open('/tmp/_crouch_behind.svg').read()):
+    rgb = np.array(H('#' + f))
+    r = re.sub(r'\d+$', '', min(names, key=lambda k: ((pal[names.index(k)] - rgb) ** 2).sum()))
+    if r != 'bg':
+        behind.append([r, dd])
+Image.fromarray(np.where(hole_all, 0, 255).astype(np.uint8)).convert('RGB').save('/tmp/_crouch_hole.png')
+vtracer.convert_image_to_svg_py('/tmp/_crouch_hole.png', '/tmp/_crouch_hole.svg', colormode='binary',
+    mode='spline', filter_speckle=8, corner_threshold=60, length_threshold=4.0, splice_threshold=45, path_precision=1)
+holes = [dd for f, dd in baked(open('/tmp/_crouch_hole.svg').read()) if f.upper() == '000000']
 
 data = {'variants': {}}
 if os.path.exists(out):
@@ -339,7 +386,7 @@ if os.path.exists(out):
     if m:
         old = json.loads(m.group(1))
         data['variants'] = old.get('variants') or ({'long': old['parts']} if 'parts' in old else {})
-data['variants'][variant] = {'parts': parts, 'hole': holes, 'hand': hands, 'face': faces}
+data['variants'][variant] = {'parts': parts, 'hole': holes, 'hand': hands, 'behind': behind}
 js = ('// ⚠️ 생성 파일이다 — 손으로 고치지 않는다. tools/gencrouch.py 가 굽는다.\n'
       '// 「혼자 먹은 밤」의 웅크린 뒷모습 (사람이 보낸 그림을 대고 따라 그린 것) → window.CrouchArt\n'
       '// 갈래는 뒷머리 «전체 실루엣»마다 한 장(long · twin · bob). 좌표는 받은 그림(1024×1024)\n'
@@ -347,4 +394,4 @@ js = ('// ⚠️ 생성 파일이다 — 손으로 고치지 않는다. tools/ge
       'window.CrouchArt = ' + json.dumps(data, ensure_ascii=False, separators=(',', ':')) + ';\n')
 open(out, 'w').write(js)
 from collections import Counter
-print(variant, len(js), Counter(p[0] for p in parts), 'hole', len(holes), 'hand', len(hands), 'face', len(faces))
+print(variant, len(js), Counter(p[0] for p in parts), 'hole', len(holes), 'hand', len(hands), 'behind', len(behind))

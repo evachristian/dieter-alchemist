@@ -3626,15 +3626,21 @@
     const ID = n => n + '_' + uid;
     const k = (1 + 0.15 * w).toFixed(3);       // 통통할수록 가로로만 넓어진다
     const CX = 496;                            // 그림의 가운데 (받은 그림 좌표)
-    let out = '', firstShoe = true;
+    let out = '', firstShoe = true, moving = '', handLines = '';
     // ⚠️ 이모지는 «한 입»(cb-bite)과 «베어 물면 작아진다»(cb-food)를 같이 탄다 —
     //    한 요소에 둘을 걸면 뒤엣것이 animation 을 통째로 덮어쓰므로 겹을 나눈다
     const foodTag = '<g class="cb-bite"><text class="cb-food" x="330" y="560" font-size="150"'
       + ' text-anchor="middle">' + foodEmoji + '</text></g>';
+    const HANDS = { hand: 1, handL: 1 };
     PARTS.forEach(([role, d]) => {
-      if (CAKE[role] && !isCake) return;
-      const cls = (role === 'hand' || role === 'handL' || CAKE[role]) ? ' class="cb-bite"'
-        : role === 'crumb' ? ' class="cb-crumb"' : '';
+      // ⚠️⚠️ 움직이는 것(케이크·손)은 «가만히 있는 몸»에서 빼서 따로 그린다 — 아래 «hole» 참고
+      if (CAKE[role] || HANDS[role]) {
+        // 손선(handL — 손가락 금)은 손 «위»에 얹는다
+        if (isCake && CAKE[role]) moving += '<path d="' + d + '" fill="' + FILL[role] + '"/>';
+        if (isCake && role === 'handL') handLines += '<path d="' + d + '" fill="' + FILL[role] + '"/>';
+        return;
+      }
+      const cls = role === 'crumb' ? ' class="cb-crumb"' : '';
       let part = role === 'shoe' && firstShoe ? ' data-part="foot"' : '';
       if (role === 'shoe') firstShoe = false;
       if (role === 'lower' && twoTone) part = ' data-part="lower"';
@@ -3648,23 +3654,29 @@
           + ' d="' + d + '" fill="' + (role === 'cloth' ? legC : shade(legC, 30)) + '"/>';
       }
     });
-    // ⚠️⚠️ 케이크가 아닌 음식이면 **케이크 자리를 몸 그림에서 뚫고**(`VAR.hole`) 그 위에 이모지,
-    //    그 위에 **쥔 손만 다시** 얹는다(`VAR.hand`). 케이크 조각만 빼면 그 밑에 깔린 케이크
-    //    모양의 바탕이 음식 옆에 «그릇 실루엣»으로 남았다 (신고받았다 · gencrouch.py)
-    if (!isCake) {
-      // ⚠️ 케이크가 가리던 입가·볼은 받은 그림에 없다 — 뚫린 자리 중 «얼굴»만 살색으로 메운다(`VAR.face`).
-      //    안 메우면 빵을 쥐었을 때 입가가 이 빠진 것처럼 패여 어두운 방이 비쳤다 (신고받았다)
-      out = '<g mask="url(#' + ID('hole') + ')">' + out + '</g>'
-        + (VAR.face || []).map(d => '<path d="' + d + '" fill="' + SKIN + '"/>').join('') + foodTag
-        + VAR.hand.map(([role, d]) => '<path class="cb-bite" d="' + d + '" fill="' + FILL[role] + '"/>').join('');
-    }
+    // ⚠️⚠️ 케이크·손은 씹는 박자에 움직이는데 받은 그림은 «쌓은» 조각이라, 그 밑에 엉뚱한 바탕이
+    //    깔려 있었다 — 움직일 때마다 가장자리로 그것이 비쳐 «겹치며 깨져» 보였다 (신고받았다).
+    //    그래서 ① 케이크+손 자리를 가만히 있는 몸에서 뚫고(`VAR.hole`) ② 그 자리를 «뒤에 있을 것»
+    //    (`VAR.behind` — 둘레의 볼·치마·바탕을 안으로 번진 것)으로 메우고 ③ 그 위에 케이크(또는 음식
+    //    이모지)와 손(`VAR.hand`)을 «한 덩어리로» 움직인다. 케이크가 아닌 음식도 같은 길이다 —
+    //    케이크 조각만 빼면 밑의 바탕이 «그릇 실루엣»으로 남던 것도 이것으로 막힌다
+    const bodyFill = r => FILL[r] || (r === 'lower' ? (twoTone ? legC : cloth) : SKIN);
+    // ⚠️ «뒤에 있을 것»은 뚫린 몸 «밑»에 깐다 — 위에 얹었더니 두 살색 조각의 맞닿은 가장자리로
+    //    밑의 치마색이 비쳐 팔에 실금이 남았다. 밑에 깔면 구멍의 흐린 테가 같은 색 위에 놓인다
+    out = (VAR.behind || []).map(([r, d]) => '<path d="' + d + '" fill="' + bodyFill(r) + '" stroke="' + bodyFill(r)
+        + '" stroke-width="1.5" stroke-linejoin="round"/>').join('')
+      + '<g mask="url(#' + ID('hole') + ')">' + out + '</g>'
+      + (isCake ? '<g class="cb-bite">' + moving + '</g>' : foodTag)
+      + '<g class="cb-bite">'
+      + VAR.hand.map(([role, d]) => '<path d="' + d + '" fill="' + FILL[role] + '"/>').join('')
+      + handLines + '</g>';
     return '<svg class="cb-svg" viewBox="176 90 716 860" xmlns="http://www.w3.org/2000/svg"'
       + ' role="img" aria-label="">'
       + '<defs>'
       + (twoTone ? '<clipPath id="' + ID('lo') + '"><rect x="0" y="' + SKIRT_Y + '" width="1024" height="400"/></clipPath>' : '')
-      + (isCake ? '' : '<mask id="' + ID('hole') + '" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">'
+      + '<mask id="' + ID('hole') + '" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">'
         + '<rect width="1024" height="1024" fill="#fff"/>'
-        + VAR.hole.map(d => '<path d="' + d + '" fill="#000"/>').join('') + '</mask>')
+        + VAR.hole.map(d => '<path d="' + d + '" fill="#000"/>').join('') + '</mask>'
       + '<radialGradient id="' + ID('shG') + '" cx="0.5" cy="0.5" r="0.5">'
       + '<stop offset="0" stop-color="rgba(20,10,25,0.30)"/>'
       + '<stop offset="0.6" stop-color="rgba(20,10,25,0.14)"/>'
