@@ -4428,7 +4428,8 @@ button.tm-slot:active { transform: scale(0.94); }
   flex: 1; display: flex; align-items: flex-end; justify-content: center;
   width: 100%; min-height: 0; padding-bottom: 6px;
 }
-.bs-art .cb-svg { width: min(88vw, 360px); height: auto; max-height: 100%; }
+/* viewBox 를 넓혔다(웨이브의 꼬리 끝이 잘렸다) — 그만큼 폭도 키워 사람의 크기는 그대로다 */
+.bs-art .cb-svg { width: min(94vw, 408px); height: auto; max-height: 100%; }
 /* ── 우적우적 ──────────────────────────────────────────────────
    **끝이 없는 반복이라 검증기가 건드리지 않는다** (settle 은 끝이 있는 것만 끝낸다).
 

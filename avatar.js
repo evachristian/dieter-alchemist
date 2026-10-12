@@ -3652,10 +3652,13 @@
     //    그 위에 **쥔 손만 다시** 얹는다(`VAR.hand`). 케이크 조각만 빼면 그 밑에 깔린 케이크
     //    모양의 바탕이 음식 옆에 «그릇 실루엣»으로 남았다 (신고받았다 · gencrouch.py)
     if (!isCake) {
-      out = '<g mask="url(#' + ID('hole') + ')">' + out + '</g>' + foodTag
+      // ⚠️ 케이크가 가리던 입가·볼은 받은 그림에 없다 — 뚫린 자리 중 «얼굴»만 살색으로 메운다(`VAR.face`).
+      //    안 메우면 빵을 쥐었을 때 입가가 이 빠진 것처럼 패여 어두운 방이 비쳤다 (신고받았다)
+      out = '<g mask="url(#' + ID('hole') + ')">' + out + '</g>'
+        + (VAR.face || []).map(d => '<path d="' + d + '" fill="' + SKIN + '"/>').join('') + foodTag
         + VAR.hand.map(([role, d]) => '<path class="cb-bite" d="' + d + '" fill="' + FILL[role] + '"/>').join('');
     }
-    return '<svg class="cb-svg" viewBox="180 110 632 810" xmlns="http://www.w3.org/2000/svg"'
+    return '<svg class="cb-svg" viewBox="176 90 716 860" xmlns="http://www.w3.org/2000/svg"'
       + ' role="img" aria-label="">'
       + '<defs>'
       + (twoTone ? '<clipPath id="' + ID('lo') + '"><rect x="0" y="' + SKIRT_Y + '" width="1024" height="400"/></clipPath>' : '')
