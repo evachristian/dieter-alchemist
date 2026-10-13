@@ -99,7 +99,7 @@ V = VARIANTS[variant]
 MODE = 'polygon' if V.get('smooth') else 'spline'
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from smoothpath import smooth_d
-SMO = lambda d: smooth_d(d, sig=V['smooth'], step=0.5, min_area=4.0) if V.get('smooth') else d
+SMO = lambda d: smooth_d(d, sig=V['smooth'], step=0.5, min_area=24.0) if V.get('smooth') else d
 names = list(V['pal'])
 pal = np.array([H(V['pal'][k]) for k in names])
 CAKE_BOX, CRUMB_BOX, HAND_BOX, FACE_BOX = V['cake'], V['crumb'], V['hand'], V['face']
@@ -256,6 +256,7 @@ for y in range(only_b[1], only_b[3] + 1):
 #    어두운 방 위에서는 «검은 구멍»이 된다 (포니테일의 손목에서 봤다). 바깥 바탕과 안 이어진
 #    바탕은 둘레 색으로 메운다
 from PIL import ImageDraw
+big_pocket = np.zeros(idx.shape, bool)
 outside = Image.fromarray(np.where(idx == bgi, 255, 0).astype(np.uint8)).copy()   # copy — 배열을 빌린 그림은 floodfill 이 조용히 안 먹는다
 ImageDraw.floodfill(outside, (0, 0), 128)
 pocket = (np.asarray(outside) == 255)
@@ -270,6 +271,7 @@ if V.get('pocket_max') and pocket.any():
         ImageDraw.floodfill(pim, (int(x_), int(y_)), 100)
         comp = np.asarray(pim) == 100
         ImageDraw.floodfill(pim, (int(x_), int(y_)), 50 if comp.sum() > V['pocket_max'] else 0)
+    big_pocket = pocket & (np.asarray(pim) == 50)
     pocket = pocket & (np.asarray(pim) == 0)
 if pocket.any():
     labp = np.where(pocket, -1, idx)
@@ -306,7 +308,19 @@ LINE = {names.index(k): names.index(k[:-1]) for k in names if k.endswith('L') an
 near_bg = np.asarray(Image.fromarray(np.where(idx == bgi, 0, 255).astype(np.uint8))
                      .filter(ImageFilter.MinFilter(5))) == 0
 for li, bi in LINE.items():
-    idx = np.where((idx == li) & near_bg, bi, idx)
+    m_ = (idx == li) & near_bg
+    if V.get('smooth'):
+        # ⚠️ (웨이브) «넓은 면»인 선 색(늘어진 뒷머리 꼬리)은 안 바꾼다 — 바꿨더니 진한 꼬리 둘레에
+        #    밝은 머리색 테가 고르지 않게 둘러져 거칠게 보였다 (신고받았다). 가는 테두리만 바꾼다
+        A_ = idx == li
+        keep_ = ddil(~ddil(~A_, 3), 3) & A_        # 둥근 열기에 살아남는 «굵은» 몫에서 시작해
+        for _ in range(400):                       # 그 덩어리에 이어진 선 색은 «다» 그대로 (꼬리 끝까지)
+            nk = dil(keep_, 3) & A_
+            if (nk == keep_).all():
+                break
+            keep_ = nk
+        m_ &= ~keep_
+    idx = np.where(m_, bi, idx)
 # ⚠️⚠️ **선 색이 «다른 덩어리»에 붙은 3px 안짝도 선이 아니다** — 머리와 얼굴·상의가 맞닿은 섞인 줄이
 #    «머리선»으로 읽혀 머리 둘레에 검은 점선이 자글자글 남았다 (웨이브 · 신고받았다). 진짜 선은
 #    머리 «안»에 있거나(둘레가 같은 집안) 굵다(포니테일 꼬리의 그늘 띠) — 둘 다 아니면 바탕색으로
@@ -481,6 +495,7 @@ if V.get('round_open'):
     #    팔 윗변에 치마색 홈이 패였다. 이은 몫은 가만히 있는 팔과 같은 색이라 움직여도 안 보인다
     hb_ = HAND_BOX
     hgrow |= np.isin(idx, HSK) & inbox((hb_[2] - 6, hb_[1], hb_[2] + 12, hb_[3] + 12)) & ddil(hand_px, 16)
+    hgrow |= np.isin(idx, HSK) & inbox((hb_[0], hb_[3] - 6, hb_[2] + 12, hb_[3] + 12)) & ddil(hand_px, 16)   # 아랫변(팔뚝 밑)도
     hands = [['hand', dd] for dd in soft_trace(hgrow & ~gm, 'handsoft')]
 
 # ⚠️ (shade_rgb · 웨이브) 케이크 오른쪽 뒤의 «오른손»은 그늘진 살색이다 — 살색 열기에 걸려 조각만
@@ -512,8 +527,12 @@ hand_hole = dil(hand_px, 5) & (inbox(HAND_BOX) if V.get('hand_clip') else True)
 if V.get('grip'):   # 손가락이 턱에 닿아 «얼굴»로 묶이면 구멍에서 빠져 허공에 남는다
     face &= ~inbox(V['grip'])
 hole_all = ((np.asarray(hole_im) == 0) & ~dil(face, 3)) | hand_hole
+# ⚠️ 남겨 둔 큰 틈(어깨와 늘어진 꼬리 사이 등)은 몸 그림에서 «뚫는다» — 겹쳐 쌓아 딴 그림이라 바탕 조각을
+#    버리면 그 밑의 상의가 드러나 틈이 메워진 채로 보였다 (「이 부분 뚫려 있어야 함」 · 신고받았다)
+hole_all |= ddil(big_pocket, 1)
 if V.get('grip'):   # 쥔 손가락의 살은 손 조각에 다 안 담긴다 — 남은 살이 턱 아래 부스러기로 떴다
-    hole_all |= dil(inbox(V['grip']) & np.isin(idx, SKINS + [names.index('skinL')]), 3) & ~dil(face, 3)
+    hole_all |= dil(inbox(V['grip']) & np.isin(idx, SKINS + [names.index('skinL')]
+                                             + [i for i, k in enumerate(names) if k in CAKE_ROLES]), 3) & ~dil(face, 3)
 HOLE_SPREAD = [i for i, k in enumerate(names) if k == 'bg' or (not k.endswith('L') and k not in CAKE_ROLES)]
 # ⚠️⚠️ **살은 «얼굴과 손의 볼록 껍질» 안으로만 번진다** (skin_hull · 웨이브).
 #    케이크가 얼굴 «옆»을 가리는 그림에서는 살이 두 배 빠르게 번지는 바람에 케이크 자리가 통째로

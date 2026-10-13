@@ -178,6 +178,11 @@ for name, cx, top, rx, y0 in CELLS:
             alt = d2.argmin(-1)
             bad = np.isin(L, hl) & ~ring
             L[bad] = alt[bad]
+            # 방울 «안»은 방울 분홍과 노란 리본 두 색만 — 연분홍(귀 속 색)이 반점처럼 섞여 방울이 얼룩졌다
+            #    (「고양이 방울도 깔끔하게」 · 신고받았다). 노랑이 아닌 밝은 색은 방울 분홍으로 모은다
+            yel = [i for i in range(len(cen)) if cen[i][0] > 200 and cen[i][1] > 180 and cen[i][2] < 170]
+            light = [i for i in range(len(cen)) if i not in hl and i not in yel and cen[i].mean() > 150]
+            L[ring & np.isin(L, light)] = hl[0]
     for _ in range(6):                        # 테두리는 안쪽 이웃의 색을 물려받는다
         todo = m & (L < 0)
         if not todo.any(): break
