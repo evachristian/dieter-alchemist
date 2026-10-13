@@ -5176,7 +5176,9 @@ function petStage(pet) {
       // ⚠️ `bowl: true` — 「지금 어항 «안»에 그린다」는 뜻이다. 대고 따라 그린 그림
       //    (`Creature.PREVIEW`)은 그때만 «유리 안»에 드는 자리에 앉는다 (`BOWL_FIT`).
       //    어항을 그리는 자리가 여기 하나라, 켜는 자리도 여기 하나다
-      + `<span class="cr-swim">${Creature.draw(pet, { flat: true, noShadow: true, bowl: true })}</span>`
+      // ⚠️ `idle: true` 도 넘긴다 — 안 넘기면 어항 마리는 시그니처 애교(산호 해마)를 넣어도 영영 안 움직였다.
+      //    공통 리그(`idleOn`)는 바닥에 선 마리에만 붙으므로 여기서는 시그니처에만 닿는다
+      + `<span class="cr-swim">${Creature.draw(pet, { flat: true, noShadow: true, bowl: true, idle: true })}</span>`
       + `${b.front}</span>`;
   }
   // ⚠️ **애교 모션은 «방에 선 마리»에만 씌운다**(`idle`). 도감 칸·목록은 46px 짜리
