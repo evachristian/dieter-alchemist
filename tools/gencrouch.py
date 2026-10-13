@@ -75,7 +75,8 @@ VARIANTS = {
              'sponge': '#f8b483', 'cream': '#fdf3ea', 'straw': '#d15053', 'leaf': '#6e8f49'},
         cake=(205, 440, 400, 620), hand=(270, 540, 425, 655), face=None,
         cake_only=(212, 450, 385, 598), only_allow=('lower', 'lowerL'), skin_in_cake='skin', crumb=(0, 820, 340, 1024),
-        keep=(380, 0, 1024, 520), skin_hull=True, hand_clip=True, hole_src=True, pocket_max=1500, grip=(372, 512, 428, 582), round_open=True, shade_rgb=(240, 198, 172), food_dy=-14, smooth=3.0, face_smooth=7.0, face_patch=(300, 300, 470, 560)),
+        keep=(380, 0, 1024, 520), skin_hull=True, hand_clip=True, hole_src=True, pocket_max=1500, grip=(372, 512, 428, 582), round_open=True, shade_rgb=(240, 198, 172), food_dy=-14, smooth=3.0, face_smooth=7.0, face_patch=(300, 300, 470, 560), close_zones=[(660, 720, 900, 920, 12)], hand_open=7,
+        tips=[['hairL', 'M836 847.4C848 850.4 862 853.6 877 855.7C862 857.4 850 858.8 836 859Z']]),   # 원본 두께를 x 830~878 에서 재서 맞췄다
     # 올림머리 · 하늘 상의 + 민트 치마 — ⚠️ 머리(민트)와 치마(민트)가 거의 같은 색이라
     #    **높이로 가른다**(zones): 머리는 어깨 위, 치마는 허리 아래에만 있다
     'bun': dict(
@@ -304,6 +305,10 @@ if V.get('round_open'):
     gap = ~ddil(~ddil(fg, 10), 10) & ~fg & near
     # 케이크 안의 바늘구멍(케이크↔손 경계 픽셀이 «바탕»으로 읽힌 것)도 — 한입 자국은 남게 반지름 3 만
     gap |= ~ddil(~ddil(fg, 3), 3) & ~fg & inbox(CAKE_BOX)
+    # (close_zones) 엉덩이 아래 — 치마·꼬리·신발이 만나는 자리마다 안으로 팬 각진 홈이 «튀는 픽셀»로
+    #    보였다 (「엉덩이 부분도 완벽하게 매끈하게」 · 신고받았다). 그 구역에서만 실루엣을 둥글게 닫는다
+    for zx0, zy0, zx1, zy1, zr in V.get('close_zones', []):
+        gap |= ~ddil(~ddil(fg, zr), zr) & ~fg & inbox((zx0, zy0, zx1, zy1))
     labg = np.where(gap, -1, idx)
     for _ in range(20):
         if not (labg == -1).any():
@@ -502,7 +507,11 @@ if V.get('round_open'):
     gm = inbox(V['grip']) if V.get('grip') else np.zeros(idx.shape, bool)
     # 1px 넓게 — 딱 맞추면 케이크 조각과 손 사이에 바탕이 점점이 비쳤다
     #    케이크 쪽으로는 3px — 케이크 조각 끝과 손 사이 2px 틈으로 바탕이 비쳤다
-    hgrow = ddil(hand_px, 1) | (ddil(hand_px, 3) & dil(cake_px, 5))
+    # (hand_open) 손 조각은 더 큰 둥근 열기로 — 케이크를 감싸던 손가락 끝이 손목 쪽에 작은 혹으로 남아
+    #    음식을 바꾸면 «픽셀이 깨진» 것처럼 보였다 (신고받았다)
+    ho = V.get('hand_open', 0)
+    hp_ = (ddil(~ddil(~hand_px, ho), ho) & hand_px) if ho else hand_px
+    hgrow = ddil(hp_, 1) | (ddil(hp_, 3) & dil(cake_px, 5))
     #    상자 끝(팔 쪽)으로는 팔 살을 조금 더 잇는다 — 흐려 따면 상자에서 잘린 모서리가 둥글게 깎여
     #    팔 윗변에 치마색 홈이 패였다. 이은 몫은 가만히 있는 팔과 같은 색이라 움직여도 안 보인다
     hb_ = HAND_BOX
@@ -669,6 +678,10 @@ if len(_ys):
     # ⚠️ (food_dy · 웨이브) 이모지의 아랫단이 손 밑으로 1~2px 나와 치마 위에 «실선»으로 남았다 — 손에 쥔 것이
     #    손 밑으로 새면 안 된다 (「음식을 든 손 픽셀이 깨진다」 · 신고받았다)
     FOOD[1] += V.get('food_dy', 0)
+# (tips) 받은 그림에서 반투명하게 가늘어지는 뾰족한 끝(웨이브의 늘어진 꼬리)은 색을 가를 때 «바탕»으로 읽혀
+#    통째로 빠졌다 (「머리카락 잘려 있어 · 끝까지 그려 줘」 · 신고받았다). 원본에서 잰 자리로 끝을 이어 붙인다
+for role_, d_ in V.get('tips', []):
+    parts.append([role_, d_])
 data['variants'][variant] = {'parts': parts, 'hole': holes, 'hand': hands, 'grip': grips, 'face': faces, 'behind': behind, 'clip': clips, 'food': FOOD}
 js = ('// ⚠️ 생성 파일이다 — 손으로 고치지 않는다. tools/gencrouch.py 가 굽는다.\n'
       '// 「혼자 먹은 밤」의 웅크린 뒷모습 (사람이 보낸 그림을 대고 따라 그린 것) → window.CrouchArt\n'
