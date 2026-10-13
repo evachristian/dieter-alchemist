@@ -3661,6 +3661,8 @@
     // ⚠️ 음식마다 «입에 닿는 쪽»이 다르다 — 🍗 는 뼈가 왼쪽 위 · 살이 오른쪽 아래라 그대로 두면 살이 입에서
     //    멀어져 «먹는 것 같지 않았다» (「구운 고기만 얼굴에 닿질 않아」 · 신고받았다). 살이 입(오른쪽 위)을
     //    향하게 돌리고 그만큼 입 쪽으로 옮긴다. 값은 글자 크기(fs)에 대한 비율이라 갈래마다 따라온다
+    const GRIP_SKIP = { '🍗': 1, '🍞': 1 };   // 오른손 없이 한 손으로 드는 음식
+    const GRIP_REACH = 0.36;   // 음식 오른쪽 끝(글자 폭 비율) — 오른손이 거기서 음식을 받친다
     const FOOD_AIM = { '🍗': { rot: -40, dx: 0.16, dy: -0.04 } };
     const aim = FOOD_AIM[foodEmoji];
     const aimT = aim ? ' transform="translate(' + (fx + aim.dx * fs).toFixed(1) + ' ' + (fy - 0.35 * fs + aim.dy * fs).toFixed(1)
@@ -3708,8 +3710,22 @@
       //    움직이는 케이크가 팔을 크림색으로 덮었다 (올림머리)
       + (isCake ? '<g class="cb-bite"><g clip-path="url(#' + ID('cake') + ')">' + moving + '</g></g>' : foodTag)
       + '<g class="cb-bite">'
-      + VAR.hand.concat(isCake ? (VAR.grip || []) : [])   // grip = 케이크 모서리를 쥔 손가락 (케이크일 때만)
-          .map(([role, d]) => '<path d="' + d + '" fill="' + FILL[role] + '"/>').join('')
+      + VAR.hand.map(([role, d]) => '<path d="' + d + '" fill="' + FILL[role] + '"/>').join('')
+      // grip = 음식 오른쪽을 받친 그늘진 오른손 (웨이브) — 「구운 고기·빵·죽·샐러드를 먹을 때에도 오른손이 보이게」.
+      //    받은 그림에서는 케이크 오른쪽 끝을 쥔 자리라, 케이크가 아니면 음식의 오른쪽 끝(글자 폭의 0.4)에 붙도록 옮긴다 —
+      //    그대로 두면 음식과 떨어진 채 허공에 떠 있었다
+      + (() => {
+        // ⚠️ 한 손으로 드는 음식(🍗 · 🍞)에는 안 그린다 — 사람이 그렇게 정했다
+        const G = GRIP_SKIP[foodEmoji] ? [] : (VAR.grip || []);
+        if (!G.length) return '';
+        let gdx = 0;
+        if (!isCake) {
+          const xs = G.flatMap(([, d]) => (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number).filter((_, i) => i % 2 === 0));
+          gdx = (fx + GRIP_REACH * fs) - Math.min(...xs);
+        }
+        return '<g' + (gdx ? ' transform="translate(' + gdx.toFixed(1) + ' 0)"' : '') + '>'
+          + G.map(([role, d]) => '<path d="' + d + '" fill="' + FILL[role] + '"/>').join('') + '</g>';
+      })()
       + handLines + '</g>';
     return '<svg class="cb-svg" viewBox="176 90 716 860" xmlns="http://www.w3.org/2000/svg"'
       + ' role="img" aria-label="">'

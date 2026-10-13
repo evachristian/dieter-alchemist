@@ -75,7 +75,7 @@ VARIANTS = {
              'sponge': '#f8b483', 'cream': '#fdf3ea', 'straw': '#d15053', 'leaf': '#6e8f49'},
         cake=(205, 440, 400, 620), hand=(270, 540, 425, 655), face=None,
         cake_only=(212, 450, 385, 598), only_allow=('lower', 'lowerL'), skin_in_cake='skin', crumb=(0, 820, 340, 1024),
-        keep=(380, 0, 1024, 520), skin_hull=True, hand_clip=True, hole_src=True, pocket_max=1500, grip=(372, 512, 428, 582), round_open=True, shade_rgb=(240, 198, 172), food_dy=-14, smooth=3.0, face_smooth=7.0, face_patch=(300, 300, 470, 560), close_zones=[(660, 720, 900, 920, 12)], hand_open=7,
+        keep=(380, 0, 1024, 520), skin_hull=True, hand_clip=True, hole_src=True, pocket_max=1500, grip=(372, 512, 428, 582), round_open=True, shade_rgb=(240, 198, 172), food_dy=-14, smooth=3.0, face_smooth=7.0, face_patch=(300, 300, 470, 560), close_zones=[(660, 720, 900, 920, 12)], hand_open=7, thumb=(347, 561, 11, 7.5, -40), wrist_zone=(335, 568, 425, 655),
         tips=[['hairL', 'M836 847.4C848 850.4 862 853.6 877 855.7C862 857.4 850 858.8 836 859Z']]),   # 원본 두께를 x 830~878 에서 재서 맞췄다
     # 올림머리 · 하늘 상의 + 민트 치마 — ⚠️ 머리(민트)와 치마(민트)가 거의 같은 색이라
     #    **높이로 가른다**(zones): 머리는 어깨 위, 치마는 허리 아래에만 있다
@@ -208,6 +208,23 @@ def ddil(m, r):
                 sh[max(0, dy):h_ + min(0, dy), max(0, dx):w_ + min(0, dx)] = m[max(0, -dy):h_ + min(0, -dy), max(0, -dx):w_ + min(0, -dx)]
                 out |= sh
     return out
+def hull_mask(m):
+    ys_, xs_ = np.where(m)
+    if len(ys_) < 3:
+        return np.zeros(m.shape, bool)
+    pts = sorted(set(zip(xs_[::7].tolist() + [int(xs_[i]) for i in (xs_.argmin(), xs_.argmax())],
+                         ys_[::7].tolist() + [int(ys_[i]) for i in (xs_.argmin(), xs_.argmax())])))
+    cr = lambda o, a, b: (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lo, hi = [], []
+    for q in pts:
+        while len(lo) >= 2 and cr(lo[-2], lo[-1], q) <= 0: lo.pop()
+        lo.append(q)
+    for q in reversed(pts):
+        while len(hi) >= 2 and cr(hi[-2], hi[-1], q) <= 0: hi.pop()
+        hi.append(q)
+    im_ = Image.new('L', (m.shape[1], m.shape[0]), 0)
+    ImageDraw.Draw(im_).polygon(lo[:-1] + hi[:-1], fill=255)
+    return np.asarray(im_) > 0
 warm = (im[:, :, 0] >= 240) & ((im[:, :, 0] + im[:, :, 1]) / 2 - im[:, :, 2] >= 5)
 newc = warm & (idx == bgi) & inbox(V.get('cake_only') or CAKE_BOX)
 # 닫기(메우기) → 열기(가는 것 떼기) — 옅은 면은 낱알이 성겨서 그대로 두면 숭숭 뚫린다
@@ -512,6 +529,20 @@ if V.get('round_open'):
     ho = V.get('hand_open', 0)
     hp_ = (ddil(~ddil(~hand_px, ho), ho) & hand_px) if ho else hand_px
     hgrow = ddil(hp_, 1) | (ddil(hp_, 3) & dil(cake_px, 5))
+    # (thumb) 엄지를 둥글게 얹는다 — 받은 그림은 케이크 앞모서리가 손 오른쪽을 가려 그 자리가 패여 있었고,
+    #    케이크를 빼면 손목 쪽이 «깨진» 것처럼 꺾여 보였다 (「엄지손가락 귀엽게」 · 신고받았다).
+    #    [가운데 x, y, 반지름 x, y, 기울기°] — 원본에 눈금을 대고 패인 자리에 맞췄다
+    if V.get('thumb'):
+        hgrow = ~ddil(~ddil(hgrow, 14), 14)      # 케이크 모서리 자국(손 오른쪽 패임)부터 둥글게 닫는다
+        # 엄지 «아래»(손바닥 오른쪽 ~ 팔뚝 윗변)는 볼록하게 잇는다 — 케이크 앞면이 가리던 자리라 꺾인 홈이 남았다
+        wz = V.get('wrist_zone')
+        if wz:
+            hgrow |= hull_mask(hgrow & inbox(wz)) & inbox(wz)
+        tcx, tcy, trx, try_, tang = V['thumb']
+        yy_, xx_ = np.mgrid[0:Hh, 0:W]
+        ca, sa = np.cos(np.radians(tang)), np.sin(np.radians(tang))
+        u = ((xx_ - tcx) * ca + (yy_ - tcy) * sa) / trx; v_ = (-(xx_ - tcx) * sa + (yy_ - tcy) * ca) / try_
+        hgrow |= (u * u + v_ * v_) <= 1
     #    상자 끝(팔 쪽)으로는 팔 살을 조금 더 잇는다 — 흐려 따면 상자에서 잘린 모서리가 둥글게 깎여
     #    팔 윗변에 치마색 홈이 패였다. 이은 몫은 가만히 있는 팔과 같은 색이라 움직여도 안 보인다
     hb_ = HAND_BOX
@@ -559,23 +590,6 @@ HOLE_SPREAD = [i for i, k in enumerate(names) if k == 'bg' or (not k.endswith('L
 #    케이크가 얼굴 «옆»을 가리는 그림에서는 살이 두 배 빠르게 번지는 바람에 케이크 자리가 통째로
 #    살색이 되어, 이모지로 바꾸면 턱 앞에 **살색 덩어리**가 붙고 그 밑에 치마 색 조각이 비쳤다
 #    (「폭식 시 얼굴과 손이 제대로 안 나온다」 · 신고받았다). 얼굴은 대개 볼록하니 껍질이 곧 턱선이다
-def hull_mask(m):
-    ys_, xs_ = np.where(m)
-    if len(ys_) < 3:
-        return np.zeros(m.shape, bool)
-    pts = sorted(set(zip(xs_[::7].tolist() + [int(xs_[i]) for i in (xs_.argmin(), xs_.argmax())],
-                         ys_[::7].tolist() + [int(ys_[i]) for i in (xs_.argmin(), xs_.argmax())])))
-    cr = lambda o, a, b: (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
-    lo, hi = [], []
-    for q in pts:
-        while len(lo) >= 2 and cr(lo[-2], lo[-1], q) <= 0: lo.pop()
-        lo.append(q)
-    for q in reversed(pts):
-        while len(hi) >= 2 and cr(hi[-2], hi[-1], q) <= 0: hi.pop()
-        hi.append(q)
-    im_ = Image.new('L', (m.shape[1], m.shape[0]), 0)
-    ImageDraw.Draw(im_).polygon(lo[:-1] + hi[:-1], fill=255)
-    return np.asarray(im_) > 0
 gripm = inbox(V['grip']) if V.get('grip') else np.zeros(idx.shape, bool)
 hand_hull = hull_mask(hand_px & ~gripm)
 skin_ok = (hull_mask(face) | hull_mask(hand_px & ~gripm)) if V.get('skin_hull') else np.ones(idx.shape, bool)
