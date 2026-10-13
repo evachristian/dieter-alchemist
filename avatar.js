@@ -3658,8 +3658,15 @@
     //    한 요소에 둘을 걸면 뒤엣것이 animation 을 통째로 덮어쓰므로 겹을 나눈다
     // ⚠️ 자리·크기는 갈래마다 «케이크가 있던 곳»이다(`VAR.food` · gencrouch.py) — 없으면 옛 자리
     const [fx, fy, fs] = VAR.food || [330, 560, 150];
-    const foodTag = '<g class="cb-bite"><text class="cb-food" x="' + fx + '" y="' + fy + '" font-size="' + fs + '"'
-      + ' text-anchor="middle">' + foodEmoji + '</text></g>';
+    // ⚠️ 음식마다 «입에 닿는 쪽»이 다르다 — 🍗 는 뼈가 왼쪽 위 · 살이 오른쪽 아래라 그대로 두면 살이 입에서
+    //    멀어져 «먹는 것 같지 않았다» (「구운 고기만 얼굴에 닿질 않아」 · 신고받았다). 살이 입(오른쪽 위)을
+    //    향하게 돌리고 그만큼 입 쪽으로 옮긴다. 값은 글자 크기(fs)에 대한 비율이라 갈래마다 따라온다
+    const FOOD_AIM = { '🍗': { rot: -40, dx: 0.16, dy: -0.04 } };
+    const aim = FOOD_AIM[foodEmoji];
+    const aimT = aim ? ' transform="translate(' + (fx + aim.dx * fs).toFixed(1) + ' ' + (fy - 0.35 * fs + aim.dy * fs).toFixed(1)
+      + ') rotate(' + aim.rot + ') translate(' + (-fx) + ' ' + (-(fy - 0.35 * fs)).toFixed(1) + ')"' : '';
+    const foodTag = '<g class="cb-bite"><g' + aimT + '><text class="cb-food" x="' + fx + '" y="' + fy + '" font-size="' + fs + '"'
+      + ' text-anchor="middle">' + foodEmoji + '</text></g></g>';
     const HANDS = { hand: 1, handL: 1 };
     PARTS.forEach(([role, d]) => {
       // ⚠️⚠️ 움직이는 것(케이크·손)은 «가만히 있는 몸»에서 빼서 따로 그린다 — 아래 «hole» 참고
