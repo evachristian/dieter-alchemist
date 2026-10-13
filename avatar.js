@@ -3675,7 +3675,8 @@
       if (CAKE[role] || HANDS[role]) {
         // 손선(handL — 손가락 금)은 손 «위»에 얹는다
         if (isCake && CAKE[role]) moving += '<path d="' + d + '" fill="' + FILL[role] + '"/>';
-        if (isCake && role === 'handL') handLines += '<path d="' + d + '" fill="' + FILL[role] + '"/>';
+        // 그늘진 오른손(grip)을 따로 그리는 갈래는 옛 손가락 선을 안 얹는다 — 오른손 옆에 진한 줄로 남았다 (포니테일)
+        if (isCake && role === 'handL' && !(VAR.grip || []).length) handLines += '<path d="' + d + '" fill="' + FILL[role] + '"/>';
         return;
       }
       const cls = role === 'crumb' ? ' class="cb-crumb"' : '';

@@ -66,7 +66,11 @@ VARIANTS = {
              'sponge': '#f8ba89', 'cream': '#f8ebe2', 'straw': '#cc5d5d', 'leaf': '#708c57'},
         cake=(225, 425, 425, 612), hand=(275, 540, 445, 665), face=None,
         cake_only=(232, 436, 416, 602), skin_in_cake='skin', crumb=(0, 820, 340, 1024),
-        keep=(385, 0, 1024, 600)),
+        keep=(385, 0, 1024, 600),
+        # 웨이브와 같은 정리 (「포니테일 손도 같은 방식으로 매끈하게」 · 신고받았다)
+        skin_hull=True, hand_clip=True, hole_src=True, pocket_max=1500, round_open=True, hand_open=7,
+        grip=(386, 515, 440, 600), grip_shade_only=True, shade_rgb=(244, 199, 169), smooth=3.0,
+        arm_cut=(357, (356, 584), (424, 610))),
     # 웨이브 · 하늘 상의 + 민트 치마
     'wave': dict(
         pal={'bg': '#fefefe', 'hair': '#fd5ca0', 'hairL': '#e14a8a', 'cloth': '#cfe2fc',
@@ -522,6 +526,8 @@ for f, dd in baked(open('/tmp/_crouch_hand.svg').read(), UP):
 
 if V.get('round_open'):
     gm = inbox(V['grip']) if V.get('grip') else np.zeros(idx.shape, bool)
+    if V.get('grip_shade_only'):   # 오른손 자리는 «그늘색»만 뺀다 — 상자째 빼면 왼팔이 상자 끝에서 네모로 잘렸다 (포니테일)
+        gm &= (np.abs(im - np.array(V['shade_rgb'])).sum(2) < 42)
     # 1px 넓게 — 딱 맞추면 케이크 조각과 손 사이에 바탕이 점점이 비쳤다
     #    케이크 쪽으로는 3px — 케이크 조각 끝과 손 사이 2px 틈으로 바탕이 비쳤다
     # (hand_open) 손 조각은 더 큰 둥근 열기로 — 케이크를 감싸던 손가락 끝이 손목 쪽에 작은 혹으로 남아
@@ -548,13 +554,21 @@ if V.get('round_open'):
     hb_ = HAND_BOX
     hgrow |= np.isin(idx, HSK) & inbox((hb_[2] - 6, hb_[1], hb_[2] + 12, hb_[3] + 12)) & ddil(hand_px, 16)
     hgrow |= np.isin(idx, HSK) & inbox((hb_[0], hb_[3] - 6, hb_[2] + 12, hb_[3] + 12)) & ddil(hand_px, 16)   # 아랫변(팔뚝 밑)도
+    # (arm_cut) 엄지 «오른쪽»은 팔 윗변 선 아래만 남긴다 — 케이크 밑면이 있던 자리가 손으로 잡혀 손등 위에
+    #    울퉁불퉁한 혹이 생겼다 (포니테일 · 신고받았다). [시작 x, (x0,y0), (x1,y1)] — 그 선 «위»를 지운다
+    if V.get('arm_cut'):
+        cx0, (ax, ay), (bx, by) = V['arm_cut']
+        yy_, xx_ = np.mgrid[0:Hh, 0:W]
+        above = (yy_ - ay) * (bx - ax) - (xx_ - ax) * (by - ay) < 0
+        hgrow &= ~(above & (xx_ > cx0))
     hands = [['hand', dd] for dd in soft_trace(hgrow & ~gm, 'handsoft')]
 
 # ⚠️ (shade_rgb · 웨이브) 케이크 오른쪽 뒤의 «오른손»은 그늘진 살색이다 — 살색 열기에 걸려 조각만
 #    남고 그마저 맑은 살색으로 칠해져 손으로 안 읽혔다 (「오른손이 그림자진 피부색이어야 한다」 ·
 #    신고받았다). 손가락 자리에서 그늘색(+살색)을 통째로 따서 한 덩어리 «handS» 로 담는다
 if V.get('shade_rgb') and V.get('grip'):
-    rm = inbox(V['grip']) & ((np.abs(im - np.array(V['shade_rgb'])).sum(2) < 42) | np.isin(idx, SKINS))
+    rm = inbox(V['grip']) & ((np.abs(im - np.array(V['shade_rgb'])).sum(2) < 42)
+                             | (np.isin(idx, SKINS) if not V.get('grip_shade_only') else False))
     rm = ddil(~ddil(~rm, 2), 2) & rm                     # 둥근 열기 — 테두리 실오라기를 뗀다
     grips = [['handS', dd] for dd in soft_trace(rm, 'gripsoft')]
 
