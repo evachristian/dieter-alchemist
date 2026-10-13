@@ -75,7 +75,7 @@ VARIANTS = {
              'sponge': '#f8b483', 'cream': '#fdf3ea', 'straw': '#d15053', 'leaf': '#6e8f49'},
         cake=(205, 440, 400, 620), hand=(270, 540, 425, 655), face=None,
         cake_only=(212, 450, 385, 598), only_allow=('lower', 'lowerL'), skin_in_cake='skin', crumb=(0, 820, 340, 1024),
-        keep=(380, 0, 1024, 520), skin_hull=True, hand_clip=True, hole_src=True, pocket_max=1500, grip=(372, 512, 428, 582), round_open=True, shade_rgb=(240, 198, 172), food_dy=-14, smooth=3.0),
+        keep=(380, 0, 1024, 520), skin_hull=True, hand_clip=True, hole_src=True, pocket_max=1500, grip=(372, 512, 428, 582), round_open=True, shade_rgb=(240, 198, 172), food_dy=-14, smooth=3.0, face_smooth=7.0, face_patch=(300, 300, 470, 560)),
     # 올림머리 · 하늘 상의 + 민트 치마 — ⚠️ 머리(민트)와 치마(민트)가 거의 같은 색이라
     #    **높이로 가른다**(zones): 머리는 어깨 위, 치마는 허리 아래에만 있다
     'bun': dict(
@@ -100,6 +100,17 @@ MODE = 'polygon' if V.get('smooth') else 'spline'
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from smoothpath import smooth_d
 SMO = lambda d: smooth_d(d, sig=V['smooth'], step=0.5, min_area=24.0) if V.get('smooth') else d
+# 얼굴 살 조각은 더 강하게 편다(face_smooth) — 원본 얼굴 앞선의 코·입 자리 굴곡이 턱선에 «꺾임»으로 남았다
+#    (「여기가 매끈해지면 좋겠어」 · 신고받았다). 얼굴 상자(keep)에 걸친 살 조각만이다
+def FACEZ(d):
+    if not (V.get('face_smooth') and V.get('keep')):
+        return False
+    n = [float(v) for v in re.findall(r'-?\d+(?:\.\d+)?', d)]
+    if len(n) < 6:
+        return False
+    x0, y1 = min(n[0::2]), max(n[1::2])
+    return x0 < V['keep'][0] and min(n[1::2]) < V['keep'][3] and y1 < V['keep'][3] + 80
+SMOF = lambda d: smooth_d(d, sig=V['face_smooth'], step=0.5, min_area=24.0)
 names = list(V['pal'])
 pal = np.array([H(V['pal'][k]) for k in names])
 CAKE_BOX, CRUMB_BOX, HAND_BOX, FACE_BOX = V['cake'], V['crumb'], V['hand'], V['face']
@@ -398,7 +409,8 @@ for d_, f, tx, ty in re.findall(pat, svg):
     def bake(m):
         v = (float(m.group(0)) + (tx if k[0] % 2 == 0 else ty)) / UP; k[0] += 1
         return ('%.1f' % v).rstrip('0').rstrip('.')
-    parts.append([role, SMO(re.sub(r'-?\d+(?:\.\d+)?', bake, d_).replace(' Z ', 'Z').strip())])
+    _raw = re.sub(r'-?\d+(?:\.\d+)?', bake, d_).replace(' Z ', 'Z').strip()
+    parts.append([role, SMOF(_raw) if role == 'skin' and FACEZ(_raw) else SMO(_raw)])
 
 # ── 케이크가 아닌 음식일 때 쓰는 두 겹 ─────────────────────────────
 # ⚠️⚠️ 받은 그림은 «겹쳐 쌓은» 조각이라, 케이크 밑에 **케이크 모양의 살색·옷색 바탕**이 깔려
@@ -598,8 +610,28 @@ lab = np.where(lab == -1, bgi, lab)
 # ⚠️ 구멍보다 «조금 넓게» 채운다 — 딱 맞추면 뚫린 몸과 채운 것이 맞닿은 자리에 안티에일리어싱
 #    실금이 생겨 구멍의 «네모난 테두리»가 비쳤다
 bidx = np.where(dil(hole_all, 7), lab, bgi)
+# ⚠️ (smooth · 웨이브) 얼굴 앞선의 «안으로 팬 홈»을 둥글게 닫아 메운다 — 몸 그림의 얼굴선과 메운 턱이
+#    만나는 자리에 작은 굴곡이 둘 남아 턱선이 매끈하지 않았다 (「여기가 매끈해지면 좋겠어」 · 신고받았다).
+#    닫기(늘렸다 줄이기)는 팬 데만 채우고 튀어나온 데는 안 건드린다. 메움 층은 몸 «밑»이라 홈에서만 보인다
+if V.get('smooth') and V.get('keep'):
+    kb = V['keep']
+    skin_all = (np.isin(bidx, SKINS) | (np.isin(idx, SKINS) & face)) & inbox((kb[0] - 60, kb[1], kb[2], kb[3] + 60))
+    dent = ~ddil(~ddil(skin_all, 10), 10) & ~skin_all & inbox((kb[0] - 60, kb[1], kb[2], kb[3] + 60))
+    dent &= ~np.isin(idx, [i for i, k in enumerate(names) if re.sub(r'\d+$', '', k) in ('hair', 'hairL')])
+    bidx = np.where(dent, SKINS[0], bidx)
 # ⚠️ 번진 경계는 계단이 심하다(픽셀마다 «가까운 색») — 몸과 같은 길(2배로 늘려 흐린 뒤 다시 고르기)로
 #    펴서 딴다. 1배로 땄더니 구멍이 얼굴을 지나는 자리에서 턱선이 자글자글했다 (신고받았다)
+# ⚠️⚠️ (face_patch · 웨이브) 얼굴 «앞쪽»을 한 덩어리로 다시 그려 몸 그림 «위»에 얹는다 — 몸 그림의 얼굴과
+#    턱을 메운 살이 따로 다듬어진 두 조각이라 이음매(턱 밑)가 꺾였다 (「여기가 매끈해지면 좋겠어」 · 신고받았다).
+#    둘을 합친 살을 넉넉히 흐려 앞선을 펴고, 머리카락 자리는 빼서(머리를 안 덮게) 따로 딴다
+faces = []
+if V.get('face_patch'):
+    fz = inbox(V['face_patch'])
+    fm = (face | np.isin(bidx, SKINS)) & fz
+    fm = np.asarray(Image.fromarray(np.where(fm, 255, 0).astype(np.uint8)).filter(ImageFilter.GaussianBlur(V.get('face_blur', 4)))) > 127
+    hairm = np.isin(idx, [i for i, k in enumerate(names) if re.sub(r'\d+$', '', k) in ('hair', 'hairL')])
+    fm &= ~ddil(hairm, 1) & fz
+    faces = [['skin', dd] for dd in soft_trace(fm, 'facepatch', sig=0.6)]
 Image.fromarray(pal[smooth_up(bidx)].astype(np.uint8)).save('/tmp/_crouch_behind.png')
 vtracer.convert_image_to_svg_py('/tmp/_crouch_behind.png', '/tmp/_crouch_behind.svg', colormode='color',
     hierarchical='stacked', mode=MODE, filter_speckle=8 * UP * UP, color_precision=8, layer_difference=1,
@@ -637,7 +669,7 @@ if len(_ys):
     # ⚠️ (food_dy · 웨이브) 이모지의 아랫단이 손 밑으로 1~2px 나와 치마 위에 «실선»으로 남았다 — 손에 쥔 것이
     #    손 밑으로 새면 안 된다 (「음식을 든 손 픽셀이 깨진다」 · 신고받았다)
     FOOD[1] += V.get('food_dy', 0)
-data['variants'][variant] = {'parts': parts, 'hole': holes, 'hand': hands, 'grip': grips, 'behind': behind, 'clip': clips, 'food': FOOD}
+data['variants'][variant] = {'parts': parts, 'hole': holes, 'hand': hands, 'grip': grips, 'face': faces, 'behind': behind, 'clip': clips, 'food': FOOD}
 js = ('// ⚠️ 생성 파일이다 — 손으로 고치지 않는다. tools/gencrouch.py 가 굽는다.\n'
       '// 「혼자 먹은 밤」의 웅크린 뒷모습 (사람이 보낸 그림을 대고 따라 그린 것) → window.CrouchArt\n'
       '// 갈래는 뒷머리 «전체 실루엣»마다 한 장(long · twin · bob). 좌표는 받은 그림(1024×1024)\n'

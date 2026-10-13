@@ -3695,6 +3695,8 @@
     out = (VAR.behind || []).map(([r, d]) => '<path d="' + d + '" fill="' + bodyFill(r) + '" stroke="' + bodyFill(r)
         + '" stroke-width="1.5" stroke-linejoin="round"/>').join('')
       + '<g mask="url(#' + ID('hole') + ')">' + out + '</g>'
+      // 얼굴 앞쪽을 한 덩어리로 다시 얹는다(`VAR.face` · 웨이브) — 몸 그림의 얼굴과 메운 턱이 따로라 턱 밑이 꺾였다
+      + (VAR.face || []).map(([r, d]) => '<path d="' + d + '" fill="' + FILL[r] + '"/>').join('')
       // ⚠️ 케이크 조각은 «구멍 모양»으로 오린다 — 쌓은 조각이라 크림 바탕이 케이크 밑의 팔까지 깔려 있어서
       //    움직이는 케이크가 팔을 크림색으로 덮었다 (올림머리)
       + (isCake ? '<g class="cb-bite"><g clip-path="url(#' + ID('cake') + ')">' + moving + '</g></g>' : foodTag)
