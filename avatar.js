@@ -3642,6 +3642,7 @@
       // 따로 그린 «아랫도리»(양갈래·단발 그림) — 치마를 입었으면 치마 색, 원피스면 옷 색
       lower: twoTone ? legC : cloth, lowerL: shade(twoTone ? legC : cloth, 30),
       skin: SKIN, skinL: '#e3a585', hand: SKIN, handL: '#e3a585', shoe: shoeC,
+      handS: '#f0c6ab',   // 케이크 뒤로 보이는 «그늘진» 오른손 (웨이브 그림)
       blush: '#f7b0b2',   // 볼의 분홍 (올림머리 그림) — 착장과 무관하다
       sponge: '#f9a665', cakeL: '#ebac7a', cream: '#fcecdc', straw: '#d33d49', leaf: '#6f953b', crumb: '#f5ab71',
     };
@@ -3698,7 +3699,8 @@
       //    움직이는 케이크가 팔을 크림색으로 덮었다 (올림머리)
       + (isCake ? '<g class="cb-bite"><g clip-path="url(#' + ID('cake') + ')">' + moving + '</g></g>' : foodTag)
       + '<g class="cb-bite">'
-      + VAR.hand.map(([role, d]) => '<path d="' + d + '" fill="' + FILL[role] + '"/>').join('')
+      + VAR.hand.concat(isCake ? (VAR.grip || []) : [])   // grip = 케이크 모서리를 쥔 손가락 (케이크일 때만)
+          .map(([role, d]) => '<path d="' + d + '" fill="' + FILL[role] + '"/>').join('')
       + handLines + '</g>';
     return '<svg class="cb-svg" viewBox="176 90 716 860" xmlns="http://www.w3.org/2000/svg"'
       + ' role="img" aria-label="">'

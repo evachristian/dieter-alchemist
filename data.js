@@ -2546,7 +2546,7 @@ const WARDROBE = {
     { id: 'circlet_crown_flower', slot: 'circlet', kind: 'crown', name: '왕관 꽃', band: 'crown', orn: 'flower', color: '#ff9ec4', emoji: '🌸' },
     { id: 'circlet_crown_star', slot: 'circlet', kind: 'crown', name: '왕관 별', band: 'crown', orn: 'star', color: '#ffd0a0', emoji: '⭐' },
     { id: 'circlet_crown_ribbon', slot: 'circlet', kind: 'crown', name: '왕관 리본', band: 'crown', orn: 'ribbon', color: '#ffd0e6', emoji: '🎀' },
-    { id: 'circlet_ears_cat', slot: 'circlet', kind: 'ears', name: '고양이 귀', band: 'ears', orn: 'cat', color: '#363053', emoji: '🐱' },
+    { id: 'circlet_ears_cat', slot: 'circlet', kind: 'ears', name: '고양이 귀', band: 'ears', orn: 'cat', color: '#373054', emoji: '🐱' },
     { id: 'circlet_ears_rabbit', slot: 'circlet', kind: 'ears', name: '토끼 귀', band: 'ears', orn: 'rabbit', color: '#a0ebce', emoji: '🐰' },
     { id: 'circlet_ears_bear', slot: 'circlet', kind: 'ears', name: '곰 귀', band: 'ears', orn: 'bear', color: '#956745', emoji: '🐻' },
     { id: 'circlet_ears_dog', slot: 'circlet', kind: 'ears', name: '강아지 귀', band: 'ears', orn: 'dog', color: '#aa744e', emoji: '🐶' },
