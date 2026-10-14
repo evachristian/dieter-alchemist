@@ -5697,7 +5697,7 @@ SVG 를 재는 검사들이 사람이 보는 것과 다른 것을 재게 된다.
 그대로 남는다 — 움직임 줄이기 · 도감 칸 · 방이 아닌 자리는 다 그것을 쓴다.
 
 같은 날 🔥 **불꽃 나비**(`ash_moth` · `02-signature.svg` · 4.9MB · 5.8초)도 같은 방식으로
-붙였다 (`peach-butterfly-anim.svg` · 1.6MB). 지금 **22**이다 (`creature.js` 의 `SIGNATURE` 표가 원본이다 — 2026-10-14 에 황금 볏 몽키(`unicorn`)까지).
+붙였다 (`peach-butterfly-anim.svg` · 1.6MB). 지금 **23**이다 (`creature.js` 의 `SIGNATURE` 표가 원본이다 — 2026-10-14 에 그믐 박쥐(`newmoon_bat`)까지).
 ⚠️⚠️ **구운 파일의 «뿌리 viewBox» 를 `vb` 로 바꿔 적는다** — gensig 는 `0 0 320 320` 으로 내보내는데
 그대로 두면 `<image>` 가 그 상자로 그려 **쉬는 자세가 작아지고 떠 보인다** (골드 몽키에서 그랬다).
 `preserveAspectRatio` 도 정지 그림과 같게 (바닥 `xMidYMax` · 공중·어항 `xMidYMid`).
