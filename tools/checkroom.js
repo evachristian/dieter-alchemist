@@ -1369,6 +1369,14 @@ function mask(A, B) {
         const r = all.find(x => x.id === id);
         if (r) out.push({ id: r.id, move: r.move, face: true });
       });
+      // ⚠️⚠️ **«더 크게» 서는 마리(`Creature.SIZE_K`)도 따로 끼운다** (2026-10-14) — 그 마리는
+      //    상한이 커서 상자가 다르다. 표본에서 빠지면 그 마리만 조용히 버튼 밑으로 들어간다
+      //    (아래 「크리처 상자」가 그 마리를 제 갈래로 묶는 것과 짝이다)
+      Object.keys(window.Creature.SIZE_K || {}).forEach(id => {
+        if (out.some(c => c.id === id)) return;
+        const r = all.find(x => x.id === id);
+        if (r) out.push({ id: r.id, move: r.move, face: !!face[r.id] });
+      });
       return out;
     });
     if (trio.filter(c => !c.face).length < 3) bad.push('크리처 가림: 땅·공중·어항 크리처가 다 있지 않다');
@@ -1537,10 +1545,14 @@ function mask(A, B) {
     //    위의 「크리처 가림」이 그 마리를 표본에서 빠뜨린 것을 못 본다
     const all = await page.evaluate(() => {
       const face = window.Creature.FACE || {};
+      // ⚠️ «더 크게» 서는 마리(`SIZE_K`)는 제 갈래다 — 상한이 달라 상자도 다르고,
+      //    「크리처 가림」이 그 마리를 표본으로 따로 잰다
+      const sk = window.Creature.SIZE_K || {};
       return (window.GameData.RECIPES || [])
         .filter(r => r.result && r.result.kind === 'creature')
         .map(r => ({ id: r.result.id, move: r.result.move,
-          key: r.result.move + (face[r.result.id] ? 'F' : '') }));
+          key: r.result.move + (face[r.result.id] ? 'F' : '')
+            + (sk[r.result.id] ? `×${sk[r.result.id]}` : '') }));
     });
     const seen = {};
     let n = 0;
