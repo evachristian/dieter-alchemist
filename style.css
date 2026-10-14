@@ -4960,3 +4960,46 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
    ⚠️ 점(.tab-dot)이 우상단에 얹히려면 자리를 가져야 한다 (레드닷 공통 규칙) */
 #mailBtn { position: relative; overflow: visible; }
 #mailBtn:active { transform: scale(0.9); }
+
+/* ── 「같이 먹기」 컷씬 (game.js 의 playMealScene) ─────────────────────────
+   화면 전체를 어둡게 덮고 밥상 그림을 가운데에 띄운다. 누르면 건너뛴다.
+   ⚠️ 움직이는 것은 셋뿐이다 — 김(피어오른다) · 공주 눈꺼풀(깜박) · 클레멘(고갯짓 · 웃음).
+      한 바퀴가 3초(MEAL_MS)라 김은 1.6초짜리를 엇갈려 돌린다 */
+.meal-scene {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 16px; background: rgba(20, 16, 31, 0.82);
+  opacity: 0; transition: opacity 0.25s ease; cursor: pointer;
+}
+.meal-scene.on { opacity: 1; }
+.meal-scene .ml-card {
+  width: 100%; max-width: 520px; border-radius: 18px; overflow: hidden;
+  background: #fffdf8; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.meal-scene .ml-svg { display: block; width: 100%; height: auto; }
+.meal-scene .ml-say {
+  max-width: 520px; color: #f4f0f7; font-size: 1rem; line-height: 1.55; text-align: center;
+}
+.meal-scene .ml-say b { color: #ffd076; margin-right: 6px; }
+.meal-scene .ml-steam { opacity: 0; animation: mlSteam 1.6s ease-out infinite; }
+.meal-scene .ml-steam path { fill: none; stroke-linecap: round; }
+.meal-scene .ml-steam .u { stroke: rgba(150, 118, 92, 0.30); stroke-width: 13; }
+.meal-scene .ml-steam .w { stroke: #ffffff; stroke-width: 6; }
+@keyframes mlSteam {
+  0%   { opacity: 0;    transform: translateY(14px) scaleY(0.6); }
+  35%  { opacity: 0.75; }
+  100% { opacity: 0;    transform: translateY(-34px) scaleY(1.15); }
+}
+.meal-scene .ml-lid { transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(0); animation: mlBlink 3s linear infinite; }
+@keyframes mlBlink { 0%, 38%, 46%, 100% { transform: scaleY(0); } 41%, 43% { transform: scaleY(1); } }
+.meal-scene .ml-clem { animation: mlNod 3s ease-in-out infinite; }
+@keyframes mlNod { 0%, 100% { transform: translateY(0); } 55%, 70% { transform: translateY(5px); } }
+.meal-scene .ml-smile { opacity: 0; animation: mlSmile 3s linear infinite; }
+.meal-scene .ml-def   { animation: mlSmileOff 3s linear infinite; }
+@keyframes mlSmile    { 0%, 48% { opacity: 0; } 52%, 88% { opacity: 1; } 92%, 100% { opacity: 0; } }
+@keyframes mlSmileOff { 0%, 48% { opacity: 1; } 52%, 88% { opacity: 0; } 92%, 100% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .meal-scene .ml-steam, .meal-scene .ml-lid, .meal-scene .ml-clem,
+  .meal-scene .ml-smile, .meal-scene .ml-def { animation: none; }
+  .meal-scene .ml-steam { opacity: 0.6; }
+}

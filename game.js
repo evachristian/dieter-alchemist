@@ -1838,10 +1838,115 @@ function eatWithClemen() {
   save();
   renderKitchen();
   render();
-  toast(T('kt_ate'), null, 3000);
   if (window.Sfx) Sfx.play('success');
+  // 김이 모락모락 나는 밥상에서 둘이 같이 먹는 컷씬 — **매번** 3초 (사람이 정했다).
+  // 끝나거나(눌러서 건너뛰어도) 그 뒤에 예전 토스트가 뜬다. 그림을 못 불러오면 토스트만
+  playMealScene(() => toast(T('kt_ate'), null, 3000));
 }
 window.eatWithClemen = eatWithClemen;
+
+// ═══════════════════════════════════════════════════════════════
+//  「같이 먹기」 컷씬 — 밥상 그림(mealart.js · tools/genmeal.py) 위에 움직임을 얹는다
+// ═══════════════════════════════════════════════════════════════
+// ⚠️ **동영상이 아니라 «그린 그림 + 움직임»이다** — 공주의 머리·원피스를 플레이어 색으로
+//    물들여야 해서다 (사람이 정했다 · 모양은 그림 그대로). 움직이는 것:
+//    김(그릇 위로 피어오른다) · 공주 눈 깜박임 · 클레멘의 고갯짓과 웃음
+// ⚠️ **클레멘의 머리는 대화창 초상화(`Portrait.bust`)다** — 그림 속 셰프의 머리는 genmeal 이
+//    지워 두었다. 초상화를 고치면 여기도 같이 바뀐다 (「원래 클레멘 모습으로」 · 사람이 정했다)
+// ⚠️ 그림(약 200KB)은 **처음 누를 때 받는다** — 하루 한 번 쓰는 장면이라 부팅마다 받을 이유가 없다
+const MEAL_MS = 3000;
+let mealArtP = null, mealTimer = 0, mealDone = null;
+function loadMealArt() {
+  if (window.MealArt) return Promise.resolve(window.MealArt);
+  if (mealArtP) return mealArtP;
+  const own = document.querySelector('script[src*="game.js"]');
+  const q = own && own.src.includes('?') ? '?' + own.src.split('?')[1] : '';
+  mealArtP = new Promise((ok, no) => {
+    const el = document.createElement('script');
+    el.src = 'mealart.js' + q;
+    el.onload = () => (window.MealArt ? ok(window.MealArt) : no(new Error('mealart')));
+    el.onerror = () => { mealArtP = null; no(new Error('mealart')); };
+    document.head.appendChild(el);
+  });
+  return mealArtP;
+}
+// 물들이기 — 조각마다 «기준색에서 얼마나 진하고 옅은가»(채널별 비)를 지키며 새 색으로 옮긴다.
+// 그래야 머리카락의 결(짙은 선 · 밝은 결)이 그대로 남는다
+function mealTint(f, base, to) {
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const a = rgb(f), b = rgb(base), c = rgb(to);
+  return '#' + a.map((v, i) => Math.max(0, Math.min(255, Math.round(c[i] * v / Math.max(1, b[i]))))
+    .toString(16).padStart(2, '0')).join('');
+}
+// 플레이어의 머리색 · 옷 색 — 원피스를 입었으면 원피스, 아니면 상의 색이다
+function mealColors() {
+  const o = outfitWithColors();
+  const hair = (window.Avatar && Avatar.hairColorOf) ? Avatar.hairColorOf(o) : null;
+  const pick = slot => {
+    const id = S.outfit[slot];
+    if (!id || /_none$/.test(id)) return null;
+    return o.colors[slot] || itemHex((D.WARDROBE[slot] || []).find(x => x.id === id));
+  };
+  return { hair, dress: pick('dress') || pick('top') };
+}
+function mealSceneSvg(A) {
+  const col = mealColors();
+  const body = A.paths.map(([r, f, d]) => {
+    const to = col[r];
+    return `<path d="${d}" fill="${to ? mealTint(f, A.base[r], to) : f}"/>`;
+  }).join('');
+  // 김 — 그릇마다 두 줄기, 엇갈려 피어오른다.
+  // ⚠️ 흰 줄 «만»으로는 밝은 벽 위에서 안 보인다 — 옅은 베이지 그늘을 밑에 한 줄 깐다
+  const wisp = 'M0,0 C-9,-14 9,-30 0,-44 C-9,-58 8,-72 0,-86';
+  const steam = A.steam.map(([x, y, k], i) => [0, 1].map(j =>
+    `<g transform="translate(${x + (j ? 16 : -12) * k},${y}) scale(${(k * 1.4).toFixed(2)})"><g class="ml-steam"
+      style="animation-delay:${(i * 0.37 + j * 0.8).toFixed(2)}s"><path class="u" d="${wisp}"/><path class="w" d="${wisp}"/></g></g>`).join('')).join('');
+  // 공주 눈꺼풀 — 살색 반달이 위에서 내려와 덮는다
+  const lids = A.eyes.map(([x, y, rx, ry]) => `<ellipse class="ml-lid" cx="${x}" cy="${y}" rx="${rx + 3}" ry="${ry + 3}" fill="${A.eyelid}"/>`).join('');
+  // 클레멘 — 초상화의 머리만 잘라 얹는다 (뷰박스를 목 아래 104 에서 끊는다)
+  let clem = '';
+  if (window.Portrait) {
+    const sp = D.speaker('sp_clemen'), h = A.head, s = h.w / 64;
+    const x = h.cx - 60 * s, y = h.chin - 88 * s;
+    // ⚠️ 정규식 «안»에 따옴표를 쓰지 않는다 — checkglobals 의 문자열 훑기가 그 따옴표에서 어긋나
+    //    파일 끝까지 지역 이름을 «최상위»로 읽었다 (66건을 헛짚었다). 그냥 글자로 갈아 끼운다
+    const face = mood => Portrait.bust(sp, mood, { bare: true })
+      // ⚠️ `class="pt-svg"` 를 떼야 한다 — 남기면 초상화 CSS(폭 100%)가 먹어 머리가 상자만 해진다
+      .replace('<svg class="pt-svg', `<svg x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(120 * s).toFixed(1)}" height="${(104 * s).toFixed(1)}" data-pt="`)
+      .replace('viewBox="0 0 120 130"', 'viewBox="0 0 120 104" overflow="hidden"');
+    clem = `<g class="ml-clem"><g class="ml-def">${face('def')}</g><g class="ml-smile">${face('smile')}</g></g>`;
+  }
+  return `<svg class="ml-svg" viewBox="${A.vb.join(' ')}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escHtml(T('meal_alt'))}">
+    ${body}${clem}${lids}${steam}</svg>`;
+}
+function playMealScene(then) {
+  const box = document.getElementById('mealScene');
+  if (!box) { then && then(); return; }
+  loadMealArt().then(A => {
+    clearTimeout(mealTimer);
+    mealDone = then || null;
+    const n = 1 + diaryHash('meal|' + dayKey()) % MEAL_LINES;
+    box.innerHTML = `<div class="ml-card">${mealSceneSvg(A)}</div>
+      <div class="ml-say"><b>${escHtml(speakerName('sp_clemen'))}</b> ${escHtml(T('meal_line_' + n))}</div>`;
+    box.hidden = false;
+    // 다음 프레임에 켠다 — 처음부터 켜 두면 「서서히 나타나기」가 안 돈다
+    requestAnimationFrame(() => box.classList.add('on'));
+    mealTimer = setTimeout(endMealScene, MEAL_MS);
+  }).catch(() => { then && then(); });
+}
+function endMealScene() {
+  const box = document.getElementById('mealScene');
+  clearTimeout(mealTimer);
+  if (box && !box.hidden) {
+    box.classList.remove('on');
+    setTimeout(() => { box.hidden = true; box.innerHTML = ''; }, 260);
+  }
+  const f = mealDone; mealDone = null;
+  if (f) f();
+}
+const MEAL_LINES = 3;
+window.playMealScene = playMealScene;
+window.endMealScene = endMealScene;
 
 // ═══════════════════════════════════════════════════════════════
 //  키워드 대화 — 한 사람에게 들은 것을 다른 사람에게 가져간다
