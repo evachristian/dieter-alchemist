@@ -5877,6 +5877,23 @@ window.addEventListener('resize', () => {
 });
 window.addEventListener('room3d-ready', () => { if (currentTab === 'showcase') renderRoomScene(); });
 
+// ⚠️⚠️ **방을 얼마나 올리는지(`roomRise`)는 헤더·제목 줄이 «자리를 잡은 뒤»에 다시 잰다.**
+//    첫 그리기 때는 헤더 알약·제목 줄이 아직 최종 높이가 아니라 60 을 재고(390px · 맞는 값 79)
+//    그 뒤로 다시 잴 계기가 없어서, **화면 꼭대기에 19px 짜리 맨 바탕 띠**가 남았다
+//    (「3D 배경이 위에서부터 조금 잘린다」로 신고받았다 · 탭을 한 번 다녀오면 낫는 종류다).
+//    두 상자의 크기가 바뀔 때만 다시 재고, **값이 달라졌을 때만** 방을 다시 앉힌다
+function watchRoomRise() {
+  if (!window.ResizeObserver) return;
+  const ro = new ResizeObserver(() => {
+    if (currentTab !== 'showcase') return;
+    const c = document.querySelector('.room-canvas');
+    if (!c || c.style.getPropertyValue('--room-rise') === roomRise() + 'px') return;
+    renderRoomScene(); placePet(); placePetY();
+  });
+  ['.app-header', '.room-head'].forEach(sel => { const e = document.querySelector(sel); if (e) ro.observe(e); });
+}
+watchRoomRise();
+
 // ── 마이 룸의 헤더는 «방 그림이 그 자리를 덮고 있는 동안» 비어 있다 ──────
 //
 // ⚠️⚠️ **켜는 것이 아니라 «되돌리는» 쪽을 JS 가 맡는다.** 기본(클래스 없음)이
