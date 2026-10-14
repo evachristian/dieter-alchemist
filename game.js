@@ -7368,14 +7368,19 @@ function renderSoloActs() {
     aria-label="${escHtml(T('act_decor'))}">
     <span class="act-ic" aria-hidden="true">🪄</span>
   </button>`;
-  // 📬 우편함 — **방꾸 위**(맨 앞)다 (사람이 정했다). 까마귀가 내려앉는 공방 창턱과 같은 화면이다.
+  // 📬 우편함은 이 줄이 아니라 **제목 줄 오른쪽 끝**(`#mailBtn` · 옛 초기화 자리)이다.
+  //    ⚠️ 여기에 쌓았더니 줄이 길어져 크리처 설 자리가 줄었다 — 265px 에서 공중 크리처가
+  //    85% 가려지고 390px 땅 크리처가 62 → 49px 이 됐다 (checkroom 「크리처 가림」).
   //    점은 «받을 것이 있을 때만»이다 (MAIL.md 2-5) · 졸업하면 바로 선다
-  const mailBtn = !S.tutorialDone ? '' : `<button class="room-act" data-slot="mail" onclick="openMailSheet()"
-    aria-label="${escHtml(T('mail_title'))}">
-    <span class="act-ic" aria-hidden="true">📬</span>
-    ${mailNew() ? '<span class="tab-dot act-dot"></span>' : ''}
-  </button>`;
-  box.innerHTML = !S.tutorialDone ? '' : mailBtn + decorBtn + soloSlots().filter(m => actOpen(m.slot)).map(m => {
+  const mb = document.getElementById('mailBtn');
+  if (mb) {
+    mb.hidden = !S.tutorialDone;
+    mb.setAttribute('aria-label', T('mail_title')); mb.title = T('mail_title');
+    const dot = mb.querySelector('.tab-dot'), on = S.tutorialDone && mailNew();
+    if (on && !dot) mb.insertAdjacentHTML('beforeend', '<span class="tab-dot"></span>');
+    if (!on && dot) dot.remove();
+  }
+  box.innerHTML = !S.tutorialDone ? '' : decorBtn + soloSlots().filter(m => actOpen(m.slot)).map(m => {
     // ⚠️ 그림은 **«지금 걸려 있는 것»**이다 — 표에 박힌 그림이 아니다.
     // 그래야 버튼이 「무엇을 고르는 자리인가」(라벨)와 「지금 무엇인가」(그림)를
     // 같이 말한다 (「표정 이모지를 현재 아바타의 표정이 나오도록」으로 받은 자리다).
@@ -8166,6 +8171,8 @@ function renderRoomDevTail() {
       // 방의 하늘 다섯을 보려면 **경계로 데려가는** 버튼이 따로 있어야 한다
       devAct(T('dev_skip_phase'), 'devSkipPhase()'),
       devAct(T('dev_mail_skip'), 'devMailDay(1)'),
+      // 게임 초기화 — 예전에는 방 제목 줄의 ↺ 였는데 그 자리를 📬 우편함에 내줬다
+      devAct(T('dev_reset_game'), 'askResetGame()'),
       // 「창문 하나만 있는 방」은 새 플레이어가 처음 보는 화면인데, 단계가 오르면
       // 선물이 **저절로 놓여서** 한 번 지나가면 다시 볼 길이 없었다
       devAct(T('dev_decor_off'), 'devClearDecor()'),

@@ -4951,3 +4951,9 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
   font-family: inherit; font-size: 0.9rem; color: var(--ink); background: var(--cream);
   border: 2px solid var(--glass-line); border-radius: 10px; padding: 6px 8px;
 }
+
+/* 📬 우편함 버튼 — 옛 초기화(↺) 자리라 `.icon-btn` 꼴을 그대로 쓴다.
+   ⚠️ 누를 때 «돌리기»는 ↺ 화살표의 몸짓이라 봉투에는 안 맞는다 — 눌림만 남긴다.
+   ⚠️ 점(.tab-dot)이 우상단에 얹히려면 자리를 가져야 한다 (레드닷 공통 규칙) */
+#mailBtn { position: relative; overflow: visible; }
+#mailBtn:active { transform: scale(0.9); }

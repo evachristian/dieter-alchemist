@@ -200,11 +200,11 @@ node tools/checktut.js                           # 튜토리얼을 끝까지 눌
 ### 우편 (2026-10-14) — `MAIL.md` 맨 위 «구현에서 정한 것»
 
 - 서버 `server/mail.js` 가 매일 KST 05:00 에 배달한다 (출석 · 엄마의 편지 · 부재 편지 · NPC 편지 · 시스템 우편).
-  마이 룸 왼쪽 줄 맨 위 📬 → `#mailSheet`. 생일은 이름 짓기에서 묻는다.
+  마이 룸 제목 줄 오른쪽 끝 📬(옛 ↺ 자리 · 초기화는 개발용 패널로) → `#mailSheet`. 생일은 이름 짓기에서 묻는다.
 - 개발용 패널 「우편 하루 넘기기」(`devMailDay`) — 서버 시계만 옮긴다 (`DEV_TOOLS` 일 때).
 - **안 만든 것** — 리그 정산 우편 · 창가 까마귀 연출 · 깜짝 편지.
-- **안 돌린 긴 검사** — `FULL=1 node tools/checkui.js showcase` 전체 · `test:room`(왼쪽 줄이 넷이 됐다 ·
-  「크리처 가림」이 볼 자리) · `test:save`. 우편 시트는 `checkUI()` 1배 0건(ko/en · 에크루/챠콜)이고,
+- `test:room` 「크리처 가림」 0px² (우편 전과 같은 크기) · 남은 1건(480px 샹들리에 빛)은 우편 전에도 난다.
+- **안 돌린 긴 검사** — `FULL=1 node tools/checkui.js showcase` 전체 · `test:save`. 우편 시트는 `checkUI()` 1배 0건(ko/en · 에크루/챠콜)이고,
   2배 라벨의 `div.room-head` 넘침은 HEAD 에도 있던 것이다.
 
 - **셋 (2026-10-12 · 다섯째)**

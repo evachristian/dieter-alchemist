@@ -304,6 +304,7 @@
       dev_phase_done: '🌇 시간대 → {p} (KST {h}시)',
       sky_dawn: '새벽', sky_day: '낮', sky_dusk: '노을', sky_evening: '초저녁', sky_night: '밤',
       dev_decor_off: '🧹 꾸미기 해제',
+      dev_reset_game: '↺ 게임 초기화',
       // ─── 📬 우편 (MAIL.md · 서버가 보낸다) ───
       mail_title: "우편함",
       mail_tab_box: "받은 우편 {n}",
@@ -1971,6 +1972,7 @@
       dev_phase_done: '🌇 Time of day → {p} (KST {h}:00)',
       sky_dawn: 'Dawn', sky_day: 'Day', sky_dusk: 'Sunset', sky_evening: 'Evening', sky_night: 'Night',
       dev_decor_off: '🧹 Undecorate',
+      dev_reset_game: '↺ Reset game',
       // ─── 📬 Mail ───
       mail_title: "Mailbox",
       mail_tab_box: "Inbox {n}",
