@@ -1046,7 +1046,7 @@ const near = (p, hex, tol) => {
           q.vb = vb ? vb[1].split(/[\s,]+/).map(Number) : null;
           q.durs = [...new Set((r.text.match(/dur="[^"]*"/g) || []))];
           q.anims = (r.text.match(/<animate/g) || []).length;
-          // 정지 그림과 시그니처를 **나란히 같은 크기로** 세워 한 바퀴(14초)를 훑는다.
+          // 정지 그림과 시그니처를 **나란히 같은 크기로** 세워 한 바퀴(파일의 dur)를 훑는다.
           // ⚠️ `<image>` 속 움직임은 멈출 수 없어서(그림 문서 «안»의 시계다) 시각을 못
           //    박는다 — 대신 칠한 상자의 **제일 흔한 값**(= 쉬는 자세)을 정지 그림과 견준다.
           //    쉬는 몫이 한 바퀴의 3분의 2 라 그것이 곧 쉬는 자세다
@@ -1111,7 +1111,13 @@ const near = (p, hex, tol) => {
           };
           let still = null;
           const t0 = Date.now();
-          while (Date.now() - t0 < 14500) {
+          // ⚠️⚠️ **한 바퀴를 «통째로» 훑는다 — 창을 14.5초로 박으면 그보다 긴 바퀴에서 헛짚는다.**
+          //    보라 볏 괭이를 18초로 구웠더니 창이 움직이는 구간을 더 많이 담아 «제일 흔한 상자»가
+          //    쉬는 자세가 아니라 움직이는 자세로 잡혔다 (쉬는 몫 44% · 정지 그림과 6px).
+          //    바퀴 길이는 파일의 `dur` 에서 읽는다 (사본을 안 만든다)
+          const loopS = q.durs.length === 1 ? parseFloat(q.durs[0].slice(5)) : 14;
+          const winMs = Math.max(14500, (loopS + 0.5) * 1000);
+          while (Date.now() - t0 < winMs) {
             const img = decode(await p2.screenshot());
             still = ink(img, 0, 260);
             const k = ink(img, 260, 520).join(',');
@@ -1157,7 +1163,7 @@ const near = (p, hex, tol) => {
       }
       if (q.restShare < 0.45) {
         bad.push(`시그니처: ${q.id} 가 한 바퀴의 ${(q.restShare * 100).toFixed(0)}% 만 쉰다`
-          + ` — 쉬는 자세를 못 찾았다 (14초에 6.2초 움직이면 절반 넘게 쉬어야 한다)`);
+          + ` — 쉬는 자세를 못 찾았다 (한 바퀴의 절반 넘게 쉬어야 한다 · 모자라면 gensig 로 더 길게 굽는다)`);
       }
       if (q.shapes < 3) bad.push(`시그니처: ${q.id} 가 한 바퀴 동안 모양이 ${q.shapes}가지뿐이다 — 안 움직인다`);
     });

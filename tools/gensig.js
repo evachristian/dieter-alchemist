@@ -26,7 +26,15 @@
 //    브라우저가 필요하다. 구운 뒤 `node tools/sigvb.js <파일>` 로 재서 `creature.js` 의 `SIGNATURE` 에 넣는다
 'use strict';
 const fs = require('fs');
-const [src, out, newArg] = process.argv.slice(2);
+const args = process.argv.slice(2);
+// ⑤ `--hold-color` — 색(fill·stroke)이 «하얀 데서 시작해 물들었다가 다시 하얘지는» 그림
+//    (29 보라 볏 괭이)은 그대로 늘리면 **쉬는 10초 내내 하얀 고양이**가 선다 — 받은 정지 그림도
+//    움직임 줄이기 사본(`.still`)도 보라색인데. 그래서 이 표시가 있으면 색만:
+//    · 쉬는 자세 = 하얘지기 «직전»의 물든 색 (끝의 하얀 칸을 그 색으로 바꾼다)
+//    · 움직임이 시작될 때 0.4초에 걸쳐 하얘졌다가 받은 그대로 물든다 (맨 앞 칸을 물든 색으로)
+//    ⚠️ 모양(d·transform)·불투명도는 한 글자도 안 바꾼다 — 바꾸는 것은 «처음과 끝의 색 한 칸씩»이다
+const HOLD_COLOR = args.includes('--hold-color');
+const [src, out, newArg] = args.filter(a => !a.startsWith('--'));
 if (!src || !out) { console.error('쓰는 법: node tools/gensig.js <받은 파일> <내보낼 파일> [한 바퀴 초 · 기본 16]'); process.exit(2); }
 // ⚠️ 받은 움직임이 길면 한 바퀴도 늘린다 — 숯불 말랑이(9.4초)는 16초로 구우면 6초밖에 안 쉬어
 //    `checkcreature` 의 「쉬는 구간 8초 이상」에 걸린다. 그래서 20초로 굽는다
@@ -45,7 +53,7 @@ s = s.slice(0, still) + '</svg>';
 s = s.replace('<g class="moving">', '<g>');
 
 // ② · ① — 애니메이션마다 keyTimes/values 를 한 벌로 다룬다
-let dropped = 0, anims = 0;
+let dropped = 0, anims = 0, held = 0;
 s = s.replace(/<(animate|animateTransform)\b([^>]*?)\/>/g, (m, tag, body) => {
   const kt = /keyTimes="([^"]*)"/.exec(body), vs = /values="([^"]*)"/.exec(body);
   if (!kt || !vs) throw new Error('keyTimes/values 가 없는 애니메이션이 있다');
@@ -57,6 +65,13 @@ s = s.replace(/<(animate|animateTransform)\b([^>]*?)\/>/g, (m, tag, body) => {
   dropped += keep.filter(k => !k).length;
   K = K.filter((_, i) => keep[i]); V = V.filter((_, i) => keep[i]);
   K = K.map(k => +(k * OLD / NEW).toFixed(6));
+  if (HOLD_COLOR && /attributeName="(fill|stroke)"/.test(body) && V.length >= 3 && V[V.length - 1] !== V[V.length - 2]) {
+    const hold = V[V.length - 2], t04 = +(0.4 / NEW).toFixed(6);
+    V[V.length - 1] = hold;
+    if (K[1] > t04) { K.splice(1, 0, t04); V.splice(1, 0, V[0]); V[0] = hold; }
+    else V[0] = hold;
+    held++;
+  }
   K.push(1); V.push(V[V.length - 1]);
   anims++;
   return `<${tag}` + body
@@ -71,4 +86,4 @@ s = s.replace(/ d="([^"]*)"/g, (m, d) => ` d="${round(d)}"`);
 s = s.replace(/(<animate attributeName="d"[^>]*values=")([^"]*)"/g, (m, a, v) => a + round(v) + '"');
 
 fs.writeFileSync(out, s);
-console.log(`애니메이션 ${anims}개 · 뺀 프레임 ${dropped}칸 · ${(fs.statSync(src).size / 1048576).toFixed(2)}MB → ${(s.length / 1048576).toFixed(2)}MB`);
+console.log(`애니메이션 ${anims}개 · 뺀 프레임 ${dropped}칸${HOLD_COLOR ? ` · 색을 붙든 것 ${held}개` : ''} · ${(fs.statSync(src).size / 1048576).toFixed(2)}MB → ${(s.length / 1048576).toFixed(2)}MB`);
