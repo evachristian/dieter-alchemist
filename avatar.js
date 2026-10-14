@@ -3447,6 +3447,12 @@
     }
   }
 
+  // 동물 귀의 «귀 속» 색 (earart.js 의 그 색 그대로) — 물들일 때 이 색만 «옅게 푼 물들인 색»이 된다.
+  // ⚠️ 여우의 흰 털(#f4e9e3)은 안 넣는다 — 그건 «흰 털»이라 물들이면 여우가 아니게 된다.
+  // ⚠️ earart.js 는 생성 파일이라(tools/genears.py) 표를 거기 두지 않는다
+  const EAR_INNER = { rabbit: '#fae0c5', cat: '#f8b8c8', bear: '#eecca4' };
+  const EAR_INNER_PALE = 0.62;   // 흰색 쪽으로 섞는 몫 — 넷을 그려 놓고 골랐다
+
   // 서클렛 = 머리띠(band) × 가운데 장식(orn)
   function renderCirclet(it) {
     if (isNone(it)) return '';
@@ -3461,9 +3467,15 @@
       // 털과 같은 거리를 지켜 그림의 결이 남는다. 안 물들였으면 한 글자도 안 바뀐다
       if (!c || c.toLowerCase() === art.base) return art.svg;
       const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+      const hex = a => '#' + a.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
       const d = rgb(c).map((v, i) => v - rgb(art.base)[i]);
+      // ⚠️⚠️ **귀 속은 «같이 옮기지» 않는다 — 물들인 색을 «옅게» 푼 색이다** (`EAR_INNER`).
+      //    같은 거리만큼 옮기면 밝은 색(분홍·살구)으로 물들일 때 귀 속이 흰색 쪽에서 잘려
+      //    **겉과 거의 같은 색**이 되어 귀 모양이 안 보였다 (신고받았다 · 토끼).
+      //    같은 색조를 흰색 쪽으로 섞으면 어느 색으로 물들여도 «더 밝고 옅은» 속이 남는다
+      const inner = EAR_INNER[orn], pale = hex(rgb(c).map(v => v + (255 - v) * EAR_INNER_PALE));
       return art.svg.replace(/fill="(#[0-9a-f]{6})"/g, (_, f) =>
-        'fill="#' + rgb(f).map((v, i) => Math.max(0, Math.min(255, v + d[i])).toString(16).padStart(2, '0')).join('') + '"');
+        'fill="' + (f === inner ? pale : hex(rgb(f).map((v, i) => v + d[i]))) + '"');
     }
     if (band === 'crown') {            // 왕관 톱니
       s = `<path d="M72,55 L82,43 L91,52 L100,38 L109,52 L118,43 L128,55 Z"
@@ -3577,6 +3589,20 @@
   //    새겨지는 문신은 고른 색이다. 눈썹에서 정한 그대로 **그리는 함수를 그대로 써서**
   //    작게 보여 준다. ⚠️ 색은 **벌마다 제 색**이다(머리와 같다 · 눈썹과 다르다) —
   //    넷이 애초에 서로 다른 색을 갖고 있어서, 염색한 벌만 그 색으로 바뀐다
+  // 서클렛 칸의 그림 — 이모지 대신 **그 서클렛을 그대로 그려서** 보여 준다 (머리·눈썹·문신과 같은 규칙).
+  // 아바타와 같은 `renderCirclet` 을 쓰므로 모양을 고치면 칸도 같이 바뀌고, 염색한 색도 따라온다.
+  // 옅은 머리통(정수리)을 깔아 «머리에 얹는 것»으로 읽히게 한다.
+  // ⚠️ 동물 귀는 머리 위로 높이 솟아서(토끼 y−13) 상자를 따로 잡는다 — 띠의 상자로는 귀가 잘린다
+  function circletIcon(it, color) {
+    const at = Object.assign({}, it, color ? { color } : {});
+    const ears = (it.band === 'ears');
+    const box = ears ? '30 -16 140 92' : '64 32 72 34';
+    return `<svg class="circlet-icon${ears ? ' ears' : ''}" viewBox="${box}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <ellipse cx="100" cy="78" rx="30" ry="34" fill="#f1e4dc"/>
+      ${renderCirclet(at)}
+    </svg>`;
+  }
+
   function tattooIcon(it, color) {
     if (isNone(it)) return '';
     return `<svg class="tattoo-icon" viewBox="-9 -9 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">`
@@ -4474,7 +4500,7 @@
   }
   window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, skyHour, SKY_BANDS, SKY_LIGHT,
     LAMP_NIGHT, lampGainOf,
-    hairIcon, browIcon, browColorOf, tattooIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
+    hairIcon, browIcon, browColorOf, tattooIcon, circletIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
     heartPath, heartEye, HEART,
     partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT, FLOOR_HALF, floorMark,

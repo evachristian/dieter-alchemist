@@ -6783,6 +6783,11 @@ function wardrobeGrid(slot) {
     else if (slot === 'tattoo' && window.Avatar && Avatar.tattooIcon) {
       ic = Avatar.tattooIcon(it, itemHex(it));
     }
+    // 서클렛도 **그려서** 보여 준다 — 서른 벌을 이모지 몇 개로 나누면 칸이 같은 그림투성이고,
+    // 염색한 색도 안 보인다. 아바타와 같은 `renderCirclet` 이다
+    else if (slot === 'circlet' && window.Avatar && Avatar.circletIcon) {
+      ic = Avatar.circletIcon(it, itemHex(it));
+    }
     else if (it.emoji) ic = it.emoji;
     // **각자 자기 색으로** 보여 준다. 염색이 옷에 붙으므로 칸마다 색이 다르고,
     // 그래서 목록 전체가 같은 색이 되는 일이 없다 (예전에는 칸에 붙어 있어서

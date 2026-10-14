@@ -2789,6 +2789,9 @@ button.tm-slot:active { transform: scale(0.94); }
 .brow-icon { width: 40px; height: auto; display: block; }
 /* 문신 칸의 그림. 상자가 정사각(18×18)이라 머리처럼 **폭으로** 맞춘다 */
 .tattoo-icon { width: 30px; height: auto; display: block; }
+/* 서클렛 칸 — 띠는 가로로 긴 상자(72×34)라 폭으로, 귀는 높이로 맞춘다 (둘 다 칸 안에 든다) */
+.circlet-icon { width: 56px; height: auto; display: block; }
+.circlet-icon.ears { width: auto; height: 38px; }
 .wr-swatch { width: 22px; height: 22px; border-radius: 7px; display: inline-block; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06); }
 /* ─── 헤어 — 전체 실루엣 × 앞머리 ───────────────────────────
    30벌을 한 줄에 늘어놓는 대신 6 + 5 칸으로 나눈다. 칸이 11개뿐이라
