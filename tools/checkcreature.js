@@ -966,19 +966,23 @@ const near = (p, hex, tol) => {
         //    위의 ①만으로는 한 줄도 안 걸린다 (가르지 못하는 잣대다).
         //    그래서 **크리처 상자 위쪽 띠**에서 달라지는 칸을 따로 센다
         const BOX_TOP = 30;   // 판(20,20) 안에서 크리처가 50px 아래에 선다 → 그 위 30px 띠
+        //    ⚠️⚠️ **«한 쌍»의 최댓값이 아니라 «한 번이라도 달라진 칸»을 모은다** (2026-10-14).
+        //    한 쌍만 보면 샘플(≈0.5초)이 제일 크게 기운 순간을 맞히느냐에 따라 같은 마리가
+        //    35 ↔ 40 ↔ 102칸으로 널뛰어 문턱(40)에 붙은 🌑 심연 뚱펭귄이 판마다 갈렸다.
+        //    모으면 4초 동안 지나간 자리가 다 들어와 박자에 안 흔들리고, 잘리면 여전히 0 이다
         const moved = [];
-        let outCells = 0;
+        const outSeen = new Set();
         for (let i = 1; i < fr.length; i++) {
-          let n = 0, out = 0;
+          let n = 0;
           for (let j = 0; j < fr[0].l.length; j++) {
             if (Math.abs(fr[i - 1].l[j] - fr[i].l[j]) > 0.03) {
               n++;
-              if (Math.floor(j / fr[0].w) < BOX_TOP) out++;
+              if (Math.floor(j / fr[0].w) < BOX_TOP) outSeen.add(j);
             }
           }
-          outCells = Math.max(outCells, out);
           moved.push({ dt: (ts[i] - ts[i - 1]) / 1000, m: n > MOVE_CELLS });
         }
+        const outCells = outSeen.size;
         const nMove = moved.filter(x => x.m).reduce((a, x) => a + x.dt, 0);
         let run = 0, rest = 0;
         moved.forEach(x => { run = x.m ? 0 : run + x.dt; rest = Math.max(rest, run); });
