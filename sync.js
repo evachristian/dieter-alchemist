@@ -341,6 +341,27 @@
   // `create` 가 참일 때만 서버가 없는 밭을 **만든다.** ⚠️ 부팅의 조회는 만들지 않는다 —
   // 예전에는 조회만으로 밭이 생겨서, 밭 화면을 한 번도 안 연 사람도 목록에 올라
   // 털릴 수 있었다 (외부 비평 1.7). 밭이 없으면 `{ ok, none: true }` 가 온다
+  // ─── 우편 — 서버가 정본이다 (MAIL.md 2-6 · 2-7) ─────────────
+  //  밭과 같은 모양이다: 못 닿으면 `{ status: 0 }` 이고 게임은 그대로 돈다
+  async function mailGet() {
+    if (!enabled()) return { status: 0, body: null };
+    try { return await api('GET', `/api/mail/${me.playerId}`); } catch (e) { return { status: 0, body: null }; }
+  }
+  async function mailClaim(ids, n) {
+    if (!enabled()) return { status: 0, body: null };
+    try { return await api('POST', `/api/mail/${me.playerId}/claim`, { body: { secret: me.secret, nonce: n, ids } }); }
+    catch (e) { return { status: 0, body: null }; }
+  }
+  async function mailAck(nonces) {
+    if (!enabled()) return { status: 0, body: null };
+    try { return await api('POST', `/api/mail/${me.playerId}/ack`, { body: { secret: me.secret, nonces } }); }
+    catch (e) { return { status: 0, body: null }; }
+  }
+  async function mailDev(opts) {
+    if (!enabled()) return { status: 0, body: null };
+    try { return await api('POST', `/api/mail/${me.playerId}/dev`, { body: Object.assign({ secret: me.secret }, opts || {}) }); }
+    catch (e) { return { status: 0, body: null }; }
+  }
   async function farmGet(create) {
     if (!enabled()) return { status: 0, body: null };
     try {
@@ -431,6 +452,7 @@
   window.Sync = {
     push, pushNow, pull, flushNow, wipe, forget, code, useCode, peek, claimName,
     nonce, farmGet, harvest, plant, addPlot, raidTargets, raid, farmDev, freeRaids,
+    mailGet, mailClaim, mailAck, mailDev,
     get status() { return status; },
     get playerId() { return me.playerId; },
     enabled,

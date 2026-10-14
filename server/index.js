@@ -12,6 +12,7 @@ const path = require('path');
 const fs = require('fs');
 const { createStore } = require('./store');
 const B = require('./battle');
+const M = require('./mail');
 
 const app = express();
 const store = createStore();
@@ -662,11 +663,105 @@ app.post('/api/raid/:playerId', async (req, res) => {
   }
 });
 
-app.use('/api/', (req, res) => res.status(404).json({ error: 'not_found' }));
 
 // ─── 게임 파일 서빙 ───
 // server/ 의 한 단계 위가 게임 폴더다.
 const GAME_DIR = path.join(__dirname, '..');
+
+// ═══════════════════════════════════════════════════════════════
+//  우편 — 서버가 정본이다 (MAIL.md 2-6 · 2-7 · server/mail.js)
+//
+//  · 기기 시계는 상관없다. 「우편일」은 서버 시각을 KST 로 옮겨 05:00 에 넘어간다
+//  · `PUT /api/save` 는 우편을 안 건드린다 — 저장소 셋이 `mail` 을 옮겨 담는다
+//  · 판정(호감도·매력·본 컷씬·졸업)은 **저장된 세이브**에서 읽는다
+//  · 받기는 `nonce` 로 멱등이다 — 응답을 잃고 다시 와도 같은 선물 목록을 돌려준다
+// ═══════════════════════════════════════════════════════════════
+// 시계 — 검사가 서버 시각을 옮길 수 있게 한 곳에서 읽는다 (`MAIL_NOW_SHIFT_MS` 는 검사용)
+const mailNow = () => Date.now() + (Number(process.env.MAIL_NOW_SHIFT_MS) || 0);
+
+async function withMail(res, playerId, fn) {
+  const out = await store.transact([playerId], async tx => {
+    const row = await tx.get(playerId);
+    return fn(tx, row);
+  });
+  res.status(out.status || 200).json(out.body);
+}
+
+//  GET /api/mail/:playerId     내 우편함 (그동안 배달됐어야 할 것을 꺼내 적고 돌려준다)
+app.get('/api/mail/:playerId', async (req, res) => {
+  try {
+    const me = await authRow(req, res, req.params.playerId, secretOf(req));
+    if (!me) return;
+    await withMail(res, me.playerId, async (tx, row) => {
+      const { rec, changed, today } = M.deliver(row.mail, row.state || {}, row.playerId, mailNow());
+      if (changed) await tx.mailSet(row.playerId, rec);
+      return { body: Object.assign({ ok: true }, M.view(rec, today)) };
+    });
+  } catch (e) {
+    console.error('[GET /api/mail]', e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+//  POST /api/mail/:playerId/claim   { secret, nonce, ids }   받기
+app.post('/api/mail/:playerId/claim', async (req, res) => {
+  const { secret, nonce, ids } = req.body || {};
+  if (!NONCE_RE.test(String(nonce || ''))) return res.status(400).json({ error: 'bad_nonce' });
+  if (!Array.isArray(ids) || ids.length > 200) return res.status(400).json({ error: 'bad_ids' });
+  try {
+    const me = await authRow(req, res, req.params.playerId, secret);
+    if (!me) return;
+    await withMail(res, me.playerId, async (tx, row) => {
+      const { rec, out, changed } = M.claim(row.mail, ids, nonce);
+      if (changed) await tx.mailSet(row.playerId, rec);
+      return { body: Object.assign({ ok: true }, out) };
+    });
+  } catch (e) {
+    console.error('[POST /api/mail/claim]', e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+//  POST /api/mail/:playerId/ack   { secret, nonces }   자동으로 받아 둔 것을 넣었다
+app.post('/api/mail/:playerId/ack', async (req, res) => {
+  const { secret, nonces } = req.body || {};
+  if (!Array.isArray(nonces) || nonces.length > 200) return res.status(400).json({ error: 'bad_nonces' });
+  try {
+    const me = await authRow(req, res, req.params.playerId, secret);
+    if (!me) return;
+    await withMail(res, me.playerId, async (tx, row) => {
+      const { rec, changed } = M.ack(row.mail, nonces);
+      if (changed) await tx.mailSet(row.playerId, rec);
+      return { body: { ok: true } };
+    });
+  } catch (e) {
+    console.error('[POST /api/mail/ack]', e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+//  POST /api/mail/:playerId/dev   { secret, days | reset }   ⚠️ 개발용 — 그 사람의 우편 시계를 옮긴다
+//  (기기 시계는 우편에 닿지 않으므로 «하루가 지나갔다고 치기»는 여기서 한다 · 잠금은 `DEV_TOOLS`)
+app.post('/api/mail/:playerId/dev', async (req, res) => {
+  if (!DEV_TOOLS) return res.status(404).json({ error: 'dev_off' });
+  const { secret, days, reset } = req.body || {};
+  try {
+    const me = await authRow(req, res, req.params.playerId, secret);
+    if (!me) return;
+    await withMail(res, me.playerId, async (tx, row) => {
+      let rec = M.norm(row.mail);
+      if (reset) rec = M.emptyMail();
+      else rec.shift = (rec.shift || 0) + Math.max(-400, Math.min(400, Number(days) || 0)) * M.DAY;
+      await tx.mailSet(row.playerId, rec);
+      return { body: { ok: true, shiftDays: rec.shift / M.DAY } };
+    });
+  } catch (e) {
+    console.error('[POST /api/mail/dev]', e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.use('/api/', (req, res) => res.status(404).json({ error: 'not_found' }));
 
 // 게임에 필요 없는 것은 내보내지 않는다.
 // (서버 소스·의존성·설정 파일이 그대로 열려 있을 이유가 없다)

@@ -2287,6 +2287,9 @@ function launchOpts() {
             ['slotSheet', `openSlotSheet('expression')`],
             ['slotSheet', `openSlotSheet('tattoo')`],
             ['decorSheet', `openDecorSheet('rug')`],
+            // 📬 우편함 — 서버가 없어도 재도록 값을 심어 연다 (목록 · 제일 긴 엄마 편지)
+            ['mailSheet', `MAIL = __mailMock(); openMailSheet()`],
+            ['mailSheet', `MAIL = __mailMock(); openMailSheet(); openMailItem('m_long')`],
             ['pageSheet', `openPage(D.RECIPES.slice().sort((a, b) =>
                 Object.keys(b.input || {}).length - Object.keys(a.input || {}).length)[0].result.id)`],
             ['diaryModal', `openDiary()`],
@@ -2359,6 +2362,7 @@ function launchOpts() {
             if (typeof closeNpcSheet === 'function') closeNpcSheet();
             S.potions = a.keep.potions; S.bond = a.keep.bond; S.miniLog = a.keep.miniLog;
             S.seenCuts = a.keep.seenCuts; S.roomActs = a.keep.roomActs;
+            if (typeof MAIL !== 'undefined') MAIL = null;   // 심어 둔 우편함을 걷는다
           }, { keep, lang0 });
           await page.setViewportSize(vp);
           await page.waitForTimeout(200);

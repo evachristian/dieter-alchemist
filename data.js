@@ -2293,7 +2293,11 @@ const BOND_GIVES = {
   guard: { kind: 'ap', v: [0, 1, 2, 3, 4], zones: ['waste', 'shore'] },
   // ⛏️ 보석 → 단계가 오를 때마다 **악세사리 한 벌**. 이것만 상시가 아니라 그때 한 번이다
   //    (그가 주는 것은 보석 자체가 아니라 그것으로 만든 물건이라서다)
-  gem:   { kind: 'wear', slots: [null, 'circlet', 'earring', 'necklace', 'circlet'] },
+  gem:   { kind: 'wear', slots: [null, 'circlet', 'earring', 'necklace', 'circlet'],
+           // ⚠️ **id 를 못 박는다** (MAIL.md 4-3). 예전에는 그 칸의 «첫 잠긴 것»을 줘서
+           //    보석 장인이 보석 없는 기본형을 주기도 했고, 무엇보다 우편 트랙과 같은 벌이
+           //    겹칠 수 있었다 — 「얻는 길은 꼭 하나」. 우편 트랙(server/mail.js)이 이 넷을 뺀다
+           ids: [null, 'circlet_arch_gem', 'earring_drop', 'necklace_pendant', 'circlet_tiara'] },
 };
 // 누가 그것을 담당하는가 (한 사람이 하나씩이다)
 function bondGiver(kind) {
@@ -2800,6 +2804,27 @@ const WARDROBE = {
   ],
 };
 
+// ─── 엄마의 물건 — 엄마의 편지로만 오는 열 벌 (MAIL.md 2-10 · 4-2) ──────────
+// 엄마가 «미리 써서 까마귀 택배회사에 맡겨 둔» 편지에 실려 오는 물건이다.
+// ⚠️ **다른 길로는 절대 안 나온다** — 상점·출석에서도 나오는 벌이면 「엄마가 준 것」이라는
+//    뜻이 사라진다. 그래서 `mom: true` 를 달고, 우편의 트랙(server/mail.js)이 이것을 거른다.
+// ⚠️ **생성기 축 «밖»의 단품**이라 GEN 구간에 안 넣고 여기서 칸 끝에 붙인다 — `genwardrobe
+//    --check` 는 GEN 구간만 보므로 안 깨진다. id 는 세이브에 들어가므로 **바꾸지 않는다.**
+// ⚠️ 그림은 지금 **있는 모양을 빌려** 쓴다(색·이름만 따로) — 전용 그림은 따로 그릴 일이다
+const MOM_WEAR = [
+  { id: 'mom_necklace_key', slot: 'necklace', kind: 'long', name: '엄마의 공방 열쇠', chain: 'long', pend: 'drop', color: '#c9a65a', emoji: '🗝️', mom: true },
+  { id: 'mom_dress_ball', slot: 'dress', kind: 'gown', name: '엄마의 첫 무도회 드레스', color: '#e8d6f0', hemY: 330, flare: 52, neck: 'square', sleeve: 'cap', puff: true, mom: true },
+  { id: 'mom_circlet_wildflower', slot: 'circlet', kind: 'chain', name: '엄마의 들꽃 화관', band: 'chain', orn: 'flower', color: '#f4c4d8', emoji: '🌼', mom: true },
+  { id: 'mom_necklace_star', slot: 'necklace', kind: 'short', name: '엄마의 별 펜던트', chain: 'short', pend: 'star', color: '#f2d27a', emoji: '⭐', mom: true },
+  { id: 'mom_glove_alchemy', slot: 'glove', kind: 'forearm', name: '엄마의 연금술 장갑', len: 0.38, finish: 'cuff', color: '#8a6e5a', emoji: '🧤', mom: true },
+  { id: 'mom_earring_pearl', slot: 'earring', kind: 'drop', name: '엄마의 진주 귀걸이', form: 'drop', charm: 'circle', color: '#f3eee6', emoji: '⚪', mom: true },
+  { id: 'mom_top_cardigan', slot: 'top', kind: 'cardigan', name: '엄마의 연구복 카디건', color: '#b9a2d6', sleeve: 'long', neck: 'v', button: true, mom: true },
+  { id: 'mom_shoes_walk', slot: 'shoes', kind: 'flat', name: '엄마의 산책 구두', rise: 0, finish: 'strap', color: '#7a5a48', emoji: '👞', mom: true },
+  { id: 'mom_circlet_pin', slot: 'circlet', kind: 'band', name: '엄마의 머리핀', band: 'band', orn: 'gem', color: '#d7c4ec', emoji: '💜', mom: true },
+  { id: 'exp_mom_smile', slot: 'expression', kind: 'warm', name: '엄마를 닮은 미소', emoji: '🥹', mom: true },
+];
+MOM_WEAR.forEach(it => { if (WARDROBE[it.slot]) WARDROBE[it.slot].push(it); });
+
 // ─── 옷 색 팔레트 ───────────────────────────────────────────────
 // 옷 하나를 60벌로 늘리는 대신 **색을 따로 고르게** 한다. 아이템 목록에 색만 다른
 // 옷이 60개 늘어서면 4열 그리드가 15줄이 되고 서로 구분도 안 된다.
@@ -3287,7 +3312,7 @@ window.GameData = {
   WARDROBE, WARDROBE_SLOTS, HAIR_AXES, DEFAULT_OUTFIT, ENERGY, RECIPE_CATS, RECIPE_GRADES,
   EXERCISES, EXERCISE_MINS, FOODS, FOOD_RATE, BINGE_FOODS,
   FEEDS, FEED_RATE, LOYALTY_MAX, LOYALTY_STEPS, loyaltyBonus,
-  COLORS, COLORABLE_SLOTS,
+  COLORS, COLORABLE_SLOTS, MOM_WEAR,
   LEAGUE, LEAGUE_FAMS, LEAGUE_STEPS, LEAGUES, league, NPC_HEAD, NPC_TAIL,
   CREATURE_ATTRS, creatureAttr, MAP_ATTRS, mapAttr,
   FIELD_TYPES, MAP_TYPES, mapType, fieldType, fieldMini,

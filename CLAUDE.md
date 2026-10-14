@@ -52,7 +52,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── DELIVERY.md            배달 — 「혼자 먹은 밤」의 야식 · 무엇으로 값을 치르는가 (**아직 안 만든 것**)
 ├── FARM.md                밭을 탐험의 세 번째 갈래로 키우는 기획 (**아직 안 만든 것**)
 ├── ROOM.md                방 꾸미기 — 자리 아홉에 소품을 놓는다 (만들었다 · 남은 것은 9장)
-├── MAIL.md                우편 — 출석·NPC 편지·시스템 우편 + 26주 보상표 (**아직 안 만든 것**)
+├── MAIL.md                우편 — 출석·NPC 편지·엄마의 편지·부재 편지 + 26주 보상표 (만들었다 · 맨 위 «구현에서 정한 것»)
 ├── QUEST.md               퀘스트·컷씬·스토리 다시보기 (1~4단계까지 만듦)
 ├── CREATURE.md            크리처 — 1~9단계 (녹이기·생산·밭과 약탈까지). 밸런싱·연출까지 끝
 ├── tools/hooks/           git 훅 — 세션마다 `git config core.hooksPath tools/hooks`
@@ -60,6 +60,8 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
     ├── index.js           API + 게임 정적 서빙
     ├── store.js           Postgres / 파일 / 메모리 3단 폴백
     ├── battle.js          밭·약탈 규칙 (9단계). data.js 를 **그대로 읽는다**
+    ├── mail.js            우편 — 서버가 정본 · 매일 KST 05:00 · 출석·엄마·부재·NPC·시스템 (MAIL.md)
+    ├── testmail.js        우편 검사 (npm test 가 돈다 · `npm run test:mailsrv`)
     ├── test.js            npm test
     └── README.md          Railway 배포 안내
 ```
@@ -405,6 +407,15 @@ id 중복을 본다.
 - **게임 초기화 시 서버 사본도 지운다.** 로컬만 지우면 다음 접속에 서버에서 되살아난다.
   지운 뒤에는 `wiped` 플래그로 이후 전송을 전부 막는다 — 지우는 순간 이미 날아가고 있던
   저장 요청이 나중에 도착해 세이브를 부활시킨 적이 있다
+
+### ⚠️ 우편도 서버가 정본이다 (`server/mail.js` · `MAIL.md`)
+
+밭과 같은 규칙이다 — `PUT /api/save` 는 우편함을 안 건드리고, 파일·메모리 저장소의
+`put()` 이 `mail` 을 옮겨 담는다 (**저장소 3곳**). 배달은 GET 할 때 «밀린 날»을 몰아서
+한다(`deliver`) · 하루는 **KST 05:00** 에 바뀐다 · 무작위는 `seed(pid, day, 용도)` 다
+(`Math.random` 금지 — 다시 물어도 같은 답이어야 한다). 받기는 `nonce` 로 멱등이고,
+클라이언트는 `S.mailApplied` 로 같은 선물을 두 번 안 넣는다. ⚠️ 잠긴 벌·색 298개는
+**길이 정확히 하나**다(`buildTracks` · `testmail` 이 본다) — 엄마의 물건은 엄마로만 온다.
 
 ### ⚠️ 밭만은 반대다 — 서버가 정본을 갖는다 (크리처 9단계)
 

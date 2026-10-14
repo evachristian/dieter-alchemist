@@ -113,6 +113,7 @@ function pgStore(url) {
         ALTER TABLE saves ADD COLUMN IF NOT EXISTS charm     INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE saves ADD COLUMN IF NOT EXISTS play_sec  INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE saves ADD COLUMN IF NOT EXISTS farm      JSONB;
+        ALTER TABLE saves ADD COLUMN IF NOT EXISTS mail      JSONB;
         CREATE UNIQUE INDEX IF NOT EXISTS saves_name_key_uniq ON saves (name_key);
         CREATE INDEX IF NOT EXISTS saves_charm_idx ON saves (charm DESC);
       `).catch(e => { ready = null; throw e; });
@@ -128,8 +129,9 @@ function pgStore(url) {
     savedAt: row.saved_at, state: row.state,
     name: row.name || null, charm: Number(row.charm) || 0, playSec: Number(row.play_sec) || 0,
     farm: row.farm || null,
+    mail: row.mail || null,
   });
-  const COLS = 'player_id, secret, rev, saved_at, state, name, charm, play_sec, farm';
+  const COLS = 'player_id, secret, rev, saved_at, state, name, charm, play_sec, farm, mail';
 
   return {
     kind: 'postgres',
@@ -222,6 +224,10 @@ function pgStore(url) {
             await client.query('UPDATE saves SET farm = $2 WHERE player_id = $1', [id, farm]);
             const row = rows.get(id); if (row) row.farm = farm;
           },
+          mailSet: async (id, mail) => {
+            await client.query('UPDATE saves SET mail = $2 WHERE player_id = $1', [id, mail]);
+            const row = rows.get(id); if (row) row.mail = mail;
+          },
         };
         const out = await fn(tx);
         await client.query('COMMIT');
@@ -256,6 +262,11 @@ function pgStore(url) {
     async farmSet(playerId, farm) {
       await ensure();
       await pool.query('UPDATE saves SET farm = $2 WHERE player_id = $1', [playerId, farm]);
+    },
+    // 우편함만 갈아 끼운다 — 밭과 같은 규칙 (서버가 정본 · MAIL.md 2-7)
+    async mailSet(playerId, mail) {
+      await ensure();
+      await pool.query('UPDATE saves SET mail = $2 WHERE player_id = $1', [playerId, mail]);
     },
     // 털러 갈 만한 남의 밭 — 이름이 있고 · 밭을 열어 둔 사람만.
     // **밭을 한 번도 안 연 사람은 목록에 안 나온다** — 기능이 있는 줄도 모르는 채로
@@ -312,7 +323,7 @@ function fileStore(dir) {
       const cur = readOne(playerId);
       writeOne(cur
         ? { ...cur, name }
-        : { playerId, secret, rev: 0, savedAt: new Date().toISOString(), state: {}, name, charm: 0, playSec: 0, farm: null });
+        : { playerId, secret, rev: 0, savedAt: new Date().toISOString(), state: {}, name, charm: 0, playSec: 0, farm: null, mail: null });
       return { ok: true };
     },
     // rev 검사와 쓰기 사이에 await 가 없다 — 그래서 끼어들 수 없다 (pg 는 WHERE 로 한다)
@@ -327,6 +338,7 @@ function fileStore(dir) {
         playerId, secret, rev, savedAt: new Date().toISOString(), state,
         name, charm: c.charm, playSec: c.playSec,
         farm: (cur && cur.farm) || null,      // 밭은 서버가 정본이다 — 옮겨 담는다
+        mail: (cur && cur.mail) || null,      // 우편도 서버가 정본이다 — 옮겨 담는다 (빠뜨리면 저장마다 우편함이 사라진다)
       });
       return true;
     },
@@ -335,12 +347,18 @@ function fileStore(dir) {
       if (!cur) return;
       writeOne({ ...cur, farm });
     },
+    async mailSet(playerId, mail) {
+      const cur = readOne(playerId);
+      if (!cur) return;
+      writeOne({ ...cur, mail });
+    },
     // 파일에는 잠금이 없다 — 거래를 **한 줄로 세워서**(`serial`) 겹치지 않게 한다.
     // `fn` 안의 await 사이에 다른 거래가 끼어들 수 없다
     async transact(ids, fn) {
       return serial(() => fn({
         get: async id => readOne(id),
         farmSet: async (id, farm) => { const cur = readOne(id); if (cur) writeOne({ ...cur, farm }); },
+        mailSet: async (id, mail) => { const cur = readOne(id); if (cur) writeOne({ ...cur, mail }); },
       }));
     },
     async peers(playerId, limit) {
@@ -384,7 +402,7 @@ function memStore() {
       const cur = m.get(playerId);
       m.set(playerId, cur
         ? { ...cur, name }
-        : { playerId, secret, rev: 0, savedAt: new Date().toISOString(), state: {}, name, charm: 0, playSec: 0, farm: null });
+        : { playerId, secret, rev: 0, savedAt: new Date().toISOString(), state: {}, name, charm: 0, playSec: 0, farm: null, mail: null });
       return { ok: true };
     },
     async put(playerId, secret, rev, state, meta) {
@@ -397,6 +415,7 @@ function memStore() {
         playerId, secret, rev, savedAt: new Date().toISOString(), state,
         name, charm: c.charm, playSec: c.playSec,
         farm: (cur && cur.farm) || null,      // 밭은 서버가 정본이다 — 옮겨 담는다
+        mail: (cur && cur.mail) || null,      // 우편도 서버가 정본이다 — 옮겨 담는다 (빠뜨리면 저장마다 우편함이 사라진다)
       });
       return true;
     },
@@ -404,10 +423,15 @@ function memStore() {
       const cur = m.get(playerId);
       if (cur) m.set(playerId, { ...cur, farm });
     },
+    async mailSet(playerId, mail) {
+      const cur = m.get(playerId);
+      if (cur) m.set(playerId, { ...cur, mail });
+    },
     async transact(ids, fn) {
       return serial(() => fn({
         get: async id => m.get(id) || null,
         farmSet: async (id, farm) => { const cur = m.get(id); if (cur) m.set(id, { ...cur, farm }); },
+        mailSet: async (id, mail) => { const cur = m.get(id); if (cur) m.set(id, { ...cur, mail }); },
       }));
     },
     async peers(playerId, limit) {

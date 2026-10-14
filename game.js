@@ -2120,8 +2120,9 @@ function bondReward(npc, tier) {
   // **난쟁이의 보석** — 단계마다 악세사리 한 벌 (STORY.md 「보석 → 악세사리」).
   // 다섯 중 이것만 상시 효과가 아니다: 그가 주는 것은 보석 «자체»가 아니라
   // 그것으로 만든 물건이라 한 번 받으면 그대로 남는다
-  const wear = b.give === 'gem' && D.BOND_GIVES.gem.slots[tier];
-  if (wear) unlockNextIn(wear);
+  // ⚠️ 그 칸의 «첫 잠긴 것»이 아니라 **못 박은 id** 다 (`BOND_GIVES.gem.ids` · MAIL.md 4-3)
+  const wid = b.give === 'gem' && (D.BOND_GIVES.gem.ids || [])[tier];
+  if (wid && !S.unlocked.includes(wid)) S.unlocked.push(wid);
   save();
   const what = b.ing.map(id => {
     const it = D.INGREDIENTS[id];
@@ -3422,6 +3423,7 @@ function switchTab(tab) {
   //    검사기가 재는 순간이 프레임마다 달라진다 (`checkroom` 이 그것을 잡았다)
   if (room3d) room3d.run(tab === 'showcase');
   closeDecorSheet();
+  closeMailSheet();
   // 랭킹은 '여신' 단계부터다. 잠긴 채로 들어오면(옛 세이브의 마지막 탭 등)
   // 빈 화면이 뜨므로 홈으로 돌린다
   if (tab === 'league' && !leagueOpen()) tab = 'showcase';
@@ -7082,6 +7084,269 @@ function closeDecorSheet() {
 window.openDecorSheet = openDecorSheet;
 window.closeDecorSheet = closeDecorSheet;
 
+// ═══════════════════════════════════════════════════════════════
+//  📬 우편함 — 까마귀 택배회사가 매일 05:00 (KST) 에 배달한다 (MAIL.md)
+//
+//  ⚠️⚠️ **우편은 서버가 정본이다** (MAIL.md 2-6 · 2-7). 여기는 «받아서 넣는» 쪽뿐이다 —
+//     무엇이 언제 오는지는 `server/mail.js` 가 서버 시계로 정한다. 기기 시계는 상관없다.
+//  ⚠️ **물건을 넣는 문은 `grantMailGifts()` 하나다** — 버튼으로 받든 · 응답을 잃어 되살려
+//     받든 · 상한을 넘어 자동으로 받든 같은 길을 지난다.
+//  ⚠️ **같은 선물을 두 번 넣지 않는다** — 넣은 받기 번호(nonce)를 세이브에 남긴다
+//     (`S.mailApplied` · 최근 50개 · 더하는 칸이라 SAVE_VER 를 안 올린다).
+// ═══════════════════════════════════════════════════════════════
+let MAIL = null;           // 서버가 준 것 { today, att, week, box, auto, letters }
+let mailErr = false;       // 서버에 못 닿았다 — 「까마귀가 길을 찾고 있어요」
+let mailBusy = false;
+let mailTab = 'box';       // 'box' 받은 우편 · 'album' 편지첩
+let mailOpenId = null;     // 열어 본 편지 id
+const MAIL_OP_KEY = 'dieter_alchemist_mailop_v1';
+const MAIL_ICON = { att: '📬', mom: '💐', npc: '💌', sys: '🏛️', away: '🕯️' };
+
+function mailBox() { return (MAIL && MAIL.box) || []; }
+function mailNew() { return mailBox().length; }
+function mailSheetOpen() { const m = document.getElementById('mailSheet'); return !!(m && m.classList.contains('show')); }
+
+// 받을 것을 서버에 물어본다 — 부팅 · 시트를 열 때 · 화면으로 돌아올 때
+async function refreshMail() {
+  if (!S.tutorialDone || !window.Sync || !Sync.enabled()) return;
+  if (MAIL && MAIL.mock) return;      // 검사가 심어 둔 값 — 서버 것으로 덮지 않는다
+  await mailRecover();
+  const r = await Sync.mailGet();
+  if (r && r.status === 404) {
+    // 세이브가 아직 서버에 없다(막 시작한 사람) — «못 닿은» 것이 아니다. 저장이 올라간 뒤 한 번 더 묻는다
+    mailErr = false;
+    // ⚠️ 세 번까지만 — 끝없이 묻지 않는다 (그다음은 시트를 열거나 화면으로 돌아올 때 묻는다)
+    refreshMail._n = (refreshMail._n || 0) + 1;
+    if (refreshMail._n <= 3) setTimeout(refreshMail, 6000);
+  } else if (!r || r.status !== 200 || !r.body || !r.body.ok) {
+    mailErr = true;
+  } else {
+    mailErr = false;
+    MAIL = r.body;
+    // 상한(60통)을 넘어 서버가 «대신 받아 둔» 것 — 넣고 알린다. 버리지 않는다 (MAIL.md 2-3)
+    const auto = MAIL.auto || [];
+    if (auto.length) {
+      auto.forEach(a => grantMailGifts(a.gifts || [], a.nonce));
+      save();
+      Sync.mailAck(auto.map(a => a.nonce));
+      MAIL.auto = [];
+      toast(T('mail_auto', { n: auto.length }), null, 3200);
+    }
+  }
+  renderActBadges();
+  if (mailSheetOpen()) renderMailSheet();
+}
+window.refreshMail = refreshMail;
+
+// 서버가 준 선물을 세이브에 넣는다. 이미 넣은 번호면 아무 일도 안 한다 (돌려주는 값: 넣은 것의 이름들)
+function grantMailGifts(gifts, nonce) {
+  if (!Array.isArray(S.mailApplied)) S.mailApplied = [];
+  if (nonce && S.mailApplied.includes(nonce)) return [];
+  const names = [];
+  (gifts || []).forEach(g => {
+    const n = Math.max(1, g.n | 0);
+    if (g.t === 'wear') {
+      const slot = (D.WARDROBE_SLOTS.find(m => (D.WARDROBE[m.slot] || []).some(x => x.id === g.id)) || {}).slot;
+      const it = slot && D.WARDROBE[slot].find(x => x.id === g.id);
+      if (!it) return;
+      // 이미 가진 벌이면 💎 로 — 일부러 작다 (MAIL.md 4-5)
+      if (isOwned(slot, it) || S.unlocked.includes(g.id)) { S.crystal = (S.crystal || 0) + 10; names.push(`💎 10`); }
+      else { S.unlocked.push(g.id); names.push(giftLabel(g)); }
+    } else if (g.t === 'color') {
+      if (S.unlocked.includes(g.id)) { S.crystal = (S.crystal || 0) + 5; names.push(`💎 5`); }
+      else { S.unlocked.push(g.id); names.push(giftLabel(g)); }
+    } else if (g.t === 'crystal') { S.crystal = (S.crystal || 0) + n; names.push(giftLabel(g)); }
+    else if (g.t === 'dye') { S.dye = (S.dye || 0) + n; names.push(giftLabel(g)); }
+    else if (g.t === 'dyeEver') {
+      if (!S.dyeEver) S.dyeEver = {};
+      S.dyeEver[g.id] = (S.dyeEver[g.id] || 0) + n; names.push(giftLabel(g));
+    }
+    else if (g.t === 'ing') { if (D.INGREDIENTS[g.id]) { addInv(g.id, n); names.push(giftLabel(g)); } }
+    else if (g.t === 'food') { if (!S.foods) S.foods = {}; S.foods[g.id] = (S.foods[g.id] || 0) + n; names.push(giftLabel(g)); }
+    else if (g.t === 'feed') { if (!S.feeds) S.feeds = {}; S.feeds[g.id] = (S.feeds[g.id] || 0) + n; names.push(giftLabel(g)); }
+  });
+  if (nonce) { S.mailApplied.push(nonce); if (S.mailApplied.length > 50) S.mailApplied.splice(0, S.mailApplied.length - 50); }
+  return names;
+}
+
+const mailGotText = got => got.length > 1 ? T('mail_gotn', { what: got[0], n: got.length - 1 }) : T('mail_got1', { what: got[0] });
+// 선물 한 칸의 이름 — 「그림 + 이름 ×n」
+function giftLabel(g) {
+  const xn = (g.n || 1) > 1 ? ` ×${g.n}` : '';
+  if (g.t === 'wear') {
+    for (const m of D.WARDROBE_SLOTS) {
+      const it = (D.WARDROBE[m.slot] || []).find(x => x.id === g.id);
+      if (it) return `${it.emoji || m.emoji} ${N(it.id, it.name)}`;
+    }
+    return g.id;
+  }
+  if (g.t === 'color') { const c = D.COLORS.find(x => x.id === g.id); return `🎨 ${c ? N(c.id, c.name) : g.id}`; }
+  if (g.t === 'crystal') return `💎 ${g.n}`;
+  if (g.t === 'dye') return `🧪 ${T('mail_g_dye')}${xn}`;
+  if (g.t === 'dyeEver') { const c = D.COLORS.find(x => x.id === g.id); return `🎨 ${T('mail_g_ever', { color: c ? N(c.id, c.name) : g.id })}${xn}`; }
+  if (g.t === 'ing') { const it = D.INGREDIENTS[g.id]; return `${it ? it.emoji : ''} ${it ? N(g.id, it.name) : g.id}${xn}`; }
+  if (g.t === 'food') { const f = D.FOODS.find(x => x.id === g.id); return `${f ? f.emoji : ''} ${f ? N(f.id, f.name) : g.id}${xn}`; }
+  if (g.t === 'feed') { const f = D.FEEDS.find(x => x.id === g.id); return `${f ? f.emoji : ''} ${f ? N(f.id, f.name) : g.id}${xn}`; }
+  return '';
+}
+
+// 보낸 이 — 사람은 `speakerName()` 을 지난다 (여왕의 이름이 새지 않게)
+function mailFrom(m) {
+  if (m.from === 'crow') return T('mail_from_crow');
+  if (m.from === 'mom') return T('mail_from_mom');
+  if (m.from === 'scribe') return T('mail_from_scribe');
+  return speakerName(m.from);
+}
+// 보낸 날 — 「오늘 · 어제 · n일 전」 (부재 편지는 과거로 적힌다 · MAIL.md 2-9)
+function mailWhen(m) {
+  const today = MAIL ? MAIL.today : m.sentDay;
+  const g = Math.max(0, today - (m.sentDay != null ? m.sentDay : m.day));
+  return g === 0 ? T('mail_today') : g === 1 ? T('mail_yesterday') : T('mail_days_ago', { n: g });
+}
+// 편지 본문 — 열쇠 하나 + 값. 엄마의 편지는 머리말(받는 이) · 본문 · 맺음말이다
+function mailText(m) {
+  const v = Object.assign({ who: mailFrom(m) }, m.vars || {});
+  if (m.k === 'mom') return [T('ml_mom_to_' + ((m.vars && m.vars.addr) || 'a')), T(m.key, v), T('ml_mom_sign')].join('\n\n');
+  let s = T(m.key, v);
+  if (m.k === 'att' && m.vars && m.vars.spark) s += '\n\n' + T('ml_crow_spark');
+  return s;
+}
+
+function renderMailSheet() {
+  const tt = document.getElementById('mailSheetTitle');
+  if (tt) tt.innerHTML = I18N.em(`📬 ${T('mail_title')}`);
+  const tb = document.getElementById('mailSheetTabs');
+  const box = mailBox();
+  if (tb) {
+    const tabs = [{ id: 'box', name: T('mail_tab_box', { n: box.length }) }, { id: 'album', name: T('mail_tab_album') }];
+    tb.innerHTML = `<div class="cat-tabs wr-tabs">${tabs.map(x => {
+      const on = mailTab === x.id;
+      return `<button class="cat-tab wr-tab ${on ? 'active' : ''}" onclick="setMailTab('${x.id}')"${on ? ' aria-current="true"' : ''}>${escHtml(x.name)}</button>`;
+    }).join('')}</div>`;
+  }
+  const body = document.getElementById('mailSheetBody');
+  const acts = document.getElementById('mailActs');
+  if (!body || !acts) return;
+  const list = mailTab === 'box' ? box : ((MAIL && MAIL.letters) || []).slice().reverse();
+  const open = mailOpenId && list.find(m => m.id === mailOpenId);
+  if (open) {
+    const gifts = (open.gifts || []).map(g => `<span class="mail-gift">${I18N.em(escHtml(giftLabel(g)))}</span>`).join('');
+    body.innerHTML = `<button class="mail-back" onclick="openMailItem(null)">${escHtml(T('mail_back'))}</button>
+      <div class="mail-letter mail-k-${open.k}">
+        <div class="mail-lhead"><span class="em">${MAIL_ICON[open.k] || '✉️'}</span> ${escHtml(mailFrom(open))} · ${escHtml(mailWhen(open))}</div>
+        <div class="mail-ltext">${escHtml(mailText(open))}</div>
+        ${gifts ? `<div class="mail-gifts">${gifts}</div>` : ''}
+      </div>`;
+    acts.innerHTML = mailTab === 'box'
+      ? `<button class="btn btn-primary" onclick="claimMail(['${open.id}'])" ${mailBusy ? 'disabled' : ''}>${escHtml(T('mail_claim'))}</button>` : '';
+    return;
+  }
+  if (mailErr && !MAIL) {
+    body.innerHTML = `<div class="empty-hint">${escHtml(T('mail_offline'))}</div>`;
+    acts.innerHTML = '';
+    return;
+  }
+  body.innerHTML = list.length ? list.map(m => {
+    const first = (m.gifts || [])[0];
+    const more = (m.gifts || []).length > 1 ? ` +${m.gifts.length - 1}` : '';
+    return `<button class="mail-row" onclick="openMailItem('${m.id}')">
+      <span class="mail-ic em">${MAIL_ICON[m.k] || '✉️'}</span>
+      <span class="mail-mid"><span class="mail-who">${escHtml(mailFrom(m))}</span>
+        <span class="mail-what">${first ? I18N.em(escHtml(giftLabel(first))) + more : escHtml(T('mail_letter_only'))}</span></span>
+      <span class="mail-when">${escHtml(mailWhen(m))}</span>
+    </button>`;
+  }).join('') : `<div class="empty-hint">${escHtml(T(mailTab === 'box' ? 'mail_empty' : 'mail_album_empty'))}</div>`;
+  acts.innerHTML = mailTab === 'box' && box.length
+    ? `<button class="btn btn-primary" onclick="claimMail(null)" ${mailBusy ? 'disabled' : ''}>${escHtml(T('mail_claim_all'))}</button>` : '';
+}
+function setMailTab(t) { mailTab = t; mailOpenId = null; renderMailSheet(); }
+function openMailItem(id) { mailOpenId = id; renderMailSheet(); if (id && window.Sfx) Sfx.play('pick'); }
+
+// 받기 — 보내기 «전»에 번호를 적어 두고, 확정 응답을 받을 때까지 같은 번호로만 보낸다 (밭과 같다)
+function mailOpLoad() { try { return JSON.parse(localStorage.getItem(MAIL_OP_KEY)) || null; } catch (e) { return null; } }
+function mailOpSave(o) { try { if (o) localStorage.setItem(MAIL_OP_KEY, JSON.stringify(o)); else localStorage.removeItem(MAIL_OP_KEY); } catch (e) {} }
+async function mailRecover() {
+  const op = mailOpLoad();
+  if (!op || !op.nonce) return;
+  const r = await Sync.mailClaim(op.ids || [], op.nonce);
+  if (!r || r.status === 0) return;                       // 못 닿았다 — 번호는 남긴다
+  if (r.status === 200 && r.body) { const got = grantMailGifts(r.body.gifts || [], op.nonce); save(); if (got.length) toast(mailGotText(got), null, 2600); }
+  mailOpSave(null);
+}
+async function claimMail(ids) {
+  if (mailBusy || !MAIL) return;
+  const want = ids || mailBox().map(m => m.id);
+  if (!want.length) return;
+  mailBusy = true; renderMailSheet();
+  try {
+    await mailRecover();
+    const nonce = Sync.nonce();
+    mailOpSave({ nonce, ids: want });
+    const r = await Sync.mailClaim(want, nonce);
+    if (!r || r.status === 0) { toast(T('mail_offline'), null, 2600); return; }
+    if (r.status === 200 && r.body) {
+      const got = grantMailGifts(r.body.gifts || [], nonce);
+      save();
+      if (window.Sfx) Sfx.play('success');
+      // 받으면 «이름»으로 알린다 — 첫 이름 + 나머지 수 (MAIL.md 2-4)
+      toast(got.length ? mailGotText(got) : T('mail_got_letter'), null, 2800);
+      const set = new Set(r.body.ids || []);
+      MAIL.box = mailBox().filter(m => !set.has(m.id));
+      mailOpenId = null;
+      if (currentTab === 'showcase') renderShowcase();
+    }
+    mailOpSave(null);
+  } finally {
+    mailBusy = false;
+    renderActBadges();               // ⚠️ 점은 «받는 함수»가 끈다 (MAIL.md 2-5)
+    if (mailSheetOpen()) renderMailSheet();
+    refreshMail();                   // 편지첩을 새로 받아 온다
+  }
+}
+function openMailSheet() {
+  mailTab = 'box'; mailOpenId = null;
+  renderMailSheet();
+  const m = document.getElementById('mailSheet');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('pick');
+  refreshMail();
+}
+function closeMailSheet() {
+  const m = document.getElementById('mailSheet');
+  if (m) m.classList.remove('show');
+}
+window.openMailSheet = openMailSheet; window.closeMailSheet = closeMailSheet;
+window.claimMail = claimMail; window.setMailTab = setMailTab; window.openMailItem = openMailItem;
+
+// ⚠️ 개발용(임시) — 서버의 우편 시계를 하루 옮긴다 (기기 시계는 우편에 닿지 않는다 · MAIL.md 2-6)
+async function devMailDay(n) {
+  if (!window.Sync || !Sync.enabled()) { toast(T('mail_offline')); return; }
+  const r = await Sync.mailDev({ days: n || 1 });
+  if (!r || r.status !== 200) { toast(r && r.body && r.body.error === 'dev_off' ? T('dev_off') : T('mail_offline')); return; }
+  await refreshMail();
+  toast(T('dev_mail_day', { n: mailNew() }), null, 2400);
+}
+window.devMailDay = devMailDay;
+// 검사용 — 서버 없이 우편함을 재려고 심는 값 (checkui). **제일 긴 엄마 편지**를 넣어 둔다 —
+// 평범한 한 통만 재면 긴 줄은 한 번도 안 잰 것이 된다 (부엌의 「오늘의 한 마디」와 같은 구멍)
+window.__mailMock = function () {
+  const longest = ['ml_mom_first', ...Array.from({ length: 12 }, (_, i) => 'ml_mom_m' + (i + 1)),
+    ...Array.from({ length: 20 }, (_, i) => 'ml_mom_bday' + (i + 1))]
+    .sort((a, b) => T(b).length - T(a).length)[0];
+  const box = [
+    { id: 'm1', k: 'att', from: 'crow', key: 'ml_crow_day', day: 100, sentDay: 100, vars: { n: 9, spark: 1 },
+      gifts: [{ t: 'color', id: 'c_white', n: 1 }, { t: 'crystal', n: 30 }, { t: 'dye', n: 1 }] },
+    { id: 'm_long', k: 'mom', from: 'mom', key: longest, day: 100, sentDay: 100, vars: { addr: 'a' },
+      gifts: [{ t: 'wear', id: 'mom_dress_ball', n: 1 }] },
+    { id: 'm3', k: 'away', from: 'sp_orix', key: 'ml_away_orix', day: 100, sentDay: 95, gifts: [{ t: 'ing', id: 'iron_ore', n: 2 }] },
+    { id: 'm4', k: 'npc', from: 'sp_valen', key: 'ml_npc_valen_0', day: 100, sentDay: 99,
+      gifts: [{ t: 'color', id: 'c_burgundy', n: 1 }, { t: 'dyeEver', id: 'c_burgundy', n: 1 }] },
+    { id: 'm5', k: 'sys', from: 'scribe', key: 'ml_sys_charm', day: 100, sentDay: 100, vars: { at: 60 },
+      gifts: [{ t: 'color', id: 'c_lavender', n: 1 }, { t: 'crystal', n: 120 }] },
+  ];
+  return { today: 100, att: 9, week: 2, box, auto: [], letters: [], mock: true };
+};
+
 // 왼쪽 아래 버튼 줄 — **표에서 뽑는다.** `sheet: true` 를 한 줄 붙이면 버튼도 저절로
 // 생긴다 (목록을 따로 적어 두면 칸을 늘렸을 때 한쪽만 고친다).
 //
@@ -7103,7 +7368,14 @@ function renderSoloActs() {
     aria-label="${escHtml(T('act_decor'))}">
     <span class="act-ic" aria-hidden="true">🪄</span>
   </button>`;
-  box.innerHTML = !S.tutorialDone ? '' : decorBtn + soloSlots().filter(m => actOpen(m.slot)).map(m => {
+  // 📬 우편함 — **방꾸 위**(맨 앞)다 (사람이 정했다). 까마귀가 내려앉는 공방 창턱과 같은 화면이다.
+  //    점은 «받을 것이 있을 때만»이다 (MAIL.md 2-5) · 졸업하면 바로 선다
+  const mailBtn = !S.tutorialDone ? '' : `<button class="room-act" data-slot="mail" onclick="openMailSheet()"
+    aria-label="${escHtml(T('mail_title'))}">
+    <span class="act-ic" aria-hidden="true">📬</span>
+    ${mailNew() ? '<span class="tab-dot act-dot"></span>' : ''}
+  </button>`;
+  box.innerHTML = !S.tutorialDone ? '' : mailBtn + decorBtn + soloSlots().filter(m => actOpen(m.slot)).map(m => {
     // ⚠️ 그림은 **«지금 걸려 있는 것»**이다 — 표에 박힌 그림이 아니다.
     // 그래야 버튼이 「무엇을 고르는 자리인가」(라벨)와 「지금 무엇인가」(그림)를
     // 같이 말한다 (「표정 이모지를 현재 아바타의 표정이 나오도록」으로 받은 자리다).
@@ -7893,6 +8165,7 @@ function renderRoomDevTail() {
       // ⚠️ 「하루」로는 창밖이 한 번도 안 바뀐다 (24시간이라 시(時)가 그대로다) —
       // 방의 하늘 다섯을 보려면 **경계로 데려가는** 버튼이 따로 있어야 한다
       devAct(T('dev_skip_phase'), 'devSkipPhase()'),
+      devAct(T('dev_mail_skip'), 'devMailDay(1)'),
       // 「창문 하나만 있는 방」은 새 플레이어가 처음 보는 화면인데, 단계가 오르면
       // 선물이 **저절로 놓여서** 한 번 지나가면 다시 볼 길이 없었다
       devAct(T('dev_decor_off'), 'devClearDecor()'),
@@ -9142,11 +9415,30 @@ function askPlayerName(force) {
   if (!force && S.name) return;
   const inp = document.getElementById('nameInput');
   if (inp) inp.value = '';
+  fillBdaySelects();
   clearNameError();
   const m = document.getElementById('nameModal');
   if (!m) return;
   m.classList.add('show');
   setTimeout(() => { try { if (inp) inp.focus(); } catch (e) {} }, 150);
+}
+// 생일 — 월·일만 (연도는 안 묻는다 · 엄마도 딸의 나이를 모른다). 건너뛸 수 있다 (MAIL.md 2-10)
+function fillBdaySelects() {
+  const mo = document.getElementById('bdayMonth'), dd = document.getElementById('bdayDay');
+  if (!mo || !dd) return;
+  const opt = (v, t) => `<option value="${v}">${t}</option>`;
+  mo.innerHTML = opt('', '—') + Array.from({ length: 12 }, (_, i) => opt(i + 1, T('bday_month', { n: i + 1 }))).join('');
+  dd.innerHTML = opt('', '—') + Array.from({ length: 31 }, (_, i) => opt(i + 1, T('bday_day', { n: i + 1 }))).join('');
+  const m = /^(\d{2})-(\d{2})$/.exec(S.birthday || '');
+  if (m) { mo.value = String(+m[1]); dd.value = String(+m[2]); }
+}
+function readBday() {
+  const mo = +((document.getElementById('bdayMonth') || {}).value || 0);
+  const dd = +((document.getElementById('bdayDay') || {}).value || 0);
+  if (!mo || !dd) return null;
+  const max = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
+  if (dd > max) return 'bad';
+  return String(mo).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
 }
 function closeNameModal() {
   const m = document.getElementById('nameModal');
@@ -9193,6 +9485,9 @@ async function submitName() {
     setNameError(NAME_KO.test(raw) ? T('name_err_len_ko') : T('name_err_len_en'));
     return;
   }
+  // 생일 (선택) — 없는 날짜(4월 31일 등)만 막는다
+  const bday = readBday();
+  if (bday === 'bad') { setNameError(T('name_err_bday')); return; }
 
   // 조건 3: 이름은 유일하다 — 서버가 이 playerId 앞으로 잡아 준다.
   //
@@ -9217,6 +9512,7 @@ async function submitName() {
 
   S.name = raw;
   S.nameClaimed = claimed;
+  if (bday) S.birthday = bday;
   save();
   clearNameError();
   closeNameModal();
@@ -11276,11 +11572,13 @@ document.addEventListener('DOMContentLoaded', () => {
       // 세이브를 먼저 맞춘 뒤에 부른다 (adopt 로 `farmSeenAt` 이 바뀔 수 있다).
       // ⚠️ **만들지는 않는다**(`false`) — 조회가 참여가 되면 안 연 사람이 털린다
       refreshFarm(false);
+      // 우편함 — 서버가 05:00 KST 에 배달해 둔 것을 받아 온다 (MAIL.md)
+      refreshMail();
     });
   } else {
     renderSyncChip('off');
   }
   setInterval(energyTick, 1000);  // 카운트다운 + 자정 자동 충전
   // 백그라운드 → 포그라운드 복귀 시 즉시 반영
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) energyTick(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { energyTick(); refreshMail(); } });
 });

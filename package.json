@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "node server/index.js",
-    "test": "node tools/genwardrobe.js --check && node tools/gencreature.js --check && node tools/genfarm.js --check && node tools/genroom.js --check && node tools/genmapattr.js --check && node tools/genmaptype.js --check && node tools/genlogo.js --check && node tools/checkdata.js && node tools/checkglobals.js && node tools/checki18n.js && node tools/checktalk.js && node tools/checktuttext.js && node tools/checkbalance.js && node tools/checktheme.js --static && node server/test.js",
+    "test": "node tools/genwardrobe.js --check && node tools/gencreature.js --check && node tools/genfarm.js --check && node tools/genroom.js --check && node tools/genmapattr.js --check && node tools/genmaptype.js --check && node tools/genlogo.js --check && node tools/checkdata.js && node tools/checkglobals.js && node tools/checki18n.js && node tools/checktalk.js && node tools/checktuttext.js && node tools/checkbalance.js && node tools/checktheme.js --static && node server/test.js && node server/testmail.js",
     "test:name": "node tools/checkname.js",
     "test:talk": "node tools/checktalk.js",
     "test:ask": "node tools/checkask.js",
@@ -54,7 +54,8 @@
     "test:balance": "node tools/checkbalance.js",
     "sim:farm": "node tools/simfarm.js",
     "test:globals": "node tools/checkglobals.js",
-    "test:theme": "node tools/checktheme.js"
+    "test:theme": "node tools/checktheme.js",
+    "test:mailsrv": "node server/testmail.js"
   },
   "dependencies": {
     "express": "^4.19.2",
