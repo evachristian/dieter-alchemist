@@ -639,7 +639,13 @@ export function createRoom(canvas, opt) {
   //      아니라 「엉뚱한 선을 쟀다」인 자리다
   //    `checkroom` 의 「줌」이 그 둘을 그대로 잰다 — 방을 넓히면 따라 옮긴다
   const ZOOM_MIN = 0.85, ZOOM_MAX = 1.1;
-  let zoom = 1;
+  // ⚠️ **처음 서는 줌은 1 이 아니라 0.95 다** (2026-10-14 · 사람이 골랐다).
+  //    1 에서는 토끼 귀 머리띠(머리 위로 제일 높이 솟는 것)의 끝이 헤더 알약 밑으로
+  //    6~10px 들어가 잘려 보였다. 0.95 면 알약 밑변 아래로 5~9px 내려온다 (320·390·480px ·
+  //    바디파츠 전부 150%). ⚠️ 제목 줄(시계·저장됨·📬)과는 여전히 겹친다 — 그것까지
+  //    피하려면 0.85(= 아웃 한계)라서 고르지 않았다
+  const ZOOM_DEF = 0.95;
+  let zoom = ZOOM_DEF;
   function setZoom(z) {
     const v = Number(z);
     if (!isFinite(v)) return zoom;

@@ -312,10 +312,15 @@ function mask(A, B) {
         x0: r.left, x1: r.right } : null;
     });
     let dW = null, dB = null;
+    const zk3 = await page.evaluate(() => ((typeof room3d !== 'undefined' && room3d) ? room3d.zoomAt().z : 1));
     if (!svg) bad.push(`${W}px: SVG 방의 양탄자를 못 찾았다 — 떨어질 자리를 못 잰다`);
     else {
       // ⚠️ 좁은 상자에서는 SVG 양탄자가 **화면 밖으로 잘린다** — 잘린 뒤의 폭과 견준다
-      const seen = Math.min(svg.cx + svg.w / 2, svg.x1) - Math.max(svg.cx - svg.w / 2, svg.x0);
+      // ⚠️ 처음 서는 줌이 0.95 다 (2026-10-14 · 토끼 귀가 헤더 알약에 안 잘리게) — 3D 는
+      //    «SVG 에 맞춘 조준 × 줌»이라 그 배를 곱한 SVG 양탄자와 견준다 (가운데·앞자락은 줌을 안 탄다).
+      //    줌을 빼고 견주면 「조준이 틀렸다」와 「일부러 물러났다」가 안 갈린다
+      const sw = svg.w * zk3;
+      const seen = Math.min(svg.cx + sw / 2, svg.x1) - Math.max(svg.cx - sw / 2, svg.x0);
       dW = Math.abs(seen - rug.w);
       dB = Math.abs(svg.bot - rug.bot);
       const dC = Math.abs(svg.cx - rug.cx);
@@ -1409,7 +1414,11 @@ function mask(A, B) {
             gap = Math.min(gap, Math.hypot(dx, dy));
           });
           const sb = document.getElementById('roomSolo').getBoundingClientRect();
-          return { over, area: c.width * c.height, w: c.width, gap: isFinite(gap) ? gap : null,
+          // ⚠️ 크기는 «방 안의 크기»로 잰다 (화면 px ÷ 줌). 처음 서는 줌이 0.95 라(2026-10-14)
+          //    화면 px 로 재면 방·인물과 «같이» 5% 작아진 것까지 「작아졌다」로 잡는다.
+          //    줌은 사람이 고른 «보는 거리»이지 크리처가 줄어든 것이 아니다
+          const zk = (typeof room3d !== 'undefined' && room3d && document.querySelector('.room-scene.is3d')) ? room3d.zoomAt().z : 1;
+          return { over, area: c.width * c.height, w: c.width / zk, gap: isFinite(gap) ? gap : null,
             acts: acts.length, right, flip: cre.classList.contains('cr-flip'),
             // ⚠️ 방 상자의 «그 쪽» 끝과의 거리다 (쪽이 뒤집히면 여기도 뒤집힌다)
             inRoom: right ? rb.right - c.right : c.left - rb.left,
