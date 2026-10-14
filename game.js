@@ -7275,11 +7275,13 @@ async function refreshMail() {
     // 상한(60통)을 넘어 서버가 «대신 받아 둔» 것 — 넣고 알린다. 버리지 않는다 (MAIL.md 2-3)
     const auto = MAIL.auto || [];
     if (auto.length) {
-      auto.forEach(a => grantMailGifts(a.gifts || [], a.nonce));
+      const autoColors = [];
+      auto.forEach(a => autoColors.push(...grantMailGifts(a.gifts || [], a.nonce).colors));
       save();
       Sync.mailAck(auto.map(a => a.nonce));
       MAIL.auto = [];
       toast(T('mail_auto', { n: auto.length }), null, 3200);
+      if (autoColors.length) openColorGot(autoColors);
     }
   }
   renderActBadges();
@@ -7290,8 +7292,11 @@ window.refreshMail = refreshMail;
 // 서버가 준 선물을 세이브에 넣는다. 이미 넣은 번호면 아무 일도 안 한다 (돌려주는 값: 넣은 것의 이름들)
 function grantMailGifts(gifts, nonce) {
   if (!Array.isArray(S.mailApplied)) S.mailApplied = [];
-  if (nonce && S.mailApplied.includes(nonce)) return [];
-  const names = [];
+  if (nonce && S.mailApplied.includes(nonce)) return Object.assign([], { colors: [] });
+  // ⚠️ 새로 연 컬러칩은 «이름» 말고도 따로 돌려준다 (`.colors`) — 받은 쪽이 안내 시트를 띄운다.
+  //    이미 가진 색이라 💎 로 바뀐 것은 안 넣는다 (열린 것이 없으니 안내할 것도 없다)
+  const names = [], colors = [];
+  names.colors = colors;
   (gifts || []).forEach(g => {
     const n = Math.max(1, g.n | 0);
     if (g.t === 'wear') {
@@ -7303,7 +7308,7 @@ function grantMailGifts(gifts, nonce) {
       else { S.unlocked.push(g.id); names.push(giftLabel(g)); }
     } else if (g.t === 'color') {
       if (S.unlocked.includes(g.id)) { S.crystal = (S.crystal || 0) + 5; names.push(`💎 5`); }
-      else { S.unlocked.push(g.id); names.push(giftLabel(g)); }
+      else { S.unlocked.push(g.id); names.push(giftLabel(g)); colors.push(g.id); }
     } else if (g.t === 'crystal') { S.crystal = (S.crystal || 0) + n; names.push(giftLabel(g)); }
     else if (g.t === 'dye') { S.dye = (S.dye || 0) + n; names.push(giftLabel(g)); }
     else if (g.t === 'dyeEver') {
@@ -7317,6 +7322,44 @@ function grantMailGifts(gifts, nonce) {
   if (nonce) { S.mailApplied.push(nonce); if (S.mailApplied.length > 50) S.mailApplied.splice(0, S.mailApplied.length - 50); }
   return names;
 }
+
+// ─── 컬러칩을 받았다 — 「무엇을 받았는지」를 말해 주는 시트 ───
+// 우편의 컬러칩은 «물건»이 아니라 «고를 수 있는 색 하나가 열린 것»이라, 토스트의
+// 「🎨 리얼 화이트을(를) 받았어요」만으로는 무엇이 달라졌는지 안 읽힌다 (신고받았다).
+// 그래서 받은 순간 시트로 «무엇이 · 무엇을 하면 쓸 수 있는지»를 같이 말한다.
+// ⚠️ 여는 문은 이것 하나다 — 버튼으로 받든 · 응답을 잃어 되살려 받든 · 자동으로 받든 같은 길이다
+// ⚠️ 이름 뒤 조사(로/으로)는 «받침»으로 고른다 — 「리얼 화이트로」 · 「블랙으로」 · 「골드로」(ㄹ)
+function koRo(w) {
+  const c = String(w || '').trim().slice(-1).charCodeAt(0) - 0xAC00;
+  if (!(c >= 0 && c <= 11171)) return '로';
+  const jong = c % 28;
+  return (jong === 0 || jong === 8) ? '로' : '으로';
+}
+function openColorGot(ids) {
+  const cols = (ids || []).map(id => D.COLORS.find(c => c.id === id)).filter(Boolean);
+  if (!cols.length) return;
+  const names = cols.map(c => N(c.id, c.name));
+  const all = names.join(', ');
+  const last = names[names.length - 1];
+  const q = I18N.getLang() === 'ko' ? '「' : '“', qe = I18N.getLang() === 'ko' ? '」' : '”';
+  const tt = document.getElementById('colorGotTitle');
+  const bd = document.getElementById('colorGotBody');
+  if (tt) tt.textContent = T('color_got_title', { color: q + all + qe });
+  if (bd) {
+    bd.innerHTML = `<div class="cg-chips">${cols.map(c =>
+        `<span class="cg-chip"><i style="background:${c.hex}"></i>${escHtml(N(c.id, c.name))}</span>`).join('')}</div>`
+      + `<div class="mh-row">${escHtml(T('color_got_body', { color: q + all + qe, ro: koRo(last) }))}</div>`;
+  }
+  const m = document.getElementById('colorGotSheet');
+  if (m) m.classList.add('show');
+  if (window.Sfx) Sfx.play('clap');
+}
+function closeColorGot() {
+  const m = document.getElementById('colorGotSheet');
+  if (m) m.classList.remove('show');
+}
+window.openColorGot = openColorGot;
+window.closeColorGot = closeColorGot;
 
 const mailGotText = got => got.length > 1 ? T('mail_gotn', { what: got[0], n: got.length - 1 }) : T('mail_got1', { what: got[0] });
 // 선물 한 칸의 이름 — 「그림 + 이름 ×n」
@@ -7419,7 +7462,11 @@ async function mailRecover() {
   if (!op || !op.nonce) return;
   const r = await Sync.mailClaim(op.ids || [], op.nonce);
   if (!r || r.status === 0) return;                       // 못 닿았다 — 번호는 남긴다
-  if (r.status === 200 && r.body) { const got = grantMailGifts(r.body.gifts || [], op.nonce); save(); if (got.length) toast(mailGotText(got), null, 2600); }
+  if (r.status === 200 && r.body) {
+    const got = grantMailGifts(r.body.gifts || [], op.nonce); save();
+    if (got.length) toast(mailGotText(got), null, 2600);
+    if (got.colors.length) openColorGot(got.colors);
+  }
   mailOpSave(null);
 }
 async function claimMail(ids) {
@@ -7439,6 +7486,7 @@ async function claimMail(ids) {
       if (window.Sfx) Sfx.play('success');
       // 받으면 «이름»으로 알린다 — 첫 이름 + 나머지 수 (MAIL.md 2-4)
       toast(got.length ? mailGotText(got) : T('mail_got_letter'), null, 2800);
+      if (got.colors.length) openColorGot(got.colors);
       const set = new Set(r.body.ids || []);
       MAIL.box = mailBox().filter(m => !set.has(m.id));
       mailOpenId = null;

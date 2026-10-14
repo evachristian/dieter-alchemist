@@ -820,6 +820,18 @@ body.has-quest .screen { padding-bottom: 168px; }
   background: var(--cream); border-radius: 12px; padding: 9px 12px;
   text-align: left; word-break: keep-all;
 }
+/* 컬러칩을 받았다 — 받은 색을 «칩»으로 보여 준다 (이름만으로는 무슨 색인지 안 읽힌다) */
+.cg-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 2px 0 4px; }
+.cg-chip {
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0;
+  font-size: 0.9rem; font-weight: 700; color: var(--ink);
+  background: var(--cream); border-radius: 999px; padding: 6px 14px 6px 6px;
+}
+.cg-chip i {
+  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
+  /* ⚠️ 흰색 칩이 크림 바탕에 묻히지 않게 테를 두른다 (리얼 화이트가 그 자리다) */
+  box-shadow: inset 0 0 0 1.5px rgba(0,0,0,0.18);
+}
 .spot-card.pop { animation: cardpop 0.4s ease; }
 @keyframes cardpop { 0% { transform: scale(1); } 40% { transform: scale(1.04); box-shadow: 0 8px 22px rgba(255,150,190,0.4); } 100% { transform: scale(1); } }
 /* 맵 이모지. flex:none 인 채로 두면 글자가 길어졌을 때(2배 라벨 검사) 106px 까지
@@ -3229,6 +3241,7 @@ button.tm-slot:active { transform: scale(0.94); }
    `checkui` 의 「겹친 시트」가 실제로 눌리는 쪽을 hit-test 해서 지킨다 */
 #plantPick, #teamPick { z-index: 55; }   /* 밭 시트 · 이웃 밭 시트 위 */
 #giftSheet { z-index: 55; }              /* 건물 안 시트(#npcSheet) 위 */
+#colorGotSheet { z-index: 55; }          /* 우편함(#mailSheet) 위 — 받은 그 자리에서 뜬다 */
 #confirmModal { z-index: 60; }           /* 무엇 위에든 — 마지막 확인이다 */
 .modal.show { display: flex; animation: fade 0.2s ease; }
 .modal-card {

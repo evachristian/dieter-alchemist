@@ -2290,6 +2290,8 @@ function launchOpts() {
             // 📬 우편함 — 서버가 없어도 재도록 값을 심어 연다 (목록 · 제일 긴 엄마 편지)
             ['mailSheet', `MAIL = __mailMock(); openMailSheet()`],
             ['mailSheet', `MAIL = __mailMock(); openMailSheet(); openMailItem('m_long')`],
+            // 🎨 컬러칩을 받았다 — 우편함 «위»에 뜨는 안내 (이름이 긴 색 둘로 연다)
+            ['colorGotSheet', `MAIL = __mailMock(); openMailSheet(); openColorGot(D.COLORS.slice().sort((a, b) => N(b.id, b.name).length - N(a.id, a.name).length).slice(0, 2).map(c => c.id))`],
             ['pageSheet', `openPage(D.RECIPES.slice().sort((a, b) =>
                 Object.keys(b.input || {}).length - Object.keys(a.input || {}).length)[0].result.id)`],
             ['diaryModal', `openDiary()`],
