@@ -3448,10 +3448,17 @@
   }
 
   // 동물 귀의 «귀 속» 색 (earart.js 의 그 색 그대로) — 물들일 때 이 색만 «옅게 푼 물들인 색»이 된다.
-  // ⚠️ 여우의 흰 털(#f4e9e3)은 안 넣는다 — 그건 «흰 털»이라 물들이면 여우가 아니게 된다.
+  // ⚠️ 여우의 흰 털(#f4e9e3)은 안 넣는다 — 그건 «흰 털»이라 아래 `EAR_KEEP` 이 그대로 둔다.
   // ⚠️ earart.js 는 생성 파일이라(tools/genears.py) 표를 거기 두지 않는다
   const EAR_INNER = { rabbit: '#fae0c5', cat: '#f8b8c8', bear: '#eecca4' };
   const EAR_INNER_PALE = 0.62;   // 흰색 쪽으로 섞는 몫 — 넷을 그려 놓고 골랐다
+  // 귀 끝이 «짙은» 귀(여우) — 물들인 색을 같은 색조로 «깊게» 누른다. 같은 거리만큼 옮기면
+  // 짙은 갈색이 엉뚱한 색(살구 위의 청록)으로 튀었다 (신고받았다)
+  const EAR_TIP = { fox: '#31261f' };
+  const EAR_TIP_DARK = 0.3;      // 물들인 색에 곱하는 몫 — 셋을 그려 놓고 골랐다
+  // 물들여도 «안 바뀌는» 색 — 털이 아니라 장식이거나(고양이 방울 분홍·노란 리본) 그 동물의
+  // 표지(여우 귀 속 흰 털)다. 같이 옮기면 밝은 색에서 흰색으로 날아가 방울이 사라졌다
+  const EAR_KEEP = { cat: ['#cd7f98', '#f9d382'], fox: ['#f4e9e3'] };
 
   // 서클렛 = 머리띠(band) × 가운데 장식(orn)
   function renderCirclet(it) {
@@ -3474,8 +3481,11 @@
       //    **겉과 거의 같은 색**이 되어 귀 모양이 안 보였다 (신고받았다 · 토끼).
       //    같은 색조를 흰색 쪽으로 섞으면 어느 색으로 물들여도 «더 밝고 옅은» 속이 남는다
       const inner = EAR_INNER[orn], pale = hex(rgb(c).map(v => v + (255 - v) * EAR_INNER_PALE));
+      const tip = EAR_TIP[orn], deep = hex(rgb(c).map(v => v * EAR_TIP_DARK));
+      const keep = EAR_KEEP[orn] || [];
       return art.svg.replace(/fill="(#[0-9a-f]{6})"/g, (_, f) =>
-        'fill="' + (f === inner ? pale : hex(rgb(f).map((v, i) => v + d[i]))) + '"');
+        'fill="' + (keep.includes(f) ? f : f === inner ? pale : f === tip ? deep
+          : hex(rgb(f).map((v, i) => v + d[i]))) + '"');
     }
     if (band === 'crown') {            // 왕관 톱니
       s = `<path d="M72,55 L82,43 L91,52 L100,38 L109,52 L118,43 L128,55 Z"
