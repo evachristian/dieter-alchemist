@@ -1899,7 +1899,11 @@ function mealSceneSvg(A) {
   const [vx, vy, vw, vh] = A.vb;
   const defs = split ? `<defs><clipPath id="mlUp"><rect x="${vx}" y="${vy}" width="${vw}" height="${A.waist - vy}"/></clipPath>`
     + `<clipPath id="mlLow"><rect x="${vx}" y="${A.waist}" width="${vw}" height="${vy + vh - A.waist}"/></clipPath></defs>` : '';
+  // 눈썹은 «눈썹 문신»을 했을 때만 — 그 색으로 (안 했으면 아예 안 그린다 · 사람이 정했다)
+  const browOn = S.outfit.brow && S.outfit.brow !== 'brow_none';
+  const browHex = browOn && window.Avatar && Avatar.browColorOf ? Avatar.browColorOf(outfitWithColors()) : null;
   const body = A.paths.map(([r, f, d]) => {
+    if (r === 'brow') return browOn ? `<path d="${d}" fill="${browHex || f}"/>` : '';
     const to = col[r];
     if (r === 'dress' && split) {
       return `<path d="${d}" clip-path="url(#mlUp)" fill="${to ? mealTint(f, A.base[r], to) : f}"/>`
@@ -1915,7 +1919,7 @@ function mealSceneSvg(A) {
       style="animation-delay:${(i * 0.37 + j * 0.8).toFixed(2)}s"><path class="u" d="${wisp}"/><path class="w" d="${wisp}"/></g></g>`).join('')).join('');
   // 공주 눈 — 그림의 흰자·속눈썹을 살색으로 덮고 아바타처럼 «흰자 없는 동그란 눈동자 + 빛 두 점»을
   // 다시 그린다 (사람이 정했다). 빛은 둘 다 «같은 쪽»이다 — 빛이 하나니까 (아바타 눈과 같은 규칙)
-  const eyes = (A.eyeCover || []).map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${A.eyelid}"/>`).join('')
+  const eyes = (browOn ? [] : (A.browCover || [])).concat(A.eyeCover || []).map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${A.eyelid}"/>`).join('')
     + A.eyes.map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${A.pupil || '#3d2a22'}"/>`
       + `<circle cx="${(x + rx * 0.36).toFixed(1)}" cy="${(y - ry * 0.4).toFixed(1)}" r="${(rx * 0.36).toFixed(1)}" fill="#fff"/>`
       + `<circle cx="${(x - rx * 0.38).toFixed(1)}" cy="${(y + ry * 0.38).toFixed(1)}" r="${(rx * 0.16).toFixed(1)}" fill="#fff"/>`).join('');
