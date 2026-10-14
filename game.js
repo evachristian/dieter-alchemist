@@ -9484,6 +9484,12 @@ function fillBdaySelects() {
   dd.innerHTML = opt('', '—') + Array.from({ length: 31 }, (_, i) => opt(i + 1, T('bday_day', { n: i + 1 }))).join('');
   const m = /^(\d{2})-(\d{2})$/.exec(S.birthday || '');
   if (m) { mo.value = String(+m[1]); dd.value = String(+m[2]); }
+  else {
+    // 정해 둔 생일이 없으면 **오늘**을 골라 둔다 (사람이 정했다). 날짜는 한국 시간이다 —
+    // 우편(엄마의 생일 편지)이 KST 05:00 기준이라 그 달력과 같은 날이어야 한다
+    const k = new Date(nowMs() + 9 * 3600e3);
+    mo.value = String(k.getUTCMonth() + 1); dd.value = String(k.getUTCDate());
+  }
 }
 function readBday() {
   const mo = +((document.getElementById('bdayMonth') || {}).value || 0);
