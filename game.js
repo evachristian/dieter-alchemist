@@ -1878,7 +1878,8 @@ function mealTint(f, base, to) {
   return '#' + a.map((v, i) => Math.max(0, Math.min(255, Math.round(c[i] * v / Math.max(1, b[i]))))
     .toString(16).padStart(2, '0')).join('');
 }
-// 플레이어의 머리색 · 옷 색 — 원피스를 입었으면 원피스, 아니면 상의 색이다
+// 플레이어의 머리색 · 옷 색 — 원피스를 입었으면 원피스 한 색, 아니면 **상의(허리 위)와 하의(허리 아래)**다
+//    (「상의 하의 나눠서 출력되도록」 · 사람이 정했다)
 function mealColors() {
   const o = outfitWithColors();
   const hair = (window.Avatar && Avatar.hairColorOf) ? Avatar.hairColorOf(o) : null;
@@ -1887,12 +1888,23 @@ function mealColors() {
     if (!id || /_none$/.test(id)) return null;
     return o.colors[slot] || itemHex((D.WARDROBE[slot] || []).find(x => x.id === id));
   };
-  return { hair, dress: pick('dress') || pick('top') };
+  const one = pick('dress');
+  return one ? { hair, dress: one, low: null } : { hair, dress: pick('top'), low: pick('bottom') };
 }
 function mealSceneSvg(A) {
   const col = mealColors();
+  // 상의+하의면 원피스 조각을 두 번 칠한다 — 허리(A.waist) 위는 상의 색, 아래는 하의 색으로 잘라서.
+  // ⚠️ 잘라 칠하는 id 는 문서에 하나만 있는 이 장면 것이라 겹칠 데가 없다 (장면은 한 번에 하나다)
+  const split = col.low && A.waist;
+  const [vx, vy, vw, vh] = A.vb;
+  const defs = split ? `<defs><clipPath id="mlUp"><rect x="${vx}" y="${vy}" width="${vw}" height="${A.waist - vy}"/></clipPath>`
+    + `<clipPath id="mlLow"><rect x="${vx}" y="${A.waist}" width="${vw}" height="${vy + vh - A.waist}"/></clipPath></defs>` : '';
   const body = A.paths.map(([r, f, d]) => {
     const to = col[r];
+    if (r === 'dress' && split) {
+      return `<path d="${d}" clip-path="url(#mlUp)" fill="${to ? mealTint(f, A.base[r], to) : f}"/>`
+        + `<path d="${d}" clip-path="url(#mlLow)" fill="${mealTint(f, A.base[r], col.low)}"/>`;
+    }
     return `<path d="${d}" fill="${to ? mealTint(f, A.base[r], to) : f}"/>`;
   }).join('');
   // 김 — 그릇마다 두 줄기, 엇갈려 피어오른다.
@@ -1901,6 +1913,12 @@ function mealSceneSvg(A) {
   const steam = A.steam.map(([x, y, k], i) => [0, 1].map(j =>
     `<g transform="translate(${x + (j ? 16 : -12) * k},${y}) scale(${(k * 1.4).toFixed(2)})"><g class="ml-steam"
       style="animation-delay:${(i * 0.37 + j * 0.8).toFixed(2)}s"><path class="u" d="${wisp}"/><path class="w" d="${wisp}"/></g></g>`).join('')).join('');
+  // 공주 눈 — 그림의 흰자·속눈썹을 살색으로 덮고 아바타처럼 «흰자 없는 동그란 눈동자 + 빛 두 점»을
+  // 다시 그린다 (사람이 정했다). 빛은 둘 다 «같은 쪽»이다 — 빛이 하나니까 (아바타 눈과 같은 규칙)
+  const eyes = (A.eyeCover || []).map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${A.eyelid}"/>`).join('')
+    + A.eyes.map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${A.pupil || '#3d2a22'}"/>`
+      + `<circle cx="${(x + rx * 0.36).toFixed(1)}" cy="${(y - ry * 0.4).toFixed(1)}" r="${(rx * 0.36).toFixed(1)}" fill="#fff"/>`
+      + `<circle cx="${(x - rx * 0.38).toFixed(1)}" cy="${(y + ry * 0.38).toFixed(1)}" r="${(rx * 0.16).toFixed(1)}" fill="#fff"/>`).join('');
   // 공주 눈꺼풀 — 살색 반달이 위에서 내려와 덮는다
   const lids = A.eyes.map(([x, y, rx, ry]) => `<ellipse class="ml-lid" cx="${x}" cy="${y}" rx="${rx + 3}" ry="${ry + 3}" fill="${A.eyelid}"/>`).join('');
   // 클레멘 — 초상화의 머리만 잘라 얹는다 (뷰박스를 목 아래 104 에서 끊는다)
@@ -1917,7 +1935,7 @@ function mealSceneSvg(A) {
     clem = `<g class="ml-clem"><g class="ml-def">${face('def')}</g><g class="ml-smile">${face('smile')}</g></g>`;
   }
   return `<svg class="ml-svg" viewBox="${A.vb.join(' ')}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escHtml(T('meal_alt'))}">
-    ${body}${clem}${lids}${steam}</svg>`;
+    ${defs}${body}${eyes}${clem}${lids}${steam}</svg>`;
 }
 function playMealScene(then) {
   const box = document.getElementById('mealScene');
