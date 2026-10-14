@@ -9156,6 +9156,24 @@ function svgBox(svg, dw, dh) {
   return (v.length === 4 && v[2] > 0 && v[3] > 0) ? { w: v[2], h: v[3] } : { w: dw, h: dh };
 }
 
+// 과시 카드용 — 그려진 것이 viewBox 위로 나가면 그만큼 상자를 위로 연다 (가로·아래는 그대로).
+// 재려면 문서에 붙여야 한다(`getBBox`) — 화면 밖에 잠깐 붙였다 뗀다
+function cardFigFit(svg) {
+  const m = /viewBox="([\d.\s-]+)"/.exec(svg);
+  if (!m) return svg;
+  const [x, y, w, h] = m[1].trim().split(/\s+/).map(Number);
+  const host = document.createElement('div');
+  host.style.cssText = 'position:absolute;left:-9999px;top:0;width:200px;height:348px;visibility:hidden';
+  host.innerHTML = svg;
+  document.body.appendChild(host);
+  let top = y;
+  try { const bb = host.querySelector('svg').getBBox(); if (bb.height > 0) top = Math.min(y, Math.floor(bb.y) - 2); }
+  catch (e) { /* 못 재면 그대로 둔다 */ }
+  host.remove();
+  if (top >= y) return svg;
+  return svg.replace(m[0], `viewBox="${x} ${top} ${w} ${h + (y - top)}"`);
+}
+
 function cssVar(name, fallback) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
@@ -9198,12 +9216,18 @@ async function shareCardBlob() {
     doc.querySelectorAll('ellipse:not(.doll *):not(.i-doll *)').forEach(n => n.remove());
     fig = new XMLSerializer().serializeToString(doc.documentElement);
   }
+  // ⚠️⚠️ **머리 위로 솟는 것(토끼 귀 머리띠)은 viewBox 위로 나간다.** 화면은
+  // `overflow: visible` 이라 보이는데, 래스터로 구우면 viewBox 밖이 «소리 없이» 잘려
+  // 카드에서만 귀가 잘렸다 (신고받았다). 그려진 몸의 꼭대기를 재서 상자를 그만큼 위로
+  // 연다 — 아래 끝(발)과 배율은 그대로라 인물은 한 픽셀도 안 움직인다
+  fig = cardFigFit(fig);
   const box = svgBox(fig, 200, 348);
   // ⚠️ **높이는 상자 높이의 «몫»으로 잡는다.** 560 이라고 박아 두었더니, 상자를
   // 위로 열어(348 → 366) 얼굴 150% 를 담는 순간 **카드 속 인물만 작아졌다** —
   // 늘어난 것은 머리 위의 빈 자리인데 그 빈 자리까지 560 안에 욱여넣기 때문이다.
   // 1.609 = 560/348 이라 상자가 348 이던 시절과 그림 크기가 정확히 같다.
-  const CARD_AVATAR_K = 1.609;
+  // ⚠️ 위로 연 상자가 방 판보다 길어지면(토끼 귀 + 큰 얼굴) 그때만 줄인다 — 잘리는 것보다 낫다
+  const CARD_AVATAR_K = Math.min(1.609, (CARD_ROOM_H - 30 - 6) / box.h);
   const avH = Math.round(box.h * CARD_AVATAR_K), avW = avH * box.w / box.h;
   ctx.save();
   if (!figOnly) { ctx.shadowColor = 'rgba(180,140,160,0.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 14; }
