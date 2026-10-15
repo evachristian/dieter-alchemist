@@ -3172,7 +3172,7 @@ const ROOM_SLOTS = [
   { id: 'winplant', emoji: '🪴', name: '화분', kind: 'card',
     p3: { x: 2.35, y: 0.62, z: -0.75, yaw: -0.34, w: 0.96, h: 1.24 }, p2: [344, 224, 44, 56] },
   { id: 'chandelier', emoji: '💠', name: '샹들리에', kind: 'hang', light: 2.6,
-    p3: { x: 0, y: 4.7, z: -1.9, w: 1.7, h: 1.7 }, p2: [152, 4, 96, 74] },
+    p3: { x: 0, y: 5.5, z: -1.9, w: 1.7, h: 1.7 }, p2: [152, 4, 96, 74] },
 ];
 // GEN:room-slots>>>
 const roomSlot = id => ROOM_SLOTS.find(s => s.id === id) || null;

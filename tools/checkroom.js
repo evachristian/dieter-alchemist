@@ -1308,6 +1308,10 @@ function mask(A, B) {
         return !!n;
       }, on);
       if (!await vis(true)) { bad.push(`${pid} 에 발밑 그림자(data-part="shade")가 없다`); continue; }
+      // ⚠️ **몸의 외곽 그림자(`g.cr-doll` 의 drop-shadow · 2026-10-15)는 끄고 잰다** — 그것도
+      //    같은 바닥 띠에 떨어져, 켜 두면 「발밑 그림자가 더하는 몫」이 그만큼 묻힌다
+      //    (0.073 → 0.047 로 떨어져 세 마리가 걸렸다). 여기서 재는 것은 발밑 그림자 하나다
+      await page.evaluate(() => document.querySelectorAll('.stage-creature g.cr-doll').forEach(g => { g.style.filter = 'none'; }));
       // ⚠️ **찍기 «직전»마다 못 박는다** — 한 번만 멈춰 두면 그 사이에 다시 돌 수 있다
       await pin();
       const on = mean(await page.screenshot({ clip }));
@@ -1315,6 +1319,7 @@ function mask(A, B) {
       await pin();
       const off = mean(await page.screenshot({ clip }));
       await vis(true);
+      await page.evaluate(() => document.querySelectorAll('.stage-creature g.cr-doll').forEach(g => { g.style.filter = ''; }));
       const d = off - on;
       got.push(d);
       if (d < PET_SHADE_MIN) {

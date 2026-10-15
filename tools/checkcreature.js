@@ -18,6 +18,10 @@
 const { chromium } = require('playwright');
 const { pngLumGrid } = require('./pnglum');
 const { decode } = require('./png');
+// ⚠️ **크리처의 외곽 그림자(`g.cr-doll` · 2026-10-15)는 끄고 잰다** — 여기서 재는 것은
+//    그림의 «모양»(칠한 상자 · 움직인 칸)이다. 켜 두면 옆에 세운 마리의 그림자가 이웃의
+//    칸으로 번져 쉬는 자세의 상자가 30~77px 넓게 잡혔다 (네 마리가 걸렸다)
+const NO_DOLL_SHADOW = 'g.cr-doll { filter: none !important; }';
 const BASE = process.env.BASE || 'http://localhost:8080';
 
 const SZ = 200;          // 재는 크기 (100×100 viewBox 를 두 배로)
@@ -118,7 +122,7 @@ const near = (p, hex, tol) => {
   const browser = await chromium.launch({
     executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
   const page = await browser.newPage({ viewport: { width: 700, height: 700 } });
-  await page.goto(BASE, { waitUntil: 'load' });
+  await page.goto(BASE, { waitUntil: 'load' }); await page.addStyleTag({ content: NO_DOLL_SHADOW });
   await page.waitForFunction(() => window.Creature && window.GameData);
 
   const shots = await page.evaluate(async (SZ) => {
@@ -881,7 +885,7 @@ const near = (p, hex, tol) => {
         const bw = await chromium.launch({
           executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
         const pg = await bw.newPage({ viewport: { width: 420, height: 420 }, reducedMotion: rm });
-        await pg.goto(BASE, { waitUntil: 'load' });
+        await pg.goto(BASE, { waitUntil: 'load' }); await pg.addStyleTag({ content: NO_DOLL_SHADOW });
         await pg.waitForFunction(() => window.Creature && window.GameData);
         // ⓓ **리그가 «바닥에 선 마리»에만 붙는가** — 마크업으로 다 본다.
         //    픽셀 검사는 한 마리씩이라, 공중·어항까지 애교를 부리게 되는 사고를
@@ -1030,7 +1034,7 @@ const near = (p, hex, tol) => {
     const SIG = await (async () => {
       const bw = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
       const pg = await bw.newPage({ viewport: { width: 420, height: 420 } });
-      await pg.goto(BASE, { waitUntil: 'load' });
+      await pg.goto(BASE, { waitUntil: 'load' }); await pg.addStyleTag({ content: NO_DOLL_SHADOW });
       await pg.waitForFunction(() => window.Creature);
       const table = await pg.evaluate(() => Creature.SIGNATURE || {});
       const out = [];
@@ -1051,7 +1055,7 @@ const near = (p, hex, tol) => {
           //    박는다 — 대신 칠한 상자의 **제일 흔한 값**(= 쉬는 자세)을 정지 그림과 견준다.
           //    쉬는 몫이 한 바퀴의 3분의 2 라 그것이 곧 쉬는 자세다
           const p2 = await bw.newPage({ viewport: { width: 520, height: 300 } });
-          await p2.goto(BASE, { waitUntil: 'load' });
+          await p2.goto(BASE, { waitUntil: 'load' }); await p2.addStyleTag({ content: NO_DOLL_SHADOW });
           await p2.waitForFunction(() => window.Creature && window.GameData);
           await p2.evaluate((cid) => {
             const c = GameData.RECIPES.map(x => x.result).find(x => x.id === cid);

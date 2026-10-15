@@ -790,7 +790,7 @@
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
       ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(attr.color, 88)}"/>`}
       ${opts.noShadow ? '' : footShade(c, attr.color)}
-      ${art}
+      <g class="cr-doll">${art}</g>
     </svg>`;
   }
 
@@ -869,7 +869,7 @@
       ${opts.size ? `width="${opts.size}" height="${opts.size}"` : ''}>
       ${opts.flat ? '' : `<circle cx="50" cy="50" r="49" fill="${tint(raw, 88)}"/>`}
       ${opts.noShadow ? '' : footShade(c, raw)}
-      <g${fit}>${art}</g>
+      <g class="cr-doll"${fit}>${art}</g>
     </svg>`;
   }
   // ─── 어항 ────────────────────────────────────────────────────
