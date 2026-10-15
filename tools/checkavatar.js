@@ -1106,14 +1106,37 @@ function launchOpts() {
         const bb = svg.getBBox(), sr = svg.getBoundingClientRect();
         if (!sr.width) { bad.push(`${c.name}: 물고기 상자가 0폭이다`); break; }
         const k = sr.width / 100;
-        const f = { l: sr.left + bb.x * k, r: sr.left + (bb.x + bb.width) * k,
-                    t: sr.top + bb.y * k,  b: sr.top + (bb.y + bb.height) * k };
+        let f = { l: sr.left + bb.x * k, r: sr.left + (bb.x + bb.width) * k,
+                  t: sr.top + bb.y * k,  b: sr.top + (bb.y + bb.height) * k };
         const bs = bowlSvg.getBoundingClientRect(), q = bs.width / 100;
         const g = { cx: bs.left + GLASS.cx * q, cy: bs.top + GLASS.cy * q,
                     r: GLASS.r * q, top: bs.top + GLASS.surface * q };
+        // ⚠️⚠️ 물고기 층은 «물 모양»으로 오려져 있다(`cr-water-in` · 2026-10-15). 시그니처 애교는 움직임까지 품은
+        //    큰 상자라 그 상자를 그대로 재면 늘 「유리를 넘었다」가 된다 — 보이는 것은 «상자 ∩ 오림»이다.
+        //    ⚠️ 오림을 «믿고» 건너뛰지 않는다 — 오림 자체가 유리 안 · 수면 아래인지는 아래에서 따로 잰다
+        const clipEl = (() => { const w = sw.closest('.cr-water-in'); if (!w) return null;
+          const m = /url\(["']?#([^"')]+)/.exec(w.style.clipPath || getComputedStyle(w).clipPath || '');
+          const cp = m && document.getElementById(m[1]); const path = cp && cp.querySelector('path');
+          return path ? { w, path } : null; })();
+        if (!clipEl) { bad.push(`${c.name}: 물고기 층이 «물 모양»으로 안 오려졌다 (cr-water-in)`); break; }
+        const wr = clipEl.w.getBoundingClientRect(), cb = clipEl.path.getBBox();
+        const cl = { l: wr.left + cb.x * wr.width, r: wr.left + (cb.x + cb.width) * wr.width,
+                     t: wr.top + cb.y * wr.height, b: wr.top + (cb.y + cb.height) * wr.height };
+        if (label === SWIM[0][0]) {   // 오림 자체 — 헤엄과 무관하니 한 번만 잰다
+          const cr = (cl.r - cl.l) / 2, ccx = (cl.l + cl.r) / 2;
+          if (Math.abs(ccx - g.cx) > 0.5 || cl.r > g.cx + g.r - MARGIN + 0.5 || cl.l < g.cx - g.r + MARGIN - 0.5)
+            bad.push(`${c.name}: 물 오림이 유리를 넘는다 (가운데 ${Math.round(ccx - g.cx)}px · 반폭 ${cr.toFixed(1)} / 유리 ${g.r.toFixed(1)})`);
+          if (cl.t < g.top - 0.5) bad.push(`${c.name}: 물 오림이 수면 위로 ${Math.round(g.top - cl.t)}px 나왔다`);
+        }
+        f = { l: Math.max(f.l, cl.l), r: Math.min(f.r, cl.r), t: Math.max(f.t, cl.t), b: Math.min(f.b, cl.b) };
+        if (f.r <= f.l || f.b <= f.t) { bad.push(`${c.name} ${label}: 오리고 나니 물고기가 하나도 안 보인다`); continue; }
+        // 네모의 귀퉁이가 오림 «원» 밖이면 그 귀퉁이는 안 보인다 — 오림 원 위로 끌어당겨 잰다
+        const cR = (cl.r - cl.l) / 2, cX = (cl.l + cl.r) / 2;
         let worst = 0;
         for (const [x, y] of [[f.l, f.t], [f.r, f.t], [f.l, f.b], [f.r, f.b]]) {
-          worst = Math.max(worst, Math.hypot(x - g.cx, y - g.cy));
+          const dc = Math.hypot(x - cX, y - g.cy);
+          const [px, py] = dc > cR ? [cX + (x - cX) * cR / dc, g.cy + (y - g.cy) * cR / dc] : [x, y];
+          worst = Math.max(worst, Math.hypot(px - g.cx, py - g.cy));
         }
         if (worst > g.r - MARGIN) {
           bad.push(`${c.name} ${label}: 유리를 ${Math.round(worst - g.r)}px 넘어섰다`);

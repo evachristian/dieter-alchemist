@@ -2526,6 +2526,7 @@ button.tm-slot:active { transform: scale(0.94); }
   bottom: 4%; animation: none;
 }
 .stage-creature.cr-water .cr-bowl,
+.stage-creature.cr-water .cr-water-in,
 .stage-creature.cr-water .cr-swim { position: absolute; inset: 0; }
 .stage-creature.cr-water .cr-bowl { width: 100%; height: 100%; display: block; }
 /* 물고기는 물 안에서만 논다. 상자째로 줄여서 어항 밖으로 안 나가게 한다.

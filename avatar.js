@@ -3753,12 +3753,19 @@
     //    살색 조각을 걷으니 팔 이음매에 배경이 실선처럼 비쳤다
     const minX = d => Math.min(...(d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number).filter((_, i) => i % 2 === 0));
     const HAND_SEAM = 9;
+    const NEAR_W = 10;   // 손 둘레 띠의 폭(양쪽 합) — 구멍 테두리의 실금만 덮을 만큼 (24면 손에 네모난 혹이 붙었다)
     const handParts = isCake ? VAR.hand : VAR.hand.filter(([, d]) => minX(d) <= fx + 0.25 * fs);
     // ⚠️ 뺀 오른손 자리는 남은 손에서도 «도려낸다»(`drop`) — 단발은 왼손 조각이 오른손 엄지까지 한 덩어리로 품고 있어서,
     //    오른손 조각만 빼면 그 엄지가 왼손에 붙은 혹으로 남았다 (「오른손과 왼손이 붙어 있다」 · 신고받았다)
     const dropHands = isCake ? [] : VAR.hand.filter(([, d]) => minX(d) > fx + 0.25 * fs);
+    // ⚠️ 걷은 살색 조각도 «손 바로 둘레»(`near`)만큼은 남긴다 — 구멍 테두리가 팔을 가로지르는 자리(올림머리)에서
+    //    몸 쪽 팔과 손 조각 사이로 배경이 실금처럼 비쳤다 (「팔 이어지는 곳이 뜯어진다」 · 신고받았다).
+    //    손에 붙은 띠라 음식 밑의 살색 덩어리는 되살아나지 않는다. 손과 «같이» 둥글린다 — 따로 두면 손 둘레에 네모난 혹이 붙었다
+    const nearSkin = isCake ? '' : (VAR.behind || []).filter(([r, d]) => behindFill(r, d) === null)
+      .map(([, d]) => '<path d="' + d + '" fill="' + bodyFill('skin') + '"/>').join('');
     out = (VAR.behind || []).map(([r, d]) => { const f = behindFill(r, d); return f === null ? '' : '<path d="' + d + '" fill="' + f + '" stroke="' + f
         + '" stroke-width="1.5" stroke-linejoin="round"/>'; }).join('')
+
       + '<g mask="url(#' + ID('hole') + ')">' + out + '</g>'
       // 얼굴 앞쪽을 한 덩어리로 다시 얹는다(`VAR.face` · 웨이브) — 몸 그림의 얼굴과 메운 턱이 따로라 턱 밑이 꺾였다
       + (VAR.face || []).map(([r, d]) => '<path d="' + d + '" fill="' + FILL[r] + '"/>').join('')
@@ -3769,7 +3776,8 @@
       //    케이크와 맞닿던 자리가 계단처럼 네모나게 끊겨 있었다 — 케이크가 덮어 주던 그 모서리가 음식 밖으로 드러났다
       //    (「손 라인 따라서 예쁘게 정리」 · 신고받았다). 손가락 사이의 틈도 메워 «물방울»처럼 비치지 않게 한다
       + '<g class="cb-bite">' + (isCake ? '' : '<g filter="url(#' + ID('goo') + ')">'
-        + (dropHands.length ? '<g mask="url(#' + ID('drop') + ')">' : '<g>'))
+        + (dropHands.length ? '<g mask="url(#' + ID('drop') + ')">' : '<g>')
+        + (nearSkin ? '<g mask="url(#' + ID('near') + ')">' + nearSkin + '</g>' : ''))
       + handParts.map(([role, d]) => '<path d="' + d + '" fill="' + FILL[role] + '"'
         + (isCake ? '' : ' stroke="' + FILL[role] + '" stroke-width="' + HAND_SEAM + '" stroke-linejoin="round"') + '/>').join('')
       + (isCake ? '' : '</g></g>')
@@ -3801,6 +3809,9 @@
         + (isCake ? '' : '<g filter="url(#' + ID('gooH') + ')">')
         + VAR.hole.map(d => '<path d="' + d + '" fill="#000"/>').join('')
         + (isCake ? '' : '</g>') + '</mask>'
+      + (isCake ? '' : '<mask id="' + ID('near') + '" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">'
+        + handParts.map(([, d]) => '<path d="' + d + '" fill="#fff" stroke="#fff" stroke-width="' + NEAR_W + '" stroke-linejoin="round"/>').join('')
+        + '</mask>')
       + (dropHands.length ? '<mask id="' + ID('drop') + '" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">'
         + '<rect width="1024" height="1024" fill="#fff"/>'
         + (() => {   // 오른손 조각들이 차지한 «상자»를 통째로 — 조각 윤곽만 따면 그 밖으로 삐진 엄지 끝이 혼자 떴다

@@ -102,6 +102,7 @@
   const BOWL = { cx: 50, cy: 54.2, r: 33, rimY: 28, waterY: 36, k: 1.27 };
   // 배율을 지난 «화면의 유리» — 받침의 윗면(cy + r)을 축으로 k 배 한 것이다.
   // ⚠️ 셈을 검사기에 옮겨 적지 않는다 (내보내서 그쪽이 이것을 부른다)
+  const WATER_IN = 1.5;   // 물고기 오림이 유리 «안쪽»으로 물러나는 몫 — 테두리(2.4) 위에 걸치지 않게
   const bowlGlass = () => {
     const ay = BOWL.cy + BOWL.r;
     return { cx: BOWL.cx, cy: ay + (BOWL.cy - ay) * BOWL.k, r: BOWL.r * BOWL.k,
@@ -895,9 +896,20 @@
     // 따라 움직여 `placePetY()` 가 어항을 다른 높이에 세운다
     const up = `transform="translate(${BOWL.cx} ${BOWL.cy + BOWL.r})`
       + ` scale(${BOWL.k}) translate(${-BOWL.cx} ${-(BOWL.cy + BOWL.r)})"`;
+    // ⚠️⚠️ 물고기 층을 «물 모양»(유리 안 · 수면 아래)으로 오린다(`water`) — 시그니처 애교는 움직임까지 품은
+    //    큰 상자라, 심해 말랑이의 거품이 수면 위로 솟아 테두리에 걸렸다. 오려 두면 무엇을 그려 넣어도 물 밖으로
+    //    못 나온다. 물고기 층의 상자가 어항 상자와 같으므로(`inset: 0`) 상자 비율(objectBoundingBox)로 적는다.
+    //    ⚠️ 헤엄(`swim`)으로 «움직이지 않는» 겹에 건다 — 움직이는 겹에 걸면 오림도 같이 헤엄친다
+    const G = bowlGlass(), gr = G.r - WATER_IN;
+    const half = Math.sqrt(gr * gr - (G.surface - G.cy) ** 2);
+    const q = (v) => (v / 100).toFixed(4);
+    const water = `M${q(G.cx - half)},${q(G.surface)} L${q(G.cx + half)},${q(G.surface)}`
+      + ` A${q(gr)},${q(gr)} 0 1 1 ${q(G.cx - half)},${q(G.surface)} Z`;
     return {
+      clip: `${u}w`,
       back: `<svg class="cr-bowl" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
+          <clipPath id="${u}w" clipPathUnits="objectBoundingBox"><path d="${water}"/></clipPath>
           <clipPath id="${u}c"><path d="${shell} Z"/></clipPath>
           <linearGradient id="${u}g" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="${WATER}" stop-opacity="0.55"/>

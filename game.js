@@ -5307,7 +5307,9 @@ function petStage(pet) {
       //    어항을 그리는 자리가 여기 하나라, 켜는 자리도 여기 하나다
       // ⚠️ `idle: true` 도 넘긴다 — 안 넘기면 어항 마리는 시그니처 애교(산호 해마)를 넣어도 영영 안 움직였다.
       //    공통 리그(`idleOn`)는 바닥에 선 마리에만 붙으므로 여기서는 시그니처에만 닿는다
-      + `<span class="cr-swim">${Creature.draw(pet, { flat: true, noShadow: true, bowl: true, idle: true })}</span>`
+      // ⚠️ 물고기는 «물 모양»으로 오린 겹(`cr-water-in`) 안에서 헤엄친다 — 거품·움직임이 수면 위로 안 나온다 (`Creature.bowl`)
+      + `<span class="cr-water-in" style="clip-path:url(#${b.clip})">`
+      + `<span class="cr-swim">${Creature.draw(pet, { flat: true, noShadow: true, bowl: true, idle: true })}</span></span>`
       + `${b.front}</span>`;
   }
   // ⚠️ **애교 모션은 «방에 선 마리»에만 씌운다**(`idle`). 도감 칸·목록은 46px 짜리
