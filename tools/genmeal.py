@@ -41,6 +41,17 @@ for (bx0, by0, bx1, by1) in [(338, 342, 406, 423), (664, 376, 698, 440)]:
         bg = keys[cnt.argmax()] * 6 + 3
         seg = img[y, bx0:bx1]
         mask[y, bx0:bx1] = (np.abs(seg - bg).max(-1) > 14) & (seg.min(-1) > 170)
+# 밥상 위의 음식·그릇 — 컷씬이 «오늘의 밥상»(`MEAL_SETS` · game.js)을 그 자리에 따로 그린다
+#    (「건강식 6세트를 날짜로 돌려 달라」 · 2026-10-15). 그릇 · 빵 바구니 · 컵 둘 · 소금·후추 · 숟가락.
+#    ⚠️ 손은 남긴다 — 두 사람의 손이 그릇 가장자리에 닿아 있어서 그 상자는 가림막에서 뺀다
+FOOD = [(374, 467, 64, 38), (358, 511, 62, 14), (449, 506, 29, 37), (516, 443, 70, 44),
+        (607, 430, 28, 38), (575, 500, 44, 40), (672, 468, 68, 38)]
+KEEP = [(280, 398, 320, 478), (664, 476, 748, 540)]
+yy, xx = np.mgrid[0:Hh, 0:Ww]
+for (cx, cy, rx, ry) in FOOD:
+    mask |= ((xx - cx) / (rx + 8)) ** 2 + ((yy - cy) / (ry + 7)) ** 2 <= 1
+for (kx0, ky0, kx1, ky1) in KEEP:
+    mask[ky0:ky1, kx0:kx1] = False
 # 테두리의 섞인 점까지 — 두 칸 넓힌다
 for _ in range(2):
     m = mask.copy()
@@ -106,6 +117,10 @@ for d, f, tx, ty in re.findall(r'<path d="([^"]+)" fill="(#[0-9A-Fa-f]{6})" tran
         role = 'hair'
     elif box[0] < PRINCESS_X and box[1] > 100 and 0.15 < h < 0.32 and sat > 0.22 and val < 0.7:
         role = 'dress'
+    # 손 — 그릇 가장자리에 닿은 두 사람의 손(과 쥔 숟가락)은 «오늘의 밥상» 위에 다시 그린다.
+    #    안 그러면 새로 얹은 그릇이 손을 덮는다 (`KEEP` 상자에 통째로 드는 조각)
+    if not role and any(inside((k[0] - 4, k[1] - 4, k[2] + 4, k[3] + 4), box) for k in KEEP):
+        role = 'hand'
     paths.append([role, f, d2])
 
 roles = {}
@@ -133,6 +148,8 @@ art = {
     'waist': 505,
     'head': {'cx': 790, 'chin': 302, 'w': 236},
     'steam': [[372, 438, 1.0], [681, 452, 0.9], [517, 418, 0.6]],
+    # 오늘의 밥상을 얹는 자리 — 지운 그릇·바구니·컵의 자리 그대로다 (공주 그릇 · 클레멘 그릇 · 가운데 · 컵 둘)
+    'food': {'pr': [372, 468, 82], 'cl': [676, 468, 84], 'mid': [516, 448, 70], 'cupA': [452, 516], 'cupB': [608, 430]},
     'paths': paths,
 }
 js = ('// 「같이 먹기」 컷씬의 밥상 — 생성 파일이다 (python3 -I tools/genmeal.py <받은 PNG> mealart.js).\n'

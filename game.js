@@ -1901,30 +1901,128 @@ function mealFaceOf(key) {
   const h = diaryHash('mealface|' + key);
   return { clem: MEAL_CLEM[h % MEAL_CLEM.length], pr: MEAL_PR[(h >>> 8) % MEAL_PR.length] };
 }
-// 애착 크리처 — 공주 발밑(의자 앞 바닥)에 같이 앉는다 (「공주 발밑에 애착 크리처도」 · 2026-10-15).
-// ⚠️ 그림은 방과 같은 `Creature.draw()` 다 — 애교 모션·외곽 그림자까지 그대로 따라온다.
-//    물고기는 방과 같은 어항째로 둔다 (바닥에 물고기만 놓이면 이상하다)
-// ⚠️ 자리는 그림의 «바닥»(뷰박스 밑변)에서 잰다 — `MEAL_PET` 은 [왼쪽 · 크기] 비율이다
-const MEAL_PET = { x: 0.1, size: 0.2, foot: 0.985 };
-function mealPetSvg(A) {
-  const pet = roomPet();
-  if (!pet || !window.Creature) return '';
-  const [vx, vy, vw, vh] = A.vb;
-  const sz = vw * MEAL_PET.size, x = vx + vw * MEAL_PET.x, y = vy + vh * MEAL_PET.foot - sz;
-  // ⚠️ 정규식을 안 쓴다 — 따옴표가 든 정규식은 checkglobals 의 문자열 훑기를 어긋나게 한다
-  const at = (svg, k = 1) => {
-    const w = sz * k, o = (sz - w) / 2;
-    return svg.replace('<svg ', `<svg x="${(x + o).toFixed(1)}" y="${(y + o).toFixed(1)}" width="${w.toFixed(1)}" height="${w.toFixed(1)}" `);
-  };
-  if (pet.move === 'water') {
-    const b = Creature.bowl();
-    return `<g class="ml-pet cr-water">${at(b.back)}${at(Creature.draw(pet, { flat: true, noShadow: true, bowl: true, idle: true }), 0.86)}${at(b.front)}</g>`;
+// ── 오늘의 밥상 — 건강식 여섯 벌이 날짜로 돈다 (2026-10-15 · 「네가 그려서 6세트 다 넣어줘」)
+// ⚠️ 그림 속의 원래 음식은 genmeal 이 «따기 전에» 지웠다 — 그 자리(`A.food`)에 여기서 그린다.
+//    그릇·컵의 모양은 한 벌이고, 세트마다 «담긴 것»과 색만 갈린다 (6세트 시안 그대로다)
+// ⚠️ 정규식·따옴표 든 문자열을 줄인다 — checkglobals 의 문자열 훑기가 어긋난다
+const mfDots = (pts, r, fill) => pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`).join('');
+function mfBowl(cx, cy, rx, soup, top = '', body = '#f6eee2', rim = '#e6d7c2') {
+  const ry = rx * 0.3, h = rx * 0.62;
+  return `<ellipse cx="${cx}" cy="${cy + h + 4}" rx="${rx * 0.85}" ry="${ry * 0.5}" fill="#00000016"/>`
+    + `<path d="M${cx - rx},${cy} Q${cx - rx},${cy + h} ${cx},${cy + h} Q${cx + rx},${cy + h} ${cx + rx},${cy} Z" fill="${body}"/>`
+    + `<path d="M${cx - rx * 0.55},${cy + h - 4} h${rx * 1.1}" stroke="${rim}" stroke-width="5" stroke-linecap="round"/>`
+    + `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${rim}"/>`
+    + `<ellipse cx="${cx}" cy="${cy + 1.5}" rx="${rx - 6}" ry="${ry - 4}" fill="${soup}"/>` + top;
+}
+function mfPlate(cx, cy, rx, top = '') {
+  const ry = rx * 0.32;
+  return `<ellipse cx="${cx}" cy="${cy + 5}" rx="${rx}" ry="${ry}" fill="#00000014"/>`
+    + `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#fcf8f2"/>`
+    + `<ellipse cx="${cx}" cy="${cy}" rx="${rx - 11}" ry="${ry - 6}" fill="#f1e7da"/>` + top;
+}
+function mfGlass(x, y, fill, extra = '') {
+  return `<ellipse cx="${x}" cy="${y + 30}" rx="20" ry="5" fill="#00000014"/>`
+    + `<path d="M${x - 17},${y - 30} L${x - 13},${y + 28} L${x + 13},${y + 28} L${x + 17},${y - 30} Z" fill="#ffffffb0" stroke="#cfe2ea" stroke-width="2.5"/>`
+    + `<path d="M${x - 14},${y - 12} L${x - 11},${y + 25} L${x + 11},${y + 25} L${x + 14},${y - 12} Z" fill="${fill}"/>` + extra;
+}
+function mfMug(x, y, fill, body = '#f2e8da') {
+  return `<ellipse cx="${x}" cy="${y + 28}" rx="24" ry="5" fill="#00000014"/>`
+    + `<path d="M${x + 18},${y - 10} q16 0 16 13 q0 13 -16 13" fill="none" stroke="${body}" stroke-width="7"/>`
+    + `<rect x="${x - 20}" y="${y - 22}" width="40" height="48" rx="9" fill="${body}"/>`
+    + `<ellipse cx="${x}" cy="${y - 19}" rx="17" ry="5" fill="${fill}"/>`;
+}
+function mfBread(cx, cy, k, crust = '#b97b45', crumb = '#e7c49a') {
+  const p = (dx, c1, c2) => `<path d="M${cx + dx - 26 * k},${cy + 16 * k} q${-4 * k},${-34 * k} ${24 * k},${-36 * k} q${30 * k},0 ${28 * k},${36 * k} Z" fill="${c1}"/>`
+    + `<path d="M${cx + dx - 18 * k},${cy + 13 * k} q${-2 * k},${-24 * k} ${16 * k},${-26 * k} q${20 * k},0 ${19 * k},${26 * k} Z" fill="${c2}"/>`;
+  return `<ellipse cx="${cx}" cy="${cy + 18 * k}" rx="${46 * k}" ry="${8 * k}" fill="#00000014"/>`
+    + `<rect x="${cx - 50 * k}" y="${cy + 10 * k}" width="${100 * k}" height="${12 * k}" rx="${6 * k}" fill="#c8945f"/>`
+    + p(-14 * k, crust, crumb) + p(16 * k, crust, crumb);
+}
+const MEAL_FOOD_K = 1.35;
+const MEAL_SETS = [
+  { id: 'soup', hot: true, draw: (F) => {               // 텃밭 수프 — 당근·호박 수프 · 통밀빵 · 허브차
+    const sp = (x, y) => mfDots([[x - 22, y], [x + 4, y - 3], [x + 24, y + 2], [x - 6, y + 4]], 3.4, '#7fae4e');
+    return mfBowl(F.pr[0], F.pr[1], F.pr[2], '#f08c3a', sp(F.pr[0], F.pr[1]))
+      + mfBowl(F.cl[0], F.cl[1], F.cl[2], '#f08c3a', sp(F.cl[0], F.cl[1]))
+      + mfBread(F.mid[0], F.mid[1], 1.15) + mfMug(F.cupA[0], F.cupA[1], '#b9cf7a') + mfMug(F.cupB[0], F.cupB[1], '#b9cf7a');
+  } },
+  { id: 'oat', hot: true, draw: (F) => {                // 아침 들판 — 베리 귀리죽 · 삶은 달걀 · 우유
+    const top = (x, y) => mfDots([[x - 26, y - 2], [x - 8, y - 4], [x + 12, y - 1], [x + 28, y - 3]], 5, '#6b4c9a')
+      + mfDots([[x - 16, y + 4], [x + 22, y + 4]], 4.5, '#c0392b') + mfDots([[x + 2, y + 3], [x - 32, y + 3]], 3, '#b5834e');
+    const egg = (x, y) => `<ellipse cx="${x}" cy="${y}" rx="17" ry="11" fill="#fff"/><circle cx="${x}" cy="${y}" r="6.5" fill="#f4c22b"/>`;
+    return mfBowl(F.pr[0], F.pr[1], F.pr[2], '#efe0c4', top(F.pr[0], F.pr[1]))
+      + mfBowl(F.cl[0], F.cl[1], F.cl[2], '#efe0c4', top(F.cl[0], F.cl[1]))
+      + mfPlate(F.mid[0], F.mid[1] + 10, 52, egg(F.mid[0] - 18, F.mid[1] + 6) + egg(F.mid[0] + 18, F.mid[1] + 9))
+      + mfGlass(F.cupA[0], F.cupA[1], '#ffffff') + mfGlass(F.cupB[0], F.cupB[1], '#ffffff');
+  } },
+  { id: 'salmon', hot: true, draw: (F) => {             // 연어 구이 — 연어·레몬 · 브로콜리·감자 · 레몬물
+    const dish = (x, y) => mfPlate(x, y + 6, 74,
+      `<path d="M${x - 44},${y + 2} q22 -26 66 -10 q6 10 -4 16 q-40 10 -62 -6 Z" fill="#f28b72"/>`
+      + `<path d="M${x - 30},${y - 4} q12 4 10 12 M${x - 12},${y - 7} q12 4 10 13 M${x + 6},${y - 6} q10 5 7 13" stroke="#ffd0c2" stroke-width="3.4" fill="none" stroke-linecap="round"/>`
+      + `<path d="M${x + 24},${y + 10} l18 -14 a14 14 0 0 1 4 20 Z" fill="#f7d33c"/>`
+      + mfDots([[x + 46, y + 4], [x + 54, y + 1]], 7, '#4f9a3a') + mfDots([[x + 50, y - 5]], 6, '#6bbb52')
+      + mfDots([[x - 30, y + 16], [x - 14, y + 19]], 7.5, '#e6c27a'));
+    return dish(F.pr[0], F.pr[1]) + dish(F.cl[0], F.cl[1])
+      + mfBowl(F.mid[0], F.mid[1], 40, '#8bc066', mfDots([[F.mid[0] - 12, F.mid[1]], [F.mid[0] + 10, F.mid[1] + 2]], 5, '#e2483a'))
+      + mfGlass(F.cupA[0], F.cupA[1], '#fff7c4', `<circle cx="${F.cupA[0]}" cy="${F.cupA[1] - 6}" r="9" fill="#f7d33c" opacity=".8"/>`)
+      + mfGlass(F.cupB[0], F.cupB[1], '#fff7c4', `<circle cx="${F.cupB[0]}" cy="${F.cupB[1] - 6}" r="9" fill="#f7d33c" opacity=".8"/>`);
+  } },
+  { id: 'salad', hot: false, draw: (F) => {             // 곡물 샐러드 볼 — 렌틸·보리·토마토·잎채소 · 호박씨 · 사과주스
+    const top = (x, y) => `<path d="M${x - 40},${y} q9 -16 20 -2 M${x - 10},${y - 3} q11 -18 22 -1 M${x + 20},${y} q9 -16 20 0" fill="#5f9e3f"/>`
+      + mfDots([[x - 26, y + 2], [x + 30, y + 3], [x + 2, y + 5]], 6.5, '#e2483a')
+      + mfDots([[x - 14, y + 4], [x - 4, y - 1], [x + 14, y + 1], [x + 22, y + 6], [x - 34, y + 5]], 2.8, '#c9a87a');
+    return mfBowl(F.pr[0], F.pr[1], F.pr[2], '#8bc066', top(F.pr[0], F.pr[1]))
+      + mfBowl(F.cl[0], F.cl[1], F.cl[2], '#8bc066', top(F.cl[0], F.cl[1]))
+      + mfBowl(F.mid[0], F.mid[1], 34, '#cfd8a0', mfDots([[F.mid[0] - 10, F.mid[1]], [F.mid[0], F.mid[1] - 2], [F.mid[0] + 10, F.mid[1] + 1]], 3, '#7a9b45'))
+      + mfGlass(F.cupA[0], F.cupA[1], '#f2b544') + mfGlass(F.cupB[0], F.cupB[1], '#f2b544');
+  } },
+  { id: 'stew', hot: true, draw: (F) => {               // 닭고기 스튜 — 뿌리채소 스튜 · 호밀빵 · 생강차
+    const top = (x, y) => mfDots([[x - 24, y], [x + 18, y + 3]], 7, '#f4e2c4')
+      + mfDots([[x - 6, y - 2], [x + 30, y - 1], [x - 36, y + 3]], 5.5, '#ef7d2e') + mfDots([[x + 6, y + 4]], 4, '#7fae4e');
+    return mfBowl(F.pr[0], F.pr[1], F.pr[2], '#e8b04a', top(F.pr[0], F.pr[1]), '#8a5a3c', '#6f4630')
+      + mfBowl(F.cl[0], F.cl[1], F.cl[2], '#e8b04a', top(F.cl[0], F.cl[1]), '#8a5a3c', '#6f4630')
+      + mfBread(F.mid[0], F.mid[1], 1.15, '#6b4226', '#9b6a43') + mfMug(F.cupA[0], F.cupA[1], '#e6b45c') + mfMug(F.cupB[0], F.cupB[1], '#e6b45c');
+  } },
+  { id: 'risotto', hot: true, draw: (F) => {            // 버섯 보리 리소토 · 구운 사과 · 꿀 우유
+    const dish = (x, y) => mfPlate(x, y + 6, 74, `<ellipse cx="${x}" cy="${y + 2}" rx="48" ry="15" fill="#e6d9bf"/>`
+      + `<path d="M${x - 24},${y} a10 8 0 0 1 20 0 Z M${x + 4},${y - 4} a10 8 0 0 1 20 0 Z" fill="#a98868"/>`
+      + `<rect x="${x - 16}" y="${y - 1}" width="4" height="7" fill="#efe3cf"/><rect x="${x + 12}" y="${y - 5}" width="4" height="7" fill="#efe3cf"/>`
+      + mfDots([[x - 30, y + 6], [x + 30, y + 4]], 3, '#7fae4e'));
+    const apple = (x, y) => `<path d="M${x - 22},${y} a22 18 0 0 1 44 0 Z" fill="#c0392b"/><path d="M${x - 16},${y} a16 12 0 0 1 32 0 Z" fill="#f6e3b8"/>`
+      + `<rect x="${x - 10}" y="${y - 16}" width="22" height="4" rx="2" fill="#8a5a2b" transform="rotate(-20 ${x} ${y - 14})"/>`;
+    return dish(F.pr[0], F.pr[1]) + dish(F.cl[0], F.cl[1])
+      + mfPlate(F.mid[0], F.mid[1] + 12, 54, apple(F.mid[0] - 18, F.mid[1] + 10) + apple(F.mid[0] + 20, F.mid[1] + 12))
+      + mfMug(F.cupA[0], F.cupA[1], '#f7f1e6') + mfMug(F.cupB[0], F.cupB[1], '#f7f1e6');
+  } },
+];
+// 오늘의 밥상 — 대사와 같은 «섞은 한 바퀴»라 이틀 연달아 같은 상이 안 나온다
+function mealSetOf(key) {
+  const k = String(key);
+  const day = Math.floor(Date.UTC(+k.slice(0, 4), +k.slice(4, 6) - 1, +k.slice(6, 8)) / 864e5);
+  const n = MEAL_SETS.length, lap = Math.floor(day / n);
+  const order = Array.from({ length: n }, (_, i) => i);
+  let h = diaryHash('mealset|' + lap) >>> 0;
+  for (let i = n - 1; i > 0; i--) {
+    h = (Math.imul(h, 1664525) + 1013904223) >>> 0;
+    const j = h % (i + 1);
+    [order[i], order[j]] = [order[j], order[i]];
   }
-  return `<g class="ml-pet">${at(Creature.draw(pet, { flat: true, idle: true }))}</g>`;
+  return MEAL_SETS[order[((day % n) + n) % n]];
 }
 function mealSceneSvg(A) {
   const col = mealColors();
   const fx = mealFaceOf(dayKey());
+  const set = mealSetOf(dayKey());
+  // ⚠️ 그릇·컵은 한 크기로 그려 놓고 «밥상 한가운데를 축으로» `MEAL_FOOD_K` 배 키운다 — 자리(`A.food`)는
+  //    키운 «뒤»의 자리라 거꾸로 옮겨 넘긴다 (토핑 간격까지 같이 커져서 그릇마다 손으로 늘릴 데가 없다)
+  let food = '';
+  if (A.food) {
+    const K = MEAL_FOOD_K, [cx, cy] = A.food.mid;
+    const back = ([x, y, ...r]) => [cx + (x - cx) / K, cy + (y - cy) / K, ...r];
+    const F = {}; Object.keys(A.food).forEach(k => { F[k] = back(A.food[k]); });
+    F.pr[2] /= K; F.cl[2] /= K;
+    food = `<g class="ml-food" data-set="${set.id}" transform="translate(${cx},${cy}) scale(${K}) translate(${-cx},${-cy})">${set.draw(F)}</g>`;
+  }
   // 상의+하의면 원피스 조각을 두 번 칠한다 — 허리(A.waist) 위는 상의 색, 아래는 하의 색으로 잘라서.
   // ⚠️ 잘라 칠하는 id 는 문서에 하나만 있는 이 장면 것이라 겹칠 데가 없다 (장면은 한 번에 하나다)
   const split = col.low && A.waist;
@@ -1934,6 +2032,8 @@ function mealSceneSvg(A) {
   // 눈썹은 «눈썹 문신»을 했을 때만 — 그 색으로 (안 했으면 아예 안 그린다 · 사람이 정했다)
   const browOn = S.outfit.brow && S.outfit.brow !== 'brow_none';
   const browHex = browOn && window.Avatar && Avatar.browColorOf ? Avatar.browColorOf(outfitWithColors()) : null;
+  // 손은 밥상 «위»에 다시 그린다 (genmeal 의 `hand` 역할 — 그릇 가장자리에 닿은 손)
+  const hands = A.paths.filter(p => p[0] === 'hand').map(([, f, d]) => `<path d="${d}" fill="${f}"/>`).join('');
   const body = A.paths.map(([r, f, d]) => {
     if (r === 'brow') return browOn ? `<path d="${d}" fill="${browHex || f}"/>` : '';
     const to = col[r];
@@ -1997,7 +2097,7 @@ function mealSceneSvg(A) {
   const hearts = [0, 1, 2].map(i => `<g transform="translate(${(mid + (i - 1) * 46).toFixed(0)},${A.head.chin - 30}) scale(${(2.4 + (i % 2) * 0.8).toFixed(1)})"><g class="ml-heart"
     style="animation-delay:${(0.5 + i * 0.55).toFixed(2)}s"><path d="${hp}" fill="#ff8fab"/></g></g>`).join('');
   return `<svg class="ml-svg" viewBox="${A.vb.join(' ')}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escHtml(T('meal_alt'))}">
-    ${defs}${body}${cheeks}${mouth}${eyes}${sparkle}${happy}${clem}${lids}${steam}${hearts}${mealPetSvg(A)}</svg>`;
+    ${defs}${body}${food}${hands}${cheeks}${mouth}${eyes}${sparkle}${happy}${clem}${lids}${set.hot ? steam : ''}${hearts}</svg>`;
 }
 function playMealScene(then) {
   const box = document.getElementById('mealScene');
