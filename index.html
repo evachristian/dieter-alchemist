@@ -13,11 +13,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261015d">
+<link rel="stylesheet" href="style.css?v=20261015e">
 <!-- ⚠️ UI 색상은 «첫 페인트 전»에 정해져야 한다 — 문서 끝에 두면 기본 색으로
      한 번 그려진 뒤에 얹혀서 다크를 고른 사람에게 흰 화면이 한 번 친다.
      그래서 여기만 `defer` 없이 `<head>` 에서 읽는다 (theme.js 주석 참고) -->
-<script src="theme.js?v=20261015d"></script>
+<script src="theme.js?v=20261015e"></script>
 </head>
 <body>
 
@@ -54,7 +54,7 @@
 <div id="splash" class="splash">
   <div class="splash-inner">
     <!-- 로고 이미지(logo.png)가 있으면 그것을 사용, 없으면 아래 SVG로 자동 폴백 -->
-    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20261015d" alt="Dream Syndicate Studio"
+    <img id="splashLogoImg" class="splash-logo" src="logo.png?v=20261015e" alt="Dream Syndicate Studio"
          onerror="this.remove(); var f=document.getElementById('splashLogoSvg'); if(f) f.style.display='block';">
     <svg id="splashLogoSvg" class="splash-logo" style="display:none" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dream Syndicate Studio">
       <defs>
@@ -192,6 +192,13 @@
      **바짝 붙은 옅은 테 한 겹**을 앞에 더한다 (뒤의 그림자는 같은 값 그대로) */
   .stage-creature svg.cr-svg > g.cr-doll {
     filter: drop-shadow(0 0 1.2px rgba(40, 24, 40, 0.45)) drop-shadow(-2.4px 4.4px 6.4px rgba(0, 0, 0, 0.34));
+  }
+  /* ⚠️ **어항 속은 물이 파랗다** — 물 속 크리처(대개 파란 몸)는 위의 옅은 테로는 물빛에 녹아
+     실루엣이 안 읽혔다 (「어항 속 크리처 윤곽이 안 보인다」 · 2026-10-15). 짙은 남색 테를
+     바짝 두르고 그 밖으로 한 번 더 번지게 한다. 물 모양 오림(`cr-water-in`) 안이라 유리 밖으로는 안 샌다 */
+  .stage-creature.cr-water .cr-swim svg.cr-svg > g.cr-doll {
+    filter: drop-shadow(0 0 0.8px rgba(12, 28, 64, 0.85)) drop-shadow(0 0 2.6px rgba(12, 28, 64, 0.45))
+      drop-shadow(-1.6px 3px 4px rgba(0, 10, 30, 0.35));
   }
   /* 대사 영역: 하단 도킹 */
   /* ⚠️⚠️ **대사 상자는 아트(`#introArt` · z-index 1) «위»다** — 3D 배경을 깔면서 아트에
@@ -1277,38 +1284,38 @@
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
-<script src="i18n.js?v=20261015d"></script>
-<script src="intro.js?v=20261015d"></script>
-<script src="data.js?v=20261015d"></script>
+<script src="i18n.js?v=20261015e"></script>
+<script src="intro.js?v=20261015e"></script>
+<script src="data.js?v=20261015e"></script>
 <!-- ⚠️⚠️ **`roomart.js` 는 «모듈보다 먼저»** 와야 한다. 방과 소품의 그림이 여기
      한 곳에 있고, 3D 방(room3d.js · ES 모듈)이 `window.RoomArt` 로 그것을 읽는다 —
      SVG 폴백(avatar.js)도 같은 캔버스를 data URL 로 쓴다.
      (평범한 스크립트가 모듈보다 먼저 도는 것이 규칙이지만, 순서로도 적어 둔다) -->
-<script src="roomart.js?v=20261015d"></script>
-<script src="crouchart.js?v=20261015d"></script>
-<script src="earart.js?v=20261015d"></script>
-<script src="avatar.js?v=20261015d"></script>
-<script src="village.js?v=20261015d"></script>
-<script src="portrait.js?v=20261015d"></script>
+<script src="roomart.js?v=20261015e"></script>
+<script src="crouchart.js?v=20261015e"></script>
+<script src="earart.js?v=20261015e"></script>
+<script src="avatar.js?v=20261015e"></script>
+<script src="village.js?v=20261015e"></script>
+<script src="portrait.js?v=20261015e"></script>
 <!-- 애교 모션의 리그. **`creature.js` 가 그릴 때 읽으므로 그보다 먼저** 둔다
      (없어도 게임은 돈다 — 그때는 크리처가 가만히 서 있다) -->
-<script src="petidle.js?v=20261015d"></script>
-<script src="creature.js?v=20261015d"></script>
-<script src="cauldron.js?v=20261015d"></script>
-<script src="pumpkin.js?v=20261015d"></script>
-<script src="walnut.js?v=20261015d"></script>
-<script src="rock.js?v=20261015d"></script>
-<script src="fish.js?v=20261015d"></script>
-<script src="sparrow.js?v=20261015d"></script>
-<script src="pinwheel.js?v=20261015d"></script>
-<script src="driller.js?v=20261015d"></script>
-<script src="sfx.js?v=20261015d"></script>
-<script src="sync.js?v=20261015d"></script>
+<script src="petidle.js?v=20261015e"></script>
+<script src="creature.js?v=20261015e"></script>
+<script src="cauldron.js?v=20261015e"></script>
+<script src="pumpkin.js?v=20261015e"></script>
+<script src="walnut.js?v=20261015e"></script>
+<script src="rock.js?v=20261015e"></script>
+<script src="fish.js?v=20261015e"></script>
+<script src="sparrow.js?v=20261015e"></script>
+<script src="pinwheel.js?v=20261015e"></script>
+<script src="driller.js?v=20261015e"></script>
+<script src="sfx.js?v=20261015e"></script>
+<script src="sync.js?v=20261015e"></script>
 <!-- 방을 3D 로 그리는 모듈. **모듈이라 미뤄져 실행된다** — 그래서 게임은
      이것이 «없어도» 돈다 (SVG 방 그대로). 준비되면 room3d-ready 로 알린다 -->
-<script type="module" src="room3d.js?v=20261015d"></script>
-<script src="game.js?v=20261015d"></script>
-<script src="tutorial.js?v=20261015d"></script>
-<script src="a11y.js?v=20261015d"></script>
+<script type="module" src="room3d.js?v=20261015e"></script>
+<script src="game.js?v=20261015e"></script>
+<script src="tutorial.js?v=20261015e"></script>
+<script src="a11y.js?v=20261015e"></script>
 </body>
 </html>

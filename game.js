@@ -1947,7 +1947,7 @@ function playMealScene(then) {
   loadMealArt().then(A => {
     clearTimeout(mealTimer);
     mealDone = then || null;
-    const n = 1 + diaryHash('meal|' + dayKey()) % MEAL_LINES;
+    const n = mealLineOf(dayKey());
     box.innerHTML = `<div class="ml-card">${mealSceneSvg(A)}</div>
       <div class="ml-say"><b>${escHtml(speakerName('sp_clemen'))}</b> ${escHtml(T('meal_line_' + n))}</div>`;
     box.hidden = false;
@@ -1966,7 +1966,25 @@ function endMealScene() {
   const f = mealDone; mealDone = null;
   if (f) f();
 }
-const MEAL_LINES = 3;
+// 클레멘의 한 마디 — **백 가지이고 그날그날 다르다** (2026-10-15 · 「대사 100종 · 그날그날 랜덤하게」).
+// ⚠️ **날짜로 고정한다** — 다시 눌러도 같은 날이면 같은 말이다 (오늘의 한 마디·날씨와 같은 규칙).
+// ⚠️⚠️ 날마다 해시로 고르면 **이틀 연달아 같은 말**이 나올 수 있다(백에 한 번).
+//    그래서 백 날을 한 바퀴로 «섞은 순서»를 따른다 — 한 바퀴 안에서는 한 번도 안 겹친다.
+//    순서는 바퀴 번호로 섞으므로 바퀴마다 다르다 (`Math.random` 이 아니다 — 같은 날은 같은 답)
+const MEAL_LINES = 100;
+function mealLineOf(key) {
+  const k = String(key);
+  const day = Math.floor(Date.UTC(+k.slice(0, 4), +k.slice(4, 6) - 1, +k.slice(6, 8)) / 864e5);
+  const lap = Math.floor(day / MEAL_LINES);
+  const order = Array.from({ length: MEAL_LINES }, (_, i) => i);
+  let h = diaryHash('meal|' + lap) >>> 0;
+  for (let i = order.length - 1; i > 0; i--) {
+    h = (Math.imul(h, 1664525) + 1013904223) >>> 0;
+    const j = h % (i + 1);
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return 1 + order[((day % MEAL_LINES) + MEAL_LINES) % MEAL_LINES];
+}
 window.playMealScene = playMealScene;
 window.endMealScene = endMealScene;
 
