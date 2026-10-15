@@ -1891,8 +1891,40 @@ function mealColors() {
   const one = pick('dress');
   return one ? { hair, dress: one, low: null } : { hair, dress: pick('top'), low: pick('bottom') };
 }
+// 오늘의 표정 — **날짜로 고정한다**(같은 날 다시 보면 같은 얼굴 · 대사와 같은 규칙).
+// 클레멘은 «처음 얼굴 → 나중 얼굴» 한 쌍, 공주는 셋 중 하나(깜박 · 웃음 · 설렘).
+// ⚠️ 다 웃는 쪽·다정한 쪽만 둔다 (「웃는 느낌, 정다운 느낌으로」 · 사람이 정했다)
+const MEAL_CLEM = [['def', 'smile'], ['warm', 'laugh'], ['smile', 'wink'], ['def', 'blush'], ['warm', 'haha'], ['relief', 'smile']];
+const MEAL_PR = ['blink', 'smile', 'sparkle'];
+const MEAL_MOUTH_DY = 2.35;      // 입이 눈 높이에서 «눈 반지름 몇 개» 아래인가 (그림에서 재서 맞췄다)
+function mealFaceOf(key) {
+  const h = diaryHash('mealface|' + key);
+  return { clem: MEAL_CLEM[h % MEAL_CLEM.length], pr: MEAL_PR[(h >>> 8) % MEAL_PR.length] };
+}
+// 애착 크리처 — 공주 발밑(의자 앞 바닥)에 같이 앉는다 (「공주 발밑에 애착 크리처도」 · 2026-10-15).
+// ⚠️ 그림은 방과 같은 `Creature.draw()` 다 — 애교 모션·외곽 그림자까지 그대로 따라온다.
+//    물고기는 방과 같은 어항째로 둔다 (바닥에 물고기만 놓이면 이상하다)
+// ⚠️ 자리는 그림의 «바닥»(뷰박스 밑변)에서 잰다 — `MEAL_PET` 은 [왼쪽 · 크기] 비율이다
+const MEAL_PET = { x: 0.1, size: 0.2, foot: 0.985 };
+function mealPetSvg(A) {
+  const pet = roomPet();
+  if (!pet || !window.Creature) return '';
+  const [vx, vy, vw, vh] = A.vb;
+  const sz = vw * MEAL_PET.size, x = vx + vw * MEAL_PET.x, y = vy + vh * MEAL_PET.foot - sz;
+  // ⚠️ 정규식을 안 쓴다 — 따옴표가 든 정규식은 checkglobals 의 문자열 훑기를 어긋나게 한다
+  const at = (svg, k = 1) => {
+    const w = sz * k, o = (sz - w) / 2;
+    return svg.replace('<svg ', `<svg x="${(x + o).toFixed(1)}" y="${(y + o).toFixed(1)}" width="${w.toFixed(1)}" height="${w.toFixed(1)}" `);
+  };
+  if (pet.move === 'water') {
+    const b = Creature.bowl();
+    return `<g class="ml-pet cr-water">${at(b.back)}${at(Creature.draw(pet, { flat: true, noShadow: true, bowl: true, idle: true }), 0.86)}${at(b.front)}</g>`;
+  }
+  return `<g class="ml-pet">${at(Creature.draw(pet, { flat: true, idle: true }))}</g>`;
+}
 function mealSceneSvg(A) {
   const col = mealColors();
+  const fx = mealFaceOf(dayKey());
   // 상의+하의면 원피스 조각을 두 번 칠한다 — 허리(A.waist) 위는 상의 색, 아래는 하의 색으로 잘라서.
   // ⚠️ 잘라 칠하는 id 는 문서에 하나만 있는 이 장면 것이라 겹칠 데가 없다 (장면은 한 번에 하나다)
   const split = col.low && A.waist;
@@ -1936,10 +1968,36 @@ function mealSceneSvg(A) {
       // ⚠️ `class="pt-svg"` 를 떼야 한다 — 남기면 초상화 CSS(폭 100%)가 먹어 머리가 상자만 해진다
       .replace('<svg class="pt-svg', `<svg x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(120 * s).toFixed(1)}" height="${(104 * s).toFixed(1)}" data-pt="`)
       .replace('viewBox="0 0 120 130"', 'viewBox="0 0 120 104" overflow="hidden"');
-    clem = `<g class="ml-clem"><g class="ml-def">${face('def')}</g><g class="ml-smile">${face('smile')}</g></g>`;
+    clem = `<g class="ml-clem"><g class="ml-def">${face(fx.clem[0])}</g><g class="ml-smile">${face(fx.clem[1])}</g></g>`;
   }
+  // 볼 홍조 — 공주 눈 밑에서 «숨 쉬듯» 진해졌다 옅어진다 (정다운 느낌)
+  const cheeks = A.eyes.map(([x, y, rx, ry], i) => `<ellipse class="ml-cheek" cx="${(x + (i ? 1 : -1) * rx * 0.35).toFixed(1)}"
+    cy="${(y + ry * 1.55).toFixed(1)}" rx="${(rx * 0.95).toFixed(1)}" ry="${(ry * 0.5).toFixed(1)}" fill="#ff9db4"/>`).join('');
+  // 웃는 눈(^^) — 눈동자를 살색으로 덮고 위로 둥근 호를 긋는다. 「웃음」 날에만 중간에 바뀐다
+  const happy = fx.pr === 'smile' ? `<g class="ml-happy">${A.eyes.map(([x, y, rx, ry]) =>
+    `<ellipse cx="${x}" cy="${y}" rx="${rx + 2}" ry="${ry + 2}" fill="${A.eyelid}"/>`
+    + `<path d="M${x - rx},${(y + ry * 0.25).toFixed(1)} Q${x},${(y - ry * 0.9).toFixed(1)} ${x + rx},${(y + ry * 0.25).toFixed(1)}"
+      fill="none" stroke="${A.pupil || '#3d2a22'}" stroke-width="${(rx * 0.32).toFixed(1)}" stroke-linecap="round"/>`).join('')}</g>` : '';
+  // 반짝 — 「설렘」 날에는 눈동자 위에 별빛이 번갈아 반짝인다
+  const star = 'M0,-1 L0.25,-0.25 L1,0 L0.25,0.25 L0,1 L-0.25,0.25 L-1,0 L-0.25,-0.25 Z';
+  const sparkle = fx.pr === 'sparkle' ? A.eyes.map(([x, y, rx, ry], i) =>
+    `<g transform="translate(${(x + rx * 0.3).toFixed(1)},${(y - ry * 0.35).toFixed(1)}) scale(${(rx * 0.55).toFixed(1)})"><path class="ml-twinkle"
+      style="animation-delay:${(i * 0.45).toFixed(2)}s" d="${star}" fill="#fff"/></g>`).join('') : '';
+  // 하트 — 둘 사이에서 몽글몽글 피어오른다 (하트 모양은 아바타의 한 벌을 쓴다)
+  const hp = window.Avatar && Avatar.heartPath ? Avatar.heartPath(1) : 'M0,3 C-6,-2 -4,-7 0,-4 C4,-7 6,-2 0,3 Z';
+  const mid = (A.eyes[0][0] + A.head.cx) / 2;
+  // 입 — 그림의 동그란 «오» 입을 살색으로 덮고 웃는 입을 그린다 (눈 둘의 가운데 아래 · 웃는 느낌).
+  // ⚠️ 자리는 «눈에서» 뽑는다 — 그림 좌표를 따로 적으면 genmeal 로 다시 딴 날 입만 옛 자리에 남는다
+  const ex = (A.eyes[0][0] + A.eyes[1][0]) / 2, ey = (A.eyes[0][1] + A.eyes[1][1]) / 2;
+  const er = A.eyes[0][2];
+  const mx = ex + er * 0.05, my = ey + er * MEAL_MOUTH_DY;
+  const mouth = `<ellipse cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" rx="${(er * 0.62).toFixed(1)}" ry="${(er * 0.62).toFixed(1)}" fill="${A.eyelid}"/>`
+    + `<path class="ml-mouth" d="M${(mx - er * 0.45).toFixed(1)},${(my - er * 0.12).toFixed(1)} Q${mx.toFixed(1)},${(my + er * 0.55).toFixed(1)} ${(mx + er * 0.45).toFixed(1)},${(my - er * 0.12).toFixed(1)} Z"
+      fill="#c0505f" stroke="#8a3340" stroke-width="${(er * 0.12).toFixed(1)}" stroke-linejoin="round"/>`;
+  const hearts = [0, 1, 2].map(i => `<g transform="translate(${(mid + (i - 1) * 46).toFixed(0)},${A.head.chin - 30}) scale(${(2.4 + (i % 2) * 0.8).toFixed(1)})"><g class="ml-heart"
+    style="animation-delay:${(0.5 + i * 0.55).toFixed(2)}s"><path d="${hp}" fill="#ff8fab"/></g></g>`).join('');
   return `<svg class="ml-svg" viewBox="${A.vb.join(' ')}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escHtml(T('meal_alt'))}">
-    ${defs}${body}${eyes}${clem}${lids}${steam}</svg>`;
+    ${defs}${body}${cheeks}${mouth}${eyes}${sparkle}${happy}${clem}${lids}${steam}${hearts}${mealPetSvg(A)}</svg>`;
 }
 function playMealScene(then) {
   const box = document.getElementById('mealScene');

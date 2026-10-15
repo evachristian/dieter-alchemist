@@ -5012,8 +5012,22 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 .meal-scene .ml-def   { animation: mlSmileOff 3s linear infinite; }
 @keyframes mlSmile    { 0%, 48% { opacity: 0; } 52%, 88% { opacity: 1; } 92%, 100% { opacity: 0; } }
 @keyframes mlSmileOff { 0%, 48% { opacity: 1; } 52%, 88% { opacity: 0; } 92%, 100% { opacity: 1; } }
+/* 정다운 움직임 셋 — 볼 홍조가 숨 쉬듯 · 웃는 눈(^^)이 중간에 · 별빛이 반짝 · 하트가 피어오른다 */
+.meal-scene .ml-cheek { opacity: 0.35; animation: mlCheek 1.5s ease-in-out infinite; }
+@keyframes mlCheek { 0%, 100% { opacity: 0.32; } 50% { opacity: 0.62; } }
+.meal-scene .ml-happy { opacity: 0; animation: mlSmile 3s linear infinite; }
+.meal-scene .ml-twinkle { transform-box: fill-box; transform-origin: 50% 50%; animation: mlTwinkle 0.9s ease-in-out infinite; }
+@keyframes mlTwinkle { 0%, 100% { transform: scale(0.3) rotate(0deg); opacity: 0.4; } 50% { transform: scale(1) rotate(45deg); opacity: 1; } }
+.meal-scene .ml-heart { opacity: 0; animation: mlHeart 2.2s ease-out infinite; }
+@keyframes mlHeart {
+  0%   { opacity: 0; transform: translateY(0) scale(0.6); }
+  25%  { opacity: 0.95; }
+  100% { opacity: 0; transform: translateY(-46px) scale(1.1); }
+}
 @media (prefers-reduced-motion: reduce) {
   .meal-scene .ml-steam, .meal-scene .ml-lid, .meal-scene .ml-clem,
-  .meal-scene .ml-smile, .meal-scene .ml-def { animation: none; }
+  .meal-scene .ml-smile, .meal-scene .ml-def, .meal-scene .ml-cheek,
+  .meal-scene .ml-happy, .meal-scene .ml-twinkle, .meal-scene .ml-heart { animation: none; }
+  .meal-scene .ml-heart { opacity: 0; }
   .meal-scene .ml-steam { opacity: 0.6; }
 }
