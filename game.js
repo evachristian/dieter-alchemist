@@ -1920,12 +1920,21 @@ function mfPlate(cx, cy, rx, top = '') {
     + `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#fcf8f2"/>`
     + `<ellipse cx="${cx}" cy="${cy}" rx="${rx - 11}" ry="${ry - 6}" fill="#f1e7da"/>` + top;
 }
+// 컵은 «원래 그림의 컵만큼» 키운다 (`MEAL_CUP_K` · 「컵 크기 원래만큼 키워줘」) — 바닥을 축으로 키워 탁자에 선 채로 커진다
+const MEAL_CUP_K = 1.4;
+const mfCupAt = (x, y, svg) => `<g transform="translate(${x},${y + 28}) scale(${MEAL_CUP_K}) translate(${-x},${-(y + 28)})">${svg}</g>`;
 function mfGlass(x, y, fill, extra = '') {
+  return mfCupAt(x, y, mfGlassRaw(x, y, fill, extra));
+}
+function mfMug(x, y, fill, body) {
+  return mfCupAt(x, y, mfMugRaw(x, y, fill, body));
+}
+function mfGlassRaw(x, y, fill, extra = '') {
   return `<ellipse cx="${x}" cy="${y + 30}" rx="20" ry="5" fill="#00000014"/>`
     + `<path d="M${x - 17},${y - 30} L${x - 13},${y + 28} L${x + 13},${y + 28} L${x + 17},${y - 30} Z" fill="#ffffffb0" stroke="#cfe2ea" stroke-width="2.5"/>`
     + `<path d="M${x - 14},${y - 12} L${x - 11},${y + 25} L${x + 11},${y + 25} L${x + 14},${y - 12} Z" fill="${fill}"/>` + extra;
 }
-function mfMug(x, y, fill, body = '#f2e8da') {
+function mfMugRaw(x, y, fill, body = '#f2e8da') {
   return `<ellipse cx="${x}" cy="${y + 28}" rx="24" ry="5" fill="#00000014"/>`
     + `<path d="M${x + 18},${y - 10} q16 0 16 13 q0 13 -16 13" fill="none" stroke="${body}" stroke-width="7"/>`
     + `<rect x="${x - 20}" y="${y - 22}" width="40" height="48" rx="9" fill="${body}"/>`
