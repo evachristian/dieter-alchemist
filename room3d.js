@@ -162,7 +162,7 @@ export function createRoom(canvas, opt) {
   // ⚠️ **벽을 프로토타입보다 높였다(6.4 → 7.6).** 게임의 방 상자는 세로로 길고
   //    바닥선이 92% 에 있어서, 6.4 로는 화면 꼭대기에 **천장 너머의 빈 곳**이 비친다.
   //    ⚠️ 높이만 올리면 돌이 세로로 늘어난다 — 텍스처 높이도 «같이» 간다(`WALL_TEX_H`)
-  const ROOM_W = 9.6, ROOM_D = 8.4, WALL_H = 10.4;
+  const ROOM_W = 9.6, ROOM_D = 8.4, WALL_H = 11.2;
   // ⚠️⚠️ **바닥과 옆벽은 «앞으로» 더 나와 있다**(`FRONT_EXT` · 2026-10-15).
   //    「카메라를 뒤로 빼 달라 · 바닥을 연장해 달라」로 받았다 — 물러나면 카메라가
   //    방의 앞머리를 내려다보게 되는데, 앞벽이 없어서 거기서 **바닥이 끝나고 옆벽이
@@ -670,7 +670,7 @@ export function createRoom(canvas, opt) {
   //    이미지만 하게」). 그러면서 **줌 아웃이 «진짜로 물러나는» 것**이 됐다 (`aimFloor`) —
   //    고개 각도는 줌 1 의 것을 그대로 두고 거리만 늘리므로, 양탄자가 화면에서 위로
   //    올라가고 **발 앞으로 바닥이 넓게 보인다.** 그 바닥이 끝나지 않게 바닥·옆벽을 앞으로
-  //    늘리고(`FRONT_EXT`) 벽을 높였다(`WALL_H` 7.6 → 10.4 · 물러나면 벽 꼭대기가 상자 안으로
+  //    늘리고(`FRONT_EXT`) 벽을 높였다(`WALL_H` 7.6 → 11.2 · 물러나면 벽 꼭대기가 상자 안으로
   //    내려온다). 아래 한계 0.6 은 거기서 잰 값이다 — 265·320·390px 에서 벽 꼭대기가 상자
   //    위로 24~30px 남는다
   const ZOOM_DEF = 0.75;
@@ -698,6 +698,9 @@ export function createRoom(canvas, opt) {
   //    좁은 상자(265px)에서 내리면 어깨에 뜨는 공중 크리처가 왼쪽 버튼 줄의 띠로
   //    내려와 가려진다 (`checkroom` 「크리처 가림」이 잡았다 · 23px²)
   const DROP_ASP = [0.75, 1.0];
+  const FLOOR_LOWER = 40, FLOOR_MAX = 0.95;
+  // ⚠️ 이 몫은 265px(가로÷세로 0.72 아래)에서만 안 준다 — 거기서 내리면 공중 크리처가 버튼 줄에 가려진다
+  const LOWER_ASP = [0.74, 0.84];
   function aimFloor() {
     const zIn = Math.max(1, zoom);
     for (let k = 0; k < 4; k++) {
@@ -711,8 +714,14 @@ export function createRoom(canvas, opt) {
       solve(() => markHalf() / H, MARK_AT * zoom, 5, 40, v => { dist = v; });
       // 물러난 그대로면 양탄자가 위로 너무 올라간다 — 그 몫의 `FLOOR_DROP` 만큼 도로 내린다
       const lift = FLOOR_AT - toScreen(ORIGIN).y;
-      const drop = FLOOR_DROP * Math.max(0, Math.min(1, (W / H - DROP_ASP[0]) / (DROP_ASP[1] - DROP_ASP[0])));
-      const want = FLOOR_AT - lift * (1 - drop);
+      const wide = Math.max(0, Math.min(1, (W / H - DROP_ASP[0]) / (DROP_ASP[1] - DROP_ASP[0])));
+      const drop = FLOOR_DROP * wide;
+      // 거기서 `FLOOR_LOWER` px 더 내린다 — 샹들리에가 헤더의 AP 게이지 밑으로 들어가지 않게
+      // (「샹들리에가 게이지바랑 겹치지 않도록 · 캐릭터도 그만큼 하단으로」). 양탄자는 상자의
+      // `FLOOR_MAX` 위에서 멈춘다 — 스탯을 펼친 짧은 상자에서는 그만큼만 내려간다
+      const base = FLOOR_AT - lift * (1 - drop);
+      const low = Math.max(0, Math.min(1, (W / H - LOWER_ASP[0]) / (LOWER_ASP[1] - LOWER_ASP[0])));
+      const want = Math.max(base, Math.min(FLOOR_MAX, base + FLOOR_LOWER * low / H));
       for (let k = 0; k < 4; k++) {
         solve(() => toScreen(ORIGIN).y, want, -0.40, 0.90, v => { pitch = v; });
         solve(() => markHalf() / H, MARK_AT * zoom, 5, 40, v => { dist = v; });
