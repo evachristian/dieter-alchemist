@@ -3660,7 +3660,8 @@
     // 곧 `back` 열쇠다). 그림이 없는 갈래는 반묶음(long)으로 떨어진다.
     // ⚠️ 갈래를 늘리려면 받은 그림으로 `gencrouch.py <back 열쇠>` 를 돌린다 — 여기는 안 고친다
     const backKind = hairItem.back || (hairItem.kind === 'none' ? 'long' : hairItem.kind);
-    const VAR = A.variants[backKind] || A.variants.long;
+    const varKey = A.variants[backKind] ? backKind : 'long';
+    const VAR = A.variants[varKey];
     const PARTS = VAR.parts;
     // 아랫도리를 따로 그린 그림이면 허리에서 잘라 칠하는 수(`SKIRT_Y`)를 안 쓴다
     const hasLower = PARTS.some(q => q[0] === 'lower');
@@ -3738,8 +3739,18 @@
     const bodyFill = r => FILL[r] || (r === 'lower' ? (twoTone ? legC : cloth) : SKIN);
     // ⚠️ «뒤에 있을 것»은 뚫린 몸 «밑»에 깐다 — 위에 얹었더니 두 살색 조각의 맞닿은 가장자리로
     //    밑의 치마색이 비쳐 팔에 실금이 남았다. 밑에 깔면 구멍의 흐린 테가 같은 색 위에 놓인다
-    out = (VAR.behind || []).map(([r, d]) => '<path d="' + d + '" fill="' + bodyFill(r) + '" stroke="' + bodyFill(r)
-        + '" stroke-width="1.5" stroke-linejoin="round"/>').join('')
+    // ⚠️⚠️ 케이크가 아닌 음식이면 «뒤에 있을 것» 중 살색 조각이 그대로 드러난다 — 케이크를 쥔 손·팔을 번져
+    //    만든 조각이라, 작은 음식(🍗 등) 밑으로 «살색 덩어리»가 비쳤다 (「살색이 비치면 안 된다」 · 신고받았다).
+    //    몸통에 붙은 갈래는 옷 색으로 메워 몸과 잇고, 몸 «밖»으로 나온 갈래(긴 머리·양갈래 — 케이크를 입가에
+    //    든 그림)는 아예 비운다 (옷 색이면 얼굴 앞에 옷 덩어리가 뜬다 · 둘 다 그려 보고 골랐다)
+    const NOCAKE_SKIN = { long: 'none', twin: 'none' };
+    //    ⚠️ 음식의 가운데보다 «위»의 조각은 턱·볼 언저리라 살색 그대로 둔다 — 옷 색으로 칠하면 턱 밑에 분홍 띠가 섰다
+    const midY = d => { const ys = (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number).filter((_, i) => i % 2 === 1);
+      return (Math.min(...ys) + Math.max(...ys)) / 2; };
+    const behindFill = (r, d) => (r === 'skin' && !isCake && midY(d) > fy - 0.35 * fs)
+      ? (NOCAKE_SKIN[varKey] === 'none' ? null : cloth) : bodyFill(r);
+    out = (VAR.behind || []).map(([r, d]) => { const f = behindFill(r, d); return f === null ? '' : '<path d="' + d + '" fill="' + f + '" stroke="' + f
+        + '" stroke-width="1.5" stroke-linejoin="round"/>'; }).join('')
       + '<g mask="url(#' + ID('hole') + ')">' + out + '</g>'
       // 얼굴 앞쪽을 한 덩어리로 다시 얹는다(`VAR.face` · 웨이브) — 몸 그림의 얼굴과 메운 턱이 따로라 턱 밑이 꺾였다
       + (VAR.face || []).map(([r, d]) => '<path d="' + d + '" fill="' + FILL[r] + '"/>').join('')
