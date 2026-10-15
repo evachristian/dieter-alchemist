@@ -214,6 +214,12 @@ function mask(A, B) {
     // ⚠️⚠️ **재기 전에 «멈춘다».** 마법진은 돌고 촛불은 흔들리고 먼지는 흐른다 —
     //    그대로 두 장을 찍으면 온 화면이 달라져 diff 가 방 전체를 양탄자라고 내놓는다
     //    (`checkUI()` 가 끝이 있는 애니메이션을 끝 상태로 보내는 것과 같은 자리다)
+    // ⚠️⚠️ **여기서부터는 줌 1 로 잰다** (2026-10-15). 처음 서는 줌이 0.75 가 되면서
+    //    줌 아웃이 «진짜로 물러나기»가 됐다(`aimFloor`) — 양탄자가 화면에서 위로 올라가
+    //    SVG 방(줌이 없다)과 «일부러» 다른 자리에 선다. ②가 보는 것은 「조준이 SVG 에
+    //    맞는가」이므로 줌을 빼고 재야 「조준이 틀렸다」와 「일부러 물러났다」가 갈린다.
+    //    처음 서는 줌의 화면은 아래 「줌」 블록이 따로 잰다 (발 · 방이 상자를 덮는가)
+    await page.evaluate(() => { room3d.setZoom(1); placeFigure(); placePet(); placePetY(); });
     await page.evaluate(() => { room3d.run(false); room3d.render(); });
     await page.waitForTimeout(80);
 
@@ -316,9 +322,8 @@ function mask(A, B) {
     if (!svg) bad.push(`${W}px: SVG 방의 양탄자를 못 찾았다 — 떨어질 자리를 못 잰다`);
     else {
       // ⚠️ 좁은 상자에서는 SVG 양탄자가 **화면 밖으로 잘린다** — 잘린 뒤의 폭과 견준다
-      // ⚠️ 처음 서는 줌이 0.95 다 (2026-10-14 · 토끼 귀가 헤더 알약에 안 잘리게) — 3D 는
-      //    «SVG 에 맞춘 조준 × 줌»이라 그 배를 곱한 SVG 양탄자와 견준다 (가운데·앞자락은 줌을 안 탄다).
-      //    줌을 빼고 견주면 「조준이 틀렸다」와 「일부러 물러났다」가 안 갈린다
+      // ⚠️ 위에서 줌을 1 로 맞춰 놓았으므로 zk3 는 1 이다 — 줄은 남겨 둔다
+      //    (누가 그 줄을 빼면 폭만은 여전히 맞게 견준다)
       const sw = svg.w * zk3;
       const seen = Math.min(svg.cx + sw / 2, svg.x1) - Math.max(svg.cx - sw / 2, svg.x0);
       dW = Math.abs(seen - rug.w);
@@ -1905,13 +1910,19 @@ function mask(A, B) {
         });
         // 방이 상자를 덮는가 — 바닥의 앞 귀퉁이 둘과 옆벽의 바깥 끝 (+ 면 덮는다)
         const T = window.Room3D.THREE, cam = room3d.camera;
-        const { ROOM_W, ROOM_D } = room3d.parts;
+        // ⚠️ (2026-10-15) 바닥·옆벽이 앞으로 `FRONT_Z` 까지 나왔고 벽이 높아졌다 —
+        //    물러날 때 먼저 드러나는 것은 이제 «바닥의 앞 끝»·«옆벽의 앞 끝»·«벽 꼭대기»다.
+        //    ⚠️ 카메라 «뒤»의 점은 투영이 뒤집혀 엉뚱한 쪽에 찍힌다 — 그런 점은 덮인 것으로 친다
+        const { ROOM_W, ROOM_D, WALL_H, FRONT_Z } = room3d.parts;
         const to = (x, y, z) => {
           const v = new T.Vector3(x, y, z).project(cam);
+          if (v.z > 1) return null;
           return { x: (v.x * 0.5 + 0.5) * scr.width, y: (-v.y * 0.5 + 0.5) * scr.height };
         };
-        const fl = to(-ROOM_W / 2, 0, ROOM_D / 2), fr = to(ROOM_W / 2, 0, ROOM_D / 2);
-        const wl = to(-ROOM_W / 2, 0, -ROOM_D / 2), wr = to(ROOM_W / 2, 0, -ROOM_D / 2);
+        const BIG = 1e4;
+        const fl = to(-ROOM_W / 2, 0, FRONT_Z) || { y: BIG }, fr = to(ROOM_W / 2, 0, FRONT_Z) || { y: BIG };
+        const wl = to(-ROOM_W / 2, WALL_H, FRONT_Z) || { x: -BIG }, wr = to(ROOM_W / 2, WALL_H, FRONT_Z) || { x: BIG };
+        const wt = Math.max(...[-ROOM_W / 2, 0, ROOM_W / 2].map(x => (to(x, WALL_H, -ROOM_D / 2) || { y: -BIG }).y));
         let over = 0;
         if (cre) {
           const c = cre.getBoundingClientRect();
@@ -1961,7 +1972,7 @@ function mask(A, B) {
           //    선을 쟀다」인 자리다 (「줌인 시 캐릭터가 공간 밖으로 나온다」로 신고받았다)
           head: top - pillBot,
           headBox: top - scr.top,
-          cover: Math.min(Math.min(fl.y, fr.y) - scr.height, -wl.x, wr.x - scr.width),
+          cover: Math.min(Math.min(fl.y, fr.y) - scr.height, -wl.x, wr.x - scr.width, -wt),
           over };
       });
       if (r) return r;
@@ -1970,6 +1981,10 @@ function mask(A, B) {
     };
 
     const z0 = await look('처음'); if (!z0) { await ctx.close(); break zoomGate; }
+    // ⚠️ 처음 서는 줌(0.75 · 2026-10-15)의 화면도 잰다 — 위의 ①②③ 은 줌 1 로 잰다
+    if (!(z0.cover > 0)) bad.push(`줌: 처음 서는 화면에서 방이 상자를 못 덮는다 (${z0.cover.toFixed(1)}px)`);
+    if (Math.abs(z0.foot) > 1.5) bad.push(`줌: 처음 서는 화면에서 발이 양탄자에서 ${z0.foot.toFixed(1)}px 벗어난다`);
+    if (!(z0.head > 4)) bad.push(`줌: 처음 서는 화면에서 머리가 헤더 알약 밑으로 들어간다 (${z0.head.toFixed(1)}px)`);
     // ① 벌리면 커진다
     await pinch(80, 150);
     const zIn = await look('벌린 뒤'); if (!zIn) { await ctx.close(); break zoomGate; }

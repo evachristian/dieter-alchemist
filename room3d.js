@@ -76,7 +76,8 @@ export function createRoom(canvas, opt) {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#1b1520');
-  scene.fog = new THREE.Fog('#241b26', 15, 28);
+  const FOG_NEAR = 15, FOG_FAR = 28;
+  scene.fog = new THREE.Fog('#241b26', FOG_NEAR, FOG_FAR);
   // ⚠️⚠️ **긴 렌즈다(22°).** 종이 극장은 «정면에서 본 무대»라 화각이 넓으면
   //    벽이 사다리꼴로 눕고 종이 층이 «방»이 아니라 «상자»로 보인다. 그리고 넓은
   //    화각으로는 바닥선을 92% 에 두면서 벽이 화면 꼭대기까지 닿게 할 수가 없다
@@ -161,7 +162,14 @@ export function createRoom(canvas, opt) {
   // ⚠️ **벽을 프로토타입보다 높였다(6.4 → 7.6).** 게임의 방 상자는 세로로 길고
   //    바닥선이 92% 에 있어서, 6.4 로는 화면 꼭대기에 **천장 너머의 빈 곳**이 비친다.
   //    ⚠️ 높이만 올리면 돌이 세로로 늘어난다 — 텍스처 높이도 «같이» 간다(`WALL_TEX_H`)
-  const ROOM_W = 9.6, ROOM_D = 8.4, WALL_H = 7.6;
+  const ROOM_W = 9.6, ROOM_D = 8.4, WALL_H = 9.2;
+  // ⚠️⚠️ **바닥과 옆벽은 «앞으로» 더 나와 있다**(`FRONT_EXT` · 2026-10-15).
+  //    「카메라를 뒤로 빼 달라 · 바닥을 연장해 달라」로 받았다 — 물러나면 카메라가
+  //    방의 앞머리를 내려다보게 되는데, 앞벽이 없어서 거기서 **바닥이 끝나고 옆벽이
+  //    끊기는 것**이 보였다. 뒷벽 자리(`-ROOM_D/2`)는 한 칸도 안 움직인다 —
+  //    늘어나는 것은 카메라 쪽뿐이라 방의 안쪽 그림은 그대로다
+  const FRONT_EXT = 12;
+  const FRONT_Z = ROOM_D / 2 + FRONT_EXT;     // 바닥·옆벽의 앞 끝
 
   // ── 바닥과 벽 — **자재는 «사람이 고른 것»이다** ────────────────
   //
@@ -173,8 +181,10 @@ export function createRoom(canvas, opt) {
   //    자재를 갈아 끼울 때 캐시가 한 번만 돌아간다
   const WALL_TEX_W = 1024, WALL_TEX_H = Math.round(1024 * WALL_H / ROOM_W);
   const FLOOR_SPAN = ROOM_W + 5;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR_SPAN, ROOM_D + 5), toon({}));
+  const FLOOR_D = ROOM_D + 5 + FRONT_EXT;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR_SPAN, FLOOR_D), toon({}));
   floor.rotation.x = -Math.PI / 2;
+  floor.position.z = FRONT_EXT / 2;
   floor.receiveShadow = true;
   scene.add(floor);
 
@@ -183,8 +193,8 @@ export function createRoom(canvas, opt) {
   backWall.receiveShadow = true;
   scene.add(backWall);
   const sideWalls = [-1, 1].map(s => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_D, WALL_H), toon({}));
-    m.position.set(s * ROOM_W / 2, WALL_H / 2, 0);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_D + FRONT_EXT, WALL_H), toon({}));
+    m.position.set(s * ROOM_W / 2, WALL_H / 2, FRONT_EXT / 2);
     m.rotation.y = -s * Math.PI / 2;
     m.receiveShadow = true;
     scene.add(m);
@@ -201,7 +211,13 @@ export function createRoom(canvas, opt) {
     if (!c) return;
     wallId = id;
     const t = bake(c, null);
-    walls.forEach(m => { if (m.material.map) m.material.map.dispose(); m.material.map = t; m.material.needsUpdate = true; });
+    // ⚠️ 옆벽은 앞으로 늘어난 만큼 무늬를 «되풀이»한다 — 늘이면 돌이 옆으로 퍼진다.
+    //    뒤쪽 ROOM_D 몫은 옛 자리 그대로다 (왼쪽 벽은 u=1 이, 오른쪽 벽은 u=0 이 뒤쪽이다)
+    const r = (ROOM_D + FRONT_EXT) / ROOM_D;
+    const side = off => { const k = t.clone(); k.wrapS = THREE.RepeatWrapping;
+      k.repeat.x = r; k.offset.x = off; k.needsUpdate = true; return k; };
+    const maps = [t, side(1 - r), side(0)];
+    walls.forEach((m, i) => { if (m.material.map) m.material.map.dispose(); m.material.map = maps[i]; m.material.needsUpdate = true; });
   }
   function setFloor(id) {
     if (id === floorId) return;
@@ -209,7 +225,11 @@ export function createRoom(canvas, opt) {
     if (!c) return;
     floorId = id;
     if (floor.material.map) floor.material.map.dispose();
-    floor.material.map = bake(c, null);
+    // ⚠️ 앞으로 늘어난 바닥은 무늬를 «되풀이»한다 — 뒤쪽 끝(v=1)을 옛 자리에 두므로
+    //    방 안쪽의 바닥은 한 픽셀도 안 바뀐다
+    const rv = FLOOR_D / (ROOM_D + 5);
+    floor.material.map = bake(c, { rep: [1, rv] });
+    floor.material.map.offset.y = 1 - rv;
     floor.material.needsUpdate = true;
   }
 
@@ -528,7 +548,7 @@ export function createRoom(canvas, opt) {
   cBack.position.set(0, 0.03, -ROOM_D / 2 + 0.95);
   scene.add(cBack);
   [-1, 1].forEach(s => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_D + 4, 1.6), cornerMat());
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_D + 4 + 2 * FRONT_EXT, 1.6), cornerMat());
     m.rotation.set(-Math.PI / 2, 0, s * Math.PI / 2);
     m.position.set(s * (ROOM_W / 2 - 0.8), 0.03, 0);
     scene.add(m);
@@ -638,14 +658,25 @@ export function createRoom(canvas, opt) {
   //      ⚠️ 「상자 안인가」는 **덮이는 것을 영영 못 보는 잣대**였다 — 0건이 「통과」가
   //      아니라 「엉뚱한 선을 쟀다」인 자리다
   //    `checkroom` 의 「줌」이 그 둘을 그대로 잰다 — 방을 넓히면 따라 옮긴다
-  const ZOOM_MIN = 0.85, ZOOM_MAX = 1.1;
+  //    ⚠️ (2026-10-15) 아래 한계는 이제 **0.6** 이다 — 바닥·옆벽을 앞으로 늘려 앞머리가
+  //    안 드러나고, 남은 한계는 «벽 꼭대기»다 (위의 0.85 는 옛 방의 값이다)
+  const ZOOM_MIN = 0.6, ZOOM_MAX = 1.1;
   // ⚠️ **처음 서는 줌은 1 이 아니라 0.95 다** (2026-10-14 · 사람이 골랐다).
   //    1 에서는 토끼 귀 머리띠(머리 위로 제일 높이 솟는 것)의 끝이 헤더 알약 밑으로
   //    6~10px 들어가 잘려 보였다. 0.95 면 알약 밑변 아래로 5~9px 내려온다 (320·390·480px ·
   //    바디파츠 전부 150%). ⚠️ 제목 줄(시계·저장됨·📬)과는 여전히 겹친다 — 그것까지
   //    피하려면 0.85(= 아웃 한계)라서 고르지 않았다
-  const ZOOM_DEF = 0.95;
-  let zoom = ZOOM_DEF;
+  // ⚠️⚠️ **2026-10-15 에 0.75 로 물렸다** (「디폴트 카메라를 조금 더 뒤로 · 캐릭터가 첨부
+  //    이미지만 하게」). 그러면서 **줌 아웃이 «진짜로 물러나는» 것**이 됐다 (`aimFloor`) —
+  //    고개 각도는 줌 1 의 것을 그대로 두고 거리만 늘리므로, 양탄자가 화면에서 위로
+  //    올라가고 **발 앞으로 바닥이 넓게 보인다.** 그 바닥이 끝나지 않게 바닥·옆벽을 앞으로
+  //    늘리고(`FRONT_EXT`) 벽을 높였다(`WALL_H` 7.6 → 9.2 · 물러나면 벽 꼭대기가 상자 안으로
+  //    내려온다). 아래 한계 0.6 은 거기서 잰 값이다 — 265·320·390px 에서 벽 꼭대기가 상자
+  //    위로 24~30px 남는다
+  const ZOOM_DEF = 0.75;
+  // ⚠️ **인트로는 줌 1 로 연다**(`{ zoom: 1 }`) — 거기 인물은 줌을 안 따라가는 그림이라
+  //    물러나면 바닥선이 올라가 공주가 바닥에서 뜬다. 처음 서는 0.75 는 마이 룸의 것이다
+  let zoom = (O.zoom != null && isFinite(+O.zoom)) ? Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +O.zoom)) : ZOOM_DEF;
   function setZoom(z) {
     const v = Number(z);
     if (!isFinite(v)) return zoom;
@@ -654,13 +685,24 @@ export function createRoom(canvas, opt) {
     return zoom;
   }
   function zoomAt() { return { z: zoom, min: ZOOM_MIN, max: ZOOM_MAX }; }
+  // ⚠️⚠️ **줌 아웃은 «물러나기»다 — 고개는 줌 1 의 각도 그대로 두고 거리만 늘린다.**
+  //    예전에는 줌마다 바닥선(`FLOOR_AT`)까지 다시 풀어서 양탄자가 늘 92% 에 서 있었고,
+  //    그러면 물러나도 발 앞의 바닥이 그 얇은 띠 그대로라 「바닥 면적이 부족하다」가 됐다.
+  //    ⚠️ **줌 인(>1)은 옛 그대로다** — 다가가며 각도를 안 풀면 양탄자가 상자 밑으로 가라앉는다
   function aimFloor() {
+    const zIn = Math.max(1, zoom);
     for (let k = 0; k < 4; k++) {
       // 바닥선 — 고도를 «올리면» 바닥이 화면 위로 온다 (y 가 준다)
       solve(() => toScreen(ORIGIN).y, FLOOR_AT, -0.40, 0.90, v => { pitch = v; });
       // 기준 반폭 — 멀어지면 작아진다
-      solve(() => markHalf() / H, MARK_AT * zoom, 5, 30, v => { dist = v; });
+      solve(() => markHalf() / H, MARK_AT * zIn, 5, 30, v => { dist = v; });
     }
+    const base = dist;
+    if (zoom < 1) solve(() => markHalf() / H, MARK_AT * zoom, 5, 40, v => { dist = v; });
+    // ⚠️ 안개도 물러난 만큼 같이 민다 — 안 밀면 뒷벽이 안개에 먹혀 창이 사라진다
+    //    (줌 1 이하에서는 한 자리도 안 바뀐다 · `FOG_NEAR`·`FOG_FAR` 가 옛 값 그대로다)
+    scene.fog.near = FOG_NEAR + (dist - base);
+    scene.fog.far = FOG_FAR + (dist - base);
   }
   function markHalf() {
     const c = toScreen(ORIGIN), e = toScreen(markEdge());
@@ -937,7 +979,7 @@ export function createRoom(canvas, opt) {
     render: () => renderer.render(scene, camera),
     get winShape() { return winShape; },
     parts: { glyph, backWall, floor, walls, shaft, winMat, moon, key, amb, brewLight, shadowTex,
-      units, SLOTS, LIT, dust, dustGeo, dpos, dphase, DUST, ROOM_W, ROOM_D, WALL_H, FLOOR_R },
+      units, SLOTS, LIT, dust, dustGeo, dpos, dphase, DUST, ROOM_W, ROOM_D, WALL_H, FLOOR_R, FRONT_Z },
     get slow() { return slow; } };
 }
 

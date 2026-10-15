@@ -5677,7 +5677,7 @@ function placePetY() {
 // ⚠️ **졸업 전(인트로 공주 그림)에는 안 건드린다** — 그림의 바닥 좌표가 다르다
 // ⚠️⚠️ **기준은 양탄자가 «아니다»** — 양탄자는 사람이 고르는 소품이라 없을 수도 있다.
 //    `Avatar.floorMark()`(SVG) · `room3d.floorRect()`(3D)가 그 «보이지 않는 자리»다
-const FIG_LIFT_MAX = 60;        // 이보다 크면 잘못 잰 것이다 — 그대로 둔다
+const FIG_LIFT_MAX = 160;       // 이보다 크면 잘못 잰 것이다 — 그대로 둔다
 // 지금 걸린 줌 — 3D 가 섰을 때만이다 (SVG 방에는 줌이 없다 · `renderSpin` 과 같은 규칙)
 function figureZoom() {
   return (room3d && document.querySelector('.room-scene.is3d')) ? room3d.zoomAt().z : 1;

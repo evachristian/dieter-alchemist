@@ -1060,7 +1060,7 @@
         r3Canvas.className = 'i-3d';
         r3Canvas.setAttribute('aria-hidden', 'true');
         stage.insertBefore(r3Canvas, stage.firstChild);
-        R3 = window.Room3D.create(r3Canvas, { autorun: true });
+        R3 = window.Room3D.create(r3Canvas, { autorun: true, zoom: 1 });   // 줌 1 — room3d.js 의 ZOOM_DEF 주석
         window.__i3d = R3;        // 검사기가 카메라·세트를 물어보는 손잡이 (마이 룸의 `__r3d` 와 같다)
       } catch (e) { R3 = null; return; }
     }
