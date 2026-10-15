@@ -5421,6 +5421,11 @@ function outfitWithColors() {
 // 스탯 덩어리 높이(접었을 때)보다 조금 더 준다. 다만 인벤토리 카드는 침범하면 안 된다 —
 // 둘 다 checkui 의 「방 배경 늘이기」가 잰다
 const ROOM_BLEED = 78;
+// 스탯을 «펼쳤을» 때도 방을 이만큼 아래로 더 그린다 (px) — 펼친 화면에서는 양탄자가
+// 방 상자의 밑변에 바짝 앉아(옛 FLOOR_MAX 0.95) **딱 붙어** 보였다 · room3d 의 FLOOR_GAP(px) 이 짝이다
+// (「러그랑 마이룸 뷰의 하단 가장자리가 너무 딱 붙어서 패딩이 없어 보인다」).
+// 짝: style.css 의 `.room-stats` margin-top (16 + 이 값) — 카드가 그만큼 비켜 준다
+const ROOM_PAD_OPEN = 12;
 const SCENE_INSET = { x: 16, top: 14, bottom: 8 };     // .room-scene 이 .char-stage 밖으로 나간 만큼
 const STAGE_H = 320;                                   // .char-aura 의 높이
 // ↑ 셋 다 style.css 의 값과 짝이다. 한쪽만 고치면 이음매가 어긋난다.
@@ -5932,7 +5937,7 @@ function placeFigure() {
 function renderRoomScene() {
   const scene = document.querySelector('.room-scene');
   if (!scene || !window.Avatar || !window.Avatar.roomScene) return;
-  const bleed = statsLite() ? ROOM_BLEED : 0;
+  const bleed = statsLite() ? ROOM_BLEED : ROOM_PAD_OPEN;
   const rise = roomRise();
   const canvas = document.querySelector('.room-canvas');
   if (canvas) {

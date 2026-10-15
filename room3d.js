@@ -698,7 +698,10 @@ export function createRoom(canvas, opt) {
   //    좁은 상자(265px)에서 내리면 어깨에 뜨는 공중 크리처가 왼쪽 버튼 줄의 띠로
   //    내려와 가려진다 (`checkroom` 「크리처 가림」이 잡았다 · 23px²)
   const DROP_ASP = [0.75, 1.0];
-  const FLOOR_LOWER = 40, FLOOR_MAX = 0.95;
+  // ⚠️ `FLOOR_GAP` 은 «px» 다 — 양탄자 가운데가 상자 밑변에서 이만큼은 떨어진다.
+  //    한때 비(0.95)였는데, 그러면 상자를 늘릴수록 양탄자도 같이 내려가 «여백을 주려고
+  //    늘린 12px» 이 통째로 양탄자에 먹혔다 (스탯을 펼친 화면 · 옛 0.95 × 421 ≈ 21 + 12)
+  const FLOOR_LOWER = 40, FLOOR_GAP = 33;
   // ⚠️ 이 몫은 265px(가로÷세로 0.72 아래)에서만 안 준다 — 거기서 내리면 공중 크리처가 버튼 줄에 가려진다
   const LOWER_ASP = [0.74, 0.84];
   function aimFloor() {
@@ -718,10 +721,10 @@ export function createRoom(canvas, opt) {
       const drop = FLOOR_DROP * wide;
       // 거기서 `FLOOR_LOWER` px 더 내린다 — 샹들리에가 헤더의 AP 게이지 밑으로 들어가지 않게
       // (「샹들리에가 게이지바랑 겹치지 않도록 · 캐릭터도 그만큼 하단으로」). 양탄자는 상자의
-      // `FLOOR_MAX` 위에서 멈춘다 — 스탯을 펼친 짧은 상자에서는 그만큼만 내려간다
+      // 밑변에서 `FLOOR_GAP` 위에서 멈춘다 — 스탯을 펼친 짧은 상자에서는 그만큼만 내려간다
       const base = FLOOR_AT - lift * (1 - drop);
       const low = Math.max(0, Math.min(1, (W / H - LOWER_ASP[0]) / (LOWER_ASP[1] - LOWER_ASP[0])));
-      const want = Math.max(base, Math.min(FLOOR_MAX, base + FLOOR_LOWER * low / H));
+      const want = Math.max(base, Math.min(1 - FLOOR_GAP / H, base + FLOOR_LOWER * low / H));
       for (let k = 0; k < 4; k++) {
         solve(() => toScreen(ORIGIN).y, want, -0.40, 0.90, v => { pitch = v; });
         solve(() => markHalf() / H, MARK_AT * zoom, 5, 40, v => { dist = v; });

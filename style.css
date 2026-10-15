@@ -2572,7 +2572,7 @@ button.tm-slot:active { transform: scale(0.94); }
    안쪽 상자들은 배경색(--cream)으로만 구분한다. 그림자가 겹치면
    낱개 카드가 흩어져 보여서 '한 덩어리' 로 안 읽힌다. */
 .room-stats {
-  margin-top: 16px; padding: 10px;
+  margin-top: 28px; padding: 10px;   /* 16 + game.js 의 ROOM_PAD_OPEN(12) — 방이 그만큼 아래로 더 그려진다 */
   background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
 }
 .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
