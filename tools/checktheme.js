@@ -390,8 +390,10 @@ async function onScreen() {
       await page.evaluate(() => switchTab('showcase'));
       await page.waitForTimeout(200);
       const box = await page.evaluate(() => {
-        const b = document.querySelector('.btn-flex');
-        if (!b) return { err: '버튼(.btn-flex)을 못 찾았다' };
+        // 2026-10-15 — 「매력 과시」가 단계 칸과 합쳐져 `.flex-card` 가 됐다.
+        // 재는 것은 그 버튼의 «누르면 무엇을 하는가» 줄(그라데이션 위의 글자)이다
+        const b = document.querySelector('.flex-card .flex-cap');
+        if (!b) return { err: '버튼(.flex-card .flex-cap)을 못 찾았다' };
         b.scrollIntoView({ block: 'center' });
         const node = [...b.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
         if (!node) return { err: '버튼에 글자 노드가 없다' };

@@ -6316,7 +6316,7 @@ function renderShowcase() {
   // 화면에서 "매력 총합" 글자를 뺀 대신, 소리로는 무엇의 수인지 알 수 있게 한다
   const totalBox = document.querySelector('.stat-box.highlight');
   if (totalBox) totalBox.setAttribute('aria-label',
-    `${T('tier_stage', { tier: TN(tier.title) })} · ${T('stat_total')} ${total}`);
+    `${T('tier_stage', { tier: TN(tier.title) })} · ${T('stat_total')} ${total} · ${T('flex_btn')}`);
 
   renderFoods();
   renderFeeds();
