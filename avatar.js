@@ -3740,15 +3740,23 @@
     // ⚠️ «뒤에 있을 것»은 뚫린 몸 «밑»에 깐다 — 위에 얹었더니 두 살색 조각의 맞닿은 가장자리로
     //    밑의 치마색이 비쳐 팔에 실금이 남았다. 밑에 깔면 구멍의 흐린 테가 같은 색 위에 놓인다
     // ⚠️⚠️ 케이크가 아닌 음식이면 «뒤에 있을 것» 중 살색 조각이 그대로 드러난다 — 케이크를 쥔 손·팔을 번져
-    //    만든 조각이라, 작은 음식(🍗 등) 밑으로 «살색 덩어리»가 비쳤다 (「살색이 비치면 안 된다」 · 신고받았다).
-    //    몸통에 붙은 갈래는 옷 색으로 메워 몸과 잇고, 몸 «밖»으로 나온 갈래(긴 머리·양갈래 — 케이크를 입가에
-    //    든 그림)는 아예 비운다 (옷 색이면 얼굴 앞에 옷 덩어리가 뜬다 · 둘 다 그려 보고 골랐다)
-    const NOCAKE_SKIN = { long: 'none', twin: 'none' };
-    //    ⚠️ 음식의 가운데보다 «위»의 조각은 턱·볼 언저리라 살색 그대로 둔다 — 옷 색으로 칠하면 턱 밑에 분홍 띠가 섰다
+    //    만든 조각이라, 작은 음식(🍗 · 🍞 등) 밑으로 «살색 덩어리»가 비쳤다 (「살색이 비치면 안 된다」 · 신고받았다).
+    //    ⚠️ 옷 색으로 메우지 않는다 — 사람이 «조각 자체를 없애 배경이 드러나게» 정했다 (옷 색으로 칠했다가 되돌렸다)
+    //    ⚠️ 음식의 가운데보다 «위»의 조각은 턱·볼 언저리라 살색 그대로 둔다 — 지우면 턱 밑이 파인다
     const midY = d => { const ys = (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number).filter((_, i) => i % 2 === 1);
       return (Math.min(...ys) + Math.max(...ys)) / 2; };
-    const behindFill = (r, d) => (r === 'skin' && !isCake && midY(d) > fy - 0.35 * fs)
-      ? (NOCAKE_SKIN[varKey] === 'none' ? null : cloth) : bodyFill(r);
+    const behindFill = (r, d) => (r === 'skin' && !isCake && midY(d) > fy - 0.35 * fs) ? null : bodyFill(r);
+    // ⚠️⚠️ 케이크가 아니면 ① 케이크 «오른쪽 끝»을 쥐던 오른손 조각을 뺀다 — 쥘 것이 없어 손가락 네모만 허공에
+    //    떴다 (「오른손이 깨진다」 · 신고받았다). «왼쪽 끝»이 음식 가운데보다 오른쪽인 손 조각이 그것이다
+    //    (가운데로 재면 팔까지 오른쪽으로 뻗은 왼손 조각이 같이 빠진다)
+    //    ② 남은 손에 같은 색 테(HAND_SEAM)를 두른다 — 뚫은 구멍(`VAR.hole`)이 손보다 넉넉해서, 그 틈을 메우던
+    //    살색 조각을 걷으니 팔 이음매에 배경이 실선처럼 비쳤다
+    const minX = d => Math.min(...(d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number).filter((_, i) => i % 2 === 0));
+    const HAND_SEAM = 9;
+    const handParts = isCake ? VAR.hand : VAR.hand.filter(([, d]) => minX(d) <= fx + 0.25 * fs);
+    // ⚠️ 뺀 오른손 자리는 남은 손에서도 «도려낸다»(`drop`) — 단발은 왼손 조각이 오른손 엄지까지 한 덩어리로 품고 있어서,
+    //    오른손 조각만 빼면 그 엄지가 왼손에 붙은 혹으로 남았다 (「오른손과 왼손이 붙어 있다」 · 신고받았다)
+    const dropHands = isCake ? [] : VAR.hand.filter(([, d]) => minX(d) > fx + 0.25 * fs);
     out = (VAR.behind || []).map(([r, d]) => { const f = behindFill(r, d); return f === null ? '' : '<path d="' + d + '" fill="' + f + '" stroke="' + f
         + '" stroke-width="1.5" stroke-linejoin="round"/>'; }).join('')
       + '<g mask="url(#' + ID('hole') + ')">' + out + '</g>'
@@ -3757,8 +3765,14 @@
       // ⚠️ 케이크 조각은 «구멍 모양»으로 오린다 — 쌓은 조각이라 크림 바탕이 케이크 밑의 팔까지 깔려 있어서
       //    움직이는 케이크가 팔을 크림색으로 덮었다 (올림머리)
       + (isCake ? '<g class="cb-bite"><g clip-path="url(#' + ID('cake') + ')">' + moving + '</g></g>' : foodTag)
-      + '<g class="cb-bite">'
-      + VAR.hand.map(([role, d]) => '<path d="' + d + '" fill="' + FILL[role] + '"/>').join('')
+      // ③ 케이크가 아니면 손을 «둥글린다»(`goo` — 메웠다 깎고 번졌다 다시 세운다). 받은 손은 케이크 «옆»에서 딴 것이라
+      //    케이크와 맞닿던 자리가 계단처럼 네모나게 끊겨 있었다 — 케이크가 덮어 주던 그 모서리가 음식 밖으로 드러났다
+      //    (「손 라인 따라서 예쁘게 정리」 · 신고받았다). 손가락 사이의 틈도 메워 «물방울»처럼 비치지 않게 한다
+      + '<g class="cb-bite">' + (isCake ? '' : '<g filter="url(#' + ID('goo') + ')">'
+        + (dropHands.length ? '<g mask="url(#' + ID('drop') + ')">' : '<g>'))
+      + handParts.map(([role, d]) => '<path d="' + d + '" fill="' + FILL[role] + '"'
+        + (isCake ? '' : ' stroke="' + FILL[role] + '" stroke-width="' + HAND_SEAM + '" stroke-linejoin="round"') + '/>').join('')
+      + (isCake ? '' : '</g></g>')
       // grip = 음식 오른쪽을 받친 그늘진 오른손 (웨이브) — 「구운 고기·빵·죽·샐러드를 먹을 때에도 오른손이 보이게」.
       //    받은 그림에서는 케이크 오른쪽 끝을 쥔 자리라, 케이크가 아니면 음식의 오른쪽 끝(글자 폭의 0.4)에 붙도록 옮긴다 —
       //    그대로 두면 음식과 떨어진 채 허공에 떠 있었다
@@ -3781,9 +3795,31 @@
       + (twoTone ? '<clipPath id="' + ID('lo') + '"><rect x="0" y="' + SKIRT_Y + '" width="1024" height="400"/></clipPath>' : '')
       + '<mask id="' + ID('hole') + '" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">'
         + '<rect width="1024" height="1024" fill="#fff"/>'
-        + VAR.hole.map(d => '<path d="' + d + '" fill="#000"/>').join('') + '</mask>'
+        // ⚠️ 케이크가 아니면 구멍의 가장자리도 둥글린다(`gooH`) — 살색 조각을 걷어 구멍이 그대로 드러나니, 케이크 모양으로
+        //    딴 계단 테두리가 옷을 네모나게 파고 그 틈에 옷 부스러기가 실처럼 남았다. 넓히지는 않는다 — 넓히면 구멍 둘레가
+        //    «뒤에 있을 것»보다 커져 온 테두리에 배경이 실선으로 비친다 (그려 보고 되돌렸다)
+        + (isCake ? '' : '<g filter="url(#' + ID('gooH') + ')">')
+        + VAR.hole.map(d => '<path d="' + d + '" fill="#000"/>').join('')
+        + (isCake ? '' : '</g>') + '</mask>'
+      + (dropHands.length ? '<mask id="' + ID('drop') + '" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">'
+        + '<rect width="1024" height="1024" fill="#fff"/>'
+        + (() => {   // 오른손 조각들이 차지한 «상자»를 통째로 — 조각 윤곽만 따면 그 밖으로 삐진 엄지 끝이 혼자 떴다
+          const n = dropHands.flatMap(([, d]) => (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number));
+          const xs = n.filter((_, i) => i % 2 === 0), ys = n.filter((_, i) => i % 2 === 1);
+          const x0 = fx + 0.25 * fs, y0 = Math.min(...ys) - 20, y1 = Math.max(...ys) - 8;   // 밑은 조금 덜 — 팔 윗선을 반듯하게 깎지 않게
+          return '<rect x="' + x0.toFixed(1) + '" y="' + y0 + '" width="' + (Math.max(...xs) + 20 - x0).toFixed(1)
+            + '" height="' + (y1 - y0) + '" fill="#000"/>';
+        })() + '</mask>' : '')
       + '<clipPath id="' + ID('cake') + '" clipPathUnits="userSpaceOnUse">'
         + (VAR.clip || VAR.hole).map(d => '<path d="' + d + '"/>').join('') + '</clipPath>'
+      + (isCake ? '' : '<filter id="' + ID('goo') + '" x="-20%" y="-20%" width="140%" height="140%">'
+        + '<feMorphology in="SourceGraphic" operator="dilate" radius="13" result="d"/>'
+        + '<feMorphology in="d" operator="erode" radius="13" result="c"/>'
+        + '<feGaussianBlur in="c" stdDeviation="5" result="b"/>'
+        + '<feColorMatrix in="b" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -11"/></filter>'
+        + '<filter id="' + ID('gooH') + '" x="-20%" y="-20%" width="140%" height="140%">'
+        + '<feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/>'
+        + '<feColorMatrix in="b" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 24 -11"/></filter>')
       + '<radialGradient id="' + ID('shG') + '" cx="0.5" cy="0.5" r="0.5">'
       + '<stop offset="0" stop-color="rgba(20,10,25,0.30)"/>'
       + '<stop offset="0.6" stop-color="rgba(20,10,25,0.14)"/>'
