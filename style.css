@@ -1944,6 +1944,17 @@ button.tm-slot:active { transform: scale(0.94); }
   /* 고른 줄만 테두리를 갖는다 — 미리 투명 테두리를 둬야 고를 때 줄 높이가 안 흔들린다 */
   border: 2px solid transparent;
 }
+/* 흐린 장 — 줄 윗변에 걸친 딱지. 자리를 안 먹게 절대 배치라 265px 에서도 줄이 안 밀린다 */
+.recipe-row.blurred { position: relative; }
+.recipe-blur {
+  position: absolute; top: -8px; right: 12px;
+  font-size: 0.7rem; font-weight: 800; line-height: 1.2;
+  padding: 1px 8px; border-radius: 999px;
+  background: var(--lav); color: var(--text-lav);
+  pointer-events: none;
+}
+/* 모르는 칸의 이모지 — 흐리게 둔다 (누르면 «?») */
+.ing-dot.unknown { filter: grayscale(0.7) blur(0.6px); opacity: 0.75; }
 .recipe-row.clickable { cursor: pointer; transition: transform 0.1s ease, border-color 0.15s ease; }
 .recipe-row.clickable:active { transform: scale(0.985); }
 /* 지금 바로 만들 수 있는 레시피 — 눌러 담으라는 신호로 민트 띠를 두른다.

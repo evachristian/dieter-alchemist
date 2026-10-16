@@ -83,6 +83,7 @@
       tk_valen_5: '여기 오래 있으면 날짜 감각이 없어져. 오늘이 며칠인지도 모르겠군.',
       // ─── 흐린 장 (비법서가 수수께끼가 된다) ───
       pg_unknown: '아직 모르는 재료',
+      pg_blurred: '🌫️ 흐린 장', ing_unknown: '? — 아직 모르는 재료',
       pg_riddle: '{zone}에서 나는 · {rar}',
       pg_riddle_where: '어딘가',
       pg_howto: '솥에 넣고 저어 보면 알 수 있어요 (재료는 안 없어져요)',
@@ -1878,6 +1879,7 @@
       tk_valen_4: 'Care for a cup of tea? …No, it was for me. I merely brewed two.',
       tk_valen_5: 'Stay here long enough and you lose track of the date. I could not tell you what day it is.',
       pg_unknown: 'An ingredient you do not know yet',
+      pg_blurred: '🌫️ Blurry page', ing_unknown: '? — an ingredient you do not know yet',
       pg_riddle: 'Found in {zone} · {rar}',
       pg_riddle_where: 'somewhere',
       pg_howto: 'Drop it in the cauldron and stir to find out (nothing is used up)',

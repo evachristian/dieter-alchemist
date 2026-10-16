@@ -5395,10 +5395,16 @@ function renderAtelier() {
   const wantKey = (S.want && S.want.length) ? D.recipeKey(S.want) : '';
   bookEl.innerHTML = catRecipes.map(r => {
     const found = S.discovered.includes(r.result.id);
+    // 흐린 장 — 아직 모르는 칸. 그 이모지를 눌러도 **이름 대신 물음표**다
+    // (비법서 장의 「아직 모르는 재료」와 같은 약속 · 이름이 새면 수수께끼가 아니다)
+    const unknown = found ? unknownOf(r) : [];
     // 재료 이모지 하나하나가 **누를 수 있는 것**이다 — 눌러야 이름을 알 수 있다.
     // 줄 자체도 누르는 것이라(솥에 담기) stopPropagation 으로 갈라 놓는다
-    const inputs = r.inputs.map(id =>
-      `<button class="ing-dot${isMeltItem(id) ? ' pet' : ''}"
+    const inputs = r.inputs.map(id => unknown.includes(id)
+      ? `<button class="ing-dot unknown"
+        onclick="event.stopPropagation();toast(T('ing_unknown'),this,null,'above')"
+        aria-label="${T('pg_unknown')}">${itemArt(id, 22)}</button>`
+      : `<button class="ing-dot${isMeltItem(id) ? ' pet' : ''}"
         onclick="event.stopPropagation();ingHint('${id}',this)"
         aria-label="${itemName(id)}">${itemArt(id, 22)}</button>`
     ).join('<span class="ing-plus">+</span>');
@@ -5408,8 +5414,9 @@ function renderAtelier() {
       const picked = wantKey && D.recipeKey(r.inputs) === wantKey;
       // 📖 — 비법서의 그 장을 펼친다 (재료 ×수량 · 어느 맵 · 열렸는지 · 언제 · 누구와).
       // **줄 자체는 솥에 담는 것**이라 `stopPropagation` 으로 갈라 놓는다
-      return `<div class="recipe-row clickable ${ready ? '' : 'short'} ${picked ? 'on' : ''} ${r.result.id === lastFound ? 'just-found' : ''}"
+      return `<div class="recipe-row clickable ${ready ? '' : 'short'} ${picked ? 'on' : ''} ${r.result.id === lastFound ? 'just-found' : ''}${unknown.length ? ' blurred' : ''}"
         data-recipe="${r.result.id}" onclick="fillFromRecipe('${r.result.id}', this)">
+        ${unknown.length ? `<span class="recipe-blur">${T('pg_blurred')}</span>` : ''}
         <span class="recipe-in">${inputs}</span>
         <span class="recipe-arrow">→</span>
         <span class="recipe-out">${resultArt(r.result, 22)} ${N(r.result.id, r.result.name)}</span>
