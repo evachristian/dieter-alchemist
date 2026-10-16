@@ -322,9 +322,11 @@ export function createRoom(canvas, opt) {
     if (!WIN[k]) WIN[k] = windowTex(night, shape === 'arch');
     return WIN[k];
   };
-  const winMesh = paperCard(WIN.crossD, 2.5, 3.4, { curl: 0.012 });
+  // 창의 자리·크기 — 햇살 기둥(`shaft`)이 이 표에서 윗변을 뽑는다
+  const WIN_AT = { x: 2.5, y: 3.7, w: 2.5, h: 3.4, z: -ROOM_D / 2 + 0.06 };
+  const winMesh = paperCard(WIN.crossD, WIN_AT.w, WIN_AT.h, { curl: 0.012 });
   winMesh.material.alphaTest = 0;
-  stand(winMesh, 2.5, 3.7, -ROOM_D / 2 + 0.06, { shadow: 0 });
+  stand(winMesh, WIN_AT.x, WIN_AT.y, WIN_AT.z, { shadow: 0 });
   const winMat = winMesh.material;
   // 창의 모양을 갈아 끼운다 (`'cross'` · `'arch'`)
   // ⚠️ 모르는 이름은 네모로 떨어뜨린다 — 오타 하나로 창이 통째로 사라지면 안 된다
@@ -338,18 +340,39 @@ export function createRoom(canvas, opt) {
   }
 
   // 창에서 드는 빛 한 줄기 — 「빛이 어디서 오는가」가 한눈에 보인다
+  // ⚠️⚠️ **빛은 «창틀에서» 나와 바닥으로 떨어진다** (2026-10-16 · 「천장에서 빛이 왜 떨어지냐」).
+  //    예전에는 창과 상관없이 비스듬히 세운 판 하나라, 물러선 카메라(줌 0.75 · 벽 11.2)에서
+  //    판의 윗머리가 창보다 위·왼쪽 허공에 걸려 **천장에서 떨어지는 빛**으로 읽혔다.
+  //    지금은 네 꼭짓점을 직접 적는다 — 윗변은 창의 유리 «안»(`WIN_AT`), 아랫변은 그 앞
+  //    바닥이다. 창을 옮기면 `WIN_AT` 만 고치면 빛이 따라온다
   const shaftTex = tex(128, 256, (g, w, h) => {
     const lg = g.createLinearGradient(0, 0, 0, h);
-    lg.addColorStop(0, 'rgba(255,240,200,0.40)');
-    lg.addColorStop(0.65, 'rgba(255,238,196,0.15)');
-    lg.addColorStop(1, 'rgba(255,238,196,0)');
+    lg.addColorStop(0, 'rgba(255,240,200,0.66)');
+    lg.addColorStop(0.55, 'rgba(255,238,196,0.44)');
+    lg.addColorStop(1, 'rgba(255,238,196,0.2)');
     g.fillStyle = lg; g.fillRect(0, 0, w, h);
+    // 옆 가장자리를 번지게 — 딱 잘린 띠는 «붙여 놓은 판»으로 보인다
+    g.globalCompositeOperation = 'destination-in';
+    const sg = g.createLinearGradient(0, 0, w, 0);
+    sg.addColorStop(0, 'rgba(0,0,0,0)'); sg.addColorStop(0.18, 'rgba(0,0,0,1)');
+    sg.addColorStop(0.82, 'rgba(0,0,0,1)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = sg; g.fillRect(0, 0, w, h);
   });
-  const shaft = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 6.6),
+  const SHAFT_FLOOR = { dx: -1.5, z: -2.2, spread: 1.25 };   // 빛이 닿는 바닥 — 창보다 왼쪽·앞
+  const shaftGeo = (() => {
+    const hw = WIN_AT.w * 0.42, top = WIN_AT.y + WIN_AT.h * 0.36, z0 = WIN_AT.z + 0.04;
+    const fx = WIN_AT.x + SHAFT_FLOOR.dx, fw = hw * SHAFT_FLOOR.spread;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute([
+      WIN_AT.x - hw, top, z0,   WIN_AT.x + hw, top, z0,
+      fx - fw, 0.03, SHAFT_FLOOR.z,   fx + fw, 0.03, SHAFT_FLOOR.z], 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 0, 0, 1, 0], 2));
+    geo.setIndex([0, 2, 1, 1, 2, 3]);
+    return geo;
+  })();
+  const shaft = new THREE.Mesh(shaftGeo,
     new THREE.MeshBasicMaterial({ map: shaftTex, transparent: true, depthWrite: false,
       blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
-  shaft.position.set(1.4, 3.1, -1.7);
-  shaft.rotation.set(-0.34, 0.52, 0.16);
   scene.add(shaft);
 
   // ── 바닥에 «깐» 마법진 — 공방 5단계의 껍데기다 ────────────────

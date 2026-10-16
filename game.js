@@ -2723,6 +2723,7 @@ function princessBust(mood) {
 // «머리 높이만큼 더» — 그래야 머리 비율이 어느 몸에서나 같은 액자에 앉는다.
 // 폭은 초상화 흉상(120×130)과 같은 비라 다른 인물과 같은 틀에 선다.
 const BUST_AR = 120 / 130;
+const BUST_CUT = 1.5;   // 꼭대기~어깨의 몇 배에서 아래를 자르나 (2.05 면 허리·손까지)
 function fitPrincessBust(host) {
   const svg = host.querySelector('svg[data-bust]');
   if (!svg || !svg.viewBox || !svg.viewBox.baseVal) return;
@@ -2734,8 +2735,11 @@ function fitPrincessBust(host) {
   const toY = (py) => vb.y + (py - sr.top) * k;
   const top = toY(doll.getBoundingClientRect().top);
   const sh = toY(torso.getBoundingClientRect().top);
-  const h = Math.max(40, (sh - top) * 2.05);
-  const w = h * BUST_AR;
+  // 폭(= 배율)은 「꼭대기~어깨의 2.05배 × 흉상 비」로 잡고, 높이만 «가슴께»(1.5배)에서 자른다
+  // (「이 정도 배율로 상반신만」 · 2026-10-16) — 허리·손까지 내려오면 대사 상자 밑으로 들어간다
+  const unit = Math.max(20, sh - top);
+  const w = unit * 2.05 * BUST_AR;
+  const h = unit * BUST_CUT;
   svg.setAttribute('viewBox', `${(100 - w / 2).toFixed(1)} ${(top - 4).toFixed(1)} ${w.toFixed(1)} ${(h + 4).toFixed(1)}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMin slice');
   svg.classList.add('cut-bust');
