@@ -2106,11 +2106,15 @@ function mealSceneSvg(A) {
   const mouth = `<ellipse cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" rx="${(er * 0.62).toFixed(1)}" ry="${(er * 0.62).toFixed(1)}" fill="${A.eyelid}"/>`
     + `<path class="ml-mouth" d="M${(mx - er * 0.45).toFixed(1)},${(my - er * 0.12).toFixed(1)} Q${mx.toFixed(1)},${(my + er * 0.55).toFixed(1)} ${(mx + er * 0.45).toFixed(1)},${(my - er * 0.12).toFixed(1)} Z"
       fill="#c0505f" stroke="#8a3340" stroke-width="${(er * 0.12).toFixed(1)}" stroke-linejoin="round"/>`;
-  const hearts = [0, 1, 2].map(i => `<g transform="translate(${(mid + (i - 1) * 46).toFixed(0)},${A.head.chin - 30}) scale(${(2.4 + (i % 2) * 0.8).toFixed(1)})"><g class="ml-heart"
+  // ⚠️ 하트는 «같이 먹은 지 300번째»부터 핀다 (`MEAL_HEART_AT` · 사람이 정했다 · 2026-10-16) —
+  //    처음부터 피면 온기가 아니라 장식이 된다. 세는 것은 `S.record.meals`(같이 먹을 때마다 오른다)
+  const heartsOn = ((S.record && S.record.meals) || 0) >= MEAL_HEART_AT;
+  const hearts = !heartsOn ? '' : [0, 1, 2].map(i => `<g transform="translate(${(mid + (i - 1) * 46).toFixed(0)},${A.head.chin - 30}) scale(${(2.4 + (i % 2) * 0.8).toFixed(1)})"><g class="ml-heart"
     style="animation-delay:${(0.5 + i * 0.55).toFixed(2)}s"><path d="${hp}" fill="#ff8fab"/></g></g>`).join('');
   return `<svg class="ml-svg" viewBox="${A.vb.join(' ')}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escHtml(T('meal_alt'))}">
     ${defs}${body}${food}${hands}${cheeks}${mouth}${eyes}${sparkle}${happy}${clem}${lids}${set.hot ? steam : ''}${hearts}</svg>`;
 }
+const MEAL_HEART_AT = 300;   // 「같이 먹기」 컷씬에 하트가 피기 시작하는 횟수
 function playMealScene(then) {
   const box = document.getElementById('mealScene');
   if (!box) { then && then(); return; }
