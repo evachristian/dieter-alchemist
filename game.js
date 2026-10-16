@@ -8688,6 +8688,8 @@ function renderRoomDevTail() {
       // 「창문 하나만 있는 방」은 새 플레이어가 처음 보는 화면인데, 단계가 오르면
       // 선물이 **저절로 놓여서** 한 번 지나가면 다시 볼 길이 없었다
       devAct(T('dev_decor_off'), 'devClearDecor()'),
+      // 「같이 먹기」의 하트는 300번째부터다 — 그것을 보려고 300일을 기다릴 수는 없다
+      devAct(T('dev_meals_300'), 'devMeals300()'),
       // 캐릭터만 떼어 보고 싶을 때(스크린샷 · 그림 견주기) — 방·크리처·빛무리·그림자를
       // 다 걷고 흰 바탕에 인물만 남긴다. 누를 때마다 켜고 끈다
       devAct(T(devFigureOnly ? 'dev_figure_off' : 'dev_figure_only'), 'devToggleFigureOnly()'),
@@ -8737,6 +8739,19 @@ function devClearDecor() {
   toast(T('dev_decor_off_done', { n }), null, 2600);
 }
 window.devClearDecor = devClearDecor;
+
+// 개발용: **같이 먹은 횟수를 하트 문턱(`MEAL_HEART_AT`)까지 올린다.**
+// ⚠️ 오늘 먹은 표시도 지운다 — 부엌은 하루 한 번이라, 안 지우면 버튼을 누르고도 오늘은
+//    하트를 볼 길이 없다. 줄이지는 않는다(이미 넘었으면 그대로) — 기록을 뒤로 돌리면 뺏는 것이다
+function devMeals300() {
+  if (!S.record) S.record = newRecord();
+  S.record.meals = Math.max(S.record.meals || 0, MEAL_HEART_AT);
+  S.kitchenDay = 0;
+  save();
+  render();
+  toast(T('dev_meals_300_done', { n: S.record.meals }), null, 2600);
+}
+window.devMeals300 = devMeals300;
 
 // 개발용: **(마이 룸 빼고) 캐릭터만** — 흰 바탕에 인물 하나만 남긴다.
 // ⚠️ **세이브에 안 넣는다** — 보기만 바꾸는 스위치라 새로고침하면 돌아온다.
