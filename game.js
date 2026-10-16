@@ -7748,9 +7748,9 @@ window.__mailMock = function () {
 function renderSoloActs() {
   const box = document.getElementById('roomSolo');
   if (!box) return;
-  // ⚠️⚠️ **🪄 꾸미기가 맨 앞이다.** 표정·문신은 «사람»을 고치고 이쪽은 «방»을 고치는데,
-  //    여기는 마이 룸이라 방이 먼저다. 표에서 뽑지 않는 유일한 버튼이라 이 한 줄이다 —
-  //    꾸미기는 옷장 칸이 아니고(`WARDROBE_SLOTS` 에 없다) 시트도 따로다
+  // 🪄 꾸미기는 표에서 뽑지 않는 유일한 버튼이라 이 한 줄이다 —
+  //    꾸미기는 옷장 칸이 아니고(`WARDROBE_SLOTS` 에 없다) 시트도 따로다.
+  //    자리는 아래의 `SOLO_ORDER` 가 정한다
   // ⚠️ **글자를 한 자도 안 넣는다** — 여덟 버튼이 다 그림 하나다(사람이 정했다).
   //    이름은 `aria-label` 이 맡는다 (헤더의 ↺ · 둘러보기 화살표와 같은 조리법)
   const decorBtn = !actOpen('decor') ? '' : `<button class="room-act" data-slot="decor" onclick="openDecorSheet()"
@@ -7769,7 +7769,14 @@ function renderSoloActs() {
     if (on && !dot) mb.insertAdjacentHTML('beforeend', '<span class="tab-dot"></span>');
     if (!on && dot) dot.remove();
   }
-  box.innerHTML = !S.tutorialDone ? '' : decorBtn + soloSlots().filter(m => actOpen(m.slot)).map(m => {
+  // ⚠️⚠️ **줄의 순서는 «열리는 순서»다** (`SOLO_ORDER` · 2026-10-16). 줄이 `column-reverse`
+  //    라 먼저 열린 것이 맨 아래에 서고 새로 열린 것이 그 위로 쌓인다 (오른쪽 줄과 같은 규칙).
+  //    🪄 꾸미기는 표정(`q_first`)과 문신(`q_sip`) 사이(`q_walk`)에 열리므로 «가운데»다 —
+  //    「방이 먼저」로 맨 앞에 두면 열릴 때마다 표정 버튼이 한 칸 밀려났다.
+  //    ⚠️ 표에 없는 칸이 늘면 맨 뒤(맨 위)로 간다 — 조용히 사라지지 않게
+  const SOLO_ORDER = ['expression', 'decor', 'tattoo'];
+  const rank = k => { const i = SOLO_ORDER.indexOf(k); return i < 0 ? SOLO_ORDER.length : i; };
+  const items = [{ key: 'decor', html: decorBtn }].concat(soloSlots().filter(m => actOpen(m.slot)).map(m => {
     // ⚠️ 그림은 **«지금 걸려 있는 것»**이다 — 표에 박힌 그림이 아니다.
     // 그래야 버튼이 「무엇을 고르는 자리인가」(라벨)와 「지금 무엇인가」(그림)를
     // 같이 말한다 (「표정 이모지를 현재 아바타의 표정이 나오도록」으로 받은 자리다).
@@ -7777,11 +7784,14 @@ function renderSoloActs() {
     //    「없음」(문신)처럼 그림이 없는 것은 표의 그림으로 떨어진다
     const worn = (D.WARDROBE[m.slot] || []).find(x => x.id === S.outfit[m.slot]);
     const ic = (worn && worn.emoji) || m.emoji;
-    return `<button class="room-act" data-slot="${m.slot}" onclick="openSlotSheet('${m.slot}')"
+    const html = `<button class="room-act" data-slot="${m.slot}" onclick="openSlotSheet('${m.slot}')"
       aria-label="${escHtml(N(m.slot, m.label))}">
       <span class="act-ic" aria-hidden="true">${ic}</span>
     </button>`;
-  }).join('');
+    return { key: m.slot, html };
+  }));
+  box.innerHTML = !S.tutorialDone ? '' : items.filter(x => x.html)
+    .sort((a, b) => rank(a.key) - rank(b.key)).map(x => x.html).join('');
 }
 
 function renderWardrobe() {

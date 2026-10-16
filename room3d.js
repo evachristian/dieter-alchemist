@@ -547,8 +547,31 @@ export function createRoom(canvas, opt) {
   cBack.rotation.x = -Math.PI / 2;
   cBack.position.set(0, 0.03, -ROOM_D / 2 + 0.95);
   scene.add(cBack);
+  // ⚠️⚠️ **옆벽 밑동의 그늘은 «방의 깊이»에서만 진다 — 앞으로 늘어난 바닥까지 끌고 가지 않는다**
+  //    (2026-10-16 · 「마이룸 바닥에 검은 음영이 생긴다」로 신고받았다). 바닥을 앞으로
+  //    늘릴 때(`FRONT_EXT`) 이 띠도 같이 늘렸는데, 카메라 바로 앞에서는 폭 1.6 짜리 띠가
+  //    원근으로 크게 부풀어 **바닥 양옆을 가로지르는 짙은 쐐기**가 됐다. 그늘이 해야 할
+  //    일은 «벽 밑동이 어두워지는 것»이지 앞바닥을 칠하는 것이 아니다 —
+  //    옛 방의 앞 끝(`ROOM_D/2`)까지는 그대로 두고 거기서 `SIDE_FADE` 만큼 걸쳐 사라진다.
+  //    ⚠️ 끝을 «딱» 자르면 바닥 위에 그늘의 끝선이 남는다 — 그래서 사라지게 한다.
+  //    뒤쪽도 같은 몫이 남지만 뒷벽 너머라 안 보인다 (띠를 한가운데에 두려고 대칭이다)
+  const SIDE_FADE = 3, SIDE_HALF = ROOM_D / 2 + SIDE_FADE;
+  const sideTex = tex(256, 64, (g, w, h) => {
+    const lg = g.createLinearGradient(0, 0, 0, h);
+    lg.addColorStop(0, 'rgba(26,14,26,0.44)');
+    lg.addColorStop(0.55, 'rgba(26,14,26,0.16)');
+    lg.addColorStop(1, 'rgba(26,14,26,0)');
+    g.fillStyle = lg; g.fillRect(0, 0, w, h);
+    const k = SIDE_FADE / (2 * SIDE_HALF);               // 양 끝에서 사라지는 몫
+    const fade = g.createLinearGradient(0, 0, w, 0);
+    fade.addColorStop(0, 'rgba(0,0,0,0)'); fade.addColorStop(k, 'rgba(0,0,0,1)');
+    fade.addColorStop(1 - k, 'rgba(0,0,0,1)'); fade.addColorStop(1, 'rgba(0,0,0,0)');
+    g.globalCompositeOperation = 'destination-in';
+    g.fillStyle = fade; g.fillRect(0, 0, w, h);
+  });
   [-1, 1].forEach(s => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_D + 4 + 2 * FRONT_EXT, 1.6), cornerMat());
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2 * SIDE_HALF, 1.6),
+      new THREE.MeshBasicMaterial({ map: sideTex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
     m.rotation.set(-Math.PI / 2, 0, s * Math.PI / 2);
     m.position.set(s * (ROOM_W / 2 - 0.8), 0.03, 0);
     scene.add(m);

@@ -2211,7 +2211,12 @@ button.tm-slot:active { transform: scale(0.94); }
    좌우로 16px 더 나가 있어(`SCENE_INSET.x`) 0 으로 붙여도 뱃지가 방 «안»에 남는다 */
 .room-acts {
   position: absolute; right: 0; bottom: 6px; z-index: 3;
-  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  /* ⚠️⚠️ **`column-reverse` — 먼저 열린 버튼이 맨 아래**다 (2026-10-16 · 「1개 오픈 시부터
+     차례로 바닥에서부터 위로 쌓여서 올라가게」). DOM 순서가 곧 «열리는 순서»이고
+     (오른쪽: 부엌 → 운동 → 흡입 → 수확 → 농장 · 왼쪽: 표정 → 방꾸 → 문신),
+     새로 열린 것은 늘 «맨 위»에 얹힌다 — 이미 있던 버튼은 한 칸도 안 움직인다.
+     ⚠️ 순서를 고치려면 CSS 가 아니라 DOM(오른쪽 `index.html` · 왼쪽 `renderSoloActs`)을 고친다 */
+  display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 6px;
 }
 /* ⚠️⚠️ **그림 하나짜리 동그란 버튼이다 — 글자가 없다** (2026-10-01 · 사람이 정했다).
    여덟이 다 그러므로 이름은 `aria-label` 이 맡는다 (헤더의 ↺ 와 같은 조리법).
