@@ -4040,29 +4040,39 @@ function gather(mapId) {
 // 전부 같은 규칙이라 갈라 둘 이유가 없다 (낚시의 `hook()` 과 같은 자리다).
 // 한 걸음(`step`)은 **더 할 수 있으면 참**을 돌려준다 (AP 가 떨어지면 · 물약이 떨어지면 거짓).
 const HOLD_DELAY = 450;   // 이만큼 누르고 있어야 연속 실행이 시작된다
-const HOLD_EVERY = 420;   // 연속 실행 간격
+const HOLD_EVERY = 420;   // 연속 실행 간격 (물약은 끝까지 이 박자다)
 const HOLD_MOVE  = 10;    // 이만큼(px) 움직이면 스크롤로 보고 취소한다
+// 채집만 «누르고 있을수록 빨라진다» (2026-10-16 · 「롱 프레스 시 채집 속도 증가」).
+// 한 걸음마다 간격을 HOLD_ACCEL 배로 줄여 HOLD_FASTEST 에서 멈춘다 — 420 → 140ms 까지
+// 여덟 걸음(약 2.4초)이다. ⚠️ 물약에는 안 건다: 「꿀꺽」이 0.27초라 그보다 빨라지면
+// 소리가 겹치고, 마시는 것은 매력이 오르는 순간이라 한 병씩 보이는 편이 낫다.
+// ⚠️ 빨라지는 것은 «박자»뿐이다 — 한 번에 드는 AP 는 그대로라 밸런스가 안 바뀐다.
+const HOLD_ACCEL   = 0.87;
+const HOLD_FASTEST = 140;
 let holdRun = null;
 
-function startHold(step, ev) {
+function startHold(step, ev, accel) {
   stopHold();
   holdRun = {
     step, x: ev ? ev.clientX : 0, y: ev ? ev.clientY : 0,
-    fired: false, timer: null, interval: null,
+    fired: false, timer: null, every: HOLD_EVERY, accel: !!accel,
+  };
+  // ⚠️ setInterval 이 아니라 «다음 한 번»을 그때그때 건다 — 간격이 걸음마다 바뀐다
+  const tick = () => {
+    if (!holdRun) return;
+    if (!holdRun.step()) { stopHold(); return; }   // 밑천이 떨어지면 스스로 멈춘다
+    if (holdRun.accel) holdRun.every = Math.max(HOLD_FASTEST, holdRun.every * HOLD_ACCEL);
+    holdRun.timer = setTimeout(tick, holdRun.every);
   };
   holdRun.timer = setTimeout(() => {
     if (!holdRun) return;
     holdRun.fired = true;                  // 이 뒤의 click 은 무시한다 (한 번 더 실행되지 않게)
-    if (!holdRun.step()) { stopHold(); return; }
-    holdRun.interval = setInterval(() => {
-      if (!holdRun || !holdRun.step()) stopHold();   // 밑천이 떨어지면 스스로 멈춘다
-    }, HOLD_EVERY);
+    tick();
   }, HOLD_DELAY);
 }
 function stopHold() {
   if (!holdRun) return false;
   clearTimeout(holdRun.timer);
-  if (holdRun.interval) clearInterval(holdRun.interval);
   // 손을 뗀 직후의 click 한 번만 막는다
   const fired = holdRun.fired;
   holdRun = null;
@@ -4076,7 +4086,7 @@ function tapOnce(fn) {
   fn();
 }
 
-function startGatherHold(mapId, ev) { startHold(() => gather(mapId), ev); }
+function startGatherHold(mapId, ev) { startHold(() => gather(mapId), ev, true); }
 function tapGather(mapId)           { tapOnce(() => gather(mapId)); }
 function startDrinkHold(pid, ev)    { startHold(() => drinkPotion(pid), ev); }
 function tapDrink(pid)              { tapOnce(() => drinkPotion(pid)); }
