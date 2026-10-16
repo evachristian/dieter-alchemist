@@ -9357,7 +9357,11 @@ function fillFromRecipe(resultId, el) {
   // ⚠️ **모르는 칸은 「모자란다」로 막지 않는다.** 아직 무엇인지 모르는 재료를
   // 가졌는지 따질 수가 없다 — 아는 칸만 보고 판정한다
   const un = unknownOf(r);
-  if (!hasAllInputs(r, un)) { toast(T('mat_short'), el); return; }
+  // ⚠️ **재료가 모자라도 솥은 «비우고 다시» 채운다** (2026-10-16 · 신고받았다).
+  // 예전에는 여기서 그냥 돌아가서 **솥에 담겨 있던 엉뚱한 것이 그대로 남았다** —
+  // 눌렀는데 슬롯이 안 바뀌니 고장으로 읽힌다. 가진 것은 컬러로 담기고
+  // 모자란 칸은 회색(`.c-slot.lack`)으로, 모르는 칸은 빈자리로 선다
+  const short = !hasAllInputs(r, un);
   // 재료 가짓수에 딱 맞는 솥으로 갈아 끼운다 (이미 그 솥이면 그대로)
   if (S.cauldronId !== open.id) {
     S.cauldronId = open.id;
@@ -9370,6 +9374,7 @@ function fillFromRecipe(resultId, el) {
   refillFromWant();
   save(); render();
   // render() 가 줄을 새로 그렸다 — 넘겨받은 el 은 이미 문서에서 떨어졌으므로 새로 찾는다
+  if (short) { toast(T('mat_short'), `[data-recipe="${resultId}"]`, null, 'above'); return; }
   toast(T('recipe_filled', { name: N(r.result.id, r.result.name) }),
     `[data-recipe="${resultId}"]`, null, 'above');
   if (window.Sfx) Sfx.play('pick');
