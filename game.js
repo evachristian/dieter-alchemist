@@ -5698,7 +5698,13 @@ function petSolve(cre, svg, aura, solo, side) {
     //    214px 이라 둘러보기 버튼 밑에 15px 밖에 안 남는다 (올려 봐야 아무것도 안 풀린다)
     // 줄이 «제자리에 있을 때» 들어가는 크기 — 비켜 본 결과와 견줄 잣대다 (아래)
     fixedW = Math.max(floorW, Math.min(max, free, limitU(cr, true) - need));
-    if (side === 'left' && availU < Math.min(max, free)
+    // ⚠️⚠️ **줄은 «바닥에서부터» 쌓인다 — 비켜 주는 것은 크리처가 «아예» 못 설 때뿐이다**
+    //    (2026-10-16 · 「버튼 바닥에서부터 위로 쌓아줘. 지금은 중앙에서부터 출력되고 있어」).
+    //    예전 조건(`availU < min(max, free)` — 「비켜서 커질 수 있으면 비킨다」)은 390px 이상에서도
+    //    줄을 110px 띄워, 버튼이 «바닥에서 쌓인다»는 규칙(`.room-acts` 의 `column-reverse`)이
+    //    왼쪽에서만 화면에 안 보였다. 지금은 줄이 제자리에서 크리처가 바닥(`floorW`)만큼도
+    //    못 서는 폭(265·320px)에서만 올라간다 — 넓은 폭에서는 크리처가 줄 옆에 맞춰 작아진다
+    if (side === 'left' && availU < floorW
         && liftSolo(cre, solo, room, gap)) {
       moved = true;
       // ⚠️⚠️ **비킨 뒤에 다시 «재지» 않는다.** 이 걸음의 크리처는 아직 옛 크기라

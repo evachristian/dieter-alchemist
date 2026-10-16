@@ -4389,6 +4389,17 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
   // ⚠️ 그래도 **그림에서 찾는다**(`Avatar.floorMark()` 를 읽지 않는다) — 그 값은
   //    인물 쪽이 이미 보는 기준이라, 「양탄자를 옮겼는데 인물만 옛 자리에 남은」
   //    사고를 통째로 못 본다. 몇 조합을 쟀는지도 같이 낸다
+  // ⚠️⚠️ **SVG 폴백에서 잰다 — 3D 를 내려놓고.** 3D 가 서면 SVG 방은 `visibility: hidden` 이고
+  //    인물은 «3D 양탄자»에 맞춰 선다(`placeFigure`). 처음 서는 줌(0.75)·`FLOOR_LOWER` 로 3D 카메라가
+  //    SVG 방과 갈라진 뒤로, 이 검사가 **안 보이는 SVG 양탄자**를 재어 25건이 늘 빨갰다 (2026-10-16).
+  //    3D 쪽 «발이 양탄자 위인가»는 `checkroom`(① · 「줌」)이 «그려진 픽셀»로 본다 —
+  //    여기는 WebGL 이 없는 기기가 실제로 보는 화면(SVG 양탄자 + SVG 기준의 인물)을 맡는다
+  const kept3d = await page.evaluate(() => {
+    if (typeof room3d === 'undefined' || !room3d) return false;
+    window.__stand3d = room3d; room3d = null;
+    if (typeof room3dTried !== 'undefined') room3dTried = true;   // 다시 켜려 들지 않게
+    return true;
+  });
   const STAND_TOL = 1.5;          // px. 양탄자 한가운데와 이만큼 안에서 만나야 한다
   const HEAD_CLEAR_MIN = 2;       // px. 머리가 화면 제목과 이만큼은 떨어져 있어야 한다
   const stand = { bad: [], rows: [], n: 0 };
@@ -4410,6 +4421,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
         const scene = document.querySelector('.room-scene');
         const av = document.querySelector('.char-body > svg.avatar-svg');
         if (!scene || !av) return { err: '방 그림이나 아바타를 못 찾았다' };
+        // ⚠️ 3D 가 서 있으면 «안 보이는 SVG 양탄자»를 재게 된다 — 그 자체를 실패로 둔다
+        if (scene.classList.contains('is3d')) return { err: '3D 가 서 있다 — 안 보이는 SVG 양탄자를 잴 뻔했다' };
         const mid = r => ({ x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 });
         // 양탄자 — 바닥에 깔린 «제일 넓은» 그림.
         // ⚠️ 예전에는 `<ellipse>` 였다 — 지금은 `roomart.js` 가 구운 캔버스를 얹은
@@ -4515,6 +4528,8 @@ const SH_HAIR_GAP_MAX = 8.5;         // px. 지금 6.8 · 어깨를 눕혔을 �
         + ` · 양탄자 앞 여유 ${r.rugRoomBot.toFixed(1)})`;
     }
   }
+  // 3D 를 도로 세운다 — 뒤에 오는 검사가 멎은 방을 보지 않게
+  if (kept3d) await page.evaluate(() => { room3d = window.__stand3d; delete window.__stand3d; renderShowcase(); });
   if (stand.n < 25) stand.bad.push(`서는 자리를 ${stand.n}/25 조합만 쟀다`
     + ' — 0건이 「통과」가 아니라 「한 번도 안 쟀다」다');
 
