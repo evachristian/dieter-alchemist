@@ -3766,6 +3766,12 @@
     out = (VAR.behind || []).map(([r, d]) => { const f = behindFill(r, d); return f === null ? '' : '<path d="' + d + '" fill="' + f + '" stroke="' + f
         + '" stroke-width="1.5" stroke-linejoin="round"/>'; }).join('')
 
+      // ⚠️ 같은 «손 둘레 띠»를 «가만히 있는» 겹에도 한 벌 깐다 — 띠가 손과 함께 위로 올라가면(한 입 박자)
+      //    그 자리에 남은 구멍 테두리로 배경이 비쳐 팔 밑에 검은 실금이 났다 (「팔 갈라져」 · 신고받았다 · 케이크는 살색
+      //    «뒤에 있을 것»이 그대로라 안 났다). 쉬는 자세에서는 움직이는 띠와 한 자리라 아무것도 안 바뀐다
+      //    ⚠️ 뺀 오른손 자리(`drop`)도 똑같이 도려낸다 — 안 그러면 단발의 오른손 엄지가 이 겹에서 «가만히» 되살아난다
+      + (nearSkin ? (dropHands.length ? '<g mask="url(#' + ID('drop') + ')">' : '<g>')
+        + '<g mask="url(#' + ID('near') + ')">' + nearSkin + '</g></g>' : '')
       + '<g mask="url(#' + ID('hole') + ')">' + out + '</g>'
       // 얼굴 앞쪽을 한 덩어리로 다시 얹는다(`VAR.face` · 웨이브) — 몸 그림의 얼굴과 메운 턱이 따로라 턱 밑이 꺾였다
       + (VAR.face || []).map(([r, d]) => '<path d="' + d + '" fill="' + FILL[r] + '"/>').join('')
