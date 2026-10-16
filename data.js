@@ -1155,7 +1155,9 @@ const QUESTS = [
     cut: { in: 'c_meet_in', out: 'c_meet_out' } },
   { id: 'q_first', npc: 'sp_althea', act: 1, at: 0,
     goal: { kind: 'brew', id: 'vitality', n: 2 },
-    reward: { page: 'p_07', crystal: 40, items: { dew: 5 } }, cut: { in: 'c_first_in', out: 'c_first_out' } },
+    reward: { page: 'p_07', crystal: 40, items: { dew: 5 }, wear: ['exp_smile'] }, cut: { in: 'c_first_in', out: 'c_first_out' } },
+  // ⚠️ `wear` — 완료 컷씬이 「방에서 «표정»도 지어 보세요」라 그 자리에서 표정 하나를 쥐여 준다.
+  //    잠긴 벌은 길이 하나뿐이어야 해서 `server/mail.js` 가 퀘스트의 `wear` 를 우편 트랙에서 뺀다
   // ⚠️⚠️ **여기가 공방 «2단계»다 — 꾸미기가 처음 열리는 자리.** 공주는 「창문 하나만
   // 있는 방」으로 들어오고(`ROOM_DEFAULT` 1), 이 퀘스트를 깨면 단계가 2 가 되면서
   // **러그와 책장이 선물로 들어온다**(`D.ROOM_LEVEL_GIFT[2]`). 처음 나갔다 돌아온 자리에

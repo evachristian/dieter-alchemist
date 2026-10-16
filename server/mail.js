@@ -93,6 +93,8 @@ function isBirthday(bd, c) {
 // 옷을 늘리면 그 벌은 저절로 출석 트랙 꼬리에 붙는다
 const ORIX_TIER = ((D.BOND_GIVES.gem || {}).ids || []).filter(Boolean);
 const TUTORIAL_GIFT = ['shoes_maryjane'];
+// 퀘스트가 주는 옷·표정(`QUESTS[].reward.wear`) — 우편으로 또 오면 길이 둘이 된다 (MAIL.md 「길은 하나」)
+const QUEST_GIFT = (D.QUESTS || []).flatMap(q => (q.reward && q.reward.wear) || []);
 const SYSTEM_COLORS = [
   { at: 15, color: 'c_blossom', crystal: 50 },
   { at: 35, color: 'c_mint', crystal: 80 },
@@ -108,7 +110,7 @@ function interleave(...lists) {
 }
 function buildTracks() {
   const W = D.WARDROBE;
-  const taken = new Set([...ORIX_TIER, ...TUTORIAL_GIFT]);
+  const taken = new Set([...ORIX_TIER, ...TUTORIAL_GIFT, ...QUEST_GIFT]);
   const pool = slot => (W[slot] || []).filter(it => it.kind !== 'none' && !it.starter && !it.mom && !taken.has(it.id)).map(it => it.id);
   const take = ids => { const got = ids.filter(id => !taken.has(id)); got.forEach(id => taken.add(id)); return got; };
   const exists = (slot, ids) => ids.filter(id => (W[slot] || []).some(it => it.id === id));

@@ -1093,7 +1093,7 @@ function mask(A, B) {
   // ⚠️⚠️ **위의 픽셀 검사는 이것을 영영 못 본다** — 거기서는 소품을 손으로 심어 놓고
   //    자리를 재기 때문이다. 「얻는 길이 진짜로 있는가」는 **보상을 받아 봐야** 안다:
   //    선물이 안 들어오면 첫 단계 아홉은 상점에도 없으니 **영영 못 얻는 소품**이 되고,
-  //    들어와도 안 놓이면 방이 그대로라 「받았는데 아무 일도 안 일어났다」가 된다.
+  //    들어와도 «아무 표시가 없으면» 「받았는데 아무 일도 안 일어났다」가 된다 — 그래서 레드닷(`S.decorNew`)을 본다.
   // ⚠️ `claimQuest()` 를 그대로 부른다 — 보상 줄을 손으로 흉내 내면 그 줄을 지워도 통과한다
   let gift = '';
   {
@@ -1111,7 +1111,7 @@ function mask(A, B) {
       const qs = (D.QUESTS || []).filter(q => (q.reward || {}).room)
         .sort((a, b) => a.reward.room - b.reward.room);
       if (!qs.length) return { err: '공방 단계를 주는 퀘스트가 하나도 없다' };
-      const got = [], placed = [], lv = [];
+      const got = [], placed = [], marked = [], lv = [];
       // ⚠️⚠️ **완료 컷씬을 «본 것»으로 해 둔다.** `claimQuest()` 는 못 본 컷씬이 있으면
       //    그것부터 틀고 «되돌아간다»(`claiming`) — 그대로 부르면 한 걸음도 안 나간다
       S.seenCuts = (S.seenCuts || []).concat(qs.map(q => q.cut && q.cut.out).filter(Boolean));
@@ -1127,19 +1127,23 @@ function mask(A, B) {
           if ((S.roomOwned || []).includes(id)) got.push(id);
           const d = D.ROOM_DECOR[id];
           if (d && (S.roomProps || {})[d.slot]) placed.push(id);
+          if ((S.decorNew || []).includes(id)) marked.push(id);
         });
       });
       const want = Object.keys(D.ROOM_LEVEL_GIFT).flatMap(n => D.ROOM_LEVEL_GIFT[n]);
-      return { lv, got: got.length, placed: placed.length, want: want.length,
+      return { lv, got: got.length, placed: placed.length, marked: marked.length, want: want.length,
         slots: Object.keys(S.roomProps || {}).length, room: S.roomLevel };
     });
     if (r.err) bad.push(r.err);
     else {
       if (r.got !== r.want) bad.push(`단계 선물이 ${r.got}/${r.want} 만 들어왔다 (단계 ${r.lv.join('→')})`);
-      // ⚠️ **놓이기까지 해야 한다** — 얻어도 안 놓이면 방은 그대로 비어 있다
-      if (r.placed !== r.want) bad.push(`선물이 ${r.placed}/${r.want} 만 놓였다`);
+      // ⚠️⚠️ **놓지 않는다 — 대신 레드닷이 갈 곳을 알린다** (2026-10-16 · 「방에 러그랑 책장
+      //    미리 셋팅하지 말아줘」). 예전에는 「놓이기까지 해야 한다」였다 — 거꾸로 됐다.
+      //    「받았는데 아무 일도 안 일어났다」는 이제 `S.decorNew`(🪄 버튼·자리 탭의 점)가 막는다
+      if (r.placed) bad.push(`선물 ${r.placed}개가 저절로 놓였다 (사람이 직접 놓아야 한다)`);
+      if (r.marked !== r.want) bad.push(`선물이 ${r.marked}/${r.want} 만 «새것»(레드닷)으로 적혔다`);
       if (r.room !== 5) bad.push(`공방이 ${r.room}단계에서 멈췄다 (5까지 가야 한다)`);
-      gift = `단계 선물 ${r.got}/${r.want} 개가 들어와 자리 ${r.slots}곳에 놓였다 (단계 ${r.lv.join('→')})`;
+      gift = `단계 선물 ${r.got}/${r.want} 개가 들어와 안 놓인 채 ${r.marked}개가 레드닷으로 적혔다 (단계 ${r.lv.join('→')})`;
     }
     await page.close();
   }

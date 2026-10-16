@@ -42,6 +42,7 @@ const grad = (extra = {}) => Object.assign({ tutorialDone: true, seenCuts: [], b
     Object.entries(M.TRACKS.att).forEach(([k, l]) => l.forEach(id => add(id, 'att.' + k)));
     M.ORIX_TIER.forEach(id => add(id, 'orix'));
     add('shoes_maryjane', 'tutorial');
+    (D.QUESTS || []).forEach(q => ((q.reward && q.reward.wear) || []).forEach(id => add(id, 'quest.' + q.id)));
     D.MOM_WEAR.forEach(it => add(it.id, 'mom'));
     const gated = D.WARDROBE_SLOTS.filter(m => m.gated)
       .flatMap(m => (D.WARDROBE[m.slot] || []).filter(it => it.kind !== 'none' && !it.starter)).map(it => it.id)

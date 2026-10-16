@@ -305,6 +305,7 @@ const defaultState = () => ({
   // 가진 자재·소품 id 목록. ⚠️ **같은 것을 둘 가질 수 없다** — 「갈아 끼우기」가
   //    이 기능의 전부라 개수는 뜻이 없다 (옷장과 같은 결이다)
   roomOwned: [(D.ROOM_START || {}).wall, (D.ROOM_START || {}).floor].filter(Boolean),
+  decorNew: [],   // 새로 얻고 아직 그 탭을 안 열어 본 소품 — 🪄 방꾸 레드닷 (더하는 칸이라 SAVE_VER 그대로)
   // 아우라 세부 수치 (각 0~1000)
   aura:      { happy: 100, grace: 100, unique: 100, grit: 100, luck: 100 },
   cauldronId: 'cd_iron_old',  // 사용 중인 마법 솥 (시작은 튜토리얼용 2구)
@@ -550,21 +551,28 @@ function grantDecor(id) {
 // 단계가 `from` → `to` 로 올랐을 때 그 사이 단계의 선물을 다 준다.
 // ⚠️⚠️ **한 단계씩 준다.** `to` 것만 주면 2 → 5 로 뛰는 보상(`q_seal`)에서 3·4 의
 //    소품이 통째로 사라진다 — 그 자리는 영영 빈 자리가 된다 (얻는 다른 길이 없다).
-// ⚠️ **빈 자리면 놓아 준다.** 얻어도 안 놓이면 방이 그대로라 「받았는데 아무 일도
-//    안 일어났다」가 된다. 이미 놓인 자리는 안 덮는다 — 사람이 고른 것이 이긴다
+// ⚠️⚠️ **놓아 주지 않는다 — 놓는 것은 사람이다** (2026-10-16 · 「꾸밀 수 있어요라고 해 놓고
+//    방에 러그·책장을 미리 깔아 두면 안 된다」로 받았다). 예전에는 빈 자리면 저절로 놓았다.
+//    대신 **새로 얻은 것을 `S.decorNew` 에 적어** 🪄 방꾸 버튼과 그 자리의 탭에 레드닷을 단다
+//    (`decorNewOf` · 탭을 열어 보면 꺼진다). ⚠️ 옛 세이브를 올리는 마이그레이션은 그대로
+//    놓아 준다 — 하던 사람의 방이 갑자기 비면 그건 뺏는 것이다
 function grantLevelDecor(from, to) {
   const got = [];
   for (let n = Math.max(2, (Number(from) || 0) + 1); n <= (Number(to) || 0); n++) {
-    ((D.ROOM_LEVEL_GIFT || {})[n] || []).forEach(id => {
-      if (!grantDecor(id)) return;
-      got.push(id);
-      const d = D.ROOM_DECOR[id];
-      if (d.slot === 'wall' || d.slot === 'floor') return;
-      if (!S.roomProps[d.slot]) S.roomProps[d.slot] = id;
-    });
+    ((D.ROOM_LEVEL_GIFT || {})[n] || []).forEach(id => { if (grantDecor(id)) got.push(id); });
   }
+  markDecorNew(got);
   return got;
 }
+// 새로 얻은 소품 — 레드닷의 근거다 (탭을 열어 보면 그 자리 것이 지워진다)
+function markDecorNew(ids) {
+  if (!Array.isArray(S.decorNew)) S.decorNew = [];
+  (ids || []).forEach(id => { if (id && !S.decorNew.includes(id)) S.decorNew.push(id); });
+}
+function decorNewOf(tab) {
+  return (S.decorNew || []).some(id => { const d = (D.ROOM_DECOR || {})[id]; return d && d.slot === tab; });
+}
+function decorNewAny() { return (S.decorNew || []).some(id => (D.ROOM_DECOR || {})[id]); }
 // 얻은 것을 «이름»으로 알린다 (여러 개면 첫 이름 + 나머지 수)
 function decorToast(ids) {
   if (!ids || !ids.length) return;
@@ -1593,9 +1601,13 @@ function claimQuest() {
   if (r.room) S.roomLevel = Math.min(roomMax(), Math.max(roomFrom, r.room));
   const gotDecor = grantLevelDecor(roomFrom, S.roomLevel)
     .concat((r.decor || []).map(id => grantDecor(id) ? id : null).filter(Boolean));
+  markDecorNew(gotDecor);
   if (r.crystal) S.crystal = (S.crystal || 0) + r.crystal;
   if (r.energy) S.energy = Math.min(energyCap(), (S.energy || 0) + r.energy);
   if (r.items) Object.keys(r.items).forEach(id => addInv(id, r.items[id]));
+  // **옷·표정** — 잠긴 벌을 연다 (`q_first` 의 「방긋」). 이미 가진 것은 조용히 지나간다
+  const gotWear = (r.wear || []).filter(id => id && !S.unlocked.includes(id));
+  gotWear.forEach(id => S.unlocked.push(id));
   // **키워드** — 지금은 첫 퀘스트의 「정신적 허기」 하나다 (이야기가 시작되는 자리).
   // ⚠️ **이미 가진 것은 조용히 지나간다** — 옛 세이브는 그것을 기본값으로 들고 있어서,
   // 여기서 또 밀어 넣으면 칩이 두 개가 된다
@@ -1631,6 +1643,13 @@ function claimQuest() {
     const k = D.keyword(id);
     setTimeout(() => toast(T('ask_new', { name: N(id, k ? k.name : id) }), null, 3600),
       1400 + ((gotPage ? 1 : 0) + (gotRoom ? 1 : 0) + (gotDecor.length ? 1 : 0)) * 700 + i * 700);
+  });
+  // 표정·옷도 **이름**으로 — 「방에서 표정도 지어 보세요」 바로 다음에 그 표정이 손에 들어온다
+  gotWear.forEach((id, i) => {
+    const it = Object.values(D.WARDROBE).flat().find(x => x.id === id);
+    const nm = N(id, it ? it.name : id);
+    setTimeout(() => toast(T('q_wear_toast', { name: nm, nj: josa(nm, '을를') }), null, 3600),
+      1400 + ((gotPage ? 1 : 0) + (gotRoom ? 1 : 0) + (gotDecor.length ? 1 : 0) + gotKw.length) * 700 + i * 700);
   });
   if (window.Sfx) Sfx.play('success');
   render();
@@ -7394,9 +7413,11 @@ function renderDecorSheet() {
   if (tb) {
     tb.innerHTML = `<div class="cat-tabs wr-tabs">${tabs.map(x => {
       const on = decorTab === x.id;
-      return `<button class="cat-tab wr-tab ${on ? 'active' : ''}" onclick="setDecorTab('${x.id}')"
+      // 새로 얻은 것이 있는 자리에는 레드닷 — 점이 걸치므로 `dot-host` + 라벨로 말줄임을 옮긴다
+      const dot = decorNewOf(x.id) ? '<span class="tab-dot" aria-hidden="true"></span>' : '';
+      return `<button class="cat-tab wr-tab ${on ? 'active' : ''} ${dot ? 'dot-host' : ''}" onclick="setDecorTab('${x.id}')"
         aria-label="${escHtml(x.name)}"${on ? ' aria-current="true"' : ''}
-        ><span class="em">${x.emoji}</span> ${escHtml(x.name)}</button>`;
+        ><span class="tab-label"><span class="em">${x.emoji}</span> ${escHtml(x.name)}</span>${dot}</button>`;
     }).join('')}</div>`;
   }
   const b = document.getElementById('decorSheetBody');
@@ -7443,7 +7464,15 @@ function renderDecorSheet() {
 }
 function setDecorTab(tab) {
   decorTab = tab;
+  seeDecorTab(tab);
   renderDecorSheet();
+  renderActBadges();
+}
+// 그 자리 탭을 «열어 보면» 새것 표시가 꺼진다 (본 것이 곧 안 것이다)
+function seeDecorTab(tab) {
+  if (!decorNewOf(tab)) return;
+  S.decorNew = (S.decorNew || []).filter(id => { const d = (D.ROOM_DECOR || {})[id]; return d && d.slot !== tab; });
+  save();
 }
 window.setDecorTab = setDecorTab;
 // 하나를 고른다 — 가진 것이면 «놓고», 아니면 «산다». `id` 가 빈 문자열이면 비운다
@@ -7496,7 +7525,9 @@ function pickDecor(tab, id) {
 window.pickDecor = pickDecor;
 function openDecorSheet(tab) {
   if (tab) decorTab = tab;
+  seeDecorTab(decorTab);          // 열리자마자 보이는 탭도 «본 것»이다
   renderDecorSheet();
+  renderActBadges();
   const m = document.getElementById('decorSheet');
   if (m) m.classList.add('show');
   if (window.Sfx) Sfx.play('pick');
@@ -7868,7 +7899,7 @@ function renderSoloActs() {
   //    이름은 `aria-label` 이 맡는다 (헤더의 ↺ · 둘러보기 화살표와 같은 조리법)
   const decorBtn = !actOpen('decor') ? '' : `<button class="room-act" data-slot="decor" onclick="openDecorSheet()"
     aria-label="${escHtml(T('act_decor'))}">
-    <span class="act-ic" aria-hidden="true">🪄</span>
+    <span class="act-ic" aria-hidden="true">🪄</span>${decorNewAny() ? '<span class="tab-dot act-dot" aria-hidden="true"></span>' : ''}
   </button>`;
   // 📬 우편함은 이 줄이 아니라 **제목 줄 오른쪽 끝**(`#mailBtn` · 옛 초기화 자리)이다.
   //    ⚠️ 여기에 쌓았더니 줄이 길어져 크리처 설 자리가 줄었다 — 265px 에서 공중 크리처가

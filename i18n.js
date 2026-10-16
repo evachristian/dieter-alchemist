@@ -1262,6 +1262,7 @@
       // 적어 두지 않으면 붙여 놓고 아무도 모른다 (ROOM.md 「효과」)
       decor_cozy: '🛋️ 아늑함 {p}% — 방치 감소 −{d}% · 쉴 때 회복 +{r}%',
       decor_got: '{name}{nj} 얻었어요! 🪄 방꾸에서 놓아 보세요',
+      q_wear_toast: '표정 「{name}」{nj} 얻었어요! 😯 얼굴에서 지어 보세요',
       decor_got_more: '{name}{nj} 비롯해 {n}개를 더 얻었어요! 🪄 방꾸를 보세요',
       // 둘러보기 화살표 — 화면에 «글자»로는 안 뜬다 (흐린 버튼이라 그림이다).
       // 이름을 읽어 주는 자리(aria-label)에만 쓰인다
@@ -2952,6 +2953,7 @@
       decor_need_base: 'Place the {name} first to see this',
       decor_cozy: '🛋️ Cozy {p}% — idle loss −{d}% · rest +{r}%',
       decor_got: 'Got the {name}! Place it from 🪄 Decor',
+      q_wear_toast: 'Got the “{name}” expression! Try it from 😯 Face',
       decor_got_more: 'Got the {name} and {n} more! Take a look at 🪄 Decor',
       spin_left: 'Look left', spin_right: 'Look right', 
       q_first_name: "Mother's Cauldron",
