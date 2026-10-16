@@ -5019,7 +5019,10 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 .mail-gift {
   font-size: 0.76rem; font-weight: 800; color: var(--ink);
   background: var(--tint); border-radius: 999px; padding: 4px 10px;
+  /* 누르면 이름이 뜬다 (`mailGiftTip`) — 버튼이라 브라우저 기본 글꼴·테두리를 걷는다 */
+  font-family: inherit; border: none; cursor: pointer;
 }
+.mail-gift:active { transform: scale(0.95); }
 /* 생일 (이름 짓기 · 선택) */
 .name-bday { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px 0 2px; flex-wrap: wrap; }
 .name-bday-label { font-size: 0.8rem; font-weight: 800; color: var(--ink-soft); }

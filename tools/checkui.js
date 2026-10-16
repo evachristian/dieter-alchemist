@@ -2358,6 +2358,24 @@ function launchOpts() {
             ? { 화면: `${t}/시트낮은화면`, 오류: out.join(' / ') }
             : { 화면: `${t}/시트낮은화면`, pass: true, total: 0,
                 잰것: `ko·en × 360×640·640×360 × 시트 ${SHEETS.length}개 (${seen}번) · ${last}` });
+          // 📬 같은 보상은 «한 칩»으로 합쳐 서고, 칩을 누르면 그 «이름»이 토스트로 뜬다.
+          // ⚠️ 심은 편지(m1)에 💎30 + 💎10(반짝이)이 «따로» 들어 있다 — 합치는 줄을 빼면 두 칩이 된다
+          const mg = await page.evaluate(() => {
+            MAIL = __mailMock(); openMailSheet(); openMailItem('m1');
+            const chips = [...document.querySelectorAll('#mailSheet .mail-gift')];
+            const cr = chips.filter(c => c.textContent.includes('💎'));
+            const bad = [];
+            if (cr.length !== 1) bad.push(`💎 칩이 ${cr.length}개다 (합쳐 한 개여야 한다)`);
+            else if (!/40/.test(cr[0].textContent)) bad.push(`💎 칩이 «${cr[0].textContent.trim()}» 다 (40 이어야 한다)`);
+            if (cr[0]) {
+              cr[0].click();
+              const tt = document.getElementById('toast').textContent;
+              if (!tt.includes(T('crystal_name'))) bad.push(`칩을 눌렀는데 이름이 안 뜬다 («${tt}»)`);
+            }
+            return { bad, n: chips.length };
+          });
+          results.push(mg.bad.length ? { 화면: `${t}/우편보상칩`, 오류: mg.bad.join(' / ') }
+            : { 화면: `${t}/우편보상칩`, pass: true, total: 0, 잰것: `칩 ${mg.n}개 · 💎 한 칸 · 누르면 이름` });
           await page.evaluate((a) => {
             I18N.setLang(a.lang0);
             document.querySelectorAll('.modal.show').forEach(x => x.classList.remove('show'));

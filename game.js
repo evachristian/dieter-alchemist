@@ -7589,6 +7589,34 @@ function giftLabel(g) {
   return '';
 }
 
+// 편지 한 통의 보상을 «같은 것끼리» 합친다 — 화면에서만이다.
+// 출석 보상 💎30 과 까마귀가 주워 온 반짝이 💎10 은 서버가 «다른 까닭»으로 따로 넣지만
+// 받는 사람에게는 같은 결정이라, 두 칩으로 서면 「왜 둘로 나뉘었지」가 된다 (💎40 한 칩이 맞다).
+// ⚠️ 받는 쪽(`grantMailGifts`)은 그대로 하나씩 넣는다 — 합계가 같으므로 받는 몫은 한 톨도 안 바뀐다.
+// ⚠️ 옷·컬러칩은 안 합친다 — 한 벌·한 색이 곧 하나라 «×2» 가 뜻이 없다
+function mergeGifts(gifts) {
+  const out = [];
+  (gifts || []).forEach(g => {
+    if (g.t === 'wear' || g.t === 'color') { out.push(g); return; }
+    const k = g.t + ':' + (g.id || '');
+    const hit = out.find(x => x.t + ':' + (x.id || '') === k);
+    if (hit) hit.n = (hit.n || 1) + (g.n || 1);
+    else out.push(Object.assign({}, g));
+  });
+  return out;
+}
+// 칩을 누르면 뜨는 «보상 이름» — 칩의 글이 이름을 다 말하지 않는 것(💎 40)도 이름으로 부른다
+function giftName(g) {
+  if (g.t === 'crystal') return `💎 ${T('crystal_name')} ×${g.n}`;
+  return giftLabel(g);
+}
+let mailGiftsShown = [];
+function mailGiftTip(i, el) {
+  const g = mailGiftsShown[i];
+  if (g) toast(giftName(g), el, 1800, 'above');
+}
+window.mailGiftTip = mailGiftTip;
+
 // 보낸 이 — 사람은 `speakerName()` 을 지난다 (여왕의 이름이 새지 않게)
 function mailFrom(m) {
   if (m.from === 'crow') return T('mail_from_crow');
@@ -7629,7 +7657,9 @@ function renderMailSheet() {
   const list = mailTab === 'box' ? box : ((MAIL && MAIL.letters) || []).slice().reverse();
   const open = mailOpenId && list.find(m => m.id === mailOpenId);
   if (open) {
-    const gifts = (open.gifts || []).map(g => `<span class="mail-gift">${I18N.em(escHtml(giftLabel(g)))}</span>`).join('');
+    mailGiftsShown = mergeGifts(open.gifts);
+    const gifts = mailGiftsShown.map((g, i) => `<button class="mail-gift" onclick="mailGiftTip(${i}, this)"
+      aria-label="${escHtml(giftName(g))}">${I18N.em(escHtml(giftLabel(g)))}</button>`).join('');
     body.innerHTML = `<button class="mail-back" onclick="openMailItem(null)">${escHtml(T('mail_back'))}</button>
       <div class="mail-letter mail-k-${open.k}">
         <div class="mail-lhead"><span class="em">${MAIL_ICON[open.k] || '✉️'}</span> ${escHtml(mailFrom(open))} · ${escHtml(mailWhen(open))}</div>
@@ -7646,8 +7676,8 @@ function renderMailSheet() {
     return;
   }
   body.innerHTML = list.length ? list.map(m => {
-    const first = (m.gifts || [])[0];
-    const more = (m.gifts || []).length > 1 ? ` +${m.gifts.length - 1}` : '';
+    const gs = mergeGifts(m.gifts), first = gs[0];
+    const more = gs.length > 1 ? ` +${gs.length - 1}` : '';
     return `<button class="mail-row" onclick="openMailItem('${m.id}')">
       <span class="mail-ic em">${MAIL_ICON[m.k] || '✉️'}</span>
       <span class="mail-mid"><span class="mail-who">${escHtml(mailFrom(m))}</span>
@@ -7739,7 +7769,7 @@ window.__mailMock = function () {
     .sort((a, b) => T(b).length - T(a).length)[0];
   const box = [
     { id: 'm1', k: 'att', from: 'crow', key: 'ml_crow_day', day: 100, sentDay: 100, vars: { n: 9, spark: 1 },
-      gifts: [{ t: 'color', id: 'c_white', n: 1 }, { t: 'crystal', n: 30 }, { t: 'dye', n: 1 }] },
+      gifts: [{ t: 'color', id: 'c_white', n: 1 }, { t: 'crystal', n: 30 }, { t: 'dye', n: 1 }, { t: 'crystal', n: 10 }] },
     { id: 'm_long', k: 'mom', from: 'mom', key: longest, day: 100, sentDay: 100, vars: { addr: 'a' },
       gifts: [{ t: 'wear', id: 'mom_dress_ball', n: 1 }] },
     { id: 'm3', k: 'away', from: 'sp_orix', key: 'ml_away_orix', day: 100, sentDay: 95, gifts: [{ t: 'ing', id: 'iron_ore', n: 2 }] },
