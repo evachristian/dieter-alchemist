@@ -4385,19 +4385,36 @@ function refillFromWant() {
 
 // 구멍마다 '무엇이 있어야 하는지 / 지금 있는지' 를 낸다.
 // 레시피를 고르지 않았으면 담긴 것만 그대로 보여 준다.
+// 칸마다 `ci`(S.cauldron 의 몇 번째인가)를 같이 낸다 — 화면의 구멍 순서와 담긴 순서가
+// 다를 수 있어서(흐린 장 · 회색 자리) 빼는 쪽이 그것으로 찾는다.
 function slotView() {
   const n = cauldronSlots();
   const out = [];
   if (S.want && S.want.length) {
-    const have = {};
-    S.cauldron.forEach(id => { have[id] = (have[id] || 0) + 1; });
-    S.want.forEach(id => {
-      const ok = have[id] > 0;
-      if (ok) have[id]--;
-      out.push({ id, ghost: !ok });
+    // 담긴 것마다 «아직 자리를 못 받은» 번호를 들고 있다
+    const free = {};
+    S.cauldron.forEach((id, ci) => { (free[id] = free[id] || []).push(ci); });
+    const take = id => (free[id] && free[id].length) ? free[id].shift() : -1;
+    // ⚠️ **흐린 장을 맞혀 보는 중이면 «레시피의 순서»대로 선다** (2026-10-16 · 「레시피
+    // 순서대로 빈칸 자리 지키게」). 모르는 칸은 그 자리에 빈칸으로 남고, 손으로 넣어 본
+    // 것이 그 빈칸을 앞에서부터 채운다. 아는 칸만 앞에 몰아 두면 빈칸이 늘 뒤로 밀려
+    // 「몇 번째가 모르는 재료인지」가 안 보인다
+    const g = S.guess && D.RECIPES.find(x => x.result.id === S.guess);
+    const un = g ? unknownOf(g) : [];
+    const order = un.length ? g.inputs : S.want;
+    const holes = [];
+    order.forEach(id => {
+      if (un.includes(id) && !S.want.includes(id)) { holes.push(out.length); out.push(null); return; }
+      const ci = take(id);
+      out.push({ id, ghost: ci < 0, ci });
+    });
+    // 남은 것(손으로 넣어 본 것)은 «넣은 순서»대로 빈칸을 앞에서부터 채우고, 넘치면 뒤에 붙는다
+    Object.values(free).flat().sort((a, b) => a - b).forEach(ci => {
+      const cell = { id: S.cauldron[ci], ghost: false, ci };
+      if (holes.length) out[holes.shift()] = cell; else out.push(cell);
     });
   } else {
-    S.cauldron.forEach(id => out.push({ id, ghost: false }));
+    S.cauldron.forEach((id, ci) => out.push({ id, ghost: false, ci }));
   }
   while (out.length < n) out.push(null);
   return out.slice(0, n);
@@ -4430,8 +4447,7 @@ function removeFromCauldron(idx) {
   const view = slotView();
   const cell = view[idx];
   if (!cell || cell.ghost) return;
-  const real = view.slice(0, idx).filter(c => c && !c.ghost).length;
-  S.cauldron.splice(real, 1);
+  S.cauldron.splice(cell.ci, 1);
   S.want = []; S.guess = null;   // 손으로 뺐으면 레시피 선택은 놓는다
   save(); render();
 }
