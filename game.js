@@ -9713,6 +9713,59 @@ function cssVar(name, fallback) {
   return v || fallback;
 }
 
+// 카드에서 인물의 «발이 서는 줄»(px) — 몸 밖의 바닥 그림자 타원 가운데다.
+// 못 찾으면 그림의 밑변 조금 위로 떨어진다
+function cardFootY(fig, avY, avH, box) {
+  try {
+    const doc = new DOMParser().parseFromString(fig, 'image/svg+xml');
+    const root = doc.documentElement;
+    const vb = (root.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number);
+    const sh = doc.querySelector('ellipse:not(.doll *):not(.i-doll *)');
+    const cy = sh ? Number(sh.getAttribute('cy')) : NaN;
+    if (vb.length === 4 && isFinite(cy)) return avY + (cy - vb[1]) / box.h * avH;
+  } catch (e) { /* 아래로 떨어진다 */ }
+  return avY + avH * 0.97;
+}
+
+// ⚠️⚠️ 과시 카드용 3D 방 스냅샷 — 살아 있는 3D 방을 «카드 크기로 잠깐» 다시 찍는다.
+// 화면의 캔버스를 그대로 베끼면 비율·양탄자 자리가 카드와 안 맞아 인물이 바닥에서 뜬다.
+// 그래서 카드 크기로 줄이고, 발이 서는 줄에 바닥 기준을 맞추고, 줌 1 로 찍은 뒤 되돌린다.
+// 양탄자의 크기는 **화면과 같은 몫**이다 — 화면에서 «인물 한 칸(그림 좌표 1)이 몇 px 인가»와
+// «바닥 기준 반폭이 몇 px 인가»를 재서, 카드의 인물 배율(`unit`)에 그 비를 그대로 태운다.
+// 그래야 줌을 물러난 화면(0.75)에서 본 구도가 카드에도 온다 (줌 1 로 찍으면 방이 코앞이었다).
+// 못 재면 SVG 폴백 카드와 같은 몫(반폭 × slice 배율)으로 떨어진다.
+// ⚠️ 그린 «바로 그 자리»에서 drawImage 한다 — WebGL 은 버퍼를 안 남겨서(preserveDrawingBuffer
+//    false) 한 박자라도 기다리면 빈 판이 찍힌다. 3D 가 없으면 null(→ SVG 폴백)
+function room3dSnapshot(w, h, footY, unit) {
+  if (!room3d || !room3dCanvas || !window.Avatar || !Avatar.floorMark) return null;
+  const z0 = room3d.zoomAt ? room3d.zoomAt().z : 1;
+  // 화면의 비 — 찍기 «전»에 잰다 (찍고 나면 상자가 카드 크기다)
+  let half = Avatar.floorMark().half * Math.max(w / 400, h / 320);   // 폴백: SVG 카드의 slice 배율
+  try {
+    const sv = document.querySelector('.char-body > svg.avatar-svg');
+    const vb = sv && sv.viewBox && sv.viewBox.baseVal;
+    const live = room3d.floorRect().half, px = sv ? sv.getBoundingClientRect().height : 0;
+    if (vb && vb.height > 0 && px > 0 && live > 0 && unit > 0) half = live / (px / vb.height) * unit;
+  } catch (e) { /* 폴백 그대로 */ }
+  try {
+    room3d.setPhase(skyPhase3d());
+    room3d.resize(w, h);
+    if (room3d.setZoom) room3d.setZoom(1);
+    room3d.aim(footY / h, half / h);
+    room3d.render();
+    const out = document.createElement('canvas');
+    out.width = w; out.height = h;
+    out.getContext('2d').drawImage(room3dCanvas, 0, 0, w, h);
+    return out;
+  } catch (e) {
+    return null;
+  } finally {
+    // 되돌린다 — 줌을 먼저 되돌리고 나서 화면 상자에 다시 맞춘다(`room3dSync` 가 resize·aim 을 한다)
+    try { if (room3d.setZoom) room3d.setZoom(z0); } catch (e) { /* 다음 그리기에서 맞춘다 */ }
+    try { if (document.querySelector('.room-scene')) room3dSync(); } catch (e) { /* 위와 같다 */ }
+  }
+}
+
 // 과시 카드 한 장을 그려 PNG Blob 으로 돌려준다
 async function shareCardBlob() {
   const total = totalCharm();
@@ -9730,18 +9783,7 @@ async function shareCardBlob() {
   const figOnly = devFigureOnly;
   if (figOnly) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, CARD_W, CARD_ROOM_H); }
 
-  // ① 방 배경 — viewBox 400×320 을 'slice'(cover)로 채운다. CSS 의 preserveAspectRatio 와 같은 규칙
-  if (!figOnly && window.Avatar && Avatar.roomScene) {
-    const k = Math.max(CARD_W / 400, CARD_ROOM_H / 320);
-    const w = 400 * k, h = 320 * k;
-    ctx.save();
-    ctx.beginPath(); ctx.rect(0, 0, CARD_W, CARD_ROOM_H); ctx.clip();
-    ctx.drawImage(await svgToImage(Avatar.roomScene(S.roomLevel, roomDecorState()), Math.round(w), Math.round(h)),
-      (CARD_W - w) / 2, CARD_ROOM_H - h, w, h);   // xMid YMax
-    ctx.restore();
-  }
-
-  // ② 아바타 — 방 바닥에 발이 닿게. 화면과 같이 **높이를 맞추고 가로는 비율대로** 둔다
+  // ② 에서 쓸 인물을 먼저 짓는다 — 3D 방은 «발이 서는 줄»에 맞춰 찍어야 해서다
   let fig = roomFigure(tier);
   // ⚠️ 바닥 그림자 타원은 몸(`g.doll` · 인트로 그림은 `g.i-doll`) «밖»에 있다 —
   // 화면 쪽 CSS(`body.dev-figure-only`)와 같은 선택자로 걷는다
@@ -9763,10 +9805,30 @@ async function shareCardBlob() {
   // ⚠️ 위로 연 상자가 방 판보다 길어지면(토끼 귀 + 큰 얼굴) 그때만 줄인다 — 잘리는 것보다 낫다
   const CARD_AVATAR_K = Math.min(1.609, (CARD_ROOM_H - 30 - 6) / box.h);
   const avH = Math.round(box.h * CARD_AVATAR_K), avW = avH * box.w / box.h;
+  const avY = CARD_ROOM_H - avH - 30;
+
+  // ① 방 배경 — ⚠️⚠️ **3D 방이 서 있으면 그 방을 찍는다** (「과시 카드의 방이 3D 스냅샷이 아니다」로
+  // 받았다). 화면은 3D 인데 카드만 SVG 폴백이면 같은 방이 두 얼굴이 된다. WebGL 이 없거나
+  // 아직 안 섰으면 예전 그대로 SVG 를 깐다 (그것이 폴백이 남아 있는 이유다)
+  const snap = figOnly ? null : room3dSnapshot(CARD_W, CARD_ROOM_H, cardFootY(fig, avY, avH, box), avH / box.h);
+  if (snap) {
+    ctx.drawImage(snap, 0, 0, CARD_W, CARD_ROOM_H);
+  } else if (!figOnly && window.Avatar && Avatar.roomScene) {
+    // viewBox 400×320 을 'slice'(cover)로 채운다. CSS 의 preserveAspectRatio 와 같은 규칙
+    const k = Math.max(CARD_W / 400, CARD_ROOM_H / 320);
+    const w = 400 * k, h = 320 * k;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, CARD_W, CARD_ROOM_H); ctx.clip();
+    ctx.drawImage(await svgToImage(Avatar.roomScene(S.roomLevel, roomDecorState()), Math.round(w), Math.round(h)),
+      (CARD_W - w) / 2, CARD_ROOM_H - h, w, h);   // xMid YMax
+    ctx.restore();
+  }
+
+  // ② 아바타 — 방 바닥에 발이 닿게. 화면과 같이 **높이를 맞추고 가로는 비율대로** 둔다
   ctx.save();
   if (!figOnly) { ctx.shadowColor = 'rgba(180,140,160,0.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 14; }
   ctx.drawImage(await svgToImage(fig, Math.round(avW), avH),
-    (CARD_W - avW) / 2, CARD_ROOM_H - avH - 30, avW, avH);
+    (CARD_W - avW) / 2, avY, avW, avH);
   ctx.restore();
 
   // ③ 애착 크리처 **한 마리** — 아바타 왼쪽 바닥에.
