@@ -7792,7 +7792,7 @@ function renderMailSheet() {
     mailGiftsShown = mergeGifts(open.gifts);
     const gifts = mailGiftsShown.map((g, i) => `<button class="mail-gift" onclick="mailGiftTip(${i}, this)"
       aria-label="${escHtml(giftName(g))}">${I18N.em(escHtml(giftLabel(g)))}</button>`).join('');
-    body.innerHTML = `<button class="mail-back" onclick="openMailItem(null)">${escHtml(T('mail_back'))}</button>
+    body.innerHTML = `<button class="mail-back" onclick="openMailItem(null)"><svg class="mail-back-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>${escHtml(T('mail_back'))}</span></button>
       <div class="mail-letter mail-k-${open.k}">
         <div class="mail-lhead"><span class="em">${MAIL_ICON[open.k] || '✉️'}</span> ${escHtml(mailFrom(open))} · ${escHtml(mailWhen(open))}</div>
         <div class="mail-ltext">${escHtml(mailText(open))}</div>

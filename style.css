@@ -5017,10 +5017,17 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 /* 선물 이름은 길 수 있다 — 줄어드는 것은 이 줄이다 (보낸 이 · 날짜는 뜻을 진다) */
 .mail-what { font-size: 0.76rem; color: var(--ink-soft); overflow-x: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mail-when { flex: 0 0 auto; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft); }
+/* «뒤로»는 글자 한 줄이 아니라 «버튼»이다 — 바탕·테두리·그림자가 있어야 눌러 본다
+   (「버튼 같지 않아서 눌러보게 되질 않아」로 받았다). 화살표는 글자(‹)가 아니라 그림이라 크게 선다 */
 .mail-back {
-  align-self: flex-start; border: 0; background: none; font-family: inherit;
-  font-size: 0.82rem; font-weight: 800; color: var(--text-pink); cursor: pointer; padding: 2px 0;
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--glass-line); background: var(--card); font-family: inherit;
+  font-size: 0.86rem; font-weight: 800; color: var(--ink); cursor: pointer;
+  padding: 6px 14px 6px 8px; border-radius: 999px; min-height: 36px;
+  box-shadow: 0 2px 6px var(--btn-shadow);
 }
+.mail-back:active { transform: translateY(1px); box-shadow: 0 1px 3px var(--btn-shadow); }
+.mail-back-ico { width: 22px; height: 22px; flex: 0 0 auto; color: var(--text-pink); }
 .mail-letter { background: var(--cream); border-radius: 16px; padding: 14px 14px 12px; }
 .mail-lhead { font-size: 0.78rem; font-weight: 800; color: var(--ink-soft); margin-bottom: 8px; }
 /* 편지는 글이 주인공이다 — 줄바꿈을 그대로 살린다 */
