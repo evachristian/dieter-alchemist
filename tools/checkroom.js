@@ -47,6 +47,7 @@ const WALL_MIN = 0.6;   // 머리 위 띠에서 벽이 덮는 몫
 // ⚠️ **재서 골랐다** — 지금 제일 안 나오는 자리가 +0.079(480px 의 SVG)이고 제일
 //    잘 나오는 자리가 +0.47 이다. 낮에는 벽이 이미 환해서 더하는 몫이 덜 보인다
 const GLOW_MIN = 0.03;
+const GLOW_SAT = 0.98;  // 빛무리를 끈 판에서 이만큼 하얀 칸은 더 밝아질 자리가 없어 안 센다
 const GLOW_PAD = 12;    // px. 광원의 화면 자리에서 이만큼 네모로 떠서 잰다
 // 낮이 밤보다 이만큼은 밝아야 «낮»이다. ⚠️ **사보타주를 돌려 보고 고른 값이다** —
 // 옛 두 갈래 조명이 **1.52배**이고 지금이 **2.37배**라 그 사이다 (창밖만 한낮이고
@@ -557,15 +558,33 @@ function mask(A, B) {
     //    `getScreenCTM()` 으로 구한다. 카메라나 자리 표를 고쳐도 따라온다
     const glowOut = [];
     {
+      // ⚠️⚠️ **«처음 서는 줌»에서 잰다 — 사람이 실제로 보는 화면이다** (2026-10-16).
+      //    위의 ①②③ 은 SVG 와 견주려고 줌을 1 로 맞춰 두었는데, 265px 에서 줌 1 이면
+      //    샹들리에가 화면 꼭대기(y18)로 올라가 **불투명한 AP 게이지 알약 바로 밑**에
+      //    선다 — 빛무리를 껐다 켜도 알약만 찍혀 0.671 → 0.678 로 「빛이 안 난다」가
+      //    늘 빨갛게 나왔다. 빛은 멀쩡히 나고 있었고(처음 서는 줌에서 +0.046),
+      //    **잰 자리가 가려져 있었던 것**이다. 끝나면 줌 1 로 되돌린다 (뒤의 검사가 기댄다)
       // 재는 동안은 멈춰 둔다 — 빛무리의 불투명도가 프레임마다 흔들린다(④-2)
-      await page.evaluate(() => { room3d.run(false); room3d.render(); });
-      const lum = (g, cx, cy) => {         // 광원 언저리 네모의 평균 휘도 (상자 밖은 잘라 낸다)
+      await page.evaluate(() => {
+        room3d.setZoom(room3d.zoomAt().def); placeFigure();
+        room3d.run(false); room3d.render();
+      });
+      // ⚠️⚠️ **빛무리를 끈 판에서 이미 하얀 칸은 안 센다** (`ref` · 2026-10-16) —
+      //    더하기 합성이라 1 에서 잘려 **더 밝아질 자리가 없다.** 480px 처음 서는 줌에서
+      //    샹들리에가 낮의 햇살 기둥 «안»에 걸려 네모 한가운데가 0.979 로 이미 하얬고,
+      //    빛무리가 또렷이 퍼지는데도 「0.979 → 1.000 · 빛이 안 난다」로 걸렸다.
+      //    남는 칸이 너무 적으면(16 미만) 잴 수 없다고 본다 (가려진 자리와 같다)
+      const lum = (g, cx, cy, ref) => {    // 광원 언저리 네모의 평균 휘도 (상자 밖은 잘라 낸다)
         const x0 = Math.max(0, Math.round(cx - GLOW_PAD)), x1 = Math.min(g.w, Math.round(cx + GLOW_PAD));
         const y0 = Math.max(0, Math.round(cy - GLOW_PAD)), y1 = Math.min(g.h, Math.round(cy + GLOW_PAD));
         if (x1 - x0 < 4 || y1 - y0 < 4) return null;
         let s = 0, n = 0;
-        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { s += g.l[y * g.w + x]; n++; }
-        return s / n;
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+          const i = y * g.w + x;
+          if (ref.l[i] >= GLOW_SAT) continue;
+          s += g.l[i]; n++;
+        }
+        return n < 16 ? null : s / n;
       };
       // ⚠️⚠️ **인물을 치우고 잰다.** 샹들리에는 방 한가운데 위에 매달려 있어서
       //    좁은 화면에서는 **인물의 머리 뒤**다 — 그대로 재면 켜나 끄나 같은 머리카락을
@@ -583,16 +602,30 @@ function mask(A, B) {
         await toggle(false); await hideFig(); const off = await shot();
         await toggle(true); await hideFig(); const on = await shot();
         if (!off || !on) { bad.push(`${W}px: ${label} 화면을 못 읽었다`); return; }
-        let seen = 0, worst = 9;
-        spots.forEach(s => {
-          const a = lum(off, s.x - box.x, s.y - box.y), b = lum(on, s.x - box.x, s.y - box.y);
+        // ⚠️⚠️ **불투명한 UI 에 덮인 자리는 «안 잰다»** — 덮은 판을 빛무리라고 읽는다
+        //    (`checkemoji` 의 「가려진 이모지는 안 잰다」와 같은 자리다). 상자로는 못 본다:
+        //    자리는 그대로고 위에 무엇이 얹혔는가만 다르다. 걸러 낸 수는 같이 낸다
+        const cover = await page.evaluate((pts) => pts.map(p => {
+          let el = document.elementFromPoint(p.x, p.y);
+          for (; el && el !== document.body; el = el.parentElement) {
+            if (el.classList.contains('room-scene')) return false;
+            const m = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+            if (m && (m.length < 4 || +m[3] >= 0.5) && !(m.length >= 4 && +m[3] === 0)) return true;
+          }
+          return false;
+        }), spots.map(s => ({ x: s.x, y: s.y })));
+        let seen = 0, worst = 9, hid = 0;
+        spots.forEach((s, i) => {
+          if (cover[i]) { hid++; return; }
+          const a = lum(off, s.x - box.x, s.y - box.y, off), b = lum(on, s.x - box.x, s.y - box.y, off);
           if (a == null || b == null) return;            // 상자 밖으로 나간 자리
           seen++; worst = Math.min(worst, b - a);
           if (b - a < GLOW_MIN) bad.push(`${W}px: ${label} «${s.id}» 에서 빛이 안 난다`
             + ` (${a.toFixed(3)} → ${b.toFixed(3)})`);
         });
         if (!seen) bad.push(`${W}px: ${label} 빛무리가 전부 화면 밖이다 (한 자리도 안 쟀다)`);
-        else glowOut.push(`${label} ${seen}/${spots.length}곳 +${worst.toFixed(3)}`);
+        else glowOut.push(`${label} ${seen}/${spots.length}곳 +${worst.toFixed(3)}`
+          + (hid ? ` (UI 에 덮여 ${hid}곳 안 잼)` : ''));
       };
 
       const spots3d = await page.evaluate(() => {
@@ -636,6 +669,7 @@ function mask(A, B) {
         }).filter(Boolean);
       });
       await measure('SVG', spotsSvg, svgToggle);
+      await page.evaluate(() => { room3d.setZoom(1); placeFigure(); room3d.render(); });
     }
 
     // ── ⑦ 둘러보기 버튼이 «방 버튼 줄»과 안 겹치는가

@@ -707,7 +707,7 @@ export function createRoom(canvas, opt) {
     aimFloor(); renderer.render(scene, camera);
     return zoom;
   }
-  function zoomAt() { return { z: zoom, min: ZOOM_MIN, max: ZOOM_MAX }; }
+  function zoomAt() { return { z: zoom, min: ZOOM_MIN, max: ZOOM_MAX, def: ZOOM_DEF }; }
   // ⚠️⚠️ **줌 아웃은 «물러나기»다 — 고개는 줌 1 의 각도 그대로 두고 거리만 늘린다.**
   //    예전에는 줌마다 바닥선(`FLOOR_AT`)까지 다시 풀어서 양탄자가 늘 92% 에 서 있었고,
   //    그러면 물러나도 발 앞의 바닥이 그 얇은 띠 그대로라 「바닥 면적이 부족하다」가 됐다.
