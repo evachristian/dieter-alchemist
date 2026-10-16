@@ -2756,14 +2756,14 @@ const WARDROBE = {
     { id: 'brow_short',    slot: 'brow', kind: 'short',    name: '짧은' },
   ],
   // 코 — **스무 가지**(없음 포함 · 2026-10-16). 그림은 `avatar.js` 의 `noseShape` 다.
-  // ⚠️⚠️ **맨 앞이 «기본 코»(콩)다 — `nose_none` 이 아니다.** `getItem` 이 모르는 id 를
-  //    첫 줄로 떨어뜨리므로, 이 칸이 없는 옛 세이브도 저절로 기본 코가 된다
-  //    (그래서 `SAVE_VER` 를 안 올렸다 · 눈썹과 같은 길이다). 「없앨 수도 있어야 한다」는
-  //    `nose_none` 이 맡는다
+  // ⚠️⚠️ **맨 앞이 `nose_none` 이고 그것이 기본이다** (2026-10-16 · 「없음을 기본으로 ·
+  //    없음을 가장 왼쪽에」로 받았다). `getItem` 이 모르는 id 를 첫 줄로 떨어뜨리므로
+  //    이 칸이 없는 옛 세이브도 저절로 「없음」 — 지금 얼굴과 한 픽셀도 안 다르다
+  //    (그래서 `SAVE_VER` 를 안 올렸다 · 눈썹과 같은 길이다). 「콩」은 처음부터 가진 벌이다
   // ⚠️ **이모지를 안 붙인다** — 칸의 그림은 `Avatar.noseIcon` 이 «그리는 함수 그대로» 그린다
   nose: [
-    { id: 'nose_bean',    slot: 'nose', kind: 'bean',    name: '콩',       starter: true },
     { id: 'nose_none',    slot: 'nose', kind: 'none',    name: '없음' },
+    { id: 'nose_bean',    slot: 'nose', kind: 'bean',    name: '콩',       starter: true },
     { id: 'nose_pink',    slot: 'nose', kind: 'pink',    name: '분홍 콩' },
     { id: 'nose_tick',    slot: 'nose', kind: 'tick',    name: '살짝' },
     { id: 'nose_line',    slot: 'nose', kind: 'line',    name: '한 줄' },
@@ -3168,7 +3168,7 @@ function loyaltyBonus(v) {
 // 새 캐릭터 기본 착장
 const DEFAULT_OUTFIT = {
   hair: 'hair_long', hairColor: 'hcol_brown', expression: 'exp_puzzled', tattoo: 'tattoo_none',
-  brow: 'brow_none', nose: 'nose_bean',
+  brow: 'brow_none', nose: 'nose_none',
   // 시작 착장은 인트로의 공주 그대로 — 원피스 한 벌뿐이고 상·하의는 아직 없다
   top: 'top_none', bottom: 'bottom_none', dress: 'dress_princess',
   circlet: 'circlet_none', earring: 'earring_none', necklace: 'necklace_none',
