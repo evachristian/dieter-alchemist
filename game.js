@@ -2693,6 +2693,54 @@ function cutLineHtml(text) {
   return escHtml(text).replace(CUT_HI, (_, a, b) => `<b class="cut-hi">${a || b}</b>`);
 }
 
+// ─── 컷씬의 공주는 «지금의 그 사람»이다 (2026-10-16) ─────────
+//
+// 「모든 대화 컷씬에 현재 공주의 상반신을 커팅해서 보여 줄 수 있어?」로 받았다.
+// 예전에는 인트로 그림(옛 착장 · 옛 몸)이 서서, 마이 룸에서 고른 옷·머리·몸과 따로 놀았다.
+// 지금은 **마이 룸의 아바타를 그대로 그려 상반신만 잘라** 보여 준다.
+//
+// ⚠️ **졸업 전에는 그대로 인트로 그림이다** — 그때 마이 룸에 서 있는 것도 그 그림이고
+//    (`roomFigure`), 아바타로 바꾸면 같은 사람이 두 얼굴이 된다
+// ⚠️ **표정은 컷씬의 «감정»이 정한다** — 장면이 「놀람」인데 지금 걸어 둔 표정(예: 메롱)이
+//    나오면 대사와 얼굴이 어긋난다. 감정 이름 → 아바타 표정 id 는 대개 같은 이름이고,
+//    다른 넷만 표로 적는다. 「기본」(def)만 **사람이 걸어 둔 표정**을 그대로 쓴다
+const CUT_EXP = { def: null, soft: 'exp_shy', shock: 'exp_surprise', laugh: 'exp_haha' };
+function princessBustOn() { return !!(S.tutorialDone && window.Avatar && Avatar.build); }
+function cutExpOf(mood) {
+  const m = mood || 'def';
+  const id = m in CUT_EXP ? CUT_EXP[m] : 'exp_' + m;
+  const list = (D.WARDROBE && D.WARDROBE.expression) || [];
+  return id && list.some(it => it.id === id) ? id : (S.outfit && S.outfit.expression);
+}
+function princessBust(mood) {
+  const outfit = Object.assign(outfitWithColors(), { expression: cutExpOf(mood) });
+  return Avatar.build(outfit, bodyLevel(), tuneScales())
+    .replace('<svg', '<svg data-bust="1"');
+}
+// 상반신으로 자른다 — **그려진 것을 재서**. 머리 크기·몸무게·바디파츠에 따라 머리와
+// 어깨의 자리가 달라지므로(`bodyKy`·`dy`) 숫자를 박으면 누군가는 잘리거나 떠 보인다.
+// 위는 그려진 것의 꼭대기(머리카락·귀 장식까지), 아래는 어깨(맨 몸통 꼭대기)에서
+// «머리 높이만큼 더» — 그래야 머리 비율이 어느 몸에서나 같은 액자에 앉는다.
+// 폭은 초상화 흉상(120×130)과 같은 비라 다른 인물과 같은 틀에 선다.
+const BUST_AR = 120 / 130;
+function fitPrincessBust(host) {
+  const svg = host.querySelector('svg[data-bust]');
+  if (!svg || !svg.viewBox || !svg.viewBox.baseVal) return;
+  const doll = svg.querySelector('g.doll');
+  const torso = svg.querySelector('[data-part="torso"]');
+  const sr = svg.getBoundingClientRect();
+  if (!doll || !torso || !sr.height) return;      // 안 그려졌으면(숨은 상자) 통째로 둔다
+  const vb = svg.viewBox.baseVal, k = vb.height / sr.height;
+  const toY = (py) => vb.y + (py - sr.top) * k;
+  const top = toY(doll.getBoundingClientRect().top);
+  const sh = toY(torso.getBoundingClientRect().top);
+  const h = Math.max(40, (sh - top) * 2.05);
+  const w = h * BUST_AR;
+  svg.setAttribute('viewBox', `${(100 - w / 2).toFixed(1)} ${(top - 4).toFixed(1)} ${w.toFixed(1)} ${(h + 4).toFixed(1)}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMin slice');
+  svg.classList.add('cut-bust');
+}
+
 function drawCut() {
   if (!cutNow) return;
   const [spId, mood, fx] = cutNow.lines[cutAt];
@@ -2715,7 +2763,12 @@ function drawCut() {
   const who = document.getElementById('cutWho');
   const txt = document.getElementById('cutText');
   const dots = document.getElementById('cutDots');
-  if (face) face.innerHTML = sp && window.Portrait ? Portrait.bust(sp, mood || 'def', { bare: true }) : '';
+  if (face) {
+    const mine = spId === 'sp_gwiriel' && princessBustOn();
+    face.innerHTML = mine ? princessBust(mood)
+      : sp && window.Portrait ? Portrait.bust(sp, mood || 'def', { bare: true }) : '';
+    if (mine) fitPrincessBust(face);
+  }
   // **「부르는 말」로 뜬다** — 공주는 플레이어가 지은 이름으로, 요정 대모는
   // 「요정 대모」로 (설정상의 이름 「알테이아」는 본인도 안 쓴다 · STORY.md 「호칭 규칙」)
   if (who) who.textContent = speakerName(spId);
