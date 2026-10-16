@@ -3368,10 +3368,13 @@ button.tm-slot:active { transform: scale(0.94); }
   font-size: 0.7rem; font-weight: 800; color: var(--text-pink); line-height: 1.35;
   background: var(--tint); border-radius: 10px; padding: 7px 9px; margin: 0 2px 8px;
 }
-/* 「먼저 탁자를 놓아야 보여요」 — 안내 한 줄 */
+/* 「먼저 탁자를 놓아야 보여요」 — 안내 한 줄.
+   ⚠️ **빨간 글자다** (사람이 정했다) — 놓아도 방에 안 보이는 «경고»라 회색이면 지나친다.
+   `--red`/`--text-red` 는 원래 승패 전용인데, 여기서는 «안 된다»는 같은 뜻으로 짝째 빌린다
+   (글자만 빨갛게 하고 바탕을 `--well` 로 두면 챠콜에서 짝이 안 맞는다) */
 .decor-note {
-  font-size: 0.7rem; color: var(--ink-soft); line-height: 1.35;
-  background: var(--well); border-radius: 10px; padding: 7px 9px; margin: 0 2px 8px;
+  font-size: 0.7rem; font-weight: 800; color: var(--text-red); line-height: 1.35;
+  background: var(--red); border-radius: 10px; padding: 7px 9px; margin: 0 2px 8px;
 }
 /* 가진 수와 결정 — 한 줄에 좌우로 */
 .wr-crystal { font-size: 0.72rem; font-weight: 800; color: var(--text-lav); }

@@ -7361,10 +7361,8 @@ function renderDecorSheet() {
   }).join('');
   // ⚠️ **받침이 없으면 안 보인다는 것을 «적어 준다»** (촛불·실험 도구 ↔ 탁자).
   //    놓았는데 방이 그대로면 「고장 났다」로 읽힌다 — 판정은 표의 `on` 한 곳이다
-  const need = (slot && slot.on && !(S.roomProps || {})[slot.on])
-    ? `<div class="decor-note">${escHtml(T('decor_need_base',
-        { name: N('room_slot_' + slot.on, (D.roomSlot(slot.on) || {}).name || slot.on) }))}</div>`
-    : '';
+  const needTxt = decorNeedText(slot);
+  const need = needTxt ? `<div class="decor-note">${escHtml(needTxt)}</div>` : '';
   // ⚠️⚠️ **효과를 «글자로» 적는다.** 방치 감소와 스태미나 회복은 둘 다 «덜 잃는» 쪽이라
   //    화면에 아무 표시도 안 남는다 — 적어 두지 않으면 붙여 놓고 아무도 모른다
   //    (호감도의 보석·지식을 선물 시트에 적은 것과 같은 자리다).
@@ -7385,6 +7383,12 @@ window.setDecorTab = setDecorTab;
 // ⚠️⚠️ **놓는 문이 하나다.** 자재와 소품이 갈래는 달라도 여기 한 곳을 지나므로,
 //    다시 그리기(`render`)와 저장(`save`)을 빠뜨릴 데가 없다 — 자리마다 따로 두면
 //    한 자리만 조용히 안 바뀐다 (`equip()` 이 시트를 다시 그리는 것과 같은 자리다)
+// 받침(`slot.on`)이 아직 안 놓였으면 그 안내 문장 · 아니면 '' — 시트의 줄과 토스트가 같이 쓴다
+function decorNeedText(slot) {
+  if (!slot || !slot.on || (S.roomProps || {})[slot.on]) return '';
+  const nm = N('room_slot_' + slot.on, (D.roomSlot(slot.on) || {}).name || slot.on);
+  return T('decor_need_base', { name: nm, nj: josa(nm, '을를') });
+}
 function pickDecor(tab, id) {
   const d = id ? (D.ROOM_DECOR || {})[id] : null;
   if (id && !d) return;
@@ -7407,7 +7411,12 @@ function pickDecor(tab, id) {
   else {
     S.roomProps[d.slot] = id;
     const nm = N(id, d.name);
-    toast(T('decor_put', { name: nm, nj: josa(nm, '을를') }), null, 2000);
+    // ⚠️ **받침이 없으면 «안 보인다»를 그 자리에서 말한다** (촛불·실험 도구 ↔ 탁자).
+    //    시트의 빨간 안내 줄과 «같은 문장»이다 — 판정도 그 줄과 같은 표의 `on` 한 곳이다
+    const sl = D.roomSlot(d.slot);
+    const needs = decorNeedText(sl);
+    if (needs) toast(needs, `#decorSheetBody .decor-item[data-item="${id}"]`, 2600, 'above');
+    else toast(T('decor_put', { name: nm, nj: josa(nm, '을를') }), null, 2000);
   }
   save();
   // ⚠️⚠️ **시트도 같이 다시 그린다.** `render()` 는 방과 버튼만 갈아 끼우므로,

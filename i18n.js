@@ -1255,7 +1255,7 @@
       decor_off: '자리를 비웠어요',
       decor_bought: '{name}{nj} 얻었어요 (💎{n})',
       decor_gift_only: '이건 이야기를 따라가면 선물로 들어와요',
-      decor_need_base: '{name}을(를) 먼저 놓아야 보여요',
+      decor_need_base: '{name}{nj} 먼저 놓아야 보여요',
       // 「놓아 두면 도는 것」 — 둘 다 «덜 잃는» 쪽이라 화면에 표시가 안 남는다.
       // 적어 두지 않으면 붙여 놓고 아무도 모른다 (ROOM.md 「효과」)
       decor_cozy: '🛋️ 아늑함 {p}% — 방치 감소 −{d}% · 쉴 때 회복 +{r}%',

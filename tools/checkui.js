@@ -3081,6 +3081,26 @@ function launchOpts() {
           });
           if (noteBad) results.push({ 화면: `${t}/꾸미기시트:받침안내`, 오류: noteBad });
           else { await page.waitForTimeout(280); await run(`${t}/꾸미기시트:받침안내`); }
+          // ⚠️ **촛불을 누르면 «같은 문장»이 토스트로 뜨는가 · 그 줄이 빨간가** (사람이 정했다).
+          //    「줄이 있는가」만 보면 회색으로 되돌려도 · 토스트를 빼도 통과한다
+          if (!noteBad) {
+            const tb = await page.evaluate(() => {
+              const id = (D.ROOM_DECOR && Object.values(D.ROOM_DECOR).find(d => d.slot === 'candle' && roomOwns(d.id))
+                || {}).id || 'rp_candle_plain';
+              if (!roomOwns(id)) grantDecor(id);
+              renderDecorSheet();
+              const note = document.querySelector('#decorSheet .decor-note').textContent.trim();
+              const c = getComputedStyle(document.querySelector('#decorSheet .decor-note')).color.match(/\d+/g).map(Number);
+              pickDecor('candle', id);
+              const tt = document.getElementById('toast').textContent.trim();
+              const out = [];
+              if (tt !== note) out.push(`촛불을 눌렀는데 토스트가 안내 줄과 다르다 («${tt}» ↔ «${note}»)`);
+              if (!(c[0] > c[1] + 40 && c[0] > c[2] + 40)) out.push(`안내 줄이 빨갛지 않다 (rgb ${c.join(',')})`);
+              delete S.roomProps.candle;
+              return out.join(' · ') || null;
+            });
+            if (tb) results.push({ 화면: `${t}/꾸미기시트:받침안내`, 오류: tb });
+          }
           await page.evaluate(() => { closeDecorSheet(); S.roomProps.table = 'rp_table_plain'; render(); });
           await page.waitForTimeout(150);
           console.log(`  꾸미기시트 — 탭 ${tabs.length}개를 «다» 쟀다`
