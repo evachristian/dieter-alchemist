@@ -1195,7 +1195,7 @@
       c_first_out_title: '손이 기억한다',
       c_first_out_1: '됐다! 두 번째는 손이 알아서 움직였어요.',
       c_first_out_2: '거봐요. …어머니도 딱 그 얼굴이었어요.',
-      // 😯 표정 버튼이 여기서 열린다 (`actOpen('expression')`)
+      // 😊 얼굴 버튼이 여기서 열린다 (`actOpen('expression')` · 안의 첫 탭이 표정이다)
       c_first_out_3: '아 참, 방에서 «표정»도 지어 보세요. 지금 그 얼굴, 아까워서요.',
       c_walk_in_title: '바깥 공기',
       c_walk_in_1: '재료가 성문을 열고 걸어 들어오진 않아요. 나가야죠.',
@@ -1224,7 +1224,7 @@
       c_sip_out_title: '헐렁해진 소매',
       c_sip_out_1: '소매가 헐렁해졌어요. 이거 옷이 늘어난 거 아니죠?',
       c_sip_out_2: '아니에요. 오늘은 그냥 기뻐해도 돼요.',
-      // ⚜️ 문신 버튼이 여기서 열린다 (`actOpen('tattoo')`)
+      // ⚜️ 문신은 얼굴 시트의 갈래다 — 이 줄은 «첫 문신이 올 무렵»의 결로 남겨 둔다
       c_sip_out_3: '달라진 몸에는 «문신»을 새겨도 돼요. 연금술사의 표식이에요.',
       c_bloom_in_title: '거울 앞에서',
       c_bloom_in_1: '요즘 거울 앞에 오래 서 있죠? 알아요.',
@@ -1245,7 +1245,7 @@
       // 「방이 달라졌다」가 안 읽힌다 (비법서 장·키워드와 같은 규칙이다)
       q_room_toast: '공방이 넓어졌어요! 마이 룸을 보세요', 
       // ─── 마이 룸 꾸미기 ───
-      act_decor: '방꾸', act_expression: '표정', act_tattoo: '문신',
+      act_decor: '방꾸', act_expression: '얼굴', act_tattoo: '문신',
       decor_title: '방 꾸미기',
       decor_wall: '벽지',
       decor_floor: '바닥재',
@@ -3879,9 +3879,9 @@
       // 등급
       '새싹': 'Sprout', '꽃봉오리': 'Bud', '요정': 'Fairy', '뮤즈': 'Muse', '여신': 'Goddess',
       // 옷장 슬롯
-      hair: 'Hair', hairColor: 'Hair Color', expression: 'Expression', tattoo: 'Tattoo', brow: 'Brows',
-      // 시트 «안»의 갈래 탭 (`WARDROBE_SLOTS` 의 `tab`) — 제목(문신)과 다른 말이다
-      tattoo_tab: 'General', brow_tab: 'Brows',
+      hair: 'Hair', hairColor: 'Hair Color', expression: 'Face', tattoo: 'Tattoo', brow: 'Brows', nose: 'Nose',
+      // 시트 «안»의 갈래 탭 (`WARDROBE_SLOTS` 의 `tab`) — 제목(얼굴)과 다른 말이다
+      expression_tab: 'Expression', tattoo_tab: 'Tattoo', brow_tab: 'Brows', nose_tab: 'Nose',
       top: 'Top', bottom: 'Bottom', dress: 'Dress', circlet: 'Circlet', earring: 'Earring', necklace: 'Necklace',
       glove: 'Gloves', shoes: 'Shoes',
       // 옷장 아이템
@@ -4047,6 +4047,10 @@
       brow_none: 'None', brow_soft: 'Natural', brow_straight: 'Straight', brow_arch: 'Arched',
       brow_angled: 'Angled', brow_round: 'Rounded', brow_droop: 'Drooping', brow_up: 'Upswept',
       brow_thin: 'Thin', brow_bold: 'Bold', brow_short: 'Short',
+      nose_bean: 'Bean', nose_none: 'None', nose_pink: 'Pink Bean', nose_tick: 'Tiny Tick', nose_line: 'Line',
+      nose_hook: 'Hook', nose_button: 'Button', nose_shine: 'Shiny', nose_tri: 'Triangle', nose_arch: 'Arch',
+      nose_smile: 'Smiley', nose_nostril: 'Nostrils', nose_heart: 'Heart', nose_cat: 'Kitty', nose_bunny: 'Bunny',
+      nose_star: 'Star', nose_bridge: 'Bridge', nose_wide: 'Button Wide', nose_freckle: 'Freckles', nose_blush: 'Rosy Bridge',
       top_none: 'None', top_tee: 'Basic Tee', top_blouse: 'Blouse', top_knit: 'Knit', top_hoodie: 'Hoodie',
       top_shirt: 'Shirt', top_turtle: 'Turtleneck', top_cardigan: 'Cardigan',
       top_sleeveless: 'Sleeveless', top_vneck: 'V-neck Tee',

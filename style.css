@@ -2856,6 +2856,7 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 눈썹 그림 — ⚠️ **머리와 달리 «폭»으로 맞춘다.** 상자가 가로로 긴 띠(48×24)라
    `.hair-icon` 처럼 높이로 맞추면 72px 이 되어 격자 칸(4열)을 밀어낸다 */
 .brow-icon { width: 40px; height: auto; display: block; }
+.nose-icon { width: 40px; height: auto; display: block; border-radius: 8px; }
 /* 문신 칸의 그림. 상자가 정사각(18×18)이라 머리처럼 **폭으로** 맞춘다 */
 .tattoo-icon { width: 30px; height: auto; display: block; }
 /* 서클렛 칸 — 띠는 가로로 긴 상자(72×34)라 폭으로, 귀는 높이로 맞춘다 (둘 다 칸 안에 든다) */

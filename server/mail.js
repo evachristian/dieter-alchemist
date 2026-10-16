@@ -144,7 +144,8 @@ function buildTracks() {
   };
   const hair = front('hair'), top = rest('top'), bottom = rest('bottom'), brow = rest('brow');
   att.clothes = take(interleave(top, bottom, hair, brow));
-  att.exp = take(rest('expression'));
+  // 코(2026-10-16)는 표정 «뒤»에 붙인다 — 끼워 넣으면 이미 돌던 표정 순서가 통째로 밀린다
+  att.exp = take([...rest('expression'), ...rest('nose')]);
   att.jewel = take(interleave(front('earring'), front('necklace')));
   att.acc = take(interleave(front('glove'), front('shoes'), front('circlet')));
   const dresses = rest('dress');

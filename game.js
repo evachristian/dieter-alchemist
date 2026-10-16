@@ -62,8 +62,11 @@ function setDevClock(ms) { devClock = ms || 0; }
 // 이 목록은 **「조건이 걸린 것 전부」**다 (개발용 스위치·마이그레이션이 이것을 돈다).
 // ⚠️ 이름이 곧 `actOpen(id)` 의 열쇠이자 **옷장 칸 이름**이다(`expression`·`tattoo`) —
 // `renderSoloActs` 가 `actOpen(m.slot)` 으로 거르므로 둘이 어긋나면 그 버튼이 영영 안 뜬다
+// ⚠️ **⚜️ 문신은 2026-10-16 에 빠졌다** — 얼굴 시트의 갈래가 되어 제 버튼이 없다
+//    (그래서 여덟이 일곱이 됐다). 세이브 19 가 옛 세이브의 `roomActs` 에 'tattoo' 를
+//    넣어 둔 것은 그대로 두어도 아무 일이 없다 (부를 버튼이 없다)
 const ROOM_ACTS = ['exercise', 'binge', 'kitchen', 'produce', 'farm',
-  'expression', 'decor', 'tattoo'];
+  'expression', 'decor'];
 const ROOM_ACT_BTN = { exercise: 'actExercise', binge: 'actBinge',
   kitchen: 'actKitchen', produce: 'actProduce', farm: 'actFarm' };
 
@@ -1684,11 +1687,10 @@ function actOpen(id) {
     //    「버튼이 조용히 나타나면 안 된다」). 새 컷씬은 하나도 안 만들었다.
     // ⚠️ **셋을 한 자리에 몰지 않는다.** 여덟이 매력 0 → 100 에 고르게 흩어져야
     //    「이번엔 또 뭐가 열렸지」가 계속 이어진다 — 지금 순서는
-    //    부엌(0) → 표정(0) → 방꾸(6) → 운동(10) → 흡입(첫 밤) → 수확(22) →
-    //    문신(32) → 농장(100) 이다
+    //    부엌(0) → 얼굴(0) → 방꾸(6) → 운동(10) → 흡입(첫 밤) → 수확(22) →
+    //    농장(100) 이다 (⚜️ 문신은 2026-10-16 에 얼굴 시트로 들어가 빠졌다)
     case 'expression': return questCleared('q_first');
     case 'decor':      return questCleared('q_walk');
-    case 'tattoo':     return questCleared('q_sip');
   }
   return false;
 }
@@ -1709,11 +1711,12 @@ function actOpen(id) {
 // ⚠️ **단계(`roomLevel`)로 재지 않는다** — 개발용 스위치로 단계만 올려도 열려
 //    「이야기가 연다」가 아니게 되고, 무엇보다 알릴 컷씬이 없어진다
 
-// ─── ⚜️ 문신 — `q_sip`(물약 다섯 번)을 끝내면 ───────────────────
+// ─── ⚜️ 문신 · ✏️ 눈썹 · 👃 코 — 제 문이 없다 (2026-10-16) ──────────
 //
-// 완료 컷씬이 「소매가 헐렁해졌어요」다 — **몸이 달라진 것을 처음 느끼는 장면**이라,
-// 그 몸에 표식을 새기는 것이 결이 맞는다. 여덟 중 일곱 번째라 한참 뒤다.
-// ⚠️ 눈썹(`brow`)은 문신 시트의 **갈래**라 따로 안 잠근다 — 시트가 열리면 같이 열린다
+// 셋 다 **얼굴 시트(😊)의 갈래**라 따로 안 잠근다 — 시트가 열리면(`q_first`) 같이 열린다.
+// ⚠️ 예전에는 문신이 제 버튼이고 `q_sip` 이 문이었다. 버튼을 없애면서 문도 같이 걷었다 —
+//    벌은 여전히 하나씩 «얻어야» 하므로(`gated` · 유타르크의 우편) 일찍 보이는 것은 칸뿐이다.
+//    `c_sip_out_3`(「«문신»을 새겨도 돼요」)은 그대로 둔다 — 그 무렵 첫 문신이 오는 결이다
 window.actOpen = actOpen;
 
 // 그 퀘스트를 «끝냈는가». `questState().done` 을 여기저기서 읽지 않게 한 곳을 둔다
@@ -7122,6 +7125,10 @@ function wardrobeGrid(slot) {
     // 문신도 **그려서** 보여 준다 — ⚠️⚠️ 이모지(⭐💧❤️✴️)로 두면 **염색이 거짓말을
     // 한다**: ❤️ 는 늘 빨간데 새겨지는 것은 고른 색이다. 색은 머리와 같이 `itemHex` 라
     // 벌마다 제 색이고, 염색한 벌만 그 색으로 바뀐다
+    // 코도 **그려서** 보여 준다 — 코 이모지(👃)는 한 가지뿐이라 스무 칸이 다 같은 그림이 된다
+    else if (slot === 'nose' && window.Avatar && Avatar.noseIcon) {
+      ic = Avatar.noseIcon(it);
+    }
     else if (slot === 'tattoo' && window.Avatar && Avatar.tattooIcon) {
       ic = Avatar.tattooIcon(it, itemHex(it));
     }
@@ -7148,7 +7155,7 @@ function wardrobeGrid(slot) {
   return `<div class="wr-items">${items}</div>`;
 }
 
-// ─── 옷장에서 나온 칸 (😊 표정 · ⚜️ 문신) ──────────────────────
+// ─── 옷장에서 나온 칸 (😊 얼굴 = 표정 · 문신 · 눈썹 · 코) ──────────
 // 둘 다 **옷이 아니다** — 하나는 얼굴이 짓는 것이고 하나는 몸에 새긴 것이라,
 // 옷장 탭 줄에 서면 무엇을 고르는 칸인지가 흐려진다. 방 그림 왼쪽 아래의 제 버튼에서
 // 바닥 시트로 연다. 여기서 하는 일은 「같은 격자를 시트에 올려 준다」뿐이고,
@@ -7160,7 +7167,7 @@ function wardrobeGrid(slot) {
 //    열게 된다). 시트 하나가 곧 한 그룹이다
 function soloSlots() { return D.WARDROBE_SLOTS.filter(m => m.sheet && !m.under); }
 // 그 시트가 품는 칸들 — 머리 줄 + 그것을 가리키는 줄들. **표에서 뽑는다**:
-// `under: 'tattoo'` 한 줄을 더하면 갈래 탭도 검사도 저절로 따라온다
+// `under: 'expression'` 한 줄을 더하면 갈래 탭도 검사도 저절로 따라온다
 function sheetSlots(head) {
   return D.WARDROBE_SLOTS.filter(m => m.sheet && (m.slot === head || m.under === head));
 }
@@ -7248,7 +7255,7 @@ function fitSlotSheet() {
   const want = Math.round(window.innerHeight - chin - SLOT_SHEET_GAP);
   card.style.maxHeight = Math.max(min, want) + 'px';
 }
-// ⚠️ **갈래의 이름으로 불러도 열린다** — `openSlotSheet('brow')` 는 문신 시트를
+// ⚠️ **갈래의 이름으로 불러도 열린다** — `openSlotSheet('brow')` 는 얼굴 시트를
 //    «눈썹 탭»으로 연다. 그래야 부르는 쪽(검사기·앞으로 붙을 안내)이 칸 이름 하나만
 //    알면 되고, 어느 시트에 사는지는 표가 안다
 function openSlotSheet(slot) {
@@ -7816,10 +7823,10 @@ function renderSoloActs() {
   }
   // ⚠️⚠️ **줄의 순서는 «열리는 순서»다** (`SOLO_ORDER` · 2026-10-16). 줄이 `column-reverse`
   //    라 먼저 열린 것이 맨 아래에 서고 새로 열린 것이 그 위로 쌓인다 (오른쪽 줄과 같은 규칙).
-  //    🪄 꾸미기는 표정(`q_first`)과 문신(`q_sip`) 사이(`q_walk`)에 열리므로 «가운데»다 —
+  //    🪄 꾸미기는 얼굴(`q_first`) 다음(`q_walk`)에 열리므로 그 위다 (예전에는 문신이 그 위였다) —
   //    「방이 먼저」로 맨 앞에 두면 열릴 때마다 표정 버튼이 한 칸 밀려났다.
   //    ⚠️ 표에 없는 칸이 늘면 맨 뒤(맨 위)로 간다 — 조용히 사라지지 않게
-  const SOLO_ORDER = ['expression', 'decor', 'tattoo'];
+  const SOLO_ORDER = ['expression', 'decor'];
   const rank = k => { const i = SOLO_ORDER.indexOf(k); return i < 0 ? SOLO_ORDER.length : i; };
   const items = [{ key: 'decor', html: decorBtn }].concat(soloSlots().filter(m => actOpen(m.slot)).map(m => {
     // ⚠️ 그림은 **«지금 걸려 있는 것»**이다 — 표에 박힌 그림이 아니다.

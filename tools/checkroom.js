@@ -691,7 +691,7 @@ function mask(A, B) {
         // ⚠️ **여덟을 다 연다** — 2026-10-02 에 왼쪽 줄 셋(🪄 😯 ⚜️)도 조건이 걸렸다.
         //    다섯만 켜면 왼쪽 줄이 비어 **왼쪽 버튼과의 겹침을 한 번도 안 재게 된다**
         S.roomActs = ['exercise', 'binge', 'kitchen', 'produce', 'farm',
-                      'expression', 'decor', 'tattoo'];   // 개발용 스위치
+                      'expression', 'decor'];   // 개발용 스위치 (⚜️ 문신은 2026-10-16 에 얼굴 시트로 들어가 빠졌다)
         render();
         const box = (el) => { const q = el.getBoundingClientRect();
           return { t: (el.textContent || el.getAttribute('aria-label') || '')
@@ -735,7 +735,7 @@ function mask(A, B) {
       }, lang);
       if (!g.n) { bad.push(`${W}px/${lang}: 둘러보기 버튼이 없다 (겹침을 잴 수가 없다)`); continue; }
       if (g.acts < 5) { bad.push(`${W}px/${lang}: 오른쪽 방 버튼이 ${g.acts}개뿐이다 — 다섯을 다 열어야 잰 것이다`); continue; }
-      if (g.left < 3) { bad.push(`${W}px/${lang}: 왼쪽 방 버튼이 ${g.left}개뿐이다 — 셋을 다 열어야 잰 것이다`); continue; }
+      if (g.left < 2) { bad.push(`${W}px/${lang}: 왼쪽 방 버튼이 ${g.left}개뿐이다 — 둘(🪄 😊)을 다 열어야 잰 것이다`); continue; }
       if (g.hit.length) bad.push(`${W}px/${lang}: 둘러보기 버튼이 ${[...new Set(g.hit)].join('·')} 와 겹친다`);
       if (g.cGap == null) bad.push(`${W}px/${lang}: 둘러보기 버튼의 «위쪽 이웃»(제목 줄)을 한 번도 못 쟀다`);
       else if (g.cGap < 4) bad.push(`${W}px/${lang}: 둘러보기 버튼이 제목 줄과 ${g.cGap.toFixed(1)}px 밖에 안 떨어졌다`);
@@ -1484,10 +1484,11 @@ function mask(A, B) {
         });
         if (!m) { bad.push(`크리처 가림: ${W}px/${lang} ${c.move} — 크리처나 방을 못 찾았다`); continue; }
         const SIDE = m.right ? '오른쪽' : '왼쪽';
-        // 그 쪽 줄이 정말 다 서 있는가 — 왼쪽은 셋(방꾸·표정·문신) · 오른쪽은 다섯이다
-        if (m.acts < (m.right ? 5 : 3)) {
+        // 그 쪽 줄이 정말 다 서 있는가 — 왼쪽은 둘(방꾸·얼굴 · 2026-10-16 에 문신이 얼굴 시트로
+        // 들어가 빠졌다) · 오른쪽은 다섯이다
+        if (m.acts < (m.right ? 5 : 2)) {
           bad.push(`크리처 가림: ${W}px/${lang} ${SIDE} 방 버튼이 ${m.acts}개뿐이다`
-            + ` — ${m.right ? '다섯' : '셋'}을 다 열어야 잰 것이다`);
+            + ` — ${m.right ? '다섯' : '둘'}을 다 열어야 잰 것이다`);
           continue;
         }
         n++;
@@ -1683,7 +1684,7 @@ function mask(A, B) {
     else {
       // ⚠️ **버튼 줄이 정말 서 있는지부터 본다** — 줄이 비어 있으면 「안 겹쳤다」가
       //    늘 참이라, 고치기 «전»의 코드까지 그대로 통과한다
-      if (m.acts < 3) bad.push(`첫 그리기: 왼쪽 방 버튼이 ${m.acts}개뿐이다 — 셋이 다 서야 잰 것이다`);
+      if (m.acts < 2) bad.push(`첫 그리기: 왼쪽 방 버튼이 ${m.acts}개뿐이다 — 둘이 다 서야 잰 것이다`);
       if (m.over > 0) {
         bad.push(`첫 그리기: 크리처가 왼쪽 버튼 줄에 ${m.over}px² 가려졌다`
           + ` (크리처 ${m.w.toFixed(1)}px · 다시 안 그리면 그대로 남는다)`);

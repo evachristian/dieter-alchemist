@@ -2361,6 +2361,66 @@
     return `<svg class="brow-icon" viewBox="76 50 48 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${s}</svg>`;
   }
 
+  // ─── 코 — 사람이 옷장에서 고르는 것 (2026-10-16) ─────────────────
+  //
+  // ⚠️⚠️ **아래 「코」 항(`head()` 에 코를 안 그린다)과 다른 축이다.** 그쪽은 «얼굴의 기본
+  //    그림»이고 이쪽은 **사람이 고른 코**다 — 표정 서른여덟과 곱해지지 않는다 (눈썹과 같다).
+  //    기본(`nose_bean`)은 **아주 작은 콩 하나**다: 치비 얼굴에서 코가 크면 바로 «어른 얼굴»이
+  //    된다 (사람이 「매우 작고 귀엽게」로 정했다).
+  // ⚠️ **모양은 제 자리(0,0)를 중심으로 그리고, 얼굴에 놓는 자리는 `NOSE_AT` 하나다** —
+  //    문신(`TATTOO_AT`)과 같은 규칙이다. 그래야 칸의 그림(`noseIcon`)이 **같은 함수**에서 나온다.
+  // ⚠️ 자리는 눈 밑변(AV.Y+8)과 입(AV.MY) 사이 — 눈과 입이 «다» 거기서 좌표를 받으므로
+  //    `AV` 를 옮기면 코도 따라온다
+  const NOSE_AT = () => [AV.MX, (AV.Y + AV.MY) / 2 + 0.6];
+  const NOSE_INK = shade(SKIN, 30);      // 살보다 한 톤 어두운 갈빛 — 먹색이면 «점»이 된다
+  const NOSE_PINK = '#f590a8';
+  function noseShape(kind) {
+    const c = NOSE_INK, st = w => `stroke="${c}" stroke-width="${w}" fill="none" stroke-linecap="round" stroke-linejoin="round"`;
+    switch (kind) {
+      case 'bean':    return `<ellipse cx="0" cy="0" rx="1.15" ry="0.8" fill="${c}"/>`;
+      case 'pink':    return `<ellipse cx="0" cy="0" rx="1.25" ry="0.85" fill="${NOSE_PINK}"/>`;
+      case 'tick':    return `<path d="M0.5,-1.6 Q1.1,0.2 -0.5,0.5" ${st(0.85)}/>`;
+      case 'line':    return `<path d="M0,-2.4 L0,0.5" ${st(0.85)}/>`;
+      case 'hook':    return `<path d="M0.3,-3.6 Q0.8,-0.6 1.2,0 Q0.6,0.9 -0.7,0.5" ${st(0.85)}/>`;
+      case 'button':  return `<circle cx="0" cy="0" r="1.5" fill="${c}"/><circle cx="-0.5" cy="-0.5" r="0.5" fill="#fff" opacity="0.85"/>`;
+      case 'shine':   return `<ellipse cx="0" cy="0" rx="1.3" ry="0.95" fill="${shade(SKIN, 18)}"/><circle cx="-0.4" cy="-0.35" r="0.4" fill="#fff"/>`;
+      case 'tri':     return `<path d="M0,-1.2 L1.2,0.8 L-1.2,0.8 Z" fill="${c}" stroke="${c}" stroke-width="0.6" stroke-linejoin="round"/>`;
+      case 'arch':    return `<path d="M-1.5,0.6 Q0,-1.3 1.5,0.6" ${st(0.85)}/>`;
+      case 'smile':   return `<path d="M-1.4,-0.4 Q0,1.3 1.4,-0.4" ${st(0.85)}/>`;
+      case 'nostril': return `<circle cx="-0.95" cy="0" r="0.5" fill="${c}"/><circle cx="0.95" cy="0" r="0.5" fill="${c}"/>`;
+      case 'heart':   return `<path d="M0,-0.7 q-0.95,-0.95 -1.5,0 q-0.5,0.9 1.5,2.1 q2,-1.2 1.5,-2.1 q-0.55,-0.95 -1.5,0 Z" fill="${NOSE_PINK}"/>`;
+      case 'cat':     return `<path d="M-1.5,-0.7 L1.5,-0.7 L0,0.9 Z" fill="${NOSE_PINK}" stroke="${NOSE_PINK}" stroke-width="0.7" stroke-linejoin="round"/>`;
+      case 'bunny':   return `<path d="M-1.2,-0.9 L1.2,-0.9 L0,0.3 Z" fill="${NOSE_PINK}" stroke="${NOSE_PINK}" stroke-width="0.6" stroke-linejoin="round"/>`
+                         + `<path d="M0,0.3 L0,1.3 M0,1.3 Q-0.8,2 -1.4,1.6 M0,1.3 Q0.8,2 1.4,1.6" ${st(0.6)}/>`;
+      case 'star':    return `<path d="M0,-1.8 L0.5,-0.5 L1.8,0 L0.5,0.5 L0,1.8 L-0.5,0.5 L-1.8,0 L-0.5,-0.5 Z" fill="${c}"/>`;
+      case 'bridge':  return `<path d="M0.2,-5.2 Q0,-1.6 0.9,-0.2 Q0.4,0.7 -0.6,0.5" ${st(0.75)}/>`;
+      case 'wide':    return `<ellipse cx="0" cy="0" rx="1.9" ry="0.85" fill="${c}"/>`;
+      case 'freckle': return `<ellipse cx="0" cy="0" rx="1.0" ry="0.7" fill="${c}"/>`
+                         + [[-5.6, -1.6], [-4.2, -0.4], [-6.4, 0.2], [5.6, -1.6], [4.2, -0.4], [6.4, 0.2]]
+                           .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="0.42" fill="${shade(SKIN, 40)}" opacity="0.75"/>`).join('');
+      case 'blush':   return `<ellipse cx="0" cy="-0.6" rx="5.6" ry="1.7" fill="#ff9db4" opacity="0.5"/><ellipse cx="0" cy="0" rx="1.05" ry="0.75" fill="${c}"/>`;
+      default:        return `<ellipse cx="0" cy="0" rx="1.15" ry="0.8" fill="${c}"/>`;
+    }
+  }
+  function renderNose(it) {
+    if (isNone(it)) return '';
+    const at = NOSE_AT();
+    return `<g data-part="nose" transform="translate(${at[0]},${at[1]})">${noseShape(it.kind)}</g>`;
+  }
+  // 옷장 칸의 그림 — **그리는 함수 그대로**를 크게 비춘다 (눈썹·문신과 같은 규칙).
+  // 코는 아주 작아서 그대로 두면 칸 안에서 점 하나로도 안 보인다 — 얼굴 «살» 한 조각을 깔고
+  // 그 위를 확대해 보여 준다 (「무엇이 어디에 붙는가」가 같이 읽힌다)
+  // ⚠️ **넓게 퍼지는 넷만 상자를 넓힌다** — 나머지는 확대해야 칸 안에서 «모양»이 읽힌다
+  //    (한 상자로 두면 콩 코가 40px 칸에서 3px 짜리 점이 된다)
+  const NOSE_WIDE_ICON = { freckle: 1, blush: 1, bridge: 1, hook: 1 };
+  function noseIcon(it) {
+    if (isNone(it)) return '';
+    const [w, h] = NOSE_WIDE_ICON[it.kind] ? [16, 13] : [8, 6.5];
+    const y0 = it.kind === 'bridge' || it.kind === 'hook' ? -h * 0.62 : -h / 2;
+    return `<svg class="nose-icon" viewBox="${-w / 2} ${y0} ${w} ${h}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">`
+      + `<rect x="${-w / 2}" y="${y0}" width="${w}" height="${h}" fill="${SKIN}"/>` + noseShape(it.kind) + `</svg>`;
+  }
+
   // ─── 만화 기호 — «과장»은 얼굴 밖에서 온다 ──────────────────
   //
   // ⚠️ **눈·입만 키워서는 과장이 안 된다.** 놀란 얼굴과 그냥 눈을 부릅뜬 얼굴이
@@ -4067,6 +4127,8 @@
       // ⚠️ **머리 그룹(`H`) 안이고 앞머리보다 «먼저»다.** 몸통 그룹에 두면 얼굴 배율을
       // 바꿀 때 눈썹만 제자리에 남고, 앞머리보다 뒤에 두면 앞머리를 덮는다 —
       // 눈썹은 이마에 난 것이라 머리카락이 그 위를 지나는 것이 맞다
+      // 코 — 얼굴 위 · 눈썹·앞머리보다 «먼저» (앞머리가 내려와도 코까지는 안 닿는다)
+      H(renderNose(getItem('nose', outfit.nose))),
       H(renderBrow(getItem('brow', outfit.brow), browColorOf(outfit))),
       H(hairFront(hairBangKind, hairColor, hairBackKind)),
       H(faceFx(expItem)),
@@ -4574,7 +4636,7 @@
   }
   window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, skyHour, SKY_BANDS, SKY_LIGHT,
     LAMP_NIGHT, lampGainOf,
-    hairIcon, browIcon, browColorOf, hairColorOf, tattooIcon, circletIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
+    hairIcon, browIcon, noseIcon, browColorOf, hairColorOf, tattooIcon, circletIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다
     heartPath, heartEye, HEART,
     partRatio, bodyScaleX, bodyMetrics, TUNE_MAX, FLOOR_SPOT, FLOOR_HALF, floorMark,

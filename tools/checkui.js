@@ -2285,7 +2285,8 @@ function launchOpts() {
             ['miniHelpSheet', `openMiniHelp('driller')`],
             ['miniLogSheet', `openMiniLog('p_walnut')`],
             ['slotSheet', `openSlotSheet('expression')`],
-            ['slotSheet', `openSlotSheet('tattoo')`],
+            // 얼굴 시트의 «염색 줄이 있는» 갈래 — 고정 몫이 제일 크다 (옛 문신 시트 자리)
+            ['slotSheet', `openSlotSheet('brow')`],
             ['decorSheet', `openDecorSheet('rug')`],
             // 📬 우편함 — 서버가 없어도 재도록 값을 심어 연다 (목록 · 제일 긴 엄마 편지)
             ['mailSheet', `MAIL = __mailMock(); openMailSheet()`],
@@ -2675,20 +2676,20 @@ function launchOpts() {
             else e = step('produce', '크리처를 얻었는데',
               () => { S.creatures = [r.result.id]; });
           }
-          // ⚜️ 문신 — `q_sip`(물약 다섯 번) · 「소매가 헐렁해졌어요」의 그 자리다
-          if (!e) e = step('tattoo', '물약 퀘스트를 끝냈는데', clear('q_sip'));
+          // ⚜️ 문신은 2026-10-16 에 얼굴 시트의 갈래가 되어 제 버튼이 없다 — 일곱이다
           // 🌾 밭 — 여신(리그와 같은 문). ⚠️ 매력 문이라 퀘스트로 또 잠그지 않는다
           if (!e) e = step('farm', '여신이 됐는데',
             () => { S.stats.charm = D.LEAGUE.openAt; });
           if (!e && !farmOpen()) e = '밭이 보이는데 `farmOpen()` 은 거짓이다 (문이 두 벌이다)';
           back();
-          return { err: e, n: 잰것 };
+          // 몇 개여야 하는지는 **표에서** 읽는다 — 숫자를 박으면 버튼을 늘리고 줄일 때 어긋난다
+          return { err: e, n: 잰것, total: ROOM_ACTS.length };
         });
         if (actBad.err) results.push({ 화면: `${t}/방버튼해금`, 오류: actBad.err });
         // ⚠️ **몇 개를 쟀는지 통과할 때도 낸다** — 0건이 「통과」가 아니라
         // 「한 번도 안 쟀다」였던 적이 이 저장소에서만 세 번이다
-        else if (actBad.n !== 8) results.push({ 화면: `${t}/방버튼해금`, 오류: `여덟 중 ${actBad.n}개만 쟀다` });
-        else console.log(`  방버튼해금 — 여덟을 다 쟀다 (${actBad.n}/8)`);
+        else if (actBad.n !== actBad.total) results.push({ 화면: `${t}/방버튼해금`, 오류: `${actBad.total} 중 ${actBad.n}개만 쟀다` });
+        else console.log(`  방버튼해금 — 다 쟀다 (${actBad.n}/${actBad.total})`);
 
         const ktBad = await page.evaluate(() => {
           S.seenCuts = ['c_clemen_meet']; S.kitchenDay = 0;
@@ -3239,8 +3240,11 @@ function launchOpts() {
                 //    아바타는 한 픽셀도 안 달라진다 (화면에는 오류가 안 뜬다).
                 //    그 칸만 「없음」으로 되돌린 그림과 견줘 **달라져야** 한다
                 for (const [sl] of picked) {
-                  const none = (D.WARDROBE[sl] || []).find(i => i.kind === 'none');
-                  if (!none) { restore(); return { err: `${sl} 에 「없음」 칸이 없다` }; }
+                  // ⚠️ 표정에는 「없음」이 없다(얼굴은 늘 무슨 표정이든 짓는다) — 그때는
+                  //    «다른 벌»과 견준다. 둘 다 없으면 견줄 것이 없어 실패다
+                  const none = (D.WARDROBE[sl] || []).find(i => i.kind === 'none')
+                    || (D.WARDROBE[sl] || []).find(i => i.id !== S.outfit[sl]);
+                  if (!none) { restore(); return { err: `${sl} 에 견줄 다른 칸이 없다` }; }
                   // ⚠️⚠️ **꼬리표(uid)를 지우고 견준다.** `build()` 는 부를 때마다
                   //    `neckG_a12` 처럼 **새 id** 를 박으므로(문서 전체에서 id 가
                   //    겹치지 않게 하려는 것이다) 두 그림이 «언제나» 다르다 —
