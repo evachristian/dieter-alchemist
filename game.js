@@ -7767,6 +7767,8 @@ function mailText(m) {
   const v = Object.assign({ who: mailFrom(m) }, m.vars || {});
   if (m.k === 'mom') return [T('ml_mom_to_' + ((m.vars && m.vars.addr) || 'a')), T(m.key, v), T('ml_mom_sign')].join('\n\n');
   let s = T(m.key, v);
+  // 까마귀 택배의 첫 편지(첫 아침)는 자기소개부터 한다
+  if (m.k === 'att' && m.vars && m.vars.n === 1) s = T('ml_crow_hello') + '\n\n' + s;
   if (m.k === 'att' && m.vars && m.vars.spark) s += '\n\n' + T('ml_crow_spark');
   return s;
 }
