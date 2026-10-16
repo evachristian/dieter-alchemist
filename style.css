@@ -2619,14 +2619,23 @@ button.tm-slot:active { transform: scale(0.94); }
    ⚠️ 색은 «지금 칸의 두 토큰»(--pink · --lav) 그대로고 **명암만 벌린다** — 위는 카드 쪽으로
    밝게, 아래는 글자 쪽으로 조금 짙게. 테마 여섯에서 같은 규칙이 선다 (값을 박지 않는다).
    «버튼»으로 읽히게 하는 것은 그라데이션 + 떠오르는 그림자 + 윗변의 밝은 테 셋이다 */
-.flex-card {
+/* ⚠️⚠️ 선택자는 `.stat-box.flex-card` 다 — `.stat-box.highlight`(클래스 둘)가 위에서 배경을
+   깔아서, `.flex-card` 하나로 적어 두면 **그라데이션이 한 번도 안 깔렸다** (2026-10-15 판이
+   화면에 아예 안 섰다 · 찍어 보고 알았다). 순서가 아니라 특정도로 이긴다 */
+.stat-box.flex-card {
   display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%;
   border: none; font-family: inherit; color: var(--ink); cursor: pointer;
   padding: 11px 10px 10px;
-  background: linear-gradient(170deg,
-    color-mix(in srgb, var(--pink) 62%, var(--card)) 0%,
-    var(--pink) 48%,
-    color-mix(in srgb, var(--lav) 86%, var(--ink)) 100%);
+  /* ⚠️ 2026-10-16 「버튼 전체에 그라데이션 · 어포던스」 — 예전 판은 «카드 쪽 ↔ 글자 쪽»으로
+     섞어서 **다크에서 뒤집혔다**(챠콜은 카드가 어둡고 글자가 밝다) — 거의 평평한 판이었다.
+     지금은 주 강조(--pink)를 가운데 두고 **위는 흰빛으로 · 아래는 --pink-2 로** 흐른다 —
+     여섯 테마에서 같은 방향으로 볼록하다.
+     ⚠️ 스톱은 «불투명한 색»만 쓴다 — 반투명 겹(rgba(0,0,0,.1))을 얹었더니 대비 검사기가
+     그 스톱을 검정으로 읽어 단계 이름이 1.98:1 로 잡혔다 (checkTextStyle 은 스톱을 읽는다) */
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--pink) 68%, #fff) 0%,
+    var(--pink) 50%,
+    color-mix(in srgb, var(--pink-2) 75%, var(--pink)) 100%);
   box-shadow: 0 5px 14px var(--btn-shadow),
               inset 0 1px 0 color-mix(in srgb, var(--card) 70%, transparent);
   transition: transform .12s;
