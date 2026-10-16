@@ -7768,7 +7768,8 @@ function mailText(m) {
   if (m.k === 'mom') return [T('ml_mom_to_' + ((m.vars && m.vars.addr) || 'a')), T(m.key, v), T('ml_mom_sign')].join('\n\n');
   let s = T(m.key, v);
   // 까마귀 택배의 첫 편지(첫 아침)는 자기소개부터 한다
-  if (m.k === 'att' && m.vars && m.vars.n === 1) s = T('ml_crow_hello') + '\n\n' + s;
+  // ⚠️ 뒤따르는 아침 인사의 «까악!» 은 뗀다 — 소개가 이미 그 말로 시작한다
+  if (m.k === 'att' && m.vars && m.vars.n === 1) s = T('ml_crow_hello') + '\n\n' + s.replace(/^(까악!|Caw!)\s*/, '');
   if (m.k === 'att' && m.vars && m.vars.spark) s += '\n\n' + T('ml_crow_spark');
   return s;
 }
