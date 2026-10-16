@@ -255,8 +255,10 @@ export function createRoom(canvas, opt) {
     return p;
   };
   const poly = (g, pts) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); };
+  // 네모 창의 창틀 두께(텍스처 픽셀) — 햇살 기둥의 윗변이 «유리의 윗변»에 맞춰 이것을 읽는다
+  const WIN_FRAME = { w: 512, h: 700, top: 46, side: 38 };
   function windowTex(night, arch) {
-    return tex(512, 700, (g, w, h) => {
+    return tex(WIN_FRAME.w, WIN_FRAME.h, (g, w, h) => {
       // 아치는 창틀을 «통째로» 먼저 깔고 그 위에 유리를 오려 얹는다 —
       // 테두리 링을 따로 만들 필요가 없고, 두께가 어디서나 같다
       const inner = arch ? archPts(44, w - 44, h - 52, 44) : null;
@@ -305,10 +307,10 @@ export function createRoom(canvas, opt) {
         g.restore();
       } else {
         const fr = '#7a4f30';                               // 창틀 — 오려 붙인 종이
-        paperShape(g, rect(0, 0, w, 46), fr, { cut: 7, ink: 5, seed: 21 });
+        paperShape(g, rect(0, 0, w, WIN_FRAME.top), fr, { cut: 7, ink: 5, seed: 21 });
         paperShape(g, rect(0, h - 58, w, 58), fr, { cut: 7, ink: 5, seed: 22 });
-        paperShape(g, rect(0, 0, 38, h), fr, { cut: 7, ink: 5, seed: 23 });
-        paperShape(g, rect(w - 38, 0, 38, h), fr, { cut: 7, ink: 5, seed: 24 });
+        paperShape(g, rect(0, 0, WIN_FRAME.side, h), fr, { cut: 7, ink: 5, seed: 23 });
+        paperShape(g, rect(w - WIN_FRAME.side, 0, WIN_FRAME.side, h), fr, { cut: 7, ink: 5, seed: 24 });
         paperShape(g, rect(w / 2 - 14, 32, 28, h - 84), fr, { cut: 4, ink: 4, seed: 25 });
         paperShape(g, rect(22, h * 0.46, w - 44, 26), fr, { cut: 5, ink: 5, seed: 26 });
       }
@@ -360,7 +362,9 @@ export function createRoom(canvas, opt) {
   });
   const SHAFT_FLOOR = { dx: -1.5, z: -2.2, spread: 1.25 };   // 빛이 닿는 바닥 — 창보다 왼쪽·앞
   const shaftGeo = (() => {
-    const hw = WIN_AT.w * 0.42, top = WIN_AT.y + WIN_AT.h * 0.36, z0 = WIN_AT.z + 0.04;
+    // ⚠️ 윗변 = 창틀 «안쪽» 윗변 · 폭 = 유리 폭 (「빛이 들어오는 부분을 창틀 끝과 맞춰」 · 2026-10-16)
+    const hw = WIN_AT.w * (0.5 - WIN_FRAME.side / WIN_FRAME.w);
+    const top = WIN_AT.y + WIN_AT.h * (0.5 - WIN_FRAME.top / WIN_FRAME.h), z0 = WIN_AT.z + 0.04;
     const fx = WIN_AT.x + SHAFT_FLOOR.dx, fw = hw * SHAFT_FLOOR.spread;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute([
