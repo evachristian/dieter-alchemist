@@ -439,7 +439,7 @@ export function createRoom(canvas, opt) {
         blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: ga }));
       const r = slot.p3.w * gs.r;
       glow.scale.set(r * 2, r * 2, 1);
-      glow.position.set((gs.x - 0.5) * slot.p3.w, slot.p3.y + slot.p3.h * (0.5 - gs.y), 0.12);
+      glow.position.set((gs.x - 0.5) * slot.p3.w, slot.p3.y + slot.p3.h * (0.5 - gs.y), gs.behind ? -0.12 : 0.12);
       grp.add(glow);
       // ⚠️ **밑크기를 들고 있는다** — 밤에는 여기에 `lampHalo` 가 곱해지는데
       //    (`setPhase`), 지금 크기에 곱하면 시간대를 옮길 때마다 불어난다

@@ -124,6 +124,24 @@
     }
     if (o.ink) inkStroke(g, pts, { w: o.ink, close: true, seed: o.seed, jitter: 1.4 });
   }
+  // ── 실루엣 둘레의 짙은 테 ─────────────────────────────────
+  // 「샹들리에 실루엣이 빛이 번져서 하얗게 날아 안 보인다」(2026-10-16). 금빛 고리·크림 초는
+  // 낮의 햇살 기둥과 제 빛무리 «안»에서 밝은 색끼리 묻힌다 — 둘레에 짙은 테를 두르면 역광 속에서도
+  // 모양이 읽힌다. 다 그린 그림을 그 색으로 물들인 사본을 여덟 방향으로 k px 씩 밀어 «밑에» 깐다.
+  // ⚠️ 캔버스 `shadowBlur` 로는 안 된다 — 텍스처가 크게 그려져 화면에서 줄어들고, 카드의
+  //    alphaTest(0.45)가 흐린 끝을 잘라 거의 아무것도 안 남았다 (찍어 보고 알았다)
+  function silhouetteEdge(g, w, h, color, k) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d');
+    x.drawImage(g.canvas, 0, 0);
+    x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, w, h);
+    g.save(); g.globalCompositeOperation = 'destination-over';
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2;
+      g.drawImage(c, Math.round(Math.cos(a) * k), Math.round(Math.sin(a) * k));
+    }
+    g.restore();
+  }
   function rect(x, y, w, h) { return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]; }
   // 모서리가 살짝 둥근 네모 — 가위로 오린 종이는 각이 날카롭지 않다
   function roundRect(x, y, w, h, r) {
@@ -472,6 +490,7 @@
     chandelier(g, w, h, t) {
       g.clearRect(0, 0, w, h);
       const cx = w / 2;
+
       inkStroke(g, [[cx, 0], [cx, h * 0.2]], { w: 6, seed: 310, jitter: 1, color: t.metal });
       paperShape(g, blob(cx, h * 0.22, w * 0.07, h * 0.045, 18, 311), t.metalL, { cut: 4, ink: 4, seed: 311 });
       // 고리 — 단계가 오르면 한 겹 더 붙는다
@@ -502,6 +521,7 @@
       });
       if (t.orn >= 3) paperShape(g, blob(cx, h * 0.8, w * 0.05, h * 0.06, 20, 390), t.trim,
         { cut: 4, ink: 4, seed: 390 });
+      silhouetteEdge(g, w, h, 'rgba(84,48,22,0.92)', Math.max(2, Math.round(w * 0.011)));
     },
   };
 
@@ -527,7 +547,12 @@
     // 촛불 — 불꽃이 캔버스 220×326 의 y 18~100. 카드가 작아 반지름 비율이 제일 크다
     candle:     { x: 0.50, y: 0.18, r: 2.60, a: 0.85 },
     // 샹들리에 — 불꽃이 «고리를 따라» 흩어져 있다(h 의 0.30~0.50). 가운데에서 크게 퍼뜨린다
-    chandelier: { x: 0.50, y: 0.44, r: 1.15, a: 0.95 },
+    // ⚠️ `behind` — 빛무리를 카드 «뒤»에 단다 (3D). 샹들리에는 불꽃이 고리를 따라 흩어져
+    //    빛무리가 «몸통 전체»를 덮는데, 앞에 얹힌 더하기 합성이 낮의 햇살과 겹치면 실루엣이
+    //    하얗게 날아갔다 (「샹들리에 실루엣이 빛이 번져서 안 보인다」 · 2026-10-16).
+    //    뒤에 두면 카드가 한가운데를 가리고 빛은 둘레로 번진다 — 역광 속 실루엣이 된다.
+    //    SVG 폴백은 원래 빛무리를 소품 «뒤»에 깐다 (`avatar.js`) — 이제 둘이 같은 순서다
+    chandelier: { x: 0.50, y: 0.44, r: 1.15, a: 0.95, behind: true },
   };
 
   // 빛의 «색»도 한 곳이다 — 3D 는 캔버스 그라디언트로, SVG 는 `<radialGradient>` 의
