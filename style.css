@@ -117,6 +117,7 @@
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
+  --act-bg: rgba(255,255,255,0.92);
   --bar: rgba(255,255,255,0.88);
   --head: #f8f6f1;
   --well: rgba(120,112,92,0.20);
@@ -142,6 +143,7 @@
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
+  --act-bg: rgba(255,255,255,0.92);
   --bar: rgba(255,255,255,0.88);
   --head: #faf4ed;
   --well: rgba(130,108,86,0.20);
@@ -167,6 +169,7 @@
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
+  --act-bg: rgba(255,255,255,0.92);
   --bar: rgba(255,255,255,0.88);
   --head: #f0f7ff;
   --well: rgba(100,116,134,0.20);
@@ -192,6 +195,7 @@
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
+  --act-bg: rgba(255,255,255,0.92);
   --bar: rgba(255,255,255,0.88);
   --head: #fceef8;
   --well: rgba(154,138,149,0.24);
@@ -217,6 +221,7 @@
   --blue: #d9e8ff; --blue-2: #9dc0f2; --text-blue: #17458f;
   --red: #ffdcd6; --red-2: #f0a89f; --text-red: #a81f18;
   --float: rgba(255,255,255,0.92);
+  --act-bg: rgba(255,255,255,0.92);
   --bar: rgba(255,255,255,0.88);
   --head: #f5f3fe;
   --well: rgba(122,110,140,0.20);
@@ -242,6 +247,7 @@
   --blue: #1e3352; --blue-2: #35538a; --text-blue: #a9c9ff;
   --red: #452420; --red-2: #7a3a33; --text-red: #ffaea4;
   --float: rgba(26,29,34,0.88);
+  --act-bg: rgba(255,255,255,0.92);
   --bar: #3e4147;
   --head: #303339;
   --well: rgba(255,255,255,0.14);
@@ -2222,7 +2228,13 @@ button.tm-slot:active { transform: scale(0.94); }
   width: 38px; height: 38px; padding: 0;
   border: none; border-radius: 999px; cursor: pointer;
   font-family: inherit; font-size: 0.95rem; font-weight: 800; color: var(--ink);
-  background: var(--float);
+  /* ⚠️ `--float` 가 아니라 제 토큰이다 — 챠콜의 `--float` 는 «어두운 알약»이라 그 위의
+     🌾 🏃 🧺 😯 🪄 가 밝은 테마보다 안 보였다(`test:emoji` · 「챠콜 테마 방 버튼 이모지도
+     잘 보이게」). 버튼에 글자가 없고 그림(이모지)뿐이라 챠콜에서도 «밝은 알약»으로 둔다 —
+     방 그림은 테마를 안 타니 다섯 테마와 같은 버튼이 맞다. 밝은 다섯은 `--float` 와 같은 값이다 */
+  background: var(--act-bg);
+  /* 밝은 알약 위라 이모지의 밝은 테(챠콜의 `--emoji-halo`)는 오히려 흐리게 한다 — 여기서는 끈다 */
+  --emoji-halo: transparent;
   box-shadow: 0 2px 8px rgba(60,40,55,0.28);
 }
 .room-act:active { transform: scale(0.97); }
