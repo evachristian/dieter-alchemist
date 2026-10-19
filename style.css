@@ -5180,17 +5180,12 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 @media (prefers-reduced-motion: reduce) { .fx-lamps .fx-lamp { animation: none; } }
 
 /* ── 건물 안 플라스크의 «거품과 김» (village.js 의 bubbleFx) — 거품은 떠올라 사라지고(--r 만큼) 김은 피어오르며 옅어진다 ── */
-.fx-bubbles .fx-bub { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; animation: fxBub 1.7s ease-out infinite; }
+.fx-bubbles .fx-bub { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; animation: fxBub 1.15s ease-in infinite; }
 /* ⚠️ fill-box 가 짝이다 — 없으면 scale() 이 그림 «원점»을 축으로 돌아 거품이 방 저편으로 튄다 */
-.fx-bubbles .fx-steam { transform-box: fill-box; transform-origin: 50% 100%; animation: fxSteam 3.2s ease-out infinite; }
 @keyframes fxBub {
-  0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
-  15%  { opacity: 0.95; }
-  100% { opacity: 0; transform: translate(0.3px, var(--r, -4px)) scale(1.1); }
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.5); }
+  20%  { opacity: 0.95; }
+  85%  { opacity: 0.95; transform: translate(0.2px, calc(var(--r, -4px) * 0.9)) scale(1); }
+  100% { opacity: 0; transform: translate(0.3px, var(--r, -4px)) scale(1.5); }
 }
-@keyframes fxSteam {
-  0%   { opacity: 0; transform: translateY(2px) scale(0.7); }
-  30%  { opacity: 0.6; }
-  100% { opacity: 0; transform: translateY(-6px) scale(1.15); }
-}
-@media (prefers-reduced-motion: reduce) { .fx-bubbles .fx-bub, .fx-bubbles .fx-steam { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .fx-bubbles .fx-bub { animation: none; } }

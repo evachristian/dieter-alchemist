@@ -487,16 +487,14 @@
   }
   // `fire` 는 불 하나([x, y, w])일 수도, 여럿([[x, y, w], …] · 공방의 증류기 버너 + 모닥불)일 수도 있다
   function fireList(f) { return Array.isArray(f[0]) ? f : [f]; }
-  // 받은 그림 속 플라스크 위에 «뽀글뽀글 거품과 김»을 덧그린다 (`spots[].bubbles` = [[주둥이 x, y, 폭], …] · viewBox 좌표).
-  // 거품 셋이 주둥이에서 떠올라 사라지고, 그 위로 김 한 가닥이 피어오른다. 플라스크마다 박자를 어긋낸다
+  // 받은 그림 속 유리 플라스크 «안»에서 약물이 뽀글뽀글 끓는다 (`spots[].bubbles` = [[물 가운데 x, 수면 y, 물 폭], …] · viewBox 좌표).
+  // 거품 다섯이 물속 바닥 쪽에서 생겨 수면까지 올라와 터진다 — 수면 위로는 안 나간다 (유리 안에 갇혀 있어야 끓는 것으로 읽힌다).
+  // 플라스크마다 박자를 어긋낸다. 자리는 그림을 재서 적는다 — 그림을 바꾸면 그 줄도 다시 잰다
   function bubbleFx(list) {
     return `<g class="fx-bubbles" aria-hidden="true">${list.map(([x, y, w], i) => {
-      const rise = (w * 0.9).toFixed(1);   // 거품은 주둥이 바로 위까지만 오른다 (유리 플라스크 언저리)
-      const bub = [-0.22, 0.18, 0].map((dx, j) =>
-        `<circle class="fx-bub" style="--r:-${rise}px;animation-delay:${(-(i * 0.37 + j * 0.55)).toFixed(2)}s" cx="${(x + dx * w).toFixed(1)}" cy="${y}" r="${(w * (0.13 + j * 0.04)).toFixed(2)}" fill="#dffaf0" stroke="#ffffff" stroke-width="0.4" fill-opacity="0.75"/>`).join('');
-      const h = w * 2.2;
-      const steam = `<path class="fx-steam" style="animation-delay:${(-i * 0.6).toFixed(2)}s" d="M${x},${y - w * 0.4} c${-w * 0.35},${-h * 0.25} ${w * 0.35},${-h * 0.5} 0,${-h * 0.75} s${w * 0.3},${-h * 0.25} ${w * 0.05},${-h * 0.25}" fill="none" stroke="#f4fffb" stroke-width="${(w * 0.16).toFixed(2)}" stroke-linecap="round" opacity="0"/>`;
-      return steam + bub;
+      const depth = w * 0.55;                       // 거품이 생기는 깊이 (수면 아래)
+      return [-0.3, 0.12, -0.05, 0.28, -0.18].map((dx, j) =>
+        `<circle class="fx-bub" style="--r:-${depth.toFixed(1)}px;animation-delay:${(-(i * 0.29 + j * 0.23)).toFixed(2)}s" cx="${(x + dx * w).toFixed(1)}" cy="${(y + depth).toFixed(1)}" r="${(w * (0.045 + (j % 3) * 0.02)).toFixed(2)}" fill="#ffffff" fill-opacity="0.55" stroke="#ffffff" stroke-width="0.35"/>`).join('');
     }).join('')}</g>`;
   }
   const FLAME = 'M0,0 C-.52,0 -.56,-.46 -.26,-.8 C-.14,-.95 -.02,-1.15 0,-1.4 C.1,-1.12 .46,-.9 .5,-.46 C.54,-.1 .3,0 0,0Z';
