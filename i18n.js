@@ -3506,8 +3506,8 @@
       vl_chimney: 'Seven Chimneys', vl_chimney_desc: 'A mountain village of seven chimneys in a row.',
       // 마을 안의 건물
       vs_chimney_cottage: 'Seven Cottages', vs_chimney_forge: 'Smithy', vs_chimney_inn: 'Inn',
-      vs_chimney_shop: 'General Store', vs_chimney_mine: 'Mine',
-      vs_chimney_lab: 'Alchemy Workshop', vs_chimney_tower: "Mage's Tower",
+      vs_chimney_shop: 'Shop', vs_chimney_mine: 'Mine',
+      vs_chimney_lab: 'Workshop', vs_chimney_tower: "Mage's Tower",
       vs_apple_orchard: 'Orchard', vs_apple_press: 'Press House', vs_apple_empty: 'Empty Farmhouse',
       vs_apple_watch: 'Watchtower',
       vs_mirror_pond: 'Mirror Pond', vs_mirror_shrine: 'Old Shrine', vs_mirror_bridge: 'Mist Bridge',
