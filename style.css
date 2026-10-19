@@ -1945,9 +1945,9 @@ button.tm-slot:active { transform: scale(0.94); }
 .at-block .recipe-row { box-shadow: none; background: var(--cream); }
 /* '재료가 다 있다' 는 왼쪽 초록 띠는 inset 이라 남긴다 — 바깥 그림자만 걷는다 */
 .at-block .recipe-row.clickable:not(.short) { box-shadow: inset 3px 0 0 var(--text-mint); }
-/* 안쪽 세그먼트 트랙도 배경을 한 단계 눌러 카드와 구분한다 */
-.at-block .room-tabs { background: var(--cream); }
-.at-block .room-tab.active { background: var(--card); }
+/* 안쪽 세그먼트(물약 / 크리처)는 «마이 룸·탐험과 같은 탭»이다 (2026-10-19 · 「공방 레시피 탭도
+   같은 형식으로」). 예전에는 여기만 고른 탭을 흰 판(--card)으로 덮어써 세 화면 중 혼자 달랐다 —
+   트랙(크림)과 고른 탭(--pink-2 + 그림자)은 `.room-tabs` 기본 규칙 그대로 쓴다 */
 
 /* ─── 레시피 북 ─── */
 .recipe-progress { font-size: 0.8rem; font-weight: 800; color: var(--text-mint); background: var(--mint); padding: 3px 10px; border-radius: 999px; }
