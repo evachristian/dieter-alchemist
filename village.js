@@ -468,6 +468,7 @@
       ${r.win ? win(k) : ''}
       ${r.props(k)}`}
       ${s.art && s.fire ? fireFx(s.fire, u) : ''}
+      ${s.art && s.lamps ? lampFx(s.lamps, u) : ''}
       ${npc ? `<ellipse cx="216" cy="${FY + 24}" rx="40" ry="9" fill="#000" opacity="0.16"/>` : ''}
     </svg>`;
   }
@@ -475,6 +476,14 @@
   // 받은 그림 속 벽난로 위에 «타는 불»을 덧그린다 (`spots[].fire` = [불 밑동 가운데 x, 밑동 y, 폭] · viewBox 좌표).
   // ⚠️ 자리는 그림을 재서 적는다 — 그림을 바꾸면 그 줄도 다시 잰다.
   //   빛무리(번짐) · 불꽃 셋(흔들림) · 불티(올라가며 사라짐). 움직임 줄이기에서는 CSS 가 다 멈춘다
+  // 받은 그림 속 등불 위에 «일렁이는 빛»을 덧그린다 (`spots[].lamps` = [[가운데 x, y, 반지름], …] · viewBox 좌표).
+  // 등마다 박자를 어긋내야 한꺼번에 숨 쉬는 «기계»로 안 보인다. 자리는 그림을 재서 적는다
+  function lampFx(list, u) {
+    return `<g class="fx-lamps" aria-hidden="true">
+      <defs><radialGradient id="lg_${u}"><stop offset="0" stop-color="#ffd27a" stop-opacity="0.75"/><stop offset="0.45" stop-color="#ffa64a" stop-opacity="0.35"/><stop offset="1" stop-color="#ff8a2a" stop-opacity="0"/></radialGradient></defs>
+      ${list.map(([x, y, r], i) => `<circle class="fx-lamp" style="animation-delay:${(-i * 0.73).toFixed(2)}s;animation-duration:${(1.9 + (i % 3) * 0.35).toFixed(2)}s" cx="${x}" cy="${y}" r="${(r * 2.4).toFixed(1)}" fill="url(#lg_${u})"/>`).join('')}
+    </g>`;
+  }
   const FLAME = 'M0,0 C-.52,0 -.56,-.46 -.26,-.8 C-.14,-.95 -.02,-1.15 0,-1.4 C.1,-1.12 .46,-.9 .5,-.46 C.54,-.1 .3,0 0,0Z';
   function fireFx(f, u) {
     const [x, y, w] = f;

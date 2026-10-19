@@ -5162,3 +5162,14 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 @media (prefers-reduced-motion: reduce) {
   .fx-fire .fx-flame, .fx-fire .fx-glow, .fx-fire .fx-spark { animation: none; }
 }
+
+/* ── 건물 안 등불의 «일렁이는 빛» (village.js 의 lampFx) — 빛무리가 커졌다 작아졌다 한다 ── */
+.fx-lamps .fx-lamp { transform-box: fill-box; transform-origin: 50% 50%; mix-blend-mode: screen;
+  animation: fxLamp 2s ease-in-out infinite alternate; }
+@keyframes fxLamp {
+  0%   { transform: scale(0.78); opacity: 0.6; }
+  45%  { transform: scale(1.05); opacity: 0.95; }
+  70%  { transform: scale(0.92); opacity: 0.8; }
+  100% { transform: scale(1.12); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .fx-lamps .fx-lamp { animation: none; } }

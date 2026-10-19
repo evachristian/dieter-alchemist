@@ -1608,7 +1608,7 @@ const VILLAGES = [
       // 카이로스는 떠도는 사람이라 거처가 없다 — 오늘은 여기 있다
       { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 53, y: 31, npc: 'sp_kairos', trade: false, art: 'villages/in-inn.webp', fire: [53, 176, 27] },
       { id: 'vs_chimney_shop',    emoji: '🧺', name: '상점',         shape: 'shop',  x: 56, y: 54, art: 'villages/in-shop.webp' },
-      { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 20, y: 28 },
+      { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 20, y: 28, art: 'villages/in-mine.webp', lamps: [[132, 37, 12], [108, 93, 10], [185, 62, 9], [283, 31, 12]] },
       { id: 'vs_chimney_lab',     emoji: '⚗️', name: '공방',         shape: 'lab',   x: 84, y: 71 },
       // trade: false — 거래가 없는 자리. 있는 쪽이 훨씬 많아 **없는 쪽만 적는다**
       { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 84, y: 94, trade: false },
