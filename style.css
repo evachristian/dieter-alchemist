@@ -5113,7 +5113,7 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 }
 .meal-scene .ml-lid { transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(0); animation: mlBlink 3s linear infinite; }
 @keyframes mlBlink { 0%, 38%, 46%, 100% { transform: scaleY(0); } 41%, 43% { transform: scaleY(1); } }
-.meal-scene .ml-clem { animation: mlNod 3s ease-in-out infinite; }
+.meal-scene .ml-clem { animation: mlNod 3s ease-in-out infinite; filter: drop-shadow(-2.4px 4.4px 6.4px rgba(0,0,0,0.34)); }
 @keyframes mlNod { 0%, 100% { transform: translateY(0); } 55%, 70% { transform: translateY(5px); } }
 .meal-scene .ml-smile { opacity: 0; animation: mlSmile 3s linear infinite; }
 .meal-scene .ml-def   { animation: mlSmileOff 3s linear infinite; }

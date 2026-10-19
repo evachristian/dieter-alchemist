@@ -2130,8 +2130,19 @@ function mealSceneSvg(A) {
   const heartsOn = ((S.record && S.record.meals) || 0) >= MEAL_HEART_AT;
   const hearts = !heartsOn ? '' : [0, 1, 2].map(i => `<g transform="translate(${(mid + (i - 1) * 46).toFixed(0)},${A.head.chin - 30}) scale(${(2.4 + (i % 2) * 0.8).toFixed(1)})"><g class="ml-heart"
     style="animation-delay:${(0.5 + i * 0.55).toFixed(2)}s"><path d="${hp}" fill="#ff8fab"/></g></g>`).join('');
+  // 두 사람의 실루엣 둘레에 «부드럽고 은은한» 그림자 — 아바타·크리처의 조각 그림자와 같은 값
+  // (`drop-shadow(-2.4px 4.4px 6.4px rgba(0,0,0,.34))` 를 이 장면의 배율 ≈2.85 로 옮겼다 · 빛은 오른쪽 위).
+  // ⚠️ 겹쳐 쌓은 따기라 사람과 가구가 조각째 섞여 있어 path 로는 실루엣을 못 집는다 —
+  //    두 사람만 칠한 마스크(`mealshadow.png` · 반 크기)를 대고 «밖»으로만 그림자를 낸다 (안은 안 어두워진다).
+  //    음식·손보다 «아래»라 그릇 위로는 안 진다
+  const own = document.querySelector('script[src*="game.js"]');
+  const q = own && own.src.includes('?') ? '?' + own.src.split('?')[1] : '';
+  const shade = `<filter id="mlShade" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur in="SourceAlpha" stdDeviation="9"/>`
+    + `<feOffset dx="-7" dy="12" result="b"/><feFlood flood-color="#000" flood-opacity="0.34"/><feComposite in2="b" operator="in"/>`
+    + `<feComposite in2="SourceAlpha" operator="out"/></filter>`
+    + `<image class="ml-shade" href="mealshadow.png${q}" x="${vx}" y="${vy}" width="${vw}" height="${vh}" preserveAspectRatio="none" filter="url(#mlShade)"/>`;
   return `<svg class="ml-svg" viewBox="${A.vb.join(' ')}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escHtml(T('meal_alt'))}">
-    ${defs}${body}${food}${hands}${cheeks}${mouth}${eyes}${sparkle}${happy}${clem}${lids}${set.hot ? steam : ''}${hearts}</svg>`;
+    ${defs}${body}${shade}${food}${hands}${cheeks}${mouth}${eyes}${sparkle}${happy}${clem}${lids}${set.hot ? steam : ''}${hearts}</svg>`;
 }
 const MEAL_HEART_AT = 300;   // 「같이 먹기」 컷씬에 하트가 피기 시작하는 횟수
 function playMealScene(then) {
