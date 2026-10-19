@@ -3331,11 +3331,11 @@ FULL=1 THEME=charcoal node tools/checkui.js showcase atelier gather   # 한 테�
   `checkdata` 가 이제 **`Village.shapes` 를 읽어** 양쪽을 본다 — 없는 모양을 쓰는
   건물 · **아무도 안 쓰는 방**(그려 놓고 영영 못 보는 그림) · 몇 곳을 쟀는지.
   사보타주 셋으로 확인했다 (모양 이름 오타 · 한 방을 안 쓰게 하기 · `shapes` 를 안 내놓기)
-- **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 지금 대장간 `villages/in-forge.webp` · 여관 `villages/in-inn.webp` · 일곱 굴뚝 상점 `villages/in-shop.webp` · 일곱 굴뚝 광산 `villages/in-mine.webp` · 일곱 오두막 `villages/in-cottage.webp`) —
+- **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 지금 대장간 `villages/in-forge.webp` · 여관 `villages/in-inn.webp` · 일곱 굴뚝 상점 `villages/in-shop.webp` · 일곱 굴뚝 광산 `villages/in-mine.webp` · 일곱 오두막 `villages/in-cottage.webp` · 마법사의 탑 `villages/in-tower.webp`) —
   그림은 무대의 3:2 로 잘라 두고, 사람이 오른쪽에 서므로 물건이 왼쪽에 있는 그림을 쓴다
   · **벽난로가 있는 그림은 «타는 불»을 덧그린다** (`spots[].fire` = [불 밑동 가운데 x, 밑동 y, 폭] · viewBox 300×200 · `village.js` 의 `fireFx`).
     불꽃 셋이 흔들리고 빛무리가 숨 쉬고 불티가 오른다 · 움직임 줄이기에서 멈춘다. ⚠️ 자리는 그림을 재서 적는다 — 그림을 바꾸면 다시 잰다
-  · **등불이 있는 그림은 «일렁이는 빛»을 덧그린다** (`spots[].lamps` = [[x, y, 반지름], …] · `lampFx` · 광산 · 오두막). 등마다 박자를 어긋낸다
+  · **등불이 있는 그림은 «일렁이는 빛»을 덧그린다** (`spots[].lamps` = [[x, y, 반지름], …] · `lampFx` · 광산 · 오두막 · 마법사의 탑). 등마다 박자를 어긋낸다
 - **새 방을 만들면 `ROOM` 에 한 줄 더하고, 그 모양을 쓰는 건물을 하나는 둔다** —
   둘 중 하나만 하면 검사가 그 자리에서 잡는다
 

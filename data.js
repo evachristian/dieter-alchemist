@@ -1611,7 +1611,7 @@ const VILLAGES = [
       { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 20, y: 28, art: 'villages/in-mine.webp', lamps: [[132, 37, 12], [108, 93, 10], [185, 62, 9], [283, 31, 12]] },
       { id: 'vs_chimney_lab',     emoji: '⚗️', name: '공방',         shape: 'lab',   x: 84, y: 71 },
       // trade: false — 거래가 없는 자리. 있는 쪽이 훨씬 많아 **없는 쪽만 적는다**
-      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 84, y: 94, trade: false },
+      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 84, y: 94, trade: false, art: 'villages/in-tower.webp', lamps: [[86, 5, 9], [179, 10, 9], [166, 27, 6], [136, 40, 10], [157, 49, 12], [124, 65, 9], [171, 67, 10], [161, 77, 9], [149, 94, 12], [244, 59, 7], [165, 104, 5], [150, 118, 5], [199, 137, 7], [239, 129, 8], [95, 174, 5], [130, 157, 4]] },
     ] },
   { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.',
     art: 'villages/apple.webp', artRatio: 1200 / 1310,
