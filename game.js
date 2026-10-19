@@ -5123,8 +5123,14 @@ function renderVillageMap(el, v) {
   // 자리의 x 로 명판을 어디에 붙일지 정한다 — 왼쪽 끝 · 오른쪽 끝 · 가운데.
   // (건물이 홀수면 마지막 하나가 가운데에 남는다)
   const side = x => (x < 40 ? 'l' : x > 60 ? 'r' : 'c');
+  // ⚠️ 일러스트 마을은 명판이 «띠»가 아니라 건물 문 앞에 붙는 «이름표»다.
+  //    가로로 `-x%` 만큼 끌어당기므로 x 가 0 이면 왼끝 · 100 이면 오른끝에 맞춰 서서
+  //    좁은 화면에서도 지도 밖으로 안 나간다 (글자 폭을 몰라도 된다)
+  const where = s => v.art
+    ? `tag" style="left:${s.x}%;top:${s.y}%;transform:translate(-${s.x}%,-50%)`
+    : `${side(s.x)}" style="top:${s.y}%`;
   const pins = spots.map(s => `
-    <button class="vil-pin ${side(s.x)}" style="top:${s.y}%"
+    <button class="vil-pin ${where(s)}"
       data-vspot="${s.id}" onclick="tapVillageSpot('${v.id}','${s.id}')">
       <span class="vil-pin-ic">${open ? s.emoji : '🔒'}</span>
       <span class="vil-pin-nm">${N(s.id, s.name)}</span>
@@ -5135,7 +5141,8 @@ function renderVillageMap(el, v) {
   // 지도 바로 위에 띠로 두면 길이가 어떻든 겹칠 수가 없다.
   el.innerHTML = `
     <div class="vil-desc">${N(v.id + '_desc', v.desc)}</div>
-    <div class="vil-map ${open ? '' : 'locked'}" data-village-map="${v.id}">
+    <div class="vil-map ${open ? '' : 'locked'} ${v.art ? 'art' : ''}" data-village-map="${v.id}"
+      ${v.art ? `style="aspect-ratio:${v.artRatio || 1}"` : ''}>
       ${(window.Village ? Village.scene(v) : '')}
       ${pins}
     </div>`;

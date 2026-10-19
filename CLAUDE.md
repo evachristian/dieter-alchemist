@@ -41,6 +41,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── roomart.js             방·소품의 «그림» → window.RoomArt (3D 와 SVG 폴백이 «같이» 쓴다)
 ├── room3d.js              마이 룸의 방을 «종이 공작» 3D 로 → window.Room3D (ES 모듈)
 ├── vendor/                three.module.min.js (670KB · CDN 을 안 쓴다)
+├── villages/              마을 지도 일러스트 (지금 chimney.webp 하나 · data.js 의 `art`)
 ├── a11y.js                검증기 → checkTextStyle / checkLayout / checkLocked / checkUI
 ├── style.css
 ├── HANDOFF.md             새 세션 인수인계 (배포 주소·시작 전 확인·남은 작업)
@@ -3329,6 +3330,19 @@ FULL=1 THEME=charcoal node tools/checkui.js showcase atelier gather   # 한 테�
   사보타주 셋으로 확인했다 (모양 이름 오타 · 한 방을 안 쓰게 하기 · `shapes` 를 안 내놓기)
 - **새 방을 만들면 `ROOM` 에 한 줄 더하고, 그 모양을 쓰는 건물을 하나는 둔다** —
   둘 중 하나만 하면 검사가 그 자리에서 잡는다
+
+### 마을 지도가 «받은 일러스트»인 곳이 있다 (`art` · 2026-10-19)
+
+「일곱 굴뚝」은 SVG 대신 사람이 보낸 그림(`villages/chimney.webp` · 1200×1310)을 깐다.
+`VILLAGES` 줄의 **`art`·`artRatio`** 가 켜고, `Village.scene()` 이 `<img>` 를 돌려준다.
+
+- **지도 높이는 그림의 비율이다**(`.vil-map.art` + 인라인 `aspect-ratio`) — clamp 높이로 두면
+  잘려서 이름표 자리가 건물에서 어긋난다
+- **명판이 «띠»가 아니라 건물 문 앞의 «이름표»다**(`.vil-pin.tag`) — `x`/`y` 는 **그림 위 자리(%)**이고
+  `translate(-x%,-50%)` 로 끌어당겨 끝에 선 이름표도 지도 밖으로 안 나간다. **그림을 바꾸면 좌표를 다시 잰다**
+- ⚠️ 그림을 `data/` 에 두지 않는다 — 서버의 `HIDDEN` 이 404 로 막는다
+- `checkui` 가 그림이 «진짜» 왔는지(naturalWidth · SPA 폴백을 거른다)와 이름표가 다 지도 안인지 본다
+  (옛 「굴뚝이 일곱인가」는 걷었다). 경로 오타 사보타주로 확인했다
 
 ### 건물 안은 «바닥 시트»다 (`#npcSheet` · UI_POLICY 1-1 뒤)
 

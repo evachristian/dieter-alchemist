@@ -1863,12 +1863,28 @@ function launchOpts() {
             return null;
           });
           if (over) results.push({ 화면: `${t}/${vid}`, 오류: over });
-          // **「일곱 굴뚝」은 지도에서 굴뚝이 일곱 개 세어져야 한다.**
-          // 데이터의 건물 수는 checktalk 이 보지만, 굴뚝을 그렸는지는 그림을 봐야 안다
-          if (vid === 'vl_chimney') {
-            const n = await page.evaluate(() => document.querySelectorAll('.vil-svg .chim').length);
-            if (n !== 7) results.push({ 화면: `${t}/${vid}`, 오류: `굴뚝이 ${n}개다 (일곱이어야 한다)` });
-          }
+          // **받은 일러스트를 까는 마을(`art`)** — 그림이 «진짜로» 왔는가 · 이름표가 다 지도 안인가.
+          // ⚠️ 서버는 없는 주소에도 index.html 을 200 으로 준다(SPA 폴백) — 「떴는가」가 아니라
+          //    그림의 크기(naturalWidth)로 본다. 이름표는 `-x%` 로 끌어당겨 끝에서도 안 나가야 한다
+          //    (옛 SVG 지도의 「굴뚝이 일곱인가」는 그림을 받은 그림으로 바꾸면서 걷었다)
+          const artBad = await page.evaluate(async (id) => {
+            const v = D.VILLAGES.find(x => x.id === id);
+            if (!v || !v.art) return null;
+            const img = document.querySelector('.vil-map .vil-art');
+            if (!img) return '그림(.vil-art)이 없다';
+            if (!img.complete) await new Promise(r => { img.onload = img.onerror = r; setTimeout(r, 4000); });
+            if (!img.naturalWidth) return `그림을 못 받았다 (${v.art})`;
+            const m = document.querySelector('.vil-map').getBoundingClientRect();
+            const pins = [...document.querySelectorAll('.vil-map .vil-pin.tag')];
+            if (pins.length !== v.spots.length) return `이름표가 ${pins.length}개다 (건물 ${v.spots.length})`;
+            for (const e of pins) {
+              const r = e.getBoundingClientRect();
+              if (r.left < m.left - 0.5 || r.right > m.right + 0.5 || r.top < m.top - 0.5 || r.bottom > m.bottom + 0.5)
+                return `이름표 「${e.textContent.trim()}」가 지도 밖이다`;
+            }
+            return null;
+          }, vid);
+          if (artBad) results.push({ 화면: `${t}/${vid}`, 오류: artBad });
         }
         // **건물 안(NPC 화면)**은 또 한 단 들어가야 나온다. 거래가 있는 자리와
         // 없는 자리를 다 본다 — 버튼이 하나일 때와 둘일 때 줄 모양이 다르다

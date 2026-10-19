@@ -199,8 +199,15 @@
   }
 
   // village : D.VILLAGES 의 한 칸
+  // 캐시 버스터는 제 `<script>` 태그에서 물려받는다 (creature.js 의 ASSET_Q 와 같은 조리법)
+  const ASSET_Q = (document.currentScript && document.currentScript.src.includes('?'))
+    ? '?' + document.currentScript.src.split('?')[1] : '';
+
   function scene(village) {
     const v = village || {};
+    // ⚠️ 받은 일러스트가 있는 마을은 그 그림을 «그대로» 깐다 — 비율도 그림의 것이라
+    //    (`.vil-map.art` 의 aspect-ratio) 잘리지 않고, 이름표 좌표가 그림 위 자리와 맞는다
+    if (v.art) return `<img class="vil-art" src="${v.art + ASSET_Q}" alt="" draggable="false">`;
     const k = SKIN[v.id] || DEF;
     const u = 'v' + (++uid);
     const spots = v.spots || [];

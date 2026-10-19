@@ -1598,18 +1598,20 @@ const VILLAGES = [
   // **자리는 2열이다.** 한 줄에 하나씩 놓았더니 여덟 채가 세로로 늘어져
   // 한 화면에 안 들어왔다 — 지도를 보려고 스크롤하는 것은 지도가 아니다.
   // 그림 높이는 **줄 수**(=건물 수의 절반)를 따라간다 (village.js 의 hFor)
+  // ⚠️ 이 마을은 그림이 «받은 일러스트»다(`art`) — x/y 는 그 그림 위 건물 «문 앞»의 자리(%)이고
+  //    이름표가 거기 붙는다. 그림을 바꾸면 이 자리도 같이 다시 잰다
   { id: 'vl_chimney', emoji: '🏘️', name: '일곱 굴뚝',     desc: '굴뚝 일곱 개가 나란히 선 산속 마을.',
+    art: 'villages/chimney.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 26, y: 15 },
-      { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 74, y: 15, npc: 'sp_orix' },
+      { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 22, y: 76 },
+      { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 82, y: 34, npc: 'sp_orix' },
       // 카이로스는 떠도는 사람이라 거처가 없다 — 오늘은 여기 있다
-      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 26, y: 38, npc: 'sp_kairos', trade: false },
-      { id: 'vs_chimney_shop',    emoji: '🧺', name: '잡화점',       shape: 'shop',  x: 74, y: 38 },
-      { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 26, y: 61 },
-      { id: 'vs_chimney_lab',     emoji: '⚗️', name: '연금술 방',    shape: 'lab',   x: 74, y: 61 },
-      // 홀수라 마지막 하나는 가운데. trade: false — 거래가 없는 자리.
-      // 있는 쪽이 훨씬 많아 **없는 쪽만 적는다**
-      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 50, y: 85, trade: false },
+      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 52, y: 27, npc: 'sp_kairos', trade: false },
+      { id: 'vs_chimney_shop',    emoji: '🧺', name: '잡화점',       shape: 'shop',  x: 55, y: 47 },
+      { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 18, y: 24 },
+      { id: 'vs_chimney_lab',     emoji: '⚗️', name: '연금술 공방',  shape: 'lab',   x: 82, y: 66 },
+      // trade: false — 거래가 없는 자리. 있는 쪽이 훨씬 많아 **없는 쪽만 적는다**
+      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 84, y: 93, trade: false },
     ] },
   { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.',
     spots: [

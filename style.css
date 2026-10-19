@@ -935,6 +935,18 @@ body.has-quest .screen { padding-bottom: 168px; }
   border-bottom: 2px solid rgba(120,90,110,0.14);
 }
 .vil-svg { display: block; width: 100%; height: 100%; }
+/* 받은 일러스트를 까는 마을 — 높이는 «그림의 비율»이 정한다(인라인 aspect-ratio).
+   위의 clamp 높이를 쓰면 cover 로 잘려 이름표 자리가 건물에서 어긋난다 */
+.vil-map.art { height: auto; }
+.vil-art { display: block; width: 100%; height: 100%; object-fit: fill; user-select: none; -webkit-user-drag: none; }
+/* 일러스트 위 이름표 — 건물 문 앞에 붙는 작은 알약 (자리·가로 끌어당김은 인라인이다) */
+.vil-pin.tag {
+  /* 한 줄로 선다 — 두 줄로 접히면 이름표가 건물을 덮는다 (좁은 화면은 글자를 줄여 맞춘다) */
+  width: max-content; max-width: none; white-space: nowrap; border-radius: 13px;
+  padding: 5px 9px; font-size: clamp(0.7rem, 2.6vw, 0.82rem);
+  box-shadow: 0 2px 8px rgba(40,30,20,0.35);
+}
+.vil-pin.tag:active { filter: brightness(0.95); }
 /* 마을 설명 — 지도 **바로 위**의 띠. 지도에 겹쳐 놓지 않는다.
    겹쳐 두면 좁은 화면·영어·2배 확대에서 첫 명판과 부딪힌다
    (실제로 265px 거울 골짜기에서 검증기가 잡았다) */
