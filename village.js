@@ -467,8 +467,28 @@
       ${FLOOR[r.floor](k)}
       ${r.win ? win(k) : ''}
       ${r.props(k)}`}
+      ${s.art && s.fire ? fireFx(s.fire, u) : ''}
       ${npc ? `<ellipse cx="216" cy="${FY + 24}" rx="40" ry="9" fill="#000" opacity="0.16"/>` : ''}
     </svg>`;
+  }
+
+  // 받은 그림 속 벽난로 위에 «타는 불»을 덧그린다 (`spots[].fire` = [불 밑동 가운데 x, 밑동 y, 폭] · viewBox 좌표).
+  // ⚠️ 자리는 그림을 재서 적는다 — 그림을 바꾸면 그 줄도 다시 잰다.
+  //   빛무리(번짐) · 불꽃 셋(흔들림) · 불티(올라가며 사라짐). 움직임 줄이기에서는 CSS 가 다 멈춘다
+  const FLAME = 'M0,0 C-.52,0 -.56,-.46 -.26,-.8 C-.14,-.95 -.02,-1.15 0,-1.4 C.1,-1.12 .46,-.9 .5,-.46 C.54,-.1 .3,0 0,0Z';
+  function fireFx(f, u) {
+    const [x, y, w] = f;
+    const t = (k, dx) => `translate(${(x + dx * w).toFixed(1)} ${y}) scale(${(w * k).toFixed(2)})`;
+    const sparks = [-0.25, 0.05, 0.3, -0.1].map((dx, i) =>
+      `<circle class="fx-spark" style="animation-delay:${(i * 0.45).toFixed(2)}s" cx="${(x + dx * w).toFixed(1)}" cy="${(y - w * 0.9).toFixed(1)}" r="${(w * 0.035).toFixed(2)}" fill="#ffd27a"/>`).join('');
+    return `<g class="fx-fire" aria-hidden="true">
+      <defs><radialGradient id="fg_${u}"><stop offset="0" stop-color="#ffb347" stop-opacity="0.55"/><stop offset="1" stop-color="#ff7a2a" stop-opacity="0"/></radialGradient></defs>
+      <ellipse class="fx-glow" cx="${x}" cy="${(y - w * 0.6).toFixed(1)}" rx="${(w * 1.6).toFixed(1)}" ry="${(w * 1.3).toFixed(1)}" fill="url(#fg_${u})"/>
+      <g transform="${t(1.0, 0)}"><path class="fx-flame f1" d="${FLAME}" fill="#f2552f"/></g>
+      <g transform="${t(0.62, -0.12)}"><path class="fx-flame f2" d="${FLAME}" fill="#ff9a33"/></g>
+      <g transform="${t(0.4, 0.04)}"><path class="fx-flame f3" d="${FLAME}" fill="#ffe17a"/></g>
+      ${sparks}
+    </g>`;
   }
 
   // 검사기가 «모양을 다» 재려면 이름 목록이 필요하다 — 손으로 적으면 새 모양이
