@@ -1603,15 +1603,15 @@ const VILLAGES = [
   { id: 'vl_chimney', emoji: '🏘️', name: '일곱 굴뚝',     desc: '굴뚝 일곱 개가 나란히 선 산속 마을.',
     art: 'villages/chimney.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 22, y: 76 },
-      { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 82, y: 34, npc: 'sp_orix' },
+      { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 24, y: 80 },
+      { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 83, y: 37, npc: 'sp_orix' },
       // 카이로스는 떠도는 사람이라 거처가 없다 — 오늘은 여기 있다
-      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 52, y: 27, npc: 'sp_kairos', trade: false },
-      { id: 'vs_chimney_shop',    emoji: '🧺', name: '상점',         shape: 'shop',  x: 55, y: 47 },
-      { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 18, y: 24 },
-      { id: 'vs_chimney_lab',     emoji: '⚗️', name: '공방',         shape: 'lab',   x: 82, y: 66 },
+      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 53, y: 31, npc: 'sp_kairos', trade: false },
+      { id: 'vs_chimney_shop',    emoji: '🧺', name: '상점',         shape: 'shop',  x: 56, y: 54 },
+      { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 20, y: 28 },
+      { id: 'vs_chimney_lab',     emoji: '⚗️', name: '공방',         shape: 'lab',   x: 84, y: 71 },
       // trade: false — 거래가 없는 자리. 있는 쪽이 훨씬 많아 **없는 쪽만 적는다**
-      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 84, y: 93, trade: false },
+      { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 84, y: 94, trade: false },
     ] },
   { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.',
     spots: [
