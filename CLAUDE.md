@@ -3331,7 +3331,7 @@ FULL=1 THEME=charcoal node tools/checkui.js showcase atelier gather   # 한 테�
   `checkdata` 가 이제 **`Village.shapes` 를 읽어** 양쪽을 본다 — 없는 모양을 쓰는
   건물 · **아무도 안 쓰는 방**(그려 놓고 영영 못 보는 그림) · 몇 곳을 쟀는지.
   사보타주 셋으로 확인했다 (모양 이름 오타 · 한 방을 안 쓰게 하기 · `shapes` 를 안 내놓기)
-- **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 지금 대장간 `villages/in-forge.webp`) —
+- **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 지금 대장간 `villages/in-forge.webp` · 여관 `villages/in-inn.webp`) —
   그림은 무대의 3:2 로 잘라 두고, 사람이 오른쪽에 서므로 물건이 왼쪽에 있는 그림을 쓴다
 - **새 방을 만들면 `ROOM` 에 한 줄 더하고, 그 모양을 쓰는 건물을 하나는 둔다** —
   둘 중 하나만 하면 검사가 그 자리에서 잡는다

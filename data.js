@@ -1606,7 +1606,7 @@ const VILLAGES = [
       { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 24, y: 80 },
       { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 83, y: 37, npc: 'sp_orix', art: 'villages/in-forge.webp' },
       // 카이로스는 떠도는 사람이라 거처가 없다 — 오늘은 여기 있다
-      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 53, y: 31, npc: 'sp_kairos', trade: false },
+      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 53, y: 31, npc: 'sp_kairos', trade: false, art: 'villages/in-inn.webp' },
       { id: 'vs_chimney_shop',    emoji: '🧺', name: '상점',         shape: 'shop',  x: 56, y: 54 },
       { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 20, y: 28 },
       { id: 'vs_chimney_lab',     emoji: '⚗️', name: '공방',         shape: 'lab',   x: 84, y: 71 },
