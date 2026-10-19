@@ -1603,7 +1603,7 @@ const VILLAGES = [
   { id: 'vl_chimney', emoji: '🏘️', name: '일곱 굴뚝',     desc: '굴뚝 일곱 개가 나란히 선 산속 마을.',
     art: 'villages/chimney.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 24, y: 80, art: 'villages/in-cottage.webp', fire: [69, 148, 16] },
+      { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 24, y: 80, art: 'villages/in-cottage.webp', fire: [69, 148, 16], lamps: [[132, 15, 11], [285, 10, 11], [185, 41, 9], [107, 75, 9], [160, 124, 6]] },
       { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 83, y: 37, npc: 'sp_orix', art: 'villages/in-forge.webp', fire: [53, 171, 26] },
       // 카이로스는 떠도는 사람이라 거처가 없다 — 오늘은 여기 있다
       { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 53, y: 31, npc: 'sp_kairos', trade: false, art: 'villages/in-inn.webp', fire: [53, 176, 27] },
