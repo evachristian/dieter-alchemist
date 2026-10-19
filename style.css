@@ -908,10 +908,13 @@ body.has-quest .screen { padding-bottom: 168px; }
   /* ⚠️ **음수 여백 = 안쪽 여백 + 테두리** (8 + 1). 테두리 몫 1px 을 빼먹었더니
      카드가 좌우 1px 씩 좁아져 「하늘을 그대로 비추는 저수 / 지.」로 접혔다 —
      2px 이 글줄을 바꾼다. 지금은 카드 폭이 판을 씌우기 «전»과 정확히 같다 */
-  margin: 4px -9px 0; padding: 8px;
-  background: var(--glass);
-  border: 1px solid var(--glass-line);
-  border-radius: 24px;
+  margin: 4px -10px 0; padding: 10px;
+  /* ⚠️ 판은 마이 룸 인벤토리(`.room-inv`)와 «같은 카드»다 (2026-10-19 · 「필드·마을 탭을
+     마이룸 상단탭과 같은 형식으로」). 탭(`.room-tabs`)은 처음부터 같은 규칙이었는데
+     판이 반투명 유리라 크림 트랙이 그라데이션 위에 떠서 다른 물건으로 읽혔다.
+     안쪽 카드는 그대로다 — 안 잠긴 것은 흰 판 + 그림자, 잠긴 것은 크림 + 그림자 없음 */
+  background: var(--card); box-shadow: var(--shadow);
+  border-radius: var(--radius);
 }
 /* 탐험 윗단 — 필드 / 마을 / 밭 (모양·색은 .room-tabs 그대로).
    위쪽 여백은 이제 `.gt-box` 의 안쪽 여백이 낸다 */
