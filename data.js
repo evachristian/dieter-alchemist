@@ -1606,7 +1606,7 @@ const VILLAGES = [
       { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 24, y: 80, art: 'villages/in-cottage.webp', fire: [69, 148, 16], lamps: [[132, 15, 11], [285, 10, 11], [185, 41, 9], [107, 75, 9], [160, 124, 6]] },
       { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 83, y: 37, npc: 'sp_orix', art: 'villages/in-forge.webp', fire: [53, 171, 26] },
       // 카이로스는 떠도는 사람이라 거처가 없다 — 오늘은 여기 있다
-      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 53, y: 31, npc: 'sp_kairos', trade: false, art: 'villages/in-inn.webp', fire: [53, 176, 27] },
+      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 53, y: 31, npc: 'sp_kairos', trade: false, art: 'villages/in-inn.webp', fire: [52, 167, 30] },
       { id: 'vs_chimney_shop',    emoji: '🧺', name: '상점',         shape: 'shop',  x: 56, y: 54, art: 'villages/in-shop.webp' },
       { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 20, y: 28, art: 'villages/in-mine.webp', lamps: [[132, 37, 12], [108, 93, 10], [185, 62, 9], [283, 31, 12]] },
       { id: 'vs_chimney_lab',     emoji: '⚗️', name: '공방',         shape: 'lab',   x: 84, y: 71 },
