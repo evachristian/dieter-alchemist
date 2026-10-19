@@ -1640,12 +1640,13 @@ const VILLAGES = [
   // ── 2막 ── 둘 다 «유리관» 키워드에서 열린다. 그 키워드는 호감도 3단계에서야
   // 나오므로(오릭스의 독사과 · 슈타르크의 저주), 2막은 사람과 친해진 뒤에 온다
   { id: 'vl_glass',   emoji: '⚰️', name: '유리관 호수',   desc: '물밑에 유리관이 가라앉아 있다는 호숫가.',
+    art: 'villages/glass.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_glass_shore', emoji: '🌊', name: '호숫가',      shape: 'water', x: 26, y: 26 },
-      { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'water', x: 74, y: 26 },
-      { id: 'vs_glass_hut',   emoji: '🎣', name: '어부 오두막', shape: 'shop',  x: 26, y: 70 },
+      { id: 'vs_glass_shore', emoji: '🌊', name: '호숫가',      shape: 'water', x: 24, y: 30 },
+      { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'water', x: 80, y: 40 },
+      { id: 'vs_glass_hut',   emoji: '🎣', name: '어부 오두막', shape: 'shop',  x: 26, y: 76 },
       // 관까지 내려가는 길. **아직 아무것도 없다** — 3막에서 쓸 자리다
-      { id: 'vs_glass_stair', emoji: '🪨', name: '잠긴 계단',   shape: 'tower', x: 74, y: 70, trade: false },
+      { id: 'vs_glass_stair', emoji: '🪨', name: '잠긴 계단',   shape: 'tower', x: 78, y: 80, trade: false },
     ] },
   { id: 'vl_mine',    emoji: '⛏️', name: '은빛 갱도',     desc: '곡괭이 소리가 밤낮으로 울리는 은광촌.',
     spots: [
