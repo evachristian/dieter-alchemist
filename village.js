@@ -448,7 +448,9 @@
 
   // ⚠️ **바닥 그림자는 «사람이 설 때만» 그린다** (`npc`). 빈 자리에서도 그리면
   //   아무도 없는 방바닥에 그림자만 남아 「뭔가 사라진 자리」로 읽힌다
-  function interior(spot, vid, npc) {
+  // ⚠️ **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 2026-10-19 · 대장간).
+  //   그림은 무대의 3:2 로 잘라 둔다 — 사람은 오른쪽(x 200~290)에 서므로 물건은 왼쪽에 있어야 한다
+    function interior(spot, vid, npc) {
     const k = SKIN[vid] || DEF;
     const u = 'i' + (++uid);
     const s = spot || {};
@@ -460,10 +462,11 @@
           <stop offset="0" stop-color="${k.wall}"/><stop offset="1" stop-color="${k.roof}" stop-opacity="0.28"/>
         </linearGradient>
       </defs>
+      ${s.art ? `<image href="${s.art + ASSET_Q}" x="0" y="0" width="${IW}" height="${IH}" preserveAspectRatio="xMidYMid slice"/>` : `
       ${WALL[r.wall](k, u)}
       ${FLOOR[r.floor](k)}
       ${r.win ? win(k) : ''}
-      ${r.props(k)}
+      ${r.props(k)}`}
       ${npc ? `<ellipse cx="216" cy="${FY + 24}" rx="40" ry="9" fill="#000" opacity="0.16"/>` : ''}
     </svg>`;
   }
