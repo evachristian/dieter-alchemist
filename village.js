@@ -467,9 +467,10 @@
       ${FLOOR[r.floor](k)}
       ${r.win ? win(k) : ''}
       ${r.props(k)}`}
-      ${s.art && s.fire ? fireFx(s.fire, u) : ''}
+      ${s.art && s.fire ? fireList(s.fire).map((f, i) => fireFx(f, u + '_' + i)).join('') : ''}
       ${s.art && s.lamps ? lampFx(s.lamps, u) : ''}
-      ${npc ? `<ellipse cx="216" cy="${FY + 24}" rx="40" ry="9" fill="#000" opacity="0.16"/>` : ''}
+      ${s.art && s.bubbles ? bubbleFx(s.bubbles) : ''}
+      ${npc ? `<ellipse cx="${s.npcLeft ? IW - 216 : 216}" cy="${FY + 24}" rx="40" ry="9" fill="#000" opacity="0.16"/>` : ''}
     </svg>`;
   }
 
@@ -483,6 +484,20 @@
       <defs><radialGradient id="lg_${u}"><stop offset="0" stop-color="#ffd27a" stop-opacity="0.75"/><stop offset="0.45" stop-color="#ffa64a" stop-opacity="0.35"/><stop offset="1" stop-color="#ff8a2a" stop-opacity="0"/></radialGradient></defs>
       ${list.map(([x, y, r], i) => `<circle class="fx-lamp" style="animation-delay:${(-i * 0.73).toFixed(2)}s;animation-duration:${(1.9 + (i % 3) * 0.35).toFixed(2)}s" cx="${x}" cy="${y}" r="${(r * 2.4).toFixed(1)}" fill="url(#lg_${u})"/>`).join('')}
     </g>`;
+  }
+  // `fire` 는 불 하나([x, y, w])일 수도, 여럿([[x, y, w], …] · 공방의 증류기 버너 + 모닥불)일 수도 있다
+  function fireList(f) { return Array.isArray(f[0]) ? f : [f]; }
+  // 받은 그림 속 플라스크 위에 «뽀글뽀글 거품과 김»을 덧그린다 (`spots[].bubbles` = [[주둥이 x, y, 폭], …] · viewBox 좌표).
+  // 거품 셋이 주둥이에서 떠올라 사라지고, 그 위로 김 한 가닥이 피어오른다. 플라스크마다 박자를 어긋낸다
+  function bubbleFx(list) {
+    return `<g class="fx-bubbles" aria-hidden="true">${list.map(([x, y, w], i) => {
+      const rise = (w * 2.6).toFixed(1);
+      const bub = [-0.22, 0.18, 0].map((dx, j) =>
+        `<circle class="fx-bub" style="--r:-${rise}px;animation-delay:${(-(i * 0.37 + j * 0.55)).toFixed(2)}s" cx="${(x + dx * w).toFixed(1)}" cy="${y}" r="${(w * (0.13 + j * 0.04)).toFixed(2)}" fill="#dffaf0" stroke="#ffffff" stroke-width="0.4" fill-opacity="0.75"/>`).join('');
+      const h = w * 3.4;
+      const steam = `<path class="fx-steam" style="animation-delay:${(-i * 0.6).toFixed(2)}s" d="M${x},${y - w * 0.4} c${-w * 0.35},${-h * 0.25} ${w * 0.35},${-h * 0.5} 0,${-h * 0.75} s${w * 0.3},${-h * 0.25} ${w * 0.05},${-h * 0.25}" fill="none" stroke="#f4fffb" stroke-width="${(w * 0.16).toFixed(2)}" stroke-linecap="round" opacity="0"/>`;
+      return steam + bub;
+    }).join('')}</g>`;
   }
   const FLAME = 'M0,0 C-.52,0 -.56,-.46 -.26,-.8 C-.14,-.95 -.02,-1.15 0,-1.4 C.1,-1.12 .46,-.9 .5,-.46 C.54,-.1 .3,0 0,0Z';
   function fireFx(f, u) {

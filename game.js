@@ -5250,7 +5250,7 @@ function renderVillageSpot(v, s) {
     <div class="npc-stage">
       ${(window.Village ? Village.interior(s, v.id, !!sp) : '')}
       ${sp && window.Portrait
-        ? `<div class="npc-figure">${Portrait.bust(Object.assign({}, sp, { name: speakerName(sp.id) }),
+        ? `<div class="npc-figure${s.npcLeft ? ' left' : ''}">${Portrait.bust(Object.assign({}, sp, { name: speakerName(sp.id) }),
              talking ? (moods[talkIdx] || 'def') : greetMood, { bare: true, full: true })}</div>`
         : ''}
     </div>

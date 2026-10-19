@@ -1606,10 +1606,12 @@ const VILLAGES = [
       { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 24, y: 80, art: 'villages/in-cottage.webp', fire: [69, 148, 16], lamps: [[132, 15, 11], [285, 10, 11], [185, 41, 9], [107, 75, 9], [160, 124, 6]] },
       { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 83, y: 37, npc: 'sp_orix', art: 'villages/in-forge.webp', fire: [53, 171, 26] },
       // 카이로스는 떠도는 사람이라 거처가 없다 — 오늘은 여기 있다
-      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 53, y: 31, npc: 'sp_kairos', trade: false, art: 'villages/in-inn.webp', fire: [52, 167, 30] },
+      { id: 'vs_chimney_inn',     emoji: '🛖', name: '여관',         shape: 'house', x: 53, y: 31, npc: 'sp_kairos', trade: false, art: 'villages/in-inn.webp', fire: [52, 167, 30], npcLeft: true },
       { id: 'vs_chimney_shop',    emoji: '🧺', name: '상점',         shape: 'shop',  x: 56, y: 54, art: 'villages/in-shop.webp' },
       { id: 'vs_chimney_mine',    emoji: '⛏️', name: '광산',         shape: 'mine',  x: 20, y: 28, art: 'villages/in-mine.webp', lamps: [[132, 37, 12], [108, 93, 10], [185, 62, 9], [283, 31, 12]] },
-      { id: 'vs_chimney_lab',     emoji: '⚗️', name: '공방',         shape: 'lab',   x: 84, y: 71 },
+      { id: 'vs_chimney_lab',     emoji: '⚗️', name: '공방',         shape: 'lab',   x: 84, y: 71, art: 'villages/in-lab.webp',
+        fire: [[95, 129.5, 10], [72.7, 159.5, 15]], lamps: [[132.7, 30, 7], [283, 22.7, 7], [184.3, 52, 5], [249.3, 52, 5], [158, 137.5, 2.5]],
+        bubbles: [[40.7, 103.5, 9], [71, 95, 7], [145.7, 127.5, 6], [127.7, 142.5, 5], [137.7, 154, 4], [166.7, 121.5, 4]] },
       // trade: false — 거래가 없는 자리. 있는 쪽이 훨씬 많아 **없는 쪽만 적는다**
       { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 84, y: 94, trade: false, art: 'villages/in-tower.webp', lamps: [[86, 5, 9], [179, 10, 9], [166, 27, 6], [136, 40, 10], [157, 49, 12], [124, 65, 9], [171, 67, 10], [161, 77, 9], [149, 94, 12], [244, 59, 7], [165, 104, 5], [150, 118, 5], [199, 137, 7], [239, 129, 8], [95, 174, 5], [130, 157, 4]] },
     ] },
