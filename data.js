@@ -1649,19 +1649,21 @@ const VILLAGES = [
       { id: 'vs_glass_stair', emoji: '🪨', name: '잠긴 계단',   shape: 'tower', x: 78, y: 80, trade: false },
     ] },
   { id: 'vl_mine',    emoji: '⛏️', name: '은빛 갱도',     desc: '곡괭이 소리가 밤낮으로 울리는 은광촌.',
+    art: 'villages/mine.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_mine_adit',  emoji: '⛏️', name: '갱구',      shape: 'mine',  x: 26, y: 26 },
-      { id: 'vs_mine_store', emoji: '💎', name: '원석 창고', shape: 'shop',  x: 74, y: 26 },
-      { id: 'vs_mine_cut',   emoji: '🔨', name: '세공소',    shape: 'forge', x: 26, y: 70 },
-      { id: 'vs_mine_rail',  emoji: '🚋', name: '광차 선로', shape: 'mine',  x: 74, y: 70, trade: false },
+      { id: 'vs_mine_adit',  emoji: '⛏️', name: '갱구',      shape: 'mine',  x: 22, y: 31 },
+      { id: 'vs_mine_store', emoji: '💎', name: '원석 창고', shape: 'shop',  x: 72, y: 44 },
+      { id: 'vs_mine_cut',   emoji: '🔨', name: '세공소',    shape: 'forge', x: 26, y: 77 },
+      { id: 'vs_mine_rail',  emoji: '🚋', name: '광차 선로', shape: 'mine',  x: 80, y: 78, trade: false },
     ] },
   { id: 'vl_thorn',   emoji: '🌹', name: '가시덤불 마을', desc: '가시울타리가 성을 통째로 감싼 마을.',
+    art: 'villages/thorn.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_thorn_gate',    emoji: '🌹', name: '가시울타리 문', shape: 'ruin',  x: 26, y: 26, trade: false },
+      { id: 'vs_thorn_gate',    emoji: '🌹', name: '가시 문',       shape: 'ruin',  x: 23, y: 27, trade: false },
       // **왕자에게는 거래가 없다.** 그가 주는 것은 호위이지 물건이 아니다
-      { id: 'vs_thorn_barrack', emoji: '⚔️', name: '병영',         shape: 'house', x: 74, y: 26, npc: 'sp_valen', trade: false },
-      { id: 'vs_thorn_armory',  emoji: '🛡️', name: '무기고',       shape: 'forge', x: 26, y: 70 },
-      { id: 'vs_thorn_keep',    emoji: '🏰', name: '무너진 성',     shape: 'ruin',  x: 74, y: 70, trade: false },
+      { id: 'vs_thorn_barrack', emoji: '⚔️', name: '병영',         shape: 'house', x: 73, y: 38, npc: 'sp_valen', trade: false },
+      { id: 'vs_thorn_armory',  emoji: '🛡️', name: '무기고',       shape: 'forge', x: 25, y: 63 },
+      { id: 'vs_thorn_keep',    emoji: '🏰', name: '무너진 문',     shape: 'ruin',  x: 63, y: 84, trade: false },
     ] },
   // ── 3막 ── **점수로 열지 않는다.** 「여신 등급 = 여왕과 같은 자리」는 이야기의 비유이고,
   // 문은 키워드 하나다 (`isVillageOpen()` 은 `S.villages` 만 본다 — 두 번 잠그지 않는다)
@@ -2050,7 +2052,7 @@ const ASKS = [
   { npc: 'sp_orix', kw: 'kw_queen', line: 'ak_orix_queen', mood: 'def', gives: ['kw_song'],
     need: { quest: 'q_egg' },
     more: [['sp_gwiriel', 'worry'], ['sp_orix', 'smirk']] },
-  // 가시울타리 문을 단 것이 그다 — **여는 법도 아는 사람**이라 이 자리가 자연스럽다
+  // 가시 문을 단 것이 그다 — **여는 법도 아는 사람**이라 이 자리가 자연스럽다
   { npc: 'sp_orix', kw: 'kw_prince', line: 'ak_orix_prince', mood: 'wink', opens: ['vl_thorn'],
     more: [['sp_gwiriel', 'doubt'], ['sp_orix', 'proud']] },
   // 🎻 카이로스 — 떠돌이라 거처가 없다. 오늘은 일곱 굴뚝의 여관에 있다

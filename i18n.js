@@ -188,7 +188,7 @@
       ak_yutark_mother_2: '아무것도요?',
       ak_yutark_mother_3: '예. 그냥 오셔서, 한참 계시다 가셨습니다. 저는 그게 무슨 뜻인지 아직도 모릅니다.',
       // 오릭스 · 카이로스 — 새 마을로 가는 길
-      ak_orix_prince: '그 애송이 말인가? 하하, 가시울타리 문은 «내가» 달았지. 그러니 여는 법도 알고. 따라오게.',
+      ak_orix_prince: '그 애송이 말인가? 하하, 가시 문은 «내가» 달았지. 그러니 여는 법도 알고. 따라오게.',
       ak_orix_prince_2: '문을 다신 분이 여는 법도 아시는 거예요?',
       ak_orix_prince_3: '단 사람만 알지. 부순 사람은 몰라.',
       ak_kairos_order: '…그런 건 노래로 안 만들어요. 만들면 부르는 사람이 죽거든요. 다만, 숲 어귀 쉼터에 활을 놓고 사는 분이 있어요.',
@@ -3522,7 +3522,7 @@
       vs_hunter_lodge: 'Lodge', vs_hunter_trap: 'Trap Shed', vs_hunter_smoke: 'Smokehouse',
       vs_hunter_well: 'Spring',
       vs_thorn_gate: 'Briar Gate', vs_thorn_barrack: 'Barracks', vs_thorn_armory: 'Armoury',
-      vs_thorn_keep: 'Ruined Keep',
+      vs_thorn_keep: 'Ruined Gate',
       // 2막
       vs_glass_shore: 'Lakeshore', vs_glass_pier: 'Old Jetty', vs_glass_hut: "Fisher's Hut",
       vs_glass_stair: 'Sunken Stair',
