@@ -3510,7 +3510,7 @@
       vs_chimney_lab: 'Workshop', vs_chimney_tower: "Mage's Tower",
       vs_apple_orchard: 'Orchard', vs_apple_press: 'Press House', vs_apple_empty: 'Empty Farmhouse',
       vs_apple_watch: 'Watchtower',
-      vs_mirror_pond: 'Mirror Pond', vs_mirror_shrine: 'Old Shrine', vs_mirror_bridge: 'Mist Bridge',
+      vs_mirror_pond: 'Mirror Pond', vs_mirror_shrine: 'Old Temple', vs_mirror_bridge: 'Mist Bridge',
       vs_mirror_cairn: 'Cairn',
       vl_apple: 'Redapple Orchard', vl_apple_desc: 'One bite of its fruit is said to put you to sleep.',
       vl_mirror: 'Mirror Vale', vl_mirror_desc: 'Ask here and an answer always comes back.',
