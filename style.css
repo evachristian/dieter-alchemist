@@ -1152,7 +1152,13 @@ body.has-quest .screen { padding-bottom: 168px; }
    피할 것이 없어졌으므로 바닥에 붙인다 — 안 내리면 그림 아래가 통째로 빈다 */
 /* ⚠️ **전신은 «높이»로 맞춘다.** 폭(33%)으로 맞추면 250 짜리 상자가 무대보다
    길어져 발이 잘린다 — 흉상이 가슴에서 잘리던 것과 같은 사고가 아래쪽에서 난다 */
-.npc-figure { position: absolute; right: 10px; bottom: 0; height: 96%; }
+/* ⚠️⚠️ **보이는 것은 «상반신»이다** (2026-10-19 · 「공주와 마찬가지로 상반신 컷으로」).
+   전신 그림(250)을 그대로 쓰되 무대의 140% 높이로 키워 위에서 6% 에 세우면,
+   손 아래(그림의 67%)에서 무대 밑변(`.npc-stage` 의 overflow)이 자른다.
+   ⚠️ 그림을 따로 «흉상»으로 그리지 않는다 — `bust()` 의 전신 한 벌을 자르는 것이라
+   얼굴·옷이 한 글자도 안 갈린다. 비율(140 · 6)을 고치면 오른쪽 폭도 같이 커진다 —
+   물건이 서는 자리(village.js 의 x 6~206)를 덮는지 찍어 본다 */
+.npc-figure { position: absolute; right: 6px; top: 6%; height: 140%; }
 .pt-svg { display: block; width: 100%; height: auto; }
 .pt-svg.full { width: auto; height: 100%; }
 /* 배경 없이 인물만 세울 때는 그림자를 **모양 그대로** 드리운다.
