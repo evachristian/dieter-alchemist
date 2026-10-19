@@ -41,7 +41,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── roomart.js             방·소품의 «그림» → window.RoomArt (3D 와 SVG 폴백이 «같이» 쓴다)
 ├── room3d.js              마이 룸의 방을 «종이 공작» 3D 로 → window.Room3D (ES 모듈)
 ├── vendor/                three.module.min.js (670KB · CDN 을 안 쓴다)
-├── villages/              마을 지도 일러스트 (지금 chimney.webp 하나 · data.js 의 `art`)
+├── villages/              마을 지도 일러스트 (chimney.webp · apple.webp · data.js 의 `art`)
 ├── a11y.js                검증기 → checkTextStyle / checkLayout / checkLocked / checkUI
 ├── style.css
 ├── HANDOFF.md             새 세션 인수인계 (배포 주소·시작 전 확인·남은 작업)
@@ -3333,7 +3333,7 @@ FULL=1 THEME=charcoal node tools/checkui.js showcase atelier gather   # 한 테�
 
 ### 마을 지도가 «받은 일러스트»인 곳이 있다 (`art` · 2026-10-19)
 
-「일곱 굴뚝」은 SVG 대신 사람이 보낸 그림(`villages/chimney.webp` · 1200×1310)을 깐다.
+「일곱 굴뚝」·「붉은 사과밭」은 SVG 대신 사람이 보낸 그림(`villages/chimney.webp` · `villages/apple.webp` · 1200×1310)을 깐다.
 `VILLAGES` 줄의 **`art`·`artRatio`** 가 켜고, `Village.scene()` 이 `<img>` 를 돌려준다.
 
 - **지도 높이는 그림의 비율이다**(`.vil-map.art` + 인라인 `aspect-ratio`) — clamp 높이로 두면

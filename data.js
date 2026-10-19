@@ -1614,11 +1614,12 @@ const VILLAGES = [
       { id: 'vs_chimney_tower',   emoji: '🔮', name: '마법사의 탑',  shape: 'tower', x: 84, y: 94, trade: false },
     ] },
   { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.',
+    art: 'villages/apple.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_apple_orchard', emoji: '🍎', name: '과수원',   shape: 'farm',  x: 26, y: 26 },
-      { id: 'vs_apple_press',   emoji: '🍯', name: '착즙간',   shape: 'shop',  x: 74, y: 26 },
-      { id: 'vs_apple_empty',   emoji: '🏚️', name: '빈 농가',  shape: 'ruin',  x: 26, y: 70, npc: 'sp_sylvan' },
-      { id: 'vs_apple_watch',   emoji: '🔥', name: '감시탑',   shape: 'tower', x: 74, y: 70 },
+      { id: 'vs_apple_orchard', emoji: '🍎', name: '과수원',   shape: 'farm',  x: 28, y: 40 },
+      { id: 'vs_apple_press',   emoji: '🍯', name: '착즙간',   shape: 'shop',  x: 76, y: 44 },
+      { id: 'vs_apple_empty',   emoji: '🏚️', name: '빈 농가',  shape: 'ruin',  x: 30, y: 71, npc: 'sp_sylvan' },
+      { id: 'vs_apple_watch',   emoji: '🔥', name: '감시탑',   shape: 'tower', x: 83, y: 82 },
     ] },
   { id: 'vl_mirror',  emoji: '🪞', name: '거울 골짜기',   desc: '물으면 어김없이 대답이 돌아오는 골짜기.',
     spots: [
