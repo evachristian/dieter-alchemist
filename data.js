@@ -1668,13 +1668,14 @@ const VILLAGES = [
   // ── 3막 ── **점수로 열지 않는다.** 「여신 등급 = 여왕과 같은 자리」는 이야기의 비유이고,
   // 문은 키워드 하나다 (`isVillageOpen()` 은 `S.villages` 만 본다 — 두 번 잠그지 않는다)
   { id: 'vl_spire',   emoji: '🏰', name: '여왕의 첨탑',   desc: '가장 아름다운 이를 묻는 거울이 걸린 탑.',
+    art: 'villages/spire.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_spire_gate',   emoji: '🏰', name: '첨탑 아래',    shape: 'tower', x: 26, y: 26, trade: false },
+      { id: 'vs_spire_gate',   emoji: '🏰', name: '첨탑',         shape: 'tower', x: 29, y: 37, trade: false },
       // 몇십 년째 무작위 조합 중인 자리 (STORY.md 「그녀는 레시피를 모른다」)
-      { id: 'vs_spire_lab',    emoji: '⚗️', name: '왕실 연금실',  shape: 'lab',   x: 74, y: 26 },
-      { id: 'vs_spire_mirror', emoji: '🕯️', name: '거울의 방',    shape: 'tower', x: 26, y: 70,
+      { id: 'vs_spire_lab',    emoji: '⚗️', name: '왕실 연금소',  shape: 'lab',   x: 73, y: 51 },
+      { id: 'vs_spire_mirror', emoji: '🕯️', name: '거울의 방',    shape: 'tower', x: 30, y: 77,
         npc: 'sp_ygritte', trade: false },
-      { id: 'vs_spire_forge',  emoji: '🔥', name: '화덕',        shape: 'forge', x: 74, y: 70 },
+      { id: 'vs_spire_forge',  emoji: '🔥', name: '화덕',        shape: 'forge', x: 74, y: 82 },
     ] },
 ];
 // 화면에 내보일 마을 — **건물이 있는 곳만.**

@@ -3529,7 +3529,7 @@
       vs_mine_adit: 'Adit', vs_mine_store: 'Ore Store', vs_mine_cut: 'Cutting Shop',
       vs_mine_rail: 'Ore Rail',
       // 3막
-      vs_spire_gate: 'Tower Foot', vs_spire_lab: 'Royal Laboratory',
+      vs_spire_gate: 'Spire', vs_spire_lab: 'Royal Alchemy House',
       vs_spire_mirror: 'Mirror Room', vs_spire_forge: 'Hearth',
       // 채집 맵
       m_mine: 'Abandoned Mine', m_mine_desc: 'A long-abandoned shaft littered with ore.',
