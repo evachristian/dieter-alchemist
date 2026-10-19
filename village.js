@@ -491,10 +491,10 @@
   // 거품 셋이 주둥이에서 떠올라 사라지고, 그 위로 김 한 가닥이 피어오른다. 플라스크마다 박자를 어긋낸다
   function bubbleFx(list) {
     return `<g class="fx-bubbles" aria-hidden="true">${list.map(([x, y, w], i) => {
-      const rise = (w * 2.6).toFixed(1);
+      const rise = (w * 0.9).toFixed(1);   // 거품은 주둥이 바로 위까지만 오른다 (유리 플라스크 언저리)
       const bub = [-0.22, 0.18, 0].map((dx, j) =>
         `<circle class="fx-bub" style="--r:-${rise}px;animation-delay:${(-(i * 0.37 + j * 0.55)).toFixed(2)}s" cx="${(x + dx * w).toFixed(1)}" cy="${y}" r="${(w * (0.13 + j * 0.04)).toFixed(2)}" fill="#dffaf0" stroke="#ffffff" stroke-width="0.4" fill-opacity="0.75"/>`).join('');
-      const h = w * 3.4;
+      const h = w * 2.2;
       const steam = `<path class="fx-steam" style="animation-delay:${(-i * 0.6).toFixed(2)}s" d="M${x},${y - w * 0.4} c${-w * 0.35},${-h * 0.25} ${w * 0.35},${-h * 0.5} 0,${-h * 0.75} s${w * 0.3},${-h * 0.25} ${w * 0.05},${-h * 0.25}" fill="none" stroke="#f4fffb" stroke-width="${(w * 0.16).toFixed(2)}" stroke-linecap="round" opacity="0"/>`;
       return steam + bub;
     }).join('')}</g>`;
