@@ -3331,11 +3331,11 @@ FULL=1 THEME=charcoal node tools/checkui.js showcase atelier gather   # 한 테�
   `checkdata` 가 이제 **`Village.shapes` 를 읽어** 양쪽을 본다 — 없는 모양을 쓰는
   건물 · **아무도 안 쓰는 방**(그려 놓고 영영 못 보는 그림) · 몇 곳을 쟀는지.
   사보타주 셋으로 확인했다 (모양 이름 오타 · 한 방을 안 쓰게 하기 · `shapes` 를 안 내놓기)
-- **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 지금 대장간 `villages/in-forge.webp` · 여관 `villages/in-inn.webp` · 일곱 굴뚝 상점 `villages/in-shop.webp` · 일곱 굴뚝 광산 `villages/in-mine.webp` · 일곱 오두막 `villages/in-cottage.webp` · 마법사의 탑 `villages/in-tower.webp` · 일곱 굴뚝 공방 `villages/in-lab.webp` · 붉은 사과밭 과수원 `villages/in-orchard.webp` · 붉은 사과밭 착즙간 `villages/in-press.webp` · 붉은 사과밭 빈 농가 `villages/in-empty.webp` · 붉은 사과밭 감시탑 `villages/in-watch.webp` · 거울 골짜기 거울못 `villages/in-pond.webp`) —
+- **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 지금 대장간 `villages/in-forge.webp` · 여관 `villages/in-inn.webp` · 일곱 굴뚝 상점 `villages/in-shop.webp` · 일곱 굴뚝 광산 `villages/in-mine.webp` · 일곱 오두막 `villages/in-cottage.webp` · 마법사의 탑 `villages/in-tower.webp` · 일곱 굴뚝 공방 `villages/in-lab.webp` · 붉은 사과밭 과수원 `villages/in-orchard.webp` · 붉은 사과밭 착즙간 `villages/in-press.webp` · 붉은 사과밭 빈 농가 `villages/in-empty.webp` · 붉은 사과밭 감시탑 `villages/in-watch.webp` · 거울 골짜기 거울못 `villages/in-pond.webp` · 거울 골짜기 낡은 사원 `villages/in-shrine.webp`) —
   그림은 무대의 3:2 로 잘라 두고, 사람이 오른쪽에 서므로 물건이 왼쪽에 있는 그림을 쓴다
   · **벽난로가 있는 그림은 «타는 불»을 덧그린다** (`spots[].fire` = [불 밑동 가운데 x, 밑동 y, 폭] · viewBox 300×200 · `village.js` 의 `fireFx`).
     불꽃 셋이 흔들리고 빛무리가 숨 쉬고 불티가 오른다 · 움직임 줄이기에서 멈춘다. ⚠️ 자리는 그림을 재서 적는다 — 그림을 바꾸면 다시 잰다
-  · **등불이 있는 그림은 «일렁이는 빛»을 덧그린다** (`spots[].lamps` = [[x, y, 반지름], …] · `lampFx` · 광산 · 오두막 · 마법사의 탑 · 공방 · 착즙간 · 빈 농가 · 감시탑). 등마다 박자를 어긋낸다
+  · **등불이 있는 그림은 «일렁이는 빛»을 덧그린다** (`spots[].lamps` = [[x, y, 반지름], …] · `lampFx` · 광산 · 오두막 · 마법사의 탑 · 공방 · 착즙간 · 빈 농가 · 감시탑 · 낡은 사원 — 매달린 등불 셋과 촛대 일곱). 등마다 박자를 어긋낸다
   · **불은 여럿일 수 있다** (`fire: [[x, y, w], …]` · 공방의 증류기 버너 + 모닥불 · 하나면 예전처럼 `[x, y, w]`)
   · **플라스크 «안»에서 약물이 뽀글뽀글 끓는다** (`spots[].bubbles` = [[물 가운데 x, 수면 y, 물 폭], …] · `bubbleFx` · 공방). 거품은 수면 아래에서 생겨 수면에서 터진다 — 유리 밖으로 안 나간다 · 움직임 줄이기에서 멈춘다
   · **작은 나비가 날아다닌다** (`spots[].butterflies` = [[출발 x, y, 떠도는 폭, 높이], …] · `butterflyFx` · 과수원). 자리 · 떠도는 길 · 날갯짓을 «다른 겹»에 둔다 · 옆모습이라 마리마다 좌우를 섞어 본다(`BFLY_FACE`) — CSS transform 이 SVG 의 transform 속성을 덮어쓰기 때문이다 · 움직임 줄이기에서 제자리에 앉는다
