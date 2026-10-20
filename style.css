@@ -4771,7 +4771,12 @@ button.tm-slot:active { transform: scale(0.94); }
   position: absolute; inset: 7px; border-radius: 50%; overflow: hidden;
   display: flex; align-items: center; justify-content: center; background: var(--cream);
 }
-.qc-face svg { width: 100%; height: 100%; display: block; }
+.qc-face svg {
+  width: 100%; height: 100%; display: block;
+  /* 흉상(120×130)을 동그라미에 통째로 넣으면 얼굴이 원의 절반뿐이라 눈·입이 뭉개져 표정이 안 읽힌다.
+     얼굴 한가운데를 축으로 1.5배 당긴다 — 머리끝은 들어오고 어깨는 잘린다 (1.7배는 정수리가 잘렸다 · 그려 보고 골랐다) */
+  transform: scale(1.5); transform-origin: 50% 50%;
+}
 /* **인트로 컷씬을 아직 안 본 퀘스트** — 「여기 새 게 있다」를 반짝임으로 알린다.
    ⚠️ 예전에는 「아직 한 걸음도 안 뗀 것」이었는데, 상태형 목표(마을·호감도)는 한 걸음
    떼는 데만 며칠이 걸려서 **그동안 내내 재촉하는** 꼴이었다. 움직이는 것은
