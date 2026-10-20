@@ -1620,7 +1620,7 @@ const VILLAGES = [
     spots: [
       { id: 'vs_apple_orchard', emoji: '🍎', name: '과수원',   shape: 'farm',  x: 30, y: 37, art: 'villages/in-orchard.webp', butterflies: [[60, 120, 40, 22], [180, 95, 45, 28], [232, 150, 40, 18], [125, 172, 35, 12]] },
       { id: 'vs_apple_press',   emoji: '🍯', name: '착즙간',   shape: 'shop',  x: 73, y: 41, art: 'villages/in-press.webp', lamps: [[77.5, 54, 10], [248, 54, 10]] },
-      { id: 'vs_apple_empty',   emoji: '🏚️', name: '빈 농가',  shape: 'ruin',  x: 33, y: 72, npc: 'sp_sylvan', art: 'villages/in-empty.webp', lamps: [[67.5, 46, 10], [238.5, 46, 10]], spiders: [[27.6, 29.5, 58.7]], dews: [[25.4, 16.3], [31.7, 13.3], [35.8, 21.7], [16.7, 20], [43.3, 16.7], [21.7, 26.7], [10, 29.2], [48.3, 23.75]], motes: [[150, 48, 42, 30, 8], [90, 85, 13, 17, 4]] },
+      { id: 'vs_apple_empty',   emoji: '🏚️', name: '빈 농가',  shape: 'ruin',  x: 33, y: 72, npc: 'sp_sylvan', art: 'villages/in-empty.webp', lamps: [[67.5, 46, 10], [238.5, 46, 10]], spiders: [[27.6, 29.5, 47]], dews: [[25.4, 16.3], [31.7, 13.3], [35.8, 21.7], [16.7, 20], [43.3, 16.7], [21.7, 26.7], [10, 29.2], [48.3, 23.75]], motes: [[150, 48, 42, 30, 8], [90, 85, 13, 17, 4]] },
       { id: 'vs_apple_watch',   emoji: '🔭', name: '감시탑',   shape: 'tower', x: 85, y: 77, art: 'villages/in-watch.webp', lamps: [[160.5, 52, 12]] },
     ] },
   { id: 'vl_mirror',  emoji: '🪞', name: '거울 골짜기',   desc: '물으면 어김없이 대답이 돌아오는 골짜기.',

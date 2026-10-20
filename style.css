@@ -5216,8 +5216,8 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 .fx-spiders .fx-spider { animation: fxSpider 9s ease-in-out infinite; }
 @keyframes fxSpider {
   0%, 100% { transform: translateY(0); }
-  30%      { transform: translateY(-17px); }
-  52%      { transform: translateY(-17px); }
+  30%      { transform: translateY(-13px); }
+  52%      { transform: translateY(-13px); }
   72%      { transform: translateY(3px); }
   82%      { transform: translateY(-1px); }
 }
