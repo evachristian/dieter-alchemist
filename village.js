@@ -474,6 +474,9 @@
       ${s.art && s.glints ? glintFx(s.glints) : ''}
       ${s.art && s.mists ? mistFx(s.mists, u) : ''}
       ${s.art && s.rays ? rayFx(s.rays, u) : ''}
+      ${s.art && s.dews ? dewFx(s.dews) : ''}
+      ${s.art && s.spiders ? spiderFx(s.spiders, u) : ''}
+      ${s.art && s.motes ? moteFx(s.motes) : ''}
       ${npc ? `<ellipse cx="${s.npcLeft ? IW - 216 : 216}" cy="${FY + 24}" rx="40" ry="9" fill="#000" opacity="0.16"/>` : ''}
     </svg>`;
   }
@@ -552,6 +555,42 @@
   // 받은 그림 속 스테인드글라스에서 «빛이 떨어진다» (`spots[].rays` = [[창 가운데 x, y, 창 반지름, 바닥 x, 바닥 y, 바닥 폭], …] · viewBox 좌표).
   // 창에서 바닥까지 색 띠 셋(분홍·하늘·보라)이 비스듬히 내리고, 띠마다 박자를 어긋내 일렁인다 ·
   // 바닥에는 색 빛 웅덩이가 앉고, 빛 속으로 먼지 알갱이가 천천히 떨어진다. 움직임 줄이기에서는 옅게 멈춘다
+  // 받은 그림 속 거미줄에서 «거미가 실을 타고 오르내린다» (`spots[].spiders` = [[실 x, 실이 붙은 y, 쉬는 y], …] · viewBox 좌표).
+  // 실은 붙은 자리에서 오려 낸다(clipPath) — 거미가 올라가도 실이 거미줄 위로 삐져나오지 않는다.
+  // 움직임은 안쪽 겹에만 건다 (CSS transform 이 SVG 의 transform 속성을 덮어쓰기 때문이다). 움직임 줄이기에서는 제자리에 매달린다
+  function spiderFx(list, u) {
+    const leg = (sx, a, b) => `<path d="M${sx * 1.2},${a} Q${sx * 3.4},${a - 2.2} ${sx * 4.4},${b}" fill="none" stroke="#3a2a22" stroke-width="0.7" stroke-linecap="round"/>`;
+    return `<g class="fx-spiders" aria-hidden="true">${list.map(([x, ay, ry], i) => {
+      const id = `sc_${u}_${i}`, len = ry - ay;
+      const legs = [[-0.6, 1.4], [0.1, 2.8], [0.8, 4.2], [1.4, 5.4]].map(([a, b]) => leg(-1, a, b) + leg(1, a, b)).join('');
+      return `<defs><clipPath id="${id}"><rect x="${x - 12}" y="${ay}" width="24" height="${200 - ay}"/></clipPath></defs>`
+        + `<g clip-path="url(#${id})"><g transform="translate(${x},${ry})"><g class="fx-spider" style="animation-delay:${(-i * 2.3).toFixed(1)}s">`
+        + `<line x1="0" y1="${-len - 30}" x2="0" y2="-1.5" stroke="#e8e2da" stroke-width="0.45" opacity="0.85"/>`
+        + `<g class="fx-spider-body">${legs}<circle cx="0" cy="-0.6" r="1.6" fill="#3a2a22"/><ellipse cx="0" cy="2.6" rx="2.6" ry="3" fill="#4a352b"/>`
+        + `<ellipse cx="-0.8" cy="1.6" rx="0.8" ry="0.6" fill="#7a5a48" opacity="0.7"/><circle cx="-0.6" cy="-0.9" r="0.38" fill="#fff"/><circle cx="0.6" cy="-0.9" r="0.38" fill="#fff"/></g>`
+        + `</g></g></g>`;
+    }).join('')}</g>`;
+  }
+  // 받은 그림 속 거미줄에 «이슬»이 맺혀 반짝인다 (`spots[].dews` = [[x, y], …] · viewBox 좌표 — 거미줄 가닥 위).
+  // 작은 물방울이 저마다 박자를 어긋내 빛났다 잦아든다. 움직임 줄이기에서는 옅게 남는다
+  function dewFx(list) {
+    return `<g class="fx-dews" aria-hidden="true">${list.map(([x, y], i) =>
+      `<g transform="translate(${x},${y})"><g class="fx-dew" style="animation-delay:${(-((i * 0.83) % 3.6)).toFixed(2)}s;animation-duration:${(3 + (i % 3) * 0.6).toFixed(1)}s">`
+      + `<circle r="0.9" fill="#ffffff"/>`
+      + (i % 3 === 0 ? `<path d="M0,-2.6 L0.4,-0.4 L2.6,0 L0.4,0.4 L0,2.6 L-0.4,0.4 L-2.6,0 L-0.4,-0.4Z" fill="#ffffff"/>` : '')
+      + `</g></g>`).join('')}</g>`;
+  }
+  // 받은 그림 속 창빛 안에 «먼지»가 떠다닌다 (`spots[].motes` = [[상자 x, y, 폭, 높이, 개수], …] · viewBox 좌표).
+  // 알갱이가 천천히 떠돌며 빛 속에서만 반짝인다 — 자리는 번호로 고정한다 (무작위면 다시 그릴 때마다 옮겨 다닌다).
+  // 움직임 줄이기에서는 옅게 머문다
+  function moteFx(list) {
+    return `<g class="fx-motes" aria-hidden="true">${list.map(([x, y, w, h, n], i) =>
+      Array.from({ length: n }, (_, j) => {
+        const mx = x + w * (((j * 0.618 + i * 0.31) % 1)), my = y + h * (((j * 0.382 + 0.17) % 1));
+        const dur = 7 + (j % 4) * 1.4;
+        return `<circle class="fx-mote" style="--mx:${(j % 2 ? 4 : -4)}px;--my:${(-3 - (j % 3) * 2)}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.7 + i) % dur)).toFixed(1)}s" cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="${(0.5 + (j % 3) * 0.2).toFixed(1)}" fill="#fff4d6"/>`;
+      }).join('')).join('')}</g>`;
+  }
   const RAY_COLS = ['#ff9ab8', '#9cc4ff', '#c79cff'];
   function rayFx(list, u) {
     return `<g class="fx-rays" aria-hidden="true">${list.map(([x, y, r, fx, fy, w], i) => {

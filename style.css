@@ -5212,6 +5212,39 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 }
 @media (prefers-reduced-motion: reduce) { .fx-mists .fx-mist { animation: none; opacity: 0.3; } }
 
+/* ── 거미줄의 거미 (village.js 의 spiderFx) — 실을 타고 올라갔다 내려와 흔들린다 ── */
+.fx-spiders .fx-spider { animation: fxSpider 9s ease-in-out infinite; }
+@keyframes fxSpider {
+  0%, 100% { transform: translateY(0); }
+  30%      { transform: translateY(-17px); }
+  52%      { transform: translateY(-17px); }
+  72%      { transform: translateY(3px); }
+  82%      { transform: translateY(-1px); }
+}
+.fx-spiders .fx-spider-body { transform-box: fill-box; transform-origin: 50% 0; animation: fxSpiderSway 3s ease-in-out infinite; }
+@keyframes fxSpiderSway { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@media (prefers-reduced-motion: reduce) { .fx-spiders .fx-spider, .fx-spiders .fx-spider-body { animation: none; } }
+
+/* ── 거미줄의 이슬 (village.js 의 dewFx) — 물방울이 빛났다 잦아든다 ── */
+.fx-dews .fx-dew { opacity: 0.35; transform-box: fill-box; transform-origin: 50% 50%; animation: fxDew 3.4s ease-in-out infinite; }
+@keyframes fxDew {
+  0%, 100% { opacity: 0.3; transform: scale(0.6); }
+  40%      { opacity: 1;   transform: scale(1.15); }
+  60%      { opacity: 0.5; transform: scale(0.85); }
+}
+@media (prefers-reduced-motion: reduce) { .fx-dews .fx-dew { animation: none; opacity: 0.55; } }
+
+/* ── 창빛 속 먼지 (village.js 의 moteFx) — 천천히 떠돌며 반짝인다 ── */
+.fx-motes { mix-blend-mode: screen; }
+.fx-motes .fx-mote { opacity: 0; animation: fxMote 8s ease-in-out infinite; }
+@keyframes fxMote {
+  0%   { opacity: 0;   transform: translate(0, 0); }
+  30%  { opacity: 0.85; }
+  70%  { opacity: 0.6; }
+  100% { opacity: 0;   transform: translate(var(--mx, 4px), var(--my, -4px)); }
+}
+@media (prefers-reduced-motion: reduce) { .fx-motes .fx-mote { animation: none; opacity: 0.45; } }
+
 /* ── 스테인드글라스에서 떨어지는 빛 (village.js 의 rayFx) — 색 띠가 일렁이고 먼지가 빛 속으로 떨어진다 ── */
 .fx-rays { mix-blend-mode: screen; }
 .fx-rays .fx-ray { opacity: 0.4; animation: fxRay 4.5s ease-in-out infinite; }
