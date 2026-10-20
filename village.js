@@ -561,15 +561,17 @@
   // 구석에서 부챗살 실이 뻗고 고리 실이 살짝 처지며 잇는다 · 고리 위의 이슬은 dewFx 로 반짝인다 (자리는 실 번호로 고정한다)
   function webFx(list) {
     return list.map(([x, y, r, a0, a1]) => {
-      const N = 6, R = 4, pt = (a, d) => [x + Math.cos(a * Math.PI / 180) * d, y + Math.sin(a * Math.PI / 180) * d];
-      const angs = Array.from({ length: N }, (_, k) => a0 + (a1 - a0) * k / (N - 1));
+      // 끝 각 − 시작 각이 360 이면 «둥근 거미줄»이다 — 살 여덟이 고르게 돌고 고리가 한 바퀴 닫힌다 · 살은 고리 밖으로 조금 더 뻗어 들보에 걸린다
+      const full = a1 - a0 >= 360, N = full ? 8 : 6, R = 4, pt = (a, d) => [x + Math.cos(a * Math.PI / 180) * d, y + Math.sin(a * Math.PI / 180) * d];
+      const angs = Array.from({ length: N }, (_, k) => full ? a0 + 360 * k / N : a0 + (a1 - a0) * k / (N - 1));
       const f = v => v.toFixed(1);
-      let d = angs.map(a => { const [ex, ey] = pt(a, r); return `M${f(x)},${f(y)} L${f(ex)},${f(ey)}`; }).join(' ');
+      let d = angs.map(a => { const [ex, ey] = pt(a, full ? r * 1.35 : r); return `M${f(x)},${f(y)} L${f(ex)},${f(ey)}`; }).join(' ');
       const dews = [];
       for (let k = 1; k <= R; k++) {
         const rr = r * k / R;
-        for (let j = 0; j < N - 1; j++) {
-          const [px, py] = pt(angs[j], rr), [qx, qy] = pt(angs[j + 1], rr), [mx, my] = pt((angs[j] + angs[j + 1]) / 2, rr * 0.86);
+        for (let j = 0; j < (full ? N : N - 1); j++) {
+          const b = full && j === N - 1 ? angs[0] + 360 : angs[j + 1];
+          const [px, py] = pt(angs[j], rr), [qx, qy] = pt(b, rr), [mx, my] = pt((angs[j] + b) / 2, rr * 0.86);
           d += ` M${f(px)},${f(py)} Q${f(mx)},${f(my)} ${f(qx)},${f(qy)}`;
           if ((k + j) % 3 === 0) dews.push([+f((px + qx) / 2 * 0.5 + mx * 0.5), +f((py + qy) / 2 * 0.5 + my * 0.5)]);
         }
