@@ -470,6 +470,7 @@
       ${s.art && s.fire ? fireList(s.fire).map((f, i) => fireFx(f, u + '_' + i)).join('') : ''}
       ${s.art && s.lamps ? lampFx(s.lamps, u) : ''}
       ${s.art && s.bubbles ? bubbleFx(s.bubbles) : ''}
+      ${s.art && s.butterflies ? butterflyFx(s.butterflies) : ''}
       ${npc ? `<ellipse cx="${s.npcLeft ? IW - 216 : 216}" cy="${FY + 24}" rx="40" ry="9" fill="#000" opacity="0.16"/>` : ''}
     </svg>`;
   }
@@ -495,6 +496,21 @@
       const depth = w * 0.55;                       // 거품이 생기는 깊이 (수면 아래)
       return [-0.3, 0.12, -0.05, 0.28, -0.18].map((dx, j) =>
         `<circle class="fx-bub" style="--r:-${depth.toFixed(1)}px;animation-delay:${(-(i * 0.29 + j * 0.23)).toFixed(2)}s" cx="${(x + dx * w).toFixed(1)}" cy="${(y + depth).toFixed(1)}" r="${(w * (0.045 + (j % 3) * 0.02)).toFixed(2)}" fill="#ffffff" fill-opacity="0.55" stroke="#ffffff" stroke-width="0.35"/>`).join('');
+    }).join('')}</g>`;
+  }
+  // 받은 그림 위로 «작은 나비»가 날아다닌다 (`spots[].butterflies` = [[출발 x, y, 떠도는 폭, 높이], …] · viewBox 좌표).
+  // 셋 겹이다 — 자리(transform 속성) · 떠도는 길(CSS fxFly · --w/--h 만큼) · 날갯짓(CSS fxFlap).
+  // ⚠️ CSS transform 은 SVG 의 transform 속성을 «덮어쓴다» — 그래서 자리와 움직임을 다른 겹에 둔다.
+  // 나비마다 색·빠르기·박자를 어긋낸다. 움직임 줄이기에서는 제자리에 앉아 있다
+  const BFLY = ['#fff4c2', '#ffc9dc', '#ffffff', '#ffd36b'];
+  function butterflyFx(list) {
+    const wing = c => `<ellipse cx="-1.7" cy="-0.7" rx="1.8" ry="1.4" fill="${c}"/><ellipse cx="-1.2" cy="0.9" rx="1.2" ry="1" fill="${c}"/>`
+      + `<ellipse cx="1.7" cy="-0.7" rx="1.8" ry="1.4" fill="${c}"/><ellipse cx="1.2" cy="0.9" rx="1.2" ry="1" fill="${c}"/>`;
+    return `<g class="fx-bflies" aria-hidden="true">${list.map(([x, y, w, h], i) => {
+      const c = BFLY[i % BFLY.length];
+      return `<g transform="translate(${x},${y}) scale(2.1)"><g class="fx-fly" style="--w:${(w / 2.1).toFixed(1)}px;--h:${(h / 2.1).toFixed(1)}px;animation-duration:${(9 + (i % 3) * 2.3).toFixed(1)}s;animation-delay:${(-i * 2.7).toFixed(1)}s">`
+        + `<g class="fx-wing" style="animation-duration:${(0.22 + (i % 2) * 0.05).toFixed(2)}s" stroke="#7a4a2e" stroke-width="0.3">${wing(c)}</g>`
+        + `<ellipse cx="0" cy="0.2" rx="0.35" ry="1.5" fill="#5a3a26"/></g></g>`;
     }).join('')}</g>`;
   }
   const FLAME = 'M0,0 C-.52,0 -.56,-.46 -.26,-.8 C-.14,-.95 -.02,-1.15 0,-1.4 C.1,-1.12 .46,-.9 .5,-.46 C.54,-.1 .3,0 0,0Z';

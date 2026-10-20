@@ -5190,3 +5190,18 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
   100% { opacity: 0; transform: translate(0.3px, var(--r, -4px)) scale(1.5); }
 }
 @media (prefers-reduced-motion: reduce) { .fx-bubbles .fx-bub { animation: none; } }
+
+/* ── 건물 안의 «작은 나비» (village.js 의 butterflyFx) — 떠도는 길(fxFly)과 날갯짓(fxFlap)은 다른 겹이다 ── */
+.fx-bflies .fx-fly { animation: fxFly 10s ease-in-out infinite; }
+@keyframes fxFly {
+  0%   { transform: translate(0, 0); }
+  18%  { transform: translate(calc(var(--w) * 0.45), calc(var(--h) * -0.6)); }
+  36%  { transform: translate(calc(var(--w) * 0.9), calc(var(--h) * 0.05)); }
+  55%  { transform: translate(calc(var(--w) * 0.5), calc(var(--h) * 0.7)); }
+  78%  { transform: translate(calc(var(--w) * -0.35), calc(var(--h) * 0.25)); }
+  100% { transform: translate(0, 0); }
+}
+.fx-bflies .fx-wing { transform-box: fill-box; transform-origin: 50% 50%; animation: fxFlap 0.24s ease-in-out infinite alternate; }
+/* ⚠️ fill-box 가 짝이다 — 없으면 날개가 그림 «원점»을 축으로 접힌다 */
+@keyframes fxFlap { from { transform: scaleX(1); } to { transform: scaleX(0.22); } }
+@media (prefers-reduced-motion: reduce) { .fx-bflies .fx-fly, .fx-bflies .fx-wing { animation: none; } }
