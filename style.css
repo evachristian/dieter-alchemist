@@ -5201,7 +5201,7 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
   78%  { transform: translate(calc(var(--w) * -0.35), calc(var(--h) * 0.25)); }
   100% { transform: translate(0, 0); }
 }
-.fx-bflies .fx-wing { transform-box: fill-box; transform-origin: 50% 50%; animation: fxFlap 0.24s ease-in-out infinite alternate; }
-/* ⚠️ fill-box 가 짝이다 — 없으면 날개가 그림 «원점»을 축으로 접힌다 */
-@keyframes fxFlap { from { transform: scaleX(1); } to { transform: scaleX(0.22); } }
+.fx-bflies .fx-wing { transform-box: fill-box; transform-origin: 50% 100%; animation: fxFlap 0.24s ease-in-out infinite alternate; }
+/* ⚠️ fill-box 가 짝이다 — 없으면 날개가 그림 «원점»을 축으로 접힌다 · 옆모습이라 «밑변(몸)»을 축으로 위아래로 접힌다 */
+@keyframes fxFlap { from { transform: scaleY(1); } to { transform: scaleY(0.25); } }
 @media (prefers-reduced-motion: reduce) { .fx-bflies .fx-fly, .fx-bflies .fx-wing { animation: none; } }

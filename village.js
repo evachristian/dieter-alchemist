@@ -501,16 +501,20 @@
   // 받은 그림 위로 «작은 나비»가 날아다닌다 (`spots[].butterflies` = [[출발 x, y, 떠도는 폭, 높이], …] · viewBox 좌표).
   // 셋 겹이다 — 자리(transform 속성) · 떠도는 길(CSS fxFly · --w/--h 만큼) · 날갯짓(CSS fxFlap).
   // ⚠️ CSS transform 은 SVG 의 transform 속성을 «덮어쓴다» — 그래서 자리와 움직임을 다른 겹에 둔다.
-  // 나비마다 색·빠르기·박자를 어긋낸다. 움직임 줄이기에서는 제자리에 앉아 있다
+  // 나비는 «옆모습»이다 — 오른쪽을 보게 그려 두고, 마리마다 섞인 순서로 좌우를 뒤집는다 (BFLY_FACE).
+  // 위에서 내려다본 모양으로 두었더니 넷이 다 위를 보고 있었다 · 움직임 줄이기에서는 제자리에 앉아 있다
   const BFLY = ['#fff4c2', '#ffc9dc', '#ffffff', '#ffd36b'];
+  const BFLY_FACE = [1, -1, -1, 1, -1, 1];
   function butterflyFx(list) {
-    const wing = c => `<ellipse cx="-1.7" cy="-0.7" rx="1.8" ry="1.4" fill="${c}"/><ellipse cx="-1.2" cy="0.9" rx="1.2" ry="1" fill="${c}"/>`
-      + `<ellipse cx="1.7" cy="-0.7" rx="1.8" ry="1.4" fill="${c}"/><ellipse cx="1.2" cy="0.9" rx="1.2" ry="1" fill="${c}"/>`;
+    // 날개 둘(앞날개 · 뒷날개)이 몸 위로 솟는다 — 밑변이 몸에 붙어 있어야 날갯짓의 축이 몸이 된다
+    const wing = c => `<ellipse cx="0.5" cy="-1.5" rx="1.05" ry="1.65" transform="rotate(22 0.5 -1.5)" fill="${c}"/>`
+      + `<ellipse cx="-0.55" cy="-0.95" rx="0.85" ry="1.05" transform="rotate(-18 -0.55 -0.95)" fill="${c}"/>`;
     return `<g class="fx-bflies" aria-hidden="true">${list.map(([x, y, w, h], i) => {
-      const c = BFLY[i % BFLY.length];
-      return `<g transform="translate(${x},${y}) scale(2.1)"><g class="fx-fly" style="--w:${(w / 2.1).toFixed(1)}px;--h:${(h / 2.1).toFixed(1)}px;animation-duration:${(9 + (i % 3) * 2.3).toFixed(1)}s;animation-delay:${(-i * 2.7).toFixed(1)}s">`
+      const c = BFLY[i % BFLY.length], f = BFLY_FACE[i % BFLY_FACE.length];
+      return `<g transform="translate(${x},${y}) scale(${(2.1 * f).toFixed(1)},2.1)"><g class="fx-fly" style="--w:${(w / 2.1 * f).toFixed(1)}px;--h:${(h / 2.1).toFixed(1)}px;animation-duration:${(9 + (i % 3) * 2.3).toFixed(1)}s;animation-delay:${(-i * 2.7).toFixed(1)}s">`
         + `<g class="fx-wing" style="animation-duration:${(0.22 + (i % 2) * 0.05).toFixed(2)}s" stroke="#7a4a2e" stroke-width="0.3">${wing(c)}</g>`
-        + `<ellipse cx="0" cy="0.2" rx="0.35" ry="1.5" fill="#5a3a26"/></g></g>`;
+        + `<ellipse cx="0" cy="0.1" rx="1.5" ry="0.38" fill="#5a3a26"/><circle cx="1.65" cy="-0.05" r="0.45" fill="#5a3a26"/>`
+        + `<path d="M1.8,-0.4 Q2.2,-1.2 2.7,-1.5 M1.6,-0.4 Q1.8,-1.3 2.2,-1.8" fill="none" stroke="#5a3a26" stroke-width="0.18" stroke-linecap="round"/></g></g>`;
     }).join('')}</g>`;
   }
   const FLAME = 'M0,0 C-.52,0 -.56,-.46 -.26,-.8 C-.14,-.95 -.02,-1.15 0,-1.4 C.1,-1.12 .46,-.9 .5,-.46 C.54,-.1 .3,0 0,0Z';
