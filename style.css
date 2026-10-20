@@ -5212,6 +5212,16 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 }
 @media (prefers-reduced-motion: reduce) { .fx-mists .fx-mist { animation: none; opacity: 0.3; } }
 
+/* ── 아궁이 위 연기 (village.js 의 smokeFx) — 덩이가 오르며 커지고 흐르다 옅어진다 ── */
+.fx-smokes .fx-smoke { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; animation: fxSmoke 6s ease-out infinite; }
+@keyframes fxSmoke {
+  0%   { opacity: 0;    transform: translate(0, 0) scale(0.6); }
+  20%  { opacity: 0.45; }
+  65%  { opacity: 0.25; }
+  100% { opacity: 0;    transform: translate(var(--dx, -6px), var(--rise, -30px)) scale(1.9); }
+}
+@media (prefers-reduced-motion: reduce) { .fx-smokes .fx-smoke { animation: none; opacity: 0.25; } }
+
 /* ── 거미줄의 거미 (village.js 의 spiderFx) — 실을 타고 올라갔다 내려와 흔들린다 ── */
 .fx-spiders .fx-spider { animation: fxSpider 9s ease-in-out infinite; }
 @keyframes fxSpider {

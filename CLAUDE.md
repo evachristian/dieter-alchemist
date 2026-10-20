@@ -3331,7 +3331,7 @@ FULL=1 THEME=charcoal node tools/checkui.js showcase atelier gather   # 한 테�
   `checkdata` 가 이제 **`Village.shapes` 를 읽어** 양쪽을 본다 — 없는 모양을 쓰는
   건물 · **아무도 안 쓰는 방**(그려 놓고 영영 못 보는 그림) · 몇 곳을 쟀는지.
   사보타주 셋으로 확인했다 (모양 이름 오타 · 한 방을 안 쓰게 하기 · `shapes` 를 안 내놓기)
-- **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 지금 대장간 `villages/in-forge.webp` · 여관 `villages/in-inn.webp` · 일곱 굴뚝 상점 `villages/in-shop.webp` · 일곱 굴뚝 광산 `villages/in-mine.webp` · 일곱 오두막 `villages/in-cottage.webp` · 마법사의 탑 `villages/in-tower.webp` · 일곱 굴뚝 공방 `villages/in-lab.webp` · 붉은 사과밭 과수원 `villages/in-orchard.webp` · 붉은 사과밭 착즙간 `villages/in-press.webp` · 붉은 사과밭 빈 농가 `villages/in-empty.webp` · 붉은 사과밭 감시탑 `villages/in-watch.webp` · 거울 골짜기 거울못 `villages/in-pond.webp` · 거울 골짜기 낡은 사원 `villages/in-shrine.webp` · 거울 골짜기 안개 다리 `villages/in-bridge.webp` · 거울 골짜기 돌무지 `villages/in-cairn.webp` · 사냥꾼 쉼터 오두막 `villages/in-lodge.webp`) —
+- **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 지금 대장간 `villages/in-forge.webp` · 여관 `villages/in-inn.webp` · 일곱 굴뚝 상점 `villages/in-shop.webp` · 일곱 굴뚝 광산 `villages/in-mine.webp` · 일곱 오두막 `villages/in-cottage.webp` · 마법사의 탑 `villages/in-tower.webp` · 일곱 굴뚝 공방 `villages/in-lab.webp` · 붉은 사과밭 과수원 `villages/in-orchard.webp` · 붉은 사과밭 착즙간 `villages/in-press.webp` · 붉은 사과밭 빈 농가 `villages/in-empty.webp` · 붉은 사과밭 감시탑 `villages/in-watch.webp` · 거울 골짜기 거울못 `villages/in-pond.webp` · 거울 골짜기 낡은 사원 `villages/in-shrine.webp` · 거울 골짜기 안개 다리 `villages/in-bridge.webp` · 거울 골짜기 돌무지 `villages/in-cairn.webp` · 사냥꾼 쉼터 오두막 `villages/in-lodge.webp` · 사냥꾼 쉼터 덫 창고 `villages/in-trap.webp` · 사냥꾼 쉼터 훈연막 `villages/in-smoke.webp`) —
   그림은 무대의 3:2 로 잘라 두고, 사람이 오른쪽에 서므로 물건이 왼쪽에 있는 그림을 쓴다
   · **벽난로가 있는 그림은 «타는 불»을 덧그린다** (`spots[].fire` = [불 밑동 가운데 x, 밑동 y, 폭] · viewBox 300×200 · `village.js` 의 `fireFx`).
     불꽃 셋이 흔들리고 빛무리가 숨 쉬고 불티가 오른다 · 움직임 줄이기에서 멈춘다. ⚠️ 자리는 그림을 재서 적는다 — 그림을 바꾸면 다시 잰다
@@ -3344,6 +3344,8 @@ FULL=1 THEME=charcoal node tools/checkui.js showcase atelier gather   # 한 테�
   · **스테인드글라스에서 빛이 떨어진다** (`spots[].rays` = [[창 가운데 x, y, 창 반지름, 바닥 x, 바닥 y, 바닥 폭], …] · `rayFx` · 낡은 사원). 분홍·하늘·보라 띠 셋이 창에서 바닥으로 내리며 박자를 어긋내 일렁이고, 바닥에 색 웅덩이 · 빛 속으로 먼지가 떨어진다 · `mix-blend-mode: screen` · 움직임 줄이기에서 옅게 멈춘다
   · **빈 농가의 거미줄에는 거미가 실을 타고 오르내린다** (`spots[].spiders` = [[실 x, 실이 붙은 y, 쉬는 y], …] · `spiderFx`). 그림 속 거미는 지워 두었다(움직이는 거미와 둘이 되지 않게) · 실은 붙은 자리에서 오려 내 거미줄 위로 안 삐져나온다
   · **거미줄의 이슬이 반짝인다** (`spots[].dews` = [[x, y], …] · `dewFx`) · **창빛 속에 먼지가 떠다닌다** (`spots[].motes` = [[상자 x, y, 폭, 높이, 개수], …] · `moteFx`) — 셋 다 움직임 줄이기에서 멈춘다
+  · **거미줄을 그린다** (`spots[].webs` = [[모서리 x, y, 반지름, 시작 각, 끝 각], …] · `webFx` · 덫 창고) — 살 여섯 · 처진 고리 넷 · 이슬. 거미(`spiders`)의 넷째 칸은 크기 배율이다(없으면 1)
+  · **아궁이 위로 연기가 피어오른다** (`spots[].smokes` = [[나오는 x, y, 퍼지는 폭, 오르는 높이, 덩이 수], …] · `smokeFx` · 훈연막) · 덩이 자리는 번호로 고정 · 움직임 줄이기에서 옅게 머문다
   · **사람이 왼쪽에 서는 방이 있다** (`spots[].npcLeft` · 여관 · 오두막 — `.npc-figure.left` · 바닥 그림자도 같이 옮긴다)
 - **새 방을 만들면 `ROOM` 에 한 줄 더하고, 그 모양을 쓰는 건물을 하나는 둔다** —
   둘 중 하나만 하면 검사가 그 자리에서 잡는다

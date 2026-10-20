@@ -1636,8 +1636,8 @@ const VILLAGES = [
     spots: [
       { id: 'vs_hunter_lodge', emoji: '🛖', name: '오두막',   shape: 'house', x: 28, y: 35, npc: 'sp_stark', art: 'villages/in-lodge.webp', npcLeft: true,
         fire: [[238, 136, 6.5], [245.5, 137, 7], [252.5, 136, 6.5], [231, 159.5, 9]], lamps: [[115, 121, 10], [161, 142.5, 5]], bubbles: [[245, 118.8, 18, 2.5]] },
-      { id: 'vs_hunter_trap',  emoji: '🪤', name: '덫 창고',  shape: 'shop',  x: 80, y: 42 },
-      { id: 'vs_hunter_smoke', emoji: '🔥', name: '훈연막',   shape: 'forge', x: 26, y: 76 },
+      { id: 'vs_hunter_trap',  emoji: '🪤', name: '덫 창고',  shape: 'shop',  x: 80, y: 42, art: 'villages/in-trap.webp', lamps: [[63, 76, 10]], webs: [[51, 49, 24, 5, 85]], spiders: [[73, 56, 73, 0.7]] },
+      { id: 'vs_hunter_smoke', emoji: '🔥', name: '훈연막',   shape: 'forge', x: 26, y: 76, art: 'villages/in-smoke.webp', fire: [[176, 156, 9], [184, 156.5, 11], [192, 156, 9]], smokes: [[183, 112, 18, 45, 5]] },
       { id: 'vs_hunter_well',  emoji: '💧', name: '옹달샘',   shape: 'well',  x: 84, y: 78, trade: false },
     ] },
   // ── 2막 ── 둘 다 «유리관» 키워드에서 열린다. 그 키워드는 호감도 3단계에서야
