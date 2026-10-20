@@ -495,8 +495,10 @@
   // 거품 다섯이 물속 바닥 쪽에서 생겨 수면까지 올라와 터진다 — 수면 위로는 안 나간다 (유리 안에 갇혀 있어야 끓는 것으로 읽힌다).
   // 플라스크마다 박자를 어긋낸다. 자리는 그림을 재서 적는다 — 그림을 바꾸면 그 줄도 다시 잰다
   function bubbleFx(list) {
-    return `<g class="fx-bubbles" aria-hidden="true">${list.map(([x, y, w], i) => {
-      const depth = w * 0.55;                       // 거품이 생기는 깊이 (수면 아래)
+    return `<g class="fx-bubbles" aria-hidden="true">${list.map(([x, y, w, d], i) => {
+      // 거품이 생기는 깊이 (수면 아래) — 넷째 칸이 있으면 그 값이다: 솥처럼 물이 안 보이는 그릇은
+      // 수면 «바로 밑»에서 생겨야 솥 몸통 위로 거품이 안 떠오른다 (사냥꾼 쉼터의 스프 솥)
+      const depth = d != null ? d : w * 0.55;
       return [-0.3, 0.12, -0.05, 0.28, -0.18].map((dx, j) =>
         `<circle class="fx-bub" style="--r:-${depth.toFixed(1)}px;animation-delay:${(-(i * 0.29 + j * 0.23)).toFixed(2)}s" cx="${(x + dx * w).toFixed(1)}" cy="${(y + depth).toFixed(1)}" r="${(w * (0.045 + (j % 3) * 0.02)).toFixed(2)}" fill="#ffffff" fill-opacity="0.55" stroke="#ffffff" stroke-width="0.35"/>`).join('');
     }).join('')}</g>`;

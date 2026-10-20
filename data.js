@@ -1634,7 +1634,8 @@ const VILLAGES = [
   { id: 'vl_hunter',  emoji: '🏹', name: '사냥꾼 쉼터',   desc: '차마 베지 못한 사냥꾼이 머무는 오두막.',
     art: 'villages/hunter.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_hunter_lodge', emoji: '🛖', name: '오두막',   shape: 'house', x: 28, y: 35, npc: 'sp_stark' },
+      { id: 'vs_hunter_lodge', emoji: '🛖', name: '오두막',   shape: 'house', x: 28, y: 35, npc: 'sp_stark', art: 'villages/in-lodge.webp', npcLeft: true,
+        fire: [[238, 136, 6.5], [245.5, 137, 7], [252.5, 136, 6.5], [231, 159.5, 9]], lamps: [[115, 121, 10], [161, 142.5, 5]], bubbles: [[245, 118.8, 18, 2.5]] },
       { id: 'vs_hunter_trap',  emoji: '🪤', name: '덫 창고',  shape: 'shop',  x: 80, y: 42 },
       { id: 'vs_hunter_smoke', emoji: '🔥', name: '훈연막',   shape: 'forge', x: 26, y: 76 },
       { id: 'vs_hunter_well',  emoji: '💧', name: '옹달샘',   shape: 'well',  x: 84, y: 78, trade: false },
