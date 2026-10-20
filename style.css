@@ -5202,6 +5202,16 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 }
 @media (prefers-reduced-motion: reduce) { .fx-glints .fx-glint { animation: none; opacity: 0.4; } }
 
+/* ── 물 위로 피어오르는 «물안개» (village.js 의 mistFx) — 흐린 덩이가 떠오르며 옆으로 흐르다 옅어진다 ── */
+.fx-mists .fx-mist { opacity: 0; animation: fxMist 8s ease-in-out infinite; }
+@keyframes fxMist {
+  0%   { opacity: 0;    transform: translate(0, 0) scale(0.7); }
+  35%  { opacity: 0.68; }
+  70%  { opacity: 0.42; }
+  100% { opacity: 0;    transform: translate(var(--dx, 6px), var(--rise, -10px)) scale(1.25); }
+}
+@media (prefers-reduced-motion: reduce) { .fx-mists .fx-mist { animation: none; opacity: 0.3; } }
+
 /* ── 건물 안의 «작은 나비» (village.js 의 butterflyFx) — 떠도는 길(fxFly)과 날갯짓(fxFlap)은 다른 겹이다 ── */
 .fx-bflies .fx-fly { animation: fxFly 10s ease-in-out infinite; }
 @keyframes fxFly {

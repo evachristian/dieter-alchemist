@@ -472,6 +472,7 @@
       ${s.art && s.bubbles ? bubbleFx(s.bubbles) : ''}
       ${s.art && s.butterflies ? butterflyFx(s.butterflies) : ''}
       ${s.art && s.glints ? glintFx(s.glints) : ''}
+      ${s.art && s.mists ? mistFx(s.mists, u) : ''}
       ${npc ? `<ellipse cx="${s.npcLeft ? IW - 216 : 216}" cy="${FY + 24}" rx="40" ry="9" fill="#000" opacity="0.16"/>` : ''}
     </svg>`;
   }
@@ -532,6 +533,18 @@
           + (j % 4 === 0 ? `<path d="M0,-3.2 L0.6,-0.6 L3.2,0 L0.6,0.6 L0,3.2 L-0.6,0.6 L-3.2,0 L-0.6,-0.6Z" fill="#ffffff"/>` : '')
           + `</g></g>`;
       }).join('')).join('')}</g>`;
+  }
+  // 받은 그림 속 물 위로 «물안개»가 피어오른다 (`spots[].mists` = [[띠 가운데 x, 밑 y, 띠 폭, 덩이 수], …] · viewBox 좌표).
+  // 흐린 흰 덩이가 물 위에서 생겨 천천히 떠오르며 옆으로 흐르다 옅어진다 — 덩이마다 박자를 어긋낸다.
+  // 자리는 덩이 번호로 고정한다 (무작위면 다시 그릴 때마다 옮겨 다닌다). 움직임 줄이기에서는 옅게 머문다
+  function mistFx(list, u) {
+    return `<g class="fx-mists" aria-hidden="true"><defs><filter id="mb_${u}" x="-50%" y="-80%" width="200%" height="260%"><feGaussianBlur stdDeviation="3.2"/></filter></defs>`
+      + `<g filter="url(#mb_${u})">${list.map(([x, y, w, n], i) =>
+      Array.from({ length: n }, (_, j) => {
+        const t = (j + 0.5) / n, mx = x + (t - 0.5) * w, rx = w / n * 0.9 + 6, ry = rx * 0.38;
+        const dur = 7 + ((j * 3 + i) % 4) * 1.3;
+        return `<g transform="translate(${mx.toFixed(1)},${y})"><ellipse class="fx-mist" style="--dx:${(j % 2 ? 7 : -7)}px;--rise:${(-(8 + (j % 3) * 4))}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.9 + i * 1.3) % dur)).toFixed(1)}s" cx="0" cy="0" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="#ffffff"/></g>`;
+      }).join('')).join('')}</g></g>`;
   }
   const FLAME = 'M0,0 C-.52,0 -.56,-.46 -.26,-.8 C-.14,-.95 -.02,-1.15 0,-1.4 C.1,-1.12 .46,-.9 .5,-.46 C.54,-.1 .3,0 0,0Z';
   function fireFx(f, u) {
