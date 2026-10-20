@@ -473,6 +473,7 @@
       ${s.art && s.butterflies ? butterflyFx(s.butterflies) : ''}
       ${s.art && s.glints ? glintFx(s.glints) : ''}
       ${s.art && s.mists ? mistFx(s.mists, u) : ''}
+      ${s.art && s.rays ? rayFx(s.rays, u) : ''}
       ${npc ? `<ellipse cx="${s.npcLeft ? IW - 216 : 216}" cy="${FY + 24}" rx="40" ry="9" fill="#000" opacity="0.16"/>` : ''}
     </svg>`;
   }
@@ -545,6 +546,28 @@
         const dur = 7 + ((j * 3 + i) % 4) * 1.3;
         return `<g transform="translate(${mx.toFixed(1)},${y})"><ellipse class="fx-mist" style="--dx:${(j % 2 ? 7 : -7)}px;--rise:${(-(8 + (j % 3) * 4))}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.9 + i * 1.3) % dur)).toFixed(1)}s" cx="0" cy="0" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="#ffffff"/></g>`;
       }).join('')).join('')}</g></g>`;
+  }
+  // 받은 그림 속 스테인드글라스에서 «빛이 떨어진다» (`spots[].rays` = [[창 가운데 x, y, 창 반지름, 바닥 x, 바닥 y, 바닥 폭], …] · viewBox 좌표).
+  // 창에서 바닥까지 색 띠 셋(분홍·하늘·보라)이 비스듬히 내리고, 띠마다 박자를 어긋내 일렁인다 ·
+  // 바닥에는 색 빛 웅덩이가 앉고, 빛 속으로 먼지 알갱이가 천천히 떨어진다. 움직임 줄이기에서는 옅게 멈춘다
+  const RAY_COLS = ['#ff9ab8', '#9cc4ff', '#c79cff'];
+  function rayFx(list, u) {
+    return `<g class="fx-rays" aria-hidden="true">${list.map(([x, y, r, fx, fy, w], i) => {
+      const id = `rg_${u}_${i}`, n = RAY_COLS.length;
+      const stripes = RAY_COLS.map((c, k) => {
+        const a0 = x - r + (2 * r) * k / n, a1 = x - r + (2 * r) * (k + 1) / n;
+        const b0 = fx - w / 2 + w * k / n, b1 = fx - w / 2 + w * (k + 1) / n;
+        return `<path class="fx-ray" style="animation-delay:${(-k * 1.4 - i).toFixed(1)}s;animation-duration:${(4.2 + k * 0.7).toFixed(1)}s" d="M${a0.toFixed(1)},${y} L${a1.toFixed(1)},${y} L${b1.toFixed(1)},${fy} L${b0.toFixed(1)},${fy}Z" fill="${c}" mask="url(#${id}m)"/>`;
+      }).join('');
+      const pool = RAY_COLS.map((c, k) => `<ellipse class="fx-pool" style="animation-delay:${(-k * 1.4).toFixed(1)}s" cx="${(fx - w / 3 + w / 3 * k).toFixed(1)}" cy="${fy}" rx="${(w / 3.4).toFixed(1)}" ry="${(w / 9).toFixed(1)}" fill="${c}"/>`).join('');
+      const dust = Array.from({ length: 7 }, (_, j) => {
+        const t = (j + 0.5) / 7, dx = x + (fx - x) * t + ((j * 37) % 11 - 5) * (r + (w / 2 - r) * t) / 6;
+        return `<circle class="fx-dust" style="animation-delay:${(-j * 1.1).toFixed(1)}s;animation-duration:${(6 + (j % 3)).toFixed(1)}s" cx="${dx.toFixed(1)}" cy="${(y + (fy - y) * t).toFixed(1)}" r="0.7" fill="#fff6dc"/>`;
+      }).join('');
+      return `<defs><linearGradient id="${id}" x1="0" y1="${y}" x2="0" y2="${fy}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0.9"/><stop offset="0.7" stop-color="#fff" stop-opacity="0.45"/><stop offset="1" stop-color="#fff" stop-opacity="0.1"/></linearGradient>`
+        + `<mask id="${id}m" maskUnits="userSpaceOnUse" x="0" y="0" width="300" height="200"><rect x="0" y="0" width="300" height="200" fill="url(#${id})"/></mask></defs>`
+        + `<g class="fx-raybeam">${stripes}</g>${pool}${dust}`;
+    }).join('')}</g>`;
   }
   const FLAME = 'M0,0 C-.52,0 -.56,-.46 -.26,-.8 C-.14,-.95 -.02,-1.15 0,-1.4 C.1,-1.12 .46,-.9 .5,-.46 C.54,-.1 .3,0 0,0Z';
   function fireFx(f, u) {

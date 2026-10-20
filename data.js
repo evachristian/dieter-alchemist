@@ -1627,7 +1627,7 @@ const VILLAGES = [
     art: 'villages/mirror.webp', artRatio: 1200 / 1310,
     spots: [
       { id: 'vs_mirror_pond',   emoji: '🪞', name: '거울못',    shape: 'water', x: 30, y: 35, npc: 'sp_yutark', trade: false, art: 'villages/in-pond.webp', glints: [[160, 125, 115, 36, 30], [185, 165, 45, 8, 6]] },
-      { id: 'vs_mirror_shrine', emoji: '⛪', name: '낡은 사원', shape: 'ruin',  x: 80, y: 34, art: 'villages/in-shrine.webp', lamps: [[90, 49, 10], [165, 52.5, 9], [188, 34, 10], [195, 141, 5], [150, 161, 4], [142.5, 175, 4], [155, 176, 4], [215, 160.5, 4], [221, 171, 4], [19, 151, 4]] },
+      { id: 'vs_mirror_shrine', emoji: '⛪', name: '낡은 사원', shape: 'ruin',  x: 80, y: 34, art: 'villages/in-shrine.webp', rays: [[119, 52, 15, 128, 148, 44]], lamps: [[90, 49, 10], [165, 52.5, 9], [188, 34, 10], [195, 141, 5], [150, 161, 4], [142.5, 175, 4], [155, 176, 4], [215, 160.5, 4], [221, 171, 4], [19, 151, 4]] },
       { id: 'vs_mirror_bridge', emoji: '☁️', name: '안개 다리', shape: 'water', x: 32, y: 70, art: 'villages/in-bridge.webp', mists: [[150, 152, 120, 7], [160, 150, 70, 5], [183, 196, 70, 4], [125, 38, 80, 4], [265, 60, 70, 4]] },
       { id: 'vs_mirror_cairn',  emoji: '🗿', name: '돌무지',    shape: 'ruin',  x: 80, y: 78, art: 'villages/in-cairn.webp', butterflies: [[75, 125, 40, 20], [215, 95, 40, 18]] },
     ] },

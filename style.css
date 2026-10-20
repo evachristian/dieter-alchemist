@@ -5212,6 +5212,25 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 }
 @media (prefers-reduced-motion: reduce) { .fx-mists .fx-mist { animation: none; opacity: 0.3; } }
 
+/* ── 스테인드글라스에서 떨어지는 빛 (village.js 의 rayFx) — 색 띠가 일렁이고 먼지가 빛 속으로 떨어진다 ── */
+.fx-rays { mix-blend-mode: screen; }
+.fx-rays .fx-ray { opacity: 0.4; animation: fxRay 4.5s ease-in-out infinite; }
+@keyframes fxRay { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.55; } }
+@keyframes fxPool { 0%, 100% { opacity: 0.14; } 50% { opacity: 0.26; } }
+.fx-rays .fx-pool { opacity: 0.2; animation: fxPool 4.5s ease-in-out infinite; }
+.fx-rays .fx-dust { opacity: 0; animation: fxDust 6s linear infinite; }
+@keyframes fxDust {
+  0%   { opacity: 0;   transform: translate(0, -6px); }
+  25%  { opacity: 0.9; }
+  75%  { opacity: 0.7; }
+  100% { opacity: 0;   transform: translate(2px, 8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-rays .fx-ray { animation: none; opacity: 0.4; }
+  .fx-rays .fx-pool { animation: none; opacity: 0.2; }
+  .fx-rays .fx-dust { animation: none; opacity: 0.5; }
+}
+
 /* ── 건물 안의 «작은 나비» (village.js 의 butterflyFx) — 떠도는 길(fxFly)과 날갯짓(fxFlap)은 다른 겹이다 ── */
 .fx-bflies .fx-fly { animation: fxFly 10s ease-in-out infinite; }
 @keyframes fxFly {
