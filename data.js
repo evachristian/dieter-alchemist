@@ -1626,7 +1626,7 @@ const VILLAGES = [
   { id: 'vl_mirror',  emoji: '🪞', name: '거울 골짜기',   desc: '물으면 어김없이 대답이 돌아오는 골짜기.',
     art: 'villages/mirror.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_mirror_pond',   emoji: '🪞', name: '거울못',    shape: 'water', x: 30, y: 35, npc: 'sp_yutark', trade: false },
+      { id: 'vs_mirror_pond',   emoji: '🪞', name: '거울못',    shape: 'water', x: 30, y: 35, npc: 'sp_yutark', trade: false, art: 'villages/in-pond.webp', glints: [[160, 125, 115, 36, 30], [185, 165, 45, 8, 6]] },
       { id: 'vs_mirror_shrine', emoji: '⛪', name: '낡은 사원', shape: 'ruin',  x: 80, y: 34 },
       { id: 'vs_mirror_bridge', emoji: '☁️', name: '안개 다리', shape: 'water', x: 32, y: 70 },
       { id: 'vs_mirror_cairn',  emoji: '🗿', name: '돌무지',    shape: 'ruin',  x: 80, y: 78 },

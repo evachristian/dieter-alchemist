@@ -471,6 +471,7 @@
       ${s.art && s.lamps ? lampFx(s.lamps, u) : ''}
       ${s.art && s.bubbles ? bubbleFx(s.bubbles) : ''}
       ${s.art && s.butterflies ? butterflyFx(s.butterflies) : ''}
+      ${s.art && s.glints ? glintFx(s.glints) : ''}
       ${npc ? `<ellipse cx="${s.npcLeft ? IW - 216 : 216}" cy="${FY + 24}" rx="40" ry="9" fill="#000" opacity="0.16"/>` : ''}
     </svg>`;
   }
@@ -516,6 +517,21 @@
         + `<ellipse cx="0" cy="0.1" rx="1.5" ry="0.38" fill="#5a3a26"/><circle cx="1.65" cy="-0.05" r="0.45" fill="#5a3a26"/>`
         + `<path d="M1.8,-0.4 Q2.2,-1.2 2.7,-1.5 M1.6,-0.4 Q1.8,-1.3 2.2,-1.8" fill="none" stroke="#5a3a26" stroke-width="0.18" stroke-linecap="round"/></g></g>`;
     }).join('')}</g>`;
+  }
+  // 받은 그림 속 물 위에 «윤슬»이 반짝인다 (`spots[].glints` = [[물 가운데 x, y, 반폭, 반높이, 개수], …] · viewBox 좌표).
+  // 짧은 빛 줄 하나하나가 제 박자로 반짝였다 사라진다 — 자리는 황금각으로 타원 안에 고르게 흩는다
+  // (무작위로 두면 다시 그릴 때마다 자리가 바뀐다). 움직임 줄이기에서는 옅게 남는다
+  function glintFx(list) {
+    return `<g class="fx-glints" aria-hidden="true">${list.map(([x, y, rx, ry, n], i) =>
+      Array.from({ length: n }, (_, j) => {
+        const r = Math.sqrt((j + 0.5) / n), a = j * 2.39996 + i;
+        const gx = x + Math.cos(a) * r * rx, gy = y + Math.sin(a) * r * ry;
+        const w = 4.5 + (j % 3) * 2.2;
+        return `<g transform="translate(${gx.toFixed(1)},${gy.toFixed(1)})"><g class="fx-glint" style="animation-delay:${(-((j * 0.61 + i * 0.37) % 2.8)).toFixed(2)}s;animation-duration:${(2.2 + (j % 4) * 0.3).toFixed(1)}s">`
+          + `<rect x="${(-w / 2).toFixed(1)}" y="-0.75" width="${w.toFixed(1)}" height="1.5" rx="0.75" fill="#ffffff"/>`
+          + (j % 4 === 0 ? `<path d="M0,-3.2 L0.6,-0.6 L3.2,0 L0.6,0.6 L0,3.2 L-0.6,0.6 L-3.2,0 L-0.6,-0.6Z" fill="#ffffff"/>` : '')
+          + `</g></g>`;
+      }).join('')).join('')}</g>`;
   }
   const FLAME = 'M0,0 C-.52,0 -.56,-.46 -.26,-.8 C-.14,-.95 -.02,-1.15 0,-1.4 C.1,-1.12 .46,-.9 .5,-.46 C.54,-.1 .3,0 0,0Z';
   function fireFx(f, u) {
