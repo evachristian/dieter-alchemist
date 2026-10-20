@@ -1618,7 +1618,7 @@ const VILLAGES = [
   { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.',
     art: 'villages/apple.webp', artRatio: 1200 / 1310,
     spots: [
-      { id: 'vs_apple_orchard', emoji: '🍎', name: '과수원',   shape: 'farm',  x: 30, y: 37 },
+      { id: 'vs_apple_orchard', emoji: '🍎', name: '과수원',   shape: 'farm',  x: 30, y: 37, art: 'villages/in-orchard.webp' },
       { id: 'vs_apple_press',   emoji: '🍯', name: '착즙간',   shape: 'shop',  x: 73, y: 41 },
       { id: 'vs_apple_empty',   emoji: '🏚️', name: '빈 농가',  shape: 'ruin',  x: 33, y: 72, npc: 'sp_sylvan' },
       { id: 'vs_apple_watch',   emoji: '🔭', name: '감시탑',   shape: 'tower', x: 85, y: 77 },
