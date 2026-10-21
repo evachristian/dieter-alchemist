@@ -1659,10 +1659,10 @@ const VILLAGES = [
     glints: [[170, 140, 85, 40, 28], [125, 78, 35, 8, 6], [240, 165, 20, 14, 5]],
     spots: [
       { id: 'vs_glass_shore', emoji: '🌊', name: '호숫가',      shape: 'water', x: 24, y: 30, art: 'villages/in-shore.webp', glints: [[205, 112, 52, 26, 24], [130, 152, 42, 11, 10], [168, 62, 38, 8, 8]] },
-      { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'water', x: 80, y: 40, art: 'villages/in-pier.webp', glints: [[52, 125, 40, 20, 18], [82, 85, 30, 7, 7], [48, 172, 30, 8, 7]] },
-      { id: 'vs_glass_hut',   emoji: '🎣', name: '어부 오두막', shape: 'shop',  x: 26, y: 76 },
+      { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'water', x: 80, y: 40, art: 'villages/in-pier.webp', glints: [[52, 125, 40, 20, 18], [82, 85, 30, 7, 7], [48, 172, 30, 8, 7]], fishes: [[55, 135, 38, 18, 3]] },
+      { id: 'vs_glass_hut',   emoji: '🎣', name: '어부 오두막', shape: 'shop',  x: 26, y: 76, art: 'villages/in-hut.webp', fire: [259, 148, 13] },
       // 관까지 내려가는 길. **아직 아무것도 없다** — 3막에서 쓸 자리다
-      { id: 'vs_glass_stair', emoji: '🪨', name: '잠긴 계단',   shape: 'tower', x: 78, y: 80, trade: false },
+      { id: 'vs_glass_stair', emoji: '🪨', name: '잠긴 계단',   shape: 'tower', x: 78, y: 80, trade: false, art: 'villages/in-stair.webp', glints: [[95, 50, 80, 28, 22], [150, 112, 28, 7, 5]], fishes: [[90, 55, 60, 22, 3], [150, 108, 30, 8, 1]] },
     ] },
   { id: 'vl_mine',    emoji: '⛏️', name: '은빛 갱도',     desc: '곡괭이 소리가 밤낮으로 울리는 은광촌.',
     art: 'villages/mine.webp', artRatio: 1200 / 1310,

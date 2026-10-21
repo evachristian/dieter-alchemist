@@ -476,6 +476,7 @@
       ${s.art && s.lamps ? lampFx(s.lamps, u) : ''}
       ${s.art && s.bubbles ? bubbleFx(s.bubbles) : ''}
       ${s.art && s.butterflies ? butterflyFx(s.butterflies) : ''}
+      ${s.art && s.fishes ? fishFx(s.fishes, u) : ''}
       ${s.art && s.glints ? glintFx(s.glints) : ''}
       ${s.art && s.mists ? mistFx(s.mists, u) : ''}
       ${s.art && s.smokes ? smokeFx(s.smokes, u) : ''}
@@ -535,6 +536,24 @@
   // 받은 그림 속 물 위에 «윤슬»이 반짝인다 (`spots[].glints` = [[물 가운데 x, y, 반폭, 반높이, 개수], …] · viewBox 좌표).
   // 짧은 빛 줄 하나하나가 제 박자로 반짝였다 사라진다 — 자리는 황금각으로 타원 안에 고르게 흩는다
   // (무작위로 두면 다시 그릴 때마다 자리가 바뀐다). 움직임 줄이기에서는 옅게 남는다
+  // 받은 그림 속 물밑으로 «물고기 그림자»가 지나간다 (`spots[].fishes` = [[물 가운데 x, y, 반폭, 반높이, 마리 수], …] · viewBox 좌표).
+  // 흐린 짙은 물고기 실루엣이 타원을 따라 천천히 돌며 떠올랐다(진해졌다) 가라앉았다(옅어졌다) 한다 — 마리마다 방향·빠르기·박자를 어긋낸다.
+  // 윤슬보다 «아래»에 깐다 (물밑이다). 타원은 세로를 눌러 «비스듬히 내려다본 물»이 된다.
+  // SMIL 이라 CSS 의 움직임 줄이기가 안 닿는다 — 그릴 때 물어서 그때는 제자리에 옅게 둔다
+  function fishFx(list, u) {
+    const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return `<g class="fx-fishes" aria-hidden="true"><defs><filter id="fs_${u}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.1"/></filter></defs>`
+      + `<g filter="url(#fs_${u})" fill="#1d4f72">${list.map(([x, y, rx, ry, n], i) =>
+      Array.from({ length: n }, (_, j) => {
+        const dir = (i + j) % 2 ? 1 : -1, dur = 13 + ((i * 3 + j * 5) % 5) * 2.2;
+        const a0 = Math.round((j * 360 / n + i * 47) % 360), k = 0.85 + (j % 3) * 0.18;
+        const fish = `<g transform="translate(${rx},0) rotate(${dir > 0 ? 90 : -90}) scale(${k.toFixed(2)})">`
+          + `<ellipse cx="0" cy="0" rx="7" ry="2.6"/><path d="M-5.5,0 L-11,-3.4 L-9.6,0 L-11,3.4Z"/></g>`;
+        const spin = still ? '' : `<animateTransform attributeName="transform" type="rotate" from="${a0}" to="${a0 + 360 * dir}" dur="${dur.toFixed(1)}s" repeatCount="indefinite"/>`;
+        const fade = still ? '' : `<animate attributeName="opacity" values="0;0.32;0.32;0" keyTimes="0;0.2;0.7;1" dur="${(dur * 0.7).toFixed(1)}s" begin="${(-((j * 2.3 + i * 1.7) % 6)).toFixed(1)}s" repeatCount="indefinite"/>`;
+        return `<g transform="translate(${x},${y}) scale(1,${(ry / rx).toFixed(3)})"><g opacity="${still ? 0.22 : 0}">${fade}<g transform="rotate(${a0})">${spin}${fish}</g></g></g>`;
+      }).join('')).join('')}</g></g>`;
+  }
   function glintFx(list) {
     return `<g class="fx-glints" aria-hidden="true">${list.map(([x, y, rx, ry, n], i) =>
       Array.from({ length: n }, (_, j) => {
