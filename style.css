@@ -5223,6 +5223,15 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
   100% { opacity: 0;    transform: translate(var(--dx, -6px), var(--rise, -30px)) scale(1.9); }
 }
 @media (prefers-reduced-motion: reduce) { .fx-smokes .fx-smoke { animation: none; opacity: 0.25; } }
+/* 바깥 장면의 아궁이 연기 (smokes 의 일곱째 칸 'out') — 짙은 지붕·돌 위라 희고 진하게 */
+.fx-smokes .fx-smoke.out { fill: #fffdf8; animation-name: fxSmokeOut; }
+@keyframes fxSmokeOut {
+  0%   { opacity: 0;    transform: translate(0, 0) scale(0.6); }
+  20%  { opacity: 0.85; }
+  65%  { opacity: 0.5; }
+  100% { opacity: 0;    transform: translate(var(--dx, -6px), var(--rise, -30px)) scale(1.9); }
+}
+@media (prefers-reduced-motion: reduce) { .fx-smokes .fx-smoke.out { opacity: 0.45; } }
 /* 마을 지도의 굴뚝 연기 — 바깥 하늘·숲 위라 실내 연기(베이지·옅게)로는 묻힌다. 희고 진하게, 그려진 연기에 이어 오른다 */
 .vil-fx .fx-smoke { fill: #fffdf8; animation-name: fxChimney; }
 @keyframes fxChimney {

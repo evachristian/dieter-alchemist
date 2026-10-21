@@ -557,6 +557,7 @@
   function glintFx(list) {
     return `<g class="fx-glints" aria-hidden="true">${list.map(([x, y, rx, ry, n], i) =>
       Array.from({ length: n }, (_, j) => {
+        // 일곱째 칸이 'out' 이면 바깥 장면이라 희고 진하게 선다 (세공소 — 짙은 지붕 위에서 베이지 연기가 묻혔다)
         // 여섯째 칸이 있으면 흐르는 쪽·세기다 (1 = 왼쪽 · 음수 = 오른쪽 · 마을 지도의 굴뚝 연기는 그려진 연기를 따라 오른쪽)
         const r = Math.sqrt((j + 0.5) / n), a = j * 2.39996 + i;
         const gx = x + Math.cos(a) * r * rx, gy = y + Math.sin(a) * r * ry;
@@ -647,12 +648,12 @@
   // 자리는 덩이 번호로 고정한다 (무작위면 다시 그릴 때마다 옮겨 다닌다). 움직임 줄이기에서는 옅게 머문다
   function smokeFx(list, u, blur = 2.2) {
     return `<g class="fx-smokes" aria-hidden="true"><defs><filter id="sb_${u}" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs>`
-      + `<g filter="url(#sb_${u})">${list.map(([x, y, w, rise, n, lean = 1], i) =>
+      + `<g filter="url(#sb_${u})">${list.map(([x, y, w, rise, n, lean = 1, tone], i) =>
       Array.from({ length: n }, (_, j) => {
         // 여섯째 칸이 있으면 흐르는 쪽·세기다 (1 = 왼쪽 · 음수 = 오른쪽 · 마을 지도의 굴뚝 연기는 그려진 연기를 따라 오른쪽)
         const sx = x + ((j * 0.618 + i * 0.3) % 1 - 0.5) * w, r = 4 + (j % 3) * 1.6;
         const dur = 5.5 + (j % 4) * 0.9;
-        return `<g transform="translate(${sx.toFixed(1)},${y})"><circle class="fx-smoke" style="--dx:${(j % 2 ? -1 : -0.4) * w * 0.6 * lean}px;--rise:${-rise}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.3 + i) % dur)).toFixed(1)}s" cx="0" cy="0" r="${r.toFixed(1)}" fill="#d9cfc3"/></g>`;
+        return `<g transform="translate(${sx.toFixed(1)},${y})"><circle class="fx-smoke${tone === 'out' ? ' out' : ''}" style="--dx:${(j % 2 ? -1 : -0.4) * w * 0.6 * lean}px;--rise:${-rise}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.3 + i) % dur)).toFixed(1)}s" cx="0" cy="0" r="${r.toFixed(1)}" fill="#d9cfc3"/></g>`;
       }).join('')).join('')}</g></g>`;
   }
   const RAY_COLS = ['#ff9ab8', '#9cc4ff', '#c79cff'];
