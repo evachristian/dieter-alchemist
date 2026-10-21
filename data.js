@@ -1685,6 +1685,8 @@ const VILLAGES = [
   // 문은 키워드 하나다 (`isVillageOpen()` 은 `S.villages` 만 본다 — 두 번 잠그지 않는다)
   { id: 'vl_spire',   emoji: '🏰', name: '여왕의 첨탑',   desc: '가장 아름다운 이를 묻는 거울이 걸린 탑.',
     art: 'villages/spire.webp', artRatio: 1200 / 1310,
+    // 굴뚝 둘(위 · 아래 집)의 연기 (그림 px ÷ 4)
+    smokes: [[242, 96, 4, 18, 3, -2], [247, 220, 4, 18, 3, -2]],
     spots: [
       { id: 'vs_spire_gate',   emoji: '🏰', name: '첨탑',         shape: 'tower', x: 29, y: 37, trade: false },
       // 몇십 년째 무작위 조합 중인 자리 (STORY.md 「그녀는 레시피를 모른다」)
