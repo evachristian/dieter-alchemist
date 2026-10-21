@@ -1655,7 +1655,7 @@ const VILLAGES = [
     smokes: [[82, 170, 4, 18, 3, -2]],
     spots: [
       { id: 'vs_glass_shore', emoji: '🌊', name: '호숫가',      shape: 'water', x: 24, y: 30, art: 'villages/in-shore.webp', glints: [[205, 112, 52, 26, 24], [130, 152, 42, 11, 10], [168, 62, 38, 8, 8]] },
-      { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'water', x: 80, y: 40 },
+      { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'water', x: 80, y: 40, art: 'villages/in-pier.webp', glints: [[52, 125, 40, 20, 18], [82, 85, 30, 7, 7], [48, 172, 30, 8, 7]] },
       { id: 'vs_glass_hut',   emoji: '🎣', name: '어부 오두막', shape: 'shop',  x: 26, y: 76 },
       // 관까지 내려가는 길. **아직 아무것도 없다** — 3막에서 쓸 자리다
       { id: 'vs_glass_stair', emoji: '🪨', name: '잠긴 계단',   shape: 'tower', x: 78, y: 80, trade: false },
