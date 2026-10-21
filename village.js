@@ -660,19 +660,26 @@
   const SUN_COLS = ['#ffe4a6', '#fff3d1', '#ffd98c'];
   function rayFx(list, u) {
     return `<g class="fx-rays" aria-hidden="true">${list.map(([x, y, r, fx, fy, w, tone], i) => {
-      const cols = tone === 'sun' ? SUN_COLS : RAY_COLS;
+      const sun = tone === 'sun', cols = sun ? SUN_COLS : RAY_COLS;
       const id = `rg_${u}_${i}`, n = cols.length;
       const stripes = cols.map((c, k) => {
         const a0 = x - r + (2 * r) * k / n, a1 = x - r + (2 * r) * (k + 1) / n;
         const b0 = fx - w / 2 + w * k / n, b1 = fx - w / 2 + w * (k + 1) / n;
         return `<path class="fx-ray" style="animation-delay:${(-k * 1.4 - i).toFixed(1)}s;animation-duration:${(4.2 + k * 0.7).toFixed(1)}s" d="M${a0.toFixed(1)},${y} L${a1.toFixed(1)},${y} L${b1.toFixed(1)},${fy} L${b0.toFixed(1)},${fy}Z" fill="${c}" mask="url(#${id}m)"/>`;
       }).join('');
-      const pool = cols.map((c, k) => `<ellipse class="fx-pool" style="animation-delay:${(-k * 1.4).toFixed(1)}s" cx="${(fx - w / 3 + w / 3 * k).toFixed(1)}" cy="${fy}" rx="${(w / 3.4).toFixed(1)}" ry="${(w / 9).toFixed(1)}" fill="${c}"/>`).join('');
+      // 햇살(sun)은 바닥에 «뿌연 웅덩이 하나» — 가장자리가 번져 사라지는 방사형이다 (원석 창고)
+      const pool = sun
+        ? `<ellipse class="fx-pool sun" cx="${fx}" cy="${fy}" rx="${(w * 0.62).toFixed(1)}" ry="${(w / 5.5).toFixed(1)}" fill="url(#${id}p)"/>`
+        : cols.map((c, k) => `<ellipse class="fx-pool" style="animation-delay:${(-k * 1.4).toFixed(1)}s" cx="${(fx - w / 3 + w / 3 * k).toFixed(1)}" cy="${fy}" rx="${(w / 3.4).toFixed(1)}" ry="${(w / 9).toFixed(1)}" fill="${c}"/>`).join('');
       const dust = Array.from({ length: 7 }, (_, j) => {
         const t = (j + 0.5) / 7, dx = x + (fx - x) * t + ((j * 37) % 11 - 5) * (r + (w / 2 - r) * t) / 6;
         return `<circle class="fx-dust" style="animation-delay:${(-j * 1.1).toFixed(1)}s;animation-duration:${(6 + (j % 3)).toFixed(1)}s" cx="${dx.toFixed(1)}" cy="${(y + (fy - y) * t).toFixed(1)}" r="0.7" fill="#fff6dc"/>`;
       }).join('');
-      return `<defs><linearGradient id="${id}" x1="0" y1="${y}" x2="0" y2="${fy}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0.9"/><stop offset="0.7" stop-color="#fff" stop-opacity="0.45"/><stop offset="1" stop-color="#fff" stop-opacity="0.1"/></linearGradient>`
+      return `<defs><linearGradient id="${id}" x1="0" y1="${y}" x2="0" y2="${fy}" gradientUnits="userSpaceOnUse">${sun
+          // 햇살은 창틀에서 «잘려» 시작하지 않게 위 끝을 0 에서 번져 나온다
+          ? '<stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.28" stop-color="#fff" stop-opacity="0.75"/><stop offset="0.7" stop-color="#fff" stop-opacity="0.4"/><stop offset="1" stop-color="#fff" stop-opacity="0.05"/>'
+          : '<stop offset="0" stop-color="#fff" stop-opacity="0.9"/><stop offset="0.7" stop-color="#fff" stop-opacity="0.45"/><stop offset="1" stop-color="#fff" stop-opacity="0.1"/>'}</linearGradient>`
+        + (sun ? `<radialGradient id="${id}p"><stop offset="0" stop-color="${SUN_COLS[1]}" stop-opacity="0.85"/><stop offset="0.5" stop-color="${SUN_COLS[0]}" stop-opacity="0.4"/><stop offset="1" stop-color="${SUN_COLS[0]}" stop-opacity="0"/></radialGradient>` : '')
         + `<mask id="${id}m" maskUnits="userSpaceOnUse" x="0" y="0" width="300" height="200"><rect x="0" y="0" width="300" height="200" fill="url(#${id})"/></mask></defs>`
         + `<g class="fx-raybeam">${stripes}</g>${pool}${dust}`;
     }).join('')}</g>`;

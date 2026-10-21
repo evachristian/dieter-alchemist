@@ -5272,6 +5272,7 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 @keyframes fxRay { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.55; } }
 @keyframes fxPool { 0%, 100% { opacity: 0.14; } 50% { opacity: 0.26; } }
 .fx-rays .fx-pool { opacity: 0.2; animation: fxPool 4.5s ease-in-out infinite; }
+.fx-rays .fx-pool.sun { opacity: 0.55; animation: none; }
 .fx-rays .fx-dust { opacity: 0; animation: fxDust 6s linear infinite; }
 @keyframes fxDust {
   0%   { opacity: 0;   transform: translate(0, -6px); }
