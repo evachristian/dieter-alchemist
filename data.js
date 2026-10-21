@@ -1669,7 +1669,7 @@ const VILLAGES = [
     // 굴뚝 둘(원석 창고 · 세공소)의 연기 — 일곱 굴뚝과 같은 칸이다 (그림 px ÷ 4)
     smokes: [[237, 69, 4, 18, 3, -2], [92, 170, 4, 18, 3, -2]],
     spots: [
-      { id: 'vs_mine_adit',  emoji: '⛏️', name: '갱구',      shape: 'mine',  x: 22, y: 31 },
+      { id: 'vs_mine_adit',  emoji: '⛏️', name: '갱구',      shape: 'mine',  x: 22, y: 31, art: 'villages/in-adit.webp', lamps: [[72, 42, 14], [230, 43, 14], [167, 70, 8], [206, 68, 8], [180, 80, 5]] },
       { id: 'vs_mine_store', emoji: '💎', name: '원석 창고', shape: 'shop',  x: 72, y: 44 },
       { id: 'vs_mine_cut',   emoji: '🔨', name: '세공소',    shape: 'forge', x: 26, y: 77 },
       { id: 'vs_mine_rail',  emoji: '🚋', name: '광차 선로', shape: 'mine',  x: 80, y: 78, trade: false },
