@@ -1672,7 +1672,7 @@ const VILLAGES = [
       { id: 'vs_mine_adit',  emoji: '⛏️', name: '갱구',      shape: 'mine',  x: 22, y: 31, art: 'villages/in-adit.webp', lamps: [[72, 42, 14], [230, 43, 14], [167, 70, 8], [206, 68, 8], [180, 80, 5]] },
       { id: 'vs_mine_store', emoji: '💎', name: '원석 창고', shape: 'shop',  x: 72, y: 44, art: 'villages/in-store.webp', fire: [217, 139, 12], rays: [[158, 66, 12, 145, 162, 52, 'sun']] },
       { id: 'vs_mine_cut',   emoji: '🔨', name: '세공소',    shape: 'forge', x: 26, y: 77, art: 'villages/in-cut.webp', fire: [[148, 108, 30], [129, 108, 13], [168, 108, 14], [138, 101, 9], [159, 100, 8]], smokes: [[150, 50, 14, 52, 6, 1, 'out']] },
-      { id: 'vs_mine_rail',  emoji: '🚋', name: '광차 선로', shape: 'mine',  x: 80, y: 78, trade: false },
+      { id: 'vs_mine_rail',  emoji: '🚋', name: '광차 선로', shape: 'mine',  x: 80, y: 78, trade: false, art: 'villages/in-rail.webp', leaves: [[34, 22, 118, 34], [196, 8, 104, -42]] },
     ] },
   { id: 'vl_thorn',   emoji: '🌹', name: '가시덤불 마을', desc: '가시울타리가 성을 통째로 감싼 마을.',
     art: 'villages/thorn.webp', artRatio: 1200 / 1310,

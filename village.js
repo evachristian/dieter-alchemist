@@ -476,6 +476,7 @@
       ${s.art && s.lamps ? lampFx(s.lamps, u) : ''}
       ${s.art && s.bubbles ? bubbleFx(s.bubbles) : ''}
       ${s.art && s.butterflies ? butterflyFx(s.butterflies) : ''}
+      ${s.art && s.leaves ? leafFx(s.leaves) : ''}
       ${s.art && s.fishes ? fishFx(s.fishes, u) : ''}
       ${s.art && s.glints ? glintFx(s.glints) : ''}
       ${s.art && s.mists ? mistFx(s.mists, u) : ''}
@@ -531,6 +532,24 @@
         + `<g class="fx-wing" style="animation-duration:${(0.22 + (i % 2) * 0.05).toFixed(2)}s" stroke="#7a4a2e" stroke-width="0.3">${wing(c)}</g>`
         + `<ellipse cx="0" cy="0.1" rx="1.5" ry="0.38" fill="#5a3a26"/><circle cx="1.65" cy="-0.05" r="0.45" fill="#5a3a26"/>`
         + `<path d="M1.8,-0.4 Q2.2,-1.2 2.7,-1.5 M1.6,-0.4 Q1.8,-1.3 2.2,-1.8" fill="none" stroke="#5a3a26" stroke-width="0.18" stroke-linecap="round"/></g></g>`;
+    }).join('')}</g>`;
+  }
+  // 받은 그림 위로 «나뭇잎»이 한 장씩 떨어진다 (`spots[].leaves` = [[출발 x, y, 떨어지는 높이, 옆으로 흐르는 몫], …] · viewBox 좌표).
+  // 셋 겹이다 — 자리(transform 속성) · 떨어지는 길(CSS fxLeafFall · --d/--s 만큼 흔들리며 내려와 바닥에서 사라진다)
+  // · 팔랑임(CSS fxLeafSpin). 한 바퀴의 «앞 절반만» 떨어지고 나머지는 비어 있어서, 잎마다 박자를 반 바퀴씩 어긋내면
+  // 한 장 · 쉼 · 또 한 장이 된다 (1~2장이 시간차를 두고 — 사람이 정했다). 움직임 줄이기에서는 아예 안 보인다
+  // (허공에 멈춘 잎은 떨어지는 것이 아니라 «붙어 있는 것»으로 읽힌다)
+  const LEAF = [['#d98a4e', '#a85a2c'], ['#8fb062', '#5f7f3c'], ['#e0b24f', '#a87a2a']];
+  const LEAF_K = 1.9;   // 잎의 크기 (떨어지는 몫은 이 배율로 나눠 적는다 — 겹이 같이 커지므로)
+  function leafFx(list) {
+    const n = list.length, T = 10;
+    return `<g class="fx-leaves" aria-hidden="true">${list.map(([x, y, d, s], i) => {
+      const [c, v] = LEAF[i % LEAF.length];
+      return `<g transform="translate(${x},${y}) scale(${LEAF_K})"><g class="fx-leaf" style="--d:${(d / LEAF_K).toFixed(1)}px;--s:${(s / LEAF_K).toFixed(1)}px;animation-duration:${T}s;animation-delay:${(-T + i * T / n + 0.6).toFixed(1)}s">`
+        + `<g class="fx-leaf-spin" style="animation-duration:${(1.9 + (i % 2) * 0.5).toFixed(1)}s">`
+        + `<path d="M-3.6,0 Q-1.4,-2.3 3.6,0 Q-1.4,2.3 -3.6,0 Z" fill="${c}"/>`
+        + `<path d="M-3.4,0 L3.2,0 M-0.8,0 L0.6,-1.1 M0.9,0 L2,-0.7" fill="none" stroke="${v}" stroke-width="0.35" stroke-linecap="round"/>`
+        + `</g></g></g>`;
     }).join('')}</g>`;
   }
   // 받은 그림 속 물 위에 «윤슬»이 반짝인다 (`spots[].glints` = [[물 가운데 x, y, 반폭, 반높이, 개수], …] · viewBox 좌표).

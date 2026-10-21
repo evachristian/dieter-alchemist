@@ -5309,3 +5309,22 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 /* ⚠️ fill-box 가 짝이다 — 없으면 날개가 그림 «원점»을 축으로 접힌다 · 옆모습이라 «밑변(몸)»을 축으로 위아래로 접힌다 */
 @keyframes fxFlap { from { transform: scaleY(1); } to { transform: scaleY(0.25); } }
 @media (prefers-reduced-motion: reduce) { .fx-bflies .fx-fly, .fx-bflies .fx-wing { animation: none; } }
+/* ── 건물 안의 «떨어지는 나뭇잎» (village.js 의 leafFx) — 떨어지는 길(fxLeafFall)과 팔랑임(fxLeafSpin)은 다른 겹이다 ──
+   한 바퀴의 72% 까지 흔들리며 내려와 바닥에서 옅어지고, 나머지는 비어 있다 (잎끼리 박자를 어긋내 한 장씩 떨어진다) */
+.fx-leaves .fx-leaf { opacity: 0; animation: fxLeafFall 10s linear infinite; }
+@keyframes fxLeafFall {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  5%   { opacity: 1; }
+  20%  { transform: translate(calc(var(--s) * 0.3 + 7px), calc(var(--d) * 0.24)); }
+  38%  { transform: translate(calc(var(--s) * 0.55 - 7px), calc(var(--d) * 0.5)); }
+  56%  { transform: translate(calc(var(--s) * 0.8 + 6px), calc(var(--d) * 0.76)); }
+  70%  { transform: translate(var(--s), var(--d)); opacity: 1; }
+  80%  { transform: translate(var(--s), var(--d)); opacity: 0; }
+  100% { transform: translate(var(--s), var(--d)); opacity: 0; }
+}
+.fx-leaves .fx-leaf-spin { transform-box: fill-box; transform-origin: 50% 50%; animation: fxLeafSpin 2s ease-in-out infinite; }
+@keyframes fxLeafSpin {
+  0%, 100% { transform: rotate(-32deg) scaleX(1); }
+  50%      { transform: rotate(28deg) scaleX(0.45); }
+}
+@media (prefers-reduced-motion: reduce) { .fx-leaves { display: none; } }
