@@ -1620,8 +1620,8 @@ const VILLAGES = [
     ] },
   { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.',
     art: 'villages/apple.webp', artRatio: 1200 / 1310,
-    // 굴뚝 둘(착즙간 · 빈 농가)의 연기 — 일곱 굴뚝과 같은 칸이다 (그림 px ÷ 4)
-    smokes: [[248, 65, 4, 18, 3, -2], [86, 160, 4, 18, 3, -2]],
+    // 굴뚝 하나(착즙간)의 연기 — 빈 농가는 사람이 떠난 집이라 안 피운다 (그림 px ÷ 4)
+    smokes: [[248, 65, 4, 18, 3, -2]],
     spots: [
       { id: 'vs_apple_orchard', emoji: '🍎', name: '과수원',   shape: 'farm',  x: 30, y: 37, art: 'villages/in-orchard.webp', butterflies: [[60, 120, 40, 22], [180, 95, 45, 28], [232, 150, 40, 18], [125, 172, 35, 12]] },
       { id: 'vs_apple_press',   emoji: '🍯', name: '착즙간',   shape: 'shop',  x: 73, y: 41, art: 'villages/in-press.webp', lamps: [[77.5, 54, 10], [248, 54, 10]] },
@@ -1638,6 +1638,8 @@ const VILLAGES = [
     ] },
   { id: 'vl_hunter',  emoji: '🏹', name: '사냥꾼 쉼터',   desc: '차마 베지 못한 사냥꾼이 머무는 오두막.',
     art: 'villages/hunter.webp', artRatio: 1200 / 1310,
+    // 굴뚝 둘(오두막 · 훈연막)의 연기 — 일곱 굴뚝과 같은 칸이다 (그림 px ÷ 4)
+    smokes: [[73, 37, 5, 20, 3, -2], [68, 178, 5, 20, 3, -2]],
     spots: [
       { id: 'vs_hunter_lodge', emoji: '🛖', name: '오두막',   shape: 'house', x: 28, y: 35, npc: 'sp_stark', art: 'villages/in-lodge.webp', npcLeft: true,
         fire: [[238, 136, 6.5], [245.5, 137, 7], [252.5, 136, 6.5], [231, 159.5, 9]], lamps: [[115, 121, 10], [161, 142.5, 5]], bubbles: [[245, 118.8, 18, 2.5]] },
@@ -1649,6 +1651,8 @@ const VILLAGES = [
   // 나오므로(오릭스의 독사과 · 슈타르크의 저주), 2막은 사람과 친해진 뒤에 온다
   { id: 'vl_glass',   emoji: '⚰️', name: '유리관 호수',   desc: '물밑에 유리관이 가라앉아 있다는 호숫가.',
     art: 'villages/glass.webp', artRatio: 1200 / 1310,
+    // 굴뚝 하나(어부 오두막)의 연기 — 일곱 굴뚝과 같은 칸이다 (그림 px ÷ 4)
+    smokes: [[82, 170, 4, 18, 3, -2]],
     spots: [
       { id: 'vs_glass_shore', emoji: '🌊', name: '호숫가',      shape: 'water', x: 24, y: 30, art: 'villages/in-shore.webp', glints: [[205, 112, 52, 26, 24], [130, 152, 42, 11, 10], [168, 62, 38, 8, 8]] },
       { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'water', x: 80, y: 40 },
@@ -1658,6 +1662,8 @@ const VILLAGES = [
     ] },
   { id: 'vl_mine',    emoji: '⛏️', name: '은빛 갱도',     desc: '곡괭이 소리가 밤낮으로 울리는 은광촌.',
     art: 'villages/mine.webp', artRatio: 1200 / 1310,
+    // 굴뚝 둘(원석 창고 · 세공소)의 연기 — 일곱 굴뚝과 같은 칸이다 (그림 px ÷ 4)
+    smokes: [[237, 69, 4, 18, 3, -2], [92, 170, 4, 18, 3, -2]],
     spots: [
       { id: 'vs_mine_adit',  emoji: '⛏️', name: '갱구',      shape: 'mine',  x: 22, y: 31 },
       { id: 'vs_mine_store', emoji: '💎', name: '원석 창고', shape: 'shop',  x: 72, y: 44 },
@@ -1666,6 +1672,8 @@ const VILLAGES = [
     ] },
   { id: 'vl_thorn',   emoji: '🌹', name: '가시덤불 마을', desc: '가시울타리가 성을 통째로 감싼 마을.',
     art: 'villages/thorn.webp', artRatio: 1200 / 1310,
+    // 굴뚝 둘(병영 · 무기고)의 연기 — 일곱 굴뚝과 같은 칸이다 (그림 px ÷ 4)
+    smokes: [[248, 52, 4, 18, 3, -2], [79, 128, 4, 18, 3, -2]],
     spots: [
       { id: 'vs_thorn_gate',    emoji: '🌹', name: '가시 문',       shape: 'ruin',  x: 23, y: 27, trade: false },
       // **왕자에게는 거래가 없다.** 그가 주는 것은 호위이지 물건이 아니다
