@@ -1630,6 +1630,8 @@ const VILLAGES = [
     ] },
   { id: 'vl_mirror',  emoji: '🪞', name: '거울 골짜기',   desc: '물으면 어김없이 대답이 돌아오는 골짜기.',
     art: 'villages/mirror.webp', artRatio: 1200 / 1310,
+    // 거울못 · 시냇물 위 윤슬 (그림 px ÷ 4)
+    glints: [[95, 82, 55, 10, 16], [112, 158, 8, 8, 3], [100, 245, 12, 10, 4]],
     spots: [
       { id: 'vs_mirror_pond',   emoji: '🪞', name: '거울못',    shape: 'water', x: 30, y: 35, npc: 'sp_yutark', trade: false, art: 'villages/in-pond.webp', glints: [[160, 125, 115, 36, 30], [185, 165, 45, 8, 6]] },
       { id: 'vs_mirror_shrine', emoji: '⛪', name: '낡은 사원', shape: 'ruin',  x: 80, y: 34, art: 'villages/in-shrine.webp', rays: [[119, 52, 15, 128, 148, 44]], lamps: [[90, 49, 10], [165, 52.5, 9], [188, 34, 10], [195, 141, 5], [150, 161, 4], [142.5, 175, 4], [155, 176, 4], [215, 160.5, 4], [221, 171, 4], [19, 151, 4]] },
@@ -1653,6 +1655,8 @@ const VILLAGES = [
     art: 'villages/glass.webp', artRatio: 1200 / 1310,
     // 굴뚝 하나(어부 오두막)의 연기 — 일곱 굴뚝과 같은 칸이다 (그림 px ÷ 4)
     smokes: [[82, 170, 4, 18, 3, -2]],
+    // 호수 위 윤슬 (그림 px ÷ 4)
+    glints: [[170, 140, 85, 40, 28], [125, 78, 35, 8, 6], [240, 165, 20, 14, 5]],
     spots: [
       { id: 'vs_glass_shore', emoji: '🌊', name: '호숫가',      shape: 'water', x: 24, y: 30, art: 'villages/in-shore.webp', glints: [[205, 112, 52, 26, 24], [130, 152, 42, 11, 10], [168, 62, 38, 8, 8]] },
       { id: 'vs_glass_pier',  emoji: '⛵', name: '낡은 나루터', shape: 'water', x: 80, y: 40, art: 'villages/in-pier.webp', glints: [[52, 125, 40, 20, 18], [82, 85, 30, 7, 7], [48, 172, 30, 8, 7]] },

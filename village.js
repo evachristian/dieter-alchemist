@@ -207,11 +207,12 @@
     const v = village || {};
     // ⚠️ 받은 일러스트가 있는 마을은 그 그림을 «그대로» 깐다 — 비율도 그림의 것이라
     //    (`.vil-map.art` 의 aspect-ratio) 잘리지 않고, 이름표 좌표가 그림 위 자리와 맞는다
+    // 물 위 윤슬 (`glints` · 실내와 같은 glintFx · 거울 골짜기 · 유리관 호수)도 같은 층에 얹는다
     // 굴뚝 연기 (`smokes` · 실내와 같은 smokeFx) — 좌표는 «그림 px ÷ 4»다(1200 폭 그림 → 300 칸).
     //   실내 그림(300×200)과 같은 칸 크기다. 번짐은 덜 준다(0.9) — 그려진 연기가 또렷한 덩이라 흐린 안개로 두면 따로 논다.
     //   자리는 그림을 재서 적는다
     if (v.art) return `<img class="vil-art" src="${v.art + ASSET_Q}" alt="" draggable="false">`
-      + (v.smokes ? `<svg class="vil-fx" viewBox="0 0 300 ${(300 / (v.artRatio || 1)).toFixed(1)}" preserveAspectRatio="none" aria-hidden="true" focusable="false">${smokeFx(v.smokes, 'v' + (++uid), 0.9)}</svg>` : '');
+      + (v.smokes || v.glints ? `<svg class="vil-fx" viewBox="0 0 300 ${(300 / (v.artRatio || 1)).toFixed(1)}" preserveAspectRatio="none" aria-hidden="true" focusable="false">${v.glints ? glintFx(v.glints) : ''}${v.smokes ? smokeFx(v.smokes, 'v' + (++uid), 0.9) : ''}</svg>` : '');
     const k = SKIN[v.id] || DEF;
     const u = 'v' + (++uid);
     const spots = v.spots || [];
