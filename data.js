@@ -1683,7 +1683,7 @@ const VILLAGES = [
       // **왕자에게는 거래가 없다.** 그가 주는 것은 호위이지 물건이 아니다
       { id: 'vs_thorn_barrack', emoji: '⚔️', name: '병영',         shape: 'house', x: 73, y: 38, npc: 'sp_valen', trade: false, art: 'villages/in-barrack.webp', fire: [[42, 80.5, 6], [127.3, 98.4, 4], [174.7, 98.4, 4], [67.2, 152, 9]] },
       { id: 'vs_thorn_armory',  emoji: '🛡️', name: '무기고',       shape: 'forge', x: 25, y: 63, art: 'villages/in-armory.webp', fire: [150, 138, 13] },
-      { id: 'vs_thorn_keep',    emoji: '🏰', name: '무너진 문',     shape: 'ruin',  x: 63, y: 84, trade: false },
+      { id: 'vs_thorn_keep',    emoji: '🏰', name: '무너진 문',     shape: 'ruin',  x: 63, y: 84, trade: false, art: 'villages/in-keep.webp' },
     ] },
   // ── 3막 ── **점수로 열지 않는다.** 「여신 등급 = 여왕과 같은 자리」는 이야기의 비유이고,
   // 문은 키워드 하나다 (`isVillageOpen()` 은 `S.villages` 만 본다 — 두 번 잠그지 않는다)
