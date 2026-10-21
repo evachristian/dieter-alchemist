@@ -1602,6 +1602,9 @@ const VILLAGES = [
   //    이름표가 거기 붙는다. 그림을 바꾸면 이 자리도 같이 다시 잰다
   { id: 'vl_chimney', emoji: '🏘️', name: '일곱 굴뚝',     desc: '굴뚝 일곱 개가 나란히 선 산속 마을.',
     art: 'villages/chimney.webp', artRatio: 1200 / 1310,
+    // 굴뚝 일곱의 연기 — [굴뚝 입 x, y, 퍼지는 폭, 오르는 높이, 덩이 수, 흐르는 쪽·세기] · 그림 px ÷ 4 (village.js 의 scene)
+    smokes: [[64, 9, 4, 18, 3, -2], [172, 45, 4, 18, 3, -2], [249, 63, 4, 18, 3, -2], [181, 124, 4, 18, 3, -2],
+             [75, 197, 4, 18, 3, -2], [268, 173, 4, 18, 3, -2], [269, 245, 4, 18, 3, -2]],
     spots: [
       { id: 'vs_chimney_cottage', emoji: '🏠', name: '일곱 오두막',  shape: 'house', x: 24, y: 80, art: 'villages/in-cottage.webp', fire: [69, 148, 16], lamps: [[132, 15, 11], [285, 10, 11], [185, 41, 9], [107, 75, 9], [160, 124, 6]] },
       { id: 'vs_chimney_forge',   emoji: '⚒️', name: '대장간',       shape: 'forge', x: 83, y: 37, npc: 'sp_orix', art: 'villages/in-forge.webp', fire: [53, 171, 26] },

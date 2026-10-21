@@ -941,6 +941,8 @@ body.has-quest .screen { padding-bottom: 168px; }
 /* 받은 일러스트를 까는 마을 — 높이는 «그림의 비율»이 정한다(인라인 aspect-ratio).
    위의 clamp 높이를 쓰면 cover 로 잘려 이름표 자리가 건물에서 어긋난다 */
 .vil-map.art { height: auto; }
+/* 그림 위 연기 층 — 이름표를 가리지 않게 손가락은 통과시킨다 */
+.vil-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .vil-art { display: block; width: 100%; height: 100%; object-fit: fill; user-select: none; -webkit-user-drag: none; }
 /* 일러스트 위 이름표 — 건물 문 앞에 붙는 작은 알약 (자리·가로 끌어당김은 인라인이다) */
 .vil-pin.tag {
@@ -5221,6 +5223,15 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
   100% { opacity: 0;    transform: translate(var(--dx, -6px), var(--rise, -30px)) scale(1.9); }
 }
 @media (prefers-reduced-motion: reduce) { .fx-smokes .fx-smoke { animation: none; opacity: 0.25; } }
+/* 마을 지도의 굴뚝 연기 — 바깥 하늘·숲 위라 실내 연기(베이지·옅게)로는 묻힌다. 희고 진하게, 그려진 연기에 이어 오른다 */
+.vil-fx .fx-smoke { fill: #fffdf8; animation-name: fxChimney; }
+@keyframes fxChimney {
+  0%   { opacity: 0;    transform: translate(0, 0) scale(0.45); }
+  15%  { opacity: 0.9; }
+  60%  { opacity: 0.55; }
+  100% { opacity: 0;    transform: translate(var(--dx, 6px), var(--rise, -18px)) scale(1.15); }
+}
+@media (prefers-reduced-motion: reduce) { .vil-fx .fx-smoke { animation: none; opacity: 0.45; } }
 
 /* ── 거미줄의 거미 (village.js 의 spiderFx) — 실을 타고 올라갔다 내려와 흔들린다 ── */
 .fx-spiders .fx-spider { animation: fxSpider 9s ease-in-out infinite; }

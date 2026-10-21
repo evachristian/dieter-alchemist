@@ -207,7 +207,11 @@
     const v = village || {};
     // ⚠️ 받은 일러스트가 있는 마을은 그 그림을 «그대로» 깐다 — 비율도 그림의 것이라
     //    (`.vil-map.art` 의 aspect-ratio) 잘리지 않고, 이름표 좌표가 그림 위 자리와 맞는다
-    if (v.art) return `<img class="vil-art" src="${v.art + ASSET_Q}" alt="" draggable="false">`;
+    // 굴뚝 연기 (`smokes` · 실내와 같은 smokeFx) — 좌표는 «그림 px ÷ 4»다(1200 폭 그림 → 300 칸).
+    //   실내 그림(300×200)과 같은 칸 크기다. 번짐은 덜 준다(0.9) — 그려진 연기가 또렷한 덩이라 흐린 안개로 두면 따로 논다.
+    //   자리는 그림을 재서 적는다
+    if (v.art) return `<img class="vil-art" src="${v.art + ASSET_Q}" alt="" draggable="false">`
+      + (v.smokes ? `<svg class="vil-fx" viewBox="0 0 300 ${(300 / (v.artRatio || 1)).toFixed(1)}" preserveAspectRatio="none" aria-hidden="true" focusable="false">${smokeFx(v.smokes, 'v' + (++uid), 0.9)}</svg>` : '');
     const k = SKIN[v.id] || DEF;
     const u = 'v' + (++uid);
     const spots = v.spots || [];
@@ -533,6 +537,7 @@
   function glintFx(list) {
     return `<g class="fx-glints" aria-hidden="true">${list.map(([x, y, rx, ry, n], i) =>
       Array.from({ length: n }, (_, j) => {
+        // 여섯째 칸이 있으면 흐르는 쪽·세기다 (1 = 왼쪽 · 음수 = 오른쪽 · 마을 지도의 굴뚝 연기는 그려진 연기를 따라 오른쪽)
         const r = Math.sqrt((j + 0.5) / n), a = j * 2.39996 + i;
         const gx = x + Math.cos(a) * r * rx, gy = y + Math.sin(a) * r * ry;
         const w = 4.5 + (j % 3) * 2.2;
@@ -549,6 +554,7 @@
     return `<g class="fx-mists" aria-hidden="true"><defs><filter id="mb_${u}" x="-50%" y="-80%" width="200%" height="260%"><feGaussianBlur stdDeviation="3.2"/></filter></defs>`
       + `<g filter="url(#mb_${u})">${list.map(([x, y, w, n], i) =>
       Array.from({ length: n }, (_, j) => {
+        // 여섯째 칸이 있으면 흐르는 쪽·세기다 (1 = 왼쪽 · 음수 = 오른쪽 · 마을 지도의 굴뚝 연기는 그려진 연기를 따라 오른쪽)
         const t = (j + 0.5) / n, mx = x + (t - 0.5) * w, rx = w / n * 0.9 + 6, ry = rx * 0.38;
         const dur = 7 + ((j * 3 + i) % 4) * 1.3;
         return `<g transform="translate(${mx.toFixed(1)},${y})"><ellipse class="fx-mist" style="--dx:${(j % 2 ? 7 : -7)}px;--rise:${(-(8 + (j % 3) * 4))}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.9 + i * 1.3) % dur)).toFixed(1)}s" cx="0" cy="0" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="#ffffff"/></g>`;
@@ -610,6 +616,7 @@
   function moteFx(list) {
     return `<g class="fx-motes" aria-hidden="true">${list.map(([x, y, w, h, n], i) =>
       Array.from({ length: n }, (_, j) => {
+        // 여섯째 칸이 있으면 흐르는 쪽·세기다 (1 = 왼쪽 · 음수 = 오른쪽 · 마을 지도의 굴뚝 연기는 그려진 연기를 따라 오른쪽)
         const mx = x + w * (((j * 0.618 + i * 0.31) % 1)), my = y + h * (((j * 0.382 + 0.17) % 1));
         const dur = 7 + (j % 4) * 1.4;
         return `<circle class="fx-mote" style="--mx:${(j % 2 ? 4 : -4)}px;--my:${(-3 - (j % 3) * 2)}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.7 + i) % dur)).toFixed(1)}s" cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="${(0.5 + (j % 3) * 0.2).toFixed(1)}" fill="#fff4d6"/>`;
@@ -618,13 +625,14 @@
   // 받은 그림 속 아궁이 위로 «연기»가 피어오른다 (`spots[].smokes` = [[나오는 x, y, 퍼지는 폭, 오르는 높이, 덩이 수], …] · viewBox 좌표).
   // 흐린 잿빛 덩이가 생겨 위로 오르며 커지고 한쪽으로 흐르다 옅어진다 — 덩이마다 박자를 어긋낸다 ·
   // 자리는 덩이 번호로 고정한다 (무작위면 다시 그릴 때마다 옮겨 다닌다). 움직임 줄이기에서는 옅게 머문다
-  function smokeFx(list, u) {
-    return `<g class="fx-smokes" aria-hidden="true"><defs><filter id="sb_${u}" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="2.2"/></filter></defs>`
-      + `<g filter="url(#sb_${u})">${list.map(([x, y, w, rise, n], i) =>
+  function smokeFx(list, u, blur = 2.2) {
+    return `<g class="fx-smokes" aria-hidden="true"><defs><filter id="sb_${u}" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="${blur}"/></filter></defs>`
+      + `<g filter="url(#sb_${u})">${list.map(([x, y, w, rise, n, lean = 1], i) =>
       Array.from({ length: n }, (_, j) => {
+        // 여섯째 칸이 있으면 흐르는 쪽·세기다 (1 = 왼쪽 · 음수 = 오른쪽 · 마을 지도의 굴뚝 연기는 그려진 연기를 따라 오른쪽)
         const sx = x + ((j * 0.618 + i * 0.3) % 1 - 0.5) * w, r = 4 + (j % 3) * 1.6;
         const dur = 5.5 + (j % 4) * 0.9;
-        return `<g transform="translate(${sx.toFixed(1)},${y})"><circle class="fx-smoke" style="--dx:${(j % 2 ? -1 : -0.4) * w * 0.6}px;--rise:${-rise}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.3 + i) % dur)).toFixed(1)}s" cx="0" cy="0" r="${r.toFixed(1)}" fill="#d9cfc3"/></g>`;
+        return `<g transform="translate(${sx.toFixed(1)},${y})"><circle class="fx-smoke" style="--dx:${(j % 2 ? -1 : -0.4) * w * 0.6 * lean}px;--rise:${-rise}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.3 + i) % dur)).toFixed(1)}s" cx="0" cy="0" r="${r.toFixed(1)}" fill="#d9cfc3"/></g>`;
       }).join('')).join('')}</g></g>`;
   }
   const RAY_COLS = ['#ff9ab8', '#9cc4ff', '#c79cff'];
