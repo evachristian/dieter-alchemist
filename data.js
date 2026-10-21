@@ -1620,6 +1620,8 @@ const VILLAGES = [
     ] },
   { id: 'vl_apple',   emoji: '🍎', name: '붉은 사과밭',   desc: '한 알만 베어 물어도 잠든다는 과수원.',
     art: 'villages/apple.webp', artRatio: 1200 / 1310,
+    // 굴뚝 둘(착즙간 · 빈 농가)의 연기 — 일곱 굴뚝과 같은 칸이다 (그림 px ÷ 4)
+    smokes: [[248, 65, 4, 18, 3, -2], [86, 160, 4, 18, 3, -2]],
     spots: [
       { id: 'vs_apple_orchard', emoji: '🍎', name: '과수원',   shape: 'farm',  x: 30, y: 37, art: 'villages/in-orchard.webp', butterflies: [[60, 120, 40, 22], [180, 95, 45, 28], [232, 150, 40, 18], [125, 172, 35, 12]] },
       { id: 'vs_apple_press',   emoji: '🍯', name: '착즙간',   shape: 'shop',  x: 73, y: 41, art: 'villages/in-press.webp', lamps: [[77.5, 54, 10], [248, 54, 10]] },
