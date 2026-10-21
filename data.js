@@ -1681,7 +1681,7 @@ const VILLAGES = [
     spots: [
       { id: 'vs_thorn_gate',    emoji: '🌹', name: '가시 문',       shape: 'ruin',  x: 23, y: 27, trade: false, art: 'villages/in-gate.webp', butterflies: [[118, 40, 30, 16], [70, 158, 30, 14]] },
       // **왕자에게는 거래가 없다.** 그가 주는 것은 호위이지 물건이 아니다
-      { id: 'vs_thorn_barrack', emoji: '⚔️', name: '병영',         shape: 'house', x: 73, y: 38, npc: 'sp_valen', trade: false },
+      { id: 'vs_thorn_barrack', emoji: '⚔️', name: '병영',         shape: 'house', x: 73, y: 38, npc: 'sp_valen', trade: false, art: 'villages/in-barrack.webp', fire: [[42, 80.5, 6], [127.3, 98.4, 4], [174.7, 98.4, 4], [67.2, 152, 9]] },
       { id: 'vs_thorn_armory',  emoji: '🛡️', name: '무기고',       shape: 'forge', x: 25, y: 63, art: 'villages/in-armory.webp', fire: [150, 138, 13] },
       { id: 'vs_thorn_keep',    emoji: '🏰', name: '무너진 문',     shape: 'ruin',  x: 63, y: 84, trade: false },
     ] },
