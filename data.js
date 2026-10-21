@@ -1679,7 +1679,7 @@ const VILLAGES = [
     // 굴뚝 둘(병영 · 무기고)의 연기 — 일곱 굴뚝과 같은 칸이다 (그림 px ÷ 4)
     smokes: [[248, 52, 4, 18, 3, -2], [79, 128, 4, 18, 3, -2]],
     spots: [
-      { id: 'vs_thorn_gate',    emoji: '🌹', name: '가시 문',       shape: 'ruin',  x: 23, y: 27, trade: false },
+      { id: 'vs_thorn_gate',    emoji: '🌹', name: '가시 문',       shape: 'ruin',  x: 23, y: 27, trade: false, art: 'villages/in-gate.webp', butterflies: [[118, 40, 30, 16], [70, 158, 30, 14]] },
       // **왕자에게는 거래가 없다.** 그가 주는 것은 호위이지 물건이 아니다
       { id: 'vs_thorn_barrack', emoji: '⚔️', name: '병영',         shape: 'house', x: 73, y: 38, npc: 'sp_valen', trade: false },
       { id: 'vs_thorn_armory',  emoji: '🛡️', name: '무기고',       shape: 'forge', x: 25, y: 63 },
