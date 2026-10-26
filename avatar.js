@@ -3884,7 +3884,14 @@
     //    손에 붙은 띠라 음식 밑의 살색 덩어리는 되살아나지 않는다. 손과 «같이» 둥글린다 — 따로 두면 손 둘레에 네모난 혹이 붙었다
     const nearSkin = isCake ? '' : (VAR.behind || []).filter(([r, d]) => behindFill(r, d) === null)
       .map(([, d]) => '<path d="' + d + '" fill="' + bodyFill('skin') + '"/>').join('');
-    out = (VAR.behind || []).map(([r, d]) => { const f = behindFill(r, d); return f === null ? '' : '<path d="' + d + '" fill="' + f + '" stroke="' + f
+    // ⚠️ 케이크 오른쪽 끝과 턱·팔 사이에 «갇힌 빈칸»이 남는 갈래가 있다 — 몸 그림에서 그 자리는 따낸 케이크가 덮던
+    //    바탕이라, 케이크를 새로 그리니 어두운 틈으로 비쳤다 (「턱 사이 어두운 틈」 · 신고받았다). 몸 «밑»에 살색 판을
+    //    깔아 그 틈만 메운다 — 몸이 덮는 자리에서는 안 보이고, 빈칸에서만 «케이크 뒤의 얼굴·손»으로 읽힌다.
+    //    자리는 그려서 «갇힌 바탕»을 찾아 잡았다(한 입 박자 두 자세의 합). ⚠️ 판이 실루엣 밖으로 나가면 바탕에 살색이 뜬다
+    const CAKE_GAP = { long: [[397, 451, 418, 470]], twin: [[403, 452, 419, 466]], bob: [[400, 505, 459, 572]],
+      ponytail: [[405, 488, 473, 542]], wave: [[413, 495, 461, 561]], bun: [[419, 529, 467, 590]] }[varKey] || [];
+    out = (isCake ? CAKE_GAP.map(([x0, y0, x1, y1]) => '<rect x="' + x0 + '" y="' + y0 + '" width="' + (x1 - x0)
+      + '" height="' + (y1 - y0) + '" rx="6" fill="' + SKIN + '"/>').join('') : '') + (VAR.behind || []).map(([r, d]) => { const f = behindFill(r, d); return f === null ? '' : '<path d="' + d + '" fill="' + f + '" stroke="' + f
         + '" stroke-width="1.5" stroke-linejoin="round"/>'; }).join('')
 
       // ⚠️ 같은 «손 둘레 띠»를 «가만히 있는» 겹에도 한 벌 깐다 — 띠가 손과 함께 위로 올라가면(한 입 박자)
