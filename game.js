@@ -2091,6 +2091,18 @@ function mealSceneSvg(A) {
   // 클레멘 — 초상화의 머리만 잘라 얹는다 (뷰박스를 목 아래 104 에서 끊는다)
   let clem = '';
   if (window.Portrait) {
+    const sp = D.speaker('sp_clemen'), h = A.head, nf = Portrait.npcFace && Portrait.npcFace('sp_clemen');
+    // ⚠️ 받은 NPC 그림(npcart.js)이면 흉상의 짜임(얼굴 폭 64 · 턱 y88 · 104 에서 끊기)이 안 맞는다 —
+    //    그 그림의 «얼굴 자리»로 맞춘다: 얼굴 폭(옛 초상화 얼굴 50 ÷ 머리 64 몫)을 그림의 얼굴 폭에, 턱을 턱에
+    if (nf) {
+      const k = h.w * (50 / 64) / (2 * nf.rx), x = h.cx - nf.cx * k, y = h.chin - nf.chin * k;
+      const hh = nf.chin + nf.rx * Portrait.NPC_NECK;
+      const face = mood => Portrait.bust(sp, mood, { bare: true, head: true })
+        .replace('<svg class="pt-svg', `<svg x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(nf.w * k).toFixed(1)}" height="${(hh * k).toFixed(1)}" overflow="hidden" data-pt="`);
+      clem = `<g class="ml-clem"><g class="ml-def">${face(fx.clem[0])}</g><g class="ml-smile">${face(fx.clem[1])}</g></g>`;
+    }
+  }
+  if (window.Portrait && !clem) {
     const sp = D.speaker('sp_clemen'), h = A.head, s = h.w / 64;
     const x = h.cx - 60 * s, y = h.chin - 88 * s;
     // ⚠️ 정규식 «안»에 따옴표를 쓰지 않는다 — checkglobals 의 문자열 훑기가 그 따옴표에서 어긋나

@@ -512,6 +512,8 @@
   const EXP_K = 0.46;
   // 받은 NPC 그림의 흉상 — 폭 = 두 눈 사이 × NPC_BUST · 눈이 위에서 NPC_EYE_AT 자리
   const NPC_BUST = 5.2, NPC_EYE_AT = 0.56;
+  // 머리만 자를 때 턱 밑으로 남기는 목 — 얼굴 반폭의 몫
+  const NPC_NECK = 0.3;
   function bust(sp, mood, opts) {
     if (!sp) return '';
     const bare = !!(opts && opts.bare);
@@ -533,7 +535,10 @@
     if (na && window.ExpArt) {
       const fc = na.face;
       let vw = W, vh = H2, k, x0, y0;
-      if (full) {
+      if (opts && opts.head) {
+        // 머리만 — 그림 좌표 그대로 턱 밑(목 조금)에서 끊는다. 같이 먹기 컷씬이 그림의 몸 위에 얹는다
+        k = 1; x0 = 0; y0 = 0; vw = na.w; vh = +(fc.chin + fc.rx * NPC_NECK).toFixed(1);
+      } else if (full) {
         // 전신 — 그림의 비대로 상자를 잡고 발끝까지 다 넣는다 (아래 4% 는 바닥 그림자 몫)
         k = H2 * 0.96 / na.h; vw = +(na.w * k).toFixed(2); x0 = 0; y0 = 0;
       } else {
@@ -628,5 +633,7 @@
 
   // 검사기가 «표에 있는 머리를 다» 재려면 이름 목록이 필요하다 — 손으로 적으면
   // 새 스타일이 조용히 안 재진다 (`checkglobals` 가 파일 목록에서 겪은 일이다)
-  window.Portrait = { bust, W, H, hairs: Object.keys(HAIR), eyes: Object.keys(EYE), SKULL };
+  window.Portrait = { bust, W, H, NPC_NECK,
+    // 받은 NPC 그림의 얼굴 자리 (그림 좌표) — 없으면 null (부품 초상화다)
+    npcFace: id => (window.NpcArt && NpcArt[id]) ? Object.assign({ w: NpcArt[id].w }, NpcArt[id].face) : null, hairs: Object.keys(HAIR), eyes: Object.keys(EYE), SKULL };
 })();
