@@ -506,6 +506,10 @@
   //   opts.bare : **배경 판 없이 인물만.** 방 안에 서 있는 것처럼 보여야 하는 자리에 쓴다.
   //     배경을 깔면 초상화가 방에 붙인 카드처럼 보인다 — 대화 화면이 그 경우다.
   //     (인물 목록처럼 딱지로 보여 줄 자리가 생기면 그때 bare 없이 쓴다)
+  // 사람마다 따로 붙인 표정 이름 → 받은 표정 세트의 이름 (data.js 의 SPEAKERS.moods)
+  const MOOD_ART = { soft: 'warm', sing: 'laugh', true: 'flat' };
+  // 받은 캔버스(160) → 초상화 얼굴 (두 눈 50/70 · y66 · 입 y85). 두 눈 사이 20 = 44 × 0.46
+  const EXP_K = 0.46;
   function bust(sp, mood, opts) {
     if (!sp) return '';
     const bare = !!(opts && opts.bare);
@@ -557,6 +561,18 @@
     //    「대노」·「곤란」 같은 얼굴이 그대로 살아난다 (지금 175칸이 제 눈썹을 갖고 있다)
     const browC = dark(sp.hairColor || '#3f3239', 0.25);
     const beard = (sp.beard && BEARD[sp.beard]) ? sp.beard : 'none';
+    // ─── 표정은 «받은 둥근 표정 세트»(expart.js)로 그린다 ─────────────────
+    // 표정 이름이 곧 받은 SVG 의 이름이다 (BASE_MOODS 서른여덟). 사람마다 따로 붙인
+    // 이름(`soft`·`sing`·`true`)만 짝을 지어 주고, 모르는 이름은 기본 얼굴이다.
+    // 눈썹은 표정이 제 눈썹을 가졌을 때만 그 눈썹이고, 아니면 그 사람의 기본 눈썹이 선다.
+    // ⚠️ 눈동자 색(`eyeColor`)은 받은 눈의 먹색 자리에만 얹는다
+    // ⚠️ 표정 세트로 그릴 때는 «코를 안 그린다» (사람이 정했다 · 2026-10-26) — 받은 표정에는 코가 없다
+    const xa = window.ExpArt ? (ExpArt.has(mood) ? mood : (MOOD_ART[mood] || 'def')) : null;
+    const face = xa
+      ? (ExpArt.hasBrows(xa) ? '' : BROW_BASE(50, 1, browC, sp.brows) + BROW_BASE(70, -1, browC, sp.brows))
+        + ExpArt.draw(xa, { ex: 60, ey: 66, mx: 60, my: 85, s: EXP_K, eyeColor: sp.eyeColor })
+      : `${browL ? browL(50, 1) : BROW_BASE(50, 1, browC, sp.brows)}${browR ? browR(70, -1) : BROW_BASE(70, -1, browC, sp.brows)}
+        ${eyeL(50, sp.eyeColor || '#3f3239')}${eyeR(70, sp.eyeColor || '#3f3239')}`;
     return `<svg class="pt-svg ${bare ? 'bare' : ''} ${full ? 'full' : ''}" viewBox="0 0 ${W} ${H2}"
       xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}">
       ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${W}" height="${H2}" rx="18"/></clipPath></defs>`}
@@ -573,10 +589,9 @@
         ${beard === 'full' ? STACHE(sp.hairColor) : ''}
         ${hair.front ? hair.front(sp.hairColor) : ''}
         ${EAR(sp.skin)}
-        ${browL ? browL(50, 1) : BROW_BASE(50, 1, browC, sp.brows)}${browR ? browR(70, -1) : BROW_BASE(70, -1, browC, sp.brows)}
-        ${eyeL(50, sp.eyeColor || '#3f3239')}${eyeR(70, sp.eyeColor || '#3f3239')}
+        ${xa ? face : `${face}
         ${NOSE(sp.skin)}
-        ${MOUTH[m.mouth] || MOUTH.calm}
+        ${MOUTH[m.mouth] || MOUTH.calm}`}
         ${sp.deco && sp.deco !== 'hood' ? DECO[sp.deco](sp.decoColor || '#ffd76a', sp.hair, H2) : ''}
       </g>
     </svg>`;

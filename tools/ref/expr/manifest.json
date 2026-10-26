@@ -1,0 +1,160 @@
+{
+  "canvas": [
+    160,
+    160
+  ],
+  "expressions": [
+    {
+      "id": "def",
+      "name": "기본"
+    },
+    {
+      "id": "smile",
+      "name": "웃음"
+    },
+    {
+      "id": "warm",
+      "name": "다정"
+    },
+    {
+      "id": "laugh",
+      "name": "크게웃음"
+    },
+    {
+      "id": "wink",
+      "name": "윙크"
+    },
+    {
+      "id": "proud",
+      "name": "우쭐"
+    },
+    {
+      "id": "smirk",
+      "name": "능글"
+    },
+    {
+      "id": "flat",
+      "name": "무표정"
+    },
+    {
+      "id": "meh",
+      "name": "심드렁"
+    },
+    {
+      "id": "sleepy",
+      "name": "졸림"
+    },
+    {
+      "id": "think",
+      "name": "생각중"
+    },
+    {
+      "id": "doubt",
+      "name": "미심쩍음"
+    },
+    {
+      "id": "shock",
+      "name": "놀람"
+    },
+    {
+      "id": "worry",
+      "name": "걱정"
+    },
+    {
+      "id": "sad",
+      "name": "슬픔"
+    },
+    {
+      "id": "cry",
+      "name": "울음"
+    },
+    {
+      "id": "angry",
+      "name": "화남"
+    },
+    {
+      "id": "grit",
+      "name": "참음"
+    },
+    {
+      "id": "cold",
+      "name": "차가움"
+    },
+    {
+      "id": "shy",
+      "name": "수줍음"
+    },
+    {
+      "id": "ohh",
+      "name": "아하"
+    },
+    {
+      "id": "star",
+      "name": "반짝기대"
+    },
+    {
+      "id": "love",
+      "name": "반함"
+    },
+    {
+      "id": "faint",
+      "name": "질색기절"
+    },
+    {
+      "id": "haha",
+      "name": "박장대소"
+    },
+    {
+      "id": "tease",
+      "name": "메롱"
+    },
+    {
+      "id": "pout",
+      "name": "삐죽토라짐"
+    },
+    {
+      "id": "glare",
+      "name": "노려봄"
+    },
+    {
+      "id": "suspect",
+      "name": "흘김"
+    },
+    {
+      "id": "dizzy",
+      "name": "어질어질"
+    },
+    {
+      "id": "weary",
+      "name": "지침"
+    },
+    {
+      "id": "relief",
+      "name": "안도"
+    },
+    {
+      "id": "sorry",
+      "name": "미안"
+    },
+    {
+      "id": "plead",
+      "name": "부탁"
+    },
+    {
+      "id": "blush",
+      "name": "부끄러움"
+    },
+    {
+      "id": "resolve",
+      "name": "결심"
+    },
+    {
+      "id": "awe",
+      "name": "감탄"
+    },
+    {
+      "id": "curious",
+      "name": "궁금"
+    }
+  ]
+}

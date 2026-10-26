@@ -2539,6 +2539,8 @@
   // 바꿔야 했던 것과 같은 함정이다). 얼굴 뒤에 숨을 수 없는 층에 따로 얹는다
   function faceFx(expItem) {
     const kind = (expItem && expItem.kind) || 'smile';
+    // 받은 표정 세트는 효과(볼·눈물·땀)를 제 그룹에 갖고 있다 — 옛 효과를 또 얹지 않는다
+    if (expArtOf(kind)) return '';
     const av = AV_FACE[kind];
     return aFx[av ? av.fx : HAND_FX[kind]] || '';
   }
@@ -2555,8 +2557,28 @@
       + `<path d="M${(x + s * 0.4).toFixed(1)},72.6 Q${(x + s * 2.6).toFixed(1)},76 ${(x + s * 0.4).toFixed(1)},79.4"`
       + ` stroke="${SKIN_SH}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
   }).join('');
-  function faceAndExpression(expItem) {
+  // ─── 표정은 «받은 둥근 표정 세트»(expart.js · window.ExpArt)로 그린다 ───────────
+  // 사람이 보낸 SVG 서른여덟(tools/ref/expr)을 그대로 옮긴 것이고, 여기서는 «자리»만 정한다.
+  // ⚠️ 이름이 다른 넷만 짝을 지어 준다 — 세이브에 든 옷장 id(`exp_puzzled` 등)는 그대로다
+  const EXP_ART = { puzzled: 'def', happy: 'laugh', surprise: 'shock', cool: 'cold' };
+  // 받은 캔버스(160) → 아바타 얼굴. 두 눈 가운데가 (100, AV.Y) · 입 가운데가 (AV.MX, AV.MY+1)
+  // ⚠️ 배율은 그려 놓고 골랐다 — 받은 눈(반지름 12)이 6.6 이 되고 두 눈 사이가 24.6 이다
+  const EXP_K = 0.56;
+  const expArtOf = kind => window.ExpArt && ExpArt.has(EXP_ART[kind] || kind) ? (EXP_ART[kind] || kind) : null;
+  function faceAndExpression(expItem, noBrows) {
     const kind = (expItem && expItem.kind) || 'smile';
+    const xa = expArtOf(kind);
+    if (xa) {
+      // ⚠️ 눈 그룹에 `data-part="eye"` — 마이 룸의 눈 깜박임이 이 조각만 세로로 누른다
+      // ⚠️ 사람이 고른 눈썹(문신 · 눈썹)을 걸었으면 표정의 눈썹은 안 그린다 — 눈썹이 둘이 된다
+      return `
+      <g data-part="head">
+        ${EARS}
+        <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
+        ${ExpArt.draw(xa, { ex: 100, ey: AV.Y, mx: AV.MX, my: AV.MY + 1, s: EXP_K,
+          eyePart: 'data-part="eye"', noBrows })}
+      </g>`;
+    }
     const EYE = '#4a3a42', LIP = '#c97b86';
     let eyes, mouth, extra = '';
     // ⚠️ **부품 표가 먼저다** — 원래 있던 여섯은 여기 없으니 아래 `switch` 로 내려간다
@@ -4123,7 +4145,7 @@
       // 통째로 덮어, 소매 끝 언저리에 살색 조각만 남는다 (armsOverSkirt 참고)
       B(armsOverSkirt(tune, hasDress ? dress : top,
         !hasDress && bottom && bottom.belt ? beltTopY() : null)),
-      H(faceAndExpression(expItem)),
+      H(faceAndExpression(expItem, getItem('brow', outfit.brow).kind !== 'none')),
       // ⚠️ **머리 그룹(`H`) 안이고 앞머리보다 «먼저»다.** 몸통 그룹에 두면 얼굴 배율을
       // 바꿀 때 눈썹만 제자리에 남고, 앞머리보다 뒤에 두면 앞머리를 덮는다 —
       // 눈썹은 이마에 난 것이라 머리카락이 그 위를 지나는 것이 맞다

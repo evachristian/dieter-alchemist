@@ -19,6 +19,9 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── sync.js                서버 동기화 → window.Sync
 ├── earart.js              서클렛의 동물 귀 머리띠 여섯 — 받은 그림(tools/ref/ears.webp)을 대고 딴 조각
 │                          (생성 · `python3 -I tools/genears.py` · 염색은 base 에서 옮긴 만큼 색을 같이 옮긴다) → window.EarArt
+├── expart.js              표정 서른여덟 — 사람이 보낸 둥근 표정 SVG(tools/ref/expr)를 그대로 옮긴 것
+│                          (생성 · `npm run gen:expr` · npm test 가 --check) → window.ExpArt
+│                          아바타·NPC 초상화가 «자리»만 정해 `ExpArt.draw` 로 그린다 (아래 「표정 세트」)
 ├── avatar.js              SVG 페이퍼돌 → window.Avatar
 ├── crouchart.js           「혼자 먹은 밤」 웅크린 뒷모습 — 받은 그림(뒷머리 여섯 갈래)을 대고 딴 조각 (생성 · tools/gencrouch.py) → window.CrouchArt
 ├── mealart.js             「같이 먹기」 컷씬의 밥상 — 받은 그림을 대고 딴 조각 (생성 · `python3 -I tools/genmeal.py <PNG> mealart.js`)
@@ -550,6 +553,26 @@ npm run bundle    # 게임을 파일 하나짜리 HTML 로 묶는다 (서버 없
 ```bash
 node tools/checkavatar.js   # 체형 5단계 × 모든 옷에서 살이 옷 밖으로 나오는지
 ```
+
+### 표정은 «받은 둥근 표정 세트»다 (`expart.js` · 2026-10-26)
+
+「캐릭터와 NPC의 표정을 첨부된 SVG로 변경해줘」로 받았다. 160×160 SVG 서른여덟
+(eyebrows · eyes · mouth · effects 그룹)이 `tools/ref/expr/` 에 있고, `tools/genexpr.js` 가
+그룹 «안»을 한 글자도 안 고치고 `expart.js` 로 굽는다. 얼굴에 앉히는 자리·배율은 부르는 쪽이 정한다.
+
+- **이름이 곧 NPC 표정표(`BASE_MOODS`)의 서른여덟이다.** 아바타는 이름이 다른 넷만 짝을 짓는다
+  (`avatar.js` 의 `EXP_ART` — 어리둥절→기본 · 활짝→크게웃음 · 놀람→놀람 · 시크→차가움).
+  사람마다 붙인 무드는 `portrait.js` 의 `MOOD_ART`(soft→warm · sing→laugh · true→flat) · 모르는 이름은 기본
+- ⚠️ **눈·효과는 «눈»을 기준으로, 입은 «입»을 기준으로 따로 앉힌다** — 아바타(눈 87/113 · 입 89)와
+  초상화(눈 50/70 · 입 85)는 눈과 입 사이가 달라 한 변환으로 둘 다 못 맞춘다 (배율 0.56 · 0.46)
+- ⚠️ 눈 그룹에 `data-part="eye"` — 마이 룸의 눈 깜박임이 그대로 돈다
+- ⚠️ 사람이 고른 눈썹(`brow`)을 걸면 표정의 눈썹은 뺀다 (눈썹이 둘이 된다)
+- NPC 는 표정이 제 눈썹을 가졌을 때만 그 눈썹이고, 아니면 그 사람의 기본 눈썹이다 ·
+  눈동자 색(`eyeColor`)은 받은 눈의 먹색에 얹는다 · **NPC 코는 안 그린다**(사람이 정했다)
+- ⚠️ 그래서 옛 부품(아바타 `AV_FACE`·초상화 `EYE`/`MOUTH`·클레멘의 `dewy`)은 `ExpArt` 가 없을 때의
+  폴백으로만 남았다 · 하트 `heartEye` 는 인트로 요정만 쓴다 · 인트로 공주·요정 그림의 표정은 그대로다
+- `checkportrait` 의 「표정 세트」가 표정마다 그 이름의 그림이 그려지는지(`data-exp`)·깜박임 조각·
+  눈동자 색·눈썹 빼기를 본다
 
 ### NPC 초상화의 얼굴 — 타원을 버렸다 (`portrait.js` 의 `FACE`)
 

@@ -246,6 +246,9 @@ const ANGLES = [-90, -75, -60, -45, -30];
       if (!Object.keys(tbl).length) continue;
       // 인트로 그림을 쓰는 사람은 부품을 아예 안 그린다 — 여기서 잴 것이 없다
       if (sp.introArt) { eyeSwaps.push({ id: sp.id, mood: '(인트로 그림)', n: null }); continue; }
+      // ⚠️ 표정이 «받은 둥근 표정 세트»(expart.js)로 그려지면 부품 눈(`EYE`)을 안 쓴다 —
+      //    갈아 끼울 눈이 없으니 이 줄은 «표정 세트» 검사가 대신 본다
+      if (window.ExpArt) { eyeSwaps.push({ id: sp.id, mood: '(표정 세트가 그린다)', n: null }); continue; }
       const plain = Object.assign({}, sp, { eyes: null });
       for (const [from, to] of Object.entries(tbl)) {
         // 그 눈을 «실제로 쓰는» 표정을 찾는다 — 아무 표정도 안 쓰면 갈아 끼울 자리가 없다
@@ -337,9 +340,9 @@ const ANGLES = [-90, -75, -60, -45, -30];
     const scan = s => [...s.matchAll(/<path[^>]*\sd="([^"]+)"[^>]*fill="([^"]+)"/g)]
       .filter(m => C.includes(m[2])).map(m => sig(m[1]));
     const want = sig(Avatar.heartPath(1));
+    // ⚠️ 아바타·NPC 초상화의 하트 눈은 이제 «받은 둥근 표정 세트»(expart.js)가 그린다 —
+    //    그쪽은 아래 「표정 세트」가 본다. 여기 남은 것은 인트로 그림(요정 대모)이다
     const src = {
-      '아바타': Avatar.build({ ...S.wear, expression: 'exp_love' }, 1, S.hairColor),
-      'NPC 초상화': Portrait.bust(D.speaker('sp_clemen'), 'love'),
       '인트로 요정': Intro.bustArt('fairy', 'love', 200, 200),
     };
     return { want, rows: Object.keys(src).map(k => ({
@@ -366,9 +369,44 @@ const ANGLES = [-90, -75, -60, -45, -30];
     }
   });
 
+  // ─── 표정 세트 — 아바타 · NPC 초상화가 «받은 둥근 표정»을 그리는가 ─────────
+  // ⚠️ 표정마다 «그 이름의 그림»이 실제로 그려지는가를 마크업(data-exp)으로 본다 —
+  //    짝 표(EXP_ART · MOOD_ART)가 어긋나거나 ExpArt 가 안 실리면 조용히 옛 부품 얼굴로 떨어진다
+  const xs = await pg.evaluate(() => {
+    const out = { n: D.WARDROBE.expression.length, av: [], pt: [], ids: (window.ExpArt && ExpArt.ids.length) || 0, eye: 0, col: false, brow: null };
+    const ALIAS = { puzzled: 'def', happy: 'laugh', surprise: 'shock', cool: 'cold' };
+    for (const it of D.WARDROBE.expression) {
+      const svg = Avatar.build({ ...S.wear, expression: it.id }, 1, S.hairColor);
+      const got = (svg.match(/data-exp="([a-z]+)"/) || [])[1] || null;
+      const want = ALIAS[it.kind] || it.kind;
+      if (got !== want) out.av.push(`${it.id} → ${got} (바라는 것 ${want})`);
+      if (/data-part="eye"[^>]*>/.test(svg) && got) out.eye++;
+    }
+    const sp = D.speaker('sp_clemen');
+    for (const m of Object.keys(D.BASE_MOODS)) {
+      const got = (Portrait.bust(sp, m).match(/data-exp="([a-z]+)"/) || [])[1] || null;
+      if (got !== m) out.pt.push(`${m} → ${got}`);
+    }
+    out.col = !sp.eyeColor || Portrait.bust(sp, 'def').includes(sp.eyeColor);
+    // 사람이 고른 눈썹을 걸면 표정의 눈썹은 빠진다 (눈썹이 둘이 되지 않게)
+    const brow = D.WARDROBE.brow.find(b => b.kind !== 'none');
+    const a = Avatar.build({ ...S.wear, expression: 'exp_angry', brow: 'brow_none' }, 1, S.hairColor);
+    const b = Avatar.build({ ...S.wear, expression: 'exp_angry', brow: brow.id }, 1, S.hairColor);
+    out.brow = [(a.match(/stroke="#493C43"/g) || []).length, (b.match(/stroke="#493C43"/g) || []).length];
+    return out;
+  });
+  console.log(`\n표정 세트 — 받은 둥근 표정 ${xs.ids}가지 · 아바타 ${xs.n - xs.av.length}/${xs.n} · 초상화 38 무드`
+    + ` · 눈 깜박임 조각 ${xs.eye} · 표정 눈썹 ${xs.brow.join('→')} (고른 눈썹을 걸면)`);
+  if (xs.ids !== 38) bad.push(`ExpArt 표정이 ${xs.ids}가지다 — expart.js 가 안 실렸거나 덜 구워졌다`);
+  xs.av.forEach(r => bad.push('아바타 표정이 받은 그림과 안 맞는다: ' + r));
+  xs.pt.forEach(r => bad.push('초상화 표정이 받은 그림과 안 맞는다: ' + r));
+  if (xs.eye < 38) bad.push(`눈 깜박임 조각(data-part="eye")이 ${xs.eye}개 표정에만 있다`);
+  if (!xs.col) bad.push('클레멘의 눈동자 색이 표정 세트의 눈에 안 얹혔다');
+  if (!(xs.brow[0] > 0 && xs.brow[1] === 0)) bad.push(`고른 눈썹을 걸어도 표정의 눈썹이 그대로다 (${xs.brow.join('→')})`);
+
   if (errs.length) bad.push('페이지 오류: ' + errs.join(' / '));
   if (!list.length || angles === 0) bad.push('한 스타일도 못 쟀다 — 0건이 통과가 아니다');
-  if (!heart.want || heart.rows.length < 3) bad.push('하트를 한 자리도 못 쟀다 — 0건이 통과가 아니다');
+  if (!heart.want || heart.rows.length < 1) bad.push('하트를 한 자리도 못 쟀다 — 0건이 통과가 아니다');
 
   console.log(`\n잰것: 머리 모양 ${list.length}가지 × 각도 ${ANGLES.length} (${angles}번) · 틈은 ${rows}줄`
     + ` · 눈 갈아끼우기 ${eyeSwaps.length}줄`);
