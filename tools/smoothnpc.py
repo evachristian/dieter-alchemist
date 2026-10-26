@@ -24,7 +24,24 @@ for name in sorted(os.listdir(work)):
     lab[im[:, :, 3] < 128] = 0
     # 살색 = 얼굴 가운데(두 눈과 입 사이)의 색
     F = meta['face']; skin = pal[lab[int((F['ey'] + F['my']) / 2 * S), int(F['cx'] * S)] - 1]
-    # ② 머리색만 다듬는다
+    # ② 모든 경계를 한 번 다듬는다 (귀·망치·옷 가장자리의 작은 톱니) — 단 «가는 것»은 얼린다:
+    #    한 덩어리 안에서 가장자리까지 제일 먼 거리가 THIN 보다 짧으면(활시위·바이올린 활·띠) 그 칸은 안 바꾼다
+    frozen = np.zeros(lab.shape, bool)
+    for k in range(len(pal) + 1):
+        m = (lab == k).astype(np.uint8)
+        if not m.any(): continue
+        nc, cc = cv2.connectedComponents(m, connectivity=8)
+        dt = cv2.distanceTransform(m, cv2.DIST_L2, 5)
+        mx = np.zeros(nc, np.float32); np.maximum.at(mx, cc.ravel(), dt.ravel())
+        area = np.bincount(cc.ravel(), minlength=nc)
+        # ⚠️ 작은 «티»는 얼리지 않는다 — 가늘어도 길이가 없으면(넓이 SPECK 아래) 선이 아니라 따다 남은 부스러기다
+        frozen |= (m > 0) & (mx[cc] < meta['thin'] * S) & (area[cc] >= meta['speck'] * S * S)
+    allk = [k for k in range(len(pal) + 1) if (lab == k).any()]
+    score = np.stack([cv2.GaussianBlur((lab == k).astype(np.float32), (0, 0), meta['gsigma'] * S) for k in allk])
+    best = np.array(allk)[score.argmax(0)]
+    lab0 = lab.copy()
+    lab = np.where(frozen, lab, best)
+    # ③ 머리색은 한 번 더, 더 크게 다듬는다
     sig = meta['sigma'] * S
     hid = [i + 1 for i, c in enumerate(pal) if c in hair]
     sid = [i + 1 for i, c in enumerate(pal) if c == skin]
@@ -34,8 +51,8 @@ for name in sorted(os.listdir(work)):
     best = np.array(cand)[score.argmax(0)]
     hs = np.isin(lab, hid) | np.isin(best, hid)
     ok = np.isin(lab, cand) & hs
-    lab2 = np.where(ok, best, lab)
-    # ③ 층 순서 — 칠한 넓이가 큰 색이 아래
+    lab2 = np.where(ok & ~frozen, best, lab)
+    # ④ 층 순서 — 칠한 넓이가 큰 색이 아래
     cnt = np.bincount(lab2.ravel(), minlength=len(pal) + 1)
     order = sorted([k for k in range(1, len(pal) + 1) if cnt[k]], key=lambda k: (-cnt[k], k))
     out = []
@@ -57,8 +74,11 @@ for name in sorted(os.listdir(work)):
             hole = hier[0][j][3] >= 0
             if abs(a) < 0.3: continue
             if (a < 0) != hole: c = c[::-1]   # 바깥은 한쪽으로, 구멍은 반대로 (nonzero 로 뚫린다)
-            parts.append('M' + 'L'.join('%g %g' % (round(x, 1), round(y, 1)) for x, y in c) + 'Z')
+            # 꼭짓점을 «제어점»으로 두고 이웃 사이의 가운데 점을 지나는 2차 곡선으로 잇는다 — 꺾인 데가 안 남는다
+            f = lambda v: '%g' % round(float(v), 1)
+            mid = (c + np.roll(c, -1, 0)) / 2
+            parts.append('M%s %s' % (f(mid[-1][0]), f(mid[-1][1])) + ''.join('Q%s %s %s %s' % (f(c[q][0]), f(c[q][1]), f(mid[q][0]), f(mid[q][1])) for q in range(len(c))) + 'Z')
         if parts: out.append('<path d="%s" fill="%s"/>' % (''.join(parts), pal[k - 1]))
     svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %g %g">%s</svg>\n' % (meta['w'], meta['h'], ''.join(out))
     open(os.path.join(work, meta['id'] + '.svg'), 'w').write(svg)
-    print(meta['id'], len(out), '층', '%dKB' % (len(svg) // 1024), '머리 바뀐 칸 %d' % int((lab2 != lab).sum()))
+    print(meta['id'], len(out), '층', '%dKB' % (len(svg) // 1024), '머리 바뀐 칸 %d' % int((lab2 != lab0).sum()))
