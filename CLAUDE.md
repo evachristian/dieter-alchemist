@@ -26,7 +26,8 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── expart.js              표정 서른여덟 — 사람이 보낸 둥근 표정 SVG(tools/ref/expr)를 그대로 옮긴 것
 │                          (생성 · `npm run gen:expr` · npm test 가 --check) → window.ExpArt
 │                          아바타·NPC 초상화가 «자리»만 정해 `ExpArt.draw` 로 그린다 (아래 「표정 세트」)
-├── npcart.js              NPC 아홉의 «얼굴이 빈» 전신 치비 — 사람이 보낸 SVG(tools/ref/npc)의 모양 그대로 · 색만 팔레트로 모은 것
+├── npcart.js              NPC 아홉의 «얼굴이 빈» 전신 치비 — 사람이 보낸 SVG(tools/ref/npc)의 색을 팔레트로 모으고
+│                          머리카락 윤곽만 다듬어 다시 딴 것(tools/ref/npc-smooth · `node tools/smoothnpc.js` · 브라우저+cv2)
 │                          (생성 · `npm run gen:npc` · npm test 가 --check) → window.NpcArt · 표정은 portrait.js 가 ExpArt 로 얹는다
 ├── avatar.js              SVG 페이퍼돌 → window.Avatar
 ├── crouchart.js           「혼자 먹은 밤」 웅크린 뒷모습 — 받은 그림(뒷머리 여섯 갈래)을 대고 딴 조각 (생성 · tools/gencrouch.py) → window.CrouchArt

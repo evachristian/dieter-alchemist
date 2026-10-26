@@ -5,7 +5,7 @@
 //
 // 받은 그림은 «얼굴이 빈» 전신 치비다 — 표정은 portrait.js 가 받은 둥근 표정 세트(ExpArt)로
 // 그 얼굴 위에 얹는다. 얼굴의 자리(FACE)는 그림마다 «재서» 적은 값이고, 그림을 바꾸면 다시 잰다.
-// ⚠️ **모양은 한 글자도 안 고친다** — path 의 d·transform 은 그대로 옮긴다. 고치는 것은 «색»뿐이다:
+// ⚠️ 이 파일은 받은 그림의 «모양»은 한 글자도 안 고친다 — 고치는 것은 «색»뿐이다 (모양은 smoothnpc 가 다듬는다 · 아래 SMOOTH):
 //    받은 그림은 래스터를 대고 딴 것이라 한 면이 «거의 같은 색» 수십 조각으로 갈려 있고(오릭스 117색 · 살색만 열 몇 가지),
 //    가장자리에는 두 색이 섞인 띠가 조각마다 따로 남아 윤곽이 얼룩덜룩했다 (「가장자리 윤곽이 얼룩덜룩」 · 신고받았다).
 //    그래서 굽기 전에 색을 «팔레트로 모은다»(`snapColors`) — ① 넓이 순으로 훑어 이미 고른 색과 가까우면(SNAP_NEAR)
@@ -86,13 +86,19 @@ function snapColors(items) {
 //    큰 조각(슈타르크는 살색)이 비쳤다. portrait.js 가 구멍을 마스크로 도려낸다.
 //    ⚠️ 흰 머리(알테이아)·회색 바지(발렌)는 다른 색이라 안 걸린다
 const BG_DROP = { sp_orix: '#f9f6ef', sp_stark: '#fdfcf5', sp_kairos: '#fcfcf6' };
+// ⚠️ 머리카락 윤곽을 다듬은 그림(tools/ref/npc-smooth · `node tools/smoothnpc.js` 가 굽는다)이 있으면 그것을 쓴다 —
+//    거기서는 색이 이미 모였고 바탕 구멍도 이미 뚫려 있어 그대로 옮긴다. `--raw <파일>` 은 다듬기 «전»의 그림을 내놓는다
+//    (smoothnpc 가 그것을 찍어서 다시 딴다)
+const RAW = process.argv.includes('--raw') ? process.argv[process.argv.indexOf('--raw') + 1] : null;
+const SMOOTH = path.join(ROOT, 'tools', 'ref', 'npc-smooth');
 const list = {}, snapLog = [];
 for (const id of Object.keys(FACE)) {
-  const svg = fs.readFileSync(path.join(SRC, id + '.svg'), 'utf8');
+  const smooth = !RAW && fs.existsSync(path.join(SMOOTH, id + '.svg'));
+  const svg = fs.readFileSync(path.join(smooth ? SMOOTH : SRC, id + '.svg'), 'utf8');
   if (/<script|href|url\(|\son[a-z]+\s*=|<!ENTITY|<!DOCTYPE/i.test(svg)) fail(`${id}.svg 에 쓸 수 없는 것이 있다`);
   const vb = svg.match(/<svg\b[^>]*\bviewBox="0 0 ([\d.]+) ([\d.]+)"/);
   if (!vb) fail(`${id}.svg 에 viewBox 가 없다`);
-  const body = svg.replace(/<\?xml[^>]*\?>/, '').replace(/<svg\b[^>]*>/, '').replace(/<\/svg>\s*$/, '');
+  const body = svg.replace(/<\?xml[^>]*\?>/, '').trim().replace(/<svg\b[^>]*>/, '').replace(/<\/svg>\s*$/, '');
   const paths = [];
   const re = /<path\b([^>]*)\/>|(\S)/g; let t;
   while ((t = re.exec(body))) {
@@ -107,6 +113,10 @@ for (const id of Object.keys(FACE)) {
     paths.push({ d: at.d, fill: at.fill, transform: at.transform, area: areaOf(at.d) });
   }
   if (!paths.length) fail(`${id}.svg 에 그림이 없다`);
+  if (smooth) {
+    list[id] = { w: +vb[1], h: +vb[2], face: FACE[id], art: paths.map(p => `<path d="${p.d}" fill="${p.fill}"/>`).join('') };
+    snapLog.push(`${id} 다듬은 그림`); continue;
+  }
   const sn = snapColors(paths);
   if (BG_DROP[id]) { const k = sn.out.filter(c => c === BG_DROP[id]).length;
     if (!k) fail(`${id}.svg 에서 지울 바탕색(${BG_DROP[id]})을 못 찾았다 — 그림이나 팔레트가 바뀌었다`);
@@ -120,7 +130,8 @@ const out = `// ⚠️ 생성 파일 — 손으로 고치지 않는다 (node too
 // NPC 아홉의 «얼굴이 빈» 전신 그림과 그 얼굴의 자리 → window.NpcArt (portrait.js 가 표정을 얹는다)
 window.NpcArt = ${JSON.stringify(list)};
 `;
-if (process.argv.includes('--check')) {
+if (RAW) { fs.writeFileSync(RAW, out); console.log(`✅ gennpc — 다듬기 전의 그림 → ${RAW}`); }
+else if (process.argv.includes('--check')) {
   const cur = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
   if (cur !== out) fail('npcart.js 가 원본과 다르다 — node tools/gennpc.js 로 다시 뽑는다');
   console.log(`✅ gennpc — NPC ${Object.keys(list).length} · npcart.js 가 원본과 같다`);

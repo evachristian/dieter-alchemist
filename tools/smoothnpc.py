@@ -1,0 +1,64 @@
+# NPC 그림의 머리카락 윤곽을 다듬는다 — tools/smoothnpc.js 가 부른다 (손으로 부르지 않는다)
+#   python3 -I tools/smoothnpc.py <작업 폴더>
+# 작업 폴더의 <id>.png(지금 npcart 의 그림을 SCALE 배로 «앤티에일리어싱 없이» 찍은 것)와 <id>.json(팔레트·머리색·살색)을 읽어
+# 같은 폴더에 <id>.svg 를 쓴다.
+#   ① 픽셀마다 팔레트 번호(라벨)를 매긴다
+#   ② 머리색 라벨만 «가우시안 다수결»로 다듬는다 — 라벨마다 지시 함수를 흐려 제일 큰 것을 고른다.
+#      바뀌는 자리는 「머리 ↔ 머리·살·바탕」 사이뿐이다 (가는 활시위·바이올린 활이 머리에 먹히지 않게)
+#   ③ 층을 다시 딴다 — k번째 층은 «k번째 이후 라벨 전부»의 합집합이라, 위 층의 가장자리는 늘 아래 층의 «안»에 선다
+#      (조각끼리 맞닿는 이음매가 없어 그 사이로 밑의 색이 실처럼 비치지 않는다 — 오릭스 얼굴의 「실」이 그것이었다)
+import sys, os, json
+import numpy as np
+import cv2
+
+work = sys.argv[1]
+for name in sorted(os.listdir(work)):
+    if not name.endswith('.json'): continue
+    meta = json.load(open(os.path.join(work, name)))
+    S = meta['scale']; pal = meta['pal']; hair = set(meta['hair'])
+    im = cv2.imread(os.path.join(work, meta['id'] + '.png'), cv2.IMREAD_UNCHANGED)  # BGRA
+    H, W = im.shape[:2]
+    P = np.array([[int(c[5:7], 16), int(c[3:5], 16), int(c[1:3], 16)] for c in pal], np.int32)
+    d = ((im[:, :, None, :3].astype(np.int32) - P[None, None]) ** 2).sum(-1)
+    lab = d.argmin(-1).astype(np.int32) + 1
+    lab[im[:, :, 3] < 128] = 0
+    # 살색 = 얼굴 가운데(두 눈과 입 사이)의 색
+    F = meta['face']; skin = pal[lab[int((F['ey'] + F['my']) / 2 * S), int(F['cx'] * S)] - 1]
+    # ② 머리색만 다듬는다
+    sig = meta['sigma'] * S
+    hid = [i + 1 for i, c in enumerate(pal) if c in hair]
+    sid = [i + 1 for i, c in enumerate(pal) if c == skin]
+    soft = set(hid) | set(sid) | {0}
+    cand = sorted(soft)
+    score = np.stack([cv2.GaussianBlur((lab == k).astype(np.float32), (0, 0), sig) for k in cand])
+    best = np.array(cand)[score.argmax(0)]
+    hs = np.isin(lab, hid) | np.isin(best, hid)
+    ok = np.isin(lab, cand) & hs
+    lab2 = np.where(ok, best, lab)
+    # ③ 층 순서 — 칠한 넓이가 큰 색이 아래
+    cnt = np.bincount(lab2.ravel(), minlength=len(pal) + 1)
+    order = sorted([k for k in range(1, len(pal) + 1) if cnt[k]], key=lambda k: (-cnt[k], k))
+    out = []
+    for i, k in enumerate(order):
+        m = np.isin(lab2, order[i:]).astype(np.uint8) * 255
+        cs, hier = cv2.findContours(m, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+        if hier is None: continue
+        parts = []
+        for j, c in enumerate(cs):
+            c = c[:, 0, :].astype(np.float64) + 0.5
+            if len(c) < 8: continue
+            # 계단 펴기 — Taubin(λ/μ)으로 부피를 지키며 몇 번만
+            for _ in range(meta['iter']):
+                for f in (0.5, -0.53):
+                    c = c + f * ((np.roll(c, 1, 0) + np.roll(c, -1, 0)) / 2 - c)
+            c = cv2.approxPolyDP(c.astype(np.float32).reshape(-1, 1, 2), meta['eps'], True)[:, 0, :] / S
+            if len(c) < 3: continue
+            a = 0.5 * np.sum(c[:, 0] * np.roll(c[:, 1], -1) - np.roll(c[:, 0], -1) * c[:, 1])
+            hole = hier[0][j][3] >= 0
+            if abs(a) < 0.3: continue
+            if (a < 0) != hole: c = c[::-1]   # 바깥은 한쪽으로, 구멍은 반대로 (nonzero 로 뚫린다)
+            parts.append('M' + 'L'.join('%g %g' % (round(x, 1), round(y, 1)) for x, y in c) + 'Z')
+        if parts: out.append('<path d="%s" fill="%s"/>' % (''.join(parts), pal[k - 1]))
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %g %g">%s</svg>\n' % (meta['w'], meta['h'], ''.join(out))
+    open(os.path.join(work, meta['id'] + '.svg'), 'w').write(svg)
+    print(meta['id'], len(out), '층', '%dKB' % (len(svg) // 1024), '머리 바뀐 칸 %d' % int((lab2 != lab).sum()))
