@@ -543,8 +543,10 @@
         k = H2 * 0.96 / na.h; vw = +(na.w * k).toFixed(2); x0 = 0; y0 = 0;
       } else {
         // 흉상 — 두 눈 사이의 NPC_BUST 배를 폭으로 두고, 눈이 위에서 NPC_EYE_AT 자리에 오게 자른다
-        const cw = fc.gap * NPC_BUST;
-        k = W / cw; x0 = fc.cx - cw / 2; y0 = fc.ey - (H * NPC_EYE_AT) / k;
+        // ⚠️ 폭은 «그림 전체 폭»보다 좁게 안 잡고, 가운데는 그림 가운데다 — 얼굴이 한쪽으로 치우친 그림(요정 대모)은
+        //    얼굴 가운데로 자르면 후드 한쪽이 잘렸다 (신고받았다)
+        const cw = Math.max(fc.gap * NPC_BUST, na.w);
+        k = W / cw; x0 = na.w / 2 - cw / 2; y0 = fc.ey - (H * NPC_EYE_AT) / k;
       }
       const xa = ExpArt.has(mood) ? mood : (MOOD_ART[mood] || 'def');
       const exp = ExpArt.draw(xa, { ex: fc.cx, ey: fc.ey, mx: fc.cx, my: fc.my, s: fc.gap / 44, eyeColor: sp.eyeColor });
