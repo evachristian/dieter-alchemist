@@ -3766,6 +3766,25 @@
       sponge: '#f9a665', cakeL: '#ebac7a', cream: '#fcecdc', straw: '#d33d49', leaf: '#6f953b', crumb: '#f5ab71',
     };
     const CAKE = { sponge: 1, cakeL: 1, cream: 1, straw: 1, leaf: 1 };
+    // ⚠️⚠️ 반묶음(long) 갈래는 따낸 케이크 조각에 빈틈이 많아, 그 사이로 «뒤에 있을 것»의 손가락·살색이 비쳐
+    //    케이크가 깨져 보였다 (「케이크가 깨져」 · 신고받았다). 그 갈래만 케이크를 «도형으로» 다시 그린다 —
+    //    자리·크기는 따낸 케이크 조각의 상자(x 268~401 · y 427~560) 그대로다. 손(`VAR.hand`)은 그 위에 그대로 얹힌다
+    const CAKE_DRAWN = {
+      long: () => {
+        const F = FILL;
+        // 옆에서 본 조각 — 왼쪽(겉면)과 위는 생크림, 오른쪽(입 쪽)은 단면이 드러난다
+        return '<path d="M272 462 Q272 448 286 448 L392 448 Q400 448 400 458 L400 548 Q400 556 392 556 L284 556 Q272 556 272 544 Z" fill="' + F.cream + '"/>'
+          + '<path d="M281 468 L400 468 L400 498 L281 498 Q279 483 281 468 Z" fill="' + F.sponge + '"/>'
+          + '<path d="M281 508 L400 508 L400 546 Q400 550 396 550 L286 550 Q281 550 281 545 Z" fill="' + F.sponge + '"/>'
+          + '<path d="M286 483 H396 M286 528 H396" stroke="' + F.cakeL + '" stroke-width="3" stroke-linecap="round" opacity="0.6"/>'
+          // 위의 생크림 물결 + 딸기 밑 한 덩이
+          + '<path d="M276 452 Q284 442 294 450 Q302 440 312 448 L334 448 Q344 438 354 448 Q364 440 374 448 Q384 440 396 450 L396 458 L276 458 Z" fill="' + F.cream + '"/>'
+          + '<path d="M304 452 Q306 438 322 437 Q338 438 340 452 Z" fill="' + F.cream + '"/>'
+          + '<path d="M322 466 C308 465 302 455 304 446 C306 437 314 432 322 434 C330 432 338 437 340 446 C342 455 336 465 322 466 Z" fill="' + F.straw + '"/>'
+          + '<path d="M315 446 l1 -3 M323 452 l0 -3 M330 445 l-1 -3" stroke="#f7d6a8" stroke-width="2.2" stroke-linecap="round"/>'
+          + '<path d="M322 437 Q312 438 309 433 Q316 432 319 434 Q316 428 322 426 Q328 428 325 434 Q328 432 335 433 Q332 438 322 437 Z" fill="' + F.leaf + '"/>';
+      },
+    };
     // 들고 있는 것이 케이크면 그린 케이크를, 아니면 그 자리에 음식 이모지를 쥐여 준다
     const isCake = !foodEmoji || foodEmoji === '🍰';
     const uid = 'c' + (++avatarUid);
@@ -3859,7 +3878,8 @@
       + (VAR.face || []).map(([r, d]) => '<path d="' + d + '" fill="' + FILL[r] + '"/>').join('')
       // ⚠️ 케이크 조각은 «구멍 모양»으로 오린다 — 쌓은 조각이라 크림 바탕이 케이크 밑의 팔까지 깔려 있어서
       //    움직이는 케이크가 팔을 크림색으로 덮었다 (올림머리)
-      + (isCake ? '<g class="cb-bite"><g clip-path="url(#' + ID('cake') + ')">' + moving + '</g></g>' : foodTag)
+      + (isCake ? (CAKE_DRAWN[varKey] ? '<g class="cb-bite">' + CAKE_DRAWN[varKey]() + '</g>'
+        : '<g class="cb-bite"><g clip-path="url(#' + ID('cake') + ')">' + moving + '</g></g>') : foodTag)
       // ③ 케이크가 아니면 손을 «둥글린다»(`goo` — 메웠다 깎고 번졌다 다시 세운다). 받은 손은 케이크 «옆»에서 딴 것이라
       //    케이크와 맞닿던 자리가 계단처럼 네모나게 끊겨 있었다 — 케이크가 덮어 주던 그 모서리가 음식 밖으로 드러났다
       //    (「손 라인 따라서 예쁘게 정리」 · 신고받았다). 손가락 사이의 틈도 메워 «물방울»처럼 비치지 않게 한다
