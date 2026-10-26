@@ -8,49 +8,49 @@
   "brows": "",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M73 104 Q76 110 80 104 Q84 110 87 104\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "smile": {
   "name": "웃음",
   "brows": "",
   "eyes": "<path d=\"M49 77 Q58 61 67 77\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M93 77 Q102 61 111 77\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M73 103 Q80 113 87 103\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "warm": {
   "name": "다정",
   "brows": "",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M73 103 Q80 113 87 103\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "laugh": {
   "name": "크게웃음",
   "brows": "",
   "eyes": "<path d=\"M49 77 Q58 61 67 77\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M93 77 Q102 61 111 77\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M71 102 Q80 105 89 102 Q89 119 80 119 Q71 119 71 102 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"80\" cy=\"114\" rx=\"6\" ry=\"3.5\" fill=\"#EF9AAD\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "wink": {
   "name": "윙크",
   "brows": "",
   "eyes": "<path d=\"M49 77 Q58 61 67 77\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M73 104 Q76 110 80 104 Q84 110 87 104\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "proud": {
   "name": "우쭐",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 53 Q58 49 68 53 M92 53 Q102 49 112 53\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<path d=\"M47 73 Q47 90 58 90 Q69 90 69 73 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"62\" cy=\"78\" rx=\"3\" ry=\"3\" fill=\"#FFFDF7\"/><path d=\"M46 73 Q58 75 70 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M91 73 Q91 90 102 90 Q113 90 113 73 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"106\" cy=\"78\" rx=\"3\" ry=\"3\" fill=\"#FFFDF7\"/><path d=\"M90 73 Q102 75 114 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M74 108 Q83 113 88 103\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "smirk": {
   "name": "능글",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 48 Q58 40 68 48 M92 55 L112 53\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M74 108 Q83 113 88 103\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "flat": {
   "name": "무표정",
@@ -64,70 +64,70 @@
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 53 Q58 49 68 53 M92 53 Q102 49 112 53\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<path d=\"M47 73 Q47 90 58 90 Q69 90 69 73 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"62\" cy=\"78\" rx=\"3\" ry=\"3\" fill=\"#FFFDF7\"/><path d=\"M46 73 Q58 75 70 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M91 73 Q91 90 102 90 Q113 90 113 73 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"106\" cy=\"78\" rx=\"3\" ry=\"3\" fill=\"#FFFDF7\"/><path d=\"M90 73 Q102 75 114 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M74 108 Q83 113 88 103\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "sleepy": {
   "name": "졸림",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 53 Q58 49 68 53 M92 53 Q102 49 112 53\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<path d=\"M49 73 Q58 84 67 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M93 73 Q102 84 111 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><ellipse cx=\"80\" cy=\"107\" rx=\"4.5\" ry=\"6.5\" fill=\"#AD6678\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "think": {
   "name": "생각중",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 53 Q58 49 68 53 M92 53 Q102 49 112 53\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<g transform=\"translate(0 -3)\"><ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/></g>",
   "mouth": "<g transform=\"translate(0 -8)\"><ellipse cx=\"80\" cy=\"107\" rx=\"4.5\" ry=\"6.5\" fill=\"#AD6678\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "doubt": {
   "name": "미심쩍음",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 48 Q58 40 68 48 M92 55 L112 53\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M74 108 Q83 113 88 103\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "shock": {
   "name": "놀람",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 46 Q58 38 68 46 M92 46 Q102 38 112 46\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><ellipse cx=\"80\" cy=\"108\" rx=\"7\" ry=\"10\" fill=\"#49363B\"/><ellipse cx=\"80\" cy=\"113\" rx=\"4\" ry=\"3\" fill=\"#E9A0AE\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "worry": {
   "name": "걱정",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 56 Q58 55 68 48 M92 48 Q102 55 112 56\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M70 108 Q73 102 77 108 Q80 114 83 108 Q87 102 90 108\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "sad": {
   "name": "슬픔",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 56 Q58 55 68 48 M92 48 Q102 55 112 56\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M74 109 Q80 100 86 109\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "cry": {
   "name": "울음",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 56 Q58 55 68 48 M92 48 Q102 55 112 56\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M70 108 Q73 102 77 108 Q80 114 83 108 Q87 102 90 108\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><path d=\"M44 88 Q36 100 40 107 Q44 111 48 106 Q51 101 44 88 M116 88 Q108 100 112 107 Q116 111 120 106 Q123 101 116 88\" fill=\"#B1DFEB\" stroke=\"#93CEE1\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><path d=\"M44 88 Q36 100 40 107 Q44 111 48 106 Q51 101 44 88 M116 88 Q108 100 112 107 Q116 111 120 106 Q123 101 116 88\" fill=\"#B1DFEB\" stroke=\"#93CEE1\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
  },
  "angry": {
   "name": "화남",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 49 L68 57 M92 57 L112 49\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M74 109 Q80 100 86 109\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "grit": {
   "name": "참음",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 49 L68 57 M92 57 L112 49\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M73 106 Q76 103 80 106 Q84 109 87 106\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "cold": {
   "name": "차가움",
@@ -141,56 +141,56 @@
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 56 Q58 55 68 48 M92 48 Q102 55 112 56\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<path d=\"M49 73 Q58 84 67 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M93 73 Q102 84 111 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><ellipse cx=\"80\" cy=\"107\" rx=\"4.5\" ry=\"6.5\" fill=\"#AD6678\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><path d=\"M35 85 l2 4 M41 84 l2 4 M115 85 l2 4 M121 84 l2 4\" fill=\"none\" stroke=\"#DC91A7\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><path d=\"M35 85 l2 4 M41 84 l2 4 M115 85 l2 4 M121 84 l2 4\" fill=\"none\" stroke=\"#DC91A7\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
  },
  "ohh": {
   "name": "아하",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 46 Q58 38 68 46 M92 46 Q102 38 112 46\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><ellipse cx=\"80\" cy=\"107\" rx=\"4.5\" ry=\"6.5\" fill=\"#AD6678\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "star": {
   "name": "반짝기대",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 46 Q58 38 68 46 M92 46 Q102 38 112 46\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"13\" ry=\"13\" fill=\"#49363B\"/><path d=\"M58 65 Q60 73 67 76 Q60 79 58 87 Q56 79 49 76 Q56 73 58 65\" fill=\"#FFEDB0\" stroke=\"#FFEDB0\" stroke-width=\"0\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"102\" cy=\"76\" rx=\"13\" ry=\"13\" fill=\"#49363B\"/><path d=\"M102 65 Q104 73 111 76 Q104 79 102 87 Q100 79 93 76 Q100 73 102 65\" fill=\"#FFEDB0\" stroke=\"#FFEDB0\" stroke-width=\"0\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M71 102 Q80 105 89 102 Q89 119 80 119 Q71 119 71 102 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"80\" cy=\"114\" rx=\"6\" ry=\"3.5\" fill=\"#EF9AAD\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "love": {
   "name": "반함",
   "brows": "",
-  "eyes": "<path d=\"M58 87 C33 72 46 57 58 69 C70 57 83 72 58 87\" fill=\"#DD829B\" stroke=\"#DD829B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"53\" cy=\"69\" rx=\"3\" ry=\"2\" fill=\"#FFF9F3\"/><path d=\"M102 87 C77 72 90 57 102 69 C114 57 127 72 102 87\" fill=\"#DD829B\" stroke=\"#DD829B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"97\" cy=\"69\" rx=\"3\" ry=\"2\" fill=\"#FFF9F3\"/>",
+  "eyes": "<path d=\"M58 87 C33 72 46 57 58 69 C70 57 83 72 58 87\" fill=\"#e03040\" stroke=\"#e03040\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"53\" cy=\"69\" rx=\"3\" ry=\"2\" fill=\"#FFF9F3\"/><path d=\"M102 87 C77 72 90 57 102 69 C114 57 127 72 102 87\" fill=\"#e03040\" stroke=\"#e03040\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"97\" cy=\"69\" rx=\"3\" ry=\"2\" fill=\"#FFF9F3\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M71 102 Q80 105 89 102 Q89 119 80 119 Q71 119 71 102 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"80\" cy=\"114\" rx=\"6\" ry=\"3.5\" fill=\"#EF9AAD\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "faint": {
   "name": "질색기절",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 53 Q58 49 68 53 M92 53 Q102 49 112 53\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<path d=\"M50 68 L64 76 L50 84\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M110 68 L96 76 L110 84\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><ellipse cx=\"80\" cy=\"108\" rx=\"7\" ry=\"10\" fill=\"#49363B\"/><ellipse cx=\"80\" cy=\"113\" rx=\"4\" ry=\"3\" fill=\"#E9A0AE\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "haha": {
   "name": "박장대소",
   "brows": "",
   "eyes": "<path d=\"M50 68 L64 76 L50 84\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M110 68 L96 76 L110 84\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M71 102 Q80 105 89 102 Q89 119 80 119 Q71 119 71 102 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"80\" cy=\"114\" rx=\"6\" ry=\"3.5\" fill=\"#EF9AAD\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "tease": {
   "name": "메롱",
   "brows": "",
   "eyes": "<path d=\"M49 77 Q58 61 67 77\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M93 77 Q102 61 111 77\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M72 103 Q80 109 88 103\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M77 106 V112 Q81 119 85 112 V106\" fill=\"#ED9AAF\" stroke=\"#AD6678\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "pout": {
   "name": "삐죽토라짐",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 49 L68 57 M92 57 L112 49\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M76 104 Q88 104 81 109 Q88 114 76 113\" fill=\"none\" stroke=\"#AD6678\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "glare": {
   "name": "노려봄",
@@ -204,70 +204,70 @@
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 48 Q58 40 68 48 M92 55 L112 53\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<path d=\"M47 73 Q47 90 58 90 Q69 90 69 73 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"62\" cy=\"78\" rx=\"3\" ry=\"3\" fill=\"#FFFDF7\"/><path d=\"M46 73 Q58 75 70 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M91 73 Q91 90 102 90 Q113 90 113 73 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"106\" cy=\"78\" rx=\"3\" ry=\"3\" fill=\"#FFFDF7\"/><path d=\"M90 73 Q102 75 114 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M74 108 Q83 113 88 103\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "dizzy": {
   "name": "어질어질",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 53 Q58 49 68 53 M92 53 Q102 49 112 53\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<path d=\"M58 75 c-2 -4 -7 -1 -5 3 c3 7 14 4 14 -4 c0 -13 -21 -13 -23 1\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M102 75 c-2 -4 -7 -1 -5 3 c3 7 14 4 14 -4 c0 -13 -21 -13 -23 1\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M70 108 Q73 102 77 108 Q80 114 83 108 Q87 102 90 108\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "weary": {
   "name": "지침",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 56 Q58 55 68 48 M92 48 Q102 55 112 56\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<path d=\"M47 73 Q47 90 58 90 Q69 90 69 73 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"62\" cy=\"78\" rx=\"3\" ry=\"3\" fill=\"#FFFDF7\"/><path d=\"M46 73 Q58 75 70 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M91 73 Q91 90 102 90 Q113 90 113 73 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"106\" cy=\"78\" rx=\"3\" ry=\"3\" fill=\"#FFFDF7\"/><path d=\"M90 73 Q102 75 114 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M75 106 Q80 107 85 106\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "relief": {
   "name": "안도",
   "brows": "",
   "eyes": "<path d=\"M49 73 Q58 84 67 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M93 73 Q102 84 111 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M73 103 Q80 113 87 103\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "sorry": {
   "name": "미안",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 56 Q58 55 68 48 M92 48 Q102 55 112 56\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M76 107 Q75 115 80 115 Q85 115 84 107 Z\" fill=\"#F0A8B7\" stroke=\"#49363B\" stroke-width=\"2.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M70 103 C71 108 77 109 80 105 C83 109 89 108 90 103\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "plead": {
   "name": "부탁",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 56 Q58 55 68 48 M92 48 Q102 55 112 56\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"63\" cy=\"82\" rx=\"2.5\" ry=\"2.5\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"107\" cy=\"82\" rx=\"2.5\" ry=\"2.5\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><ellipse cx=\"80\" cy=\"107\" rx=\"4.5\" ry=\"6.5\" fill=\"#AD6678\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><path d=\"M35 85 l2 4 M41 84 l2 4 M115 85 l2 4 M121 84 l2 4\" fill=\"none\" stroke=\"#DC91A7\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><path d=\"M35 85 l2 4 M41 84 l2 4 M115 85 l2 4 M121 84 l2 4\" fill=\"none\" stroke=\"#DC91A7\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
  },
  "blush": {
   "name": "부끄러움",
   "brows": "",
   "eyes": "<path d=\"M49 77 Q58 61 67 77\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M93 77 Q102 61 111 77\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"4.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M73 104 Q76 110 80 104 Q84 110 87 104\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><path d=\"M35 85 l2 4 M41 84 l2 4 M115 85 l2 4 M121 84 l2 4\" fill=\"none\" stroke=\"#DC91A7\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><path d=\"M35 85 l2 4 M41 84 l2 4 M115 85 l2 4 M121 84 l2 4\" fill=\"none\" stroke=\"#DC91A7\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>"
  },
  "resolve": {
   "name": "결심",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 49 L68 57 M92 57 L112 49\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<path d=\"M47 73 Q47 90 58 90 Q69 90 69 73 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"62\" cy=\"78\" rx=\"3\" ry=\"3\" fill=\"#FFFDF7\"/><path d=\"M46 73 Q58 75 70 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M91 73 Q91 90 102 90 Q113 90 113 73 Z\" fill=\"#49363B\" stroke=\"#49363B\" stroke-width=\"1\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"106\" cy=\"78\" rx=\"3\" ry=\"3\" fill=\"#FFFDF7\"/><path d=\"M90 73 Q102 75 114 73\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><path d=\"M73 108 Q80 110 87 104\" fill=\"none\" stroke=\"#49363B\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "awe": {
   "name": "감탄",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 46 Q58 38 68 46 M92 46 Q102 38 112 46\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"63\" cy=\"82\" rx=\"2.5\" ry=\"2.5\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"107\" cy=\"82\" rx=\"2.5\" ry=\"2.5\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><ellipse cx=\"80\" cy=\"107\" rx=\"4.5\" ry=\"6.5\" fill=\"#AD6678\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  },
  "curious": {
   "name": "궁금",
   "brows": "<g transform=\"translate(24 13) scale(.7 .8)\"><path d=\"M48 48 Q58 40 68 48 M92 55 L112 53\" fill=\"none\" stroke=\"#493C43\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></g>",
   "eyes": "<ellipse cx=\"58\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"58\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"62\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"53\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/><ellipse cx=\"102\" cy=\"76\" rx=\"12\" ry=\"12\" fill=\"#49363B\"/><ellipse cx=\"102\" cy=\"82\" rx=\"7\" ry=\"4\" fill=\"#77545C\"/><ellipse cx=\"106\" cy=\"71\" rx=\"4\" ry=\"4\" fill=\"#FFFDF7\"/><ellipse cx=\"97\" cy=\"81\" rx=\"2.2\" ry=\"2.2\" fill=\"#FFFDF7\"/>",
   "mouth": "<g transform=\"translate(0 -8)\"><ellipse cx=\"80\" cy=\"107\" rx=\"4.5\" ry=\"6.5\" fill=\"#AD6678\"/></g>",
-  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#F4B5C5\"/>"
+  "fx": "<ellipse cx=\"41\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/><ellipse cx=\"119\" cy=\"87\" rx=\"11\" ry=\"6\" fill=\"#ff9db4\" opacity=\"0.6\"/>"
  }
 };
   // 받은 캔버스의 기준 — 두 눈 가운데(80,76) · 입 가운데(80,99 · 그룹의 translate(0 -8) 를 지난 뒤)

@@ -46,7 +46,12 @@ for (const { id, name } of man.expressions) {
     grp[k] = body ? (tf ? `<g transform="${tf}">${body}</g>` : body) : '';
   }
   if (!grp.eyes) fail(`${id}.svg 에 눈이 없다`);
-  list[id] = { name, brows: grp.eyebrows, eyes: grp.eyes, mouth: grp.mouth, fx: grp.effects };
+  // 색 둘은 «예전 색»으로 되돌린다 (사람이 정했다 · 받은 SVG 는 그대로 둔다)
+  //  · 볼터치 #F4B5C5 → 인트로 공주·옛 아바타의 볼터치(#ff9db4 · 0.6)
+  //  · 반함의 하트 눈 #DD829B → 옛 하트 색(Avatar.HEART.base #e03040) — 분홍은 너무 흐렸다
+  const fx = grp.effects.split('fill="#F4B5C5"').join('fill="#ff9db4" opacity="0.6"');
+  const eyes = grp.eyes.split('#DD829B').join('#e03040');
+  list[id] = { name, brows: grp.eyebrows, eyes, mouth: grp.mouth, fx };
 }
 if (Object.keys(list).length !== 38) fail(`표정이 ${Object.keys(list).length}개다 (38 이어야 한다)`);
 
