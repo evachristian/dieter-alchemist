@@ -72,6 +72,9 @@ const ANGLES = [-90, -75, -60, -45, -30];
 
   const out = await pg.evaluate(async ({ ANGLES }) => {
     const D = window.GameData, S = 8, W = 120 * S, H = 130 * S;
+    // ⚠️ 여기서 재는 것은 «부품 초상화»(머리·후드·수염·눈)다 — 받은 NPC 그림(npcart.js)이 있는
+    //    사람은 그 그림이 그려져 조각이 하나도 안 나온다. 재는 동안만 떼어 둔다 (끝에서 되돌린다)
+    const NPCART = window.NpcArt; window.NpcArt = null;
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const cx = cv.getContext('2d');
@@ -267,6 +270,7 @@ const ANGLES = [-90, -75, -60, -45, -30];
       }
     }
 
+    window.NpcArt = NPCART;
     return { res, hoods, beards, eyeSwaps };
   }, { ANGLES });
   const { res: _res, hoods, beards, eyeSwaps } = out;
@@ -393,6 +397,30 @@ const ANGLES = [-90, -75, -60, -45, -30];
     const a = Avatar.build({ ...S.wear, expression: 'exp_angry', brow: 'brow_none' }, 1, S.hairColor);
     const b = Avatar.build({ ...S.wear, expression: 'exp_angry', brow: brow.id }, 1, S.hairColor);
     out.brow = [(a.match(/stroke="#493C43"/g) || []).length, (b.match(/stroke="#493C43"/g) || []).length];
+    // 받은 NPC 그림 — 아홉이 다 «그 그림»으로 서고, 표정이 흉상 상자 «안»(얼굴 자리)에 앉는가
+    // ⚠️ 마크업만 보면 표정을 엉뚱한 데 얹어도 통과한다 — 그려 놓고 표정의 상자를 잰다
+    out.npc = []; out.npcN = 0;
+    for (const id of Object.keys(window.NpcArt || {})) {
+      const sp = D.speaker(id);
+      if (!sp) { out.npc.push(`${id} — SPEAKERS 에 없는 사람이다`); continue; }
+      for (const full of [false, true]) {
+        const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:240px';
+        h.innerHTML = Portrait.bust(sp, 'laugh', { bare: true, full });
+        document.body.appendChild(h);
+        const svg = h.querySelector('svg'), ex = h.querySelector('[data-exp]');
+        if (!svg || svg.dataset.npcart !== id || !ex) out.npc.push(`${id}${full ? '(전신)' : ''} — 받은 그림·표정으로 안 그려졌다`);
+        else {
+          const r = svg.getBoundingClientRect(), e = ex.getBoundingClientRect();
+          const cx = (e.left + e.right) / 2 - r.left, cy = (e.top + e.bottom) / 2 - r.top;
+          // 흉상에서는 표정이 상자 가운데 띠(가로 30~70% · 세로 35~75%)에 와야 «얼굴»이다
+          if (!full && !(cx > r.width * 0.3 && cx < r.width * 0.7 && cy > r.height * 0.35 && cy < r.height * 0.75))
+            out.npc.push(`${id} — 흉상에서 표정이 얼굴 자리를 벗어났다 (${(cx / r.width * 100).toFixed(0)}% · ${(cy / r.height * 100).toFixed(0)}%)`);
+          if (e.width < r.width * (full ? 0.12 : 0.25)) out.npc.push(`${id}${full ? '(전신)' : ''} — 표정이 너무 작다`);
+          out.npcN++;
+        }
+        h.remove();
+      }
+    }
     return out;
   });
   console.log(`\n표정 세트 — 받은 둥근 표정 ${xs.ids}가지 · 아바타 ${xs.n - xs.av.length}/${xs.n} · 초상화 38 무드`
@@ -402,6 +430,9 @@ const ANGLES = [-90, -75, -60, -45, -30];
   xs.pt.forEach(r => bad.push('초상화 표정이 받은 그림과 안 맞는다: ' + r));
   if (xs.eye < 38) bad.push(`눈 깜박임 조각(data-part="eye")이 ${xs.eye}개 표정에만 있다`);
   if (!xs.col) bad.push('클레멘의 눈동자 색이 표정 세트의 눈에 안 얹혔다');
+  console.log(`받은 NPC 그림 — ${xs.npcN}자리(흉상·전신)에 표정이 얼굴 자리에 앉는다`);
+  xs.npc.forEach(r => bad.push('NPC 그림: ' + r));
+  if (xs.npcN < 18) bad.push(`받은 NPC 그림을 ${xs.npcN}자리만 쟀다 (아홉 × 둘이어야 한다)`);
   if (!(xs.brow[0] > 0 && xs.brow[1] === 0)) bad.push(`고른 눈썹을 걸어도 표정의 눈썹이 그대로다 (${xs.brow.join('→')})`);
 
   if (errs.length) bad.push('페이지 오류: ' + errs.join(' / '));

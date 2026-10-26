@@ -510,6 +510,8 @@
   const MOOD_ART = { soft: 'warm', sing: 'laugh', true: 'flat' };
   // 받은 캔버스(160) → 초상화 얼굴 (두 눈 50/70 · y66 · 입 y85). 두 눈 사이 20 = 44 × 0.46
   const EXP_K = 0.46;
+  // 받은 NPC 그림의 흉상 — 폭 = 두 눈 사이 × NPC_BUST · 눈이 위에서 NPC_EYE_AT 자리
+  const NPC_BUST = 5.2, NPC_EYE_AT = 0.56;
   function bust(sp, mood, opts) {
     if (!sp) return '';
     const bare = !!(opts && opts.bare);
@@ -523,6 +525,33 @@
     // 부품을 조합해 다시 그리면 방금까지 보던 사람과 다른 사람이 된다 —
     // 요정 대모가 실제로 그랬다 (머리 모양이 아예 다르고 정수리가 떨어져 보였다).
     // intro.js 가 없으면(스크립트 누락) 아래의 부품 조합으로 그냥 떨어진다.
+    // **받은 NPC 그림(npcart.js)이 있는 사람은 그것을 쓴다** — 얼굴이 빈 전신 치비라
+    // 그 얼굴 자리(`face`)에 받은 둥근 표정 세트를 얹는다. 인트로 그림보다 «먼저»다 (요정 대모도 바뀌었다)
+    // ⚠️ 흉상은 같은 그림을 «얼굴 둘레로 잘라» 쓴다 — 두 벌로 그리지 않는다
+    // ⚠️ 그림 좌표 그대로 표정을 얹으므로 자르는 상자를 바꿔도 표정이 얼굴에서 안 떨어진다
+    const na = window.NpcArt && sp.id && NpcArt[sp.id];
+    if (na && window.ExpArt) {
+      const fc = na.face;
+      let vw = W, vh = H2, k, x0, y0;
+      if (full) {
+        // 전신 — 그림의 비대로 상자를 잡고 발끝까지 다 넣는다 (아래 4% 는 바닥 그림자 몫)
+        k = H2 * 0.96 / na.h; vw = +(na.w * k).toFixed(2); x0 = 0; y0 = 0;
+      } else {
+        // 흉상 — 두 눈 사이의 NPC_BUST 배를 폭으로 두고, 눈이 위에서 NPC_EYE_AT 자리에 오게 자른다
+        const cw = fc.gap * NPC_BUST;
+        k = W / cw; x0 = fc.cx - cw / 2; y0 = fc.ey - (H * NPC_EYE_AT) / k;
+      }
+      const xa = ExpArt.has(mood) ? mood : (MOOD_ART[mood] || 'def');
+      const exp = ExpArt.draw(xa, { ex: fc.cx, ey: fc.ey, mx: fc.cx, my: fc.my, s: fc.gap / 44, eyeColor: sp.eyeColor });
+      return `<svg class="pt-svg ${bare ? 'bare' : ''} ${full ? 'full' : ''}" viewBox="0 0 ${vw} ${vh}"
+        xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}" data-npcart="${sp.id}">
+        ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${vw}" height="${vh}" rx="18"/></clipPath></defs>`}
+        <g ${bare ? '' : `clip-path="url(#ptc_${u})"`}>
+          ${bare ? '' : `<rect x="0" y="0" width="${vw}" height="${vh}" fill="${sp.bg || '#efe6f2'}"/>`}
+          <g transform="scale(${+k.toFixed(4)}) translate(${+(-x0).toFixed(2)},${+(-y0).toFixed(2)})">${na.art}${exp}</g>
+        </g>
+      </svg>`;
+    }
     if (sp.introArt && window.Intro && Intro.bustArt) {
       const art = Intro.bustArt(sp.introArt, m.art, W, H2, full);
       if (art) {

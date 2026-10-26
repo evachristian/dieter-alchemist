@@ -22,6 +22,8 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── expart.js              표정 서른여덟 — 사람이 보낸 둥근 표정 SVG(tools/ref/expr)를 그대로 옮긴 것
 │                          (생성 · `npm run gen:expr` · npm test 가 --check) → window.ExpArt
 │                          아바타·NPC 초상화가 «자리»만 정해 `ExpArt.draw` 로 그린다 (아래 「표정 세트」)
+├── npcart.js              NPC 아홉의 «얼굴이 빈» 전신 치비 — 사람이 보낸 SVG(tools/ref/npc)를 그대로 옮긴 것
+│                          (생성 · `npm run gen:npc` · npm test 가 --check) → window.NpcArt · 표정은 portrait.js 가 ExpArt 로 얹는다
 ├── avatar.js              SVG 페이퍼돌 → window.Avatar
 ├── crouchart.js           「혼자 먹은 밤」 웅크린 뒷모습 — 받은 그림(뒷머리 여섯 갈래)을 대고 딴 조각 (생성 · tools/gencrouch.py) → window.CrouchArt
 ├── mealart.js             「같이 먹기」 컷씬의 밥상 — 받은 그림을 대고 딴 조각 (생성 · `python3 -I tools/genmeal.py <PNG> mealart.js`)
@@ -572,6 +574,16 @@ node tools/checkavatar.js   # 체형 5단계 × 모든 옷에서 살이 옷 밖�
 - ⚠️ 그래서 옛 부품(아바타 `AV_FACE`·초상화 `EYE`/`MOUTH`·클레멘의 `dewy`)은 `ExpArt` 가 없을 때의
   폴백으로만 남았다 · 하트 `heartEye` 는 인트로 요정만 쓴다 · 인트로 공주·요정 그림의 표정은 그대로다
 - ⚠️ **색 둘만 «예전 색»으로 되돌린다** — 볼터치 `#F4B5C5` → `#ff9db4`·0.6(옛 아바타·인트로 공주) · 반함 하트 `#DD829B` → `#e03040`(`Avatar.HEART`). 받은 SVG 는 그대로고 `genexpr.js` 가 구울 때 바꾼다 (사람이 정했다 · 분홍 하트는 너무 흐렸다)
+- ⚠️⚠️ **NPC 아홉(요정 대모 포함)은 «받은 전신 그림»(`npcart.js`)이 먼저다** (2026-10-26 · 「NPC 이미지를 첨부하는
+  SVG 파일로 변경하고 표정과 얼굴 맞춰줘」). 얼굴이 빈 치비라 `Portrait.bust` 가 **그림 좌표 그대로** 그 얼굴 자리
+  (`tools/gennpc.js` 의 `FACE` — cx · 눈 높이 ey · 입 높이 my · 두 눈 사이 gap)에 ExpArt 를 얹는다 (배율 gap÷44).
+  흉상은 같은 그림을 얼굴 둘레로 자른 것이고(`NPC_BUST` · `NPC_EYE_AT`), 전신(`full`)은 그림의 비대로 상자를 잡는다
+  · ⚠️ **얼굴 자리는 «얹어 그려 보고» 적은 값이다** — 그림을 바꾸면 다시 잰다
+  · ⚠️ 바깥 그림(`<image>`)으로 걸지 않는다 — 호박 밭이 초상화를 캔버스에 그린다
+  · ⚠️ **부품 초상화(머리·후드·수염·눈 갈아끼우기)는 이제 폴백**이다 — `checkportrait` 의 그 블록들은
+    **재는 동안 `NpcArt` 를 떼어 두고** 잰다 (안 그러면 조각을 하나도 못 찾는다)
+  · `checkportrait` 「받은 NPC 그림」이 아홉 × 흉상·전신에서 그 그림으로 서는지 · **표정이 얼굴 자리에 앉는지**(그려서 잰다)를 본다
+  · ⚠️ 인트로 화면의 요정·공주 그림은 `intro.js` 의 것 그대로다
 - `checkportrait` 의 「표정 세트」가 표정마다 그 이름의 그림이 그려지는지(`data-exp`)·깜박임 조각·
   눈동자 색·눈썹 빼기를 본다
 
