@@ -3766,24 +3766,44 @@
       sponge: '#f9a665', cakeL: '#ebac7a', cream: '#fcecdc', straw: '#d33d49', leaf: '#6f953b', crumb: '#f5ab71',
     };
     const CAKE = { sponge: 1, cakeL: 1, cream: 1, straw: 1, leaf: 1 };
-    // ⚠️⚠️ 반묶음(long) 갈래는 따낸 케이크 조각에 빈틈이 많아, 그 사이로 «뒤에 있을 것»의 손가락·살색이 비쳐
-    //    케이크가 깨져 보였다 (「케이크가 깨져」 · 신고받았다). 그 갈래만 케이크를 «도형으로» 다시 그린다 —
-    //    자리·크기는 따낸 케이크 조각의 상자(x 268~401 · y 427~560) 그대로다. 손(`VAR.hand`)은 그 위에 그대로 얹힌다
-    const CAKE_DRAWN = {
-      long: () => {
-        const F = FILL;
-        // 옆에서 본 조각 — 왼쪽(겉면)과 위는 생크림, 오른쪽(입 쪽)은 단면이 드러난다
-        return '<path d="M272 462 Q272 448 286 448 L392 448 Q400 448 400 458 L400 548 Q400 556 392 556 L284 556 Q272 556 272 544 Z" fill="' + F.cream + '"/>'
-          + '<path d="M281 468 L400 468 L400 498 L281 498 Q279 483 281 468 Z" fill="' + F.sponge + '"/>'
-          + '<path d="M281 508 L400 508 L400 546 Q400 550 396 550 L286 550 Q281 550 281 545 Z" fill="' + F.sponge + '"/>'
-          + '<path d="M286 483 H396 M286 528 H396" stroke="' + F.cakeL + '" stroke-width="3" stroke-linecap="round" opacity="0.6"/>'
+    // ⚠️⚠️ 따낸 케이크 조각은 빈틈이 많아, 그 사이로 «뒤에 있을 것»의 손가락·살색·바탕이 비쳐 케이크가 깨져
+    //    보였다 (「케이크가 깨져」 · 신고받았다). 그래서 케이크는 «도형으로» 한 벌만 그리고(`cakeDrawn` — 반묶음 좌표),
+    //    갈래마다 따낸 케이크가 있던 자리·크기·기울기로 옮겨 놓는다(`CAKE_FIT` = [가운데 x, y, 배율, 기울기°]).
+    //    손(`VAR.hand`)은 그 위에 그대로 얹힌다. ⚠️ 그림을 다시 따면 이 표도 다시 맞춘다 (찍어 보고 골랐다)
+    //    [가운데 x, y, 배율, 기울기°, 길이] — 길이(반묶음 좌표의 폭 · 기본 128)는 따로 늘인다: 입 쪽 끝이 «오른손 손가락»과
+    //    «뒤에 있을 것»이 못 메운 틈까지 닿아야 그 손가락이 케이크를 쥐고 틈이 가려진다 (배율로 늘이면 딸기까지 퍼진다)
+    const CAKE_FIT = { long: [336, 502, 1, 0, 128], twin: [336, 506, 1, 6, 132], bob: [326, 540, 1.08, 9, 146],
+      ponytail: [326, 517, 1.12, 9, 146], wave: [326, 530, 1.15, 10, 160], bun: [335, 550, 1.14, 3, 152] };
+    const cakeDrawn = (W) => {
+        // 옆에서 본 조각 — 왼쪽 겉면과 윗면은 생크림, 단면에 시트 두 겹. 길이(W)가 늘어도 딸기는 겉면 쪽에 그대로 앉는다.
+        // ⚠️ 윗면을 입 쪽으로 기울인 «쐐기»(D > 0)도 그려 봤는데 기운 상자로 읽혀 되돌렸다 — 손잡이는 남겨 둔다
+        const F = FILL, x0 = 272, x1 = x0 + W, B = 556, D = 0;
+        const T = x => 448 + (x - x0) / W * D;                 // 윗면
+        const Y = (x, f) => (T(x) + f * (B - T(x))).toFixed(1);
+        const band = (f0, f1, l) => 'M' + l + ' ' + Y(l, f0) + ' L' + x1 + ' ' + Y(x1, f0) + ' L' + x1 + ' ' + Y(x1, f1)
+          + ' L' + l + ' ' + Y(l, f1) + ' Z';
+        const n = Math.max(4, Math.round(W / 22));
+        let wave = 'M' + (x0 + 2) + ' ' + Y(x0 + 2, 0.06);
+        for (let i = 0; i < n; i++) {
+          const a0 = x0 + 2 + (W - 4) * i / n, a1 = x0 + 2 + (W - 4) * (i + 1) / n, m = (a0 + a1) / 2;
+          wave += ' Q' + m.toFixed(1) + ' ' + (T(m) - 24).toFixed(1) + ' ' + a1.toFixed(1) + ' ' + Y(a1, 0.02);
+        }
+        wave += ' L' + (x1 - 2) + ' ' + Y(x1, 0.14) + ' L' + (x0 + 2) + ' ' + Y(x0, 0.14) + ' Z';
+        const sy = T(322);   // 딸기가 앉는 윗면 높이
+        return '<path d="M' + x0 + ' ' + T(x0) + ' L' + x1 + ' ' + T(x1) + ' L' + x1 + ' ' + B + ' L' + x0 + ' ' + B + ' Z" fill="' + F.cream
+            + '" stroke="' + F.cream + '" stroke-width="12" stroke-linejoin="round"/>'
+          + '<path d="' + band(0.17, 0.45, x0 + 9) + '" fill="' + F.sponge + '"/>'
+          + '<path d="' + band(0.56, 0.95, x0 + 9) + '" fill="' + F.sponge + '"/>'
+          + '<path d="M' + (x0 + 14) + ' ' + Y(x0 + 14, 0.31) + ' L' + (x1 - 4) + ' ' + Y(x1 - 4, 0.31) + ' M' + (x0 + 14) + ' ' + Y(x0 + 14, 0.76)
+            + ' L' + (x1 - 4) + ' ' + Y(x1 - 4, 0.76) + '" stroke="' + F.cakeL + '" stroke-width="3" stroke-linecap="round" opacity="0.6"/>'
           // 위의 생크림 물결 + 딸기 밑 한 덩이
-          + '<path d="M276 452 Q284 442 294 450 Q302 440 312 448 L334 448 Q344 438 354 448 Q364 440 374 448 Q384 440 396 450 L396 458 L276 458 Z" fill="' + F.cream + '"/>'
+          + '<path d="' + wave + '" fill="' + F.cream + '"/>'
+          + '<g transform="translate(0 ' + (sy - 448).toFixed(1) + ')">'
           + '<path d="M304 452 Q306 438 322 437 Q338 438 340 452 Z" fill="' + F.cream + '"/>'
           + '<path d="M322 466 C308 465 302 455 304 446 C306 437 314 432 322 434 C330 432 338 437 340 446 C342 455 336 465 322 466 Z" fill="' + F.straw + '"/>'
           + '<path d="M315 446 l1 -3 M323 452 l0 -3 M330 445 l-1 -3" stroke="#f7d6a8" stroke-width="2.2" stroke-linecap="round"/>'
-          + '<path d="M322 437 Q312 438 309 433 Q316 432 319 434 Q316 428 322 426 Q328 428 325 434 Q328 432 335 433 Q332 438 322 437 Z" fill="' + F.leaf + '"/>';
-      },
+          + '<path d="M322 437 Q312 438 309 433 Q316 432 319 434 Q316 428 322 426 Q328 428 325 434 Q328 432 335 433 Q332 438 322 437 Z" fill="' + F.leaf + '"/>'
+          + '</g>';
     };
     // 들고 있는 것이 케이크면 그린 케이크를, 아니면 그 자리에 음식 이모지를 쥐여 준다
     const isCake = !foodEmoji || foodEmoji === '🍰';
@@ -3878,7 +3898,9 @@
       + (VAR.face || []).map(([r, d]) => '<path d="' + d + '" fill="' + FILL[r] + '"/>').join('')
       // ⚠️ 케이크 조각은 «구멍 모양»으로 오린다 — 쌓은 조각이라 크림 바탕이 케이크 밑의 팔까지 깔려 있어서
       //    움직이는 케이크가 팔을 크림색으로 덮었다 (올림머리)
-      + (isCake ? (CAKE_DRAWN[varKey] ? '<g class="cb-bite">' + CAKE_DRAWN[varKey]() + '</g>'
+      + (isCake ? (CAKE_FIT[varKey] ? '<g class="cb-bite"><g transform="translate(' + CAKE_FIT[varKey][0] + ' ' + CAKE_FIT[varKey][1]
+          + ') rotate(' + CAKE_FIT[varKey][3] + ') scale(' + CAKE_FIT[varKey][2] + ') translate(' + (-(272 + CAKE_FIT[varKey][4] / 2)) + ' -502)">'
+          + cakeDrawn(CAKE_FIT[varKey][4]) + '</g></g>'
         : '<g class="cb-bite"><g clip-path="url(#' + ID('cake') + ')">' + moving + '</g></g>') : foodTag)
       // ③ 케이크가 아니면 손을 «둥글린다»(`goo` — 메웠다 깎고 번졌다 다시 세운다). 받은 손은 케이크 «옆»에서 딴 것이라
       //    케이크와 맞닿던 자리가 계단처럼 네모나게 끊겨 있었다 — 케이크가 덮어 주던 그 모서리가 음식 밖으로 드러났다
