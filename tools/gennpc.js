@@ -80,6 +80,12 @@ function snapColors(items) {
   return { out, n: new Set(out.filter(Boolean)).size, from: cols.length, drop: out.filter(c => !c).length };
 }
 
+// ⚠️ 받은 그림의 «바탕 흰색»이 실루엣 안에 갇힌 칸으로 남은 것 — 망치 손잡이와 머리 사이(오릭스) · 활과 시위 사이(슈타르크) ·
+//    머리와 어깨 사이(카이로스). 둘레가 막혀 있어 따는 쪽이 «면»으로 땄다 (「망치, 활 사이에 흰색 영역」 · 신고받았다).
+//    그 색(팔레트로 모은 뒤의 색)의 조각은 그리지 않고 «구멍»(`hole`)으로 따로 내보낸다 — 그냥 지우면 그 밑에 깔린
+//    큰 조각(슈타르크는 살색)이 비쳤다. portrait.js 가 구멍을 마스크로 도려낸다.
+//    ⚠️ 흰 머리(알테이아)·회색 바지(발렌)는 다른 색이라 안 걸린다
+const BG_DROP = { sp_orix: '#f9f6ef', sp_stark: '#fdfcf5', sp_kairos: '#fcfcf6' };
 const list = {}, snapLog = [];
 for (const id of Object.keys(FACE)) {
   const svg = fs.readFileSync(path.join(SRC, id + '.svg'), 'utf8');
@@ -101,9 +107,13 @@ for (const id of Object.keys(FACE)) {
     paths.push({ d: at.d, fill: at.fill, transform: at.transform, area: areaOf(at.d) });
   }
   if (!paths.length) fail(`${id}.svg 에 그림이 없다`);
-  const sn = snapColors(paths); snapLog.push(`${id} ${sn.from}→${sn.n}색(−${sn.drop})`);
+  const sn = snapColors(paths);
+  if (BG_DROP[id]) { const k = sn.out.filter(c => c === BG_DROP[id]).length;
+    if (!k) fail(`${id}.svg 에서 지울 바탕색(${BG_DROP[id]})을 못 찾았다 — 그림이나 팔레트가 바뀌었다`);
+    sn.hole = paths.filter((p, i) => sn.out[i] === BG_DROP[id]).map(p => `<path d="${p.d}"${p.transform ? ` transform="${p.transform}"` : ''}/>`).join('');
+    sn.out = sn.out.map(c => c === BG_DROP[id] ? null : c); sn.drop += k; } snapLog.push(`${id} ${sn.from}→${sn.n}색(−${sn.drop})`);
   const art = paths.map((p, i) => sn.out[i] ? `<path d="${p.d}" fill="${sn.out[i]}"${p.transform ? ` transform="${p.transform}"` : ''}/>` : '').join('');
-  list[id] = { w: +vb[1], h: +vb[2], face: FACE[id], art };
+  list[id] = Object.assign({ w: +vb[1], h: +vb[2], face: FACE[id], art }, sn.hole ? { hole: sn.hole } : {});
 }
 
 const out = `// ⚠️ 생성 파일 — 손으로 고치지 않는다 (node tools/gennpc.js · 원본 tools/ref/npc/*.svg)

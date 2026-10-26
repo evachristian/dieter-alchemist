@@ -555,7 +555,10 @@
         ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${vw}" height="${vh}" rx="18"/></clipPath></defs>`}
         <g ${bare ? '' : `clip-path="url(#ptc_${u})"`}>
           ${bare ? '' : `<rect x="0" y="0" width="${vw}" height="${vh}" fill="${sp.bg || '#efe6f2'}"/>`}
-          <g transform="scale(${+k.toFixed(4)}) translate(${+(-x0).toFixed(2)},${+(-y0).toFixed(2)})">${na.art}${exp}</g>
+          <g transform="scale(${+k.toFixed(4)}) translate(${+(-x0).toFixed(2)},${+(-y0).toFixed(2)})">${na.hole
+            // 실루엣 안에 갇힌 «바탕 흰색» 칸은 도려낸다 (`hole` · gennpc.js 의 BG_DROP — 망치·활 사이)
+            ? `<mask id="ptm_${u}" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${na.w + 20}" height="${na.h + 20}"><rect x="-10" y="-10" width="${na.w + 20}" height="${na.h + 20}" fill="#fff"/><g fill="#000">${na.hole}</g></mask><g mask="url(#ptm_${u})">${na.art}</g>`
+            : na.art}${exp}</g>
         </g>
       </svg>`;
     }
