@@ -1,0 +1,11 @@
+
+> dieter-alchemist@1.0.0 start
+> node server/index.js
+
+다이어터 연금술사 서버 — 포트 8080
+  저장소: memory(휘발성)
+  ⚠ 메모리 저장소입니다 — 서버를 다시 배포하면 세이브가 사라집니다.
+    Railway 에서 Postgres 를 추가하는 것만으로는 연결되지 않습니다.
+    이 서비스의 Variables 에 참조 변수를 직접 만들어 주세요:
+      DATABASE_URL = ${{Postgres.DATABASE_URL}}
+    (Volume 을 쓴다면 DATA_DIR 을 지정하세요)
