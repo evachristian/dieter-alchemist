@@ -515,34 +515,37 @@
   // 머리만 자를 때 턱 밑으로 남기는 목 — 얼굴 반폭의 몫
   const NPC_NECK = 0.3;
   // ─── NPC 턱 밑 그늘 ───────────────────────────────────────────
-  // 받은 그림은 얼굴과 목이 «한 덩어리 살색»이라 턱선이 없다 — 공주(avatar.js 의 목 그러데이션 SKIN_SH → SKIN)처럼
-  // 턱 바로 밑이 제일 짙고 아래로 옅어지는 그늘을 얹어 얼굴과 목을 가른다 (「NPC 도 얼굴과 목 사이에 같은 방식으로」)
-  //   · 턱선은 얼굴 반폭(rx)·턱 끝(chin)으로 세운 타원이고, 그늘은 그 타원을 아래로 민 것에서 원래 타원을 뺀 초승달이다
+  // 받은 그림은 얼굴과 목이 «한 덩어리 살색»이라 턱선이 없다 — 공주(avatar.js 의 목 그러데이션 SKIN_SH → SKIN)와
+  // «같은 방식»으로 가른다: 얼굴은 그대로 두고, 그 밑의 «목»이 턱 바로 밑에서 제일 짙고 아래로 옅어진다.
+  // 공주는 얼굴 타원이 짙은 목 위를 덮어 턱선이 «딱 끊긴 선»으로 서는데, 여기서는 진짜 턱 타원(face.jaw)을
+  // 마스크로 빼서 같은 선을 만든다 (「공주 얼굴의 얼굴선과 목 사이 음영과 동일하게」)
+  //   · 턱 타원은 그림에서 «재서» 맞춘 값이다(tools/gennpc.js 의 jaw) — 어림한 chin 으로 세웠더니 그늘이 얼굴 «안쪽»에
+  //     섰다 (「음영이 위로 올라가 있다」로 신고받았다)
   //   · 살색 조각으로 오리고 그 조각 «바로 뒤»에 끼운다 — 위 층(옷·머리카락)이 그대로 덮어 얼굴·옷에는 안 번진다
-  //   · 가로로는 목 폭(rx × JAW_W) 안에서만 서고 양끝은 옅어진다 — 초승달의 뿔이 볼까지 올라가면 «턱선»이 아니라
-  //     얼굴에 그은 U 자가 된다 (그려 보고 좁혔다)
-  //   · 색은 공주의 SKIN → SKIN_SH 비를 그 사람 살색에 곱한 것이다 (사람마다 살색이 달라서 값을 박지 않는다)
-  // ⚠️ 그림을 바꾸면 face 의 rx·chin 을 다시 잰다 — 턱선이 그 둘에서 나온다
-  const JAW_RY = 0.78, JAW_DROP = 0.2, JAW_FADE = 0.42, JAW_W = 0.62;
+  //   · 색은 공주의 SKIN → SKIN_SH 비를 그 사람 살색에 곱한 것이고, 옅어지는 길이(JAW_FADE)도 공주 목의 몫이다
+  // ⚠️ 그림을 바꾸면 face.jaw 를 다시 잰다
+  const JAW_FADE = 0.3, JAW_PAD = 0.8;
+  // 그늘을 까는 가로 폭(턱 반폭의 몫) — 목은 그 안에 다 든다. 넓히면 턱 타원 «밖»의 귀가 반쯤 물들어 귀에 가로 금이 선다
+  //   (그려 보고 좁혔다 · 세로 시작은 y0 = 턱 끝 − 0.3ry 라 이 폭의 귀퉁이에서도 턱 타원보다 아래다)
+  const JAW_W = 0.75;
   const SH_K = [0xf2 / 0xff, 0xc6 / 0xdc, 0xa6 / 0xc4];
   function npcChin(na, u) {
-    const fc = na.face, sk = na.skin;
-    const at = sk && na.art.indexOf(`fill="${sk}"/>`);
-    if (!sk || at < 0) return na.art;
+    const fc = na.face, sk = na.skin, jw = fc.jaw;
+    const at = sk && jw && na.art.indexOf(`fill="${sk}"/>`);
+    if (!sk || !jw || at < 0) return na.art;
     const end = at + `fill="${sk}"/>`.length, st = na.art.lastIndexOf('<path', at);
     const d = na.art.slice(st, at).match(/d="([^"]*)"/)[1];
     const sh = '#' + [1, 3, 5].map((o, i) => Math.round(parseInt(sk.slice(o, o + 2), 16) * SH_K[i]).toString(16).padStart(2, '0')).join('');
-    const rx = fc.rx, ry = rx * JAW_RY, cy = fc.chin - ry, dy = rx * JAW_DROP, f = n => +n.toFixed(1);
-    const y0 = f(fc.chin - ry * 0.5), y1 = f(fc.chin + dy + rx * JAW_FADE);
-    const g = `<defs><linearGradient id="pcg_${u}" gradientUnits="userSpaceOnUse" x1="0" y1="${f(fc.chin - dy)}" x2="0" y2="${y1}">`
+    const f = n => +n.toFixed(1);
+    const [cy, rx, ry] = jw, bot = cy + ry, x0 = f(fc.cx - rx * JAW_W), w = f(rx * JAW_W * 2);
+    const y0 = f(bot - ry * 0.3), y1 = f(bot + rx * JAW_FADE);
+    const g = `<defs><linearGradient id="pcg_${u}" gradientUnits="userSpaceOnUse" x1="0" y1="${f(bot - ry * 0.12)}" x2="0" y2="${y1}">`
       + `<stop offset="0" stop-color="${sh}"/><stop offset="1" stop-color="${sh}" stop-opacity="0"/></linearGradient>`
-      + `<linearGradient id="pch_${u}" gradientUnits="userSpaceOnUse" x1="${f(fc.cx - rx * JAW_W)}" y1="0" x2="${f(fc.cx + rx * JAW_W)}" y2="0">`
-      + `<stop offset="0" stop-color="#000"/><stop offset="0.3" stop-color="#fff"/><stop offset="0.7" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>`
-      + `<mask id="pcw_${u}" maskUnits="userSpaceOnUse" x="${f(fc.cx - rx * 1.5)}" y="${y0}" width="${f(rx * 3)}" height="${f(y1 - y0)}"><rect x="${f(fc.cx - rx * 1.5)}" y="${y0}" width="${f(rx * 3)}" height="${f(y1 - y0)}" fill="url(#pch_${u})"/></mask>`
       + `<clipPath id="pcc_${u}"><path d="${d}"/></clipPath>`
-      + `<mask id="pcm_${u}" maskUnits="userSpaceOnUse" x="${f(fc.cx - rx * 1.5)}" y="${y0}" width="${f(rx * 3)}" height="${f(y1 - y0)}">`
-      + `<ellipse cx="${fc.cx}" cy="${f(cy + dy)}" rx="${rx}" ry="${f(ry)}" fill="#fff"/><ellipse cx="${fc.cx}" cy="${f(cy)}" rx="${rx}" ry="${f(ry)}" fill="#000"/></mask></defs>`
-      + `<g clip-path="url(#pcc_${u})" data-part="chin-shade"><g mask="url(#pcw_${u})"><rect x="${f(fc.cx - rx * 1.5)}" y="${y0}" width="${f(rx * 3)}" height="${f(y1 - y0)}" fill="url(#pcg_${u})" mask="url(#pcm_${u})"/></g></g>`;
+      + `<mask id="pcm_${u}" maskUnits="userSpaceOnUse" x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}">`
+      + `<rect x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}" fill="#fff"/>`
+      + `<ellipse cx="${fc.cx}" cy="${cy}" rx="${f(rx + JAW_PAD)}" ry="${f(ry + JAW_PAD)}" fill="#000"/></mask></defs>`
+      + `<g clip-path="url(#pcc_${u})" data-part="chin-shade"><rect x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}" fill="url(#pcg_${u})" mask="url(#pcm_${u})"/></g>`;
     return na.art.slice(0, end) + g + na.art.slice(end);
   }
   function bust(sp, mood, opts) {

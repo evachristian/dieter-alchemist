@@ -29,7 +29,8 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 ├── npcart.js              NPC 아홉의 «얼굴이 빈» 전신 치비 — 사람이 보낸 SVG(tools/ref/npc)의 색을 팔레트로 모으고
 │                          머리카락 윤곽만 다듬어 다시 딴 것(tools/ref/npc-smooth · `node tools/smoothnpc.js` · 브라우저+cv2)
 │                          · 규칙이 못 잡는 자리는 smoothnpc.js 의 `MEND`(메울 점) · `SOFT`(색마다 더 다듬기)에 손으로 적는다(지금 슈타르크)
-│                          · 얼굴과 목이 한 덩어리 살색이라 portrait.js 의 `npcChin` 이 턱 밑 그늘을 얹는다 (공주의 목 그러데이션과 같은 몫 ·
+│                          · 얼굴과 목이 한 덩어리 살색이라 portrait.js 의 `npcChin` 이 턱 밑 «목»에 그늘을 깐다 (공주의 목 그러데이션과 같은 방식 ·
+│                            턱선은 «재서» 맞춘 타원 gennpc 의 `jaw` 로 딱 끊는다 — 어림한 chin 은 진짜 턱보다 위라 그늘이 얼굴 안에 섰다 ·
 │                            살색은 smoothnpc 가 `data-skin` 으로 적고 gennpc 가 `skin` 으로 내보낸다)
 │                          (생성 · `npm run gen:npc` · npm test 가 --check) → window.NpcArt · 표정은 portrait.js 가 ExpArt 로 얹는다
 ├── avatar.js              SVG 페이퍼돌 → window.Avatar

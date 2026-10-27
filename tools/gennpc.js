@@ -23,17 +23,19 @@ const fail = m => { console.error('❌ gennpc — ' + m); process.exit(1); };
 
 // 얼굴 자리 (그림 좌표) — cx: 얼굴 가운데 · ey: 두 눈 가운데 높이 · my: 입 가운데 높이 ·
 // gap: 두 눈 사이(눈 가운데끼리) · rx: 얼굴 반폭 · chin: 턱 끝 높이 (같이 먹기 컷씬이 머리만 잘라 얹을 때 쓴다)
+// jaw: 진짜 턱선 [cy, rx, ry] — 살색이 «보이는» 자리의 옆선을 줄마다 재서 타원으로 맞춘 값이다 (portrait.js 의 npcChin 이 그 아래 목에 그늘을 깐다)
+//   ⚠️ chin 은 어림한 값이라 진짜 턱보다 10~18px 위다 — 그것으로 그늘을 세웠더니 «얼굴 안쪽»에 섰다 (신고받았다)
 // ⚠️ 표정 세트를 얹어 그려 보고 맞춘 값이다 (tools/ref/npc 를 바꾸면 다시 잰다)
 const FACE = {
-  sp_althea:  { cx: 177,   ey: 137, my: 166, gap: 52, rx: 60, chin: 173 },
-  sp_clemen:  { cx: 127.5, ey: 148, my: 187, gap: 56, rx: 66.5, chin: 195 },
-  sp_kairos:  { cx: 156,   ey: 136, my: 173, gap: 46, rx: 50, chin: 191 },
-  sp_orix:    { cx: 161,   ey: 124, my: 158, gap: 56, rx: 66, chin: 166 },
-  sp_stark:   { cx: 133,   ey: 130, my: 176, gap: 58, rx: 69, chin: 185 },
-  sp_sylvan:  { cx: 121.5, ey: 133, my: 166, gap: 52, rx: 61.5, chin: 173 },
-  sp_valen:   { cx: 143.5, ey: 138, my: 180, gap: 58, rx: 68.5, chin: 188 },
-  sp_ygritte: { cx: 160.5, ey: 148, my: 184, gap: 48, rx: 55.5, chin: 191 },
-  sp_yutark:  { cx: 156.5, ey: 151, my: 185, gap: 46, rx: 52.5, chin: 191 },
+  sp_althea:  { cx: 177,   ey: 137, my: 166, gap: 52, rx: 60, chin: 173, jaw: [127, 52, 55.5] },
+  sp_clemen:  { cx: 127.5, ey: 148, my: 187, gap: 56, rx: 66.5, chin: 195, jaw: [136.5, 72.7, 79.5] },
+  sp_kairos:  { cx: 156,   ey: 136, my: 173, gap: 46, rx: 50, chin: 191, jaw: [143, 52.5, 50.5] },
+  sp_orix:    { cx: 161,   ey: 124, my: 158, gap: 56, rx: 66, chin: 166, jaw: [129, 67.3, 54] },
+  sp_stark:   { cx: 133,   ey: 130, my: 176, gap: 58, rx: 69, chin: 185, jaw: [155, 69.7, 48] },
+  sp_sylvan:  { cx: 121.5, ey: 133, my: 166, gap: 52, rx: 61.5, chin: 173, jaw: [142.5, 67.2, 47.5] },
+  sp_valen:   { cx: 143.5, ey: 138, my: 180, gap: 58, rx: 68.5, chin: 188, jaw: [138.5, 75.3, 68.5] },
+  sp_ygritte: { cx: 160.5, ey: 148, my: 184, gap: 48, rx: 55.5, chin: 191, jaw: [148, 60.9, 56.5] },
+  sp_yutark:  { cx: 156.5, ey: 151, my: 185, gap: 46, rx: 52.5, chin: 191, jaw: [161.5, 57.5, 41] },
 };
 
 const SNAP_NEAR = 22, SNAP_FAR = 80, SNAP_SMALL = 0.004;
