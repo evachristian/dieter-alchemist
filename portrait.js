@@ -537,7 +537,8 @@
     const d = na.art.slice(st, at).match(/d="([^"]*)"/)[1];
     const sh = '#' + [1, 3, 5].map((o, i) => Math.round(parseInt(sk.slice(o, o + 2), 16) * SH_K[i]).toString(16).padStart(2, '0')).join('');
     const f = n => +n.toFixed(1);
-    const [cy, rx, ry] = jw, bot = cy + ry, x0 = f(fc.cx - rx * JAW_W), w = f(rx * JAW_W * 2);
+    // 넷째 칸은 턱의 가로 가운데 — 고개가 기운 그림(요정 대모)은 턱이 눈 가운데(cx)보다 옆에 있다. 없으면 cx
+    const [cy, rx, ry] = jw, jx = jw[3] != null ? jw[3] : fc.cx, bot = cy + ry, x0 = f(jx - rx * JAW_W), w = f(rx * JAW_W * 2);
     const y0 = f(bot - ry * 0.3), y1 = f(bot + rx * JAW_FADE);
     const g = `<defs><linearGradient id="pcg_${u}" gradientUnits="userSpaceOnUse" x1="0" y1="${f(bot - ry * 0.12)}" x2="0" y2="${y1}">`
       + `<stop offset="0" stop-color="${sh}"/><stop offset="1" stop-color="${sh}" stop-opacity="0"/></linearGradient>`
@@ -549,7 +550,7 @@
       + `<stop offset="0.7" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
       + `<mask id="pcm_${u}" maskUnits="userSpaceOnUse" x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}">`
       + `<rect x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}" fill="url(#pch_${u})"/>`
-      + `<ellipse cx="${fc.cx}" cy="${cy}" rx="${f(rx + JAW_PAD)}" ry="${f(ry + JAW_PAD)}" fill="#000"/></mask></defs>`
+      + `<ellipse cx="${jx}" cy="${cy}" rx="${f(rx + JAW_PAD)}" ry="${f(ry + JAW_PAD)}" fill="#000"/></mask></defs>`
       + `<g clip-path="url(#pcc_${u})" data-part="chin-shade"><rect x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}" fill="url(#pcg_${u})" mask="url(#pcm_${u})"/></g>`;
     return na.art.slice(0, end) + g + na.art.slice(end);
   }
