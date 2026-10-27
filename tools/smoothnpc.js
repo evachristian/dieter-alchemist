@@ -33,6 +33,12 @@ const HAIR = {
 // 슈타르크의 허리띠·활시위가 «얼린 가는 것»이라 다듬기를 하나도 안 받아 울퉁불퉁 남았다
 const SOFT = {
   sp_stark: { '#5a3e29': [8, 1.2], '#82583f': [0, 0.9] },
+  sp_valen: { '#3965b7': [6, 3] },
+};
+// 색마다 «이보다 작은 덩어리는 지운다» {색: 넓이(그림 단위²)} — 받은 그림이 두 색을 얼룩처럼 섞어 놓은 자리
+// (발렌의 망토가 짙은 파랑·옅은 파랑 얼룩으로 «얼룩덜룩»했다 · 2026-10-27). 큰 덩어리만 남기고 둘레 색으로 메운다
+const DROP = {
+  sp_valen: { '#3965b7': 3500, '#4873c1': 120 },
 };
 const MEND = {
   sp_stark: [[59, 370], [138, 380], [141, 402], [190, 366], [222, 335], [255, 290], [262, 157], [57, 142], [208, 142]],
@@ -57,7 +63,7 @@ const MEND = {
     await p.screenshot({ path: path.join(work, id + '.png'), omitBackground: true });
     await p.close();
     fs.writeFileSync(path.join(work, id + '.json'), JSON.stringify({ id, w: a.w, h: a.h, scale: SCALE, sigma: SIGMA, gsigma: GSIGMA, thin: THIN, speck: SPECK, fleck: FLECK, inset: INSET, iter: ITER, eps: EPS,
-      pal, hair: HAIR[id], face: a.face, mend: MEND[id] || [], soft: SOFT[id] || {} }));
+      pal, hair: HAIR[id], face: a.face, mend: MEND[id] || [], soft: SOFT[id] || {}, drop: DROP[id] || {} }));
   }
   await b.close();
   execFileSync('python3', ['-I', path.join(__dirname, 'smoothnpc.py'), work], { stdio: 'inherit' });

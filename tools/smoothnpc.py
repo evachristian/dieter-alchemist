@@ -82,6 +82,23 @@ for name in sorted(os.listdir(work)):
         if blob.sum() > meta['fleck'] * 8 * S * S: raise SystemExit('%s 의 메울 점 (%g, %g) 이 너무 큰 덩어리를 짚었다' % (meta['id'], px, py))
         ring = cv2.dilate(blob.astype(np.uint8), kern).astype(bool) & ~blob
         lab2[blob] = np.bincount(lab2[ring]).argmax()
+    # ③-3 색마다 «작은 덩어리» 지우기 (smoothnpc.js 의 DROP · {색: 그림 단위 넓이}) — 그보다 작은 그 색 덩어리는
+    #      둘레에서 제일 많이 닿은 색으로 메운다. 받은 그림이 두 파랑을 얼룩처럼 섞어 놓아(발렌의 망토)
+    #      티 메우기(FLECK)보다 큰 얼룩이 그대로 남았다 — 큰 덩어리(망토 안쪽·깃)만 남긴다
+    for col, area in meta.get('drop', {}).items():
+        if col not in pal: raise SystemExit('%s 의 DROP 색 %s 가 팔레트에 없다' % (meta['id'], col))
+        k = pal.index(col) + 1
+        for _ in range(3):   # 메운 자리가 이웃 얼룩과 이어질 수 있어 몇 번 되풀이한다
+            nc, cc, st, _c = cv2.connectedComponentsWithStats((lab2 == k).astype(np.uint8), connectivity=8)
+            small = [c for c in range(1, nc) if st[c, cv2.CC_STAT_AREA] < area * S * S]
+            if not small: break
+            for c in small:
+                x, y, w, h = st[c, :4]
+                x0, y0, x1, y1 = max(0, x - 2), max(0, y - 2), min(W, x + w + 2), min(H, y + h + 2)
+                blob = (cc[y0:y1, x0:x1] == c)
+                ring = cv2.dilate(blob.astype(np.uint8), kern).astype(bool) & ~blob
+                nb = lab2[y0:y1, x0:x1][ring]; nb = nb[nb != k]
+                if len(nb): sub = lab2[y0:y1, x0:x1]; sub[blob] = np.bincount(nb).argmax()
     # ④ 층 순서 — 칠한 넓이가 큰 색이 아래
     cnt = np.bincount(lab2.ravel(), minlength=len(pal) + 1)
     order = sorted([k for k in range(1, len(pal) + 1) if cnt[k]], key=lambda k: (-cnt[k], k))
