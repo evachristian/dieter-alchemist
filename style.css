@@ -4881,8 +4881,9 @@ button.tm-slot:active { transform: scale(0.94); }
 .cut-face { width: min(62vw, 260px); animation: cutIn 0.32s ease both; }
 .cut-face svg { width: 100%; height: auto; display: block; }
 /* 인물(NPC · 공주 상반신) 둘레에 음영을 둘러 뒤 화면(흐린 게임 화면)에서 떠오르게 한다 — 바짝 붙은 짙은 테 + 넓게 번지는 그늘.
-   ⚠️ 글자가 없는 그림이라 대비 검사와 무관하다 · 두 사람이 «같은» 음영이라야 말이 오갈 때 한 장면으로 읽힌다 */
-.cut-face svg { filter: drop-shadow(0 0 1.5px rgba(20,12,22,0.85)) drop-shadow(0 3px 9px rgba(0,0,0,0.55)); }
+   ⚠️ 글자가 없는 그림이라 대비 검사와 무관하다 · 두 사람이 «같은» 음영이라야 말이 오갈 때 한 장면으로 읽힌다
+   · 테 둘 + 그늘 하나다 — 옅게 두었더니 「생각보다 옅다 · 공간과 분리되게」로 신고받았다 */
+.cut-face svg { filter: drop-shadow(0 0 1.5px rgba(12,6,14,1)) drop-shadow(0 0 4px rgba(12,6,14,0.85)) drop-shadow(0 5px 16px rgba(0,0,0,0.85)); }
 @keyframes cutIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 /* ═══ 엔딩 연출 — 금 · 깨짐 · 빛 ════════════════════════════

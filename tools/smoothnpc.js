@@ -24,6 +24,19 @@ const HAIR = {
   sp_stark: ['#754930'], sp_sylvan: ['#6d422b'], sp_valen: ['#fdd07b', '#e7a847'],
   sp_ygritte: ['#bc4038'], sp_yutark: ['#e0d9e8', '#d0c1d8'],
 };
+// 손으로 짚은 «메울 조각» — 그림 좌표(viewBox) 한 점마다 그 점을 품은 덩어리를 둘레에서 제일 많이 닿은 색으로 메운다.
+// 규칙(티 메우기)이 못 잡는 자리만 적는다: 슈타르크는 머리색과 옷·장화 색이 같아서 «머리는 안 메운다»에 걸리고,
+// 가는 조각은 «얼린다»에 걸려 남았다 (「슈타르크 아직 덜 다듬어진 부분」 · 그려 놓고 하나씩 짚었다).
+// ⚠️ 그림을 바꾸면 다시 짚는다
+// 색마다 더 크게 다듬을 몫 [닫는 반지름, 가우시안 σ] (그림 단위) — 덩어리마다 오목한 홈을 닫고 나서 흐려 다시 자른다.
+// 가는 선도 여기서는 흐린다(끊기지 않는 만큼만 · 닫기가 먼저라 홈 자리에서 안 끊긴다).
+// 슈타르크의 허리띠·활시위가 «얼린 가는 것»이라 다듬기를 하나도 안 받아 울퉁불퉁 남았다
+const SOFT = {
+  sp_stark: { '#5a3e29': [8, 1.2], '#82583f': [0, 0.9] },
+};
+const MEND = {
+  sp_stark: [[59, 370], [138, 380], [141, 402], [190, 366], [222, 335], [255, 290], [262, 157]],
+};
 
 (async () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'smoothnpc-'));
@@ -44,7 +57,7 @@ const HAIR = {
     await p.screenshot({ path: path.join(work, id + '.png'), omitBackground: true });
     await p.close();
     fs.writeFileSync(path.join(work, id + '.json'), JSON.stringify({ id, w: a.w, h: a.h, scale: SCALE, sigma: SIGMA, gsigma: GSIGMA, thin: THIN, speck: SPECK, fleck: FLECK, inset: INSET, iter: ITER, eps: EPS,
-      pal, hair: HAIR[id], face: a.face }));
+      pal, hair: HAIR[id], face: a.face, mend: MEND[id] || [], soft: SOFT[id] || {} }));
   }
   await b.close();
   execFileSync('python3', ['-I', path.join(__dirname, 'smoothnpc.py'), work], { stdio: 'inherit' });

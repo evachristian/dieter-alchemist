@@ -73,6 +73,15 @@ for name in sorted(os.listdir(work)):
     hs = np.isin(lab, hid) | np.isin(best, hid)
     ok = np.isin(lab, cand) & hs
     lab2 = np.where(ok & ~frozen, best, lab)
+    # ③-2 손으로 짚은 조각 메우기 (smoothnpc.js 의 MEND) — 머리색이어도 · 얼었어도 메운다
+    for px, py in meta.get('mend', []):
+        y, x = int(py * S), int(px * S)
+        k = lab2[y, x]
+        nc, cc = cv2.connectedComponents((lab2 == k).astype(np.uint8), connectivity=8)
+        blob = cc == cc[y, x]
+        if blob.sum() > meta['fleck'] * 8 * S * S: raise SystemExit('%s 의 메울 점 (%g, %g) 이 너무 큰 덩어리를 짚었다' % (meta['id'], px, py))
+        ring = cv2.dilate(blob.astype(np.uint8), kern).astype(bool) & ~blob
+        lab2[blob] = np.bincount(lab2[ring]).argmax()
     # ④ 층 순서 — 칠한 넓이가 큰 색이 아래
     cnt = np.bincount(lab2.ravel(), minlength=len(pal) + 1)
     order = sorted([k for k in range(1, len(pal) + 1) if cnt[k]], key=lambda k: (-cnt[k], k))
@@ -92,7 +101,21 @@ for name in sorted(os.listdir(work)):
         nc, cc = cv2.connectedComponents(own, connectivity=8)
         thick = np.zeros(nc, np.float32); np.maximum.at(thick, cc.ravel(), dto.ravel())
         thin = (own > 0) & (thick[cc] < 2 * r)
-        m = ((cv2.GaussianBlur(m, (0, 0), r) > 0.5) | thin | ((lab2 == k) & frozen)).astype(np.uint8) * 255
+        m = ((cv2.GaussianBlur(m, (0, 0), r) > 0.5) | thin | ((lab2 == k) & frozen)).astype(np.uint8)
+        # 색마다 더 크게 다듬을 몫(smoothnpc.js 의 SOFT · [닫는 반지름, 흐리는 σ]) — 가는 선까지 한 번 더 흐려 자른다 (문턱을 조금 낮춰 안 끊기게)
+        sk = meta.get('soft', {}).get(pal[k - 1])
+        #    덩어리마다 먼저 «닫아» 오목하게 파인 홈을 메우고 나서 흐린다 — 흐리기만 하면 홈 자리에서 띠가 끊긴다.
+        #    ⚠️ 덩어리마다 따로 닫는다 — 통째로 닫으면 두 다리처럼 나란한 덩어리 사이가 메워진다
+        if sk:
+            q = int(round(sk[0] * S)); ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * q + 1, 2 * q + 1))
+            nc2, cc2 = cv2.connectedComponents(m, connectivity=8)
+            acc = np.zeros_like(m)
+            for c2 in range(1, nc2):
+                one = (cc2 == c2).astype(np.uint8)
+                if q: one = cv2.morphologyEx(one, cv2.MORPH_CLOSE, ker)
+                acc |= (cv2.GaussianBlur(one.astype(np.float32), (0, 0), sk[1] * S) > 0.45).astype(np.uint8)
+            m = acc
+        m = m * 255
         cs, hier = cv2.findContours(m, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
         if hier is None: continue
         parts = []

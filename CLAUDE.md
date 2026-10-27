@@ -28,6 +28,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 │                          아바타·NPC 초상화가 «자리»만 정해 `ExpArt.draw` 로 그린다 (아래 「표정 세트」)
 ├── npcart.js              NPC 아홉의 «얼굴이 빈» 전신 치비 — 사람이 보낸 SVG(tools/ref/npc)의 색을 팔레트로 모으고
 │                          머리카락 윤곽만 다듬어 다시 딴 것(tools/ref/npc-smooth · `node tools/smoothnpc.js` · 브라우저+cv2)
+│                          · 규칙이 못 잡는 자리는 smoothnpc.js 의 `MEND`(메울 점) · `SOFT`(색마다 더 다듬기)에 손으로 적는다(지금 슈타르크)
 │                          (생성 · `npm run gen:npc` · npm test 가 --check) → window.NpcArt · 표정은 portrait.js 가 ExpArt 로 얹는다
 ├── avatar.js              SVG 페이퍼돌 → window.Avatar
 ├── crouchart.js           「혼자 먹은 밤」 웅크린 뒷모습 — 받은 그림(뒷머리 여섯 갈래)을 대고 딴 조각 (생성 · tools/gencrouch.py) → window.CrouchArt
@@ -595,7 +596,7 @@ node tools/checkavatar.js   # 체형 5단계 × 모든 옷에서 살이 옷 밖�
   · ⚠️ **컷씬에서는 NPC 를 «공주의 눈 크기»에 맞춰 줄인다** (`fitNpcToPrincess` · 2026-10-27 · 「NPC 가 공주보다 약간 더 크다」).
     두 사람 다 ExpArt 로 눈을 그리므로 그 배율(`getScreenCTM`)을 견주고 `NPC_CUT_K`(0.9)를 곱한다 — 얼굴 반폭(FACE.rx)은
     그림마다 잰 방식이 달라 못 쓴다. 공주의 눈은 바디파츠를 타서 컷씬마다 숨은 상자에 그려 잰다 · 줄이기만 한다.
-    인물 실루엣 둘레에 음영(`.cut-face svg` 의 drop-shadow 둘)을 둘러 뒤 화면과 가른다 — NPC·공주가 같은 음영이다
+    인물 실루엣 둘레에 음영(`.cut-face svg` 의 drop-shadow 셋 — 짙은 테 둘 + 그늘)을 둘러 뒤 화면과 가른다 — NPC·공주가 같은 음영이다
 - `checkportrait` 의 「표정 세트」가 표정마다 그 이름의 그림이 그려지는지(`data-exp`)·깜박임 조각·
   눈동자 색·눈썹 빼기를 본다
 
