@@ -28,7 +28,7 @@ dieter-alchemist/          ← 저장소 루트. Railway Root Directory 는 비�
 │                          아바타·NPC 초상화가 «자리»만 정해 `ExpArt.draw` 로 그린다 (아래 「표정 세트」)
 ├── npcart.js              NPC 아홉의 «얼굴이 빈» 전신 치비 — 사람이 보낸 SVG(tools/ref/npc)의 색을 팔레트로 모으고
 │                          머리카락 윤곽만 다듬어 다시 딴 것(tools/ref/npc-smooth · `node tools/smoothnpc.js` · 브라우저+cv2)
-│                          · 규칙이 못 잡는 자리는 smoothnpc.js 의 `MEND`(메울 점) · `SOFT`(색마다 더 다듬기) · `DROP`(색마다 이보다 작은 얼룩 지우기) · `PAINT`(받은 SVG 에 없는 옷 조각을 원본 PNG 에 맞춰 덧그리기)에 손으로 적는다(지금 슈타르크 · 발렌의 망토와 어깨 망토 · 요정 대모의 리본·안감 · 이그리트의 망토·왼 소매·허리띠·목)
+│                          · 규칙이 못 잡는 자리는 smoothnpc.js 의 `MEND`(메울 점) · `SOFT`(색마다 더 다듬기) · `DROP`(색마다 이보다 작은 얼룩 지우기) · `PAINT`(받은 SVG 에 없는 옷 조각을 원본 PNG 에 맞춰 덧그리기)에 손으로 적는다(지금 슈타르크(장화·바짓단 · 턱 옆 머리 조각은 `DROP`) · 발렌의 망토와 어깨 망토 · 요정 대모의 리본·안감 · 이그리트의 망토·왼 소매·허리띠·목)
 │                          · 얼굴과 목이 한 덩어리 살색이라 portrait.js 의 `npcChin` 이 턱 밑 «목»에 그늘을 깐다 (공주의 목 그러데이션과 같은 방식 ·
 │                            턱선은 «재서» 맞춘 타원 gennpc 의 `jaw` 로 딱 끊는다 — 어림한 chin 은 진짜 턱보다 위라 그늘이 얼굴 안에 섰다 ·
 │                            살색은 smoothnpc 가 `data-skin` 으로 적고 gennpc 가 `skin` 으로 내보낸다)
@@ -597,7 +597,7 @@ node tools/checkavatar.js   # 체형 5단계 × 모든 옷에서 살이 옷 밖�
     그대로 썼더니 몸통 중간에서 잘린 덩어리가 얹혔다 (신고받았다)
   · ⚠️ 인트로 화면의 요정·공주 그림은 `intro.js` 의 것 그대로다
   · ⚠️ **컷씬에서는 NPC 를 «공주의 눈 크기»에 맞춰 줄인다** (`fitNpcToPrincess` · 2026-10-27 · 「NPC 가 공주보다 약간 더 크다」).
-    두 사람 다 ExpArt 로 눈을 그리므로 그 배율(`getScreenCTM`)을 견주고 `NPC_CUT_K`(0.9)를 곱한다 — 얼굴 반폭(FACE.rx)은
+    두 사람 다 ExpArt 로 눈을 그리므로 그 배율(`getScreenCTM`)을 견주고 `NPC_CUT_K`(0.9)를 곱한다 — ⚠️ **그러고도 «그려진 키»가 공주에 못 미치면 거기까지 키운다**(`drawnHeight` · 「NPC 는 너무 키가 작아졌어 · 크기·높이 맞춰줘」 · 2026-10-27 · 눈만 맞추면 얼굴이 작은 치비가 머리 하나쯤 낮게 섰다) — 얼굴 반폭(FACE.rx)은
     그림마다 잰 방식이 달라 못 쓴다. 공주의 눈은 바디파츠를 타서 컷씬마다 숨은 상자에 그려 잰다 · 줄이기만 한다.
     인물 실루엣 둘레에 음영(`.cut-face svg` 의 drop-shadow 셋 — 짙은 테 둘 + 그늘)을 둘러 뒤 화면과 가른다 — NPC·공주가 같은 음영이다
 - `checkportrait` 의 「표정 세트」가 표정마다 그 이름의 그림이 그려지는지(`data-exp`)·깜박임 조각·
@@ -3383,7 +3383,7 @@ FULL=1 THEME=charcoal node tools/checkui.js showcase atelier gather   # 한 테�
   `checkdata` 가 이제 **`Village.shapes` 를 읽어** 양쪽을 본다 — 없는 모양을 쓰는
   건물 · **아무도 안 쓰는 방**(그려 놓고 영영 못 보는 그림) · 몇 곳을 쟀는지.
   사보타주 셋으로 확인했다 (모양 이름 오타 · 한 방을 안 쓰게 하기 · `shapes` 를 안 내놓기)
-- **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 지금 대장간 `villages/in-forge.webp` · 여관 `villages/in-inn.webp` · 일곱 굴뚝 상점 `villages/in-shop.webp` · 일곱 굴뚝 광산 `villages/in-mine.webp` · 일곱 오두막 `villages/in-cottage.webp` · 마법사의 탑 `villages/in-tower.webp` · 일곱 굴뚝 공방 `villages/in-lab.webp` · 붉은 사과밭 과수원 `villages/in-orchard.webp` · 붉은 사과밭 착즙간 `villages/in-press.webp` · 붉은 사과밭 빈 농가 `villages/in-empty.webp` · 붉은 사과밭 감시탑 `villages/in-watch.webp` · 거울 골짜기 거울못 `villages/in-pond.webp` · 거울 골짜기 낡은 사원 `villages/in-shrine.webp` · 거울 골짜기 안개 다리 `villages/in-bridge.webp` · 거울 골짜기 돌무지 `villages/in-cairn.webp` · 사냥꾼 쉼터 오두막 `villages/in-lodge.webp` · 사냥꾼 쉼터 덫 창고 `villages/in-trap.webp` · 사냥꾼 쉼터 훈연막 `villages/in-smoke.webp` · 유리관 호수 호숫가 `villages/in-shore.webp` · 유리관 호수 낡은 나루터 `villages/in-pier.webp` · 유리관 호수 어부 오두막 `villages/in-hut.webp` · 유리관 호수 잠긴 계단 `villages/in-stair.webp` · 은빛 갱도 갱구 `villages/in-adit.webp` · 은빛 갱도 원석 창고 `villages/in-store.webp` · 은빛 갱도 세공소 `villages/in-cut.webp` · 은빛 갱도 광차 선로 `villages/in-rail.webp` · 가시덤불 마을 가시 문 `villages/in-gate.webp` · 가시덤불 마을 무기고 `villages/in-armory.webp` · 가시덤불 마을 병영 `villages/in-barrack.webp` · 가시덤불 마을 무너진 문 `villages/in-keep.webp` · 여왕의 첨탑 첨탑 `villages/in-spire.webp`) —
+- **건물 안도 «받은 그림»을 깔 수 있다** (`spots[].art` · 지금 대장간 `villages/in-forge.webp` · 여관 `villages/in-inn.webp` · 일곱 굴뚝 상점 `villages/in-shop.webp` · 일곱 굴뚝 광산 `villages/in-mine.webp` · 일곱 오두막 `villages/in-cottage.webp` · 마법사의 탑 `villages/in-tower.webp` · 일곱 굴뚝 공방 `villages/in-lab.webp` · 붉은 사과밭 과수원 `villages/in-orchard.webp` · 붉은 사과밭 착즙간 `villages/in-press.webp` · 붉은 사과밭 빈 농가 `villages/in-empty.webp` · 붉은 사과밭 감시탑 `villages/in-watch.webp` · 거울 골짜기 거울못 `villages/in-pond.webp` · 거울 골짜기 낡은 사원 `villages/in-shrine.webp` · 거울 골짜기 안개 다리 `villages/in-bridge.webp` · 거울 골짜기 돌무지 `villages/in-cairn.webp` · 사냥꾼 쉼터 오두막 `villages/in-lodge.webp` · 사냥꾼 쉼터 덫 창고 `villages/in-trap.webp` · 사냥꾼 쉼터 훈연막 `villages/in-smoke.webp` · 유리관 호수 호숫가 `villages/in-shore.webp` · 유리관 호수 낡은 나루터 `villages/in-pier.webp` · 유리관 호수 어부 오두막 `villages/in-hut.webp` · 유리관 호수 잠긴 계단 `villages/in-stair.webp` · 은빛 갱도 갱구 `villages/in-adit.webp` · 은빛 갱도 원석 창고 `villages/in-store.webp` · 은빛 갱도 세공소 `villages/in-cut.webp` · 은빛 갱도 광차 선로 `villages/in-rail.webp` · 가시덤불 마을 가시 문 `villages/in-gate.webp` · 가시덤불 마을 무기고 `villages/in-armory.webp` · 가시덤불 마을 병영 `villages/in-barrack.webp` · 가시덤불 마을 무너진 문 `villages/in-keep.webp` · 여왕의 첨탑 첨탑 `villages/in-spire.webp` · 왕실 연금소 `villages/in-spirelab.webp` · 화덕 `villages/in-spireforge.webp`) —
   그림은 무대의 3:2 로 잘라 두고, 사람이 오른쪽에 서므로 물건이 왼쪽에 있는 그림을 쓴다
   · **벽난로가 있는 그림은 «타는 불»을 덧그린다** (`spots[].fire` = [불 밑동 가운데 x, 밑동 y, 폭] · viewBox 300×200 · `village.js` 의 `fireFx`).
     불꽃 셋이 흔들리고 빛무리가 숨 쉬고 불티가 오른다 · 움직임 줄이기에서 멈춘다. ⚠️ 자리는 그림을 재서 적는다 — 그림을 바꾸면 다시 잰다

@@ -2816,15 +2816,35 @@ function princessEyeK(face) {
   document.body.appendChild(probe);
   fitPrincessBust(probe);
   cutPrFace = eyeScaleOf(probe, '[data-part="eye"]');
+  cutPrH = drawnHeight(probe.querySelector('svg'));
   probe.remove();
   return cutPrFace;
+}
+// 그려진 것의 높이 — svg 밑변에서 «제일 위에 칠한 것»까지 (상자 위쪽의 빈 몫은 안 센다)
+let cutPrH = 0;
+function drawnHeight(svg) {
+  if (!svg) return 0;
+  const sb = svg.getBoundingClientRect();
+  let top = sb.bottom;
+  svg.querySelectorAll('path,ellipse,circle,rect,polygon,image').forEach(e => {
+    const r = e.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && r.bottom > sb.top) top = Math.min(top, r.top);
+  });
+  return sb.bottom - Math.max(top, sb.top);
 }
 function fitNpcToPrincess(face, spId) {
   const svg = face.querySelector('svg');
   if (!svg) return;
   const pk = princessEyeK(face), nk = eyeScaleOf(svg, '[data-eye]');
   if (!pk || !nk) return;
-  const r = Math.max(0.55, Math.min(1, pk / nk * NPC_CUT_K));
+  // ⚠️ 눈으로만 맞추면 얼굴이 작은 치비(슈타르크·클레멘)는 공주보다 머리 하나쯤 낮게 섰다
+  //    (「NPC 는 너무 키가 작아졌어 · 공주랑 크기·높이 맞춰줘」 · 2026-10-27) — 그래서 «그려진 키»가
+  //    공주의 키에 못 미치면 거기까지 키운다 (키가 더 큰 쪽 · 왕관을 쓴 여왕은 눈 쪽 그대로다)
+  let r = pk / nk * NPC_CUT_K;
+  svg.style.width = '100%';
+  const h1 = drawnHeight(svg);
+  if (cutPrH && h1) r = Math.max(r, cutPrH / h1);
+  r = Math.max(0.55, Math.min(1, r));
   svg.style.width = (r * 100).toFixed(1) + '%';
   svg.style.margin = '0 auto';
 }
