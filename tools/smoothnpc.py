@@ -41,6 +41,27 @@ for name in sorted(os.listdir(work)):
     best = np.array(allk)[score.argmax(0)]
     lab0 = lab.copy()
     lab = np.where(frozen, lab, best)
+    # ②-2 «티» 메우기 — 넓이가 FLECK 아래인 덩어리는 둘레에서 제일 많이 닿은 색으로 바꾼다
+    #      (머리 윤곽에 붙은 중간색 부스러기 · 다수결이 못 지운 몇 픽셀짜리 섬). 얼린 것(가는 선)은 그대로다
+    kern = np.ones((3, 3), np.uint8)
+    hid0 = {i + 1 for i, c in enumerate(pal) if c in hair}
+    for _ in range(2):
+        for k in range(len(pal) + 1):
+            m = (lab == k).astype(np.uint8)
+            if not m.any(): continue
+            nc, cc, st, _c = cv2.connectedComponentsWithStats(m, connectivity=8)
+            for c in range(1, nc):
+                if k in hid0 or st[c, cv2.CC_STAT_AREA] >= meta['fleck'] * 6 * S * S: continue
+                x, y, w, h = st[c, :4]
+                x0, y0, x1, y1 = max(0, x - 2), max(0, y - 2), min(W, x + w + 2), min(H, y + h + 2)
+                blob = (cc[y0:y1, x0:x1] == c)
+                if (blob & frozen[y0:y1, x0:x1]).any(): continue
+                ring = cv2.dilate(blob.astype(np.uint8), kern).astype(bool) & ~blob
+                nb = lab[y0:y1, x0:x1][ring]
+                if not len(nb): continue
+                # 큰 쪽(FLECK × 6 까지)은 «머리와 바탕 사이에만» 낀 조각일 때만 — 머리 끝에 남은 중간색 테두리다
+                if st[c, cv2.CC_STAT_AREA] >= meta['fleck'] * S * S and not np.isin(nb, list(hid0) + [0]).all(): continue
+                sub = lab[y0:y1, x0:x1]; sub[blob] = np.bincount(nb).argmax()
     # ③ 머리색은 한 번 더, 더 크게 다듬는다
     sig = meta['sigma'] * S
     hid = [i + 1 for i, c in enumerate(pal) if c in hair]
