@@ -514,6 +514,37 @@
   const NPC_BUST = 5.2, NPC_EYE_AT = 0.56;
   // 머리만 자를 때 턱 밑으로 남기는 목 — 얼굴 반폭의 몫
   const NPC_NECK = 0.3;
+  // ─── NPC 턱 밑 그늘 ───────────────────────────────────────────
+  // 받은 그림은 얼굴과 목이 «한 덩어리 살색»이라 턱선이 없다 — 공주(avatar.js 의 목 그러데이션 SKIN_SH → SKIN)처럼
+  // 턱 바로 밑이 제일 짙고 아래로 옅어지는 그늘을 얹어 얼굴과 목을 가른다 (「NPC 도 얼굴과 목 사이에 같은 방식으로」)
+  //   · 턱선은 얼굴 반폭(rx)·턱 끝(chin)으로 세운 타원이고, 그늘은 그 타원을 아래로 민 것에서 원래 타원을 뺀 초승달이다
+  //   · 살색 조각으로 오리고 그 조각 «바로 뒤»에 끼운다 — 위 층(옷·머리카락)이 그대로 덮어 얼굴·옷에는 안 번진다
+  //   · 가로로는 목 폭(rx × JAW_W) 안에서만 서고 양끝은 옅어진다 — 초승달의 뿔이 볼까지 올라가면 «턱선»이 아니라
+  //     얼굴에 그은 U 자가 된다 (그려 보고 좁혔다)
+  //   · 색은 공주의 SKIN → SKIN_SH 비를 그 사람 살색에 곱한 것이다 (사람마다 살색이 달라서 값을 박지 않는다)
+  // ⚠️ 그림을 바꾸면 face 의 rx·chin 을 다시 잰다 — 턱선이 그 둘에서 나온다
+  const JAW_RY = 0.78, JAW_DROP = 0.2, JAW_FADE = 0.42, JAW_W = 0.62;
+  const SH_K = [0xf2 / 0xff, 0xc6 / 0xdc, 0xa6 / 0xc4];
+  function npcChin(na, u) {
+    const fc = na.face, sk = na.skin;
+    const at = sk && na.art.indexOf(`fill="${sk}"/>`);
+    if (!sk || at < 0) return na.art;
+    const end = at + `fill="${sk}"/>`.length, st = na.art.lastIndexOf('<path', at);
+    const d = na.art.slice(st, at).match(/d="([^"]*)"/)[1];
+    const sh = '#' + [1, 3, 5].map((o, i) => Math.round(parseInt(sk.slice(o, o + 2), 16) * SH_K[i]).toString(16).padStart(2, '0')).join('');
+    const rx = fc.rx, ry = rx * JAW_RY, cy = fc.chin - ry, dy = rx * JAW_DROP, f = n => +n.toFixed(1);
+    const y0 = f(fc.chin - ry * 0.5), y1 = f(fc.chin + dy + rx * JAW_FADE);
+    const g = `<defs><linearGradient id="pcg_${u}" gradientUnits="userSpaceOnUse" x1="0" y1="${f(fc.chin - dy)}" x2="0" y2="${y1}">`
+      + `<stop offset="0" stop-color="${sh}"/><stop offset="1" stop-color="${sh}" stop-opacity="0"/></linearGradient>`
+      + `<linearGradient id="pch_${u}" gradientUnits="userSpaceOnUse" x1="${f(fc.cx - rx * JAW_W)}" y1="0" x2="${f(fc.cx + rx * JAW_W)}" y2="0">`
+      + `<stop offset="0" stop-color="#000"/><stop offset="0.3" stop-color="#fff"/><stop offset="0.7" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>`
+      + `<mask id="pcw_${u}" maskUnits="userSpaceOnUse" x="${f(fc.cx - rx * 1.5)}" y="${y0}" width="${f(rx * 3)}" height="${f(y1 - y0)}"><rect x="${f(fc.cx - rx * 1.5)}" y="${y0}" width="${f(rx * 3)}" height="${f(y1 - y0)}" fill="url(#pch_${u})"/></mask>`
+      + `<clipPath id="pcc_${u}"><path d="${d}"/></clipPath>`
+      + `<mask id="pcm_${u}" maskUnits="userSpaceOnUse" x="${f(fc.cx - rx * 1.5)}" y="${y0}" width="${f(rx * 3)}" height="${f(y1 - y0)}">`
+      + `<ellipse cx="${fc.cx}" cy="${f(cy + dy)}" rx="${rx}" ry="${f(ry)}" fill="#fff"/><ellipse cx="${fc.cx}" cy="${f(cy)}" rx="${rx}" ry="${f(ry)}" fill="#000"/></mask></defs>`
+      + `<g clip-path="url(#pcc_${u})" data-part="chin-shade"><g mask="url(#pcw_${u})"><rect x="${f(fc.cx - rx * 1.5)}" y="${y0}" width="${f(rx * 3)}" height="${f(y1 - y0)}" fill="url(#pcg_${u})" mask="url(#pcm_${u})"/></g></g>`;
+    return na.art.slice(0, end) + g + na.art.slice(end);
+  }
   function bust(sp, mood, opts) {
     if (!sp) return '';
     const bare = !!(opts && opts.bare);
@@ -557,8 +588,8 @@
           ${bare ? '' : `<rect x="0" y="0" width="${vw}" height="${vh}" fill="${sp.bg || '#efe6f2'}"/>`}
           <g transform="scale(${+k.toFixed(4)}) translate(${+(-x0).toFixed(2)},${+(-y0).toFixed(2)})">${na.hole
             // 실루엣 안에 갇힌 «바탕 흰색» 칸은 도려낸다 (`hole` · gennpc.js 의 BG_DROP — 망치·활 사이)
-            ? `<mask id="ptm_${u}" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${na.w + 20}" height="${na.h + 20}"><rect x="-10" y="-10" width="${na.w + 20}" height="${na.h + 20}" fill="#fff"/><g fill="#000">${na.hole}</g></mask><g mask="url(#ptm_${u})">${na.art}</g>`
-            : na.art}${exp}</g>
+            ? `<mask id="ptm_${u}" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${na.w + 20}" height="${na.h + 20}"><rect x="-10" y="-10" width="${na.w + 20}" height="${na.h + 20}" fill="#fff"/><g fill="#000">${na.hole}</g></mask><g mask="url(#ptm_${u})">${npcChin(na, u)}</g>`
+            : npcChin(na, u)}${exp}</g>
         </g>
       </svg>`;
     }

@@ -114,7 +114,9 @@ for (const id of Object.keys(FACE)) {
   }
   if (!paths.length) fail(`${id}.svg 에 그림이 없다`);
   if (smooth) {
-    list[id] = { w: +vb[1], h: +vb[2], face: FACE[id], art: paths.map(p => `<path d="${p.d}" fill="${p.fill}"/>`).join('') };
+    const skin = (svg.match(/<svg\b[^>]*\sdata-skin="(#[0-9a-f]{6})"/) || [])[1];
+    if (!skin || !paths.some(p => p.fill === skin)) fail(`${id} 다듬은 그림에 살색(data-skin)이 없거나 그 색의 조각이 없다 — node tools/smoothnpc.js`);
+    list[id] = { w: +vb[1], h: +vb[2], face: FACE[id], skin, art: paths.map(p => `<path d="${p.d}" fill="${p.fill}"/>`).join('') };
     snapLog.push(`${id} 다듬은 그림`); continue;
   }
   const sn = snapColors(paths);

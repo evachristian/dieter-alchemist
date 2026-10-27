@@ -137,6 +137,7 @@ for name in sorted(os.listdir(work)):
             mid = (c + np.roll(c, -1, 0)) / 2
             parts.append('M%s %s' % (f(mid[-1][0]), f(mid[-1][1])) + ''.join('Q%s %s %s %s' % (f(c[q][0]), f(c[q][1]), f(mid[q][0]), f(mid[q][1])) for q in range(len(c))) + 'Z')
         if parts: out.append('<path d="%s" fill="%s"/>' % (''.join(parts), pal[k - 1]))
-    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %g %g">%s</svg>\n' % (meta['w'], meta['h'], ''.join(out))
+    # 살색은 루트에 적어 둔다 — portrait.js 가 그 조각 위에 턱 밑 그늘을 얹는다 (gennpc 가 읽는다)
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %g %g" data-skin="%s">%s</svg>\n' % (meta['w'], meta['h'], skin, ''.join(out))
     open(os.path.join(work, meta['id'] + '.svg'), 'w').write(svg)
     print(meta['id'], len(out), '층', '%dKB' % (len(svg) // 1024), '머리 바뀐 칸 %d' % int((lab2 != lab0).sum()))
