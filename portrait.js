@@ -542,8 +542,13 @@
     const g = `<defs><linearGradient id="pcg_${u}" gradientUnits="userSpaceOnUse" x1="0" y1="${f(bot - ry * 0.12)}" x2="0" y2="${y1}">`
       + `<stop offset="0" stop-color="${sh}"/><stop offset="1" stop-color="${sh}" stop-opacity="0"/></linearGradient>`
       + `<clipPath id="pcc_${u}"><path d="${d}"/></clipPath>`
+      // ⚠️ 상자의 양옆도 번지게 끝낸다 — 세로로만 번지면 턱 밖(목·옷깃 사이)에 상자 옆변이 «세로 금»으로 섰다
+      //    (「슈타르크 얼굴 찌글찌글」로 신고받았다 · 그늘을 떼어 그려 보고 갈랐다)
+      + `<linearGradient id="pch_${u}" gradientUnits="userSpaceOnUse" x1="${x0}" y1="0" x2="${f(x0 + w)}" y2="0">`
+      + `<stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.3" stop-color="#fff"/>`
+      + `<stop offset="0.7" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
       + `<mask id="pcm_${u}" maskUnits="userSpaceOnUse" x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}">`
-      + `<rect x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}" fill="#fff"/>`
+      + `<rect x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}" fill="url(#pch_${u})"/>`
       + `<ellipse cx="${fc.cx}" cy="${cy}" rx="${f(rx + JAW_PAD)}" ry="${f(ry + JAW_PAD)}" fill="#000"/></mask></defs>`
       + `<g clip-path="url(#pcc_${u})" data-part="chin-shade"><rect x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}" fill="url(#pcg_${u})" mask="url(#pcm_${u})"/></g>`;
     return na.art.slice(0, end) + g + na.art.slice(end);
