@@ -40,6 +40,21 @@ const SOFT = {
 const DROP = {
   sp_valen: { '#3965b7': 3500, '#4873c1': 120 },
 };
+// 손으로 «덧그리는» 조각 — 받은 SVG 에 없는 옷의 부분을 사람이 보낸 원본 PNG 에 맞춰 그림 좌표로 얹는다
+// (요정 대모의 목 리본 · 망토 왼쪽의 안감 주름 — 「원본 PNG 처럼 깔끔하게」 · 2026-10-27 · 나란히 그려 놓고 맞췄다).
+// 다듬기 «전»에 얹으므로 다른 조각과 같은 손질을 받는다. ⚠️ `<path fill=… d=…/>` 꼴만 쓴다(팔레트를 path 에서 읽는다)
+const PAINT = {
+  sp_althea: [
+    // 망토 안감 주름 (원본의 옅은 띠 · 왼손 아래에서 밑단으로)
+    '<path fill="#93b6f2" d="M66,296 C58,316 46,340 34,364 C37,368 41,369 45,367 C55,344 67,320 74,300 C72,297 69,296 66,296 Z"/>',
+    // 목 리본 — 꼬리 둘 · 고리 둘 · 매듭
+    '<path fill="#93b6f2" d="M165,207 C160,222 154,236 148,250 C152,253 157,253 161,250 C166,236 170,221 172,208 Z"/>',
+    '<path fill="#93b6f2" d="M175,207 C180,222 186,236 192,249 C188,252 183,252 179,249 C174,236 170,221 168,208 Z"/>',
+    '<path fill="#93b6f2" d="M170,203 C158,188 140,184 139,198 C138,213 158,217 170,203 Z"/>',
+    '<path fill="#93b6f2" d="M170,203 C182,188 200,184 201,198 C202,213 182,217 170,203 Z"/>',
+    '<path fill="#7da4ea" d="M162.5,203 A7.5,7 0 1 0 177.5,203 A7.5,7 0 1 0 162.5,203 Z"/>',
+  ].join(''),
+};
 const MEND = {
   sp_stark: [[59, 370], [138, 380], [141, 402], [190, 366], [222, 335], [255, 290], [262, 157], [57, 142], [208, 142]],
 };
@@ -53,6 +68,7 @@ const MEND = {
   const b = await chromium.launch(fs.existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {});
   for (const [id, a] of Object.entries(NA)) {
     if (!HAIR[id]) throw new Error('머리색이 없다 — ' + id);
+    if (PAINT[id]) a.art += PAINT[id];
     const ps = a.art.match(/<path [^>]*\/>/g);
     const pal = [...new Set(ps.map(m => m.match(/fill="([^"]*)"/)[1]))];
     HAIR[id].forEach(c => { if (!pal.includes(c)) throw new Error(`${id} 의 머리색 ${c} 가 팔레트에 없다`); });
