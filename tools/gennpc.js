@@ -29,7 +29,7 @@ const fail = m => { console.error('❌ gennpc — ' + m); process.exit(1); };
 const FACE = {
   sp_althea:  { cx: 177,   ey: 137, my: 166, gap: 52, rx: 60, chin: 173, jaw: [155, 54, 30, 163.5] },
   sp_clemen:  { cx: 127.5, ey: 148, my: 187, gap: 56, rx: 66.5, chin: 195, jaw: [136.5, 72.7, 79.5] },
-  sp_kairos:  { cx: 156,   ey: 136, my: 173, gap: 46, rx: 50, chin: 191, jaw: [143, 52.5, 50.5] },
+  sp_kairos:  { cx: 156,   ey: 136, my: 173, gap: 46, rx: 50, chin: 191, jaw: [155, 61, 48, 143.5] },
   sp_orix:    { cx: 161,   ey: 124, my: 158, gap: 56, rx: 66, chin: 166, jaw: [129, 67.3, 54] },
   sp_stark:   { cx: 133,   ey: 130, my: 176, gap: 58, rx: 69, chin: 185, jaw: [155, 69.7, 48] },
   sp_sylvan:  { cx: 121.5, ey: 133, my: 166, gap: 52, rx: 61.5, chin: 173, jaw: [142.5, 67.2, 47.5] },
