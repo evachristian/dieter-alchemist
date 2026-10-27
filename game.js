@@ -2653,6 +2653,8 @@ window.renderGift = renderGift;
 // 보상은 `claimQuest()` 가 한다. 한 함수에 두면 스토리 다시보기가 보상을 또 준다
 // (`QUEST.md` 8-5 — 만들기 전에 미리 적어 둔 함정이다).
 let cutNow = null, cutAt = 0, cutThen = null;
+let cutPrFace = null;   // 이 컷씬에서 잰 공주의 눈 배율 · playScene 이 비운다 (fitNpcToPrincess)
+const NPC_CUT_K = 0.9;   // 눈 배율이 같아도 받은 치비는 얼굴·머리가 공주보다 크게 그려져 있어 한 걸음 더 줄인다 (0.82·0.9·1 을 그려 보고 골랐다)
 
 // 장면 하나를 처음부터 재생한다. 끝나면 `then()` 을 부른다.
 //
@@ -2666,7 +2668,7 @@ let cutNow = null, cutAt = 0, cutThen = null;
 //             `CUTS` 표에 있는 것만 뜻하므로 적어 봐야 아무도 안 본다
 function playScene(cut, then) {
   if (!cut || !cut.lines || !cut.lines.length) { if (then) then(); return; }
-  cutNow = cut; cutAt = 0; cutThen = then || null;
+  cutNow = cut; cutAt = 0; cutThen = then || null; cutPrFace = null;
   if (!cut.noLog) {
     if (!Array.isArray(S.seenCuts)) S.seenCuts = [];
     // **본 컷씬이 퀘스트를 열 수도 있다** (`need.cut` — 5막이 그렇다).
@@ -2791,6 +2793,42 @@ function fitPrincessBust(host) {
   svg.classList.add('cut-bust');
 }
 
+// NPC 는 «공주의 눈 크기»에 맞춰 줄인다 — 받은 NPC 그림의 흉상(두 눈 사이 × NPC_BUST)은 공주의 상반신보다
+// 얼굴이 크게 앉아, 말이 오갈 때마다 NPC 만 다가와 보였다 (2026-10-27).
+// ⚠️ 잣대는 «눈»이다 — 두 사람 다 같은 표정 그림(ExpArt)으로 눈을 그리므로 그 배율을 견주면 같은 자로 잰 것이 된다.
+//    얼굴 반폭(FACE.rx)은 그림마다 잰 방식이 달라(카이로스는 실제 얼굴보다 20% 작게 적혀 있다) 못 쓴다.
+// ⚠️ 공주의 얼굴은 바디파츠(얼굴 배율)를 타므로 숫자로 못 박는다 — 그려 보고 잰다 (컷씬마다 한 번)
+// ⚠️ 줄이기만 한다 · 바닥(대사 상자 위)에 그대로 선다 — 상반신의 아랫변이 잘린 자리라서다
+const eyeScaleOf = (root, sel) => {
+  const g = root.querySelector(sel + ' > g[transform]');
+  const m = g && g.getScreenCTM && g.getScreenCTM();
+  return m ? Math.hypot(m.a, m.b) : 0;
+};
+function princessEyeK(face) {
+  if (cutPrFace != null) return cutPrFace;
+  cutPrFace = 0;
+  if (!princessBustOn()) return 0;
+  const probe = document.createElement('div');
+  probe.className = 'cut-face';
+  probe.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;animation:none';
+  probe.style.width = face.getBoundingClientRect().width + 'px';
+  probe.innerHTML = princessBust('def');
+  document.body.appendChild(probe);
+  fitPrincessBust(probe);
+  cutPrFace = eyeScaleOf(probe, '[data-part="eye"]');
+  probe.remove();
+  return cutPrFace;
+}
+function fitNpcToPrincess(face, spId) {
+  const svg = face.querySelector('svg');
+  if (!svg) return;
+  const pk = princessEyeK(face), nk = eyeScaleOf(svg, '[data-eye]');
+  if (!pk || !nk) return;
+  const r = Math.max(0.55, Math.min(1, pk / nk * NPC_CUT_K));
+  svg.style.width = (r * 100).toFixed(1) + '%';
+  svg.style.margin = '0 auto';
+}
+
 function drawCut() {
   if (!cutNow) return;
   const [spId, mood, fx] = cutNow.lines[cutAt];
@@ -2817,7 +2855,9 @@ function drawCut() {
     const mine = spId === 'sp_gwiriel' && princessBustOn();
     face.innerHTML = mine ? princessBust(mood)
       : sp && window.Portrait ? Portrait.bust(sp, mood || 'def', { bare: true }) : '';
+    face.classList.toggle('npc', !mine && !!face.firstElementChild);
     if (mine) fitPrincessBust(face);
+    else fitNpcToPrincess(face, spId);
   }
   // **「부르는 말」로 뜬다** — 공주는 플레이어가 지은 이름으로, 요정 대모는
   // 「요정 대모」로 (설정상의 이름 「알테이아」는 본인도 안 쓴다 · STORY.md 「호칭 규칙」)

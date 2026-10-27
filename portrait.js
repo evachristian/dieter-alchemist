@@ -549,7 +549,7 @@
         k = W / cw; x0 = na.w / 2 - cw / 2; y0 = fc.ey - (H * NPC_EYE_AT) / k;
       }
       const xa = ExpArt.has(mood) ? mood : (MOOD_ART[mood] || 'def');
-      const exp = ExpArt.draw(xa, { ex: fc.cx, ey: fc.ey, mx: fc.cx, my: fc.my, s: fc.gap / 44, eyeColor: sp.eyeColor });
+      const exp = ExpArt.draw(xa, { ex: fc.cx, ey: fc.ey, mx: fc.cx, my: fc.my, s: fc.gap / 44, eyeColor: sp.eyeColor, eyePart: 'data-eye="1"' });
       return `<svg class="pt-svg ${bare ? 'bare' : ''} ${full ? 'full' : ''}" viewBox="0 0 ${vw} ${vh}"
         xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}" data-npcart="${sp.id}">
         ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${vw}" height="${vh}" rx="18"/></clipPath></defs>`}
