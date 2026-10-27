@@ -131,6 +131,10 @@ for name in sorted(os.listdir(work)):
                 one = (cc2 == c2).astype(np.uint8)
                 if q: one = cv2.morphologyEx(one, cv2.MORPH_CLOSE, ker)
                 acc |= (cv2.GaussianBlur(one.astype(np.float32), (0, 0), sk[1] * S) > 0.45).astype(np.uint8)
+            # 셋째 칸(색 목록)이 있으면 닫기·흐리기가 «그 색 위로만» 번진다 — 다른 색의 홈(귀와 머리 사이)까지 메우면 엉뚱한 데 점이 선다 (이그리트)
+            if len(sk) > 2:
+                ok2 = np.isin(lab2, [pal.index(c) + 1 for c in sk[2]])
+                acc = (m.astype(bool) | (acc.astype(bool) & ok2)).astype(np.uint8)
             m = acc
         m = m * 255
         cs, hier = cv2.findContours(m, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
