@@ -78,7 +78,21 @@ for name in sorted(os.listdir(work)):
     order = sorted([k for k in range(1, len(pal) + 1) if cnt[k]], key=lambda k: (-cnt[k], k))
     out = []
     for i, k in enumerate(order):
-        m = np.isin(lab2, order[i:]).astype(np.uint8) * 255
+        # ⚠️ 위 층의 칸이 이 층 «바깥 테두리»에 닿는 자리는 INSET 만큼 안으로 물린다 — 두 층의 테두리가 같은 자리를
+        #    지나면 따로 다듬어져 아래 층이 위 층 밖으로 실처럼 삐져나온다 (오릭스의 귀·망치·손 둘레가 그랬다).
+        #    물린 칸은 위 층이 제 색으로 덮으므로 빈 데가 안 생긴다
+        full = np.isin(lab2, order[i:]).astype(np.uint8)
+        r = max(1, int(round(meta['inset'] * S)))
+        er = cv2.erode(full, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * r + 1, 2 * r + 1)))
+        m = ((lab2 == k) | (np.isin(lab2, order[i + 1:]) & (er > 0))).astype(np.float32)
+        #    물린 자리의 이음매에 남는 작은 뾰족한 끝을 한 번 흐려 문턱으로 다시 자른다 (모서리만 둥글어진다)
+        #    ⚠️ 가는 선(얼린 칸)은 흐리면 끊기므로 제 색 그대로 다시 얹는다 (슈타르크의 활시위가 끊겼다)
+        own = (lab2 == k).astype(np.uint8)
+        dto = cv2.distanceTransform(own, cv2.DIST_L2, 5)
+        nc, cc = cv2.connectedComponents(own, connectivity=8)
+        thick = np.zeros(nc, np.float32); np.maximum.at(thick, cc.ravel(), dto.ravel())
+        thin = (own > 0) & (thick[cc] < 2 * r)
+        m = ((cv2.GaussianBlur(m, (0, 0), r) > 0.5) | thin | ((lab2 == k) & frozen)).astype(np.uint8) * 255
         cs, hier = cv2.findContours(m, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
         if hier is None: continue
         parts = []

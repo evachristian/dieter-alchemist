@@ -10,6 +10,7 @@
 //      층을 다시 딴다 — 윤곽은 Taubin 으로 편 뒤 2차 곡선으로 잇는다 (「빨간 사각형 부분 더 매끄럽게」 · 귀·망치·수염 끝까지)
 // ⚠️ 머리색(HAIR)은 그림마다 «재서» 적은 값이다 — 그림을 바꾸면 다시 잰다 (정수리부터 눈높이까지 훑어 본다)
 // 넓이가 FLECK 아래인 «티»(머리와 바탕 사이에만 낀 조각은 FLECK×6 까지)는 둘레에서 제일 많이 닿은 색으로 메운다.
+// 아래 층은 위 층과 같은 바깥 테두리를 지나는 자리에서 INSET 만큼 안으로 물린다 (실처럼 삐져나오지 않게).
 // ⚠️ 가는 것(한 덩어리 안에서 가장자리까지 THIN 아래 · 넓이 SPECK 이상)은 얼린다 — 활시위·바이올린 활이 안 먹힌다.
 //    넓이가 SPECK 아래인 티는 얼리지 않아 지워진다 (따다 남은 부스러기다)
 'use strict';
@@ -17,7 +18,7 @@ const fs = require('fs'), path = require('path'), os = require('os');
 const { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'tools', 'ref', 'npc-smooth');
-const SCALE = 4, SIGMA = 3.2, GSIGMA = 1.4, THIN = 1.6, SPECK = 40, FLECK = 30, ITER = 24, EPS = 1.2;
+const SCALE = 4, SIGMA = 3.2, GSIGMA = 1.4, THIN = 1.6, SPECK = 40, FLECK = 30, INSET = 1.5, ITER = 24, EPS = 1.2;
 const HAIR = {
   sp_althea: ['#ebebfb'], sp_clemen: ['#3c3137'], sp_kairos: ['#835337'], sp_orix: ['#d25f38'],
   sp_stark: ['#754930'], sp_sylvan: ['#6d422b'], sp_valen: ['#fdd07b', '#e7a847'],
@@ -42,7 +43,7 @@ const HAIR = {
     await p.setContent(`<body style="margin:0;background:transparent"><svg width="${W}" height="${H}" viewBox="0 0 ${a.w} ${a.h}" shape-rendering="crispEdges" style="display:block">${art}</svg></body>`);
     await p.screenshot({ path: path.join(work, id + '.png'), omitBackground: true });
     await p.close();
-    fs.writeFileSync(path.join(work, id + '.json'), JSON.stringify({ id, w: a.w, h: a.h, scale: SCALE, sigma: SIGMA, gsigma: GSIGMA, thin: THIN, speck: SPECK, fleck: FLECK, iter: ITER, eps: EPS,
+    fs.writeFileSync(path.join(work, id + '.json'), JSON.stringify({ id, w: a.w, h: a.h, scale: SCALE, sigma: SIGMA, gsigma: GSIGMA, thin: THIN, speck: SPECK, fleck: FLECK, inset: INSET, iter: ITER, eps: EPS,
       pal, hair: HAIR[id], face: a.face }));
   }
   await b.close();
