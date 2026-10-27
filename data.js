@@ -1692,7 +1692,12 @@ const VILLAGES = [
     // 굴뚝 둘(위 · 아래 집)의 연기 (그림 px ÷ 4)
     smokes: [[242, 96, 4, 18, 3, -2], [247, 220, 4, 18, 3, -2]],
     spots: [
-      { id: 'vs_spire_gate',   emoji: '🏰', name: '첨탑',         shape: 'tower', x: 29, y: 37, trade: false },
+      { id: 'vs_spire_gate',   emoji: '🏰', name: '첨탑',         shape: 'tower', x: 29, y: 37, trade: false,
+        art: 'villages/in-spire.webp',
+        // 수정 구슬(반짝) · 선반 촛불 둘 · 등불 · 탁자 촛불 둘 · 난로 창 (자리는 그림을 재서 적었다 — 그림을 바꾸면 다시 잰다)
+        orbs: [[237, 130.5, 12]],
+        lamps: [[110, 91, 4], [115.5, 87, 4], [133, 125, 6], [257, 128, 4], [251.5, 136, 3], [22.5, 180, 9]],
+        fire: [[19, 187, 6], [26.5, 187, 6]] },
       // 몇십 년째 무작위 조합 중인 자리 (STORY.md 「그녀는 레시피를 모른다」)
       { id: 'vs_spire_lab',    emoji: '⚗️', name: '왕실 연금소',  shape: 'lab',   x: 73, y: 51 },
       { id: 'vs_spire_mirror', emoji: '🕯️', name: '거울의 방',    shape: 'tower', x: 30, y: 77,

@@ -5191,6 +5191,32 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 }
 @media (prefers-reduced-motion: reduce) { .fx-lamps .fx-lamp { animation: none; } }
 
+/* ── 수정 구슬의 «반짝» (village.js 의 orbFx) — 빛무리가 숨 쉬고, 구슬 안 반짝이 돌고, 둘레 별빛이 깜박인다 ── */
+.fx-orbs .fx-orb { transform-box: fill-box; transform-origin: 50% 50%; mix-blend-mode: screen;
+  animation: fxOrb 2.6s ease-in-out infinite alternate; }
+@keyframes fxOrb {
+  0%   { transform: scale(0.82); opacity: 0.55; }
+  100% { transform: scale(1.1); opacity: 1; }
+}
+.fx-orbs .fx-orbshine { transform-box: fill-box; transform-origin: 50% 50%; opacity: 0.7;
+  animation: fxOrbShine 3.2s ease-in-out infinite; }
+@keyframes fxOrbShine {
+  0%, 100% { opacity: 0.25; transform: translate(0, 0) scale(0.8); }
+  50%      { opacity: 0.85; transform: translate(1.2px, 0.6px) scale(1.15); }
+}
+.fx-orbs .fx-orbstar { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%;
+  animation: fxOrbStar 2.35s ease-in-out infinite; }
+/* ⚠️ 별의 «자리»는 바깥 <g> 의 transform 속성이다 — 여기 CSS transform 은 안쪽 path 에만 걸린다 */
+@keyframes fxOrbStar {
+  0%, 100% { opacity: 0; transform: scale(0.3); }
+  35%      { opacity: 1; transform: scale(1); }
+  60%      { opacity: 0; transform: scale(0.5); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-orbs .fx-orb, .fx-orbs .fx-orbshine { animation: none; }
+  .fx-orbs .fx-orbstar { animation: none; opacity: 0.6; }
+}
+
 /* ── 건물 안 플라스크의 «거품과 김» (village.js 의 bubbleFx) — 거품은 떠올라 사라지고(--r 만큼) 김은 피어오르며 옅어진다 ── */
 .fx-bubbles .fx-bub { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; animation: fxBub 1.15s ease-in infinite; }
 /* ⚠️ fill-box 가 짝이다 — 없으면 scale() 이 그림 «원점»을 축으로 돌아 거품이 방 저편으로 튄다 */

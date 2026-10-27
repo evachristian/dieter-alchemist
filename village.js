@@ -474,6 +474,7 @@
       ${r.props(k)}`}
       ${s.art && s.fire ? fireList(s.fire).map((f, i) => fireFx(f, u + '_' + i)).join('') : ''}
       ${s.art && s.lamps ? lampFx(s.lamps, u) : ''}
+      ${s.art && s.orbs ? orbFx(s.orbs, u) : ''}
       ${s.art && s.bubbles ? bubbleFx(s.bubbles) : ''}
       ${s.art && s.butterflies ? butterflyFx(s.butterflies) : ''}
       ${s.art && s.leaves ? leafFx(s.leaves) : ''}
@@ -499,6 +500,20 @@
     return `<g class="fx-lamps" aria-hidden="true">
       <defs><radialGradient id="lg_${u}"><stop offset="0" stop-color="#ffd27a" stop-opacity="0.75"/><stop offset="0.45" stop-color="#ffa64a" stop-opacity="0.35"/><stop offset="1" stop-color="#ff8a2a" stop-opacity="0"/></radialGradient></defs>
       ${list.map(([x, y, r], i) => `<circle class="fx-lamp" style="animation-delay:${(-i * 0.73).toFixed(2)}s;animation-duration:${(1.9 + (i % 3) * 0.35).toFixed(2)}s" cx="${x}" cy="${y}" r="${(r * 2.4).toFixed(1)}" fill="url(#lg_${u})"/>`).join('')}
+    </g>`;
+  }
+  // 받은 그림 속 수정 구슬이 «반짝» 빛난다 (`spots[].orbs` = [[구슬 가운데 x, y, 반지름], …] · viewBox 좌표 · 여왕의 첨탑).
+  // 셋이 겹친다 — 숨 쉬는 푸른 보랏빛 빛무리 · 구슬 안을 도는 반짝 · 둘레에서 깜박이는 네 갈래 별빛.
+  // ⚠️ 별의 자리는 바깥 <g> 의 transform 속성이고 깜박임은 안쪽 path 의 CSS transform 이다 — 한 요소에 두면 CSS 가 속성을 덮어써 별이 방 저편으로 튄다.
+  // 별빛 자리는 구슬 둘레에 «고정»한다 (무작위면 다시 그릴 때마다 옮겨 다닌다). 자리는 그림을 재서 적는다
+  const ORB_STAR = [[-1.25, -0.9, 0.42], [1.3, -0.55, 0.32], [0.95, 1.05, 0.26], [-1.05, 0.7, 0.3], [0.1, -1.55, 0.24]];
+  function orbFx(list, u) {
+    const star = 'M0,-1 C.12,-.12 .12,-.12 1,0 C.12,.12 .12,.12 0,1 C-.12,.12 -.12,.12 -1,0 C-.12,-.12 -.12,-.12 0,-1Z';
+    return `<g class="fx-orbs" aria-hidden="true">
+      <defs><radialGradient id="og_${u}"><stop offset="0" stop-color="#e4d4ff" stop-opacity="0.85"/><stop offset="0.4" stop-color="#a98bff" stop-opacity="0.5"/><stop offset="1" stop-color="#6f8bff" stop-opacity="0"/></radialGradient></defs>
+      ${list.map(([x, y, r], i) => `<circle class="fx-orb" cx="${x}" cy="${y}" r="${(r * 2.3).toFixed(1)}" fill="url(#og_${u})"/>
+        <ellipse class="fx-orbshine" style="animation-delay:${(-i * 0.9).toFixed(2)}s" cx="${(x - r * 0.3).toFixed(1)}" cy="${(y - r * 0.35).toFixed(1)}" rx="${(r * 0.32).toFixed(1)}" ry="${(r * 0.2).toFixed(1)}" fill="#ffffff"/>
+        ${ORB_STAR.map(([dx, dy, k], j) => `<g transform="translate(${(x + dx * r).toFixed(1)} ${(y + dy * r).toFixed(1)}) scale(${(r * k).toFixed(2)})"><path class="fx-orbstar" style="animation-delay:${(j * 0.47).toFixed(2)}s" d="${star}" fill="#ffffff"/></g>`).join('')}`).join('')}
     </g>`;
   }
   // `fire` 는 불 하나([x, y, w])일 수도, 여럿([[x, y, w], …] · 공방의 증류기 버너 + 모닥불)일 수도 있다
