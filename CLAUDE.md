@@ -595,7 +595,7 @@ node tools/checkavatar.js   # 체형 5단계 × 모든 옷에서 살이 옷 밖�
   · ⚠️ **컷씬에서는 NPC 를 «공주의 눈 크기»에 맞춰 줄인다** (`fitNpcToPrincess` · 2026-10-27 · 「NPC 가 공주보다 약간 더 크다」).
     두 사람 다 ExpArt 로 눈을 그리므로 그 배율(`getScreenCTM`)을 견주고 `NPC_CUT_K`(0.9)를 곱한다 — 얼굴 반폭(FACE.rx)은
     그림마다 잰 방식이 달라 못 쓴다. 공주의 눈은 바디파츠를 타서 컷씬마다 숨은 상자에 그려 잰다 · 줄이기만 한다.
-    NPC 실루엣 둘레에 음영(`.cut-face.npc svg` 의 drop-shadow 둘)을 둘러 뒤 화면과 가른다 — 공주에게는 안 건다
+    인물 실루엣 둘레에 음영(`.cut-face svg` 의 drop-shadow 둘)을 둘러 뒤 화면과 가른다 — NPC·공주가 같은 음영이다
 - `checkportrait` 의 「표정 세트」가 표정마다 그 이름의 그림이 그려지는지(`data-exp`)·깜박임 조각·
   눈동자 색·눈썹 빼기를 본다
 

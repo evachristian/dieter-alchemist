@@ -4880,9 +4880,9 @@ button.tm-slot:active { transform: scale(0.94); }
 /* 인물은 크게. **말보다 얼굴이 먼저 읽혀야** 누가 말하는지 안다 */
 .cut-face { width: min(62vw, 260px); animation: cutIn 0.32s ease both; }
 .cut-face svg { width: 100%; height: auto; display: block; }
-/* NPC 는 실루엣 둘레에 음영을 둘러 뒤 화면(흐린 게임 화면)에서 떠오르게 한다 — 바짝 붙은 짙은 테 + 넓게 번지는 그늘.
-   ⚠️ 글자가 없는 그림이라 대비 검사와 무관하다 · 공주의 상반신에는 안 건다(사람이 NPC 만 짚었다) */
-.cut-face.npc svg { filter: drop-shadow(0 0 1.5px rgba(20,12,22,0.85)) drop-shadow(0 3px 9px rgba(0,0,0,0.55)); }
+/* 인물(NPC · 공주 상반신) 둘레에 음영을 둘러 뒤 화면(흐린 게임 화면)에서 떠오르게 한다 — 바짝 붙은 짙은 테 + 넓게 번지는 그늘.
+   ⚠️ 글자가 없는 그림이라 대비 검사와 무관하다 · 두 사람이 «같은» 음영이라야 말이 오갈 때 한 장면으로 읽힌다 */
+.cut-face svg { filter: drop-shadow(0 0 1.5px rgba(20,12,22,0.85)) drop-shadow(0 3px 9px rgba(0,0,0,0.55)); }
 @keyframes cutIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 /* ═══ 엔딩 연출 — 금 · 깨짐 · 빛 ════════════════════════════

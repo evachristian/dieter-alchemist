@@ -2855,7 +2855,6 @@ function drawCut() {
     const mine = spId === 'sp_gwiriel' && princessBustOn();
     face.innerHTML = mine ? princessBust(mood)
       : sp && window.Portrait ? Portrait.bust(sp, mood || 'def', { bare: true }) : '';
-    face.classList.toggle('npc', !mine && !!face.firstElementChild);
     if (mine) fitPrincessBust(face);
     else fitNpcToPrincess(face, spId);
   }
