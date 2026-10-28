@@ -554,6 +554,35 @@
       + `<g clip-path="url(#pcc_${u})" data-part="chin-shade"><rect x="${x0}" y="${y0}" width="${w}" height="${f(y1 - y0)}" fill="url(#pcg_${u})" mask="url(#pcm_${u})"/></g>`;
     return na.art.slice(0, end) + g + na.art.slice(end);
   }
+  // 거울 «안»에 선 사람(유타르크)은 실루엣이 유리 위에 그늘을 드리운다 (「거울 음영만 있어서 유타르크가 도드라져 보이질 않아」 · 2026-10-28)
+  //   · 겉의 drop-shadow(.npc-figure .pt-svg.bare)는 그림 «바깥 윤곽»(거울 테)에만 지고 안의 사람에게는 안 닿는다
+  //   · 그림은 색마다 한 겹씩 쌓은 평면이라 사람만 따로 떼어 낼 수가 없다 — 그래서 «유리가 보이는 자리»에만 그늘을 깐다:
+  //     사람 = 유리 «밖»이면서 테 안쪽 타원(clip) 안 · 그늘은 그 모양을 번지고 왼쪽 아래로 민 것 · 유리가 보이는 자리로 오린다
+  //   · 값은 마이 룸 인물의 조각 그림자·NPC 실루엣 테와 같은 짜임(짙은 테 + 그늘)이다 · 좌표는 그림 단위(305×468)
+  //   ⚠️ glass 는 그 그림의 유리 색 · ell 은 테 «안쪽» 타원이다 — 그림을 바꾸면 다시 잰다 (테의 고리를 사람으로 세면 거울 가장자리가 통째로 어두워진다)
+  const NPC_GLASS = { sp_yutark: { glass: '#add1f7', ell: [153, 222, 119, 187] } };
+  function npcGlassShade(na, id, u) {
+    const g = NPC_GLASS[id];
+    if (!g) return '';
+    const ps = [...na.art.matchAll(/<path [^>]*\/>/g)].map(x => x[0]);
+    const gi = ps.findIndex(p => p.includes(`fill="${g.glass}"`));
+    if (gi < 0) return '';
+    const mono = (p, c) => p.replace(/fill="[^"]*"/, `fill="${c}"`);
+    const [cx, cy, rx, ry] = g.ell, W2 = na.w + 40, H3 = na.h + 40;
+    const box = `x="-20" y="-20" width="${W2}" height="${H3}"`;
+    // 사람: 유리보다 앞(밑바탕)은 흰색 · 유리는 검정 · 유리 위에 얹힌 것은 다시 흰색 — 테 안쪽 타원으로 자른다
+    const fig = ps.map((p, i) => mono(p, i === gi ? '#000' : '#fff')).join('');
+    // 유리가 보이는 자리: 유리는 흰색 · 그 위에 얹힌 것은 검정
+    const vis = ps.slice(gi).map((p, i) => mono(p, i === 0 ? '#fff' : '#000')).join('');
+    return `<defs><clipPath id="pgc_${u}"><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/></clipPath>`
+      + `<mask id="pgf_${u}" maskUnits="userSpaceOnUse" ${box}><g clip-path="url(#pgc_${u})">${fig}</g></mask>`
+      + `<mask id="pgv_${u}" maskUnits="userSpaceOnUse" ${box}>${vis}</mask>`
+      + `<filter id="pgs_${u}" filterUnits="userSpaceOnUse" ${box}>`
+      + `<feGaussianBlur in="SourceAlpha" stdDeviation="2.2" result="a"/><feComponentTransfer in="a" result="rim"><feFuncA type="linear" slope="1.6"/></feComponentTransfer>`
+      + `<feGaussianBlur in="SourceAlpha" stdDeviation="8" result="b"/><feOffset in="b" dx="-5" dy="9" result="drop"/>`
+      + `<feMerge><feMergeNode in="drop"/><feMergeNode in="rim"/></feMerge></filter></defs>`
+      + `<g mask="url(#pgv_${u})" data-part="glass-shade"><g filter="url(#pgs_${u})"><rect ${box} fill="rgba(30,18,40,0.55)" mask="url(#pgf_${u})"/></g></g>`;
+  }
   function bust(sp, mood, opts) {
     if (!sp) return '';
     const bare = !!(opts && opts.bare);
@@ -598,7 +627,7 @@
           <g transform="scale(${+k.toFixed(4)}) translate(${+(-x0).toFixed(2)},${+(-y0).toFixed(2)})">${na.hole
             // 실루엣 안에 갇힌 «바탕 흰색» 칸은 도려낸다 (`hole` · gennpc.js 의 BG_DROP — 망치·활 사이)
             ? `<mask id="ptm_${u}" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${na.w + 20}" height="${na.h + 20}"><rect x="-10" y="-10" width="${na.w + 20}" height="${na.h + 20}" fill="#fff"/><g fill="#000">${na.hole}</g></mask><g mask="url(#ptm_${u})">${npcChin(na, u)}</g>`
-            : npcChin(na, u)}${exp}</g>
+            : npcChin(na, u)}${npcGlassShade(na, sp.id, u)}${exp}</g>
         </g>
       </svg>`;
     }
