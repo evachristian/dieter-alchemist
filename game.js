@@ -1847,8 +1847,8 @@ window.renderKitchen = renderKitchen;
 const KITCHEN_LINES = 5;
 // 오늘의 한 마디마다의 얼굴 — **온화한 사람**(STORY.md · clementia)이라 다 부드러운 쪽이다.
 // 앉으라고 할 때 다정 · 빵을 넉넉히 구웠을 때 미소 · 늦어도 된다고 할 때 안도 ·
-// 「안 물을게요」도 다정 (걱정 얼굴은 너무 걱정스러웠다 · 사람이 정했다) · 어머니 이야기는 슬픔 (줄 수와 같아야 한다 · checktalk 이 본다)
-const KITCHEN_MOODS = ['warm', 'smile', 'relief', 'warm', 'sad'];
+// 「안 물을게요」도 다정 (걱정 얼굴은 너무 걱정스러웠다 · 사람이 정했다) · 어머니 이야기도 다정 (슬픔은 너무 무거웠다 · 사람이 정했다) (줄 수와 같아야 한다 · checktalk 이 본다)
+const KITCHEN_MOODS = ['warm', 'smile', 'relief', 'warm', 'warm'];
 
 // 같이 먹는다. **아무것도 안 든다.**
 function eatWithClemen() {
