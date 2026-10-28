@@ -2566,6 +2566,9 @@
   // 받은 캔버스(160) → 아바타 얼굴. 두 눈 가운데가 (100, AV.Y) · 입 가운데가 (AV.MX, AV.MY+1)
   // ⚠️ 배율은 그려 놓고 골랐다 — 받은 눈(반지름 12)이 6.6 이 되고 두 눈 사이가 24.6 이다
   const EXP_K = 0.56;
+  // 눈과 입의 «사이»는 「어리둥절」(원래 손그림)에 맞춘다 — 눈 가운데 y74 · 입 가운데 y90 (16칸).
+  // 받은 세트를 그대로 앉히면 눈 75 · 입 85 라 10칸뿐이라 «눈과 입이 너무 가깝다»로 받았다 (2026-10-28)
+  const EXP_EYE_DY = -1, EXP_MOUTH_DY = 6;
   const expArtOf = kind => window.ExpArt && ExpArt.has(EXP_ART[kind] || kind) ? (EXP_ART[kind] || kind) : null;
   function faceAndExpression(expItem, noBrows) {
     const kind = (expItem && expItem.kind) || 'smile';
@@ -2577,7 +2580,7 @@
       <g data-part="head">
         ${EARS}
         <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
-        ${ExpArt.draw(xa, { ex: 100, ey: AV.Y, mx: AV.MX, my: AV.MY + 1, s: EXP_K,
+        ${ExpArt.draw(xa, { ex: 100, ey: AV.Y + EXP_EYE_DY, mx: AV.MX, my: AV.MY + EXP_MOUTH_DY, s: EXP_K,
           eyePart: 'data-part="eye"', noBrows })}
       </g>`;
     }
