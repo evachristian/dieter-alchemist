@@ -631,9 +631,6 @@
   function glintFx(list) {
     return `<g class="fx-glints" aria-hidden="true">${list.map(([x, y, rx, ry, n], i) =>
       Array.from({ length: n }, (_, j) => {
-        // 일곱째 칸이 'out' 이면 바깥 장면이라 희고 진하게 선다 (세공소 — 짙은 지붕 위에서 베이지 연기가 묻혔다)
-        // 여섯째 칸이 있으면 흐르는 쪽·세기다 (1 = 왼쪽 · 음수 = 오른쪽 · 마을 지도의 굴뚝 연기는 그려진 연기를 따라 오른쪽)
-        // 일곱째 칸은 연기의 «결»이고 그대로 클래스가 된다 — 'out'(바깥 · 희고 진하게) · 'purple'(왕실 연금소 가마솥의 보랏빛 김)
         const r = Math.sqrt((j + 0.5) / n), a = j * 2.39996 + i;
         const gx = x + Math.cos(a) * r * rx, gy = y + Math.sin(a) * r * ry;
         const w = 4.5 + (j % 3) * 2.2;
@@ -650,8 +647,6 @@
     return `<g class="fx-mists" aria-hidden="true"><defs><filter id="mb_${u}" x="-50%" y="-80%" width="200%" height="260%"><feGaussianBlur stdDeviation="3.2"/></filter></defs>`
       + `<g filter="url(#mb_${u})">${list.map(([x, y, w, n], i) =>
       Array.from({ length: n }, (_, j) => {
-        // 여섯째 칸이 있으면 흐르는 쪽·세기다 (1 = 왼쪽 · 음수 = 오른쪽 · 마을 지도의 굴뚝 연기는 그려진 연기를 따라 오른쪽)
-        // 일곱째 칸은 연기의 «결»이고 그대로 클래스가 된다 — 'out'(바깥 · 희고 진하게) · 'purple'(왕실 연금소 가마솥의 보랏빛 김)
         const t = (j + 0.5) / n, mx = x + (t - 0.5) * w, rx = w / n * 0.9 + 6, ry = rx * 0.38;
         const dur = 7 + ((j * 3 + i) % 4) * 1.3;
         return `<g transform="translate(${mx.toFixed(1)},${y})"><ellipse class="fx-mist" style="--dx:${(j % 2 ? 7 : -7)}px;--rise:${(-(8 + (j % 3) * 4))}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.9 + i * 1.3) % dur)).toFixed(1)}s" cx="0" cy="0" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="#ffffff"/></g>`;
@@ -713,8 +708,6 @@
   function moteFx(list) {
     return `<g class="fx-motes" aria-hidden="true">${list.map(([x, y, w, h, n], i) =>
       Array.from({ length: n }, (_, j) => {
-        // 여섯째 칸이 있으면 흐르는 쪽·세기다 (1 = 왼쪽 · 음수 = 오른쪽 · 마을 지도의 굴뚝 연기는 그려진 연기를 따라 오른쪽)
-        // 일곱째 칸은 연기의 «결»이고 그대로 클래스가 된다 — 'out'(바깥 · 희고 진하게) · 'purple'(왕실 연금소 가마솥의 보랏빛 김)
         const mx = x + w * (((j * 0.618 + i * 0.31) % 1)), my = y + h * (((j * 0.382 + 0.17) % 1));
         const dur = 7 + (j % 4) * 1.4;
         return `<circle class="fx-mote" style="--mx:${(j % 2 ? 4 : -4)}px;--my:${(-3 - (j % 3) * 2)}px;animation-duration:${dur.toFixed(1)}s;animation-delay:${(-((j * 1.7 + i) % dur)).toFixed(1)}s" cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="${(0.5 + (j % 3) * 0.2).toFixed(1)}" fill="#fff4d6"/>`;
