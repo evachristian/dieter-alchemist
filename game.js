@@ -5309,7 +5309,9 @@ function renderVillageSpot(v, s) {
   const lines = sp ? talkLinesOf(sp.id) : [];
   const moods = ((sp && D.TALKS[sp.id] && D.TALKS[sp.id].moods) || [])
     .concat(bt ? [bondTalkMood(sp.id)] : []);
-  const greetMood = (sp && D.TALKS[sp.id] && D.TALKS[sp.id].greetMood) || 'def';
+  // 인사말 표정 — 배열이면 호감도 단계마다 (처음 만난 날이 0 번째 · data.js 의 TALKS)
+  const gm = sp && D.TALKS[sp.id] && D.TALKS[sp.id].greetMood;
+  const greetMood = (Array.isArray(gm) ? (gm[bondTier(sp.id)] || gm[0]) : gm) || 'def';
   const talking = talkIdx !== null && lines.length;
   const talk = (sp && D.TALKS[sp.id]) || null;
   // ⚠️ **키워드 대답이 이 말풍선을 안 쓴다** — 이제 컷씬으로 돈다(`askScene`).

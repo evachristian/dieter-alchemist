@@ -32,6 +32,11 @@ D.VILLAGES.forEach(v => (v.spots || []).forEach(s => {
 }));
 
 // ── 대사표
+{ // 처음 만난 날의 얼굴은 사람마다 달라야 한다 — 다 같으면 «만나는 기분»이 안 갈린다 (2026-10-28)
+  const first = Object.entries(D.TALKS).map(([id, t]) => [id, [].concat(t.greetMood || 'def')[0]]);
+  const seen = {};
+  first.forEach(([id, m]) => { if (seen[m]) bad.push(`${id}: 처음 인사 표정 '${m}' 이 ${seen[m]} 과 겹친다`); else seen[m] = id; });
+}
 Object.entries(D.TALKS).forEach(([id, t]) => {
   const sp = D.speaker(id);
   if (!sp) { bad.push(`TALKS: 그런 인물이 없다 (${id})`); return; }
@@ -40,8 +45,12 @@ Object.entries(D.TALKS).forEach(([id, t]) => {
   // 인사말도 있어야 한다 — 없으면 들어설 때마다 대화 첫 줄이 다시 나와
   // 인사가 아니라 되감기처럼 읽힌다
   if (!t.greet) bad.push(`${id}: 인사말(greet)이 없다 — 들어설 때 대화 첫 줄이 그대로 나온다`);
-  if (t.greetMood && (!sp.moods || !sp.moods[t.greetMood]))
-    bad.push(`${id}: 인사말 표정 '${t.greetMood}' 이 없다 (조용히 기본으로 떨어진다)`);
+  [].concat(t.greetMood || []).forEach(m => {
+    if (!sp.moods || !sp.moods[m]) bad.push(`${id}: 인사말 표정 '${m}' 이 없다 (조용히 기본으로 떨어진다)`);
+  });
+  // 배열이면 호감도 단계 수(다섯)와 같아야 한다 — 짧으면 그 단계만 처음 얼굴로 떨어진다
+  if (Array.isArray(t.greetMood) && t.greetMood.length !== D.BOND_TIERS.length)
+    bad.push(`${id}: 인사말 표정(${t.greetMood.length}) 이 호감도 단계(${D.BOND_TIERS.length}) 와 길이가 다르다`);
   const ms = t.moods || [];
   if (ms.length && ms.length !== t.lines.length)
     bad.push(`${id}: moods(${ms.length}) 와 lines(${t.lines.length}) 길이가 다르다 — 뒷줄이 기본 표정이 된다`);

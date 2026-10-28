@@ -1956,6 +1956,14 @@ function moodsOf(id) { const sp = speaker(id); return sp && sp.moods ? Object.ke
 // `greet` 는 **그 자리에 들어섰을 때** 건네는 한마디다. 대화(`lines`)와 따로 둔다 —
 // 들어설 때마다 대화 첫 줄이 다시 나오면 인사가 아니라 되감기처럼 읽힌다.
 //
+// `greetMood` 는 인사말의 표정이다 — **사람마다 다르게** 둔다 (일곱이 다 `def` 라 처음 만날 때 얼굴이
+// 똑같았다 · 「처음 NPC 의 기본 표정을 다채롭게」 · 2026-10-28). 배열이면 **호감도 단계(0~4)**마다의
+// 인사말(`bt_<사람>_g<단계>`)에 맞춘 얼굴이고, 0 번째가 처음 만난 날이다. 문자열이면 단계와 상관없이 그 얼굴.
+// 처음 얼굴(0 번째)은 **그 사람의 성격**에서 골랐고(STORY.md) 일곱이 서로 안 겹친다 (checktalk 이 본다) —
+//   오릭스 윙크(처음부터 능글맞은 플러팅) · 카이로스 다정(포근한 예술가) · 실반 흘김(땅을 빼앗겨 낯선 이를 경계한다) ·
+//   유타르크 능글(늘 웃고 과장되게 정중하다) · 슈타르크 무표정(진짜 강한 사람은 말이 없다) · 발렌 우쭐(왕자병 · 츤데레) · 여왕 차가움
+//   가까워질수록 풀어지되 성격은 남는다 — 오릭스는 마음이 움직이면 말을 잃고(부끄러움) · 유타르크는 웃음이 멎는다(무표정)
+//
 // `moods` 는 줄마다의 표정이고 **줄 수와 길이가 같아야 한다.**
 // 없거나 모자라면 기본 표정(`def`)을 쓴다 — 표정 이름은 SPEAKERS 의 `moods` 에 있는 것만.
 // (없는 이름을 적으면 조용히 기본으로 떨어져서 티가 안 난다. checktalk 이 그것을 잡는다)
@@ -1963,27 +1971,27 @@ function moodsOf(id) { const sp = speaker(id); return sp && sp.moods ? Object.ke
 // 화면에는 아무 오류도 안 나서 「이 사람은 원래 표정이 없나」로 읽힌다.
 // 여기 줄 뒤에 **호감도 단계의 한 줄**이 더 붙는다 (`talkLinesOf()` 한 곳에서 센다)
 const TALKS = {
-  sp_orix:   { greet: 'tk_orix_greet',   greetMood: 'def',
+  sp_orix:   { greet: 'tk_orix_greet',   greetMood: ['wink', 'smile', 'laugh', 'smirk', 'blush'],
                lines: ['tk_orix_1', 'tk_orix_2', 'tk_orix_3', 'tk_orix_4', 'tk_orix_5'],
                moods: ['def', 'def', 'wink', 'grit', 'smirk'] },
-  sp_kairos: { greet: 'tk_kairos_greet', greetMood: 'def',
+  sp_kairos: { greet: 'tk_kairos_greet', greetMood: ['warm', 'smile', 'star', 'smile', 'relief'],
                lines: ['tk_kairos_1', 'tk_kairos_2', 'tk_kairos_3', 'tk_kairos_4', 'tk_kairos_5'],
                moods: ['def', 'sing', 'think', 'sleepy', 'tease'] },
-  sp_sylvan: { greet: 'tk_sylvan_greet', greetMood: 'def',
+  sp_sylvan: { greet: 'tk_sylvan_greet', greetMood: ['suspect', 'meh', 'flat', 'warm', 'relief'],
                lines: ['tk_sylvan_1', 'tk_sylvan_2', 'tk_sylvan_3', 'tk_sylvan_4', 'tk_sylvan_5'],
                moods: ['def', 'warm', 'flat', 'doubt', 'sorry'] },
-  sp_yutark: { greet: 'tk_yutark_greet', greetMood: 'def',
+  sp_yutark: { greet: 'tk_yutark_greet', greetMood: ['smirk', 'smile', 'warm', 'wink', 'flat'],
                lines: ['tk_yutark_1', 'tk_yutark_2', 'tk_yutark_3', 'tk_yutark_4', 'tk_yutark_5'],
                moods: ['def', 'true', 'def', 'smile', 'warm'] },
-  sp_stark:  { greet: 'tk_stark_greet',  greetMood: 'def',
+  sp_stark:  { greet: 'tk_stark_greet',  greetMood: ['flat', 'meh', 'warm', 'relief', 'smile'],
                lines: ['tk_stark_1', 'tk_stark_2', 'tk_stark_3', 'tk_stark_4', 'tk_stark_5'],
                moods: ['def', 'warm', 'flat', 'think', 'cold'] },
-  sp_valen:  { greet: 'tk_valen_greet',  greetMood: 'def',
+  sp_valen:  { greet: 'tk_valen_greet',  greetMood: ['proud', 'meh', 'shy', 'pout', 'blush'],
                lines: ['tk_valen_1', 'tk_valen_2', 'tk_valen_3', 'tk_valen_4', 'tk_valen_5'],
                moods: ['def', 'soft', 'flat', 'shy', 'weary'] },
   // 👑 여왕 — ⚠️ **이름이 한 번도 안 나온다.** 화면에 뜨는 이름은 `speakerName()` 이
   // 「여왕」으로 갈아 끼운다 (STORY.md 「여왕」 항의 ⚠️). 대사에도 안 쓴다
-  sp_ygritte: { greet: 'tk_queen_greet', greetMood: 'def',
+  sp_ygritte: { greet: 'tk_queen_greet', greetMood: 'cold',
                lines: ['tk_queen_1', 'tk_queen_2', 'tk_queen_3', 'tk_queen_4'],
                moods: ['cold', 'def', 'glare', 'flat'] },
 };
