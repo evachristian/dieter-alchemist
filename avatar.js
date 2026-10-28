@@ -2569,6 +2569,11 @@
   // 눈과 입의 «사이»는 「어리둥절」(원래 손그림)에 맞춘다 — 눈 가운데 y74 · 입 가운데 y90 (16칸).
   // 받은 세트를 그대로 앉히면 눈 75 · 입 85 라 10칸뿐이라 «눈과 입이 너무 가깝다»로 받았다 (2026-10-28)
   const EXP_EYE_DY = -1, EXP_MOUTH_DY = 6;
+  // 눈은 «어리둥절»처럼 세로로 조금 긴 타원이다 (손그림 rx7 · ry8 → 8/7배) — 받은 눈은 완전한 원이었다
+  // 볼터치도 어리둥절의 것(cx 81/119 · cy MY−2.5 · rx 8.25 · ry 5.52)에 맞춘다 — 받은 볼(rx11 ry6)을
+  //   볼 가운데를 축으로 옮겨 0.75 · 0.92 배 하면 그 크기가 된다. 빗금도 «같은 변환»을 탄다 (2026-10-28)
+  const EXP_EYE_SY = 8 / 7;
+  const EXP_CHEEK = { l: [81, AV.MY - 2.5], r: [119, AV.MY - 2.5], kx: 8.25 / 11, ky: 5.52 / 6 };
   const expArtOf = kind => window.ExpArt && ExpArt.has(EXP_ART[kind] || kind) ? (EXP_ART[kind] || kind) : null;
   function faceAndExpression(expItem, noBrows) {
     const kind = (expItem && expItem.kind) || 'smile';
@@ -2580,7 +2585,7 @@
       <g data-part="head">
         ${EARS}
         <ellipse cx="100" cy="70" rx="33" ry="35" fill="${SKIN}"/>
-        ${ExpArt.draw(xa, { ex: 100, ey: AV.Y + EXP_EYE_DY, mx: AV.MX, my: AV.MY + EXP_MOUTH_DY, s: EXP_K,
+        ${ExpArt.draw(xa, { ex: 100, ey: AV.Y + EXP_EYE_DY, mx: AV.MX, my: AV.MY + EXP_MOUTH_DY, s: EXP_K, sey: EXP_EYE_SY, cheek: EXP_CHEEK,
           eyePart: 'data-part="eye"', noBrows })}
       </g>`;
     }

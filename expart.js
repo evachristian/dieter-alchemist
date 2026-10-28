@@ -277,15 +277,41 @@
   // ⚠️ 눈 조각(eyePart)은 transform 이 «없는» 겉 그룹에 붙인다 — 깜박임의 CSS 가 속성 변환을 덮어쓰지 않게
   // ⚠️ 눈썹·눈·효과(볼·눈물)는 «눈»을 기준으로, 입은 «입»을 기준으로 따로 앉힌다 —
   //    얼굴마다 눈과 입 사이가 달라서 한 변환으로는 둘 다 못 맞춘다
+  // at.sey — 눈만 세로로 더 늘리는 몫(1 이면 받은 그대로) · 동그란 눈이 타원이 된다 (아바타가 「어리둥절」에 맞춘다)
+  // at.cheek = { l: [x, y], r: [x, y], kx, ky } — 볼터치(받은 cx 41/119 · cy 87)와 그 위의 빗금을
+  //   «볼 가운데»를 축으로 그 자리에 옮기고 kx·ky 배로 늘린다. 없으면 눈 변환을 그대로 탄다 (NPC)
+  // ⚠️ 볼과 빗금은 «한 변환»을 탄다 — 따로 옮기면 크기를 바꿀 때 빗금이 볼 밖으로 나간다
+  function cheekSplit(fx) {
+    const L = [], R = [], rest = [];
+    fx.replace(new RegExp('<(?:ellipse|path) [^>]*/>', 'g'), el => {
+      const cx = +((el.match(/ cx="([0-9.]+)"/) || [])[1]);
+      if (/^<ellipse/.test(el) && / cy="87"/.test(el) && (cx === 41 || cx === 119)) (cx < 80 ? L : R).push(el);
+      else if (/stroke="#DC91A7"/.test(el)) {
+        const d = el.match(/ d="([^"]+)"/)[1], subs = d.match(/M[^M]+/g) || [];
+        const side = w => subs.filter(p => (parseFloat(p.slice(1)) < 80) === w).join(' ').trim();
+        if (side(true)) L.push(el.replace(d, side(true)));
+        if (side(false)) R.push(el.replace(d, side(false)));
+      } else rest.push(el);
+      return '';
+    });
+    return { L: L.join(''), R: R.join(''), rest: rest.join('') };
+  }
   function draw(id, at) {
     const e = LIST[id] || LIST.def;
     const s = at.s, sm = at.sm || s;
     const te = `translate(${f(at.ex)},${f(at.ey)}) scale(${f(s)}) translate(${-EYE_C[0]},${-EYE_C[1]})`;
     const tm = `translate(${f(at.mx)},${f(at.my)}) scale(${f(sm)}) translate(${-MOUTH_C[0]},${-MOUTH_C[1]})`;
+    const tey = at.sey ? `translate(${f(at.ex)},${f(at.ey)}) scale(${f(s)},${f(s * at.sey)}) translate(${-EYE_C[0]},${-EYE_C[1]})` : te;
+    let fx = e.fx ? `<g transform="${te}">${e.fx}</g>` : '';
+    if (e.fx && at.cheek) {
+      const c = at.cheek, sp = cheekSplit(e.fx);
+      const one = (p, cx, body) => body ? `<g transform="translate(${f(p[0])},${f(p[1])}) scale(${f(c.kx)},${f(c.ky)}) translate(${-cx},-87)">${body}</g>` : '';
+      fx = one(c.l, 41, sp.L) + one(c.r, 119, sp.R) + (sp.rest ? `<g transform="${te}">${sp.rest}</g>` : '');
+    }
     return `<g data-part="exp" data-exp="${LIST[id] ? id : 'def'}">`
-      + (e.fx ? `<g transform="${te}">${e.fx}</g>` : '')
+      + fx
       + (e.brows && !at.noBrows ? `<g transform="${te}">${e.brows}</g>` : '')
-      + `<g ${at.eyePart || ''}><g transform="${te}">${at.eyeColor ? e.eyes.split('#49363B').join(at.eyeColor) : e.eyes}</g></g>`
+      + `<g ${at.eyePart || ''}><g transform="${tey}">${at.eyeColor ? e.eyes.split('#49363B').join(at.eyeColor) : e.eyes}</g></g>`
       + (e.mouth ? `<g transform="${tm}"><g transform="translate(0 -8)">${e.mouth}</g></g>` : '')
       + '</g>';
   }
