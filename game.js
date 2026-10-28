@@ -2678,6 +2678,7 @@ let cutPrFace = null;   // 이 컷씬에서 잰 공주의 눈 배율 · playScen
 const NPC_CUT_TALL = 1.12;  // 컷씬의 NPC 흉상을 아래로 늘리는 몫 (그림 좌표 그대로 몸을 더 보인다)
 const NPC_CUT_H = 1;       // 그려진 키 ÷ 공주의 그려진 키
 const NPC_CUT_SCALE = { sp_ygritte: 1.12 };  // 사람마다 더 키우는 몫 — 여왕은 왕관이 «그려진 키»에 들어가 그만큼 작아 보인다 (「(여왕) 조금 키워줘」 · 2026-10-28)
+const NPC_CUT_GROW = 1.2;  // 다 맞춘 «뒤»에 NPC 만 더 키우는 몫 (「컷씬 대화 화면의 NPC 크기 1.2배」 · 2026-10-29)
 const NPC_CUT_K = 0.9;   // 눈 배율이 같아도 받은 치비는 얼굴·머리가 공주보다 크게 그려져 있어 한 걸음 더 줄인다 (0.82·0.9·1 을 그려 보고 골랐다)
 
 // 장면 하나를 처음부터 재생한다. 끝나면 `then()` 을 부른다.
@@ -2876,9 +2877,10 @@ function fitNpcToPrincess(face, spId) {
   const h1 = drawnHeight(svg);
   // «그려진 키»를 공주의 키에 맞춘다 — 키가 같으면 길게 자른 만큼 얼굴이 작아지고 몸이 위로 올라온다
   if (cutPrH && h1) r = cutPrH * NPC_CUT_H / h1;
-  r = Math.max(0.5, Math.min(1, r * (NPC_CUT_SCALE[spId] || 1)));
+  r = Math.max(0.5, Math.min(1, r * (NPC_CUT_SCALE[spId] || 1))) * NPC_CUT_GROW;
   svg.style.width = (r * 100).toFixed(1) + '%';
-  svg.style.margin = '0 auto';
+  // ⚠️ 100% 를 넘으면 `margin: auto` 가 가운데에 못 놓는다 — 넘친 몫의 절반을 왼쪽으로 뺀다
+  svg.style.margin = `0 0 0 ${((1 - r) * 50).toFixed(1)}%`;
 }
 
 function drawCut() {
