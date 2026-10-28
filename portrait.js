@@ -524,6 +524,8 @@
   const NPC_BUST = 5.2, NPC_EYE_AT = 0.56;
   // 머리만 자를 때 턱 밑으로 남기는 목 — 얼굴 반폭의 몫
   const NPC_NECK = 0.3;
+  // 머리만 딸 때(같이 먹기) 남기는 목 — 턱 반폭의 몫인 폭 · 턱 밑으로 내려가는 길이 (밑끝은 번진다)
+  const HEAD_NECK_W = 0.42, HEAD_NECK_L = 0.45;
   // ─── NPC 턱 밑 그늘 ───────────────────────────────────────────
   // 받은 그림은 얼굴과 목이 «한 덩어리 살색»이라 턱선이 없다 — 공주(avatar.js 의 목 그러데이션 SKIN_SH → SKIN)와
   // «같은 방식»으로 가른다: 얼굴은 그대로 두고, 그 밑의 «목»이 턱 바로 밑에서 제일 짙고 아래로 옅어진다.
@@ -613,10 +615,25 @@
     const na = window.NpcArt && sp.id && NpcArt[sp.id];
     if (na && window.ExpArt) {
       const fc = na.face;
-      let vw = W, vh = H2, k, x0, y0;
+      let vw = W, vh = H2, k, x0, y0, headClip = '';
       if (opts && opts.head) {
         // 머리만 — 그림 좌표 그대로 턱 밑(목 조금)에서 끊는다. 같이 먹기 컷씬이 그림의 몸 위에 얹는다
         k = 1; x0 = 0; y0 = 0; vw = na.w; vh = +(fc.chin + fc.rx * NPC_NECK).toFixed(1);
+        // ⚠️ 목 밑을 가로로 끊으면 «잘린 목»이 무섭다 (「같이 먹기 목부분이 잘려서 좀 무서워」 · 2026-10-29) —
+        //    턱 타원(face.jaw)의 가로 가운데 줄 «위»는 다 두고, 그 아래는 «턱 타원 안»만 남겨 얼굴선대로 둥글게 딴다
+        //    턱과 몸 사이가 뜨지 않게 «목»만 좁게 남기고, 그 밑끝은 투명으로 번지게 해 가로 금이 안 서게 한다
+        const jw = fc.jaw;
+        if (jw) {
+          const [cy, rx, ry] = jw, jx = jw[3] != null ? jw[3] : fc.cx, f1 = n => +n.toFixed(1);
+          const nw = rx * HEAD_NECK_W, n0 = cy + ry * 0.5, n1 = cy + ry + rx * HEAD_NECK_L;
+          headClip = `<linearGradient id="ptn_${u}" gradientUnits="userSpaceOnUse" x1="0" y1="${f1(n0)}" x2="0" y2="${f1(n1)}">`
+            + `<stop offset="0.55" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+            + `<mask id="pth_${u}" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${na.w + 20}" height="${f1(n1 + 20)}">`
+            + `<rect x="-10" y="-10" width="${na.w + 20}" height="${f1(cy + 10)}" fill="#fff"/>`
+            + `<ellipse cx="${f1(jx)}" cy="${f1(cy)}" rx="${f1(rx)}" ry="${f1(ry)}" fill="#fff"/>`
+            + `<rect x="${f1(jx - nw)}" y="${f1(n0)}" width="${f1(nw * 2)}" height="${f1(n1 - n0)}" fill="url(#ptn_${u})"/></mask>`;
+          vh = f1(n1 + 1);
+        }
       } else if (full) {
         // 전신 — 그림의 비대로 상자를 잡고 발끝까지 다 넣는다 (아래 4% 는 바닥 그림자 몫)
         k = H2 * 0.96 / na.h; vw = +(na.w * k).toFixed(2); x0 = 0; y0 = 0;
@@ -636,7 +653,7 @@
         ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${vw}" height="${vh}" rx="18"/></clipPath></defs>`}
         <g ${bare ? '' : `clip-path="url(#ptc_${u})"`}>
           ${bare ? '' : `<rect x="0" y="0" width="${vw}" height="${vh}" fill="${sp.bg || '#efe6f2'}"/>`}
-          <g transform="scale(${+k.toFixed(4)}) translate(${+(-x0).toFixed(2)},${+(-y0).toFixed(2)})">${na.hole
+          ${headClip ? `<defs>${headClip}</defs>` : ''}<g ${headClip ? `mask="url(#pth_${u})"` : ''} transform="scale(${+k.toFixed(4)}) translate(${+(-x0).toFixed(2)},${+(-y0).toFixed(2)})">${na.hole
             // 실루엣 안에 갇힌 «바탕 흰색» 칸은 도려낸다 (`hole` · gennpc.js 의 BG_DROP — 망치·활 사이)
             ? `<mask id="ptm_${u}" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${na.w + 20}" height="${na.h + 20}"><rect x="-10" y="-10" width="${na.w + 20}" height="${na.h + 20}" fill="#fff"/><g fill="#000">${na.hole}</g></mask><g mask="url(#ptm_${u})">${npcChin(na, u)}</g>`
             : npcChin(na, u)}${npcGlassShade(na, sp.id, u)}${exp}</g>

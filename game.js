@@ -2105,7 +2105,9 @@ function mealSceneSvg(A) {
     //    그 그림의 «얼굴 자리»로 맞춘다: 얼굴 폭(옛 초상화 얼굴 50 ÷ 머리 64 몫)을 그림의 얼굴 폭에, 턱을 턱에
     if (nf) {
       const k = h.w * (50 / 64) / (2 * nf.rx), x = h.cx - nf.cx * k, y = h.chin - nf.chin * k;
-      const hh = nf.chin + nf.rx * Portrait.NPC_NECK;
+      // ⚠️ 높이는 머리 그림의 viewBox 에서 읽는다 — 턱 타원대로 따면서(«잘린 목» 없애기) 상자 높이가 바뀌었다
+      const head0 = Portrait.bust(sp, 'def', { bare: true, head: true });
+      const hh = +((head0.match(/viewBox="0 0 [0-9.]+ ([0-9.]+)"/) || [])[1]) || nf.chin + nf.rx * Portrait.NPC_NECK;
       const face = mood => Portrait.bust(sp, mood, { bare: true, head: true })
         .replace('<svg class="pt-svg', `<svg x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(nf.w * k).toFixed(1)}" height="${(hh * k).toFixed(1)}" overflow="hidden" data-pt="`);
       clem = `<g class="ml-clem"><g class="ml-def">${face(fx.clem[0])}</g><g class="ml-smile">${face(fx.clem[1])}</g></g>`;
