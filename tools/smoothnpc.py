@@ -22,6 +22,14 @@ for name in sorted(os.listdir(work)):
     d = ((im[:, :, None, :3].astype(np.int32) - P[None, None]) ** 2).sum(-1)
     lab = d.argmin(-1).astype(np.int32) + 1
     lab[im[:, :, 3] < 128] = 0
+    # ①-2 상자 안의 색 «갈아 칠하기» (smoothnpc.js 의 RECOLOR · [x0, y0, x1, y1, [색…], 칠할 색 | '']) — 받은 그림이
+    #      머리 끝을 중간색 조각으로 얼룩덜룩 섞어 놓은 자리(실반의 귀밑 머리·관자놀이)를 머리색 한 덩어리로 묶는다.
+    #      다듬기 «전»에 하므로 묶인 덩어리가 머리색 다듬기를 그대로 받는다 · '' 이면 바탕으로 지운다
+    for x0, y0, x1, y1, cols, to in meta.get('recolor', []):
+        for c in cols + ([to] if to else []):
+            if c not in pal: raise SystemExit('%s 의 RECOLOR 색 %s 가 팔레트에 없다' % (meta['id'], c))
+        box = lab[int(y0 * S):int(y1 * S), int(x0 * S):int(x1 * S)]
+        box[np.isin(box, [pal.index(c) + 1 for c in cols])] = pal.index(to) + 1 if to else 0
     # 살색 = 얼굴 가운데(두 눈과 입 사이)의 색
     F = meta['face']; skin = pal[lab[int((F['ey'] + F['my']) / 2 * S), int(F['cx'] * S)] - 1]
     # ② 모든 경계를 한 번 다듬는다 (귀·망치·옷 가장자리의 작은 톱니) — 단 «가는 것»은 얼린다:

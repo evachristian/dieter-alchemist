@@ -40,6 +40,7 @@ const SOFT = {
 // 색마다 «이보다 작은 덩어리는 지운다» {색: 넓이(그림 단위²)} — 받은 그림이 두 색을 얼룩처럼 섞어 놓은 자리
 // (발렌의 망토가 짙은 파랑·옅은 파랑 얼룩으로 «얼룩덜룩»했다 · 2026-10-27). 큰 덩어리만 남기고 둘레 색으로 메운다
 const DROP = {
+  sp_sylvan: { '#c2c089': 400 },
   sp_stark: { '#754930': 400, '#82583f': 250 },
   sp_valen: { '#3965b7': 3500, '#4873c1': 120 },
   sp_ygritte: { '#81293f': 200, '#631f32': 200 },
@@ -48,6 +49,12 @@ const DROP = {
 // (요정 대모의 목 리본 · 망토 왼쪽의 안감 주름 — 「원본 PNG 처럼 깔끔하게」 · 2026-10-27 · 나란히 그려 놓고 맞췄다).
 // 다듬기 «전»에 얹으므로 다른 조각과 같은 손질을 받는다. ⚠️ `<path fill=… d=…/>` 꼴만 쓴다(팔레트를 path 에서 읽는다)
 const PAINT = {
+  // 실반의 머리에 꽂은 잎 — 받은 SVG 는 짙은 초록에 옅은 초록 얼룩이 섞여 «얼룩덜룩»했다 (「정갈하게」 · 2026-10-28).
+  // 잎 한 장(짙은 초록)에 위쪽 반을 옅은 초록으로 가른다 · 바깥은 그림의 실루엣을 잰 값이다
+  sp_sylvan: [
+    '<path fill="#71814d" d="M195,87 C197,74 211,65.5 234,68 C231,81 221,93 206,94.5 C200,94.8 196,92 195,87 Z"/>',
+    '<path fill="#a5b36d" d="M197,84 C200,74 212,67.5 231,69.5 C220,74 207,79 197,84 Z"/>',
+  ].join(''),
   // 슈타르크의 장화와 바짓단 — 받은 SVG 는 장화 옆선이 패이고 혹이 나 있었다 (「아직 깔끔하지 않은 부분」 · 2026-10-27).
   // 장화를 먼저 깔고 짙은 바짓단을 그 위에 덮는다 · 바깥은 그림의 실루엣을 잰 값이다
   sp_stark: [
@@ -88,6 +95,18 @@ const PAINT = {
     '<path fill="#edd2be" d="M146,201 C150,199.5 171,199.5 175,201 L175,210 C175,217.5 168.5,222 160.5,222 C152.5,222 146,217.5 146,210 Z"/>',
   ].join(''),
 };
+// 상자 안의 색 «갈아 칠하기» [x0, y0, x1, y1, [색…], 칠할 색 | ''] (그림 좌표) — 실반의 머리 끝(관자놀이·귀밑 머리)이
+// 중간색 조각 셋으로 얼룩덜룩했다 (「머리카락 매끈하게」 · 2026-10-28). 머리색 한 덩어리로 묶으면 머리색 다듬기를 그대로 받는다
+const RECOLOR = {
+  sp_sylvan: [
+    [12, 62, 28, 82, ['#a58667'], '#6d422b'],
+    [46, 126, 64, 148, ['#8c6d4b', '#805236'], '#6d422b'],
+    [180, 116, 228, 144, ['#8c6d4b', '#805236'], '#6d422b'],
+    [48, 162, 78, 192, ['#8c6d4b', '#805236'], '#6d422b'],
+    [158, 162, 188, 192, ['#8c6d4b', '#805236'], '#6d422b'],
+    [146, 178, 166, 189, ['#a5b36d', '#c2c089', '#71814d'], ''],
+  ],
+};
 const MEND = {
   sp_stark: [[222, 335], [255, 290], [262, 157], [57, 142], [208, 142]],
 };
@@ -120,7 +139,7 @@ const CUT = {
     await p.screenshot({ path: path.join(work, id + '.png'), omitBackground: true });
     await p.close();
     fs.writeFileSync(path.join(work, id + '.json'), JSON.stringify({ id, w: a.w, h: a.h, scale: SCALE, sigma: SIGMA, gsigma: GSIGMA, thin: THIN, speck: SPECK, fleck: FLECK, inset: INSET, iter: ITER, eps: EPS,
-      pal, hair: HAIR[id], face: a.face, mend: MEND[id] || [], soft: SOFT[id] || {}, drop: DROP[id] || {} }));
+      pal, hair: HAIR[id], face: a.face, mend: MEND[id] || [], recolor: RECOLOR[id] || [], soft: SOFT[id] || {}, drop: DROP[id] || {} }));
   }
   await b.close();
   execFileSync('python3', ['-I', path.join(__dirname, 'smoothnpc.py'), work], { stdio: 'inherit' });
