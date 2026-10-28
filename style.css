@@ -5217,6 +5217,20 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
   .fx-orbs .fx-orbstar { animation: none; opacity: 0.6; }
 }
 
+/* ── 어부 오두막 물고기의 «팔딱» (village.js 의 flopFx) — 한동안 가만있다가 꼬리를 몇 번 탁탁 친다 ── */
+.fx-flops .fx-flop { animation: fxFlop 3.4s ease-in-out infinite; }
+/* ⚠️ 축은 바깥 <g> 의 translate 다 — 여기 회전은 그 원점(0 0)을 돈다 (transform-box 기본값 view-box) */
+@keyframes fxFlop {
+  0%, 58%, 100% { transform: rotate(0deg); }
+  63% { transform: rotate(var(--a)); }
+  68% { transform: rotate(calc(var(--a) * -0.8)); }
+  73% { transform: rotate(calc(var(--a) * 0.7)); }
+  78% { transform: rotate(calc(var(--a) * -0.45)); }
+  84% { transform: rotate(calc(var(--a) * 0.2)); }
+  90% { transform: rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) { .fx-flops .fx-flop { animation: none; } }
+
 /* ── 건물 안 플라스크의 «거품과 김» (village.js 의 bubbleFx) — 거품은 떠올라 사라지고(--r 만큼) 김은 피어오르며 옅어진다 ── */
 .fx-bubbles .fx-bub { opacity: 0; transform-box: fill-box; transform-origin: 50% 50%; animation: fxBub 1.15s ease-in infinite; }
 /* ⚠️ fill-box 가 짝이다 — 없으면 scale() 이 그림 «원점»을 축으로 돌아 거품이 방 저편으로 튄다 */

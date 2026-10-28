@@ -479,6 +479,7 @@
       ${s.art && s.butterflies ? butterflyFx(s.butterflies) : ''}
       ${s.art && s.leaves ? leafFx(s.leaves) : ''}
       ${s.art && s.fishes ? fishFx(s.fishes, u) : ''}
+      ${s.art && s.flops ? flopFx(s.flops) : ''}
       ${s.art && s.glints ? glintFx(s.glints) : ''}
       ${s.art && s.mists ? mistFx(s.mists, u) : ''}
       ${s.art && s.smokes ? smokeFx(s.smokes, u) : ''}
@@ -515,6 +516,13 @@
         <ellipse class="fx-orbshine" style="animation-delay:${(-i * 0.9).toFixed(2)}s" cx="${(x - r * 0.3).toFixed(1)}" cy="${(y - r * 0.35).toFixed(1)}" rx="${(r * 0.32).toFixed(1)}" ry="${(r * 0.2).toFixed(1)}" fill="#ffffff"/>
         ${ORB_STAR.map(([dx, dy, k], j) => `<g transform="translate(${(x + dx * r).toFixed(1)} ${(y + dy * r).toFixed(1)}) scale(${(r * k).toFixed(2)})"><path class="fx-orbstar" style="animation-delay:${(j * 0.47).toFixed(2)}s" d="${star}" fill="#ffffff"/></g>`).join('')}`).join('')}
     </g>`;
+  }
+  // 받은 그림 속 물고기가 «팔딱» 꼬리를 친다 (`spots[].flops` = [[조각 그림, x, y, 폭, 높이, 축 x, 축 y, 각도], …] · viewBox 좌표).
+  // 조각은 그림에서 떼어 낸 꼬리(투명 PNG)이고 바탕 그림에서는 그 자리를 메워 두었다 — 쉬는 동안은 원래 그림과 한 픽셀도 안 다르다.
+  // 둘 겹이다 — 축 자리(transform 속성) · 흔들림(CSS fxFlop · --a 만큼). ⚠️ CSS transform 이 속성을 덮어쓰므로 겹을 나눈다
+  function flopFx(list) {
+    return `<g class="fx-flops" aria-hidden="true">${list.map(([href, x, y, w, h, px, py, a], i) =>
+      `<g transform="translate(${px} ${py})"><g class="fx-flop" style="--a:${a}deg;animation-delay:${(i * 1.7).toFixed(2)}s"><image href="${href + ASSET_Q}" x="${(x - px).toFixed(2)}" y="${(y - py).toFixed(2)}" width="${w}" height="${h}"/></g></g>`).join('')}</g>`;
   }
   // `fire` 는 불 하나([x, y, w])일 수도, 여럿([[x, y, w], …] · 공방의 증류기 버너 + 모닥불)일 수도 있다
   function fireList(f) { return Array.isArray(f[0]) ? f : [f]; }

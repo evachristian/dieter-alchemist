@@ -92,6 +92,13 @@ const MEND = {
   sp_stark: [[222, 335], [255, 290], [262, 157], [57, 142], [208, 142]],
 };
 
+// 손으로 «깎는» 조각 — 그림 좌표의 이 모양 안은 색을 다 지운다(배경이 된다 · 받은 SVG 의 구멍과 같은 길).
+// 슈타르크의 왼 턱 — 받은 SVG 는 왼쪽 턱이 오른쪽보다 13 칸쯤 처지고 홈이 졌다 (「얼굴 좌측도 우측처럼 부드러운 곡선으로」 · 2026-10-28).
+// 오른쪽 턱선(다듬은 그림에서 잰 것)을 얼굴 가운데(x 131)로 뒤집어 그 바깥을 깎는다 · ⚠️ 그림을 바꾸면 다시 잰다
+const CUT = {
+  sp_stark: '<path d="M30,169.8 L39.8,169.8 L41.6,171.1 L43.6,172.4 L46.2,173.8 L48.0,174.4 L58.4,175.1 L62.0,175.8 L64.0,177.1 L65.6,178.4 L66.9,179.8 L68.0,181.1 L69.3,182.4 L70.7,183.8 L71.8,185.1 L73.3,186.4 L74.9,187.8 L76.7,189.1 L78.4,190.4 L80.7,191.8 L83.1,193.1 L86.0,194.4 L89.1,195.8 L92.0,197.1 L94.4,198.4 L95.6,199.1 L95.6,201 L30,201 Z"/>',
+};
+
 (async () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'smoothnpc-'));
   const raw = path.join(work, 'raw.js');
@@ -102,6 +109,7 @@ const MEND = {
   for (const [id, a] of Object.entries(NA)) {
     if (!HAIR[id]) throw new Error('머리색이 없다 — ' + id);
     if (PAINT[id]) a.art += PAINT[id];
+    if (CUT[id]) a.hole = (a.hole || '') + CUT[id];
     const ps = a.art.match(/<path [^>]*\/>/g);
     const pal = [...new Set(ps.map(m => m.match(/fill="([^"]*)"/)[1]))];
     HAIR[id].forEach(c => { if (!pal.includes(c)) throw new Error(`${id} 의 머리색 ${c} 가 팔레트에 없다`); });
