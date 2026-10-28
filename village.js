@@ -475,6 +475,7 @@
       ${s.art && s.fire ? fireList(s.fire).map((f, i) => fireFx(f, u + '_' + i)).join('') : ''}
       ${s.art && s.lamps ? lampFx(s.lamps, u) : ''}
       ${s.art && s.orbs ? orbFx(s.orbs, u) : ''}
+      ${s.art && s.swirls ? swirlFx(s.swirls, u) : ''}
       ${s.art && s.bubbles ? bubbleFx(s.bubbles) : ''}
       ${s.art && s.butterflies ? butterflyFx(s.butterflies) : ''}
       ${s.art && s.leaves ? leafFx(s.leaves) : ''}
@@ -516,6 +517,37 @@
         <ellipse class="fx-orbshine" style="animation-delay:${(-i * 0.9).toFixed(2)}s" cx="${(x - r * 0.3).toFixed(1)}" cy="${(y - r * 0.35).toFixed(1)}" rx="${(r * 0.32).toFixed(1)}" ry="${(r * 0.2).toFixed(1)}" fill="#ffffff"/>
         ${ORB_STAR.map(([dx, dy, k], j) => `<g transform="translate(${(x + dx * r).toFixed(1)} ${(y + dy * r).toFixed(1)}) scale(${(r * k).toFixed(2)})"><path class="fx-orbstar" style="animation-delay:${(j * 0.47).toFixed(2)}s" d="${star}" fill="#ffffff"/></g>`).join('')}`).join('')}
     </g>`;
+  }
+  // 받은 그림 속 마법 거울 «안»에서 안개가 소용돌이친다 (`spots[].swirls` = [[유리 가운데 x, y, 반폭, 반높이, 얼굴 가운데 x, y, 얼굴 반폭, 반높이], …] · viewBox 좌표 · 거울의 방).
+  // 소용돌이 팔(나선)이 두 겹으로 서로 반대로 돌고, 유리 «안»으로만 오려 낸다. 거울 속 얼굴 자리는 마스크로 비워 둔다 — 얼굴이 안개에 지워지면 거울이 «말하는» 자리가 사라진다.
+  // ⚠️ 나선은 단위 원에 그리고 바깥 <g> 의 transform 속성으로 유리 타원에 늘인다 — 도는 것은 안쪽 겹의 CSS 다 (한 요소에 두면 CSS 가 속성을 덮어쓴다).
+  //   돌림의 축은 fill-box 가운데라, 안 보이는 원(r 1.2)을 같이 넣어 상자 가운데를 원점에 못 박는다. 자리는 그림을 재서 적는다
+  function swirlArms(n, turn, r0) {
+    let d = '';
+    for (let k = 0; k < n; k++) {
+      const a0 = (k / n) * Math.PI * 2;
+      for (let i = 0; i <= 24; i++) {
+        const t = i / 24, r = r0 + (1.08 - r0) * t, th = a0 + turn * t;
+        d += (i ? 'L' : 'M') + (r * Math.cos(th)).toFixed(3) + ',' + (r * Math.sin(th)).toFixed(3);
+      }
+    }
+    return d;
+  }
+  function swirlFx(list, u) {
+    return `<g class="fx-swirls" aria-hidden="true">${list.map(([x, y, rx, ry, fx, fy, frx, fry], i) => {
+      const id = `sw_${u}_${i}`;
+      const arm = (cls, n, turn, r0, col, w) => `<g transform="translate(${x} ${y}) scale(${rx} ${ry})"><g class="fx-swirl ${cls}">`
+        + `<circle r="1.2" fill="none"/><path d="${swirlArms(n, turn, r0)}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/></g></g>`;
+      return `<defs><clipPath id="${id}c"><ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}"/></clipPath>`
+        + `<radialGradient id="${id}f"><stop offset="0.55" stop-color="#000"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>`
+        + `<radialGradient id="${id}g"><stop offset="0" stop-color="#d9ccff" stop-opacity="0.6"/><stop offset="1" stop-color="#8f7bff" stop-opacity="0"/></radialGradient>`
+        + `<filter id="${id}b" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.1"/></filter>`
+        + `<mask id="${id}m" maskUnits="userSpaceOnUse" x="0" y="0" width="300" height="200"><rect x="0" y="0" width="300" height="200" fill="#fff"/>`
+        + `<ellipse cx="${fx}" cy="${fy}" rx="${(frx * 1.35).toFixed(1)}" ry="${(fry * 1.3).toFixed(1)}" fill="url(#${id}f)"/></mask></defs>`
+        + `<g clip-path="url(#${id}c)"><ellipse class="fx-swirlglow" cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="url(#${id}g)"/>`
+        + `<g mask="url(#${id}m)" filter="url(#${id}b)">`
+        + arm('a', 4, 2.6, 0.18, '#cdbcff', 0.11) + arm('b', 3, -2.2, 0.3, '#a8e4ff', 0.08) + `</g></g>`;
+    }).join('')}</g>`;
   }
   // 받은 그림 속 물고기가 «팔딱» 꼬리를 친다 (`spots[].flops` = [[조각 그림, x, y, 폭, 높이, 축 x, 축 y, 각도], …] · viewBox 좌표).
   // 조각은 그림에서 떼어 낸 꼬리(투명 PNG)이고 바탕 그림에서는 그 자리를 메워 두었다 — 쉬는 동안은 원래 그림과 한 픽셀도 안 다르다.

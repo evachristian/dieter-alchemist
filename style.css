@@ -5192,6 +5192,14 @@ body.dev-figure-only #screen-showcase .room-head .on-room-bg { color: #3f3239; t
 @media (prefers-reduced-motion: reduce) { .fx-lamps .fx-lamp { animation: none; } }
 
 /* ── 수정 구슬의 «반짝» (village.js 의 orbFx) — 빛무리가 숨 쉬고, 구슬 안 반짝이 돌고, 둘레 별빛이 깜박인다 ── */
+/* 마법 거울 속 소용돌이 (village.js 의 swirlFx) — 두 겹이 서로 반대로 돈다 · 빛무리가 숨 쉰다 */
+.fx-swirls .fx-swirl { transform-box: fill-box; transform-origin: 50% 50%; mix-blend-mode: screen; opacity: 0.55;
+  animation: fxSwirl 16s linear infinite; }
+.fx-swirls .fx-swirl.b { opacity: 0.45; animation-duration: 23s; animation-direction: reverse; }
+.fx-swirls .fx-swirlglow { mix-blend-mode: screen; animation: fxSwirlGlow 3.4s ease-in-out infinite alternate; }
+@keyframes fxSwirl { to { transform: rotate(360deg); } }
+@keyframes fxSwirlGlow { from { opacity: 0.25; } to { opacity: 0.7; } }
+@media (prefers-reduced-motion: reduce) { .fx-swirls .fx-swirl, .fx-swirls .fx-swirlglow { animation: none; } }
 .fx-orbs .fx-orb { transform-box: fill-box; transform-origin: 50% 50%; mix-blend-mode: screen;
   animation: fxOrb 2.6s ease-in-out infinite alternate; }
 @keyframes fxOrb {
