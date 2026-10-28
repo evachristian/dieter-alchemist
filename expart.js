@@ -285,7 +285,8 @@
     const L = [], R = [], rest = [];
     fx.replace(new RegExp('<(?:ellipse|path) [^>]*/>', 'g'), el => {
       const cx = +((el.match(/ cx="([0-9.]+)"/) || [])[1]);
-      if (/^<ellipse/.test(el) && / cy="87"/.test(el) && (cx === 41 || cx === 119)) (cx < 80 ? L : R).push(el);
+      // ⚠️ 옅은 볼(무표정·차가움·노려봄 · rx8 ry4)도 «같은 크기»로 편다 — 볼터치는 어느 표정이든 한 크기다
+      if (/^<ellipse/.test(el) && / cy="87"/.test(el) && (cx === 41 || cx === 119)) (cx < 80 ? L : R).push(el.replace(/ rx="[0-9.]+" ry="[0-9.]+"/, ' rx="11" ry="6"'));
       else if (/stroke="#DC91A7"/.test(el)) {
         const d = el.match(/ d="([^"]+)"/)[1], subs = d.match(/M[^M]+/g) || [];
         const side = w => subs.filter(p => (parseFloat(p.slice(1)) < 80) === w).join(' ').trim();
