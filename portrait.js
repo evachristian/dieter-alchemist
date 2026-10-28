@@ -507,6 +507,16 @@
   //     배경을 깔면 초상화가 방에 붙인 카드처럼 보인다 — 대화 화면이 그 경우다.
   //     (인물 목록처럼 딱지로 보여 줄 자리가 생기면 그때 bare 없이 쓴다)
   // 사람마다 따로 붙인 표정 이름 → 받은 표정 세트의 이름 (data.js 의 SPEAKERS.moods)
+  // 눈·볼터치는 아바타의 「어리둥절」과 «같은 방식»이다 (avatar.js 의 EXP_EYE_SY · EXP_CHEEK · 2026-10-29)
+  // — 눈은 세로 8/7배 타원 · 볼터치(빗금 포함)는 «얼굴 반폭»에 대한 비로 맞춘다: 아바타 얼굴 반폭 33 에
+  //   볼 가운데가 ±19 · 볼 반폭 8.25 · 반높이 5.52 다. ⚠️ 눈 사이(gap)로 재지 않는다 — NPC 그림은
+  //   아바타보다 얼굴이 눈 사이에 비해 좁아서(요정 대모) 볼이 머리카락까지 나갔다
+  // ⚠️ 볼의 «높이»는 얼굴마다 잰 눈·입 사이에서 뽑는다 — 아바타에서 눈 가운데→입 자리의 12.5/21
+  const NPC_EYE_SY = 8 / 7, NPC_CHEEK_AT = 12.5 / 21;
+  function npcExpShape(cx, ey, my, rx) {
+    const y = ey + (my - ey) * NPC_CHEEK_AT, dx = rx * 19 / 33;
+    return { sey: NPC_EYE_SY, cheek: { l: [cx - dx, y], r: [cx + dx, y], kx: rx * 8.25 / 33 / 11, ky: rx * 5.52 / 33 / 6 } };
+  }
   const MOOD_ART = { soft: 'warm', sing: 'laugh', true: 'flat' };
   // 받은 캔버스(160) → 초상화 얼굴 (두 눈 50/70 · y66 · 입 y85). 두 눈 사이 20 = 44 × 0.46
   const EXP_K = 0.46;
@@ -618,7 +628,9 @@
         k = W / cw; x0 = na.w / 2 - cw / 2; y0 = fc.ey - (H * NPC_EYE_AT) / k;
       }
       const xa = ExpArt.has(mood) ? mood : (MOOD_ART[mood] || 'def');
-      const exp = ExpArt.draw(xa, { ex: fc.cx, ey: fc.ey, mx: fc.cx, my: fc.my, s: fc.gap / 44, eyeColor: sp.eyeColor, eyePart: 'data-eye="1"' });
+      const es = fc.gap / 44;
+      const exp = ExpArt.draw(xa, { ex: fc.cx, ey: fc.ey, mx: fc.cx, my: fc.my, s: es, eyeColor: sp.eyeColor, eyePart: 'data-eye="1"',
+        ...npcExpShape(fc.cx, fc.ey, fc.my, fc.rx) });
       return `<svg class="pt-svg ${bare ? 'bare' : ''} ${full ? 'full' : ''}" viewBox="0 0 ${vw} ${vh}"
         xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}" data-npcart="${sp.id}">
         ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${vw}" height="${vh}" rx="18"/></clipPath></defs>`}
@@ -678,7 +690,7 @@
     const xa = window.ExpArt ? (ExpArt.has(mood) ? mood : (MOOD_ART[mood] || 'def')) : null;
     const face = xa
       ? (ExpArt.hasBrows(xa) ? '' : BROW_BASE(50, 1, browC, sp.brows) + BROW_BASE(70, -1, browC, sp.brows))
-        + ExpArt.draw(xa, { ex: 60, ey: 66, mx: 60, my: 85, s: EXP_K, eyeColor: sp.eyeColor })
+        + ExpArt.draw(xa, { ex: 60, ey: 66, mx: 60, my: 85, s: EXP_K, eyeColor: sp.eyeColor, ...npcExpShape(60, 66, 85, 33 / 0.56 * EXP_K) })
       : `${browL ? browL(50, 1) : BROW_BASE(50, 1, browC, sp.brows)}${browR ? browR(70, -1) : BROW_BASE(70, -1, browC, sp.brows)}
         ${eyeL(50, sp.eyeColor || '#3f3239')}${eyeR(70, sp.eyeColor || '#3f3239')}`;
     return `<svg class="pt-svg ${bare ? 'bare' : ''} ${full ? 'full' : ''}" viewBox="0 0 ${W} ${H2}"
