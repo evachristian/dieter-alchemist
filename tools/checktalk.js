@@ -150,6 +150,20 @@ D.SPEAKERS.forEach(sp => {
 // 시작 키워드는 **game.js 의 defaultState 가 정본**이다 (`keywords: [...]`).
 // 여기에 사본을 두면 한쪽만 고쳤을 때 검사기만 옛 규칙으로 돈다.
 const gameSrc = fs.readFileSync(path.join(ROOT, 'game.js'), 'utf8');
+// 기본 얼굴(`SPEAKERS.face` · 클레멘 · 요정 대모)과 부엌 한 마디의 얼굴(`KITCHEN_MOODS`)도 그 사람에게 «있는» 표정이어야 한다
+D.SPEAKERS.forEach(sp => {
+  if (sp.face && (!sp.moods || !sp.moods[sp.face])) bad.push(`${sp.id}: 기본 얼굴 '${sp.face}' 이 없다 (조용히 기본으로 떨어진다)`);
+});
+{
+  const km = gameSrc.match(/const KITCHEN_MOODS = \[([^\]]*)\]/), kl = gameSrc.match(/const KITCHEN_LINES = (\d+)/);
+  const cl = D.speaker('sp_clemen');
+  if (!km || !kl) bad.push('game.js 에서 KITCHEN_MOODS / KITCHEN_LINES 를 못 찾았다');
+  else {
+    const ms = km[1].match(/'([^']+)'/g).map(x => x.slice(1, -1));
+    if (ms.length !== +kl[1]) bad.push(`부엌 한 마디의 얼굴(${ms.length}) 이 줄 수(${kl[1]}) 와 다르다`);
+    ms.forEach(m => { if (!cl.moods[m]) bad.push(`부엌 한 마디의 얼굴 '${m}' 이 클레멘에게 없다`); });
+  }
+}
 const startM = gameSrc.match(/^\s*keywords:\s*\[([^\]]*)\]/m);
 if (!startM) {
   console.error('game.js 의 defaultState 에서 `keywords:` 를 못 찾았다 — 이 검사기가 그것을 따라가야 한다');

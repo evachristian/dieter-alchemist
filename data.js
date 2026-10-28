@@ -1819,6 +1819,8 @@ const SPEAKERS = [
   { id: 'sp_clemen', name: '클레멘', hair: 'short', hairColor: '#2f2a2c', brows: 'round', beard: 'none',
     skin: '#eec9a8', cloth: '#c9b39a', bg: '#f4ead9', deco: 'apron', decoColor: '#f6f1e6',
     eyeColor: '#6f4630', eyes: { soft: 'dewy' },
+    // 기본 얼굴(퀘스트 칩·시트) — 벌할 수 있는데 벌하지 않는 온화한 사람 (STORY.md · `npcFaceOf`)
+    face: 'warm',
     moods: { def: { eye: 'soft', mouth: 'calm' }, smile: { eye: 'smile', mouth: 'smile' } } },
   { id: 'sp_yutark', name: '유타르크', hair: 'long', hairColor: '#cfd3de', brows: 'thin', beard: 'none',
     skin: '#f2e2dc', cloth: '#4a4257', bg: '#d9dde8', deco: 'mirror', decoColor: '#b9c2d4',
@@ -1832,6 +1834,9 @@ const SPEAKERS = [
   { id: 'sp_althea', name: '알테이아', hair: 'updo', hairColor: '#eeeaf2', brows: 'soft', beard: 'none',
     skin: '#ffdcc4', cloth: '#8fc5e8', bg: '#e6edf4', deco: 'hood', decoColor: '#7fb8de',
     introArt: 'fairy',
+    // 기본 얼굴(퀘스트 칩·시트) — 수십 년을 «아무것도 모르는 척» 연기하며 친구의 딸 곁을 지킨 사람이라,
+    // 걱정을 감추고 늘 웃어 보인다 (STORY.md · `npcFaceOf`)
+    face: 'smile',
     // ⚠️ **인트로 그림에 있는 포즈만 쓸 수 있다** (`idle · smile · glance · cross`).
     // 없는 이름을 적으면 조용히 첫 포즈로 떨어져서 티가 안 난다 — `checktalk` 이 잡는다.
     // 그래서 공통 표(BASE_MOODS)를 안 깔고, **있는 넷에 여러 이름을 붙여** 쓴다:

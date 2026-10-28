@@ -1831,7 +1831,7 @@ function renderKitchen() {
     <div class="q-say">
       <span class="q-face" aria-hidden="true">${
         window.Portrait ? Portrait.bust(D.speaker('sp_clemen'),
-          done ? 'smile' : 'def', { bare: true }) : ''}</span>
+          done ? 'smile' : KITCHEN_MOODS[i], { bare: true }) : ''}</span>
       <span class="q-line">
         <b class="q-who">${speakerName('sp_clemen')}</b>
         <span class="q-text">${T(done ? 'kt_after' : `kt_say_${i + 1}`)}</span>
@@ -1845,6 +1845,10 @@ function renderKitchen() {
 }
 window.renderKitchen = renderKitchen;
 const KITCHEN_LINES = 5;
+// 오늘의 한 마디마다의 얼굴 — **온화한 사람**(STORY.md · clementia)이라 다 부드러운 쪽이다.
+// 앉으라고 할 때 다정 · 빵을 넉넉히 구웠을 때 미소 · 늦어도 된다고 할 때 안도 ·
+// 「안 물을게요」는 걱정을 감춘 얼굴 · 어머니 이야기는 슬픔 (줄 수와 같아야 한다 · checktalk 이 본다)
+const KITCHEN_MOODS = ['warm', 'smile', 'relief', 'worry', 'sad'];
 
 // 같이 먹는다. **아무것도 안 든다.**
 function eatWithClemen() {
@@ -2533,6 +2537,16 @@ function talkLinesOf(npcId) {
   return bt ? base.concat([bt.line]) : base.slice();
 }
 
+// 그 사람의 «기본 얼굴» — 건물의 인사 · 퀘스트 칩·시트가 같이 쓴다 (한 곳에서 뽑아야 둘이 안 갈린다).
+// 마을 사람은 `TALKS.greetMood`(배열이면 호감도 단계마다), 마을에 안 앉은 사람(클레멘 · 요정 대모)은
+// `SPEAKERS.face` 다. 둘 다 그 사람의 **성격**에서 골랐다 (STORY.md · 2026-10-28)
+function npcFaceOf(id) {
+  const gm = id && D.TALKS[id] && D.TALKS[id].greetMood;
+  if (gm) return (Array.isArray(gm) ? (gm[bondTier(id)] || gm[0]) : gm) || 'def';
+  const sp = id && D.speaker(id);
+  return (sp && sp.face) || 'def';
+}
+
 function bondTalkMood(npc) {
   const sp = D.speaker(npc);
   const t = bondTier(npc);
@@ -3180,7 +3194,7 @@ function renderQuestChip() {
       <circle class="qc-fill" cx="30" cy="30" r="${R}"
         stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - now / max)}"/>
     </svg>
-    <span class="qc-face">${sp && window.Portrait ? Portrait.bust(sp, 'def', { bare: true }) : '🧚'}</span>
+    <span class="qc-face">${sp && window.Portrait ? Portrait.bust(sp, npcFaceOf(sp.id), { bare: true }) : '🧚'}</span>
     ${full ? '<span class="tab-dot qc-dot" aria-hidden="true"></span>'
            : '<span class="qc-badge">!</span>'}`;
   el.setAttribute('aria-label', T(q.id + '_name'));
@@ -3240,7 +3254,7 @@ function renderQuestSheet() {
   body.innerHTML = `
     <div class="q-say">
       <span class="q-face" aria-hidden="true">${
-        window.Portrait ? Portrait.bust(D.speaker(q.npc), 'def', { bare: true }) : ''}</span>
+        window.Portrait ? Portrait.bust(D.speaker(q.npc), npcFaceOf(q.npc), { bare: true }) : ''}</span>
       <span class="q-line">
         <span class="q-text">${T(q.id + '_in')}</span>
       </span>
@@ -5309,9 +5323,7 @@ function renderVillageSpot(v, s) {
   const lines = sp ? talkLinesOf(sp.id) : [];
   const moods = ((sp && D.TALKS[sp.id] && D.TALKS[sp.id].moods) || [])
     .concat(bt ? [bondTalkMood(sp.id)] : []);
-  // 인사말 표정 — 배열이면 호감도 단계마다 (처음 만난 날이 0 번째 · data.js 의 TALKS)
-  const gm = sp && D.TALKS[sp.id] && D.TALKS[sp.id].greetMood;
-  const greetMood = (Array.isArray(gm) ? (gm[bondTier(sp.id)] || gm[0]) : gm) || 'def';
+  const greetMood = npcFaceOf(sp && sp.id);
   const talking = talkIdx !== null && lines.length;
   const talk = (sp && D.TALKS[sp.id]) || null;
   // ⚠️ **키워드 대답이 이 말풍선을 안 쓴다** — 이제 컷씬으로 돈다(`askScene`).
