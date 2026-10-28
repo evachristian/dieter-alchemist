@@ -2560,7 +2560,9 @@
   // ─── 표정은 «받은 둥근 표정 세트»(expart.js · window.ExpArt)로 그린다 ───────────
   // 사람이 보낸 SVG 서른여덟(tools/ref/expr)을 그대로 옮긴 것이고, 여기서는 «자리»만 정한다.
   // ⚠️ 이름이 다른 넷만 짝을 지어 준다 — 세이브에 든 옷장 id(`exp_puzzled` 등)는 그대로다
-  const EXP_ART = { puzzled: 'def', happy: 'laugh', surprise: 'shock', cool: 'cold' };
+  // ⚠️ 「뀨」(kyu)가 받은 «기본»(def)이다. 「어리둥절」(puzzled)은 짝이 없어 아래 손그림(switch)으로 내려간다 —
+  //    사람이 「원래 어리둥절 표정」을 그 자리에 되돌려 달라고 했다 (2026-10-28)
+  const EXP_ART = { kyu: 'def', happy: 'laugh', surprise: 'shock', cool: 'cold' };
   // 받은 캔버스(160) → 아바타 얼굴. 두 눈 가운데가 (100, AV.Y) · 입 가운데가 (AV.MX, AV.MY+1)
   // ⚠️ 배율은 그려 놓고 골랐다 — 받은 눈(반지름 12)이 6.6 이 되고 두 눈 사이가 24.6 이다
   const EXP_K = 0.56;

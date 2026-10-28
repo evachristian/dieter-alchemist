@@ -20,7 +20,7 @@ const SAVE_KEY = 'dieter_alchemist_save_v1';
 //     `defaultState` 에 두 번 있어서(객체 · 숫자) 뒤의 숫자가 이겼고, 채집할 때마다
 //     `S.gathered++` 가 객체를 NaN 으로 만들어 **숙련이 한 세션도 못 살아남았다**
 //     (외부 비평에서 재현됐다). 총 채집 횟수는 `record.gathered` 가 맡는다
-const SAVE_VER = 19;
+const SAVE_VER = 20;
 
 // 처음부터 알고 있는 레시피. defaultState 와 migrate 가 같이 쓰므로 값이 어긋나지 않는다.
 const STARTER_RECIPES = ['vitality', 'blush'];
@@ -668,6 +668,11 @@ function migrate(st, from) {
   // ⚠️ **하던 사람에게서 뺏지 않는다**: 셋은 여태 졸업만 하면 쓸 수 있었으므로
   //    옛 세이브에는 그대로 열어 준다 (위의 14 와 같은 규칙).
   // ⚠️ 세이브 14~18 은 위 블록을 안 지나므로 **여기가 아니면 조용히 잠긴다**
+  if (from < 20) {
+    // 기본 표정이 「뀨」가 됐다 — 예전 「어리둥절」은 지금의 뀨 그림이었으므로, 그것을 걸고 있던
+    // 사람은 뀨로 옮겨 «보이는 얼굴»을 그대로 둔다 (어리둥절은 이제 원래 손그림이다)
+    if (st.outfit && st.outfit.expression === 'exp_puzzled') st.outfit.expression = 'exp_kyu';
+  }
   if (from < 19) {
     if (!Array.isArray(st.roomActs)) st.roomActs = [];
     ['expression', 'decor', 'tattoo'].forEach(id => {

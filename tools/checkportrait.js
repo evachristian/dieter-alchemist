@@ -378,11 +378,12 @@ const ANGLES = [-90, -75, -60, -45, -30];
   //    짝 표(EXP_ART · MOOD_ART)가 어긋나거나 ExpArt 가 안 실리면 조용히 옛 부품 얼굴로 떨어진다
   const xs = await pg.evaluate(() => {
     const out = { n: D.WARDROBE.expression.length, av: [], pt: [], ids: (window.ExpArt && ExpArt.ids.length) || 0, eye: 0, col: false, brow: null };
-    const ALIAS = { puzzled: 'def', happy: 'laugh', surprise: 'shock', cool: 'cold' };
+    // 「어리둥절」은 받은 세트가 아니라 «원래 손그림»이다 (null — data-exp 가 없다)
+    const ALIAS = { kyu: 'def', puzzled: null, happy: 'laugh', surprise: 'shock', cool: 'cold' };
     for (const it of D.WARDROBE.expression) {
       const svg = Avatar.build({ ...S.wear, expression: it.id }, 1, S.hairColor);
       const got = (svg.match(/data-exp="([a-z]+)"/) || [])[1] || null;
-      const want = ALIAS[it.kind] || it.kind;
+      const want = it.kind in ALIAS ? ALIAS[it.kind] : it.kind;
       if (got !== want) out.av.push(`${it.id} → ${got} (바라는 것 ${want})`);
       if (/data-part="eye"[^>]*>/.test(svg) && got) out.eye++;
     }

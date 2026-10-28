@@ -2749,8 +2749,11 @@ const WARDROBE = {
     { id: 'hcol_mint',   slot: 'hairColor', kind: 'color', name: '민트',     color: '#8fe0c0' },
     { id: 'hcol_silver', slot: 'hairColor', kind: 'color', name: '실버',     color: '#d6d6e2' },
   ],
-  // 표정 — 튜토리얼을 막 마친 얼굴이 '어리둥절' 이다. 나머지는 얻어야 쓴다
+  // 표정 — 튜토리얼을 막 마친 얼굴이 '뀨' 다 (받은 둥근 표정의 «기본» · 2026-10-28 · 사람이 정했다).
+  // 「어리둥절」은 그 전까지 기본 얼굴이었던 자리라 시작 아이템으로 남고, 그림은 «원래 어리둥절»(손그림)이다.
+  // ⚠️ id 를 바꾸지 않는다 — 세이브에 exp_puzzled 가 들어 있다 (세이브 20 이 뀨로 옮겨 준다)
   expression: [
+    { id: 'exp_kyu',      slot: 'expression', kind: 'kyu',      name: '뀨',     emoji: '😙', starter: true },
     { id: 'exp_puzzled',  slot: 'expression', kind: 'puzzled',  name: '어리둥절', emoji: '😯', starter: true },
     { id: 'exp_smile',    slot: 'expression', kind: 'smile',    name: '방긋',   emoji: '🙂' },
     { id: 'exp_wink',     slot: 'expression', kind: 'wink',     name: '윙크',   emoji: '😉' },
@@ -3233,7 +3236,7 @@ function loyaltyBonus(v) {
 
 // 새 캐릭터 기본 착장
 const DEFAULT_OUTFIT = {
-  hair: 'hair_long', hairColor: 'hcol_brown', expression: 'exp_puzzled', tattoo: 'tattoo_none',
+  hair: 'hair_long', hairColor: 'hcol_brown', expression: 'exp_kyu', tattoo: 'tattoo_none',
   brow: 'brow_none', nose: 'nose_none',
   // 시작 착장은 인트로의 공주 그대로 — 원피스 한 벌뿐이고 상·하의는 아직 없다
   top: 'top_none', bottom: 'bottom_none', dress: 'dress_princess',

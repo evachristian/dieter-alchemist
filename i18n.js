@@ -4020,7 +4020,7 @@
 // GEN:room-en>>>
       hcol_brown: 'Brown', hcol_black: 'Black', hcol_blonde: 'Blonde', hcol_pink: 'Pink',
       hcol_lav: 'Lavender', hcol_mint: 'Mint', hcol_silver: 'Silver',
-      exp_puzzled: 'Puzzled', exp_smile: 'Smile', exp_wink: 'Wink', exp_happy: 'Beaming', exp_surprise: 'Surprised', exp_cool: 'Cool',
+      exp_kyu: 'Kyu~', exp_puzzled: 'Puzzled', exp_smile: 'Smile', exp_wink: 'Wink', exp_happy: 'Beaming', exp_surprise: 'Surprised', exp_cool: 'Cool',
       exp_warm: 'Fond',
       exp_proud: 'Smug',
       exp_smirk: 'Sly',
