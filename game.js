@@ -2654,6 +2654,8 @@ window.renderGift = renderGift;
 // (`QUEST.md` 8-5 — 만들기 전에 미리 적어 둔 함정이다).
 let cutNow = null, cutAt = 0, cutThen = null;
 let cutPrFace = null;   // 이 컷씬에서 잰 공주의 눈 배율 · playScene 이 비운다 (fitNpcToPrincess)
+const NPC_CUT_TALL = 1.12;  // 컷씬의 NPC 흉상을 아래로 늘리는 몫 (그림 좌표 그대로 몸을 더 보인다)
+const NPC_CUT_H = 1;       // 그려진 키 ÷ 공주의 그려진 키
 const NPC_CUT_K = 0.9;   // 눈 배율이 같아도 받은 치비는 얼굴·머리가 공주보다 크게 그려져 있어 한 걸음 더 줄인다 (0.82·0.9·1 을 그려 보고 골랐다)
 
 // 장면 하나를 처음부터 재생한다. 끝나면 `then()` 을 부른다.
@@ -2840,11 +2842,19 @@ function fitNpcToPrincess(face, spId) {
   // ⚠️ 눈으로만 맞추면 얼굴이 작은 치비(슈타르크·클레멘)는 공주보다 머리 하나쯤 낮게 섰다
   //    (「NPC 는 너무 키가 작아졌어 · 공주랑 크기·높이 맞춰줘」 · 2026-10-27) — 그래서 «그려진 키»가
   //    공주의 키에 못 미치면 거기까지 키운다 (키가 더 큰 쪽 · 왕관을 쓴 여왕은 눈 쪽 그대로다)
+  // 받은 NPC 그림은 흉상을 아래로 더 길게 자른다 — 얼굴만 크게 앉으면 공주보다 «면적»이 커 보였다
+  // (「상반신이 조금 더 위로 올라오고 크기는 조금 줄어들게 · 공주랑 면적이 안 맞아」 · 2026-10-28)
+  if (svg.dataset.npcart && svg.viewBox && svg.viewBox.baseVal && !svg.dataset.tall) {
+    const vb = svg.viewBox.baseVal;
+    svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.width} ${(vb.height * NPC_CUT_TALL).toFixed(1)}`);
+    svg.dataset.tall = '1';
+  }
   let r = pk / nk * NPC_CUT_K;
   svg.style.width = '100%';
   const h1 = drawnHeight(svg);
-  if (cutPrH && h1) r = Math.max(r, cutPrH / h1);
-  r = Math.max(0.55, Math.min(1, r));
+  // «그려진 키»를 공주의 키에 맞춘다 — 키가 같으면 길게 자른 만큼 얼굴이 작아지고 몸이 위로 올라온다
+  if (cutPrH && h1) r = cutPrH * NPC_CUT_H / h1;
+  r = Math.max(0.5, Math.min(1, r));
   svg.style.width = (r * 100).toFixed(1) + '%';
   svg.style.margin = '0 auto';
 }
