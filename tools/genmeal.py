@@ -80,7 +80,8 @@ vtracer.convert_image_to_svg_py(src, tmp, colormode='color', hierarchical='stack
     filter_speckle=6, color_precision=6, layer_difference=12, corner_threshold=60, length_threshold=4.0,
     max_iterations=10, splice_threshold=45, path_precision=1)
 s = open(tmp).read()
-import os; os.remove(tmp); os.remove(clean)
+import os; os.remove(tmp)
+clean_keep = clean   # 소매를 따로 딸 때 한 번 더 쓴다 (아래에서 지운다)
 W, H = map(int, re.search(r'width="(\d+)" height="(\d+)"', s).groups())
 
 HEAD = (672, 78, 908, 306)          # 클레멘 머리 — 이 상자에 통째로 드는 조각을 지운다
@@ -124,6 +125,45 @@ for d, f, tx, ty in re.findall(r'<path d="([^"]+)" fill="(#[0-9A-Fa-f]{6})" tran
     if not role and any(inside((k[0] - 4, k[1] - 4, k[2] + 4, k[3] + 4), box) for k in KEEP):
         role = 'hand'
     paths.append([role, f, d2])
+
+# ── 클레멘의 소매 — vtracer 가 «통째로» 빠뜨린다 (모든 겹에 구멍만 남고 채우는 조각이 없다 ·
+#    「클레멘 팔도 사라졌어」 · 2026-10-29). 다른 조각은 그대로 두고 소매만 따로 따서 끼운다:
+#    지운 그림에서 소매 빛깔(SLEEVE_RGB) 근처의 점을 가림막으로 떠 «흑백 따기»로 윤곽을 얻고,
+#    셔츠 조각(같은 빛깔) 바로 «뒤»에 넣는다 — 그래야 소매의 금(짙은 선)과 손이 그 위에 선다
+SLEEVE_BOX = (626, 352, 762, 472)
+SLEEVE_RGB = (189, 156, 119)
+sx0, sy0, sx1, sy1 = SLEEVE_BOX
+sm = np.zeros((Hh, Ww), bool)
+# ⚠️ «원본»에서 뜬다 — 지운 그림은 컵·그릇 자리를 둘레 색으로 번져 메워서, 거기서 뜨면 소매가
+#    컵 자리까지 얼룩처럼 번진다 (그려 보고 알았다). 김 줄기가 지나가는 구멍은 닫기(팽창→침식)로 메운다
+sm[sy0:sy1, sx0:sx1] = np.abs(img[sy0:sy1, sx0:sx1] - SLEEVE_RGB).max(-1) < 24
+def grow(m, n, on):
+    for _ in range(n):
+        g = m.copy()
+        if on:
+            g[1:] |= m[:-1]; g[:-1] |= m[1:]; g[:, 1:] |= m[:, :-1]; g[:, :-1] |= m[:, 1:]
+        else:
+            g[1:] &= m[:-1]; g[:-1] &= m[1:]; g[:, 1:] &= m[:, :-1]; g[:, :-1] &= m[:, 1:]
+        m = g
+    return m
+sm = grow(grow(sm, 9, True), 9, False)
+bw = np.full((Hh, Ww), 255, np.uint8); bw[sm] = 0
+bwp = out + '.sleeve.png'; Image.fromarray(bw).save(bwp)
+vtracer.convert_image_to_svg_py(bwp, tmp, colormode='binary', mode='spline', filter_speckle=8,
+    corner_threshold=60, length_threshold=4.0, splice_threshold=45, path_precision=1)
+ss = open(tmp).read(); os.remove(tmp); os.remove(bwp); os.remove(clean_keep)
+sleeve = []
+for d, tx, ty in re.findall(r'<path d="([^"]+)" fill="#000000" transform="translate\(([-\d.]+),([-\d.]+)\)"/>', ss):
+    tx, ty = float(tx), float(ty); k = [0]
+    def mv2(m):
+        v = float(m.group(0)); k[0] += 1
+        return ('%.1f' % (v + (tx if k[0] % 2 else ty))).rstrip('0').rstrip('.')
+    sleeve.append(re.sub(r'-?\d+(?:\.\d+)?', mv2, d))
+sf = '#%02x%02x%02x' % SLEEVE_RGB
+near = lambda f: max(abs(int(f[i:i + 2], 16) - c) for i, c in zip((1, 3, 5), SLEEVE_RGB)) < 10
+at = next((i + 1 for i, (r, f, _) in enumerate(paths) if near(f)), len(paths))
+paths[at:at] = [['', sf, d] for d in sleeve]
+drop['sleeve+'] = len(sleeve)
 
 roles = {}
 for r, _, _ in paths:
