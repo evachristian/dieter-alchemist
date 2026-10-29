@@ -528,8 +528,6 @@
   const NPC_BUST = 5.2, NPC_EYE_AT = 0.56;
   // 머리만 자를 때 턱 밑으로 남기는 목 — 얼굴 반폭의 몫
   const NPC_NECK = 0.3;
-  // 머리만 딸 때(같이 먹기) 남기는 목 — 턱 반폭의 몫인 폭 · 턱 밑으로 내려가는 길이 (밑끝은 번진다)
-  const HEAD_NECK_W = 0.28, HEAD_NECK_L = 0.45;
   // ─── NPC 턱 밑 그늘 ───────────────────────────────────────────
   // 받은 그림은 얼굴과 목이 «한 덩어리 살색»이라 턱선이 없다 — 공주(avatar.js 의 목 그러데이션 SKIN_SH → SKIN)와
   // «같은 방식»으로 가른다: 얼굴은 그대로 두고, 그 밑의 «목»이 턱 바로 밑에서 제일 짙고 아래로 옅어진다.
@@ -634,14 +632,13 @@
         const jw = fc.jaw;
         if (jw) {
           const [cy, rx, ry] = jw, jx = jw[3] != null ? jw[3] : fc.cx, f1 = n => +n.toFixed(1);
-          const nw = rx * HEAD_NECK_W, n0 = cy + ry * 0.5, n1 = cy + ry + rx * HEAD_NECK_L;
-          headClip = `<linearGradient id="ptn_${u}" gradientUnits="userSpaceOnUse" x1="0" y1="${f1(n0)}" x2="0" y2="${f1(n1)}">`
-            + `<stop offset="0.55" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
-            + `<mask id="pth_${u}" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${na.w + 20}" height="${f1(n1 + 20)}">`
+          // ⚠️ 목은 «아예» 안 남긴다 (「같이 먹기 클레멘 목만 없애 줘」 · 2026-10-29) — 번지는 목 띠를 두었더니 그라데이션이
+          //    떠 보였다. 턱선대로 둥글게 끝나고, 몸(셔츠 깃)이 그 밑을 받친다 · 얼굴 음영도 안 넣는다(사람이 정했다)
+          const bot = cy + ry;
+          headClip = `<mask id="pth_${u}" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${na.w + 20}" height="${f1(bot + 20)}">`
             + `<rect x="-10" y="-10" width="${na.w + 20}" height="${f1(Math.max(cy, fc.chin - 4) + 10)}" fill="#fff"/>`
-            + `<ellipse cx="${f1(jx)}" cy="${f1(cy)}" rx="${f1(rx)}" ry="${f1(ry)}" fill="#fff"/>`
-            + `<rect x="${f1(jx - nw)}" y="${f1(n0)}" width="${f1(nw * 2)}" height="${f1(n1 - n0)}" fill="url(#ptn_${u})"/></mask>`;
-          vh = f1(n1 + 1);
+            + `<ellipse cx="${f1(jx)}" cy="${f1(cy)}" rx="${f1(rx)}" ry="${f1(ry)}" fill="#fff"/></mask>`;
+          vh = f1(bot + 1);
         }
       } else if (full) {
         // 전신 — 그림의 비대로 상자를 잡고 발끝까지 다 넣는다 (아래 4% 는 바닥 그림자 몫)

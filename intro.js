@@ -471,7 +471,9 @@
   const PR_POSE = { eat: { L: { rot: 30, bend: -175 } } };
   const PR_EXP = { eat: 'exp_happy', soft: 'exp_shy', ask: 'exp_ohh', scream: 'exp_surprise',
                    dizzy: 'exp_dizzy', smile: 'exp_smile', puzzled: 'exp_puzzled' };
-  const FA_MOOD = { idle: 'worry', glance: 'doubt', cast: 'resolve', tap: 'resolve', castbig: 'smile', smile: 'smile' };
+  // 자세마다의 기본 얼굴 — 장면이 따로 정하면(fairy(pose, mood)) 그것이 이긴다.
+  // ⚠️ 「결의」(resolve)·「미심쩍음」(doubt)을 안 쓴다 — 받은 그림에서는 노려보는 얼굴이라 «돕겠다»는 줄과 안 맞았다 (신고받았다)
+  const FA_MOOD = { idle: 'warm', glance: 'think', cast: 'wink', tap: 'smile', castbig: 'wink', smile: 'smile' };
   const FA_H = 168;      // 요정 대모의 키(인트로 칸) — 공주(아바타)와 나란히 그려 보고 골랐다
   // 바깥 <svg> 를 안쪽 <svg> 로 바꿔 (x, y) 에 w×h 로 앉힌다
   function nest(svg, x, y, w, h) {
@@ -489,10 +491,10 @@
     return { svg: nest(doll.replace(fl[0], ''), x, y, vw / AV_K, vh / AV_K), top: y };
   }
   // 요정 대모 — 받은 NPC 전신 그림 (지팡이도 그 그림에 있다). 발밑을 (330, 288) 에 맞춘다
-  function gameFairy(pose) {
+  function gameFairy(pose, mood) {
     const GD = window.GameData, sp = GD && GD.SPEAKERS && GD.SPEAKERS.find(s => s.id === 'sp_althea');
     if (!sp || !window.Portrait || !window.NpcArt || !NpcArt.sp_althea) return '';
-    const art = Portrait.bust(sp, FA_MOOD[pose] || 'def', { full: true, bare: true });
+    const art = Portrait.bust(sp, mood || FA_MOOD[pose] || 'def', { full: true, bare: true });
     const vb = art.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
     if (!vb) return '';
     const [vw, vh] = [+vb[1], +vb[2]], k = FA_H / (vh * 0.96);   // 발끝 = 상자 높이의 96%
@@ -692,21 +694,21 @@
   //   몸통·꼬리를 «한 붓»으로 이은 둥근 풍선(꼬리가 몸에서 휘어 나온다) · 아래로 번지는 그늘 ·
   //   위쪽 반짝(하이라이트) · 글자에 흰 테 · 머리 위로 튀는 강조선 셋. 자리(196,106)와 크기는 그대로다
   function speechBubble() {
+    // 둥근 타원 몸통 + 작은 꼬리 — 윤곽선 없이 면만으로 (「핑크 윤곽선이 부담스럽다 · 꼬리를 줄여 달라」)
+    // 꼬리는 몸통 «안»에서 시작해 몸통이 이음매를 덮는다 — 선이 없으니 한 덩어리로 읽힌다
+    const body = '<ellipse cx="197" cy="105" rx="33" ry="24.5"/>'
+      + '<path d="M180,118 C179,124 176,129 171,133 C178,132 185,129 190,124 Z"/>';
     return `<g class="i-bubble">
       <defs><linearGradient id="iBubbleFill" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fff0f3"/></linearGradient></defs>
-      <path d="M196,82 C216,82 229,92 229,106 C229,120 216,129 199,129 C192,129 186,128 181,126
-        C178,134 172,142 164,147 C168,139 169,131 168,124 C160,119 163,113 163,106 C163,92 176,82 196,82 Z"
-        fill="rgba(70,30,50,0.18)" transform="translate(1.5,3.5)"/>
-      <path d="M196,82 C216,82 229,92 229,106 C229,120 216,129 199,129 C192,129 186,128 181,126
-        C178,134 172,142 164,147 C168,139 169,131 168,124 C160,119 163,113 163,106 C163,92 176,82 196,82 Z"
-        fill="url(#iBubbleFill)" stroke="#e7a3b4" stroke-width="2.2" stroke-linejoin="round"/>
-      <path d="M176,95 C181,89 189,87 196,87" stroke="#ffffff" stroke-width="3.2" fill="none" stroke-linecap="round" opacity="0.95"/>
-      <text x="196" y="116" text-anchor="middle" font-size="27" font-weight="900"
+      <g fill="rgba(70,30,50,0.16)" transform="translate(1.5,3)">${body}</g>
+      <g fill="url(#iBubbleFill)">${body}</g>
+      <path d="M176,96 C180,89 188,86 196,86" stroke="#ffffff" stroke-width="3.2" fill="none" stroke-linecap="round" opacity="0.95"/>
+      <text x="197" y="115" text-anchor="middle" font-size="27" font-weight="900"
         font-family="'Noto Sans KR', sans-serif" fill="#e0506e" stroke="#ffffff" stroke-width="3"
         paint-order="stroke" letter-spacing="1">!?</text>
       <g stroke="#f08aa3" stroke-width="2.4" stroke-linecap="round">
-        <path d="M232,82 L238,76"/><path d="M236,93 L244,91"/><path d="M224,74 L226,67"/>
+        <path d="M233,83 L239,77"/><path d="M237,94 L245,92"/><path d="M225,75 L227,68"/>
       </g>
     </g>`;
   }
@@ -939,8 +941,8 @@
   }
 
   // 요정 대모 (신데렐라풍: 하늘색 후드망토 + 지팡이)
-  function fairy(pose) {
-    const gf = gameFairy(pose);
+  function fairy(pose, mood) {
+    const gf = gameFairy(pose, mood);
     if (gf) return `<g>${groundShadow(330, 288, 42)}<g class="i-doll">${gf}</g></g>`;
     // 완드: 손(302,268)을 축으로 회전 → 항상 손에 쥔 상태
     const tap = pose === 'tap';
@@ -1015,30 +1017,30 @@
   const SCENES = [
     // 치킨을 뜯는 소리 "냠냠냠…"
     { art: () => bg() + P(princessEating()), sp: 'sp_narrator', key: 'intro_1', sfx: 'chew' },
-    { art: () => bg() + P(princessEating()) + F(fairy('idle')) + sparkles(7, 300, 370, 130), sp: 'sp_fairy', key: 'intro_2', sfx: 'sparkle' },
+    { art: () => bg() + P(princessEating()) + F(fairy('idle', 'pout')) + sparkles(7, 300, 370, 130), sp: 'sp_fairy', key: 'intro_2', sfx: 'sparkle' },
     // 이마에 왕 땀 — "뚝…"
     // ⚠️ **`soft` 다 — 인트로의 이 두 장은 «처진 입»이 맞는 얼굴이다** (민망해하는 장면).
     // 「수줍음」(`shy`)은 이제 ω 입이라 여기 쓰면 웃는 얼굴이 된다
     { art: () => bg() + P(princessFront('soft', false, true)) + F(fairy('glance')), sp: 'sp_princess', key: 'intro_3', sfx: 'sweat', sfx2: ['sweat', 950] },
-    { art: () => bg() + P(princessFront('soft')) + F(fairy('idle')) + sparkles(6, 300, 380, 120), sp: 'sp_fairy', key: 'intro_4', sfx: 'sparkle' },
+    { art: () => bg() + P(princessFront('soft')) + F(fairy('idle', 'plead')) + sparkles(6, 300, 380, 120), sp: 'sp_fairy', key: 'intro_4', sfx: 'sparkle' },
     // "?!" — 놀라는 소리 "허억?"
-    { art: () => bg() + P(princessFront('ask', true)) + F(fairy('idle')), sp: 'sp_princess', key: 'intro_5', sfx: 'gasp' },
+    { art: () => bg() + P(princessFront('ask', true)) + F(fairy('idle', 'smile')), sp: 'sp_princess', key: 'intro_5', sfx: 'gasp' },
     { art: () => bg() + P(princessFront('ask')) + F(fairy('cast')) + sparkles(9, 285, 340, 150), sp: 'sp_fairy', key: 'intro_6', sfx: 'magic' },
     // 요정이 별 지팡이로 공주를 '톡' — 마법이 뻗어나감 (대사 없음, 짧게)
     { art: () => bg() + P(princessFront('ask')) + F(fairy('tap')) + tapSpark(158, 420) + sparkles(8, 250, 400, 120),
       sp: 'sp_narrator', key: 'intro_8', hold: 900, sfx: 'tap' },
     // 텔레포트 시전 — 마법 강조 (빛기둥 + 마법진 + 반짝이)
-    { art: () => bg() + teleportFx() + `<g class="i-vanish">${P(princessFront('scream'))}</g>` + F(fairy('cast')) + sparkles(16, 140, 380, 210),
+    { art: () => bg() + teleportFx() + `<g class="i-vanish">${P(princessFront('scream'))}</g>` + F(fairy('cast', 'tease')) + sparkles(16, 140, 380, 210),
       sp: 'sp_princess', key: 'intro_7', sfx: 'magic' },
     // 공주가 '펑!' 하고 사라진 직후 (대사 없음) → 2초 뒤 자동으로 Scene #2
-    { art: () => bg() + teleportFx(true) + burst(145, 400, 1.15) + F(fairy('cast')) + sparkles(12, 140, 400, 200),
+    { art: () => bg() + teleportFx(true) + burst(145, 400, 1.15) + F(fairy('cast', 'tease')) + sparkles(12, 140, 400, 200),
       sp: 'sp_narrator', key: 'intro_8', hold: 2000, flash: true, sfx: 'pop' },
 
     // ── Scene #2: 어둡고 허름한 연금술 공방 ──
     // Scene #2 첫 컷: '펑!' 하고 나타남 + 화면 전환 플래시
-    { art: () => bg2() + burst(145, 400, 1.15) + P(princessFront('dizzy')) + F(fairy('idle')) + sparkles(6, 250, 380, 150),
+    { art: () => bg2() + burst(145, 400, 1.15) + P(princessFront('dizzy')) + F(fairy('idle', 'warm')) + sparkles(6, 250, 380, 150),
       sp: 'sp_fairy', key: 'intro_9', flash: true, sfx: 'pop', sfx2: ['dizzy', 420] },
-    { art: () => bg2() + P(princessFront('dizzy')) + F(fairy('idle')),
+    { art: () => bg2() + P(princessFront('dizzy')) + F(fairy('idle', 'relief')),
       sp: 'sp_princess', key: 'intro_10' },
     // 요정이 마법으로 큰 가마솥을 만든다 → 가마솥 등장 + 미소
     { art: () => bg2() + P(princessFront('ask')) + F(fairy('castbig')) + bigCauldron() + sparkles(12, 300, 470, 170),

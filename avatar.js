@@ -488,6 +488,7 @@
   // 두꺼워졌고, 그래서 **모든 파츠를 최소로 하면 팔이 종아리보다 두꺼웠다.**
   const ARM_SHADE = 2.5;
   const armShadeW = k => +(ARM_SHADE * Math.min(1.2, Math.max(0.45, k))).toFixed(2);
+  const ARM_OUTLINE_POSED = 1.2;         // 자세를 바꾼 팔에 늘 두르는 윤곽선의 반두께
   const ARM_OUTLINE = 0.9;               // 옷과 같은 색으로 겹칠 때 두르는 윤곽선의 반두께
   const ARM_SHADE_FROM = 10;             // 팔 위 끝에서 이만큼 내려와서 시작한다
   // ⚠️ **팔의 몫은 슬라이더 상한(150%)에서 멈춘다.** `TUNE_GAIN.arm` 이 4.4 라
@@ -663,13 +664,21 @@
     // 선을 두르면 **팔꿈치 이음매에 가로줄**이 그어진다. 그래서 같은 모양을
     // **선 두께만큼 부풀려 밑에 깔고**(fill 과 stroke 를 같은 색으로) 그 위에 제 색을
     // 덮는다 — 밖으로 삐져나온 만큼만 테두리로 남고 내부 이음매는 덮여 안 보인다.
-    const outline = o.outline
-      ? emit(segs, o.outline, ` stroke="${o.outline}" stroke-width="${ARM_OUTLINE * 2}"`
+    //
+    // ⚠️ **자세를 바꾼 팔(`ARM_POSE` · 인트로의 먹는 손)은 늘 두른다.** 몸판 위로 들어 올린 소매가
+    // 같은 색이라 그늘 한 겹으로는 윤곽이 안 섰다 (「들어 올린 팔 소매 윤곽을 또렷하게」) —
+    // 기본 자세의 팔은 한 글자도 안 바뀐다
+    const posed = !!(ARM_POSE && ARM_POSE[left ? 'L' : 'R']);
+    // 부르는 쪽이 윤곽선을 줬어도(공주 드레스의 소매) 자세를 바꾼 팔은 더 짙고 굵게 — 그쪽 선은 몸판과 거의 같은 색이다
+    const olc = posed ? shade(fill, 52) : (o.outline || null);
+    const olw = (posed ? ARM_OUTLINE_POSED : ARM_OUTLINE) * 2;
+    const outline = olc
+      ? emit(segs, olc, ` stroke="${olc}" stroke-width="${olw}"`
           + ` stroke-linejoin="round"`)
-        + joint(o.outline, ` stroke="${o.outline}" stroke-width="${ARM_OUTLINE * 2}"`)
+        + joint(olc, ` stroke="${olc}" stroke-width="${olw}"`)
       : '';
     // 윤곽선을 두르면 그늘은 안 깐다 — 둘 다 두면 안쪽에 선이 두 줄이 된다
-    const shadeLayer = o.outline ? ''
+    const shadeLayer = olc ? ''
       : `<g transform="translate(${(-sgn * armShadeW(ka)).toFixed(2)},0)">`
         + emit(shadeSegs, sc) + joint(sc) + '</g>';
     return shadeLayer + outline
