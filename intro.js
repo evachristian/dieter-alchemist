@@ -109,11 +109,12 @@
       return `<g>
       ${groundShadow(150, FOOT_Y, FOOT_RX)}
       <g class="i-doll">${gd.svg}
-      <g class="i-munch" transform="translate(-6,${(gd.top - 112).toFixed(1)})">
-        <ellipse cx="128" cy="194" rx="11" ry="8.5" fill="#d99341" transform="rotate(-18 128 194)"/>
-        <rect x="134" y="186" width="12" height="5" rx="2.5" fill="#f2e2c8" transform="rotate(-18 140 188)"/>
-        <ellipse cx="120" cy="203" rx="7.5" ry="6.8" fill="${SKIN}"/>
-      </g>
+      <!-- 치킨은 «든 손»(아바타의 들어 올린 왼손 · 몸 위 y≈98)에 쥐여 준다 — 손을 따로 그리지 않는다 -->
+      <g transform="translate(0,${(gd.top - 108.7).toFixed(1)})"><g class="i-bite">
+        <rect x="123" y="200" width="5" height="13" rx="2.5" fill="#f2e2c8" transform="rotate(28 125.5 206)"/>
+        <ellipse cx="135" cy="193" rx="10.5" ry="8" fill="#d99341" transform="rotate(-50 135 193)"/>
+        <ellipse cx="132" cy="190" rx="3.5" ry="2.2" fill="#f0b066" opacity="0.8" transform="rotate(-50 132 190)"/>
+      </g></g>
       <ellipse cx="150" cy="284" rx="36" ry="9.5" fill="#e6dbc6"/>
       <ellipse cx="150" cy="281" rx="31" ry="8" fill="#fffaf0"/>
       <ellipse cx="139" cy="276" rx="11" ry="8" fill="#d99341"/><rect x="129" y="274" width="8" height="4" rx="2" fill="#f2e2c8"/>
@@ -465,6 +466,9 @@
   //  ⚠️ 둘 중 하나라도 없으면(스크립트 누락) 아래의 옛 손그림으로 떨어진다 — 손그림은 지우지 않는다
   //  ⚠️ 장면의 «감정»만 인트로가 정한다 (표정 이름 → 아바타 표정 id · NPC 무드)
   const AV_K = 2.03;     // 아바타 1칸 = 인트로 1칸 × 2.03 (game.js 의 PRINCESS_SCALE 과 같은 값 · 키가 같다)
+  // 장면이 바꾸는 팔의 자세 — 먹을 때는 왼팔(화면 왼쪽)을 들어 손을 입으로 (`Avatar.withArmPose`)
+  // ⚠️ 손을 따로 덧그리지 않는다 — 내린 팔이 그대로 남아 손이 셋이 된다 (신고받았다)
+  const PR_POSE = { eat: { L: { rot: 30, bend: -175 } } };
   const PR_EXP = { eat: 'exp_happy', soft: 'exp_shy', ask: 'exp_ohh', scream: 'exp_surprise',
                    dizzy: 'exp_dizzy', smile: 'exp_smile', puzzled: 'exp_puzzled' };
   const FA_MOOD = { idle: 'worry', glance: 'doubt', cast: 'resolve', tap: 'resolve', castbig: 'smile', smile: 'smile' };
@@ -476,7 +480,7 @@
   }
   // 공주 — 발밑을 (150, FOOT_Y) 에 맞춘다. 아바타 제 바닥 그림자는 걷는다(인트로의 두 겹 그림자가 대신 선다)
   function gameDoll(mood) {
-    const doll = window.princessDoll ? window.princessDoll(PR_EXP[mood] || null) : '';
+    const doll = window.princessDoll ? window.princessDoll(PR_EXP[mood] || null, PR_POSE[mood] || null) : '';
     const vb = doll && doll.match(/viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"/);
     const fl = doll && doll.match(/<ellipse cx="100" cy="([\d.]+)"[^>]*rgba\(120,90,110,0\.14\)"\/>/);
     if (!vb || !fl) return null;

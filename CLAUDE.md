@@ -608,6 +608,7 @@ node tools/checkavatar.js   # 체형 5단계 × 모든 옷에서 살이 옷 밖�
     요정 대모는 `Portrait.bust(althea, 무드, { full })`(받은 NPC 그림 · 지팡이도 그 그림에 있다)을 `intro.js` 의 `gameDoll`·`gameFairy` 가 안쪽 `<svg>` 로 앉힌다.
     장면의 감정만 인트로가 정한다(`PR_EXP` · `FA_MOOD`) · 아바타 1칸 = 인트로 1칸 × `AV_K`(2.03 = `PRINCESS_SCALE`) · 아바타 제 바닥 그림자는 걷고 인트로의 두 겹이 선다.
     ⚠️ 옛 손그림(`princessFrontOld`·`fairy` 의 아래쪽)은 지우지 않는다 — 둘 중 하나가 없으면 그리로 떨어진다
+    · **먹는 장면(`princessEating`)은 아바타의 왼팔을 «들어 올려» 그 손에 치킨을 쥐여 준다** (`PR_POSE` → `princessDoll(exp, pose)` → `Avatar.withArmPose` · 2026-10-29 · 「먹는 손이 공중에 떠 있어서 손이 3개」) — 팔·소매·손이 다 `armAngles()` 한 곳에서 각도를 읽는다 · ⚠️ 손을 따로 덧그리지 않는다 · 치킨은 흐려지지 않고 손에 쥔 채 까딱인다(`.i-bite`)
     · 머리 위 말풍선(`speechBubble`)은 몸통·꼬리를 한 붓으로 이은 둥근 풍선 + 그늘 + 반짝 + 강조선 셋이다 (「말풍선 SVG 예쁘게」)
   · **NPC 의 «기본» 표정** — 남자 일곱(`SPEAKERS.noBlush`)은 볼터치·빗금을 안 얹는다(`ExpArt.draw` 의 `noCheek` · 다른 표정의 볼터치는 그대로) ·
     이그리트는 기본이 «우쭐»이다(`SPEAKERS.defMood: 'proud'` · `bust()` 가 def 를 갈아 끼운다) (2026-10-29)

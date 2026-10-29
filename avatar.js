@@ -564,6 +564,20 @@
   // 바닥 절반). 3px 붙박이면 팔 50% 의 손목(반폭 2.2)에 3 이 얹혀 소매가 팔의 2.4배가
   // 되고, 그 «상수»가 윗팔·아랫팔의 차이를 다 먹어 아랫팔이 안 가늘어져 보였다
   const padOf = (pad, k) => pad * Math.min(1, Math.max(0.5, k));
+  // ─── 팔의 «자세» — 기본은 내린 팔 (armRot · elbowRot) ──────────
+  // 인트로의 「먹는 공주」만 왼팔(화면 왼쪽)을 들어 손을 입으로 가져간다 (`withArmPose`).
+  // ⚠️ 팔·소매·장갑·손이 «다» 이 한 곳에서 각도를 읽는다 — 손만 옮기면 팔이 내려간 채로 남아
+  //    공중에 뜬 손이 셋째 손이 된다 (「공주 먹는 손이 공중에 떠 있어서 손이 3개」 · 2026-10-29)
+  let ARM_POSE = null;
+  function armAngles(left) {
+    const B = BODY, q = ARM_POSE && ARM_POSE[left ? 'L' : 'R'];
+    if (q) return { rot: q.rot, bend: q.bend };
+    return { rot: left ? B.armRot : -B.armRot, bend: left ? -B.elbowRot : B.elbowRot };
+  }
+  function withArmPose(pose, fn) {
+    const old = ARM_POSE; ARM_POSE = pose;
+    try { return fn(); } finally { ARM_POSE = old; }
+  }
   function armShape(side, fill, pad, h, tune, opts) {
     const B = BODY, left = side === 'L', o = opts || {};
     const d = armShift(tune) * (left ? 1 : -1);       // 어깨선을 따라 팔을 옮긴다
@@ -574,8 +588,7 @@
     // sgn 은 안쪽에서 바깥쪽으로 가는 방향
     const sgn = left ? -1 : 1;
     const xin = +((left ? x0 + B.armW + pad : x0 - pad)).toFixed(2);
-    const rot = left ? B.armRot : -B.armRot;
-    const bend = left ? -B.elbowRot : B.elbowRot;     // 안쪽(몸 쪽)으로
+    const { rot, bend } = armAngles(left);            // 굽힘은 안쪽(몸 쪽)으로
     const pivot = (left ? B.armPivotL : B.armPivotR) + d;
     const upLen = B.armH * B.elbowT;                  // 팔꿈치까지의 길이
     const cx = +(xin + sgn * armHalf(upLen, ka, pad)).toFixed(2);   // 팔꿈치 회전축
@@ -667,8 +680,8 @@
   // 손 위치 계산용이라 armShift(체형 이동)는 넣지 않는다 (기존 손 계산과 같은 기준).
   function armPoint(side, dist, tune) {
     const B = BODY, left = side === 'L', k = armK(tune), sgn = left ? -1 : 1;
-    const rot = (left ? B.armRot : -B.armRot) * Math.PI / 180;
-    const bend = (left ? -B.elbowRot : B.elbowRot) * Math.PI / 180;
+    const ang = armAngles(left);
+    const rot = ang.rot * Math.PI / 180, bend = ang.bend * Math.PI / 180;
     // 팔이 가늘어지면 중심선도 안쪽으로 온다 — 안쪽 변이 고정이기 때문이다.
     // 손을 옛 고정값에 두면 가는 팔에서 손만 바깥에 남는다
     //
@@ -743,7 +756,7 @@
     const aw = armHalf(B.armH, ka, 0);
     const wristHalf = w0 + (aw - w0) * (aw < w0 ? HAND_FOLLOW.under : HAND_FOLLOW.over);
     const hw = wristHalf * HAND_W, hh = hw * HAND_H;
-    const th = left ? (B.armRot - B.elbowRot) : (B.elbowRot - B.armRot);
+    const ang = armAngles(left), th = ang.rot + ang.bend;
     const f = n => +n.toFixed(2);
     // 팔과 **같은 그늘**을 몸 쪽으로 깔아 둔다 (armShape 의 ARM_SHADE 와 같은 규칙).
     // 가는 팔은 몸 실루엣 안에 들어가는데, 같은 살색이라 그늘이 없으면 손이
@@ -4715,7 +4728,7 @@
     return { w: w, kx: bodyScaleX(w), ky: ky, head: head, floorY: FLOOR_Y,
              dy: BODY_SPAN * (1 - ky), vb: { x: VB.x, y: VB.y, w: VB.w, h: VB.h } };
   }
-  window.Avatar = { build, crouchBack, getItem, roomScene, skyPhase, skyHour, SKY_BANDS, SKY_LIGHT,
+  window.Avatar = { build, withArmPose, crouchBack, getItem, roomScene, skyPhase, skyHour, SKY_BANDS, SKY_LIGHT,
     LAMP_NIGHT, lampGainOf,
     hairIcon, browIcon, noseIcon, browColorOf, hairColorOf, tattooIcon, circletIcon, TUNE_KEYS, neckCutBox, CLOTH_TOP_Y, GUSSET_RISE,
     // 하트는 **여기 하나가 유일한 원본**이다 — portrait.js · intro.js 가 이것을 쓴다

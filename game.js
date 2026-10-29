@@ -2791,10 +2791,12 @@ function displayTune() {
   return o;
 }
 // 인트로가 세우는 공주 — 마이 룸의 아바타 그대로 (표정만 장면이 정한다)
-window.princessDoll = function (exp) {
+// pose 를 주면 팔의 자세를 바꿔 그린다 (`Avatar.withArmPose` — 먹는 장면이 왼팔을 든다)
+window.princessDoll = function (exp, pose) {
   if (!window.Avatar || !Avatar.build) return '';
   const outfit = Object.assign(outfitWithColors(), exp ? { expression: exp } : {});
-  return Avatar.build(outfit, bodyLevel(), displayTune());
+  const draw = () => Avatar.build(outfit, bodyLevel(), displayTune());
+  return pose && Avatar.withArmPose ? Avatar.withArmPose(pose, draw) : draw();
 };
 function cutExpOf(mood) {
   const m = mood || 'def';
