@@ -103,6 +103,24 @@
 
   // 통통한 공주 — 앞모습으로 치킨 먹는 중
   function princessEating() {
+    // 인게임 아바타가 서면 «활짝» 웃으며 치킨을 든다 — 접시는 발치 탁자 자리에 그대로 둔다
+    const gd = gameDoll('eat');
+    if (gd) {
+      return `<g>
+      ${groundShadow(150, FOOT_Y, FOOT_RX)}
+      <g class="i-doll">${gd.svg}
+      <g class="i-munch" transform="translate(-6,${(gd.top - 112).toFixed(1)})">
+        <ellipse cx="128" cy="194" rx="11" ry="8.5" fill="#d99341" transform="rotate(-18 128 194)"/>
+        <rect x="134" y="186" width="12" height="5" rx="2.5" fill="#f2e2c8" transform="rotate(-18 140 188)"/>
+        <ellipse cx="120" cy="203" rx="7.5" ry="6.8" fill="${SKIN}"/>
+      </g>
+      <ellipse cx="150" cy="284" rx="36" ry="9.5" fill="#e6dbc6"/>
+      <ellipse cx="150" cy="281" rx="31" ry="8" fill="#fffaf0"/>
+      <ellipse cx="139" cy="276" rx="11" ry="8" fill="#d99341"/><rect x="129" y="274" width="8" height="4" rx="2" fill="#f2e2c8"/>
+      <ellipse cx="163" cy="278" rx="10" ry="7" fill="#c9853a"/><rect x="169" y="276" width="8" height="4" rx="2" fill="#f2e2c8"/>
+      </g>
+    </g>`;
+    }
     return `<g>
       ${groundShadow(150, FOOT_Y, FOOT_RX)}
       <g class="i-doll">
@@ -439,7 +457,58 @@
     return { eyes, mouth, extra, over };
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  //  인게임 그림으로 잇는다 (2026-10-29 · 「튜토리얼 인트로의 공주와 요정 대모 SVG 인게임의 SVG와 이어지도록」)
+  // ═══════════════════════════════════════════════════════════════
+  //  공주는 마이 룸의 아바타(`window.princessDoll` · game.js) · 요정 대모는 받은 NPC 그림(`Portrait.bust` 전신).
+  //  인트로가 끝나고 마이 룸·컷씬에서 보는 «바로 그 사람»이 인트로에도 선다.
+  //  ⚠️ 둘 중 하나라도 없으면(스크립트 누락) 아래의 옛 손그림으로 떨어진다 — 손그림은 지우지 않는다
+  //  ⚠️ 장면의 «감정»만 인트로가 정한다 (표정 이름 → 아바타 표정 id · NPC 무드)
+  const AV_K = 2.03;     // 아바타 1칸 = 인트로 1칸 × 2.03 (game.js 의 PRINCESS_SCALE 과 같은 값 · 키가 같다)
+  const PR_EXP = { eat: 'exp_happy', soft: 'exp_shy', ask: 'exp_ohh', scream: 'exp_surprise',
+                   dizzy: 'exp_dizzy', smile: 'exp_smile', puzzled: 'exp_puzzled' };
+  const FA_MOOD = { idle: 'worry', glance: 'doubt', cast: 'resolve', tap: 'resolve', castbig: 'smile', smile: 'smile' };
+  const FA_H = 168;      // 요정 대모의 키(인트로 칸) — 공주(아바타)와 나란히 그려 보고 골랐다
+  // 바깥 <svg> 를 안쪽 <svg> 로 바꿔 (x, y) 에 w×h 로 앉힌다
+  function nest(svg, x, y, w, h) {
+    return svg.replace(/^\s*<svg[^>]*?(viewBox="[^"]*")[^>]*>/, (m0, vb) =>
+      `<svg x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" ${vb} overflow="visible">`);
+  }
+  // 공주 — 발밑을 (150, FOOT_Y) 에 맞춘다. 아바타 제 바닥 그림자는 걷는다(인트로의 두 겹 그림자가 대신 선다)
+  function gameDoll(mood) {
+    const doll = window.princessDoll ? window.princessDoll(PR_EXP[mood] || null) : '';
+    const vb = doll && doll.match(/viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"/);
+    const fl = doll && doll.match(/<ellipse cx="100" cy="([\d.]+)"[^>]*rgba\(120,90,110,0\.14\)"\/>/);
+    if (!vb || !fl) return null;
+    const [vx, vy, vw, vh] = vb.slice(1).map(Number), floor = +fl[1];
+    const x = 150 - (100 - vx) / AV_K, y = FOOT_Y - (floor - vy) / AV_K;
+    return { svg: nest(doll.replace(fl[0], ''), x, y, vw / AV_K, vh / AV_K), top: y };
+  }
+  // 요정 대모 — 받은 NPC 전신 그림 (지팡이도 그 그림에 있다). 발밑을 (330, 288) 에 맞춘다
+  function gameFairy(pose) {
+    const GD = window.GameData, sp = GD && GD.SPEAKERS && GD.SPEAKERS.find(s => s.id === 'sp_althea');
+    if (!sp || !window.Portrait || !window.NpcArt || !NpcArt.sp_althea) return '';
+    const art = Portrait.bust(sp, FA_MOOD[pose] || 'def', { full: true, bare: true });
+    const vb = art.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+    if (!vb) return '';
+    const [vw, vh] = [+vb[1], +vb[2]], k = FA_H / (vh * 0.96);   // 발끝 = 상자 높이의 96%
+    return nest(art, 330 - vw * k / 2, 288 - vh * 0.96 * k, vw * k, vh * k);
+  }
+
   function princessFront(mood, bubble, sweat) {
+    const gd = gameDoll(mood);
+    if (gd) {
+      return `<g>
+      ${groundShadow(150, FOOT_Y, FOOT_RX)}
+      <g class="i-doll">${gd.svg}
+      ${sweat ? sweatDrop(186, gd.top + 46, 0.45, '') + sweatDrop(114, gd.top + 50, 0.33, 'd2') : ''}
+      ${bubble ? `<g transform="translate(10,${(gd.top - 108).toFixed(1)})">${speechBubble()}</g>` : ''}
+      </g>
+    </g>`;
+    }
+    return princessFrontOld(mood, bubble, sweat);
+  }
+  function princessFrontOld(mood, bubble, sweat) {
     const f = princessFace(mood, sweat);
     const eyes = f.eyes, mouth = f.mouth, extra = f.extra, over = f.over;
     return `<g>
@@ -615,12 +684,26 @@
   }
 
   // 머리 위 말풍선 (느낌표 + 물음표)
+  // 2026-10-29 「말풍선 SVG 디자인 예쁘게 다듬어」 — 납작한 타원 + 각진 꼬리를 걷고
+  //   몸통·꼬리를 «한 붓»으로 이은 둥근 풍선(꼬리가 몸에서 휘어 나온다) · 아래로 번지는 그늘 ·
+  //   위쪽 반짝(하이라이트) · 글자에 흰 테 · 머리 위로 튀는 강조선 셋. 자리(196,106)와 크기는 그대로다
   function speechBubble() {
     return `<g class="i-bubble">
-      <path d="M176,126 L168,148 L188,134 Z" fill="#fffdf6" stroke="#e2d6c4" stroke-width="2" stroke-linejoin="round"/>
-      <ellipse cx="196" cy="106" rx="30" ry="23" fill="#fffdf6" stroke="#e2d6c4" stroke-width="2"/>
-      <text x="196" y="117" text-anchor="middle" font-size="28" font-weight="900"
-        font-family="'Noto Sans KR', sans-serif" fill="#c9566e">!?</text>
+      <defs><linearGradient id="iBubbleFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fff0f3"/></linearGradient></defs>
+      <path d="M196,82 C216,82 229,92 229,106 C229,120 216,129 199,129 C192,129 186,128 181,126
+        C178,134 172,142 164,147 C168,139 169,131 168,124 C160,119 163,113 163,106 C163,92 176,82 196,82 Z"
+        fill="rgba(70,30,50,0.18)" transform="translate(1.5,3.5)"/>
+      <path d="M196,82 C216,82 229,92 229,106 C229,120 216,129 199,129 C192,129 186,128 181,126
+        C178,134 172,142 164,147 C168,139 169,131 168,124 C160,119 163,113 163,106 C163,92 176,82 196,82 Z"
+        fill="url(#iBubbleFill)" stroke="#e7a3b4" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M176,95 C181,89 189,87 196,87" stroke="#ffffff" stroke-width="3.2" fill="none" stroke-linecap="round" opacity="0.95"/>
+      <text x="196" y="116" text-anchor="middle" font-size="27" font-weight="900"
+        font-family="'Noto Sans KR', sans-serif" fill="#e0506e" stroke="#ffffff" stroke-width="3"
+        paint-order="stroke" letter-spacing="1">!?</text>
+      <g stroke="#f08aa3" stroke-width="2.4" stroke-linecap="round">
+        <path d="M232,82 L238,76"/><path d="M236,93 L244,91"/><path d="M224,74 L226,67"/>
+      </g>
     </g>`;
   }
 
@@ -853,6 +936,8 @@
 
   // 요정 대모 (신데렐라풍: 하늘색 후드망토 + 지팡이)
   function fairy(pose) {
+    const gf = gameFairy(pose);
+    if (gf) return `<g>${groundShadow(330, 288, 42)}<g class="i-doll">${gf}</g></g>`;
     // 완드: 손(302,268)을 축으로 회전 → 항상 손에 쥔 상태
     const tap = pose === 'tap';
     const cast = pose === 'cast' || pose === 'castbig' || tap;

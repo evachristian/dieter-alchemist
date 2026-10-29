@@ -597,6 +597,8 @@
   }
   function bust(sp, mood, opts) {
     if (!sp) return '';
+    // 그 사람의 «기본 표정»이 공통 기본(def)과 다르면 갈아 끼운다 (`SPEAKERS.defMood` · 이그리트 «우쭐» · 2026-10-29)
+    if ((!mood || mood === 'def') && sp.defMood) mood = sp.defMood;
     const bare = !!(opts && opts.bare);
     // **전신** — NPC 대화 화면처럼 «방 안에 서 있는» 자리에서만 쓴다.
     // y130 아래를 이어 그릴 뿐이라 머리·얼굴은 흉상과 한 글자도 안 다르다
@@ -621,6 +623,9 @@
         k = 1; x0 = 0; y0 = 0; vw = na.w; vh = +(fc.chin + fc.rx * NPC_NECK).toFixed(1);
         // ⚠️ 목 밑을 가로로 끊으면 «잘린 목»이 무섭다 (「같이 먹기 목부분이 잘려서 좀 무서워」 · 2026-10-29) —
         //    턱 타원(face.jaw)의 가로 가운데 줄 «위»는 다 두고, 그 아래는 «턱 타원 안»만 남겨 얼굴선대로 둥글게 딴다
+        //    ⚠️ 가로로 다 두는 줄은 턱 타원 가운데(cy)가 아니라 «턱 끝(chin) 조금 위»까지다 — cy 에서 끊었더니
+        //    옆머리와 귀가 통째로 잘려 나갔다 (「클레멘 머리카락과 귀가 날라가서 이상해」 · 2026-10-29).
+        //    어깨는 턱 끝보다 아래에서 시작하므로 거기까지 두어도 몸이 안 딸려 온다
         //    턱과 몸 사이가 뜨지 않게 «목»만 좁게 남기고, 그 밑끝은 투명으로 번지게 해 가로 금이 안 서게 한다
         const jw = fc.jaw;
         if (jw) {
@@ -629,7 +634,7 @@
           headClip = `<linearGradient id="ptn_${u}" gradientUnits="userSpaceOnUse" x1="0" y1="${f1(n0)}" x2="0" y2="${f1(n1)}">`
             + `<stop offset="0.55" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
             + `<mask id="pth_${u}" maskUnits="userSpaceOnUse" x="-10" y="-10" width="${na.w + 20}" height="${f1(n1 + 20)}">`
-            + `<rect x="-10" y="-10" width="${na.w + 20}" height="${f1(cy + 10)}" fill="#fff"/>`
+            + `<rect x="-10" y="-10" width="${na.w + 20}" height="${f1(Math.max(cy, fc.chin - 4) + 10)}" fill="#fff"/>`
             + `<ellipse cx="${f1(jx)}" cy="${f1(cy)}" rx="${f1(rx)}" ry="${f1(ry)}" fill="#fff"/>`
             + `<rect x="${f1(jx - nw)}" y="${f1(n0)}" width="${f1(nw * 2)}" height="${f1(n1 - n0)}" fill="url(#ptn_${u})"/></mask>`;
           vh = f1(n1 + 1);
@@ -646,8 +651,10 @@
       }
       const xa = ExpArt.has(mood) ? mood : (MOOD_ART[mood] || 'def');
       const es = fc.gap / 44;
+      // ⚠️ 남자 NPC 의 «기본» 표정에는 볼터치(와 빗금)를 안 얹는다 (`SPEAKERS.noBlush` · 「남자 NPC 기본 표정에는 볼터치 제외」 · 2026-10-29)
+      //    다른 표정(수줍음·반함…)의 볼터치는 그대로다 — 그것은 «표정»이 짓는 것이다
       const exp = ExpArt.draw(xa, { ex: fc.cx, ey: fc.ey, mx: fc.cx, my: fc.my, s: es, eyeColor: sp.eyeColor, eyePart: 'data-eye="1"',
-        ...npcExpShape(fc.cx, fc.ey, fc.my, fc.rx) });
+        noCheek: !!(sp.noBlush && xa === 'def'), ...npcExpShape(fc.cx, fc.ey, fc.my, fc.rx) });
       return `<svg class="pt-svg ${bare ? 'bare' : ''} ${full ? 'full' : ''}" viewBox="0 0 ${vw} ${vh}"
         xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}" data-npcart="${sp.id}">
         ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${vw}" height="${vh}" rx="18"/></clipPath></defs>`}

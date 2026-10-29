@@ -1799,16 +1799,17 @@ const BASE_MOODS = {
 };
 
 const SPEAKERS = [
-  { id: 'sp_stark', name: '슈타르크', hair: 'crop', hairColor: '#4a3a2e', brows: 'slant', beard: 'none',
+  // noBlush — 남자 NPC 의 «기본» 표정에는 볼터치를 안 얹는다 · defMood — 그 사람의 «기본» 표정(def 를 갈아 끼운다) (2026-10-29 · portrait.js 의 bust)
+  { id: 'sp_stark', noBlush: true, name: '슈타르크', hair: 'crop', hairColor: '#4a3a2e', brows: 'slant', beard: 'none',
     skin: '#e8c3a3', cloth: '#6b5a44', bg: '#dfe6d8', deco: 'none', decoColor: '#4f5f42',
     moods: { def: { eye: 'sharp', mouth: 'flat' }, warm: { eye: 'soft', mouth: 'calm' } } },
-  { id: 'sp_orix', name: '오릭스', hair: 'short', hairColor: '#b4552e', brows: 'thick', beard: 'none',
+  { id: 'sp_orix', noBlush: true, name: '오릭스', hair: 'short', hairColor: '#b4552e', brows: 'thick', beard: 'none',
     skin: '#f0cfae', cloth: '#7b6a4a', bg: '#f2e4cf', deco: 'none',
     moods: { def: { eye: 'smile', mouth: 'grin' }, wink: { eye: 'closed', mouth: 'smirk' } } },
-  { id: 'sp_valen', name: '발렌', hair: 'slick', hairColor: '#e2c473', brows: 'arch', beard: 'none',
+  { id: 'sp_valen', noBlush: true, name: '발렌', hair: 'slick', hairColor: '#e2c473', brows: 'arch', beard: 'none',
     skin: '#f3d7bd', cloth: '#3f5f9e', bg: '#dde5f4', deco: 'circlet', decoColor: '#ffd76a',
     moods: { def: { eye: 'sharp', mouth: 'smirk' }, soft: { eye: 'normal', mouth: 'calm' } } },
-  { id: 'sp_kairos', name: '카이로스', hair: 'wave', hairColor: '#6b4a3a', brows: 'bold', beard: 'none',
+  { id: 'sp_kairos', noBlush: true, name: '카이로스', hair: 'wave', hairColor: '#6b4a3a', brows: 'bold', beard: 'none',
     skin: '#f0d2b6', cloth: '#8a6aa8', bg: '#ece2f4', deco: 'scarf', decoColor: '#c78fb0',
     moods: { def: { eye: 'soft', mouth: 'smile' }, sing: { eye: 'closed', mouth: 'grin' } } },
   // ⚠️ **그만 눈이 «촉촉»하다** — 「온기만이 등가 교환의 밖에 있다」가 이 인물의 전부라,
@@ -1816,13 +1817,13 @@ const SPEAKERS = [
   // (`eyes` · 눈썹의 `brows` 와 같은 축) — 그래야 「다정」의 입·눈썹이 공통 표에 한 벌로 남는다.
   // ⚠️ **`eyeColor` 가 짝이다.** 기본값(`#3f3239`)은 거의 검정이라 눈동자의 밝은 아래쪽도
   // 동공도 한 점 안 보인다 — 촉촉한 눈은 «색이 있는 눈동자»라야 성립한다
-  { id: 'sp_clemen', name: '클레멘', hair: 'short', hairColor: '#2f2a2c', brows: 'round', beard: 'none',
+  { id: 'sp_clemen', noBlush: true, name: '클레멘', hair: 'short', hairColor: '#2f2a2c', brows: 'round', beard: 'none',
     skin: '#eec9a8', cloth: '#c9b39a', bg: '#f4ead9', deco: 'apron', decoColor: '#f6f1e6',
     eyeColor: '#6f4630', eyes: { soft: 'dewy' },
     // 기본 얼굴(퀘스트 칩·시트) — 벌할 수 있는데 벌하지 않는 온화한 사람 (STORY.md · `npcFaceOf`)
     face: 'warm',
     moods: { def: { eye: 'soft', mouth: 'calm' }, smile: { eye: 'smile', mouth: 'smile' } } },
-  { id: 'sp_yutark', name: '유타르크', hair: 'long', hairColor: '#cfd3de', brows: 'thin', beard: 'none',
+  { id: 'sp_yutark', noBlush: true, name: '유타르크', hair: 'long', hairColor: '#cfd3de', brows: 'thin', beard: 'none',
     skin: '#f2e2dc', cloth: '#4a4257', bg: '#d9dde8', deco: 'mirror', decoColor: '#b9c2d4',
     eyeColor: '#7a4a58',
     moods: { def: { eye: 'smile', mouth: 'smirk' }, true: { eye: 'normal', mouth: 'flat' } } },
@@ -1937,10 +1938,10 @@ const SPEAKERS = [
              resolve: { art: 'resolve' },
              awe:     { art: 'awe' },
              curious: { art: 'curious' } } },
-  { id: 'sp_sylvan', name: '실반', hair: 'wild', hairColor: '#5a4a32', brows: 'thick', beard: 'none',
+  { id: 'sp_sylvan', noBlush: true, name: '실반', hair: 'wild', hairColor: '#5a4a32', brows: 'thick', beard: 'none',
     skin: '#e0c09a', cloth: '#6f7f52', bg: '#e2e9d6', deco: 'leaf', decoColor: '#6f9455',
     moods: { def: { eye: 'normal', mouth: 'flat' }, warm: { eye: 'smile', mouth: 'smile' } } },
-  { id: 'sp_ygritte', name: '이그리트', hair: 'long', brows: 'soft', hairColor: '#b8442c', beard: 'none',
+  { id: 'sp_ygritte', defMood: 'proud', name: '이그리트', hair: 'long', brows: 'soft', hairColor: '#b8442c', beard: 'none',
     skin: '#f4dcc6', cloth: '#6b2a3c', bg: '#eddad4', deco: 'crown', decoColor: '#e8c463',
     eyeColor: '#2f2a30',
     moods: { def: { eye: 'sharp', mouth: 'flat' }, cold: { eye: 'sharp', mouth: 'smirk' } } },

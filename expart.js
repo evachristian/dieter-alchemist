@@ -307,7 +307,8 @@
     if (e.fx && at.cheek) {
       const c = at.cheek, sp = cheekSplit(e.fx);
       const one = (p, cx, body) => body ? `<g transform="translate(${f(p[0])},${f(p[1])}) scale(${f(c.kx)},${f(c.ky)}) translate(${-cx},-87)">${body}</g>` : '';
-      fx = one(c.l, 41, sp.L) + one(c.r, 119, sp.R) + (sp.rest ? `<g transform="${te}">${sp.rest}</g>` : '');
+      // at.noCheek — 볼터치·빗금을 통째로 뺀다 (남자 NPC 의 기본 표정 · portrait.js)
+      fx = (at.noCheek ? '' : one(c.l, 41, sp.L) + one(c.r, 119, sp.R)) + (sp.rest ? `<g transform="${te}">${sp.rest}</g>` : '');
     }
     return `<g data-part="exp" data-exp="${LIST[id] ? id : 'def'}">`
       + fx

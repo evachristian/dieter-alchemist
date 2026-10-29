@@ -2678,6 +2678,7 @@ let cutPrFace = null;   // 이 컷씬에서 잰 공주의 눈 배율 · playScen
 const NPC_CUT_TALL = 1.12;  // 컷씬의 NPC 흉상을 아래로 늘리는 몫 (그림 좌표 그대로 몸을 더 보인다)
 const NPC_CUT_H = 1;       // 그려진 키 ÷ 공주의 그려진 키
 const NPC_CUT_SCALE = { sp_ygritte: 1.12 };  // 사람마다 더 키우는 몫 — 여왕은 왕관이 «그려진 키»에 들어가 그만큼 작아 보인다 (「(여왕) 조금 키워줘」 · 2026-10-28)
+const PR_CUT_GROW = 1.1;   // 컷씬의 공주만 더 키우는 몫 (2026-10-29)
 const NPC_CUT_GROW = 1.2;  // 다 맞춘 «뒤»에 NPC 만 더 키우는 몫 (「컷씬 대화 화면의 NPC 크기 1.2배」 · 2026-10-29)
 const NPC_CUT_K = 0.9;   // 눈 배율이 같아도 받은 치비는 얼굴·머리가 공주보다 크게 그려져 있어 한 걸음 더 줄인다 (0.82·0.9·1 을 그려 보고 골랐다)
 
@@ -2778,7 +2779,23 @@ function cutLineHtml(text) {
 //    나오면 대사와 얼굴이 어긋난다. 감정 이름 → 아바타 표정 id 는 대개 같은 이름이고,
 //    다른 넷만 표로 적는다. 「기본」(def)만 **사람이 걸어 둔 표정**을 그대로 쓴다
 const CUT_EXP = { def: null, soft: 'exp_shy', shock: 'exp_surprise', laugh: 'exp_haha' };
-function princessBustOn() { return !!(S.tutorialDone && window.Avatar && Avatar.build); }
+// ⚠️ 2026-10-29 부터 **졸업 전에도** 아바타다 — 인트로의 공주가 인게임 아바타로 바뀌어(「인트로의 공주와 요정 대모 SVG 인게임의
+//    SVG 와 이어지도록」) 졸업 전 화면만 옛 손그림으로 남으면 그 자리에서 다시 두 얼굴이 된다
+function princessBustOn() { return !!(window.Avatar && Avatar.build); }
+// 그려 보일 바디파츠 — 졸업 «전»에는 졸업하는 순간 맞춰질 몸(전부 상한 · `maxTune`)을 미리 쓴다.
+// 안 그러면 인트로·튜토리얼에서 본 몸이 졸업하는 순간 한 번 더 바뀐다
+function displayTune() {
+  if (S.tutorialDone) return tuneScales();
+  const o = {};
+  TUNE_PARTS.forEach(p => { o[p.k] = tuneMaxOf(p.k) / 100; });
+  return o;
+}
+// 인트로가 세우는 공주 — 마이 룸의 아바타 그대로 (표정만 장면이 정한다)
+window.princessDoll = function (exp) {
+  if (!window.Avatar || !Avatar.build) return '';
+  const outfit = Object.assign(outfitWithColors(), exp ? { expression: exp } : {});
+  return Avatar.build(outfit, bodyLevel(), displayTune());
+};
 function cutExpOf(mood) {
   const m = mood || 'def';
   const id = m in CUT_EXP ? CUT_EXP[m] : 'exp_' + m;
@@ -2787,7 +2804,7 @@ function cutExpOf(mood) {
 }
 function princessBust(mood) {
   const outfit = Object.assign(outfitWithColors(), { expression: cutExpOf(mood) });
-  return Avatar.build(outfit, bodyLevel(), tuneScales())
+  return Avatar.build(outfit, bodyLevel(), displayTune())
     .replace('<svg', '<svg data-bust="1"');
 }
 // 상반신으로 자른다 — **그려진 것을 재서**. 머리 크기·몸무게·바디파츠에 따라 머리와
@@ -2909,8 +2926,13 @@ function drawCut() {
     const mine = spId === 'sp_gwiriel' && princessBustOn();
     face.innerHTML = mine ? princessBust(mood)
       : sp && window.Portrait ? Portrait.bust(sp, mood || 'def', { bare: true }) : '';
-    if (mine) fitPrincessBust(face);
-    else fitNpcToPrincess(face, spId);
+    if (mine) {
+      fitPrincessBust(face);
+      // 공주만 `PR_CUT_GROW` 배 더 크게 (「공주를 10% 정도 키워줘」 · 2026-10-29) — NPC 는 숨은 상자에 그린
+      // 공주(princessEyeK)로 맞추므로 이 몫을 안 탄다 · 넘친 몫의 절반을 왼쪽으로 빼 가운데에 둔다
+      const s = face.querySelector('svg');
+      if (s) { s.style.width = (PR_CUT_GROW * 100).toFixed(1) + '%'; s.style.margin = `0 0 0 ${((1 - PR_CUT_GROW) * 50).toFixed(1)}%`; }
+    } else fitNpcToPrincess(face, spId);
   }
   // **「부르는 말」로 뜬다** — 공주는 플레이어가 지은 이름으로, 요정 대모는
   // 「요정 대모」로 (설정상의 이름 「알테이아」는 본인도 안 쓴다 · STORY.md 「호칭 규칙」)
@@ -5625,11 +5647,9 @@ function princessFigure() {
   </svg>`;
 }
 function roomFigure(tier) {
-  if (!S.tutorialDone) {
-    const p = princessFigure();
-    if (p) return p;               // 인트로가 없으면(스크립트 누락) 아바타로 떨어진다
-  }
-  return window.Avatar ? window.Avatar.build(outfitWithColors(), bodyLevel(), tuneScales()) : tier.emoji;
+  // ⚠️ 졸업 전에도 아바타다 (2026-10-29 · 인트로가 아바타를 세우게 됐다) — 몸은 졸업할 때 맞춰질 몸(`displayTune`)
+  if (!window.Avatar) { const p = princessFigure(); if (p) return p; }
+  return window.Avatar ? window.Avatar.build(outfitWithColors(), bodyLevel(), displayTune()) : tier.emoji;
 }
 
 // 착장 + 고른 색을 합쳐 Avatar 에 넘긴다.
