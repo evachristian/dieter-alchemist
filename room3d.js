@@ -511,6 +511,7 @@ export function createRoom(canvas, opt) {
       u.mesh = null;
     }
     if (u.shadow) { u.grp.remove(u.shadow); u.shadow.geometry.dispose(); u.shadow = null; }
+    if (u.rope) { u.grp.remove(u.rope); u.rope.geometry.dispose(); u.rope.material.dispose(); u.rope = null; }
     u.grp.visible = false;
     if (u.light) u.light.intensity = 0;
   }
@@ -533,6 +534,17 @@ export function createRoom(canvas, opt) {
     if (slot.kind === 'hang' || u.light) m.castShadow = false;
     m.position.y = slot.p3.y;
     u.grp.add(m); u.mesh = m; u.grp.visible = true;
+    // ⚠️⚠️ **매달린 것은 줄이 «천장까지» 닿아야 한다** (2026-10-29 · 「천정과 샹들리에가 끊어져 있고
+    //    허공에 떠 있다」). 카드 안의 줄은 카드 꼭대기(p3.y + h/2)에서 끝나는데 벽은 `WALL_H` 까지라,
+    //    그 사이가 비어 허공에 뜬 덩어리로 보였다. 카드 꼭대기에서 벽 꼭대기(천장)까지 가는 줄을 잇는다 — 물러나 벽 꼭대기가 보여도 넘치지 않게 딱 거기서 멈춘다
+    //    (줄은 카드 «안»으로 조금 파고들어 이음매가 안 보인다 · 색은 실루엣 테와 같은 짙은 쇠빛)
+    if (slot.kind === 'hang') {
+      const y0 = slot.p3.y + slot.p3.h / 2 - 0.06, y1 = WALL_H;
+      const r = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, y1 - y0, 6),
+        new THREE.MeshBasicMaterial({ color: 0x5a3a1c }));
+      r.position.y = (y0 + y1) / 2;
+      u.grp.add(r); u.rope = r;
+    }
     if (onFloor(slot)) {
       const sw = slot.p3.w * 1.2;
       const sh = new THREE.Mesh(new THREE.PlaneGeometry(sw, sw * 0.42),
