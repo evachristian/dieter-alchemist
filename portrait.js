@@ -513,6 +513,10 @@
   //   아바타보다 얼굴이 눈 사이에 비해 좁아서(요정 대모) 볼이 머리카락까지 나갔다
   // ⚠️ 볼의 «높이»는 얼굴마다 잰 눈·입 사이에서 뽑는다 — 아바타에서 눈 가운데→입 자리의 12.5/21
   const NPC_EYE_SY = 8 / 7, NPC_CHEEK_AT = 12.5 / 21;
+  // ⚠️ 받은 그림에서 잰 눈(ey)·입(my) 자리보다 눈은 조금 위로 · 입은 조금 아래로 앉힌다 (표정 캔버스 단위 × es ·
+  //    「NPC 표정에서 눈이랑 입이랑 너무 붙어있다」 · 2026-10-29) — 아바타의 EXP_EYE_DY · EXP_MOUTH_DY 와 같은 몫이다
+  //    · 입은 턱(chin)을 안 넘게 막는다 (NPC_MOUTH_ROOM — 입 자리에서 턱까지 남길 몫)
+  const NPC_EYE_DY = -2.5, NPC_MOUTH_DY = 4, NPC_MOUTH_ROOM = 2.5;
   function npcExpShape(cx, ey, my, rx) {
     const y = ey + (my - ey) * NPC_CHEEK_AT, dx = rx * 19 / 33;
     return { sey: NPC_EYE_SY, cheek: { l: [cx - dx, y], r: [cx + dx, y], kx: rx * 8.25 / 33 / 11, ky: rx * 5.52 / 33 / 6 } };
@@ -651,10 +655,11 @@
       }
       const xa = ExpArt.has(mood) ? mood : (MOOD_ART[mood] || 'def');
       const es = fc.gap / 44;
+      const ey = fc.ey + NPC_EYE_DY * es, my = Math.min(fc.my + NPC_MOUTH_DY * es, fc.chin - NPC_MOUTH_ROOM * es);
       // ⚠️ 남자 NPC 의 «기본» 표정에는 볼터치(와 빗금)를 안 얹는다 (`SPEAKERS.noBlush` · 「남자 NPC 기본 표정에는 볼터치 제외」 · 2026-10-29)
       //    다른 표정(수줍음·반함…)의 볼터치는 그대로다 — 그것은 «표정»이 짓는 것이다
-      const exp = ExpArt.draw(xa, { ex: fc.cx, ey: fc.ey, mx: fc.cx, my: fc.my, s: es, eyeColor: sp.eyeColor, eyePart: 'data-eye="1"',
-        noCheek: !!(sp.noBlush && xa === 'def'), ...npcExpShape(fc.cx, fc.ey, fc.my, fc.rx) });
+      const exp = ExpArt.draw(xa, { ex: fc.cx, ey, mx: fc.cx, my, s: es, eyeColor: sp.eyeColor, eyePart: 'data-eye="1"',
+        noCheek: !!(sp.noBlush && xa === 'def'), ...npcExpShape(fc.cx, ey, my, fc.rx) });
       return `<svg class="pt-svg ${bare ? 'bare' : ''} ${full ? 'full' : ''}" viewBox="0 0 ${vw} ${vh}"
         xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${sp.name || ''}" data-npcart="${sp.id}">
         ${bare ? '' : `<defs><clipPath id="ptc_${u}"><rect x="0" y="0" width="${vw}" height="${vh}" rx="18"/></clipPath></defs>`}
